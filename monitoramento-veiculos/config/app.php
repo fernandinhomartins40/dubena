@@ -154,7 +154,8 @@ return [
     App\Providers\AuthServiceProvider::class,
     App\Providers\EventServiceProvider::class,
     App\Providers\RouteServiceProvider::class,
-    Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class,
+    // FASE 4/deploy: ide-helper é dependência DE DEV — removido do registro
+    // manual (quebrava `composer install --no-dev`). Auto-discovery em dev.
     /*
     * Custom Validation
     */

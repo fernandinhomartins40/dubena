@@ -156,7 +156,10 @@ return [
     App\Providers\AuthServiceProvider::class,
     App\Providers\EventServiceProvider::class,
     App\Providers\RouteServiceProvider::class,
-    Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class,
+    // FASE 4/deploy: ide-helper é dependência DE DEV — não pode ser registrado
+    // fixo aqui, senão `composer install --no-dev` (produção) quebra o artisan
+    // ("class IdeHelperServiceProvider not found"). Em dev, o Laravel 5.5+ faz
+    // auto-discovery dele automaticamente. Removido do registro manual.
     /*
     * Custom Validation
     */
