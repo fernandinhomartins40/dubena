@@ -17,6 +17,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: self-hosted     # roda DENTRO da VPS (sem SSH)
+    timeout-minutes: 30      # se travar, o GitHub mata o job e LIBERA o runner
+                             # para o próximo deploy (evita prender a fila)
     defaults:
       run:
         working-directory: ctrl-web

@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         // Commands\Inspire::class,
+        Commands\MigrateApiModule::class, // FASE 5/6: migra o módulo Api (schema 'api')
         Commands\Notificacao::class,
         Commands\DeleteNotificacoes::class,
         Commands\ProcessIbptFiles::class,

@@ -86,10 +86,11 @@ return [
             'strict' => true,
             'engine' => null,
         ],
-        // FASE 5 (unificação): conexão do módulo Api (ex-api-app-gc). Driver
-        // agora configurável por env — no destino unificado aponta para o mesmo
-        // PostgreSQL do ERP. As tabelas espelho *_importacao permanecem por ora;
-        // a eliminação/migração de dados é etapa posterior.
+        // FASE 5/6 (unificação completa): conexão do módulo Api (ex-api-app-gc).
+        // Aponta para o MESMO PostgreSQL do ERP, mas num SCHEMA dedicado 'api'
+        // para isolar as tabelas da API (users, menus, produtos, pedidos...) das
+        // homônimas do ERP no schema public. Os models App\Api\Models usam esta
+        // conexão; as migrations do módulo (database/migrations_api) também.
         'sgcm_api' => [
             'driver' => env('DB_DRIVER_API', 'pgsql'),
             'host' => env('DB_HOST_API', '127.0.0.1'),
@@ -99,7 +100,22 @@ return [
             'password' => env('DB_PASSWORD_API', ''),
             'charset' => 'utf8',
             'prefix' => '',
-            'schema' => 'public',
+            'schema' => env('DB_SCHEMA_API', 'api'),
+            'sslmode' => 'prefer',
+        ],
+
+        // FASE 5/6: banco de logs do módulo Api (originalmente separado em MySQL).
+        // No destino unificado vai para o mesmo Postgres, schema 'api'.
+        'sgcm_logs' => [
+            'driver' => env('DB_DRIVER_API', 'pgsql'),
+            'host' => env('DB_HOST_API', '127.0.0.1'),
+            'port' => env('DB_PORT_API', '5432'),
+            'database' => env('DB_DATABASE_API', 'ctrl'),
+            'username' => env('DB_USERNAME_API', ''),
+            'password' => env('DB_PASSWORD_API', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'schema' => env('DB_SCHEMA_API', 'api'),
             'sslmode' => 'prefer',
         ],
     ],
