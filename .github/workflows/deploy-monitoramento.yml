@@ -61,6 +61,14 @@ jobs:
             composer install --no-interaction --prefer-dist --no-progress --no-dev \
             --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8
 
+      - name: Garantir estrutura de storage (volume sobe vazio)
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T app sh -c '
+            mkdir -p storage/framework/cache storage/framework/sessions \
+                     storage/framework/views storage/logs storage/app/public \
+                     bootstrap/cache &&
+            chown -R www-data:www-data storage bootstrap/cache'
+
       - name: App key, migrations, cache
         run: |
           docker compose -f docker-compose.prod.yml exec -T app sh -c \

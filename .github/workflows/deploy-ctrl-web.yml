@@ -70,6 +70,16 @@ jobs:
             composer install --no-interaction --prefer-dist --no-progress --no-dev \
             --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8
 
+      - name: Garantir estrutura de storage (volume sobe vazio)
+        run: |
+          # O volume app_storage sobe vazio; o framework precisa de
+          # storage/framework/{cache,sessions,views} senão dá "valid cache path".
+          docker compose -f docker-compose.prod.yml exec -T app sh -c '
+            mkdir -p storage/framework/cache storage/framework/sessions \
+                     storage/framework/views storage/logs storage/app/public \
+                     bootstrap/cache &&
+            chown -R www-data:www-data storage bootstrap/cache'
+
       - name: App key, migrations, cache
         run: |
           docker compose -f docker-compose.prod.yml exec -T app sh -c \
@@ -79,6 +89,14 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app php artisan migrate:api-module || true
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+
+      - name: Seed — garantir usuário de acesso (idempotente)
+        run: |
+          # Garante o usuário admin de forma idempotente e independente dos
+          # seeders legados (que têm ids fixos/incompatibilidades). A senha vem
+          # de ADMIN_SEED_PASSWORD (no .env); default 'admin1234' — trocar depois.
+          docker compose -f docker-compose.prod.yml exec -T app \
+            php artisan db:seed --class=DeployAdminSeeder --force
 
       - name: Health check (porta interna 3110)
         run: |
