@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\{
+    Http\Requests\__NameRequest as Request,
+    Repository\__NameRepository
+};
+use App\Services\CarbonCustom as Carbon;
+use DB;
+use Exception;
+use Input;
+
+class __NameController extends Controller
+{
+
+    /**
+     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
+     */
+    public function index()
+    {
+        return view("__name.index");
+    }
+
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function store(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $data = $this->validateData($request);
+
+            DB::commit();
+            return responseSuccess($data);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return responseError($e->getMessage());
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $data = $this->validateData($request);
+
+            DB::commit();
+            return responseSuccess($data);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return responseError($e->getMessage());
+        }
+    }
+
+    /**
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy()
+    {
+        try {
+
+            DB::beginTransaction();
+            $id = getOrFail('id', 0, "Registro não encontrado.");
+
+            $__name = __Name::findOrFail($id)->delete();
+
+            DB::commit();
+            return responseSuccess($__name, 'Registro excluído com sucesso!');
+        } catch (Exception $e) {
+            DB::rollBack();
+            return responseError($e->getMessage());
+        }
+    }
+
+    /**
+     * @param Request $request
+     * @return mixed
+     */
+    private function validateData(Request $request)
+    {
+        $data = $request->only($this->getFieldsStoreUp());
+
+        return strNullToNullValue($data);
+    }
+
+    /**
+     * @return array
+     */
+    private function getFieldsStoreUp()
+    {
+        return array_flatten(__Name::getFillable());
+    }
+}

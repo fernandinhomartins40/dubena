@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Repository;
+
+use App\__Name;
+
+class __NameRepository extends BaseRepository
+{
+
+    /**
+     * __Name constructor.
+     */
+    public function __construct()
+    {
+        parent::__construct(__Name::class);
+    }
+
+}

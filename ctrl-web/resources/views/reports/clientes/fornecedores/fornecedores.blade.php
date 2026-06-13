@@ -1,0 +1,99 @@
+@extends('layouts.mainmenu')
+@section('content')
+<div id="divCadastro">
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="box-header">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="box-title">Fornecedores</h3>
+                    </div>
+                    <div class="nav-tabs-custom">
+                        <ul class="nav nav-tabs">
+                            <li class="active"><a href="#tab_1" data-toggle="tab">Fornecedores</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane active" id="tab_1">
+                                <!-- form start -->
+                                <div class="row">
+                                    <div id="tabCadastro" class="col-md-11">
+                                        <div class="box-body">
+                                            {{ Form::open(['id' => 'fornecedores','class'=>'form-horizontal'])}}
+                                            <div class="form-group crud_space">
+                                                {!! Form::label('empresa_id', 'Empresas:', ['class'=>'col-sm-1 control-label input-sm']) !!}
+                                                <div class="col-sm-4">
+                                                    {{Form::select('empresa_id', $empresas, null, ['id' => 'empresa_id', 'class' => 'selectChosen input-sm form-control', 'multiple','data-placeholder' => 'Selecione'])}}
+                                                </div>
+                                            </div>
+                                            <div class="form-group crud_space">
+                                                {{ Form::label('uf', 'Estado:', ['class'=>'col-sm-1 control-label input-sm']) }}
+                                                <div class="col-sm-3">
+                                                    {{ Form::select('uf',$estados,null,['id' => 'uf','class'=>'form-control selectChosen input-sm']) }}
+                                                </div>
+                                                {{ Form::label('cidade_id', 'Cidade:', ['class'=>'col-sm-2 control-label input-sm']) }}
+                                                <div class="col-sm-3">
+                                                    {{ Form::select('cidade_id',[],null,['id' => 'cidade_id','class'=>'form-control selectChosen input-sm','multiple','data-placeholder'=>'Selecione...']) }}
+                                                </div>
+                                                <div class="col-sm-2">
+                                                    <button type="button" id='btnLimpar' onclick="window.location.href = '{{route('report.fornecedores')}}'" class="btn btn-sm btn-github" data-toggle='tooltip' data-trigger="hover" data-placement="bottom" title="Limpar"><span class="fa fa-recycle fa-lg"></span></button>
+                                                    <button id="btnFiltroFornecedores" type="button" class="btn btn-nw-buscas btn-sm" data-toggle='tooltip' data-trigger="hover" data-placement="bottom" title="Visualizar Relatório"><span class="fa fa-print fa-lg"></span></button>
+                                                </div>
+                                            </div>
+                                            <div class="form-group crud_space"> 
+                                                {{ Form::label('segmento_id', 'Segmento:', ['class'=>'col-sm-1 control-label input-sm']) }}
+                                                <div class="col-sm-3">
+                                                    {{ Form::select('segmento_id',$segmentos,null,['id' => 'segmento_id','class'=>'form-control selectChosen input-sm']) }}
+                                                </div>
+                                                {{ Form::label('tipopessoa_id', 'Tipo Fornecedor:', ['class'=>'col-sm-2 control-label input-sm']) }}
+                                                <div class="col-sm-3">
+                                                    {{ Form::select('tipopessoa_id',$tipopessoa,null,['id' => 'tipopessoa_id','class'=>'form-control selectChosen input-sm']) }}
+                                                    {{ Form::hidden('cep', @$cep,['id'=>'cep']) }}
+                                                </div>
+                                                <div id="checkbox">
+                                                    {!! Form::label('ativo', 'Ativo', ['class'=>'col-md-1 control-label input-sm']) !!}
+                                                    <div class="col-md-1 checkbox">
+                                                        {!! Form::checkbox('ativo',1) !!}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {{ Form::close() }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@include('general.modal_report_iframe')
+
+<script type="text/javascript" src="{{URL::to('js/reportclientes.js')}}"></script>
+<script type="text/javascript" src="{{URL::to('js/endereco.js')}}"></script>
+<script type="text/javascript">
+@if(isset($cep) && $cep !== '' && $cep !== null)
+    @if($errors -> any())
+        var cepEmpresa = false;
+    @else
+        var cepEmpresa = true;
+        @if(str_contains(Request::url(), '/edit') || isset($show))
+            cepEmpresa = false;
+        @else
+            setInputsEnderecoPadrao('#cep', '#cidade_id', '#uf', '#bairro_id', '#rua_id');
+            buscarEnderecoPorCep('geral');
+        @endif
+    @endif
+@else
+    var cepEmpresa = false;
+@endif    
+$("#uf").change(function(){
+    setInputsEnderecoPadrao('#cep', '#cidade_id', '#uf', '#bairro_id', '#rua_id');
+    buscarCidades(null,'geral');
+    cepEmpresa = true;
+    padraoBusca = 'geral';
+});
+</script>
+@endsection

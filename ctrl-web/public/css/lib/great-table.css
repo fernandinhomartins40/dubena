@@ -1,0 +1,80 @@
+.div-hide-cols{float:left;position:absolute;margin-left: 5px;}
+.line-hidden{
+    text-decoration: line-through;
+}
+.line-hidden:hover,
+.line-hidden:active,
+.line-hidden:focus {
+    text-decoration: line-through !important;
+}
+.cursor-pointer{cursor: pointer}
+.great-table-header{
+    width: 1px; 
+    white-space: nowrap;
+}
+
+.great-table th{
+    cursor: pointer;
+	background-color: #f2f2f2 !important;
+	font-weight: bold !important;
+}
+
+.great-table th:hover{
+    text-shadow: 0.5px 0.5px #c3c3c3;
+}
+
+.great-table, .great-table th, .great-table td{
+	border: 0.5px solid #cfcfcf !important;
+    padding: 3px !important;
+    padding-left: 11px !important;
+}
+
+.great-table-container
+{
+    height: 85%;
+    overflow: hidden;
+    font-size: 13.5px;
+}
+.great-table {
+    font-size: 13.5px;
+}
+.great-table-body
+{
+    overflow: auto;
+}
+.great-table-body tr
+{
+    visibility: hidden;
+}
+.visible-scroll{
+    visibility: visible !important;
+}
+
+a.disabled {
+    pointer-events: none;
+}
+
+li.active-table>a{
+    color: white !important;
+    background-color: #ed3136 !important;
+}
+
+.great-table-paginate{
+    margin-top: -10px;
+}
+
+.selected:hover {
+    background-color: #60C5FF !important;
+}
+
+.selected {
+    background-color: #87CEFA !important;
+}
+
+.no-select {
+    -moz-user-select: none; 
+    -webkit-user-select: none; 
+    -ms-user-select:none; 
+    user-select:none;
+    -o-user-select:none;
+}

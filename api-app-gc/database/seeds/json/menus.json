@@ -1,0 +1,40 @@
+[
+    {
+        "titulo"    : "Cadastros",
+        "descricao" : "",
+        "childrens" : [
+            {
+                "titulo"    : "Administração",
+                "descricao" : "",
+                "childrens" : [
+                    {
+                        "titulo"    : "Configurações Gerais",
+                        "descricao" : "generalConfig"
+                    },
+                    {
+                        "titulo"    : "Usuários",
+                        "descricao" : "user"
+                    }
+                ]
+            },
+            {
+                "titulo"    : "Informações do Aplicativo",
+                "descricao" : "",
+                "childrens" : [
+                    {
+                        "titulo"    : "Condições de Pagamento",
+                        "descricao" : "condicaopagamento"
+                    },
+                    {
+                        "titulo"    : "Produtos",
+                        "descricao" : "produto"
+                    },
+                    {
+                        "titulo"    : "Status de Pedido",
+                        "descricao" : "pedidosituacao"
+                    }
+                ]
+            }
+        ]
+    }
+]

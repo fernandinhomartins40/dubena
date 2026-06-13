@@ -1,0 +1,11 @@
+/vendor
+/node_modules
+/public/storage
+/storage
+/.svn
+/nbproject
+/.vscode
+ctrl1.sql
+Homestead.yaml
+Homestead.json
+.env

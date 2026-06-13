@@ -1,0 +1,14 @@
+<?php
+
+namespace App\Http\Requests;
+
+class __NameRequest extends Request
+{
+
+    public function rules()
+    {
+        return [
+
+        ];
+    }
+}

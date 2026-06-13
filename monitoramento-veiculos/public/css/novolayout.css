@@ -1,0 +1,282 @@
+.navbar {
+    background-color: #365a9a !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+}
+
+.nav >.active {
+    border-top-color: #365a9a !important;
+}
+
+
+/*Mensagem de Suceso*/
+.bg-green,
+.callout.callout-success,
+.alert-success,
+.label-success,
+.modal-success .modal-body {
+    display: flex !important;
+    align-items: center !important;
+    background-color: #fff !important;
+    color: #000 !important;
+    border-color: #fff !important;
+}
+
+.alert-success > .close{
+    position: absolute;
+    left: 91%;
+}
+
+/*Mensagem de Informação*/
+.bg-aqua,
+.callout.callout-info,
+.alert-info,
+.label-info,
+.modal-info .modal-body {
+    background-color: #fff !important;
+    color: #000 !important;
+    border-color: #fff !important;
+}
+
+
+/*Mensagem de Erro*/
+.bg-red,
+.callout.callout-danger,
+.alert-danger,
+.alert-error,
+.label-danger,
+.modal-danger .modal-body {
+    background-color: #fff !important;
+    color: #000 !important;
+    border-color: #fff !important;
+}
+
+.glyphicon-ok {
+    font-size: 26px;
+    top: 4%;
+    float: left;
+    margin-right: 1%;
+    color: green !important;
+}
+
+.glyphicon-alert {
+    font-size: 26px;
+    top: 4%;
+    float: left;
+    margin-right: 1%;
+    color: #eec400 !important;
+}
+
+.alert-danger > .glyphicon-remove {
+    font-size: 26px;
+    top: 4%;
+    float: left;
+    margin-right: 1%;
+    color: #365a9a !important;
+}
+
+.alert .icon {
+    font-size: large;
+    color: #365a9a;
+}
+
+.user-header {
+    background-color: #365a9a !important;
+}
+
+.btn-nw-registro {
+    background-color: #365a9a !important;
+    color: #fff;
+}
+
+.btn-nw-registro:active,
+.btn-nw-registro:focus,
+.btn-nw-registro:hover {
+    color: #fff;
+    box-shadow: 0px 0px 8px #000 !important;
+    background-color: #365a9a !important;
+}
+
+.btn-nw-buscas {
+    color: #fff;
+    background-color: #ed3136 !important;
+}
+
+.btn-nw-buscas:hover,
+.btn-nw-buscas:active,
+.btn-nw-buscas:focus {
+    color: #fff;
+    border-color: #000;
+    outline-color: #000;
+    background-color: #ed3136 !important;
+    box-shadow: 0px 0px 8px #000;
+}
+
+.btn-danger:hover,
+.btn-danger:active,
+.btn-danger:focus {
+    background-color: #dd4b39 !important;
+}
+
+.btn-nw-geral {
+    background-color: #000 !important;
+    color: #fff !important;
+}
+
+.btn-nw-geral:focus,
+.btn-nw-geral:hover,
+.btn-nw-geral:active {
+    border-color: #000;
+    outline-color: #000 !important;
+    background-color: #000 !important;
+    box-shadow: 0px 0px 8px #000 !important;
+}
+
+.btn-nw-geral:focus:active {
+    border-color: #000 !important;
+    outline-color: #000 !important;
+    box-shadow: 0px 0px 8px #000 !important;
+}
+
+.btn-excel {
+    background-color: #00a65a;
+    color: #fff;
+}
+
+.btn-excel:active,
+.btn-excel:hover {
+    color: #fff;
+    border-color: #000 !important;
+    outline-color: #000 !important;
+    box-shadow: 0px 0px 8px #000 !important;
+}
+
+.content-wrapper {
+    background-color: #b1b0ab !important;
+}
+
+#imgInicial {
+    padding-top: 3px;
+    padding-bottom: 3px;
+}
+
+.pagination>.active>a,
+.pagination>.active>span,
+.pagination>.active>a:hover,
+.pagination>.active>span:hover,
+.pagination>.active>a:focus,
+.pagination>.active>span:focus {
+    background-color: #365a9a !important;
+    border-color: #365a9a !important;
+}
+
+.navbar-brand {
+    padding: 3px 0 5px 0;
+    vertical-align: middle;
+}
+
+.img-responsive {
+    max-width: 93% !important;
+    margin-top: 0;
+    margin-left: 0;
+    padding: 0;
+}
+
+.botijoes-home {
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    background-size: cover;
+    background-repeat: no-repeat;
+    height: 120px;
+    width: 350px;
+    bottom: 0;
+    right: 38%;
+}
+
+.hidden-xs{
+    padding-left: 3px;
+}
+
+.initial{
+    padding-top: 3px;
+}
+
+.profile {
+    display: flex;
+    align-items: center;
+}
+
+.user-initial {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-radius: 50%;
+    font-family: "Lucida Console", monospace;
+    font-size: 2.2em;
+    font-weight: 600;
+    width: 44px;
+    height: 44px;
+    float: left;
+    color: white;
+    vertical-align: middle;
+    margin:0;
+}
+
+.user-initial div {
+    padding-top: 20%;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.navbar-nav > 
+.user-menu > 
+.dropdown-menu > 
+li.user-header > 
+.show-pic{
+    margin-left: 30%;
+    border-radius: 50%;
+    z-index: 10;
+    height: 96px;
+    width: 96px;
+    border: 3px solid;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.initial-show{
+    border-radius: 50%;
+    height: 90px;
+    width: 90px;
+    color: #fff;
+    font-family: "Lucida Console", monospace;
+    font-size: 4.5em;
+}
+
+object[type^=application/gas-events] { display: none; }
+
+@media (min-height: 1000px) and (max-height:1499px) {
+    .botijoes-home {
+        margin: 0;
+        padding: 0;
+        position: absolute;
+        background-size: cover;
+        background-repeat: no-repeat;
+        height: 61vw;
+        width: 61vw;
+        bottom: 0;
+        right: 0;
+    }
+}
+
+@media (min-height: 1500px) and (max-height:1999px) {
+    .botijoes-home {
+        margin: 0;
+        padding: 0;
+        position: absolute;
+        background-size: cover;
+        background-repeat: no-repeat;
+        height: 65vw;
+        width: 65vw;
+        bottom: 0;
+        right: 0;
+    }
+}

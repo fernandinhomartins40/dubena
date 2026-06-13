@@ -1,0 +1,216 @@
+.hasError{background-color: #fae8e8; border: 1px solid #f7b9b9 }
+.cursorPointer{cursor: pointer}
+.fleft{float:left}
+.floatCenter{text-align: center !important;}
+.fright{float:right;}
+.sizeModalDialog{width: 90%}
+.sizeModalContConv{width: 80%}
+.sizeModal_70{width: 70%}
+.sizeModal_80{width: 80%}
+
+.maiusculo{text-transform:uppercase}
+.buttonForTable{max-height:30px;font-size:14px;margin-top:-5px;}
+
+.fontSize_9{font-size: 9px}
+.fontSize_10{font-size: 10px}
+.fontSize_11{font-size: 11px}
+.fontSize_12{font-size: 12px}
+.fontSize_13{font-size: 13px}
+.fontSize_14{font-size: 14px}
+.fontSize_15{font-size: 15px}
+.fontSize_16{font-size: 16px}
+.fontSize_17{font-size: 17px}
+.fontSize_18{font-size: 18px}
+.fontSize_19{font-size: 19px}
+.fontSize_20{font-size: 20px}
+.fontSize_21{font-size: 21px}
+.fontSize_22{font-size: 22px}
+.fontSize_23{font-size: 23px}
+.fontSize_24{font-size: 24px}
+.fontSize_25{font-size: 25px}
+
+.margRight_5{margin-right:5px}
+.margRight_10{margin-right:10px}
+.margLeft_45{margin-left: 45px}
+.margLeft_40{margin-left: 40px}
+.margLeft_35{margin-left: 35px}
+.margLeft_30{margin-left: 30px}
+.margLeft_20{margin-left: 20px}
+.margLeft_15{margin-left: 15px}
+.margLeft_10{margin-left: 10px}
+.margLeft_5{margin-left: 5px}
+.margLeftPercent_2{margin-left: 2%;}
+.margTop_5{margin-top: 5px}
+.margTop_10{margin-top: 10px}
+.margTop_15{margin-top: 15px}
+.margTop_20{margin-top: 20px}
+.margTop_25{margin-top: 25px}
+.margTop_30{margin-top: 30px}
+.margTop_40{margin-top: 40px}
+.margTop_50{margin-top: 50px}
+.margBottom_5{margin-bottom: 5px}
+.margBottom_6{margin-bottom: 6px}
+.margBottom_7{margin-bottom: 7px}
+.margBottom_8{margin-bottom: 8px}
+.margBottom_9{margin-bottom: 9px}
+.margBottom_10{margin-bottom: 10px}
+.text-justify{text-align: justify;}
+.formInside{border: 1px solid #ADAFB3; border-radius: 3px}
+
+.negrito {font-weight: bold}
+
+.alert-informacao{background-color: rgba(0, 255, 255, 0.4);}
+
+.modal-xl{
+    margin-left: 1%;
+    width: 99% !important; 
+    height: 99% !important; 
+}
+
+.labelTop {
+    /*height: 15px !important;*/ 
+    margin-top: -18px !important;
+}
+
+.form-group-sm{
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+    height: 6px !important;
+}
+
+.form-control-custom{
+    height: max-content !important;
+}
+.selectize-input, .selectize-control.single .selectize-input.input-active{
+    display: block !important;
+    height: 25px !important;
+}
+.selectize-dropdown {
+    position: absolute !important;  
+}
+
+.tblPedidos th,.tblPedidos td {
+    padding: 0px !important;
+}
+
+.btn-xs{margin-top: 0 !important};
+
+.table-striped > tbody > tr:nth-child(odd) > td, 
+.table-striped > tbody > tr:nth-child(odd) > th {
+    white-space: nowrap;
+}
+#tblHistorico {
+    overflow: auto;
+}
+
+.mousehover-pointer {
+    cursor: pointer !important;
+}
+.mousehover-color-blue :hover{
+    background-color: #c0c0c0 !important;
+}
+
+.concluido{
+    background-color: #3A5FCD !important;
+    color: white
+}
+.concluido :hover{
+    background-color: #0044cc !important;
+    color: white
+}
+.pendente{
+    background-color: SeaGreen !important;
+    color: white
+}
+.pendente :hover{
+    background-color: green !important;
+    color: white
+}
+.emEntrega{
+    background-color: LightGreen !important;
+    color: black
+}
+.emEntrega :hover{
+    background-color: #99ff99 !important;
+}
+.transferir{
+    background-color: LightSkyBlue !important;
+    color: black
+}
+.transferir :hover{
+    background-color: lightblue !important;
+}
+.cancelado{
+    background-color: Tomato !important;
+    color: white !important
+}
+.cancelado :hover{
+    background-color: #FF4500 !important;
+    color: white
+}
+.atrasado{
+    background-color: #FFD700 !important;
+    color: black
+}
+.atrasado :hover{
+    background-color: #FFD34F !important;
+}
+.alignCenter{
+    text-align: center !important;   
+}
+
+.linhaselecionada{
+    background-color: LightSkyBlue !important;
+}
+
+#tblAcompanhamentoPedidos,#tblHistoricoCliente {
+   overflow-x:auto !important;
+}
+
+.box-table-scroll {overflow-x:auto !important;}
+
+a[disabled="disabled"] {
+    pointer-events: none;
+}
+
+.btn-no-hover :hover {
+    border: none;
+}
+
+
+.btn-no-hover[disabled="disabled"],.btn-no-hover[disabled]{
+    color: #fff !important;
+    border-color: #ccc !important;
+    outline-color: none !important;
+    box-shadow: none !important;
+    background-color: #6885BA !important; 
+}
+
+.fixed-table-header{
+    display: none !important;
+}
+.fixed-table-container{
+    padding-bottom: 0 !important;
+}
+
+.fixed-table-body table{
+    margin-top: 0 !important;
+}
+
+input[readonly='readonly'], input[readonly]{
+    cursor: not-allowed;
+}
+
+input[readonly='readonly']:hover,
+input[readonly='readonly']:focus,
+input[readonly='readonly']:active,
+input[readonly]:hover,
+input[readonly]:focus,
+input[readonly]:active{
+    border-color: #ccc !important;
+} 
+body { padding-right: 0 !important }
+.scrollStyle
+{
+overflow-x:auto;
+}

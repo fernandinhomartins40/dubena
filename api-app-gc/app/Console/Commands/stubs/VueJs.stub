@@ -1,0 +1,7 @@
+require('./base.js');
+
+Vue.component('__name', require('./components/__Name.vue'));
+
+const app = new Vue({
+    el: '#app'
+});

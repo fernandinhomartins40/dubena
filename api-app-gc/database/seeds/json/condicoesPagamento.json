@@ -1,0 +1,18 @@
+[
+    {
+        "descricao": "A vista",
+        "tipo": 0
+    },
+    {
+        "descricao": "Débito",
+        "tipo": 1
+    },
+    {
+        "descricao": "Crédito",
+        "tipo": 2
+    },
+    {
+        "descricao": "Vale Gás",
+        "tipo": 3
+    }
+]

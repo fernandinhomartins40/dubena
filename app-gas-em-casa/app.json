@@ -1,0 +1,124 @@
+{
+  "expo": {
+    "name": "Gás em Casa",
+    "slug": "gasemcasa",
+    "version": "3.1.10",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "gasemcasa",
+    "ios": {
+      "buildNumber": "69",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.qti.gasemcasa",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8"
+      },
+      "icon": {
+        "light": "./assets/icons/ios-light.png",
+        "dark": "./assets/icons/ios-dark.png",
+        "tinted": "./assets/icons/ios-tinted.png"
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "versionCode": 67,
+      "versionName": "3.1.10",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/adaptive-icon.png",
+        "backgroundColor": "#672290"
+      },
+      "package": "com.qti.gasemcasa",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8"
+        }
+      },
+      "edgeToEdgeEnabled": true,
+      "allowHttp": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/sora/Sora_100Thin.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_200ExtraLight.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_300Light.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_400Regular.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_500Medium.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_700Bold.ttf",
+            "node_modules/@expo-google-fonts/sora/Sora_800ExtraBold.ttf"
+          ]
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permite que $(PRODUCT_NAME) use sua localização."
+        }
+      ],
+      [
+        "react-native-edge-to-edge",
+        {
+          "android": {
+            "parentTheme": "Default",
+            "enforceNavigationBarContrast": false
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "native",
+          "backgroundColor": "#672290",
+          "imageWidth": 150
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    }
+  }
+}

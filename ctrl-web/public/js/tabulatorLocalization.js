@@ -1,0 +1,60 @@
+// Tabulator pt-br (Português - Brasil) localization
+const tabulatorPtBr = {
+    groups: {
+        item: "item",
+        items: "itens",
+    },
+    columns: {
+        columns: "Colunas",
+        filters: "Filtros",
+        headers: "Cabeçalhos",
+        groups: "Grupos",
+        row: "Linha",
+        rows: "Linhas",
+        selected: "Selecionado",
+        data: "Dados",
+        tools: "Ferramentas",
+    },
+    pagination: {
+        first: "Primeira",
+        first_title: "Primeira Página",
+        last: "Última",
+        last_title: "Última Página",
+        prev: "Anterior",
+        prev_title: "Página Anterior",
+        next: "Próxima",
+        next_title: "Próxima Página",
+        page_size: "Tamanho da Página",
+    },
+    headerFilters: {
+        default: "Filtrar coluna...",
+        columns: {},
+    },
+    group: {
+        item: "item",
+        items: "itens",
+    },
+    data: {
+        loading: "Carregando...",
+        error: "Erro ao carregar dados",
+    },
+    edit: {
+        invalid: "Valor inválido",
+    },
+    validation: {
+        required: "Obrigatório",
+        unique: "Valor deve ser único",
+        string: "Deve ser uma string",
+        integer: "Deve ser um inteiro",
+        float: "Deve ser um número decimal",
+        numeric: "Deve ser numérico",
+        boolean: "Deve ser verdadeiro ou falso",
+        date: "Data inválida",
+        time: "Hora inválida",
+        datetime: "Data e hora inválidas",
+        min: "Deve ser >= {{min}}",
+        max: "Deve ser <= {{max}}",
+        minLength: "Deve ter no mínimo {{minLength}} caracteres",
+        maxLength: "Deve ter no máximo {{maxLength}} caracteres",
+    },
+};

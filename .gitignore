@@ -1,0 +1,47 @@
+# ──────────────────────────────────────────────────────────────────────────
+# .gitignore do monorepo (Fases 0–5). Repositório PRIVADO, mas mesmo assim
+# NÃO versiona segredos reais nem artefatos pesados.
+# ──────────────────────────────────────────────────────────────────────────
+
+# === SEGREDOS (nunca commitar) ===
+SEGREDOS_LOCAIS.md
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.docker            # templates de dev com valores FAKE (ok versionar)
+
+# Arquivos com segredos REAIS (mantidos só localmente, ver SEGREDOS_LOCAIS.md)
+api-app-gc/instruções api-siav.txt
+app-gas-em-casa/google-services.json
+app-gas-em-casa/GoogleService-Info.plist
+
+# === Dependências / artefatos (pesados, reinstaláveis) ===
+**/vendor/
+**/node_modules/
+**/vendor_fork/
+**/composer-setup.php
+
+# === Laravel runtime ===
+**/storage/*.key
+**/storage/framework/cache/*
+**/storage/framework/sessions/*
+**/storage/framework/views/*
+**/storage/logs/*
+**/bootstrap/cache/*.php
+**/public/storage
+
+# === Build mobile (nativo, regenerável) ===
+app-gas-em-casa/android/
+app-gas-em-casa/ios/
+app-gas-em-casa/.expo/
+
+# === Locks pesados de JS (opcional manter; aqui versionamos só o do front) ===
+**/yarn-error.log
+**/npm-debug.log
+
+# === IDE / SO ===
+.idea/
+.vscode/
+.DS_Store
+*.swp
+Thumbs.db
