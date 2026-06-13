@@ -49,7 +49,10 @@ jobs:
       - name: Build e subida dos containers
         run: |
           docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml up -d
+          # --force-recreate garante que o container app seja recriado pegando
+          # mudanças de volumes (ex.: app_storage) e o entrypoint atual — o up -d
+          # normal não recria se "nada mudou" e o storage ficaria sem framework/.
+          docker compose -f docker-compose.prod.yml up -d --force-recreate
           # Aguarda o container app ficar estável (entrypoint sobe o php-fpm sem
           # depender de composer — então não fica em crash-loop).
           for i in $(seq 1 15); do
