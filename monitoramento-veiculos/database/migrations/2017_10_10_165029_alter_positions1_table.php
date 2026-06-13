@@ -13,15 +13,8 @@ class AlterPositions1Table extends Migration
      */
     public function up()
     {
-        Schema::table('positions', function (Blueprint $table) {
-            $table->float('latitude', 23,15)->nullable()->default(null)->change();
-            $table->float('longitude', 23,15)->nullable()->default(null)->change();
-			$table->float('altitude', 23,15)->nullable()->default(null)->change();
-			$table->float('course', 23,15)->nullable()->default(null)->change();
-			$table->float('speed', 23,15)->nullable()->default(null)->change();	
-			$table->float('power', 23,15)->nullable()->default(null)->change();
-        });
-
+        // Postgres: as colunas de positions já foram criadas como float/double
+        // (create_positions_table); o ->change() era redundante e exigia USING. Removido.
     }
 
     /**

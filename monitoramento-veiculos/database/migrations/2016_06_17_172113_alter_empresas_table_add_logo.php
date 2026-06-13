@@ -12,7 +12,7 @@ class AlterEmpresasTableAddLogo extends Migration
      */
     public function up()
     {
-      DB::statement("ALTER TABLE empresas ADD logo BLOB");
+      \App\Helpers\MigrationHelper::addBinary('empresas', 'logo'); // BLOB→bytea
     }
 
     /**

@@ -13,7 +13,9 @@ class AlterEmpresas7Table extends Migration
      */
     public function up()
     {
-             DB::statement("ALTER TABLE empresas ADD logoimg BLOB");
+             if (! \Illuminate\Support\Facades\Schema::hasColumn('empresas', 'logoimg')) {
+                 \App\Helpers\MigrationHelper::addBinary('empresas', 'logoimg'); // BLOB→bytea
+             }
     }
 
     /**

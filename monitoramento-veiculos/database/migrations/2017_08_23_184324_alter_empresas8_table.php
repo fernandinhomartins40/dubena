@@ -17,10 +17,7 @@ class AlterEmpresas8Table extends Migration
             $table->float('latitude', 23,15)->nullable()->default(null);
             $table->float('longitude', 23,15)->nullable()->default(null);
         });
-        Schema::table('empresas', function (Blueprint $table) {
-            $table->float('latitude', 23,15)->nullable()->default(null)->change();
-            $table->float('longitude', 23,15)->nullable()->default(null)->change();
-        });
+        // Postgres: ->change() redundante removido (colunas já criadas como double).
     }
 
     /**

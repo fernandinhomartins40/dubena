@@ -14,8 +14,8 @@ class AlterEmpresaGrupos2Table extends Migration
     public function up()
     {
 
-     DB::statement("ALTER TABLE empresas_grupos ADD logoimg BLOB");
-     DB::statement("ALTER TABLE empresas_grupos ADD logo BLOB");
+     \App\Helpers\MigrationHelper::addBinary('empresas_grupos', 'logoimg'); // BLOB→bytea
+     \App\Helpers\MigrationHelper::addBinary('empresas_grupos', 'logo');    // BLOB→bytea
  }
 
     /**

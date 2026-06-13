@@ -26,11 +26,7 @@ class CreateCercapoligonosTable extends Migration
           $table->foreign('empresa_id')->references('id')->on('empresas')->onDelete('cascade')->onUpdate('cascade');
           $table->foreign('cerca_id')->references('id')->on('cercas')->onDelete('cascade')->onUpdate('cascade');
         });
-        Schema::table('cercapoligonos', function (Blueprint $table) {
-            $table->float('latitude', 23,15)->nullable()->default(null)->change();
-            $table->float('longitude', 23,15)->nullable()->default(null)->change();
-        });
-
+        // Postgres: colunas float já nascem como double precision; ->change() removido.
     }
 
     /**

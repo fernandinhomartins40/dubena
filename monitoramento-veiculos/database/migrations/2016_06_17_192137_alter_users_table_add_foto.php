@@ -12,7 +12,7 @@ class AlterUsersTableAddFoto extends Migration
      */
     public function up()
     {
-      DB::statement("ALTER TABLE users ADD foto BLOB");
+      \App\Helpers\MigrationHelper::addBinary('users', 'foto'); // BLOB→bytea
     }
 
     /**

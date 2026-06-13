@@ -12,11 +12,8 @@ class AlterEmpresasGrupoTableAtivo extends Migration
      */
     public function up()
     {
-        // DB::statement("ALTER TABLE `empresas_grupos`CHANGE COLUMN `ativo` `ativo` TINYINT NOT NULL DEFAULT '1'");
-
-        Schema::table('empresas_grupos', function (Blueprint $table) {
-            $table->boolean('ativo')->nullable()->default(1)->change();
-        });
+        // Alinhamento Postgres: cast int→boolean exige USING (helper trata por driver).
+        \App\Helpers\MigrationHelper::toBoolean('empresas_grupos', 'ativo', true, 1);
     }
 
     /**

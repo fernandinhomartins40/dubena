@@ -31,15 +31,8 @@ class CreateUltimaposicaosTable extends Migration
           $table->foreign('empresa_id')->references('id')->on('empresas');
           $table->foreign('veiculo_id')->references('id')->on('veiculos');
         });
-        Schema::table('ultimaposicaos', function (Blueprint $table) {
-          $table->float('latitude', 23,15)->nullable()->default(null)->change();
-          $table->float('longitude', 23,15)->nullable()->default(null)->change();
-          $table->float('altitude', 23,15)->nullable()->default(null)->change();
-          $table->float('azimute', 23,15)->nullable()->default(null)->change();
-          $table->float('velocidade', 23,15)->nullable()->default(null)->change();
-          $table->float('velocidade_anterior', 23,15)->nullable()->default(null)->change();
-          $table->float('distancia', 23,15)->nullable()->default(null)->change();
-        });
+        // Postgres: as colunas float acima já nascem como double precision —
+        // o ->change() era redundante (e exigia USING). Removido.
     }
 
     /**

@@ -13,10 +13,9 @@ class AlterSetors1Table extends Migration
      */
     public function up()
     {
-        Schema::table('setors', function (Blueprint $table) {
-            $table->float('latitude', 23,15)->nullable()->default(null)->change();
-          $table->float('longitude', 23,15)->nullable()->default(null)->change();
-        });
+        // Postgres: cast para double precision exige USING (helper trata por driver).
+        \App\Helpers\MigrationHelper::toDouble('setors', 'latitude');
+        \App\Helpers\MigrationHelper::toDouble('setors', 'longitude');
     }
 
     /**

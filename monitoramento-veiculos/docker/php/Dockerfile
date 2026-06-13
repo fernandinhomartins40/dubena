@@ -1,18 +1,14 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Imagem de runtime para o monitoramento-veiculos (Laravel 5.4)
-# PHP 7.1 = faixa suportada pelo Laravel 5.4 (PHP 7.2+ quebra o framework).
-# Oracle (oci8) NÃO é instalado no piloto: os dados próprios deste sistema
-# estão em MySQL. Rotas que leem o ERP via Oracle (SearchController) ficam
-# inoperantes até a Fase 3 (migração do ERP p/ PostgreSQL) — comportamento
-# esperado para o piloto da Fase 0.
+# Imagem de runtime para o monitoramento-veiculos (Laravel 5.8).
+# PHP 7.4 (alinhado ao ctrl-web; Laravel 5.8 exige >=7.1, usamos 7.4).
+# Banco: PostgreSQL (alinhamento de stack — todos os sistemas em Postgres).
+# Oracle (oci8) NÃO instalado; composer ignora ext-oci8. A leitura do ERP
+# passa a ser feita via Postgres (não mais oracle3).
 # ──────────────────────────────────────────────────────────────────────────
-FROM php:7.1-fpm
+FROM php:7.4-fpm
 
-# Debian Stretch está EOL: aponta o apt para o archive para o update funcionar.
-RUN set -eux; \
-    sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g; /stretch-updates/d' /etc/apt/sources.list
+# php:7.4-fpm é baseado em Debian Bullseye (repositórios ativos) — não mexer no apt.
 
-# Dependências de sistema para compilar as extensões PHP necessárias.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -25,24 +21,28 @@ RUN set -eux; \
         libfreetype6-dev \
         libicu-dev \
         libonig-dev \
-        libxml2-dev; \
-    docker-php-ext-configure gd --with-freetype-dir=/usr/include --with-jpeg-dir=/usr/include; \
+        libgmp-dev \
+        libxml2-dev \
+        libpq-dev; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" \
+        pdo_pgsql \
+        pgsql \
         pdo_mysql \
         mbstring \
         gd \
         zip \
         intl \
         bcmath \
+        gmp \
         pcntl \
         exif \
+        soap \
         opcache; \
     rm -rf /var/lib/apt/lists/*
 
-# Composer 2.2 (LTS) — última linha que roda sob PHP 7.1.
 COPY --from=composer:2.2 /usr/bin/composer /usr/bin/composer
 
-# Limite de memória maior para o composer install em build/runtime.
 ENV COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /var/www
