@@ -7,11 +7,21 @@ use App\User;
 /**
  * Seeder de DEPLOY — garante acesso ao ERP de forma idempotente.
  *
- * O banco de produção nasce vazio (nenhum dado base). Para permitir o primeiro
- * login, cria a cadeia mínima na ordem das FKs:
- *   grupo -> cidade -> bairro -> empresa -> usuário (+ vínculo empresa_user)
- * Usa as colunas REAIS do schema (verificadas). Idempotente (verifica antes
- * de inserir). Senha do admin via ADMIN_SEED_PASSWORD (default 'admin1234').
+ * O banco de produção nasce vazio. Cria a cadeia mínima de dados respeitando
+ * TODAS as foreign keys NOT NULL (verificadas no schema real), nesta ordem:
+ *
+ *   estados(uf) -> cidades(uf) -> empresas_grupos -> bairros(grupo,cidade)
+ *               -> empresas(grupo,cidade,bairro,uf) -> users -> empresa_user
+ *
+ * Colunas obrigatórias confirmadas:
+ *   estados:         uf (PK), descricao
+ *   cidades:         descricao, uf (FK->estados.uf)
+ *   empresas_grupos: descricao
+ *   bairros:         grupo_id, cidade_id, descricao
+ *   empresas:        grupo_id, razao_social, cidade_id, cep, bairro_id, uf
+ *   users:           email, password, support
+ *
+ * Idempotente (verifica antes de inserir). Senha via ADMIN_SEED_PASSWORD.
  */
 class DeployAdminSeeder extends Seeder
 {
@@ -20,8 +30,17 @@ class DeployAdminSeeder extends Seeder
         $now = now();
         $email = env('ADMIN_SEED_EMAIL', 'admin');
         $senha = env('ADMIN_SEED_PASSWORD', 'admin1234');
+        $uf = 'PR';
 
-        // 1) Grupo de empresas (obrigatório: descricao).
+        // 1) Estado (PK = uf). Raiz da cadeia geográfica.
+        if (DB::table('estados')->where('uf', $uf)->doesntExist()) {
+            DB::table('estados')->insert([
+                'uf' => $uf, 'descricao' => 'Paraná',
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
+
+        // 2) Grupo de empresas.
         if (DB::table('empresas_grupos')->where('id', 1)->doesntExist()) {
             DB::table('empresas_grupos')->insert([
                 'id' => 1, 'descricao' => 'Grupo Padrão', 'ativo' => true,
@@ -29,36 +48,35 @@ class DeployAdminSeeder extends Seeder
             ]);
         }
 
-        // 2) Cidade (obrigatório: descricao).
+        // 3) Cidade (uf -> estados.uf).
         if (DB::table('cidades')->where('id', 1)->doesntExist()) {
             DB::table('cidades')->insert([
-                'id' => 1, 'descricao' => 'Cidade Padrão', 'uf' => 'PR',
+                'id' => 1, 'descricao' => 'Cidade Padrão', 'uf' => $uf,
                 'created_at' => $now, 'updated_at' => $now,
             ]);
         }
 
-        // 3) Bairro (obrigatório: grupo_id, cidade_id, descricao).
+        // 4) Bairro (grupo_id, cidade_id).
         if (DB::table('bairros')->where('id', 1)->doesntExist()) {
             DB::table('bairros')->insert([
-                'id' => 1, 'grupo_id' => 1, 'cidade_id' => 1,
-                'descricao' => 'Centro',
+                'id' => 1, 'grupo_id' => 1, 'cidade_id' => 1, 'descricao' => 'Centro',
                 'created_at' => $now, 'updated_at' => $now,
             ]);
         }
 
-        // 4) Empresa (obrigatórios: grupo_id, razao_social, cidade_id, cep, bairro_id, uf).
+        // 5) Empresa (grupo_id, razao_social, cidade_id, cep, bairro_id, uf).
         if (DB::table('empresas')->where('id', 1)->doesntExist()) {
             DB::table('empresas')->insert([
                 'id' => 1, 'grupo_id' => 1,
                 'razao_social'  => 'Empresa Padrão',
                 'nome_informal' => 'Empresa Padrão',
-                'cidade_id' => 1, 'bairro_id' => 1, 'cep' => '00000000', 'uf' => 'PR',
+                'cidade_id' => 1, 'bairro_id' => 1, 'cep' => '00000000', 'uf' => $uf,
                 'ativo' => true,
                 'created_at' => $now, 'updated_at' => $now,
             ]);
         }
 
-        // 5) Usuário admin (idempotente). support é NOT NULL.
+        // 6) Usuário admin (idempotente). support é NOT NULL.
         $user = User::updateOrCreate(
             ['email' => $email],
             [
@@ -70,7 +88,7 @@ class DeployAdminSeeder extends Seeder
             ]
         );
 
-        // 6) Vínculo empresa_user.
+        // 7) Vínculo empresa_user.
         $vinc = DB::table('empresa_user')
             ->where('empresa_id', 1)->where('user_id', $user->id)->exists();
         if (! $vinc) {
