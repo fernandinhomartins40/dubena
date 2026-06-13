@@ -50,14 +50,28 @@ jobs:
         run: |
           docker compose -f docker-compose.prod.yml build
           docker compose -f docker-compose.prod.yml up -d
+          # Aguarda o container app ficar estável (entrypoint sobe o php-fpm sem
+          # depender de composer — então não fica em crash-loop).
+          for i in $(seq 1 15); do
+            st=$(docker inspect -f '{{.State.Status}}' ctrl-web-app 2>/dev/null || echo none)
+            [ "$st" = "running" ] && break
+            echo "aguardando ctrl-web-app ($st)..."; sleep 3
+          done
 
-      - name: Dependências, app key, migrations
+      - name: Instalar dependências (composer, do lock)
         run: |
+          # --no-scripts evita rodar artisan antes do .env/migrate; usa o lock.
           docker compose -f docker-compose.prod.yml exec -T app \
-            composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader --ignore-platform-req=ext-oci8
+            composer install --no-interaction --prefer-dist --no-progress --no-dev \
+            --no-scripts --optimize-autoloader --ignore-platform-req=ext-oci8
+
+      - name: App key, migrations, cache
+        run: |
           docker compose -f docker-compose.prod.yml exec -T app sh -c \
             'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
           docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+          # módulo Api (schema "api" no mesmo Postgres) — unificação Fase 5/6
+          docker compose -f docker-compose.prod.yml exec -T app php artisan migrate:api-module || true
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
 
