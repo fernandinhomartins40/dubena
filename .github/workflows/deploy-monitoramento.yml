@@ -55,9 +55,11 @@ jobs:
 
       - name: Instalar dependências (composer, do lock)
         run: |
+          # --no-plugins: composer 2 bloqueia kylekatarnls/update-helper (fora
+          # da allow-list) e abortaria o install no deploy.
           docker compose -f docker-compose.prod.yml exec -T app \
             composer install --no-interaction --prefer-dist --no-progress --no-dev \
-            --no-scripts --optimize-autoloader --ignore-platform-req=ext-oci8
+            --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8
 
       - name: App key, migrations, cache
         run: |
