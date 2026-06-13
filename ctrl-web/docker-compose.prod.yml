@@ -16,7 +16,10 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     volumes:
-      - ./storage:/var/www/storage
+      # Código da aplicação (o Dockerfile não faz COPY; usa bind, como no dev).
+      - .:/var/www
+      # storage e vendor em volumes nomeados (persistem e têm precedência sobre o bind).
+      - app_storage:/var/www/storage
       - app_vendor:/var/www/vendor
     env_file:
       - .env
@@ -64,6 +67,7 @@ services:
 volumes:
   db_data:
   app_vendor:
+  app_storage:
 
 networks:
   ctrl:
