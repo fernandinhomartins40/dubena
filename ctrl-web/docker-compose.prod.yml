@@ -1,0 +1,70 @@
+# ──────────────────────────────────────────────────────────────────────────
+# ctrl-web (ERP) — PRODUÇÃO na VPS.
+# Padrão da VPS: o container nginx escuta em 127.0.0.1:PORTA e o Nginx do HOST
+# (TLS/Certbot) faz proxy_pass para essa porta, roteando por domínio.
+#
+# Porta reservada: 127.0.0.1:3110  (faixa 3100-3299 livre na VPS)
+# Banco: PostgreSQL (Fase 3). Segredos vêm de .env (NÃO versionado).
+# ──────────────────────────────────────────────────────────────────────────
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: ctrl-erp-app:prod
+    container_name: ctrl-web-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - ctrl
+
+  web:
+    image: nginx:1.25-alpine
+    container_name: ctrl-web-web
+    restart: unless-stopped
+    # Só local: o Nginx do HOST faz o TLS e o proxy público.
+    ports:
+      - "127.0.0.1:3110:80"
+    volumes:
+      - .:/var/www:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - ctrl
+
+  db:
+    image: postgres:15-alpine
+    container_name: ctrl-web-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-ctrl}
+      POSTGRES_USER: ${DB_USERNAME:-ctrl}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - ctrl
+
+  redis:
+    image: redis:7-alpine
+    container_name: ctrl-web-redis
+    restart: unless-stopped
+    networks:
+      - ctrl
+
+volumes:
+  db_data:
+  app_vendor:
+
+networks:
+  ctrl:
+    driver: bridge

@@ -1,0 +1,56 @@
+name: Deploy monitoramento-veiculos
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitoramento-veiculos/**'
+      - '.github/workflows/deploy-monitoramento.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-monitoramento
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: monitoramento-veiculos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Garantir .env de produção
+        run: |
+          if [ ! -f .env ]; then
+            echo "ERRO: monitoramento-veiculos/.env não existe na VPS. Crie-o uma vez com os segredos de produção." >&2
+            exit 1
+          fi
+
+      - name: Build e subida dos containers
+        run: |
+          docker compose -f docker-compose.prod.yml build
+          docker compose -f docker-compose.prod.yml up -d
+
+      - name: Dependências, app key, migrations
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T app \
+            composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader --ignore-platform-req=ext-oci8
+          docker compose -f docker-compose.prod.yml exec -T app sh -c \
+            'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
+          docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+          docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+
+      - name: Health check (porta interna 3112)
+        run: |
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3112/login || echo 000)
+          echo "HTTP /login: $code"
+          if [ "$code" -ge 500 ] || [ "$code" = "000" ]; then
+            echo "Health check falhou (HTTP $code)" >&2
+            docker compose -f docker-compose.prod.yml logs --tail=40 app web >&2 || true
+            exit 1
+          fi

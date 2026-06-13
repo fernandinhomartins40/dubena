@@ -1,0 +1,68 @@
+# ──────────────────────────────────────────────────────────────────────────
+# monitoramento-veiculos — PRODUÇÃO na VPS.
+# Container nginx em 127.0.0.1:3112; Nginx do HOST faz TLS/proxy por domínio.
+# Banco MySQL (monitora). Segredos via .env.
+# ──────────────────────────────────────────────────────────────────────────
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: monitora-app:prod
+    container_name: monitora-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - monitora
+
+  web:
+    image: nginx:1.25-alpine
+    container_name: monitora-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3112:80"
+    volumes:
+      - .:/var/www:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - monitora
+
+  db:
+    image: mysql:5.7
+    container_name: monitora-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-monitora}
+      MYSQL_USER: ${DB_USERNAME:-monitora}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?defina DB_ROOT_PASSWORD no .env}
+    command: --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - monitora
+
+  redis:
+    image: redis:7-alpine
+    container_name: monitora-redis
+    restart: unless-stopped
+    networks:
+      - monitora
+
+volumes:
+  db_data:
+  app_vendor:
+
+networks:
+  monitora:
+    driver: bridge

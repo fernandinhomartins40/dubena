@@ -5,10 +5,13 @@
 
 # === SEGREDOS (nunca commitar) ===
 SEGREDOS_LOCAIS.md
+# script de diagnóstico com a senha da VPS (uso local)
+_vps_probe.py
+# .env reais nunca; .env.example e .env.docker (valores FAKE) são versionados
 **/.env
 **/.env.*
 !**/.env.example
-!**/.env.docker            # templates de dev com valores FAKE (ok versionar)
+!**/.env.docker
 
 # Arquivos com segredos REAIS (mantidos só localmente, ver SEGREDOS_LOCAIS.md)
 api-app-gc/instruções api-siav.txt
