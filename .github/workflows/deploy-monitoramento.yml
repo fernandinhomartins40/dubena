@@ -22,6 +22,15 @@ jobs:
         working-directory: monitoramento-veiculos
 
     steps:
+      - name: Corrigir permissões do workspace (antes do checkout)
+        # Containers rodam como root e podem deixar storage/cache com dono root
+        # no checkout, impedindo o checkout de limpar (EACCES). Container root
+        # ajusta o dono de volta para o runner (sem sudo).
+        working-directory: .
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine:3 \
+            sh -c "chown -R $(id -u):$(id -g) /ws 2>/dev/null || true" || true
+
       - name: Checkout
         uses: actions/checkout@v4
 

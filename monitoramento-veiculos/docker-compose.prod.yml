@@ -15,9 +15,12 @@ services:
     volumes:
       # Código da aplicação (o Dockerfile não faz COPY; usa bind, como no dev).
       - .:/var/www
-      # storage e vendor em volumes nomeados (persistem e têm precedência sobre o bind).
+      # storage, vendor e bootstrap/cache em volumes nomeados: persistem E evitam
+      # que o chown do entrypoint (root) escreva no checkout do runner (causaria
+      # EACCES no próximo checkout). Têm precedência sobre o bind.
       - app_storage:/var/www/storage
       - app_vendor:/var/www/vendor
+      - app_bootstrap_cache:/var/www/bootstrap/cache
     env_file:
       - .env
     depends_on:
@@ -66,6 +69,7 @@ volumes:
   db_data:
   app_vendor:
   app_storage:
+  app_bootstrap_cache:
 
 networks:
   monitora:
