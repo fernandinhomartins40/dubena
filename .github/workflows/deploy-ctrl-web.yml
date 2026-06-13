@@ -25,12 +25,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Garantir .env de produção
+      - name: Restaurar .env de produção (persistido fora do checkout)
         run: |
-          if [ ! -f .env ]; then
-            echo "ERRO: ctrl-web/.env não existe na VPS. Crie-o uma vez (a partir de .env.docker), com os segredos de produção." >&2
+          # O checkout limpa arquivos não-rastreados; o .env (segredos) fica em
+          # /opt/dubena-env/ e é copiado a cada deploy. Crie-o uma vez na VPS.
+          if [ ! -f /opt/dubena-env/ctrl-web.env ]; then
+            echo "ERRO: /opt/dubena-env/ctrl-web.env não existe na VPS." >&2
             exit 1
           fi
+          cp /opt/dubena-env/ctrl-web.env .env
 
       - name: Build e subida dos containers
         run: |

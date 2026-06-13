@@ -23,12 +23,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Garantir .env de produção
+      - name: Restaurar .env de produção (persistido fora do checkout)
         run: |
-          if [ ! -f .env ]; then
-            echo "ERRO: api-app-gc/.env não existe na VPS. Crie-o uma vez com os segredos de produção." >&2
+          if [ ! -f /opt/dubena-env/api-app-gc.env ]; then
+            echo "ERRO: /opt/dubena-env/api-app-gc.env não existe na VPS." >&2
             exit 1
           fi
+          cp /opt/dubena-env/api-app-gc.env .env
 
       - name: Build e subida dos containers
         run: |
