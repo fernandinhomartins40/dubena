@@ -44,17 +44,16 @@ services:
       - monitora
 
   db:
-    image: mysql:5.7
+    # Alinhamento de stack: PostgreSQL (como o ERP).
+    image: postgres:15-alpine
     container_name: monitora-db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-monitora}
-      MYSQL_USER: ${DB_USERNAME:-monitora}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?defina DB_ROOT_PASSWORD no .env}
-    command: --character-set-server=utf8 --collation-server=utf8_unicode_ci
+      POSTGRES_DB: ${DB_DATABASE:-monitora}
+      POSTGRES_USER: ${DB_USERNAME:-monitora}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
     networks:
       - monitora
 
