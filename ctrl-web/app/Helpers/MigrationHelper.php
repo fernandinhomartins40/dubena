@@ -43,12 +43,17 @@ class MigrationHelper
     public static function toBoolean($table, $column, $nullable = true, $default = 1)
     {
         if (self::isPgsql()) {
-            $using = "CASE WHEN {$column}::text IN ('1','t','true','TRUE','y','Y') THEN true " .
-                     "WHEN {$column} IS NULL THEN NULL ELSE false END";
-            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE boolean USING ({$using})");
+            // COMPATIBILIDADE: no Postgres usamos SMALLINT (não boolean real),
+            // porque o ERP legado compara essas flags com `= 1`/`= 0` em centenas
+            // de pontos de SQL cru (boolean real do PG não compara com integer).
+            // smallint reproduz o tinyint(1) do MySQL original.
+            $using = "CASE WHEN {$column}::text IN ('1','t','true','TRUE','y','Y') THEN 1 " .
+                     "WHEN {$column} IS NULL THEN NULL ELSE 0 END";
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP DEFAULT");
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE smallint USING ({$using})");
 
             if (!is_null($default)) {
-                $def = $default ? 'true' : 'false';
+                $def = $default ? 1 : 0;
                 DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT {$def}");
             }
             if ($nullable) {

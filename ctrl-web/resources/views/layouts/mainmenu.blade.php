@@ -112,7 +112,7 @@
                 </div>
                 <div class="collapse navbar-collapse pull-left" id="navbar-collapse">
                     <ul class="nav navbar-nav">
-                        @if(count(Session::get('menu')))
+                        @if(count(Session::get('menu') ?: []))
                             @foreach(Session::get('menu') as $menu)
                                 <?php echo $menu; ?>
                             @endforeach
@@ -138,7 +138,7 @@
                         </li>
                         <!-- Messages: style can be found in dropdown.less-->
                         <!-- Notifications Menu -->
-                        @if( count(Session::get('notificacoes')) > 0 )
+                        @if( count(Session::get('notificacoes') ?: []) > 0 )
                             <!-- {{$count = Session::get('notificacoes')->where('status','N')->count()}} -->
                             <li class="dropdown notifications-menu">
                                 <a id="noti-bell" href="#" class="dropdown-toggle" data-toggle="dropdown">
