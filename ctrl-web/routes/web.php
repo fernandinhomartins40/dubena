@@ -14,7 +14,9 @@
 use Illuminate\Http\Request;
 
 Route::get('/', function () {
-    return view('welcome');
+    // Raiz redireciona para o login (antes mostrava a página "welcome" padrão
+    // do Laravel). Usuários autenticados serão levados ao /home pelo fluxo de auth.
+    return redirect('/login');
 });
 
 ////Rotas antigas
