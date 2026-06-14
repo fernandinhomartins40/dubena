@@ -118,6 +118,52 @@ return [
             'schema' => env('DB_SCHEMA_API', 'api'),
             'sslmode' => 'prefer',
         ],
+
+        // UNIFICAÇÃO: módulo Monitoramento (ex-app monitoramento-veiculos).
+        // Mesmo PostgreSQL do ERP, schema dedicado 'monitora' (isola das tabelas
+        // homônimas empresas/menus/setors/users/veiculos de public e api).
+        'monitora' => [
+            // Mesmo Postgres do ERP por padrão (cai nos DB_* principais se as
+            // vars _MONITORA não existirem); só o schema é dedicado.
+            'driver' => env('DB_DRIVER_MONITORA', env('DB_CONNECTION', 'pgsql')),
+            'host' => env('DB_HOST_MONITORA', env('DB_HOST', '127.0.0.1')),
+            'port' => env('DB_PORT_MONITORA', env('DB_PORT', '5432')),
+            'database' => env('DB_DATABASE_MONITORA', env('DB_DATABASE', 'ctrl')),
+            'username' => env('DB_USERNAME_MONITORA', env('DB_USERNAME', '')),
+            'password' => env('DB_PASSWORD_MONITORA', env('DB_PASSWORD', '')),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'schema' => env('DB_SCHEMA_MONITORA', 'monitora'),
+            'sslmode' => 'prefer',
+        ],
+
+        // UNIFICAÇÃO: fontes EXTERNAS legadas lidas pelos jobs do monitoramento
+        // (SyncPosicoesSGCasa / UpdateClientsLocation). Continuam MySQL (sistemas
+        // reais de origem do GPS). Sem credenciais => job simplesmente não roda.
+        'sgcasa' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST_SGCASA', '127.0.0.1'),
+            'port' => env('DB_PORT_SGCASA', '3306'),
+            'database' => env('DB_DATABASE_SGCASA', 'sgcasa_monitoramento'),
+            'username' => env('DB_USERNAME_SGCASA', ''),
+            'password' => env('DB_PASSWORD_SGCASA', ''),
+            'charset' => 'utf8',
+            'collation' => 'utf8_unicode_ci',
+            'prefix' => '',
+            'strict' => false,
+        ],
+        'mysql2' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST2', '127.0.0.1'),
+            'port' => env('DB_PORT2', '3306'),
+            'database' => env('DB_DATABASE2', 'sgc_dubena'),
+            'username' => env('DB_USERNAME2', ''),
+            'password' => env('DB_PASSWORD2', ''),
+            'charset' => 'utf8',
+            'collation' => 'utf8_unicode_ci',
+            'prefix' => '',
+            'strict' => false,
+        ],
     ],
 
     /*

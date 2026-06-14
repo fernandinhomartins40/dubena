@@ -15,6 +15,9 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         // Commands\Inspire::class,
         Commands\MigrateApiModule::class, // FASE 5/6: migra o módulo Api (schema 'api')
+        Commands\MigrateMonitoraModule::class, // UNIFICAÇÃO: migra o módulo Monitoramento (schema 'monitora')
+        \App\Monitora\Console\Commands\SyncPosicoesSGCasa::class, // jobs do monitoramento (GPS)
+        \App\Monitora\Console\Commands\UpdateClientsLocation::class,
         Commands\Notificacao::class,
         Commands\DeleteNotificacoes::class,
         Commands\ProcessIbptFiles::class,

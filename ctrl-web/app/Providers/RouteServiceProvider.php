@@ -41,11 +41,39 @@ class RouteServiceProvider extends ServiceProvider
         // preservados (retrocompatibilidade com apps já nas lojas).
         $this->mapAppMobileApiRoutes();
 
+        // UNIFICAÇÃO: módulo Monitoramento sob prefixo /monitora (namespace e
+        // nomes de rota próprios — 'monitora.*'). Antes do web do ERP.
+        $this->mapMonitoraRoutes();
+
         $this->mapApiRoutes();
 
         $this->mapWebRoutes();
 
         //
+    }
+
+    /**
+     * UNIFICAÇÃO: rotas do módulo Monitoramento (ex-app monitoramento-veiculos),
+     * servidas pelo próprio ERP sob /monitora. Controllers em
+     * App\Monitora\Http\Controllers; nomes de rota prefixados com 'monitora.'.
+     */
+    protected function mapMonitoraRoutes()
+    {
+        Route::group([
+            'middleware' => 'web',
+            'namespace'  => 'App\Monitora\Http\Controllers',
+            'prefix'     => 'monitora',
+        ], function ($router) {
+            require base_path('routes/monitora.php');
+        });
+
+        Route::group([
+            'middleware' => 'api',
+            'namespace'  => 'App\Monitora\Http\Controllers',
+            'prefix'     => 'monitora/api',
+        ], function ($router) {
+            require base_path('routes/monitora_api.php');
+        });
     }
 
     /**

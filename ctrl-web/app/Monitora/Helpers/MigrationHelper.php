@@ -1,7 +1,6 @@
 <?php
 
-namespace App\Helpers;
-
+namespace App\Monitora\Helpers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -14,35 +13,10 @@ use Illuminate\Support\Facades\Schema;
  */
 class MigrationHelper
 {
-    /**
-     * Conexão usada nas operações de DDL. null = conexão default (ERP/public).
-     * Módulos com schema próprio (ex.: monitora) setam via useConnection() antes
-     * de rodar suas migrations, para o ALTER cair no schema correto.
-     */
-    protected static $connection = null;
-
-    /** Define a conexão das próximas operações (ex.: 'monitora'). */
-    public static function useConnection($name)
-    {
-        self::$connection = $name;
-    }
-
-    /** Volta ao default. */
-    public static function resetConnection()
-    {
-        self::$connection = null;
-    }
-
-    /** Conexão DB atual (configurada ou default). */
-    protected static function conn()
-    {
-        return DB::connection(self::$connection);
-    }
-
-    /** Driver da conexão atual (pgsql, oracle, mysql...). */
+    /** Driver da conexão padrão (pgsql, oracle, mysql...). */
     public static function driver()
     {
-        return self::conn()->getDriverName();
+        return DB::connection()->getDriverName();
     }
 
     public static function isPgsql()
@@ -68,29 +42,24 @@ class MigrationHelper
     public static function toBoolean($table, $column, $nullable = true, $default = 1)
     {
         if (self::isPgsql()) {
-            // COMPATIBILIDADE: no Postgres usamos SMALLINT (não boolean real),
-            // porque o ERP legado compara essas flags com `= 1`/`= 0` em centenas
-            // de pontos de SQL cru (boolean real do PG não compara com integer).
-            // smallint reproduz o tinyint(1) do MySQL original.
-            $using = "CASE WHEN {$column}::text IN ('1','t','true','TRUE','y','Y') THEN 1 " .
-                     "WHEN {$column} IS NULL THEN NULL ELSE 0 END";
-            self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP DEFAULT");
-            self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE smallint USING ({$using})");
+            $using = "CASE WHEN {$column}::text IN ('1','t','true','TRUE','y','Y') THEN true " .
+                     "WHEN {$column} IS NULL THEN NULL ELSE false END";
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE boolean USING ({$using})");
 
             if (!is_null($default)) {
-                $def = $default ? 1 : 0;
-                self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT {$def}");
+                $def = $default ? 'true' : 'false';
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT {$def}");
             }
             if ($nullable) {
-                self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
             } else {
-                self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
             }
             return;
         }
 
         // Outros bancos: caminho padrão do Laravel (requer doctrine/dbal).
-        Schema::connection(self::$connection)->table($table, function ($t) use ($column, $nullable, $default) {
+        Schema::table($table, function ($t) use ($column, $nullable, $default) {
             $col = $t->boolean($column);
             if ($nullable) $col->nullable();
             if (!is_null($default)) $col->default($default);
@@ -114,14 +83,14 @@ class MigrationHelper
         if (self::isPgsql()) {
             // Normaliza: vírgula→ponto, vazio→NULL, antes do cast numérico.
             $using = "NULLIF(replace({$column}::text, ',', '.'), '')::numeric({$precision},{$scale})";
-            self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE numeric({$precision},{$scale}) USING ({$using})");
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE numeric({$precision},{$scale}) USING ({$using})");
             if ($nullable) {
-                self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
             }
             return;
         }
 
-        Schema::connection(self::$connection)->table($table, function ($t) use ($column, $precision, $scale, $nullable) {
+        Schema::table($table, function ($t) use ($column, $precision, $scale, $nullable) {
             $col = $t->decimal($column, $precision, $scale);
             if ($nullable) $col->nullable();
             $col->change();
@@ -129,20 +98,20 @@ class MigrationHelper
     }
 
     /**
-     * Converte uma coluna para double precision (ex.: latitude/longitude).
+     * Converte uma coluna para double precision (lat/long etc.).
      * No PostgreSQL exige USING explícito quando a origem é texto.
      */
     public static function toDouble($table, $column, $nullable = true)
     {
         if (self::isPgsql()) {
             $using = "NULLIF(replace({$column}::text, ',', '.'), '')::double precision";
-            self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE double precision USING ({$using})");
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} TYPE double precision USING ({$using})");
             if ($nullable) {
-                self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
             }
             return;
         }
-        Schema::connection(self::$connection)->table($table, function ($t) use ($column, $nullable) {
+        Schema::table($table, function ($t) use ($column, $nullable) {
             $col = $t->double($column, 23, 15);
             if ($nullable) $col->nullable();
             $col->change();
@@ -155,11 +124,11 @@ class MigrationHelper
     public static function addBinary($table, $column)
     {
         if (self::isPgsql()) {
-            self::conn()->statement("ALTER TABLE {$table} ADD COLUMN {$column} bytea");
+            DB::statement("ALTER TABLE {$table} ADD COLUMN {$column} bytea");
         } elseif (self::isOracle()) {
-            self::conn()->statement("ALTER TABLE {$table} ADD {$column} BLOB");
+            DB::statement("ALTER TABLE {$table} ADD {$column} BLOB");
         } else {
-            Schema::connection(self::$connection)->table($table, function ($t) use ($column) {
+            Schema::table($table, function ($t) use ($column) {
                 $t->binary($column)->nullable();
             });
         }
@@ -171,11 +140,11 @@ class MigrationHelper
     public static function addLongText($table, $column)
     {
         if (self::isPgsql()) {
-            self::conn()->statement("ALTER TABLE {$table} ADD COLUMN {$column} text");
+            DB::statement("ALTER TABLE {$table} ADD COLUMN {$column} text");
         } elseif (self::isOracle()) {
-            self::conn()->statement("ALTER TABLE {$table} ADD {$column} CLOB");
+            DB::statement("ALTER TABLE {$table} ADD {$column} CLOB");
         } else {
-            Schema::connection(self::$connection)->table($table, function ($t) use ($column) {
+            Schema::table($table, function ($t) use ($column) {
                 $t->longText($column)->nullable();
             });
         }
@@ -188,13 +157,13 @@ class MigrationHelper
     {
         if (self::isPgsql()) {
             $action = $nullable ? 'DROP NOT NULL' : 'SET NOT NULL';
-            self::conn()->statement("ALTER TABLE {$table} ALTER COLUMN {$column} {$action}");
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} {$action}");
         } elseif (self::isOracle()) {
             $null = $nullable ? 'NULL' : 'NOT NULL';
-            self::conn()->statement("ALTER TABLE {$table} MODIFY {$column} DEFAULT NULL {$null}");
+            DB::statement("ALTER TABLE {$table} MODIFY {$column} DEFAULT NULL {$null}");
         } else {
             // MySQL exige redefinir o tipo no MODIFY; aqui assumimos uso via dbal.
-            Schema::connection(self::$connection)->table($table, function ($t) use ($column, $nullable) {
+            Schema::table($table, function ($t) use ($column, $nullable) {
                 $col = $t->integer($column);
                 if ($nullable) $col->nullable();
                 $col->change();
@@ -208,7 +177,7 @@ class MigrationHelper
     public static function oracleOnly($sql)
     {
         if (self::isOracle()) {
-            self::conn()->statement($sql);
+            DB::statement($sql);
         }
     }
 }

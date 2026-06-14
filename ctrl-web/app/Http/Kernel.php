@@ -53,5 +53,8 @@ class Kernel extends HttpKernel
         'mailware' => \App\Http\Middleware\CustomMailWare::class,
         // FASE 5 (unificação): middleware de log das rotas da API do app mobile.
         'access' => \App\Api\Http\Middleware\Access::class,
+        // UNIFICAÇÃO: auth do módulo Monitoramento (guard 'monitora', redirect
+        // p/ /monitora/login; sem a validação de empresa do ERP).
+        'auth.monitora' => \App\Monitora\Http\Middleware\Authenticate::class,
     ];
 }

@@ -45,6 +45,13 @@ return [
             'driver' => 'passport',
             'provider' => 'users',
         ],
+
+        // UNIFICAÇÃO: guard próprio do módulo Monitoramento, autentica contra
+        // App\Monitora\Models\User (schema 'monitora'), isolado do auth do ERP.
+        'monitora' => [
+            'driver' => 'session',
+            'provider' => 'monitora_users',
+        ],
     ],
 
     /*
@@ -84,6 +91,11 @@ return [
 		'users' => [
 			'driver' => 'eloquent',
 			'model' => App\User::class,
+		],
+		// UNIFICAÇÃO: provider do módulo Monitoramento (schema 'monitora').
+		'monitora_users' => [
+			'driver' => 'eloquent',
+			'model' => App\Monitora\Models\User::class,
 		],
 	],
 	

@@ -87,6 +87,8 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
           # módulo Api (schema "api" no mesmo Postgres) — unificação Fase 5/6
           docker compose -f docker-compose.prod.yml exec -T app php artisan migrate:api-module || true
+          # módulo Monitoramento (schema "monitora" no mesmo Postgres) — unificação
+          docker compose -f docker-compose.prod.yml exec -T app php artisan migrate:monitora-module || true
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
 
