@@ -119,7 +119,7 @@ class SearchController extends Controller
         " ped.ID AS codigo_pedido " .
         " ,TO_CHAR(ped.ENTREGADATAHORA, 'dd/mm/yyyy') AS data_hora_entrega " .
         " ,TO_CHAR(ped.DATAHORA, 'dd/mm/yyyy HH24:mi:ss') AS data_hora_envio " .
-        " ,ROUND((CURRENT_DATE-ped.DATAHORA)*24*60) AS dif " .
+        " ,ROUND(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ped.DATAHORA)) / 60) AS dif " .
         " ,ruas.DESCRICAO AS desc_rua " .
         " ,cli.NOME AS razao_social " .
         " ,ped.ENTREGANUMERO AS numero_entrega " .
@@ -146,7 +146,9 @@ class SearchController extends Controller
         " WHERE ped.PEDIDOSITUACAO_ID IN (SELECT ID FROM pedidosituacaos WHERE fechadoconcluido <> 1 and fechadocancelado <> 1 and entregafinalizada <> 1 and entregacancelada <> 1) " .
         " AND ped.GRUPO_ID = 2 AND ped.EMPRESA_ID = 2";
         //dd($qry);
-        $results = DB::connection('oracle3')->select($qry, []);
+        // UNIFICAÇÃO: lê o ERP no MESMO Postgres (schema public), não mais via
+        // conexão Oracle externa (oracle3). Query já em sintaxe Postgres.
+        $results = DB::connection('pgsql')->select($qry, []);
         $response = ["status" => 'OK', "dados" => $results];
 
         //$response = buscarDadosRastreamento('getRastreamentoPedidos');
