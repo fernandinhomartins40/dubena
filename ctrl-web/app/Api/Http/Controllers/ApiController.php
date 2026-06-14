@@ -46,10 +46,10 @@ class ApiController extends Controller
             $results = new \stdClass();
             $results->logs = \DB::connection("sgcm_logs")->table("logs")
                 ->whereBetween("datetime", [$dateS, $dateE])
-                ->selectRaw("message, DATE_FORMAT(datetime,'%d/%m/%y %H:%i') as datetime, method, parameters, uri, type, DATE_FORMAT(datetime,'%d/%m/%y %H') as datehour ")
+                ->selectRaw("message, to_char(datetime, 'DD/MM/YY HH24:MI') as datetime, method, parameters, uri, type, to_char(datetime, 'DD/MM/YY HH24') as datehour ")
                 ->groupBy([
                     "message", "method", "parameters", "uri", "type",
-                    \DB::raw("DATE_FORMAT(datetime,'%d/%m/%y %H:%i')"), \DB::raw("DATE_FORMAT(datetime,'%d/%m/%y %H')")
+                    \DB::raw("to_char(datetime, 'DD/MM/YY HH24:MI')"), \DB::raw("to_char(datetime, 'DD/MM/YY HH24')")
                 ])
                 ->orderBy("type", "asc")
                 ->orderBy("datetime", "desc")
@@ -59,9 +59,9 @@ class ApiController extends Controller
 
             $results->reported = \DB::connection("sgcm_logs")
                 ->table("reported_logs")
-                ->selectRaw("DATE_FORMAT(datetime,'%d/%m/%y %H:%i') as datetime, content, DATE_FORMAT(datetime,'%d/%m/%y %H') as datehour ")
+                ->selectRaw("to_char(datetime, 'DD/MM/YY HH24:MI') as datetime, content, to_char(datetime, 'DD/MM/YY HH24') as datehour ")
                 ->whereBetween("datetime", [$dateS, $dateE])
-                ->orderBy(\DB::raw("DATE_FORMAT(datetime,'%d/%m/%y %H:%i')"), "desc")
+                ->orderBy(\DB::raw("to_char(datetime, 'DD/MM/YY HH24:MI')"), "desc")
                 ->get();
 
             return responseSuccess($results);

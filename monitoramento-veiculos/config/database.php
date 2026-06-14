@@ -76,18 +76,22 @@ return [
             'prefix' => '',
         ],
 
+        // ATENÇÃO: a conexão 'mysql' aponta para o BANCO PRÓPRIO do monitoramento
+        // (positions/veiculos/ultimaposicaos/posicionamento), usada pelos jobs de
+        // sincronização. Com a migração para PostgreSQL, ela passa a ser pgsql
+        // (mesmo banco do default). O nome 'mysql' é mantido só para não alterar
+        // os DB::connection('mysql') espalhados nos comandos.
         'mysql' => [
-            'driver' => 'mysql',
+            'driver' => 'pgsql',
             'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
+            'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'monitora'),
-            'username' => env('DB_USERNAME', ''),
+            'username' => env('DB_USERNAME', 'monitora'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => 'utf8',
-            'collation' => 'utf8_unicode_ci',
             'prefix' => '',
-            'strict' => false,
-            'engine' => null,
+            'schema' => 'public',
+            'sslmode' => 'prefer',
         ],
         'mysql2' => [
             'driver' => 'mysql',

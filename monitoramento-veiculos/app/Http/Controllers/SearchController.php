@@ -71,9 +71,10 @@ class SearchController extends Controller
 
         $qry =  "select " .
                 "	p.codigo_pedido " .
-                "   ,date_format(p.data_hora_entrega, '%d/%m/%Y %T') as data_hora_entrega " .
-                "   ,date_format(p.data_hora_envio, '%d/%m/%Y %T') as data_hora_envio " .
-                "   ,TIMESTAMPDIFF(MINUTE, p.data_hora_envio, CURRENT_TIMESTAMP) dif " .
+                // MySQL->PG: date_format -> to_char; TIMESTAMPDIFF(MINUTE,a,b) -> EXTRACT(EPOCH...)/60
+                "   ,to_char(p.data_hora_entrega, 'DD/MM/YYYY HH24:MI:SS') as data_hora_entrega " .
+                "   ,to_char(p.data_hora_envio, 'DD/MM/YYYY HH24:MI:SS') as data_hora_envio " .
+                "   ,(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - p.data_hora_envio)) / 60)::int dif " .
                 "   ,ruas.desc_rua " .
                 "   ,c.razao_social " .
                 "   ,p.numero_entrega " .
@@ -83,16 +84,17 @@ class SearchController extends Controller
                 "   ,p.entrega_urgente " .
                 "   ,s.desc_setores " .
                 "   ,co.nome_colaborador " .
-                "   ,IF(p.latitude IS NULL OR p.latitude = 0,c.latitude,p.latitude) AS latitude " .
-                "   ,IF(p.longitude IS NULL OR p.longitude = 0,c.longitude,p.longitude) AS longitude " .
-                "   ,CONCAT(IFNULL(ruas.desc_rua, '') , ', ', " .
-                "		   IFNULL(p.numero_entrega,''), ' - ', " .
-                "		   IFNULL(p.bairro_entrega,''), ' - ', " .
-                "		   IFNULL(cid.desc_cidade,''), ' - ', " .
-                "		   IFNULL(est.uf,'')) AS endereco " .
-                "   ,CONCAT(IFNULL(ruas.desc_rua, '') , ', ', " .
-                "		   IFNULL(p.numero_entrega,''), ' - ', " .
-                "		   IFNULL(p.bairro_entrega,'')) AS endereco1 " .
+                // MySQL IF(cond,a,b) -> Postgres CASE WHEN cond THEN a ELSE b END
+                "   ,CASE WHEN p.latitude IS NULL OR p.latitude = 0 THEN c.latitude ELSE p.latitude END AS latitude " .
+                "   ,CASE WHEN p.longitude IS NULL OR p.longitude = 0 THEN c.longitude ELSE p.longitude END AS longitude " .
+                "   ,CONCAT(COALESCE(ruas.desc_rua, '') , ', ', " .
+                "		   COALESCE(p.numero_entrega,''), ' - ', " .
+                "		   COALESCE(p.bairro_entrega,''), ' - ', " .
+                "		   COALESCE(cid.desc_cidade,''), ' - ', " .
+                "		   COALESCE(est.uf,'')) AS endereco " .
+                "   ,CONCAT(COALESCE(ruas.desc_rua, '') , ', ', " .
+                "		   COALESCE(p.numero_entrega,''), ' - ', " .
+                "		   COALESCE(p.bairro_entrega,'')) AS endereco1 " .
                 "   ,c.codigo_clientes " .
                 "   , (select CONCAT(tempo_entrega, '|', tempo_entrega_urgente) from tbl_config limit 1) as tempos " .
                 " from " .
