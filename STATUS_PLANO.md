@@ -7,6 +7,8 @@
 > Legenda: ✅ feito e verificado · 🟡 parcial / precisa validação · ❌ pendente
 >
 > Data desta auditoria: 2026-06-14 · Decisão: **Multi-tenant ADIADO** até fechar os 🟡/❌.
+>
+> ➡️ **Plano de execução para fechar estas pendências: `PLANO_FECHAMENTO_PENDENCIAS.md`** (frentes A–F + gate do multi-tenant).
 
 ---
 
@@ -23,12 +25,12 @@
 | --- | --- | --- |
 | Webhook PIX: token + valor pago==cobrado + binding | ✅ | PixController:79-84 (hash_equals token); PixService:198 (abs(pago-cobrado)>0.001). |
 | /savePosition exige token | ✅ | Monitora/ApiController: X-Integration-Token / INTEGRATION_TOKEN. |
-| getUsuarios não retorna password | 🟡 | **VERIFICAR** Monitora/ApiController::getUsuarios (não confirmado nesta auditoria). |
+| getUsuarios não retorna password | ✅ | Monitora/ApiController:24-27 select('email','id','name') — password removido. |
 | testarToken=='123456' removido | ✅ | Monitora/ApiController:46 (comentário FASE 1, mecanismo real). |
 | encodeSecret 'secret' literal → env | ✅ | Monitora/customHelper:600 SECRET_HMAC_KEY/app.key. |
 | Token api-app-gc (sha1 app_key) → APP_TOKEN_KEY | ✅ | Módulo App\Api (Fase 5). |
 | Cripto base64 → Crypt::encrypt | ✅ | customHelper:1152 customCrypt usa Crypt::encrypt; fallback legado base64. |
-| SQLi (Metavenda/Cliente/integration) | 🟡 | Metavenda/Cliente: feito (binding). integration/ eliminado. **Revisar whereRaw com interpolação remanescentes** (há vários nos relatórios fiscais). |
+| SQLi (Metavenda/Cliente/integration) | 🟡 | Metavenda/Cliente: feito (binding). integration/ eliminado. **105 whereRaw com interpolação em 47 arquivos** a triar (maioria id de sessão; isolar os de input de usuário). Ver Frente C do plano de fechamento. |
 | IDOR veiculos/dropdown + middleware access | 🟡 | Veiculo do monitora filtra por empresa_padrao. **Confirmar dropdown específico.** |
 | Política de senha min:8 | ✅ | User.php ERP + Monitora/User + Monitora/UsersController (corrigido min:4→min:8 nesta auditoria). |
 | **Rotacionar TODAS as credenciais expostas no Git** | ❌ | **PENDENTE.** Estão no histórico do Git original. SEGREDOS_LOCAIS.md tem checklist. Crítico antes de produção real. |
