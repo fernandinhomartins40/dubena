@@ -206,18 +206,10 @@ class FechamentomensalDreRepository
         " from( " .
         "   select 0 as juros, " .
         "   ( " .
-        "     select id " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano_id, " .
         "   ( " .
-        "     select descricao " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano, sum(valor) as valor " .
         "   from( " .
         "     select plano_id,sum(valor) as valor " .
@@ -345,18 +337,10 @@ class FechamentomensalDreRepository
         " from( " .
         "   select 0 as juros, " .
         "   ( " .
-        "     select id " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano_id, " .
         "   ( " .
-        "     select descricao " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano, sum(valor) as valor " .
         "   from( " .
         "     select plano_id,sum(valor) as valor " .
@@ -387,15 +371,22 @@ class FechamentomensalDreRepository
         "     string_agg(finalizador, '' order by finalizador) as finalizador, " .
         "     sum(juros + multa) as valor " .
         "     from( " .
-        "       select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
-        "       from planocontas  " .
-        "       where nivel = 1 " .
-        "       start with id in (  " .
-        "         select pcdespesasjuro_id  " .
-        "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        // Oracle START WITH id in(SUBQ) CONNECT BY prior paiplanoconta_id = id,
+        // filtrando nivel=1: sobe do plano do config até o ancestral raiz.
+        // Postgres: WITH RECURSIVE ascendente, filtra nivel=1 no fim.
+        "       WITH RECURSIVE sobe AS ( " .
+        "         SELECT id, codigo, descricao, nivel, finalizador, paiplanoconta_id FROM planocontas WHERE id in (  " .
+        "           select pcdespesasjuro_id  " .
+        "           from empresaconfigs config " .
+        "           where empresa_id = ".Session::get("empresa_padrao")->id." limit 1 " .
+        "         ) " .
+        "         UNION ALL " .
+        "         SELECT p.id, p.codigo, p.descricao, p.nivel, p.finalizador, p.paiplanoconta_id FROM planocontas p " .
+        "           JOIN sobe ON p.id = sobe.paiplanoconta_id " .
         "       ) " .
-        "       connect by prior paiplanoconta_id = id " .
+        "       select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
+        "       from sobe  " .
+        "       where nivel = 1 " .
         "        " .
         "       union all  " .
         "        " .
@@ -404,10 +395,7 @@ class FechamentomensalDreRepository
         "       from(  " .
         "         select  " .
         "         ( " .
-        "           select id from planocontas " .
-        "           where nivel = 1 " .
-        "           start with id = pcdespesasjuro_id " .
-        "           connect by prior paiplanoconta_id = id " .
+        "           WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = pcdespesasjuro_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "         ) as plano_id, " .
         "         pcdespesasjuro_id as plano_desconto, 0 as juros, " .
         "         0 as multa, 0 as desconto  " .
@@ -442,15 +430,21 @@ class FechamentomensalDreRepository
         "     sum(nivel) as nivel, " .
         "     string_agg(finalizador, '' order by finalizador) as finalizador, sum(desconto) as valor  " .
         "     from( " .
-        "       select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
-        "       from planocontas  " .
-        "       where nivel = 1 " .
-        "       start with id in (  " .
-        "         select pcdespesasdesconto_id  " .
-        "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        // Oracle START WITH id in(SUBQ) CONNECT BY prior paiplanoconta_id = id,
+        // nivel=1 -> Postgres WITH RECURSIVE ascendente.
+        "       WITH RECURSIVE sobe AS ( " .
+        "         SELECT id, codigo, descricao, nivel, finalizador, paiplanoconta_id FROM planocontas WHERE id in (  " .
+        "           select pcdespesasdesconto_id  " .
+        "           from empresaconfigs config " .
+        "           where empresa_id = ".Session::get("empresa_padrao")->id." limit 1 " .
+        "         ) " .
+        "         UNION ALL " .
+        "         SELECT p.id, p.codigo, p.descricao, p.nivel, p.finalizador, p.paiplanoconta_id FROM planocontas p " .
+        "           JOIN sobe ON p.id = sobe.paiplanoconta_id " .
         "       ) " .
-        "       connect by prior paiplanoconta_id = id " .
+        "       select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
+        "       from sobe  " .
+        "       where nivel = 1 " .
         "        " .
         "       union all  " .
         "        " .
@@ -460,10 +454,7 @@ class FechamentomensalDreRepository
         "       from(  " .
         "         select  " .
         "         ( " .
-        "           select id from planocontas " .
-        "           where nivel = 1 " .
-        "           start with id = pcdespesasdesconto_id " .
-        "           connect by prior paiplanoconta_id = id " .
+        "           WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = pcdespesasdesconto_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "         ) as plano_desconto, 0 as desconto " .
         "         from empresaconfigs config " .
         "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
@@ -872,18 +863,10 @@ class FechamentomensalDreRepository
         " from( " .
         "   select 0 as juros, " .
         "   ( " .
-        "     select id " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano_id, " .
         "   ( " .
-        "     select descricao " .
-        "     from planocontas " .
-        "     where nivel = 1 " .
-        "     start with id = plano_id " .
-        "     connect by id = prior paiplanoconta_id " .
+        "     WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = plano_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "   ) as plano, sum(valor) as valor " .
         "   from( " .
         "     select plano_id,sum(valor) as valor " .
@@ -1052,10 +1035,7 @@ class FechamentomensalDreRepository
                     " 		  parc.pagarreceber = 'P' and plano.custosvariaveis = 0 and " .
                     " 		  rato.planoconta_id in  " .
                     " 			(  " .
-                    " 				select id  " .
-                    " 				from planocontas  " .
-                    " 				start with id = " . $plano_id . "  " .
-                    " 				connect by prior id = paiplanoconta_id  " .
+                    " 				WITH RECURSIVE desce AS ( " . " SELECT id, paiplanoconta_id FROM planocontas WHERE id = " . $plano_id. " " . " UNION ALL " . " SELECT c.id, c.paiplanoconta_id FROM planocontas c JOIN desce ON c.paiplanoconta_id = desce.id " . " ) SELECT id FROM desce " .
                     " 			)  " .
                     " 		GROUP BY rato.planoconta_id, plano.descricao " .
                     ") normais " .
@@ -1085,10 +1065,7 @@ class FechamentomensalDreRepository
                     " 		  parc.pagarreceber = 'P' and plano.custosvariaveis = 0 and " .
                     " 		  rato.planoconta_id in  " .
                     " 			(  " .
-                    " 				select id  " .
-                    " 				from planocontas  " .
-                    " 				start with id = " . $plano_id . "  " .
-                    " 				connect by prior id = paiplanoconta_id  " .
+                    " 				WITH RECURSIVE desce AS ( " . " SELECT id, paiplanoconta_id FROM planocontas WHERE id = " . $plano_id. " " . " UNION ALL " . " SELECT c.id, c.paiplanoconta_id FROM planocontas c JOIN desce ON c.paiplanoconta_id = desce.id " . " ) SELECT id FROM desce " .
                     " 			)  " .
                     " 		GROUP BY rato.planoconta_id, plano.descricao " .			
                         

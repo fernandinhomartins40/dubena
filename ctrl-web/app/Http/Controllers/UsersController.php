@@ -333,12 +333,14 @@ class UsersController extends Controller
      */
     private function getFinanceiros()
     {
-        $query = "select id from menus where descricao is not null " .
-            "start with id = (select id " .
-            "from menus " .
-            "where descricao is null and " .
-            "lower(titulo) like 'financeiros' and parent_id is null) " .
-            "connect by prior id = parent_id";
+        // Oracle START WITH id=(SUBQ) CONNECT BY prior id = parent_id: desce a
+        // árvore de menus a partir do menu "Financeiros". Postgres: WITH RECURSIVE.
+        $query = "WITH RECURSIVE desce AS ( " .
+            "  SELECT id, parent_id, descricao FROM menus " .
+            "  WHERE id = (select id from menus where descricao is null and lower(titulo) like 'financeiros' and parent_id is null) " .
+            "  UNION ALL " .
+            "  SELECT m.id, m.parent_id, m.descricao FROM menus m JOIN desce ON m.parent_id = desce.id " .
+            ") SELECT id FROM desce WHERE descricao is not null";
 
         return json_encode(DB::select($query));
     }

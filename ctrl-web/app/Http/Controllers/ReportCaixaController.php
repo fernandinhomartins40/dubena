@@ -930,7 +930,7 @@ class ReportCaixaController extends Controller
         $query = $query .
             "group by parc.financeiro_id) " .
             "group by plano.descricao, plano.codigo, plano.nivel, plano.id" .
-            ") " .
+            ") qry_uniao " .
             "group by planoconta_id, codigo, planoconta, nivel " .
             "order by codigo, planoconta";
 
@@ -958,9 +958,13 @@ class ReportCaixaController extends Controller
             "string_agg(finalizador, '' order by finalizador) as finalizador, " .
             "sum(juros + multa) as juros_multa, 0 as desconto " .
             "from( " .
-            "select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador " .
+            // Oracle START WITH id in(SUBQ) CONNECT BY prior paiplanoconta_id = id
+            // -> Postgres WITH RECURSIVE ascendente (plano de contas).
+            "select plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador " .
+            "from ( WITH RECURSIVE sobe AS ( " .
+            "select id as plano_id, codigo, descricao, nivel, finalizador, paiplanoconta_id " .
             "from planocontas " .
-            "start with id in ( " .
+            "where id in ( " .
             "select $juros_id " .
             "from empresaconfigs config " .
             "inner join empresas on config.empresa_id = empresas.id " .
@@ -973,13 +977,16 @@ class ReportCaixaController extends Controller
 
         $query .= " limit 1 " .
             ") " .
-            "connect by prior paiplanoconta_id = id " .
+            "  UNION ALL " .
+            "  SELECT p.id, p.codigo, p.descricao, p.nivel, p.finalizador, p.paiplanoconta_id FROM planocontas p " .
+            "    JOIN sobe ON p.id = sobe.paiplanoconta_id " .
+            ") SELECT plano_id, codigo, descricao, nivel, finalizador FROM sobe ) plano " .
 
             "union all " .
 
             "select sum(plano_id) as plano_id, '' as codigo, '' as descricao, 0 as nivel, sum(juros) as juros, sum(multa) as multa, '' as finalizador " .
             "from( " .
-            "select $juros_id as plano_id, $desconto_id as plano_desconto, 0 as juros, 0 as multa, 0 as desconto " .
+            "( select $juros_id as plano_id, $desconto_id as plano_desconto, 0 as juros, 0 as multa, 0 as desconto " .
             "from empresaconfigs config " .
             "inner join empresas on config.empresa_id = empresas.id " .
             "where";
@@ -989,11 +996,11 @@ class ReportCaixaController extends Controller
         else
             $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . " and empresas.id in ($empresas) ";
 
-        $query .=  " limit 1 " .
+        $query .=  " limit 1 ) " .
 
             "union all " .
 
-            "select 0 as plano_id, 0 as plano_desconto, sum(juros) as juros, sum(multa) as multa, 0 as desconto " .
+            "( select 0 as plano_id, 0 as plano_desconto, sum(juros) as juros, sum(multa) as multa, 0 as desconto " .
             "from financeiroparcelas parc " .
             "inner join empresas on parc.empresa_id = empresas.id " .
             "where parc.datacompetencia between " .
@@ -1010,6 +1017,7 @@ class ReportCaixaController extends Controller
             $query .= "parc.grupo_id = $parametro and parc.empresa_id in ($empresas) ";
 
         $query .=
+            " ) " .
             ") juros_multas " .
             ") recurssive " .
             "group by plano_id " .
@@ -1022,9 +1030,13 @@ class ReportCaixaController extends Controller
             "string_agg(finalizador, '' order by finalizador) as finalizador, " .
             "0 as juros_multa, sum(desconto) as desconto " .
             "from( " .
-            "select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador " .
-            "from planocontas plano " .
-            "start with id in ( " .
+            // Oracle START WITH id in(SUBQ) CONNECT BY prior paiplanoconta_id = id
+            // -> Postgres WITH RECURSIVE ascendente (plano de contas).
+            "select plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador " .
+            "from ( WITH RECURSIVE sobe AS ( " .
+            "select id as plano_desconto, codigo, descricao, nivel, finalizador, paiplanoconta_id " .
+            "from planocontas " .
+            "where id in ( " .
             "select $desconto_id " .
             "from empresaconfigs config " .
             "inner join empresas on config.empresa_id = empresas.id " .
@@ -1037,13 +1049,16 @@ class ReportCaixaController extends Controller
 
         $query .=    " limit 1 " .
             ") " .
-            "connect by prior paiplanoconta_id = id " .
+            "  UNION ALL " .
+            "  SELECT p.id, p.codigo, p.descricao, p.nivel, p.finalizador, p.paiplanoconta_id FROM planocontas p " .
+            "    JOIN sobe ON p.id = sobe.paiplanoconta_id " .
+            ") SELECT plano_desconto, codigo, descricao, nivel, finalizador FROM sobe ) plano " .
 
             "union all " .
 
             "select sum(plano_desconto) as plano_desconto, '' as codigo, '' as descricao, 0 as nivel, sum(desconto) as desconto, '' as finalizador " .
             "from( " .
-            "select $desconto_id as plano_desconto, 0 as desconto " .
+            "( select $desconto_id as plano_desconto, 0 as desconto " .
             "from empresaconfigs config " .
             "inner join empresas on config.empresa_id = empresas.id " .
             "where ";
@@ -1051,13 +1066,13 @@ class ReportCaixaController extends Controller
         if ($padrao == 'regional')
             $query .= " empresas.regiao_id = $parametro and empresas.id in ($empresas)";
         else
-            $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . "and empresas.id in ($empresas)";
+            $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . " and empresas.id in ($empresas)";
 
-        $query .=    " limit 1 " .
+        $query .=    " limit 1 ) " .
 
             "union all " .
 
-            "select 0 as plano_desconto, sum(desconto) as desconto " .
+            "( select 0 as plano_desconto, sum(desconto) as desconto " .
             "from financeiroparcelas parc " .
             "inner join empresas on parc.empresa_id = empresas.id " .
             "where parc.datacompetencia between " .
@@ -1072,6 +1087,7 @@ class ReportCaixaController extends Controller
             $query .= "parc.grupo_id = $parametro and parc.empresa_id in ($empresas)";
 
         $query .=
+            " ) " .
             ") descontos " .
             ") query_2 " .
             "group by plano_desconto " .

@@ -127,18 +127,10 @@ class FechamentomensalBalancoRepository
         " select plano_id, descricao as tipodescricao, null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, sum(valor) as valor " .
         " from( " .
         "     select ( " .
-        "         select id " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as plano_id,  " .
         "     ( " .
-        "         select descricao " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as descricao, " .
         "     (case when rato.percentual > 1 then (rato.percentual / 100) * parc.valorefetivado else rato.percentual * parc.valorefetivado end) as valor " .
         "     from financeiroparcelas parc " .
@@ -160,18 +152,10 @@ class FechamentomensalBalancoRepository
         " select plano_id, descricao||' **' AS tipodescricao, null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, sum(valor) as valor " .
         " from( " .
         "     select ( " .
-        "         select id " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as plano_id,  " .
         "     ( " .
-        "         select descricao " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as descricao, " .
         "     (case when rato.percentual > 1 then (rato.percentual / 100) * parc.valorefetivado else rato.percentual * parc.valorefetivado end) as valor " .
         "     from financeiroparcelas parc " .
@@ -354,18 +338,10 @@ class FechamentomensalBalancoRepository
         " select plano_id, descricao as tipodescricao, null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, sum(valor) as valor " .
         " from( " .
         "     select ( " .
-        "         select id " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as plano_id,  " .
         "     ( " .
-        "         select descricao " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as descricao, " .
         "     (case when rato.percentual > 1 then (rato.percentual / 100) * parc.valorefetivado else rato.percentual * parc.valorefetivado end) as valor " .
         "     from financeiroparcelas parc " .
@@ -387,18 +363,10 @@ class FechamentomensalBalancoRepository
         " select plano_id, descricao||' **' AS tipodescricao, null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, sum(valor) as valor " .
         " from( " .
         "     select ( " .
-        "         select id " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as plano_id,  " .
         "     ( " .
-        "         select descricao " .
-        "         from planocontas plano " .
-        "         where nivel = 1 " .
-        "         start with id = rato.planoconta_id " .
-        "         connect by id = prior paiplanoconta_id " .
+        "         WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = rato.planoconta_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT descricao FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "     ) as descricao, " .
         "     (case when rato.percentual > 1 then (rato.percentual / 100) * parc.valorefetivado else rato.percentual * parc.valorefetivado end) as valor " .
         "     from financeiroparcelas parc " .
