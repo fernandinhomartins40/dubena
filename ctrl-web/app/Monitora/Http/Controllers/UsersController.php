@@ -82,7 +82,7 @@ class UsersController extends Controller
         $this->validate($request, [
             'name' => 'required|min:5|unique:users,name,null,id,empresa_id,' . Session::get('empresa_padrao')->id,
             'email' => 'required|min:5|unique:users',
-            'password' => 'required|min:4|confirmed',
+            'password' => 'required|min:8|confirmed', // FASE 1 (S6): era min:4
             'empresa_padrao' => 'empresa_exists'
                 ], $this->msgsValidacao);
         DB::beginTransaction();
