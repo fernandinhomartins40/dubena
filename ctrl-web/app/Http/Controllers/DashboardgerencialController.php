@@ -97,11 +97,10 @@ class DashboardgerencialController extends Controller
         "     p.DESCRICAO, dia_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.valor, 0) AS valor   " .
         " FROM (   " .
         "    SELECT " .
-        "	     TO_CHAR(TRUNC(TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD'), 'MONTH') + LEVEL - 1, 'YYYYMMDD') AS dia_seq " .
-        "	FROM " .
-        "	    DUAL " .
-        "	CONNECT BY " .
-        "	    LEVEL <= TO_CHAR(TO_DATE('".$this->dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD'), 'DD') " .
+        // Oracle CONNECT BY LEVEL <= dia(dataReferencia): gera 1 linha por dia,
+        // do 1º do mês até o dia da data de referência. Postgres: generate_series.
+        "	     TO_CHAR(date_trunc('month', TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 day', 'YYYYMMDD') AS dia_seq " .
+        "	FROM generate_series(1, ".((int)$this->dataReferencia->format('d')).") AS g(lvl) " .
         " ) CROSS JOIN (  " .
         "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual  " .
         "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p   " .
@@ -129,11 +128,9 @@ class DashboardgerencialController extends Controller
 
         "        SELECT produto_id, dia_seq AS dia, quantidade, precomedio FROM ( " . 
         "            SELECT " . 
-        "                    TO_CHAR(TRUNC(TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD'), 'MONTH') + LEVEL - 1, 'YYYYMMDD') AS dia_seq " . 
-        "                FROM " . 
-        "                    DUAL " . 
-        "                CONNECT BY " . 
-        "                    LEVEL <= TO_CHAR(TO_DATE('".$this->dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD'), 'DD') " . 
+        // Oracle CONNECT BY LEVEL <= dia(dataReferencia) -> generate_series (1 linha/dia).
+        "                    TO_CHAR(date_trunc('month', TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 day', 'YYYYMMDD') AS dia_seq " .
+        "                FROM generate_series(1, ".((int)$this->dataReferencia->format('d')).") AS g(lvl) " .
         "        ) CROSS JOIN  " . 
         "        ( " . 
         "            select 999 AS produto_id, sum(meta.quantidade)/".Carbon::Parse($this->dataReferencia)->endOfMonth()->day." as quantidade, 0 AS precomedio  " . 
@@ -182,11 +179,9 @@ class DashboardgerencialController extends Controller
         "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio  " .
         " FROM (  " .
         "     SELECT" .
-        "         TO_CHAR(TRUNC(ADD_MONTHS(TO_DATE('".$dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD'), 1 - LEVEL), 'MM'), 'YYYYMM') AS mes_seq" .
-        "     FROM" .
-        "         dual" .
-        "     CONNECT BY" .
-        "         LEVEL <= 12" .
+        // Oracle CONNECT BY LEVEL<=12, ADD_MONTHS(d, 1-LEVEL): 12 meses p/ trás. -> generate_series.
+        "         TO_CHAR(date_trunc('month', TO_DATE('".$dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD')) - (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq" .
+        "     FROM generate_series(1, 12) AS g(lvl)" .
         "     ORDER BY" .
         "         mes_seq" .
         " ) CROSS JOIN ( " .
@@ -215,11 +210,9 @@ class DashboardgerencialController extends Controller
         "         " .
         "         SELECT 999 AS produto_id, MES_SEQ AS mes, round(quantidade) AS quantidade, precomedio FROM (" .
         "             SELECT" .
-        "                 TO_CHAR(TRUNC(ADD_MONTHS(TO_DATE('".$dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD'), 1 - LEVEL), 'MM'), 'YYYYMM') AS mes_seq" .
-        "             FROM" .
-        "                 dual" .
-        "             CONNECT BY" .
-        "                 LEVEL <= 12" .
+        // Oracle CONNECT BY LEVEL<=12 (12 meses p/ trás) -> generate_series.
+        "                 TO_CHAR(date_trunc('month', TO_DATE('".$dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD')) - (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq" .
+        "             FROM generate_series(1, 12) AS g(lvl)" .
         "             ORDER BY" .
         "                 mes_seq" .
         "         ) CROSS JOIN (" .

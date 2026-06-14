@@ -58,9 +58,10 @@ class ConveniogbgestaoController extends Controller
         " SELECT  " .
         "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio " .
         " FROM ( " .
-        "     SELECT to_char(ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1), 'yyyymm') AS mes_seq " .
-        "     FROM DUAL " .
-        "     CONNECT BY ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1) <= TRUNC(CURRENT_TIMESTAMP, 'MON') " .
+        // Oracle CONNECT BY gerava os últimos 12 meses (yyyymm). Postgres:
+        // generate_series sobre meses a partir de (mês atual - 11).
+        "     SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq " .
+        "     FROM generate_series(11,0,-1) AS g(lvl) " .
         " ) CROSS JOIN produtos p " .
         "     LEFT JOIN ( " .
         "         select produtos.id AS produto_id,  " .
@@ -95,9 +96,9 @@ class ConveniogbgestaoController extends Controller
         " SELECT   " .
         "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.qtvenda, 0) AS quantidade " .
         " FROM (  " .
-        "     SELECT to_char(ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1), 'yyyymm') AS mes_seq  " .
-        "     FROM DUAL  " .
-        "     CONNECT BY ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1) <= TRUNC(CURRENT_TIMESTAMP, 'MON')  " .
+        // Oracle CONNECT BY -> generate_series (últimos 12 meses, yyyymm).
+        "     SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq  " .
+        "     FROM generate_series(11,0,-1) AS g(lvl)  " .
         " ) CROSS JOIN produtos p  " .
         "     LEFT JOIN (  " .
         "         select produtos.id AS produto_id,   " .
@@ -119,9 +120,9 @@ class ConveniogbgestaoController extends Controller
         "     UNION ALL " .
         "     SELECT * FROM ( " .
         "     WITH meses_ref AS ( " .
-        "         SELECT TO_CHAR(ADD_MONTHS(TRUNC(CURRENT_DATE, 'MONTH'), LEVEL - 12), 'YYYYMM') AS mes " .
-        "         FROM dual " .
-        "         CONNECT BY LEVEL <= 12 " .
+        // Oracle CONNECT BY LEVEL<=12 (últimos 12 meses) -> generate_series.
+        "         SELECT TO_CHAR(date_trunc('month', current_date) - g.lvl * interval '1 month', 'YYYYMM') AS mes " .
+        "         FROM generate_series(11,0,-1) AS g(lvl) " .
         "     ), " .
         "     clientes_por_mes AS ( " .
         "         SELECT " .
@@ -222,9 +223,9 @@ class ConveniogbgestaoController extends Controller
          " SELECT   " .
          "        p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio  " .
          "    FROM (  " .
-         "        SELECT to_char(ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1), 'yyyymm') AS mes_seq  " .
-         "        FROM DUAL  " .
-         "        CONNECT BY ADD_MONTHS(TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH'), ROWNUM - 1) <= TRUNC(CURRENT_TIMESTAMP, 'MON')  " .
+         // Oracle CONNECT BY -> generate_series (últimos 12 meses, yyyymm).
+         "        SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq  " .
+         "        FROM generate_series(11,0,-1) AS g(lvl)  " .
          "    ) CROSS JOIN produtos p  " .
          "        LEFT JOIN (  " .
          "                SELECT produtos.id AS produto_id, " .

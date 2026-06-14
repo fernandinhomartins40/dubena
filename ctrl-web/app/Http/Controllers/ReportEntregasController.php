@@ -37,7 +37,9 @@ class ReportEntregasController extends Controller
 
 	public function indexTempoEntregas()
 	{
-		$years = DB::select("select to_char(add_months(trunc(sysdate, 'yyyy'), -12*(level -1)), 'yyyy') ano from dual connect by level <= 3");
+		// Oracle "from dual connect by level <= 3" gera 3 linhas (últimos 3 anos).
+		// Postgres: generate_series + date_trunc/interval.
+		$years = DB::select("select to_char(date_trunc('year', current_date) - (g.lvl - 1) * interval '1 year', 'yyyy') ano from generate_series(1,3) as g(lvl)");
 		$years2 = [];
 		foreach ($years as $year) {
 			$years2[$year->ano] = $year->ano;

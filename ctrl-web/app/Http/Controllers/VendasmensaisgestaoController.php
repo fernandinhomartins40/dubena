@@ -77,14 +77,10 @@ class VendasmensaisgestaoController extends Controller
         "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio  " .
         " FROM (  " .
         "     SELECT " .
-		"       TO_CHAR(ADD_MONTHS(TRUNC(TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD'), 'YYYY'), LEVEL - 1), 'YYYYMM') AS mes_seq " .
-		"     FROM " .
-		"       DUAL " .
-		"     CONNECT BY " .
-		"       LEVEL <= CASE " .
-		"         WHEN '".$ano."' = TO_CHAR(SYSDATE, 'YYYY') THEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) " .
-		"         ELSE 12 " .
-		"       END" . 
+		// Oracle CONNECT BY: meses do ano $ano (até o mês atual se ano corrente,
+		// senão 12). Postgres: generate_series com limite dinâmico via CASE.
+		"       TO_CHAR(date_trunc('year', TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq " .
+		"     FROM generate_series(1, CASE WHEN '".$ano."' = TO_CHAR(now(), 'YYYY') THEN EXTRACT(MONTH FROM now())::int ELSE 12 END) AS g(lvl) " .
         " ) CROSS JOIN ( " .
         "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual " .
         "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p  " .
@@ -140,14 +136,9 @@ class VendasmensaisgestaoController extends Controller
             "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio  " .
             " FROM (  " .
             "     SELECT " .
-            "       TO_CHAR(ADD_MONTHS(TRUNC(TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD'), 'YYYY'), LEVEL - 1), 'YYYYMM') AS mes_seq " .
-            "     FROM " .
-            "       DUAL " .
-            "     CONNECT BY " .
-            "       LEVEL <= CASE " .
-            "         WHEN '".$ano."' = TO_CHAR(SYSDATE, 'YYYY') THEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) " .
-            "         ELSE 12 " .
-            "       END" . 
+            // Oracle CONNECT BY: meses do ano (até mês atual se ano corrente). -> generate_series.
+            "       TO_CHAR(date_trunc('year', TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq " .
+            "     FROM generate_series(1, CASE WHEN '".$ano."' = TO_CHAR(now(), 'YYYY') THEN EXTRACT(MONTH FROM now())::int ELSE 12 END) AS g(lvl) " .
             " ) CROSS JOIN ( " .
             "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual " .
             "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p  " .
