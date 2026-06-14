@@ -80,7 +80,7 @@ class FechamentomensalBalancoRepository
         " from ( " .
         " 	select max(id) as id, max(updated_at) as updated_at  " .
         " 	from estoquefechamentos fec " .
-        " 	where trunc(fec.datahorafechamento) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 	where (fec.datahorafechamento)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " ) fec " .
         " inner join estoquefechamentosetors est on est.estoquefechamento_id = fec.id  " .
         " inner join empresas on est.empresa_id = empresas.id " .
@@ -179,10 +179,10 @@ class FechamentomensalBalancoRepository
         "     inner join empresas on parc.empresa_id = empresas.id " .
         "     INNER JOIN financeiros fin ON parc.FINANCEIRO_ID = fin.id " .
         "     where agrupamento_status < 2 " .
-        "     AND fin.DATACOMPETENCIA > LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        "     AND fin.DATACOMPETENCIA > LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         " 	AND fin.DATACOMPETENCIA <= to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') " .
         "     AND baixado = 1 " .
-        " 	AND parc.DATAHORABAIXA <= LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        " 	AND parc.DATAHORABAIXA <= LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         "     AND parc.pagarreceber = 'R' " .
         "     AND empresas.id =  ". Session::get('empresa_padrao')->id . " " .
         "     group by parc.id,rato.planoconta_id,rato.percentual,rato.percentual,parc.valorefetivado,rato.id " .
@@ -244,7 +244,7 @@ class FechamentomensalBalancoRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -309,7 +309,7 @@ class FechamentomensalBalancoRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -406,10 +406,10 @@ class FechamentomensalBalancoRepository
         "     inner join empresas on parc.empresa_id = empresas.id " .
         "     INNER JOIN financeiros fin ON parc.FINANCEIRO_ID = fin.id " .
         "     where agrupamento_status < 2 " .
-        "     AND fin.DATACOMPETENCIA > LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        "     AND fin.DATACOMPETENCIA > LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         " 	AND fin.DATACOMPETENCIA <= to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') " .
         "     AND baixado = 1 " .
-        " 	AND parc.DATAHORABAIXA <= LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        " 	AND parc.DATAHORABAIXA <= LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         "     AND parc.pagarreceber = 'P' " .
         "     AND empresas.id =  ". Session::get('empresa_padrao')->id . " " .
         "     group by parc.id,rato.planoconta_id,rato.percentual,rato.percentual,parc.valorefetivado,rato.id " .
@@ -449,7 +449,7 @@ class FechamentomensalBalancoRepository
         $query = 
         " select (case when length(descricao) > 30 then (substr(descricao,1,30) || '...') else descricao end) as tipodescricao,  " .
         " null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, " .
-        " valororiginal - (((sysdate - datacadastro::date) * (depreciacaoporcentagem / depreciacaodias)) / 100 * valororiginal) as valor " .
+        " valororiginal - (((now() - datacadastro::date) * (depreciacaoporcentagem / depreciacaodias)) / 100 * valororiginal) as valor " .
         " from empresabems bens " .
         " inner join empresas on bens.empresa_id = empresas.id " .
         " where " .

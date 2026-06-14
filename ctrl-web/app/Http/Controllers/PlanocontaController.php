@@ -293,8 +293,8 @@ class PlanocontaController extends Controller
 
     public function isUsed($pc_id)
     {
-        $subSel = "(SELECT id FROM ESTOQUEREQUISICAOS WHERE PLANOCONTA_ID = $pc_id AND ROWNUM <= 1) UNION ALL "
-            . " (SELECT id FROM FINANCEIRORATEIOS WHERE PLANOCONTA_ID = $pc_id AND ROWNUM <= 1)";
+        $subSel = "(SELECT id FROM ESTOQUEREQUISICAOS WHERE PLANOCONTA_ID = $pc_id limit 1) UNION ALL "
+            . " (SELECT id FROM FINANCEIRORATEIOS WHERE PLANOCONTA_ID = $pc_id limit 1)";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1 ";
         return collect(DB::select($selectStatement))->count() == 1;
     }
@@ -303,15 +303,15 @@ class PlanocontaController extends Controller
     {
         $subSel = "SELECT id FROM EMPRESACONFIGS WHERE PLANOCONTA_ID = $pc_id OR PCCARTAO_ID = $pc_id "
             . " OR PCRECEITADESCONTO_ID = $pc_id OR PCRECETAJURO_ID = $pc_id OR PCDESPESASDESCONTO_ID = $pc_id "
-            . " OR PCDESPESASJURO_ID = $pc_id OR PCVALEGAS_ID = $pc_id OR PCFRETE_ID = $pc_id AND ROWNUM <= 1";
+            . " OR PCDESPESASJURO_ID = $pc_id OR PCVALEGAS_ID = $pc_id OR PCFRETE_ID = $pc_id limit 1";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }
 
     public function isUsedByNF($pc_id)
     {
-        $subSel = "(SELECT id FROM NFRECEBIDAS WHERE PLANOCONTA_ID = $pc_id OR FRETEPLANOCONTA_ID = $pc_id AND ROWNUM <= 1) UNION ALL "
-            . " (SELECT id FROM NFEMITIDAS WHERE PLANOCONTA_ID = $pc_id OR FRETEPLANOCONTA_ID = $pc_id AND ROWNUM <= 1)";
+        $subSel = "(SELECT id FROM NFRECEBIDAS WHERE PLANOCONTA_ID = $pc_id OR FRETEPLANOCONTA_ID = $pc_id limit 1) UNION ALL "
+            . " (SELECT id FROM NFEMITIDAS WHERE PLANOCONTA_ID = $pc_id OR FRETEPLANOCONTA_ID = $pc_id limit 1)";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }

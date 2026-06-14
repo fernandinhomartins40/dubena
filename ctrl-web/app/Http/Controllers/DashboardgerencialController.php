@@ -101,9 +101,9 @@ class DashboardgerencialController extends Controller
         // do 1º do mês até o dia da data de referência. Postgres: generate_series.
         "	     TO_CHAR(date_trunc('month', TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 day', 'YYYYMMDD') AS dia_seq " .
         "	FROM generate_series(1, ".((int)$this->dataReferencia->format('d')).") AS g(lvl) " .
-        " ) CROSS JOIN (  " .
-        "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual  " .
-        "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p   " .
+        " ) seq CROSS JOIN (  " .
+        "     SELECT 998 AS id, 'Realizado' AS descricao    " .
+        "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao  ) p   " .
         "     LEFT JOIN (   " .
         "         select 998 AS produto_id,    " .
         "                 to_char(datahoraprevisaoentrega,'yyyymmdd') as dia,   " .
@@ -131,7 +131,7 @@ class DashboardgerencialController extends Controller
         // Oracle CONNECT BY LEVEL <= dia(dataReferencia) -> generate_series (1 linha/dia).
         "                    TO_CHAR(date_trunc('month', TO_DATE('".$this->dataReferencia->format('Y-m')."' || '-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 day', 'YYYYMMDD') AS dia_seq " .
         "                FROM generate_series(1, ".((int)$this->dataReferencia->format('d')).") AS g(lvl) " .
-        "        ) CROSS JOIN  " . 
+        "        ) seq CROSS JOIN  " . 
         "        ( " . 
         "            select 999 AS produto_id, sum(meta.quantidade)/".Carbon::Parse($this->dataReferencia)->endOfMonth()->day." as quantidade, 0 AS precomedio  " . 
         "                        from metavendas meta  " . 
@@ -179,14 +179,14 @@ class DashboardgerencialController extends Controller
         "     p.DESCRICAO, mes_seq, COALESCE(qryvenda.quantidade, 0) AS quantidade, COALESCE(qryvenda.precomedio, 0) AS precomedio  " .
         " FROM (  " .
         "     SELECT" .
-        // Oracle CONNECT BY LEVEL<=12, ADD_MONTHS(d, 1-LEVEL): 12 meses p/ trás. -> generate_series.
+        // Oracle CONNECT BY LEVEL<=12, (d + (1-LEVEL) * interval '1 month'): 12 meses p/ trás. -> generate_series.
         "         TO_CHAR(date_trunc('month', TO_DATE('".$dataReferencia->format('Y-m-d')."', 'YYYY-MM-DD')) - (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq" .
         "     FROM generate_series(1, 12) AS g(lvl)" .
         "     ORDER BY" .
         "         mes_seq" .
-        " ) CROSS JOIN ( " .
-        "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual " .
-        "     UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p  " .
+        " ) seq CROSS JOIN ( " .
+        "     SELECT 998 AS id, 'Realizado' AS descricao   " .
+        "     UNION ALL SELECT 999 AS id, 'Meta' AS descricao  ) p  " .
         "     LEFT JOIN (  " .
         "         select 998 AS produto_id,   " .
         "                 to_char(datahoraprevisaoentrega,'yyyymm') as mes,  " .
@@ -215,7 +215,7 @@ class DashboardgerencialController extends Controller
         "             FROM generate_series(1, 12) AS g(lvl)" .
         "             ORDER BY" .
         "                 mes_seq" .
-        "         ) CROSS JOIN (" .
+        "         ) seq CROSS JOIN (" .
         "             SELECT sum(coalesce(s.qtderesidencias, 0)*COALESCE(e.FATORPOTENCIALVENDA, 0)/13) AS  quantidade, 0 AS precomedio" .
         "             FROM setors s " .
         "             INNER JOIN EMPRESACONFIGS e ON e.EMPRESA_ID = s.EMPRESA_ID " .

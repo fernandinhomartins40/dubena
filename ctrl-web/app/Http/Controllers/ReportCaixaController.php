@@ -958,7 +958,7 @@ class ReportCaixaController extends Controller
         else
             $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . " and empresas.id in ($empresas) ";
 
-        $query .= " and rownum <= 1 " .
+        $query .= " limit 1 " .
             ") " .
             "connect by prior paiplanoconta_id = id " .
 
@@ -976,7 +976,7 @@ class ReportCaixaController extends Controller
         else
             $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . " and empresas.id in ($empresas) ";
 
-        $query .=  " and rownum <= 1 " .
+        $query .=  " limit 1 " .
 
             "union all " .
 
@@ -1022,7 +1022,7 @@ class ReportCaixaController extends Controller
         else
             $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . " and empresas.id in ($empresas)";
 
-        $query .=    " and rownum <= 1 " .
+        $query .=    " limit 1 " .
             ") " .
             "connect by prior paiplanoconta_id = id " .
 
@@ -1040,7 +1040,7 @@ class ReportCaixaController extends Controller
         else
             $query .= " config.grupo_id = " . Session::get('empresa_padrao')->grupo_id . "and empresas.id in ($empresas)";
 
-        $query .=    " and rownum <= 1 " .
+        $query .=    " limit 1 " .
 
             "union all " .
 

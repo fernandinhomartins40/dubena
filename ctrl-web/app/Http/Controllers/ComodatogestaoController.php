@@ -147,8 +147,8 @@ class ComodatogestaoController extends Controller
                 "cli.nome",
                 "com.nomerepresentante AS representante",
                 "com.datavencimento",
-                DB::raw("(CASE WHEN com.datavencimento < sysdate THEN 1 ELSE 0 END) AS vencido"),
-                DB::raw("(CASE WHEN to_char(com.datavencimento, 'YYYY-MM') = to_char(sysdate, 'YYYY-MM') THEN 1 ELSE 2 END) AS ordem"),
+                DB::raw("(CASE WHEN com.datavencimento < now() THEN 1 ELSE 0 END) AS vencido"),
+                DB::raw("(CASE WHEN to_char(com.datavencimento, 'YYYY-MM') = to_char(now(), 'YYYY-MM') THEN 1 ELSE 2 END) AS ordem"),
                 DB::raw("sum(comit.QUANTIDADE) AS quantidade")
             )
             ->groupBy("com.id", "com.cliente_id", "cli.nome", "com.nomerepresentante", "com.datavencimento");
@@ -184,7 +184,7 @@ class ComodatogestaoController extends Controller
                     sum(pit.quantidade) AS qtde_compras
                     FROM (
                         SELECT com.id, com.cliente_id, com.datacontrato,
-                        round(months_between(sysdate, com.datacontrato),0) AS diff,
+                        round(months_between(now(), com.datacontrato),0) AS diff,
                         coalesce(pro.id, comit.produto_id) AS produto_id
                         FROM comodatos com
                         INNER JOIN comodatoitems comit ON comit.comodato_id = com.id
@@ -197,7 +197,7 @@ class ComodatogestaoController extends Controller
                     INNER JOIN pedidoitems pit ON pit.pedido_id = ped.id
                         AND pit.produto_id = com.produto_id
                     WHERE ped.datahoraprevisaoentrega BETWEEN
-                    com.datacontrato AND sysdate
+                    com.datacontrato AND now()
                     AND ped.pedidosituacao_id in (SELECT id FROM pedidosituacaos WHERE ENTREGAFINALIZADA = 1 OR FECHADOCONCLUIDO = 1)
                     GROUP BY com.id, com.cliente_id, com.diff
                 ) giro

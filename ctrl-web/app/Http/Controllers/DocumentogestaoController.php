@@ -69,7 +69,7 @@ class DocumentogestaoController extends Controller
         "  SELECT qry.*, case when qtdiasvencer < 0 then 'red' else case when qtdiasvencer <= diasalerta then 'orange' else 'green' end end as alerta FROM ( " .
         "  SELECT " .
         "  d.DOCUMENTOTIPO_ID, t.DESCRICAO AS tipodescricao,d.DESCRICAO AS documentodescricao, v.DATAVENCIMENTO, v.NUMEROVERSAO, v.id, " .
-        "  trunc(datavencimento) - trunc(sysdate) AS qtdiasvencer, t.diasalerta " .
+        "  (datavencimento)::date - current_date AS qtdiasvencer, t.diasalerta " .
         "  FROM DOCUMENTOS d  " .
         "  INNER JOIN DOCUMENTOVERSAOS v ON v.DOCUMENTO_ID = d.ID  " .
         "  INNER JOIN DOCUMENTOTIPOS t ON t.id = d.DOCUMENTOTIPO_ID  " .

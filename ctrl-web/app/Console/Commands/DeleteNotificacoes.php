@@ -44,10 +44,10 @@ class DeleteNotificacoes extends Command
         $date = $date->format('d/m/Y H:i:s');
         DB::beginTransaction();
         try {
-            $count = DB::table('notificacoes')->whereRaw("created_at <= trunc(sysdate) - 14")->count();
-            DB::table('notificacoes')->whereRaw("created_at <= trunc(sysdate) - 14")->delete();
-            $countMsgs = DB::table('androidmensagems')->whereRaw("created_at <= trunc(sysdate) - 14")->count();
-            DB::table('androidmensagems')->whereRaw("created_at <= trunc(sysdate) - 14")->delete();
+            $count = DB::table('notificacoes')->whereRaw("created_at <= current_date - 14")->count();
+            DB::table('notificacoes')->whereRaw("created_at <= current_date - 14")->delete();
+            $countMsgs = DB::table('androidmensagems')->whereRaw("created_at <= current_date - 14")->count();
+            DB::table('androidmensagems')->whereRaw("created_at <= current_date - 14")->delete();
         } catch ( \Exception $e ) {
             DB::rollback();
             $error = "Error: " . $e->getMessage() . " Line: " . $e->getLine();

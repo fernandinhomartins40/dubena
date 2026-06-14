@@ -62,7 +62,7 @@ class ConveniogbgestaoController extends Controller
         // generate_series sobre meses a partir de (mês atual - 11).
         "     SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq " .
         "     FROM generate_series(11,0,-1) AS g(lvl) " .
-        " ) CROSS JOIN produtos p " .
+        " ) seq CROSS JOIN produtos p " .
         "     LEFT JOIN ( " .
         "         select produtos.id AS produto_id,  " .
         "                 to_char(datahoraprevisaoentrega,'yyyymm') as mes, " .
@@ -73,8 +73,8 @@ class ConveniogbgestaoController extends Controller
         "         inner join produtos on items.produto_id = produtos.id " .
         "         inner join condicaopagamentos cond on pedidos.condicaopagamento_id = cond.id " .
         "         where pedidos.empresa_id = ".Session::get("empresa_padrao")->id." and " .
-        "         cond.tipo = 4 and  " .
-        "         pedidos.datahoraprevisaoentrega BETWEEN TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH') AND CURRENT_TIMESTAMP and " .
+        "         cond.tipo = '4' and  " .
+        "         pedidos.datahoraprevisaoentrega BETWEEN date_trunc('month', (CURRENT_TIMESTAMP + (-11) * interval '1 month')) AND CURRENT_TIMESTAMP and " .
         "         pedidos.pedidosituacao_id in (select id from pedidosituacaos where empresa_id = ".Session::get("empresa_padrao")->id." and fechadoconcluido = 1) and " .
         "         produtos.tipo_glp IN (3,4,5) AND produtos.PESOLIQUIDO IN (13,20,45)  " .
         "         GROUP BY produtos.id, to_char(datahoraprevisaoentrega,'yyyymm') " .
@@ -99,7 +99,7 @@ class ConveniogbgestaoController extends Controller
         // Oracle CONNECT BY -> generate_series (últimos 12 meses, yyyymm).
         "     SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq  " .
         "     FROM generate_series(11,0,-1) AS g(lvl)  " .
-        " ) CROSS JOIN produtos p  " .
+        " ) seq CROSS JOIN produtos p  " .
         "     LEFT JOIN (  " .
         "         select produtos.id AS produto_id,   " .
         "                 to_char(datahoraprevisaoentrega,'yyyymm') as mes,  " .
@@ -109,8 +109,8 @@ class ConveniogbgestaoController extends Controller
         "         inner join produtos on items.produto_id = produtos.id  " .
         "         inner join condicaopagamentos cond on pedidos.condicaopagamento_id = cond.id  " .
         "         where pedidos.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
-        "         cond.tipo = 4 and   " .
-        "         pedidos.datahoraprevisaoentrega BETWEEN TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH') AND CURRENT_TIMESTAMP and  " .
+        "         cond.tipo = '4' and   " .
+        "         pedidos.datahoraprevisaoentrega BETWEEN date_trunc('month', (CURRENT_TIMESTAMP + (-11) * interval '1 month')) AND CURRENT_TIMESTAMP and  " .
         "         pedidos.pedidosituacao_id in (select id from pedidosituacaos where empresa_id = ".Session::get("empresa_padrao")->id." and fechadoconcluido = 1) and  " .
         "         produtos.tipo_glp IN (3,4,5) AND produtos.PESOLIQUIDO IN (13,20,45)   " .
         "         GROUP BY produtos.id, to_char(datahoraprevisaoentrega,'yyyymm')  " .
@@ -127,8 +127,8 @@ class ConveniogbgestaoController extends Controller
         "     clientes_por_mes AS ( " .
         "         SELECT " .
         "         CASE " .
-        "             WHEN clientes.CREATED_AT < TRUNC(ADD_MONTHS(CURRENT_DATE, -11), 'MONTH') " .
-        "             THEN TO_CHAR(TRUNC(ADD_MONTHS(CURRENT_DATE, -11), 'MONTH'), 'YYYYMM') " .
+        "             WHEN clientes.CREATED_AT < date_trunc('month', (CURRENT_DATE + (-11) * interval '1 month')) " .
+        "             THEN TO_CHAR(date_trunc('month', (CURRENT_DATE + (-11) * interval '1 month')), 'YYYYMM') " .
         "             ELSE TO_CHAR(clientes.CREATED_AT, 'YYYYMM') " .
         "         END AS mes, " .
         "         COUNT(clientes.id) AS quantclientes " .
@@ -141,15 +141,15 @@ class ConveniogbgestaoController extends Controller
         "         AND clientes.CREATED_AT IS NOT NULL " .
         "         GROUP BY " .
         "         CASE " .
-        "             WHEN clientes.CREATED_AT < TRUNC(ADD_MONTHS(CURRENT_DATE, -11), 'MONTH') " .
-        "             THEN TO_CHAR(TRUNC(ADD_MONTHS(CURRENT_DATE, -11), 'MONTH'), 'YYYYMM') " .
+        "             WHEN clientes.CREATED_AT < date_trunc('month', (CURRENT_DATE + (-11) * interval '1 month')) " .
+        "             THEN TO_CHAR(date_trunc('month', (CURRENT_DATE + (-11) * interval '1 month')), 'YYYYMM') " .
         "             ELSE TO_CHAR(clientes.CREATED_AT, 'YYYYMM') " .
         "         END " .
         "     ) " .
         "     SELECT " .
         "         'Clientes' AS descricao, " .
         "         m.mes AS mes_seq, " .
-        "         SUM(NVL(c.quantclientes, 0)) OVER ( " .
+        "         SUM(COALESCE(c.quantclientes, 0)) OVER ( " .
         "         ORDER BY m.mes " .
         "         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW " .
         "         ) AS qtvenda " .
@@ -200,14 +200,14 @@ class ConveniogbgestaoController extends Controller
         "     WHERE " .
         "         PEDIDOS.DATAHORAPREVISAOENTREGA BETWEEN " .
         ($mes == ''? 
-        "      trunc(CURRENT_TIMESTAMP, 'MONTH') AND CURRENT_TIMESTAMP  ":
+        "      date_trunc('month', CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP  ":
         "       to_date('$diainicial', 'yyyy-mm-dd hh24:mi:ss') and to_date('$diafinal', 'yyyy-mm-dd hh24:mi:ss') " 
         ) .
         "         AND PEDIDOS.PEDIDOSITUACAO_ID IN ( " .
         "             SELECT id FROM PEDIDOSITUACAOS p WHERE p.EMPRESA_ID = ".Session::get("empresa_padrao")->id." AND (p.ENTREGAFINALIZADA=1 OR p.FECHADOCONCLUIDO=1) " .
         "         ) " .
         "         AND PEDIDOS.CONDICAOPAGAMENTO_ID IN ( " .
-        "             SELECT id FROM CONDICAOPAGAMENTOS c WHERE c.EMPRESA_ID = ".Session::get("empresa_padrao")->id." AND c.ATIVO = 1 AND c.TIPO = 4 " .
+        "             SELECT id FROM CONDICAOPAGAMENTOS c WHERE c.EMPRESA_ID = ".Session::get("empresa_padrao")->id." AND c.ATIVO = 1 AND c.TIPO = '4' " .
         "         ) " .
         "         AND (CLIENTES.EMPRESA_ID = ".Session::get("empresa_padrao")->id." " .
         "         AND ITEMS.PRECOVENDAUNITARIO > 0) " .
@@ -226,7 +226,7 @@ class ConveniogbgestaoController extends Controller
          // Oracle CONNECT BY -> generate_series (últimos 12 meses, yyyymm).
          "        SELECT to_char(date_trunc('month', current_timestamp) - g.lvl * interval '1 month', 'yyyymm') AS mes_seq  " .
          "        FROM generate_series(11,0,-1) AS g(lvl)  " .
-         "    ) CROSS JOIN produtos p  " .
+         "    ) seq CROSS JOIN produtos p  " .
          "        LEFT JOIN (  " .
          "                SELECT produtos.id AS produto_id, " .
          "                to_char(datavenda,'yyyymm') as mes, " .
@@ -239,7 +239,7 @@ class ConveniogbgestaoController extends Controller
          "                where empresas.id = ".Session::get("empresa_padrao")->id." AND  " .
          "                    valegas.valegassituacao_id in (select id from valegassituacaos where lower(descricao) like 'baixado' or  " .
          "                                                    lower(descricao) like 'impresso' or lower(descricao) like 'vendido') and " .
-         "                    venda.datavenda BETWEEN TRUNC(ADD_MONTHS(CURRENT_TIMESTAMP, -11), 'MONTH') AND CURRENT_TIMESTAMP and  " .
+         "                    venda.datavenda BETWEEN date_trunc('month', (CURRENT_TIMESTAMP + (-11) * interval '1 month')) AND CURRENT_TIMESTAMP and  " .
          "                    produtos.tipo_glp IN (3,4,5) AND produtos.PESOLIQUIDO IN (13,20,45)   " .
          "                GROUP BY produtos.id, to_char(venda.datavenda,'yyyymm')  " .
          "        )  qryvenda ON qryvenda.produto_id = p.id AND qryvenda.mes = mes_seq  " .
@@ -267,7 +267,7 @@ class ConveniogbgestaoController extends Controller
         "    INNER JOIN PRODUTOS ON produtos.id = venda.PRODUTO_ID  " .
         "    WHERE venda.datavenda BETWEEN " .
         ($mes == ''? 
-        "   trunc(CURRENT_TIMESTAMP, 'MONTH') AND CURRENT_TIMESTAMP  ":
+        "   date_trunc('month', CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP  ":
         "    to_date('$diainicial', 'yyyy-mm-dd hh24:mi:ss') and to_date('$diafinal', 'yyyy-mm-dd hh24:mi:ss') " 
         ) .
         "    AND produtos.tipo_glp IN (3,4,5) AND produtos.PESOLIQUIDO IN (13,20,45)    " .

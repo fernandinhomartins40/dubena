@@ -161,7 +161,7 @@ class VeiculotrocaoleoController extends Controller {
             $query = "select rank() over (order by ol.created_at desc) as rnk, ol.id ".
                     "from veiculotrocaoleos ol ".
                     "where veiculo_id = $veiculo->id";
-            $anterior = collect(DB::select("select * from ($query) where rnk = 1 and rownum <= 1"))->first();
+            $anterior = collect(DB::select("select * from ($query) where rnk = 1 limit 1"))->first();
             if (count($anterior) > 0){
                 $oleo = Veiculotrocaoleo::find($anterior->id);
                 $up = [

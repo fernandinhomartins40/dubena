@@ -1115,7 +1115,7 @@ class ClienteController extends Controller
         }
         $raw = "cidade_id = " . $data["cidade_id"] . " AND (bairro_id = " . $data["bairro_id"] . " OR bairro_id IS NOT NULL)"
             . " AND " . $rawComplemento . " rua_id = " . $data["rua_id"] . " AND numero = " . $data["numero"]
-            . " AND empresa_id = " . Session::get('empresa_padrao')->id  . " AND rownum <= 1";
+            . " AND empresa_id = " . Session::get('empresa_padrao')->id  . " limit 1";
 
         if (!is_null($cliente)) {
             $raw .= " AND id != " . $cliente->id;

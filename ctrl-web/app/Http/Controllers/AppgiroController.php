@@ -106,14 +106,14 @@ class AppgiroController extends Controller
             FROM (
                 SELECT cli.id AS cliente_id, cli.nome AS cliente, ped.id AS pedido_id,
                 ped.DATAHORAPREVISAOENTREGA AS dataped,
-                trunc(lead(ped.DATAHORAPREVISAOENTREGA) OVER (PARTITION BY ped.cliente_id ORDER BY ped.DATAHORAPREVISAOENTREGA)) - trunc(ped.DATAHORAPREVISAOENTREGA) AS diff,
+                trunc(lead(ped.DATAHORAPREVISAOENTREGA) OVER (PARTITION BY ped.cliente_id ORDER BY ped.DATAHORAPREVISAOENTREGA)) - (ped.DATAHORAPREVISAOENTREGA)::date AS diff,
                 sum(it.quantidade) AS quantidade
                 FROM (
                     SELECT cliente_id
                     FROM pedidos a
                     WHERE a.DATAHORAPREVISAOENTREGA BETWEEN
-                    trunc(SYSDATE - INTERVAL '12' MONTH, 'month')
-                    AND SYSDATE
+                    date_trunc('month', now() - INTERVAL '12' MONTH)
+                    AND now()
                     AND a.APIPEDIDO_ID > 0
                     AND a.empresa_id = 2
                     AND a.PEDIDOSITUACAO_ID IN (
@@ -128,8 +128,8 @@ class AppgiroController extends Controller
                 INNER JOIN pedidoitems it ON it.pedido_id = ped.id
                 INNER JOIN clientes cli ON pd_cli.cliente_id = cli.id
                 WHERE ped.DATAHORAPREVISAOENTREGA BETWEEN
-                trunc(SYSDATE - INTERVAL '12' MONTH, 'month')
-                AND SYSDATE
+                date_trunc('month', now() - INTERVAL '12' MONTH)
+                AND now()
                 AND ped.PEDIDOSITUACAO_ID IN (
                     SELECT id
                     FROM PEDIDOSITUACAOS p

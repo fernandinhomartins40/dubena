@@ -81,9 +81,9 @@ class VendasmensaisgestaoController extends Controller
 		// senão 12). Postgres: generate_series com limite dinâmico via CASE.
 		"       TO_CHAR(date_trunc('year', TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq " .
 		"     FROM generate_series(1, CASE WHEN '".$ano."' = TO_CHAR(now(), 'YYYY') THEN EXTRACT(MONTH FROM now())::int ELSE 12 END) AS g(lvl) " .
-        " ) CROSS JOIN ( " .
-        "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual " .
-        "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p  " .
+        " ) seq CROSS JOIN ( " .
+        "     SELECT 998 AS id, 'Realizado' AS descricao   " .
+        "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao  ) p  " .
         "     LEFT JOIN (  " .
         "         select 998 AS produto_id,   " .
         "                 to_char(datahoraprevisaoentrega,'yyyymm') as mes,  " .
@@ -139,9 +139,9 @@ class VendasmensaisgestaoController extends Controller
             // Oracle CONNECT BY: meses do ano (até mês atual se ano corrente). -> generate_series.
             "       TO_CHAR(date_trunc('year', TO_DATE('".$ano."' || '-01-01', 'YYYY-MM-DD')) + (g.lvl - 1) * interval '1 month', 'YYYYMM') AS mes_seq " .
             "     FROM generate_series(1, CASE WHEN '".$ano."' = TO_CHAR(now(), 'YYYY') THEN EXTRACT(MONTH FROM now())::int ELSE 12 END) AS g(lvl) " .
-            " ) CROSS JOIN ( " .
-            "     SELECT 998 AS id, 'Realizado' AS descricao FROM dual " .
-            "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao FROM dual) p  " .
+            " ) seq CROSS JOIN ( " .
+            "     SELECT 998 AS id, 'Realizado' AS descricao   " .
+            "       UNION ALL SELECT 999 AS id, 'Meta' AS descricao  ) p  " .
             "     LEFT JOIN (  " .
             "         select 998 AS produto_id,   " .
             "                 to_char(datahoraprevisaoentrega,'yyyymm') as mes,  " .

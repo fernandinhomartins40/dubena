@@ -30,7 +30,7 @@ class FechamentomensalDreRepository
         "    inner join planocontas plano on rato.planoconta_id = plano.id " .
         "    where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "    parc.datacompetencia between  " .
-        "    trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "    date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "    to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "    parc.agrupamento_status < 2 and plano.investimento = 0 and " .
         "    parc.pagarreceber = 'R'  " .
@@ -70,7 +70,7 @@ class FechamentomensalDreRepository
         "            from financeiroparcelas parc " .
         "            where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "            parc.datacompetencia between  " .
-        "            trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and  " .
+        "            date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and  " .
         "            to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and  " .
         "            pagarreceber = 'R' and agrupamento_status < 2 and  " .
         "            (juros <> 0 or multa <> 0) " .
@@ -110,7 +110,7 @@ class FechamentomensalDreRepository
         "            from financeiroparcelas parc " .
         "            where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "            parc.datacompetencia between " .
-        "            trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "            date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "            to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "            pagarreceber = 'P' and agrupamento_status < 2 and " .
         "            parc.desconto <> 0 " .
@@ -171,7 +171,7 @@ class FechamentomensalDreRepository
         " from ( " .
         " 	select max(id) as id, max(updated_at) as updated_at  " .
         " 	from estoquefechamentos fec " .
-        " 	where trunc(fec.datahorafechamento) = LAST_DAY(ADD_MONTHS(trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')),-1)) " .
+        " 	where (fec.datahorafechamento)::date = LAST_DAY((trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) + (-1) * interval '1 month')) " .
         " ) fec " .
         " inner join estoquefechamentosetors est on est.estoquefechamento_id = fec.id  " .
         " inner join empresas on est.empresa_id = empresas.id " .
@@ -190,7 +190,7 @@ class FechamentomensalDreRepository
         " from ( " .
         " 	select max(id) as id, max(updated_at) as updated_at  " .
         " 	from estoquefechamentos fec " .
-        " 	where trunc(fec.datahorafechamento) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 	where (fec.datahorafechamento)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " ) fec " .
         " inner join estoquefechamentosetors est on est.estoquefechamento_id = fec.id  " .
         " inner join empresas on est.empresa_id = empresas.id " .
@@ -229,7 +229,7 @@ class FechamentomensalDreRepository
         "       inner join planocontas plano on rato.planoconta_id = plano.id " .
         "       where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "       parc.datacompetencia between  " .
-        "       trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "       date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "       to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "       parc.agrupamento_status < 2 and plano.investimento = 0 and " .
         "       parc.pagarreceber = 'P' and plano.custosvariaveis = 1 " .
@@ -261,7 +261,7 @@ class FechamentomensalDreRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -285,7 +285,7 @@ class FechamentomensalDreRepository
         " 		inner join produtos on items.produto_id = produtos.id " .
         " 		where empresas.id in (".Session::get("empresa_padrao")->id.") " .
         " 		AND items.quantidade <> 0 " .
-        " 		AND comodatos.DATACONTRATO <= LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        " 		AND comodatos.DATACONTRATO <= LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         " 		AND comodatos.ativo = 1 " .
         " 		group by produtos.id, produtos.descricao " .
         " 		UNION ALL " .
@@ -293,7 +293,7 @@ class FechamentomensalDreRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = LAST_DAY(ADD_MONTHS(trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')),-1)) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = LAST_DAY((trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) + (-1) * interval '1 month')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -368,7 +368,7 @@ class FechamentomensalDreRepository
         "       inner join planocontas plano on rato.planoconta_id = plano.id " .
         "       where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "       parc.datacompetencia between  " .
-        "       trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "       date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "       to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "       parc.agrupamento_status < 2 and plano.investimento = 0 and " .
         "       parc.pagarreceber = 'P' and plano.custosvariaveis = 0 " .
@@ -424,7 +424,7 @@ class FechamentomensalDreRepository
         "           inner join planocontas plans on rato.planoconta_id = plans.id " .
         "           where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "           parc.datacompetencia between  " .
-        "           trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and  " .
+        "           date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and  " .
         "           to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and  " .
         "           parc.pagarreceber = 'P' and parc.agrupamento_status < 2 and  " .
         "           (juros <> 0 or multa <> 0) " .
@@ -477,7 +477,7 @@ class FechamentomensalDreRepository
         "           inner join financeirorateios rato on rato.financeiro_id = parc.financeiro_id " .
         "           inner join planocontas plans on rato.planoconta_id = plans.id " .
         "           where parc.datacompetencia between " .
-        "           trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "           date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "           to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "           parc.pagarreceber = 'R' and agrupamento_status < 2 and " .
         "           parc.desconto <> 0 and parc.empresa_id = ".Session::get("empresa_padrao")->id." " .
@@ -590,7 +590,7 @@ class FechamentomensalDreRepository
         "   inner join financeiros fi on fi.id = parc.financeiro_id " .
         "   inner join financeirorateios rato on parc.financeiro_id = rato.financeiro_id " .
         "   inner join planocontas plano on rato.planoconta_id = plano.id " .
-        "   where parc.datacompetencia between trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "   where parc.datacompetencia between date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "   to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and  " .
         "   parc.empresa_id = ".Session::get("empresa_padrao")->id." and " .
         "   parc.agrupamento_status < 2 and plano.investimento = 1 " .
@@ -655,7 +655,7 @@ class FechamentomensalDreRepository
         " 	WHERE  " .
         " 		parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         " 		parc.DATACOMPETENCIA between  " .
-        " 		trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        " 		date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         " 		to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and plano.investimento = 0 and " .
         " 		parc.pagarreceber = 'R' and " .
         " 		parc.AGRUPAMENTO_STATUS <= 1 AND " .
@@ -677,7 +677,7 @@ class FechamentomensalDreRepository
         " 		parc.AGRUPAMENTO_STATUS <= 1 and " .
         " 	    parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         " 		parc.DATACOMPETENCIA between  " .
-        " 		trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        " 		date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         " 		to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and plano.investimento = 0 and " .
         " 		parc.pagarreceber = 'R' AND " .
         " 		plano.investimento = 0 " .
@@ -717,7 +717,7 @@ class FechamentomensalDreRepository
         " 			parc.AGRUPAMENTO_STATUS <= 1 and " .
         " 			parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         " 			parc.DATACOMPETENCIA between  " .
-        " 			  trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        " 			  date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         " 			  to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and " .
         " 			  parc.pagarreceber = 'R' and " .
         " 			  (parc.juros <> 0 or parc.multa <> 0) " .
@@ -755,7 +755,7 @@ class FechamentomensalDreRepository
         " 				parc.AGRUPAMENTO_STATUS < 2 and " .
         " 			    parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         " 				parc.DATACOMPETENCIA between  " .
-        " 			      trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        " 			      date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         " 			      to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and " .
         " 			      parc.pagarreceber = 'P' and parc.desconto <> 0 " .
         "       ) descontos " .
@@ -837,7 +837,7 @@ class FechamentomensalDreRepository
         " from ( " .
         " 	select max(id) as id, max(updated_at) as updated_at  " .
         " 	from estoquefechamentos fec " .
-        " 	where trunc(fec.datahorafechamento) = LAST_DAY(ADD_MONTHS(trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')),-1)) " .
+        " 	where (fec.datahorafechamento)::date = LAST_DAY((trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) + (-1) * interval '1 month')) " .
         " ) fec " .
         " inner join estoquefechamentosetors est on est.estoquefechamento_id = fec.id  " .
         " inner join empresas on est.empresa_id = empresas.id " .
@@ -856,7 +856,7 @@ class FechamentomensalDreRepository
         " from ( " .
         " 	select max(id) as id, max(updated_at) as updated_at  " .
         " 	from estoquefechamentos fec " .
-        " 	where trunc(fec.datahorafechamento) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 	where (fec.datahorafechamento)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " ) fec " .
         " inner join estoquefechamentosetors est on est.estoquefechamento_id = fec.id  " .
         " inner join empresas on est.empresa_id = empresas.id " .
@@ -895,7 +895,7 @@ class FechamentomensalDreRepository
         "       inner join planocontas plano on rato.planoconta_id = plano.id " .
         "       where parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
         "       parc.datacompetencia between  " .
-        "       trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "       date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "       to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "       parc.agrupamento_status < 2 and plano.investimento = 0 and " .
         "       parc.pagarreceber = 'P' and plano.custosvariaveis = 1 " .
@@ -927,7 +927,7 @@ class FechamentomensalDreRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -951,7 +951,7 @@ class FechamentomensalDreRepository
         " 		inner join produtos on items.produto_id = produtos.id " .
         " 		where empresas.id in (".Session::get("empresa_padrao")->id.") " .
         " 		AND items.quantidade <> 0 " .
-        " 		AND comodatos.DATACONTRATO <= LAST_DAY(ADD_MONTHS(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),-1)) " .
+        " 		AND comodatos.DATACONTRATO <= LAST_DAY((to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') + (-1) * interval '1 month')) " .
         " 		AND comodatos.ativo = 1 " .
         " 		group by produtos.id, produtos.descricao " .
         " 		UNION ALL " .
@@ -959,7 +959,7 @@ class FechamentomensalDreRepository
         " 		FROM ( " .
         " 			SELECT max(id) AS id, max(updated_at) AS UPDATED_AT  " .
         " 			FROM ESTOQUEFECHAMENTOS fec " .
-        " 			WHERE trunc(fec.DATAHORAFECHAMENTO) = LAST_DAY(ADD_MONTHS(trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')),-1)) " .
+        " 			WHERE (fec.DATAHORAFECHAMENTO)::date = LAST_DAY((trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) + (-1) * interval '1 month')) " .
         " 		) fec " .
         " 		INNER JOIN ESTOQUEFECHAMENTOSETORS est ON est.ESTOQUEFECHAMENTO_ID = fec.id " .
         " 		inner join empresas on est.empresa_id = empresas.id " .
@@ -974,7 +974,7 @@ class FechamentomensalDreRepository
         " ) qq " .
         "   where empresas.id = ".Session::get("empresa_padrao")->id." and " .
         "   pedidos.datahoraprevisaoentrega between " .
-        "     trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+        "     date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
         "     to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss') and " .
         "   pedidos.pedidosituacao_id in (select id from pedidosituacaos where empresa_id = ".Session::get("empresa_padrao")->id." and fechadoconcluido = 1) and " .
         "  produtos.ativo = 1 " .
@@ -1047,7 +1047,7 @@ class FechamentomensalDreRepository
                     " 		parc.AGRUPAMENTO_STATUS < 2 and " .
                     " 		parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
                     " 		parc.datacompetencia between  " .
-                    " 		  trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+                    " 		  date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
                     " 		  to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and plano.investimento = 0 and " .
                     " 		  parc.pagarreceber = 'P' and plano.custosvariaveis = 0 and " .
                     " 		  rato.planoconta_id in  " .
@@ -1080,7 +1080,7 @@ class FechamentomensalDreRepository
                     " 		parc.AGRUPAMENTO_STATUS < 2 and " .
                     " 		parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
                     " 		parc.DATACOMPETENCIA between  " .
-                    " 		  trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+                    " 		  date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
                     " 		  to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and plano.investimento = 0 and " .
                     " 		  parc.pagarreceber = 'P' and plano.custosvariaveis = 0 and " .
                     " 		  rato.planoconta_id in  " .
@@ -1133,7 +1133,7 @@ class FechamentomensalDreRepository
                                     "		parc.AGRUPAMENTO_STATUS < 2 and " .
                                     "		parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
                                     "		parc.DATACOMPETENCIA between  " .
-                                    "		  trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+                                    "		  date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
                                     "		  to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and " .
                                     "		  parc.pagarreceber = 'P' and " .
                                     "			  (parc.juros <> 0 or parc.multa <> 0) " .
@@ -1179,7 +1179,7 @@ class FechamentomensalDreRepository
                                     " 		parc.AGRUPAMENTO_STATUS < 2 and " .
                                     " 		parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
                                     " 		parc.DATACOMPETENCIA between  " .
-                                    " 		  trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+                                    " 		  date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
                                     " 		  to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  and " .
                                     " 		  parc.pagarreceber = 'R' and parc.desconto <> 0 " .
                                     ") descon         " .
@@ -1247,7 +1247,7 @@ class FechamentomensalDreRepository
             " parc.agrupamento_status < 2 and " .
             " parc.empresa_id = ".Session::get("empresa_padrao")->id." and  " .
             " parc.datacompetencia between  " .
-            " trunc(to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss'),'month') and " .
+            " date_trunc('month', to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')) and " .
             " to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  " .
             " and rato.planoconta_id = " . $plano_id . "  " .
             " GROUP BY centro.descricao ";

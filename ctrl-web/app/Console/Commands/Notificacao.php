@@ -191,8 +191,8 @@ class Notificacao extends Command
                 "left  join notificacoes noti on noti.empresa_id = veiculos.empresa_id and noti.empresa_id = empresas.id and ".
                     "veiculos.empresa_id = noti.empresa_id and noti.identificador = doc.id and ".
                     "noti.tela = 'veiculo' ".
-                "where alerta = 1 and (doc.vencimento - veiculos.alertasdiasantes) between trunc(sysdate) and ".
-                "to_date(to_char(sysdate,'yyyy-mm-dd') || '23:59:59', 'yyyy-mm-dd hh24:mi:ss') and noti.id is null ".
+                "where alerta = 1 and (doc.vencimento - veiculos.alertasdiasantes) between current_date and ".
+                "to_date(to_char(now(),'yyyy-mm-dd') || '23:59:59', 'yyyy-mm-dd hh24:mi:ss') and noti.id is null ".
             ") documentos ".
 
             "union all ".
@@ -213,7 +213,7 @@ class Notificacao extends Command
                 "left join notificacoes noti on noti.empresa_id = pesquisas.empresa_id and noti.identificador = presp.id and ".
                     "noti.tela = 'checklist' and noti.empresa_id = empresas.id  ".
                 "where respostas.alerta = 1 and presp.resposta is not null and ".
-                "presp.resposta = to_char(sysdate,'yyyy-mm-dd') and noti.id is null ".
+                "presp.resposta = to_char(now(),'yyyy-mm-dd') and noti.id is null ".
                 "order by pesquisa_id ".
             ") checks ".
 
@@ -229,8 +229,8 @@ class Notificacao extends Command
                 "inner join empresas on colab.empresa_id = empresas.id ".
                 "left  join notificacoes noti on noti.empresa_id = colab.empresa_id and noti.empresa_id = empresas.id and ".
                     "noti.identificador = exame.id and noti.tela = 'colaborador' ".
-                "where exame.alerta = 1 and exame.datavencimento between trunc(sysdate) and ".
-                "to_date(to_char(sysdate,'yyyy-mm-dd') || '23:59:59', 'yyyy-mm-dd hh24:mi:ss') and noti.id is null ".
+                "where exame.alerta = 1 and exame.datavencimento between current_date and ".
+                "to_date(to_char(now(),'yyyy-mm-dd') || '23:59:59', 'yyyy-mm-dd hh24:mi:ss') and noti.id is null ".
             ") colaboradores ".
         ") alertas";
 

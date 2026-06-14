@@ -294,8 +294,8 @@ class CentrocustoController extends Controller
 
     public function isUsed($cc_id)
     {
-        $subSel = "(SELECT id FROM ESTOQUEREQUISICAOS WHERE CENTROCUSTO_ID = $cc_id AND ROWNUM <= 1) UNION ALL "
-                                 . " (SELECT id FROM FINANCEIRORATEIOS WHERE CENTROCUSTO_ID = $cc_id AND ROWNUM <= 1)";
+        $subSel = "(SELECT id FROM ESTOQUEREQUISICAOS WHERE CENTROCUSTO_ID = $cc_id limit 1) UNION ALL "
+                                 . " (SELECT id FROM FINANCEIRORATEIOS WHERE CENTROCUSTO_ID = $cc_id limit 1)";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1 ";
 
         return collect(DB::select($selectStatement))->count() == 1;
@@ -303,15 +303,15 @@ class CentrocustoController extends Controller
 
     public function isUsedByConfig($cc_id)
     {
-        $subSel = "SELECT id FROM EMPRESACONFIGS WHERE (CENTROCUSTO_ID = $cc_id OR CCVALEGAS_ID = $cc_id OR CCFRETE_ID = $cc_id) AND ROWNUM <= 1";
+        $subSel = "SELECT id FROM EMPRESACONFIGS WHERE (CENTROCUSTO_ID = $cc_id OR CCVALEGAS_ID = $cc_id OR CCFRETE_ID = $cc_id) limit 1";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }
 
     public function isUsedByNF($cc_id)
     {
-        $subSel = "(SELECT id FROM NFRECEBIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id AND ROWNUM <= 1) UNION ALL "
-                                . " (SELECT id FROM NFEMITIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id AND ROWNUM <= 1)";
+        $subSel = "(SELECT id FROM NFRECEBIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id limit 1) UNION ALL "
+                                . " (SELECT id FROM NFEMITIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id limit 1)";
         $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }

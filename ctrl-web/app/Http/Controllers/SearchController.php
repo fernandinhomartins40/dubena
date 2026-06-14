@@ -1221,7 +1221,7 @@ class SearchController extends Controller
         if ($type === "M")
             $select .= " AND TO_CHAR(entregadatahora, 'mm-yyyy') = '$month-$year'";
         else if ($type === 'Y')
-            $select .= " AND TO_CHAR(trunc(entregadatahora, 'yyyy'), 'yyyy') = '$year'";
+            $select .= " AND TO_CHAR(date_trunc('year', entregadatahora), 'yyyy') = '$year'";
 
         $select .= " GROUP BY PEDIDO.ID, setor.id, SETOR.DESCRICAO,  CASE WHEN $rawTempoEntrega < 15 "
             . "         THEN 1 "
@@ -1873,7 +1873,7 @@ class SearchController extends Controller
             ->join('bairros as bairro', 'bairro.id', 'c.bairro_id')
             ->join('ruas as rua', 'rua.id', 'c.rua_id')
             ->where('transportador', true)->where('c.empresa_id', $pedido->empresa_id)
-            ->select('c.id', 'c.nome', 'c.inscricao_estadual', 'c.cnpj', 'c.cpf', 'c.indicador_ie', 'c.uf', 'cid.cod_ibge as codigoibge', 'cid.descricao as cidadedesc', 'rua.descricao as ruadesc', 'bairro.descricao as bairrodesc', 'c.bairro_id', 'c.rua_id', 'c.cidade_id', 'c.numero', DB::raw('(select telefone from clientetelefones where cliente_id = c.id and rownum <= 1) as telefone'), 'email')->get();
+            ->select('c.id', 'c.nome', 'c.inscricao_estadual', 'c.cnpj', 'c.cpf', 'c.indicador_ie', 'c.uf', 'cid.cod_ibge as codigoibge', 'cid.descricao as cidadedesc', 'rua.descricao as ruadesc', 'bairro.descricao as bairrodesc', 'c.bairro_id', 'c.rua_id', 'c.cidade_id', 'c.numero', DB::raw('(select telefone from clientetelefones where cliente_id = c.id limit 1) as telefone'), 'email')->get();
 
         $raw = " cond.ativo = 1 AND "
             . " condicaopagamento_id in (select condicaopagamento_id from cliente_condicaopagamento "

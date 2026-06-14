@@ -613,7 +613,7 @@ class FinanceiroController extends Controller
         } catch (\InvalidArgumentException $e) {
             return false;
         }
-        //$raw = "cartaoautorizacao = $autorizacao and TRUNC(f.datacompetencia) = TO_DATE('$date', 'YYYY-MM-DD HH24:MI:SS')";
+        //$raw = "cartaoautorizacao = $autorizacao and (f.datacompetencia)::date = TO_DATE('$date', 'YYYY-MM-DD HH24:MI:SS')";
         $raw = "cartaoautorizacao = '$autorizacao' ";
         $raw .= " AND agrupamento_status <= 1 AND baixado = 0 ";
         return Financeiroparcela::with('financeiro.cliente')->join('financeiros as f', 'financeiro_id', 'f.id')

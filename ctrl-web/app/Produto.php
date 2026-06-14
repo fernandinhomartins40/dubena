@@ -323,11 +323,11 @@ class Produto extends Model
             $subSelJoin .= "  INNER JOIN NFRECEBIDAITEMS i";
             $subSelJoin .= "  ON i.NFRECEBIDA_ID       = nf.ID";
             $subSelJoin .= "  WHERE nf.DATAHORAEMISSAO = (" . $subSelDate . ") AND nf.EMPRESA_ID  = " . $empresa_id . "";
-            $subSelJoin .= " AND ROWNUM             <= 1";
+            $subSelJoin .= " limit 1";
 
-            $strSel = " SELECT NVL(docs.nf_pGNi, prod.PGNI) AS pgni,";
-            $strSel .= "  NVL(docs.nf_pGNn, prod.PGNN)      AS pgnn,";
-            $strSel .= "  NVL(docs.nf_pGLP, prod.PGLP)      AS pglp,";
+            $strSel = " SELECT COALESCE(docs.nf_pGNi, prod.PGNI) AS pgni,";
+            $strSel .= "  COALESCE(docs.nf_pGNn, prod.PGNN)      AS pgnn,";
+            $strSel .= "  COALESCE(docs.nf_pGLP, prod.PGLP)      AS pglp,";
             $strSel .= "  PROD.ID                           AS PRODUTO_ID";
             $strSel .= " FROM produtos prod";
             $strSel .= " LEFT JOIN";

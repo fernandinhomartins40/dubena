@@ -146,7 +146,7 @@ class LogcercaController extends Controller
                 SELECT
                 lc.setor_id, lc.colaborador_id, lc.cerca_id, lc.cerca,
                 st.descricao AS setor, col.nome AS colaborador, lc.entrada,
-                lc.saida, ROUND((NVL(lc.saida, SYSDATE) - lc.entrada) * 24 * 60, 2) AS minutos,
+                lc.saida, ROUND((COALESCE(lc.saida, now()) - lc.entrada) * 24 * 60, 2) AS minutos,
                 lc.latitude, lc.longitude
                 FROM logs_next lc
                 INNER JOIN setors st ON lc.setor_id = st.id
