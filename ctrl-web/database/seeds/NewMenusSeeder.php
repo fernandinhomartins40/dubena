@@ -15,28 +15,55 @@ class NewMenusSeeder extends Seeder
      */
     public function run()
     {
+        $this->sincronizarSequence();
         $this->setParents();
 
-        $this->createCupomMenu();
-        $this->createPromover();
-        $this->createReportPromotores();
-        $this->createPixBaixa();
-        $this->createReportVendasGerais();
-        $this->createMaloteFechamento();
-        $this->createMenuComodatos();
-        $this->createMenuDocumentacao();
-        $this->createMenuExtrato();
-        $this->createConciliacaoContabil();
-        $this->createAppSub();
-        $this->createMenuFechamentoMensal();
-        $this->createMenuDashboardgerencial();
-        $this->createMenuUsoSenha();
-        $this->createMenuInconsistencia();
-        $this->createMenuLogCercas();
-        $this->createMenuVideo();
-        $this->createNfcst();
-        $this->createNfclastrib();
-        $this->createSorteio();
+        // Best-effort: este seeder é mais novo que o MenuTableSeeder e assume
+        // seções-pai (Comodatos, Setorização...) que nem toda base possui. Cada
+        // passo é isolado: se o menu-pai não existir, pula aquele submenu e
+        // continua, em vez de derrubar o deploy inteiro. Idempotente.
+        $passos = [
+            'createCupomMenu', 'createPromover', 'createReportPromotores',
+            'createPixBaixa', 'createReportVendasGerais', 'createMaloteFechamento',
+            'createMenuComodatos', 'createMenuDocumentacao', 'createMenuExtrato',
+            'createConciliacaoContabil', 'createAppSub', 'createMenuFechamentoMensal',
+            'createMenuDashboardgerencial', 'createMenuUsoSenha', 'createMenuInconsistencia',
+            'createMenuLogCercas', 'createMenuVideo', 'createNfcst',
+            'createNfclastrib', 'createSorteio',
+        ];
+
+        $pulados = [];
+        foreach ($passos as $passo) {
+            try {
+                $this->$passo();
+            } catch (\Throwable $e) {
+                $pulados[] = $passo . ' (' . $e->getMessage() . ')';
+            }
+        }
+
+        if (! empty($pulados)) {
+            $this->command->warn('NewMenusSeeder — passos pulados (pai ausente):');
+            foreach ($pulados as $p) {
+                $this->command->warn('  - ' . $p);
+            }
+        }
+    }
+
+    /**
+     * No Postgres, inserir linhas com id explícito (como faz o MenuTableSeeder)
+     * NÃO avança a sequência de auto-incremento. Os Menu::create() seguintes
+     * tentariam reusar id=1 ("duplicate key"). Realinha menus_id_seq ao maior
+     * id existente. No-op fora do Postgres (MySQL ajusta o AUTO_INCREMENT só).
+     */
+    private function sincronizarSequence()
+    {
+        if (\DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+        \DB::statement(
+            "SELECT setval(pg_get_serial_sequence('menus', 'id'), " .
+            "COALESCE((SELECT MAX(id) FROM menus), 1))"
+        );
     }
 
     private function setParents()
@@ -54,8 +81,13 @@ class NewMenusSeeder extends Seeder
             "Operacionais"
         ];
 
+        // Menus-raiz têm descricao vazia. No Postgres '' != NULL, então o
+        // whereNull original não os encontrava (MySQL gravava NULL). Aceita
+        // ambos para achar os pais corretamente.
         $parents = Menu::whereIn("titulo", $titulos)
-            ->whereNull("descricao")
+            ->where(function ($q) {
+                $q->whereNull("descricao")->orWhere("descricao", "");
+            })
             ->get();
 
         $this->parents = $parents;

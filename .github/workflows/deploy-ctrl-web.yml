@@ -90,11 +90,24 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
 
-      - name: Seed — garantir usuário de acesso (idempotente)
+      - name: Seed — menus de referência (telas do ERP)
         run: |
-          # Garante o usuário admin de forma idempotente e independente dos
-          # seeders legados (que têm ids fixos/incompatibilidades). A senha vem
-          # de ADMIN_SEED_PASSWORD (no .env); default 'admin1234' — trocar depois.
+          # O banco nasce vazio: sem registros em "menus" não há permissões
+          # possíveis e o admin é barrado em TODA tela (só vê /home).
+          # MenuTableSeeder recria a árvore de menus (idempotente: limpa e
+          # repovoa). Roda ANTES do DeployAdminSeeder, que concede permissões
+          # sobre esses menus. NewMenusSeeder adiciona telas mais novas e é
+          # best-effort (pula submenus cujo pai não exista, sem falhar).
+          docker compose -f docker-compose.prod.yml exec -T app \
+            php artisan db:seed --class=MenuTableSeeder --force
+          docker compose -f docker-compose.prod.yml exec -T app \
+            php artisan db:seed --class=NewMenusSeeder --force
+
+      - name: Seed — usuário admin + permissões totais (idempotente)
+        run: |
+          # Garante o usuário admin de forma idempotente e concede acesso a
+          # todos os menus (menuusers). A senha vem de ADMIN_SEED_PASSWORD
+          # (no .env); default 'admin1234' — trocar depois.
           docker compose -f docker-compose.prod.yml exec -T app \
             php artisan db:seed --class=DeployAdminSeeder --force
 
