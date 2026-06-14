@@ -194,7 +194,8 @@ class SelectRepository
     {
         $query = "select id, descricao, uf ".
             "from cidades ".
-            "where id in ( select unique cidade_id from clientes where empresa_id = ".$this->empresa_id." ) ".
+            // UNIQUE é sintaxe Oracle; Postgres/ANSI usa DISTINCT.
+            "where id in ( select distinct cidade_id from clientes where empresa_id = ".$this->empresa_id." ) ".
             "order by UF, descricao";
 
         $cidades = collect(DB::select($query));

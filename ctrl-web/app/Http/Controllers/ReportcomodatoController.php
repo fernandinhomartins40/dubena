@@ -246,7 +246,7 @@ class ReportcomodatoController extends Controller
 		->where('comodato.tipo', $tipo)
 		->where('comodato.ativo', 1)
 		->where('comodato.empresa_id', $empresa_id)
-		->whereBetween('comodato.datacontrato', [$datainicio . '00:00:00', $datafim . '23:59:59']);
+		->whereBetween('comodato.datacontrato', [$datainicio . ' 00:00:00', $datafim . ' 23:59:59']);
 
 		if(strlen($cliente_id) > 0)
 			$comodatos->where('cliente_id', $cliente_id);

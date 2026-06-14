@@ -76,7 +76,10 @@ class IBPTController extends Controller
     public function index()
     {
         $data = DB::table("produtoleiimpostos")
-            ->selectRaw("unique(uf) as uf, versao, chave, inicio, fim")
+            // UNIQUE(...) é sintaxe Oracle; Postgres usa DISTINCT. O GROUP BY
+            // já garante unicidade dessas colunas, então DISTINCT é redundante
+            // mas inofensivo e mantém a intenção original.
+            ->selectRaw("distinct uf, versao, chave, inicio, fim")
             ->groupBy("uf", "versao", "chave", "inicio", "fim")
             ->orderBy("uf")
             ->orderBy("inicio")

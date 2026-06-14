@@ -95,6 +95,22 @@ class EmpresaconfigController extends Controller
         $ccfretegp_id = "";
         $ccfretegp_descricao = "";
 
+        // Defaults para o caso de empresa SEM configuração ($empconfig null):
+        // todas estas variáveis só eram definidas dentro do if abaixo, mas o
+        // compact() final as referencia sempre — em PHP 7.4 compact() de
+        // variável indefinida vira exceção (500). Inicializa como null.
+        $centrocusto_id = $centrocusto_descricao = $planoconta_id = $planoconta_descricao = null;
+        $pccartao_id = $pccartao_descricao = $pcreceitadesconto_id = $pcreceitadesconto_desc = null;
+        $ccreceitadesc_id = $ccreceitadesc_desc = $pcrecetajuro_id = $pcreceitajuro_desc = null;
+        $ccreceitajuros_id = $ccreceitajuros_desc = $pcdespesasdesconto_id = $pcdespesasdesconto_desc = null;
+        $ccdespesasdesc_id = $ccdespesasdesc_desc = $pcdespesasjuro_id = $pcdespesasjuro_desc = null;
+        $ccdespesasjuros_id = $ccdespesasjuros_desc = $ccvalegas_id = $ccvalegas_descricao = null;
+        $pcvalegas_id = $pcvalegas_descricao = $pcfrete_id = $pcfrete_descricao = null;
+        $ccfrete_id = $ccfrete_descricao = $cccartao_id = $cccartao_desc = null;
+        $pcconvenio_id = $pcconvenio_descricao = $ccconvenio_id = $ccconvenio_descricao = null;
+        $pcfreteconvenio_id = $pcfreteconvenio_descricao = $ccfreteconvenio_id = $ccfreteconvenio_descricao = null;
+        $pcfretegp_id = $pcfretegp_descricao = $ccfretegp_id = null;
+
         $empconfig = $this->empconfig !== null ? $this->empconfig : null;
         if ($empconfig !== null) {
             $empconfig = $this->percentualConfig($empconfig);
@@ -234,7 +250,12 @@ class EmpresaconfigController extends Controller
             unset($empconfig->chavepix);
         }
 
-        $empconfig->valorfretegp = requestNumeroDecimalOracle($empconfig->valorfretegp);
+        // $empconfig pode ser null (empresa ainda sem configuração — ver linha
+        // ~98). Sem guarda, o acesso à propriedade dá 500 ("property of
+        // non-object"). Só formata o frete quando há config.
+        if ($empconfig !== null) {
+            $empconfig->valorfretegp = requestNumeroDecimalOracle($empconfig->valorfretegp);
+        }
 
         return view('empresaconfig.empresaconfig')->with(compact(
             'empconfig',

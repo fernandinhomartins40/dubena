@@ -37,7 +37,7 @@ class BoletoremessaController extends Controller
         $dataInicio = Carbon::now()->subDays(2)->toDateString();
         $dataFim = Carbon::now()->toDateString();
         $remessas = Boletoremessa::where('empresa_id', $empresa_id)
-                        ->whereBetween('datahora', [$dataInicio . '00:00:00', $dataFim . '23:59:59'])
+                        ->whereBetween('datahora', [$dataInicio . ' 00:00:00', $dataFim . ' 23:59:59'])
                         ->with('conta')->get();
 
         return view('financeiro.boletos.boletoremessa', compact('contas', 'dataInicio', 'remessas', 'dataFim'));

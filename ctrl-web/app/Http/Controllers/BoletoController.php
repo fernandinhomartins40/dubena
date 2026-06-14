@@ -72,7 +72,15 @@ class BoletoController extends Controller
 
         $parcelas = $parcelasDb->paginate($this->resultsPerPage)->withPath($url);
 
-        $totais = $clonedPars->select(DB::raw("sum(valorefetivado) as valorefetivado, count(1) as count"))->get()->first();
+        // Remove o ORDER BY herdado de getParcelasIndex (cliente.nome): numa
+        // consulta só de agregados (sum/count) sem GROUP BY, o Postgres rejeita
+        // ORDER BY por coluna não-agregada ("must appear in GROUP BY"). A
+        // ordenação é irrelevante para uma linha de totais. MySQL tolerava.
+        // (reorder() é do Query Builder; no Eloquent 5.8 zeramos os orders.)
+        $clonedPars->getQuery()->orders = null;
+        $totais = $clonedPars
+            ->select(DB::raw("sum(valorefetivado) as valorefetivado, count(1) as count"))
+            ->get()->first();
 
         return view('financeiro.boletos.gerarboleto', compact('parcelas', 'contas', 'cliente_id', 'cliente_nome', 'totais'));
     }

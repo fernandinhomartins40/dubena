@@ -79,8 +79,21 @@ class NavegacaoPostgresTest extends TestCase
     public function test_modulo_index($uri)
     {
         $this->login();
+
+        // Módulos sem item na árvore de menus: o AuthorizeCustom redireciona
+        // (302) por falta de permissão ANTES de rodar SQL. Não é incompat. de
+        // banco — é tela sem menu. Pula explicitamente (não mascara 500).
+        $semMenu = ['/agencia', '/descontocheque', '/nfclastrib', '/nfcst', '/turno'];
+        if (in_array($uri, $semMenu)) {
+            $resp = $this->call('GET', $uri);
+            $this->assertNotEquals(500, $resp->getStatusCode(),
+                "[$uri] 500 inesperado mesmo sem menu.");
+            $this->markTestSkipped("[$uri] sem item de menu (302 esperado).");
+            return;
+        }
+
         $code = $this->assertRotaOk('GET', $uri);
-        $this->assertContains($code, [200, 302, 403, 404],
+        $this->assertContains($code, [200, 403, 404],
             "[$uri] status inesperado: $code");
     }
 
@@ -115,28 +128,36 @@ class NavegacaoPostgresTest extends TestCase
 
     public function modulosProvider()
     {
-        // Prioridade: módulos centrais do ERP de distribuição de gás.
-        return [
-            'cliente'           => ['/cliente'],
-            'pedido'            => ['/pedido'],
-            'produto'           => ['/produto'],
-            'colaborador'       => ['/colaborador'],
-            'empresa'           => ['/empresa'],
-            'user'              => ['/user'],
-            'veiculo'           => ['/veiculo'],
-            'estoquefisico'     => ['/estoquefisico'],
-            'estoquesetor'      => ['/estoquesetor'],
-            'nfemitida'         => ['/nfemitida'],
-            'nfrecebida'        => ['/nfrecebida'],
-            'conta'             => ['/conta'],
-            'planoconta'        => ['/planoconta'],
-            'centrocusto'       => ['/centrocusto'],
-            'banco'             => ['/banco'],
-            'cidade'            => ['/cidade'],
-            'bairro'            => ['/bairro'],
-            'condicaopagamento' => ['/condicaopagamento'],
-            'unidademedida'     => ['/unidademedida'],
-            'roles'             => ['/roles'],
+        // TODOS os módulos resource do ERP (index = GET /<nome>). Varre a
+        // superfície inteira de listagem p/ pescar qualquer SQL incompatível
+        // com Postgres que ainda não tenha sido exercido.
+        $modulos = [
+            'agencia', 'bairro', 'banco', 'boleto', 'cadastrochecklist', 'cargo',
+            'centrocusto', 'checklist', 'chequeemitido', 'chequerecebido', 'cidade',
+            'cliente', 'clientecontatosituacao', 'clientecontatotipo', 'colaborador',
+            'colaboradorcomissoes', 'comodato', 'condicaopagamento', 'consultaestoquesetor',
+            'conta', 'contamovimentotipo', 'cupons', 'descontocheque', 'documento',
+            'documentotipo', 'empresa', 'empresabens', 'empresaconfig', 'empresas_grupo',
+            'estadocivil', 'estoquefisico', 'estoquerequisicao', 'estoquesetor',
+            'estoquetransferencias', 'grupofiscal', 'ibpt', 'inventario', 'layoutbancos',
+            'maladireta', 'mcmm', 'metavenda', 'motivonaovenda', 'nfclastrib', 'nfcofins',
+            'nfcst', 'nfemitida', 'nficms', 'nfimposto', 'nfipi', 'nfoperacao', 'nfpis',
+            'nfrecebida', 'nfsituacao', 'ocorrenciasremessas', 'parentesco', 'pedido',
+            'pedidomotivoatraso', 'pedidooperacao', 'pedidosituacao', 'planoconta',
+            'posvenda', 'posvendacadastro', 'produto', 'produtoclasse', 'promocao',
+            'promover', 'recessos', 'regiao', 'remessa', 'roles', 'rua', 'satcfe',
+            'segmento', 'setor', 'sorteio', 'spedcontribuicao', 'spedcreditos',
+            'spedfiscal', 'telefonetipo', 'tipocombustivel', 'tipodocumento', 'tipoexame',
+            'tipopessoa', 'tiporecessos', 'turno', 'unidademedida', 'user',
+            'valegascancelar', 'valegasconsulta', 'veiculo', 'veiculoabastecimento',
+            'veiculoentradasaida', 'veiculopneu', 'veiculotipo', 'veiculotrocaoleo',
+            'vendaativa', 'vendaativaocorrenciatipos', 'vendavalegas',
         ];
+
+        $out = [];
+        foreach ($modulos as $m) {
+            $out[$m] = ['/' . $m];
+        }
+        return $out;
     }
 }
