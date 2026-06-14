@@ -132,12 +132,38 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | D09 Frota | 🟡 | ✅ | **REESCREVER** | CRUDs limpos, baixo risco; ganho de UX (timeline manutenção, consumo). Preservar vínculo veiculoerp_id↔Monitora |
 | D10 Cadastros base | 🟡/🔴 | ✅ | **REESCREVER** apoio · **REFATORAR** Empresa/config | CRUDs limpos (vitrine do padrão novo); Empresaconfig é fiscal — refatorar com baseline; SQLi no Bairro |
 | D11 Acesso/Menu | 🟠 | ✅ | **REESCREVER** | Fundação de acesso; HTML no model, eager 100 níveis, switch de auth — alta dívida, baixo risco fiscal |
-| D12 Relatórios | 🟢 | ⬜ | — | |
-| D13 API mobile | 🟠 | ⬜ | — | |
-| D14 Monitoramento | 🟡 | ⬜ | — | |
-| D15 Integrações/Misc | 🟡 | ⬜ | — | |
+| D12 Relatórios | 🟢/🔴 | ✅ | **REESCREVER** | Camada de leitura (não grava) — modernizar UI/dashboards seguro. Fiscais (DRE/Balanço) só com baseline por valor |
+| D13 API mobile | 🟠 | ✅ | **REFATORAR** | Módulo isolado; contratos sagrados (apps publicados). Eliminar *_importacao (ler ERP direto) |
+| D14 Monitoramento | 🟡 | ✅ | **REESCREVER** | Isolado, baixo risco; mapa moderno + tempo real. oracle3 já eliminado |
+| D15 Integrações/Misc | 🟡 | ✅ | **REESCREVER**/descartar | Apoio baixo risco; triar uso pelos apps antes de descartar obsoleto |
 
 ---
+
+## Síntese das decisões (15/15 PRDs concluídos · 2026-06-14)
+
+**REESCREVER (baixo risco, alto ganho de UX — começam o "novo"):**
+D11 Acesso/Menu (fundação) · D10 cadastros de apoio · D09 Frota · D08 cadastros/
+checklist · D05 Clientes (faseado) · D06 Produto+cadastros · D12 Relatórios
+operacionais · D14 Monitoramento · D15 Misc.
+
+**REFATORAR (regra crítica — preservar lógica, modernizar estrutura/UI):**
+D01 Vendas/Pedidos · D04 Financeiro · D06 motor de estoque · D07 fechamentos/MCMM ·
+D08 comissões · D13 API mobile · D02 orquestração de NF.
+
+**MANTER (motor fiscal — NUNCA reescrever do zero):**
+D02 motor de imposto (Tributacao/, já com IBS/CBS) · D03 motor SPED (119 registros).
+
+**Conclusão estratégica:** a tese de "reescrever tudo do zero" foi REFUTADA pela
+evidência — o coração fiscal (D02/D03) é o ativo mais valioso e está bem
+estruturado; reescrevê-lo seria recriar anos de regra fiscal às cegas. O caminho é
+**Strangler Fig**: reescrever a periferia (cadastros, frota, relatórios, monitora,
+clientes) ganhando UX moderna já, refatorar o núcleo transacional/financeiro
+(pedido/financeiro/estoque) com Services+testes, e MANTER o motor fiscal — tudo
+sobre o mesmo Postgres, sem big-bang. **A "gambiarra do menu" (D11) é real e o
+melhor ponto de partida da reescrita** (resolve a dor relatada e cria a fundação).
+
+**Gate para o núcleo (D01/D02/D03/D04):** o BASELINE fiscal/financeiro
+(Frente D do PLANO_FECHAMENTO_PENDENCIAS) é pré-requisito BLOQUEANTE.
 
 ## Ordem de levantamento sugerida
 Começar pelos **cadastros/apoio** (mais simples, valida o método e provavelmente
