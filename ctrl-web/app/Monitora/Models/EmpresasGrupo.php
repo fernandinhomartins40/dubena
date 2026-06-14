@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class EmpresasGrupo extends Model
+class EmpresasGrupo extends MonitoraModel
 {
 
     protected $fillable = ['descricao', 'ativo', 'logo'];

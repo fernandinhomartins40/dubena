@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class Ultimaposicao extends Model
+class Ultimaposicao extends MonitoraModel
 {
   protected $fillable = ['grupo_id', 'empresa_id', 'datahora', 'veiculo_id',
       'latitude', 'longitude', 'altitude', 'azimute', 'velocidade',

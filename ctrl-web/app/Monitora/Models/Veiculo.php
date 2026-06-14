@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class Veiculo extends Model
+class Veiculo extends MonitoraModel
 {
     protected $fillable = [
         'grupo_id',

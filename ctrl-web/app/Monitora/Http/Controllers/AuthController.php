@@ -51,6 +51,11 @@ class AuthController extends Controller
 
     protected function clearBrowserCache()
     {
+        // Em CLI/testes os headers já foram emitidos; header() dispararia
+        // ErrorException. Em HTTP real isso nunca ocorre.
+        if (php_sapi_name() === 'cli' || headers_sent()) {
+            return;
+        }
         header("Pragma: no-cache");
         header("Expires: Mon, 20 Jul 2000 03:00:00 GMT");
         header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");

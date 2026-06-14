@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class Device extends Model
+class Device extends MonitoraModel
 {
   protected $fillable = ['uniqueid', 'name', 'description', 'veiculo_id'];
 

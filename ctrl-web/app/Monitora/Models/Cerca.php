@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class Cerca extends Model
+class Cerca extends MonitoraModel
 {
     protected $fillable = ['grupo_id', 'empresa_id', 'descricao', 'setor_id',
         'cor', 'ativo'];

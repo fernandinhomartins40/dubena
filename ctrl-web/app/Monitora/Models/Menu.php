@@ -3,7 +3,7 @@
 namespace App\Monitora\Models;
 use Illuminate\Database\Eloquent\Model;
 
-class Menu extends Model
+class Menu extends MonitoraModel
 {
     
   protected $fillable = ['titulo', 'descricao', 'parent_id', 'ordem' ];
