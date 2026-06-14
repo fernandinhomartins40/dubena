@@ -194,8 +194,8 @@ class VendasmensaisgestaoController extends Controller
     {
         $datainicio = Carbon::createFromFormat('Ymd', $ano.str_pad($mes, 2, '0', STR_PAD_LEFT).'01')->startOfDay();
         $datafim = Carbon::createFromFormat('Ymd', $ano.str_pad($mes, 2, '0', STR_PAD_LEFT).'01')->endOfMonth()->endOfDay();
-        $pedidos = DB::table('pedidos pedido')
-            ->join('clientes cliente', 'cliente.id', 'pedido.cliente_id')
+        $pedidos = DB::table('pedidos as pedido')
+            ->join('clientes as cliente', 'cliente.id', 'pedido.cliente_id')
             ->join('bairros', 'bairros.id', 'pedido.entregabairro_id')
             ->join('ruas', 'ruas.id', 'pedido.entregarua_id')
             ->whereRaw("pedidosituacao_id IN (SELECT id FROM pedidosituacaos WHERE grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND (fechadoconcluido = 1 or entregafinalizada = 1) )")

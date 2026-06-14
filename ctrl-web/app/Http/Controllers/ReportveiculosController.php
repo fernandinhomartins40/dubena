@@ -142,8 +142,8 @@ class ReportveiculosController extends Controller
         $datafim = Carbon::parse($filtro["datafim"])->endOfDay();
         $veiculo_id = $filtro["veiculo"] == 0 ? null : $filtro["veiculo"];
 
-        $veiculos = DB::table('veiculoentradasaidas saida')->join('veiculos','saida.veiculo_id','veiculos.id')
-                            ->join('veiculoentradasaidapedidos ped','ped.entradasaida_id','saida.id')
+        $veiculos = DB::table('veiculoentradasaidas as saida')->join('veiculos','saida.veiculo_id','veiculos.id')
+                            ->join('veiculoentradasaidapedidos as ped','ped.entradasaida_id','saida.id')
                             ->join('pedidos','ped.pedido_id','pedidos.id')
                             ->whereBetween('saida.datahora',[$datainicio,$datafim])
                             ->where([

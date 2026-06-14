@@ -153,7 +153,7 @@ class BairroController extends Controller
     {
         if ($data["descricao"] == $bairro->descricao) return;
 
-        DB::table("inconsistencia_ignorada ign")
+        DB::table("inconsistencia_ignorada as ign")
             ->where("ignored_type", Bairro::class)
             ->where(function ($qry) use ($bairro) {
                 $qry->where("model_id", $bairro->id)

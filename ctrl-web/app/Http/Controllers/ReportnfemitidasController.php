@@ -77,13 +77,13 @@ class ReportnfemitidasController extends Controller
         $modelo = $filtro["modelos"] ? $filtro["modelos"] : null;
         $notin = ['100', '101', '205', '102', '135'];
 
-        $docs = DB::table('nfrecebidas nf')->join('nfoperacaos ope','nf.nfoperacao_id','ope.id')
+        $docs = DB::table('nfrecebidas as nf')->join('nfoperacaos as ope','nf.nfoperacao_id','ope.id')
                     ->join('clientes','nf.cliente_id','clientes.id')
                     ->where('nf.empresa_id', $empresa_id)
                     ->where('nf.tipolancamento', 0) //tipolancamento 0 = emissão própria
                     ->whereBetween('nf.datahoraemissao', [$datainicio, $datafim]);
 
-        $dbnf = DB::table('nfemitidas nf')->join('nfoperacaos ope','nf.nfoperacao_id','ope.id')
+        $dbnf = DB::table('nfemitidas as nf')->join('nfoperacaos as ope','nf.nfoperacao_id','ope.id')
                     ->join('clientes','nf.cliente_id','clientes.id')
                     ->where([
                         ['nf.empresa_id',$empresa_id]

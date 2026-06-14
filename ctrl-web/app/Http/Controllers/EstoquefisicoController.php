@@ -91,7 +91,7 @@ class EstoquefisicoController extends Controller
                 ->select(['estoquesetors.id', 'estoquesetors.setor_id', 'estoquesetors.produto_id', 'estoquesetors.quantidade'])
                 ->get();
 
-        $historico = DB::table('estoquesetorhistoricos hist')->where('setors.id', $setor_id !== null ? '=' : '!=', $setor_id)
+        $historico = DB::table('estoquesetorhistoricos as hist')->where('setors.id', $setor_id !== null ? '=' : '!=', $setor_id)
                 ->where('setors.empresa_id', $empresa_id)
                 ->where('setors.ativo', 1)
                 ->where('produtos.ativo', 1)

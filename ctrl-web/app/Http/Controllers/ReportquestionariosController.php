@@ -72,11 +72,11 @@ class ReportquestionariosController extends Controller
         $setor_id = $filtro["setor"] == 0 ? null : explode(',',$filtro["setor"]);
         $colaborador_id = $filtro["colaborador"] == 0 ? null : explode(',',$filtro["colaborador"]);
 
-        $pos = DB::table('posvendapesquisas pesquisas')->join('posvendas','pesquisas.posvenda_id','posvendas.id')
+        $pos = DB::table('posvendapesquisas as pesquisas')->join('posvendas','pesquisas.posvenda_id','posvendas.id')
                         ->join('empresas','posvendas.empresa_id','empresas.id')
-                        ->join('posvendapesquisarespostas pres','pres.posvendapesquisa_id','pesquisas.id')
-                        ->join('posvendarespostas respostas','pres.posvendaresposta_id','respostas.id')
-                        ->join('posvendaperguntas perguntas','respostas.posvendapergunta_id','perguntas.id')
+                        ->join('posvendapesquisarespostas as pres','pres.posvendapesquisa_id','pesquisas.id')
+                        ->join('posvendarespostas as respostas','pres.posvendaresposta_id','respostas.id')
+                        ->join('posvendaperguntas as perguntas','respostas.posvendapergunta_id','perguntas.id')
                         ->leftJoin('pedidos','pesquisas.pedido_id','pedidos.id')
                         ->whereBetween('pesquisas.datahora',[$datainicio,$datafim])
                         ->whereIn('posvendas.empresa_id',$empresas_id);
@@ -94,7 +94,7 @@ class ReportquestionariosController extends Controller
                     ->orderBy('perguntas.descricao')->orderBy('respostas.descricao')->get();
         $posvendas_id = $pos->unique('posvenda_id')->pluck('posvenda_id')->toArray();
         if(count($pos) > 0){
-            $pesquisa = DB::table('posvendapesquisas pesquisas')->leftJoin('clientes','pesquisas.cliente_id','clientes.id')
+            $pesquisa = DB::table('posvendapesquisas as pesquisas')->leftJoin('clientes','pesquisas.cliente_id','clientes.id')
                                 ->leftJoin('pedidos','pesquisas.pedido_id','pedidos.id')
                                 ->whereIn('pesquisas.posvenda_id',$posvendas_id)
                                 ->whereBetween('pesquisas.datahora',[$datainicio,$datafim])
@@ -227,16 +227,16 @@ class ReportquestionariosController extends Controller
         $check = $filtro["check"] == "0" ? null : explode(',',$filtro["check"]);
         
         $pesquisas = DB::table('checklistpesquisas as pesquisas')
-                        ->join('checklistforms formulario',function($join){
+                        ->join('checklistforms as formulario',function($join){
                                 $join->on('pesquisas.checklistform_id','formulario.id');
                             })
                         ->join('empresas','formulario.empresa_id','empresas.id')
                         ->join('checklists',function($join){
                                 $join->on('checklists.checklistform_id','formulario.id');
                             })
-                        ->join('checklistperguntas perguntas','perguntas.checklist_id','checklists.id')
-                        ->join('checklistrespostas respostas','respostas.checklistpergunta_id','perguntas.id')
-                        ->leftJoin('checklistpesquisarespostas pres',function($join){
+                        ->join('checklistperguntas as perguntas','perguntas.checklist_id','checklists.id')
+                        ->join('checklistrespostas as respostas','respostas.checklistpergunta_id','perguntas.id')
+                        ->leftJoin('checklistpesquisarespostas as pres',function($join){
                                 $join->on('pres.checklistpesquisa_id','pesquisas.id');
                                 $join->on('pres.checklistpergunta_id','perguntas.id');
                                 $join->on('pres.checklistresposta_id','respostas.id');

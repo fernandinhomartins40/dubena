@@ -160,7 +160,7 @@ class RuaController extends Controller
     {
         if ($data["descricao"] == $rua->descricao) return;
 
-        DB::table("inconsistencia_ignorada ign")
+        DB::table("inconsistencia_ignorada as ign")
             ->where("ignored_type", Rua::class)
             ->where(function ($qry) use ($rua) {
                 $qry->where("model_id", $rua->id)

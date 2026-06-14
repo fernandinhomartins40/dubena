@@ -288,7 +288,7 @@ class ReportclientesaniversariantesController extends Controller
 										$join->on('ultima.cliente_id','clientes.id')
 											 ->whereRaw("ultima.datacompra < to_date('$naocompra','yyyy-mm-dd hh24:mi:ss')");
 									})
-									->leftJoin('setors setor','clientes.setor_id','setor.id')
+									->leftJoin('setors as setor','clientes.setor_id','setor.id')
 									->join('bairros','clientes.bairro_id','bairros.id')
 									->join('ruas','clientes.rua_id','ruas.id')
 									->where([
@@ -437,8 +437,8 @@ class ReportclientesaniversariantesController extends Controller
 		$dados = $filtro["dados"] == "0" ? null : $filtro["dados"];
 		$tipos = Tipopessoa::where(['grupo_id'=>$this->grupo_id,'tipopessoacadastro'=>'F','ativo'=>1])->pluck('id')->toArray();
 		$incompletos = DB::table('clientes')
-						->leftJoin('setors setor','clientes.setor_id','setor.id')
-						->join('tipopessoas tipo','clientes.tipopessoa_id','tipo.id')
+						->leftJoin('setors as setor','clientes.setor_id','setor.id')
+						->join('tipopessoas as tipo','clientes.tipopessoa_id','tipo.id')
 						->where([
 							['clientes.empresa_id',$this->empresa_id],
 							['clientes.cliente',1],

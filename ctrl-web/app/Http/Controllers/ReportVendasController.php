@@ -55,9 +55,9 @@ class ReportVendasController extends Controller
             ->pluck("id")
             ->toArray();
 
-        $vendas = DB::table("pedidos ped")
-            ->join("pedidoitems it", "it.pedido_id", "ped.id")
-            ->join("produtos pro", "it.produto_id", "pro.id")
+        $vendas = DB::table("pedidos as ped")
+            ->join("pedidoitems as it", "it.pedido_id", "ped.id")
+            ->join("produtos as pro", "it.produto_id", "pro.id")
             ->whereBetween("ped.datahoraprevisaoentrega", [$inicio, $fim])
             ->where("ped.empresa_id", $this->empresa_id)
             ->whereIn("pro.produtoclasse_id", $classe)

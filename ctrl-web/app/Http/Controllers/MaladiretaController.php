@@ -80,8 +80,8 @@ class MaladiretaController extends Controller
 
     private function searchClientes($setor_id, $cidade_id, $bairro_id, $rua_id, $empresa_id, $tab, $compram, $naocompram, $filtros)
     {
-        $clientes = DB::table('clientes cliente')
-                        ->leftJoin('setors setor', 'cliente.setor_id', 'setor.id')
+        $clientes = DB::table('clientes as cliente')
+                        ->leftJoin('setors as setor', 'cliente.setor_id', 'setor.id')
                         ->join('bairros', 'bairros.id', 'cliente.bairro_id')
                         ->join('cidades', 'cidades.id', 'cliente.cidade_id')
                         ->join('estados', 'estados.uf', 'cliente.uf')
@@ -224,7 +224,7 @@ class MaladiretaController extends Controller
 
         $dadosParaImpressao = [];
 
-        $clientes = DB::table('clientes cliente')
+        $clientes = DB::table('clientes as cliente')
                         ->join('bairros', 'bairros.id', 'cliente.bairro_id')
                         ->join('cidades', 'cidades.id', 'cliente.cidade_id')
                         ->join('estados', 'estados.uf', 'cliente.uf')

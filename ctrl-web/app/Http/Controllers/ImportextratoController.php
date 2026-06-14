@@ -70,8 +70,8 @@ class ImportextratoController extends Controller
             $startDateMov = Carbon::parse($firstBankAccount->getStatement()->getStartDate()->format('Y-m-d H:i:s'))->startOfDay();
             $endDateMov = Carbon::parse($firstBankAccount->getStatement()->getEndDate()->format('Y-m-d H:i:s'))->endOfDay();
 
-            $parcelas = Financeiroparcela::join('financeiros financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
-                ->join('clientes cliente', 'cliente.id', 'financeiro.cliente_id')
+            $parcelas = Financeiroparcela::join('financeiros as financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
+                ->join('clientes as cliente', 'cliente.id', 'financeiro.cliente_id')
                 ->where('financeiroparcelas.empresa_id', Session::get('empresa_padrao')->id)
                 ->where('financeiroparcelas.baixado', false)
                 ->whereBetween('financeiroparcelas.datavencimento', [$startDate, $endDate])
@@ -208,8 +208,8 @@ class ImportextratoController extends Controller
             $cliente_id = $data['cliente_id'];
             $pagarreceber = $data['pagarreceber'];
 
-            $parcelas = Financeiroparcela::join('financeiros financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
-                ->join('clientes cliente', 'cliente.id', 'financeiro.cliente_id')
+            $parcelas = Financeiroparcela::join('financeiros as financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
+                ->join('clientes as cliente', 'cliente.id', 'financeiro.cliente_id')
                 ->where('financeiroparcelas.empresa_id', Session::get('empresa_padrao')->id)
                 ->where('financeiroparcelas.baixado', false)
                 ->whereBetween('financeiroparcelas.datavencimento', [$startDate, $endDate])

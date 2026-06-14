@@ -72,7 +72,7 @@ class NfrecebidaController extends Controller
 
         $clientenome = "";
         if ($cliente_id > 0) {
-            $cli = DB::table('clientes c')->where('id', $cliente_id)->select('nome')->get()->first();
+            $cli = DB::table('clientes as c')->where('id', $cliente_id)->select('nome')->get()->first();
             if (is_null($cli)) {
                 Session::flash("message_info", "Cliente número " . $cliente_id . " não encontrado.");
             } else {

@@ -1041,7 +1041,7 @@ class ClienteController extends Controller
         $num = e(Input::get('num', null));
         $complemento = str_encode_to_query(e(Input::get('complemento', null)));
         if ($rua) {
-            $clientes = DB::table('clientes c')
+            $clientes = DB::table('clientes as c')
                 ->where('grupo_id', Session::get('empresa_padrao')->grupo_id)
                 ->whereRaw("empresa_id in (SELECT empresa_id FROM empresa_user where user_id = " . \Auth::user()->id . ")")
                 ->where('rua_id', $rua)

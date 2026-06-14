@@ -136,7 +136,7 @@ class  PosvendaController extends Controller {
         $setor_id = $filtro["setor"] != "0" ? $filtro["setor"] : null;
         $colaborador_id = $filtro["colaborador"] !== "0" ? $filtro["colaborador"] : null;
 
-        $situacao = DB::table('pedidosituacaos sit')->whereRaw("grupo_id = $this->grupo_id and entregafinalizada = 1 or fechadoconcluido = 1 or fechadocancelado = 1 or entregacancelada = 1")->pluck('id')->toArray();
+        $situacao = DB::table('pedidosituacaos as sit')->whereRaw("grupo_id = $this->grupo_id and entregafinalizada = 1 or fechadoconcluido = 1 or fechadocancelado = 1 or entregacancelada = 1")->pluck('id')->toArray();
         $pedidos = DB::table('clientes')->join('pedidos','pedidos.cliente_id','clientes.id')
                         ->join('pedidosituacaos as situacao','pedidos.pedidosituacao_id','situacao.id')
                         ->join('condicaopagamentos as condicao','pedidos.condicaopagamento_id','condicao.id')

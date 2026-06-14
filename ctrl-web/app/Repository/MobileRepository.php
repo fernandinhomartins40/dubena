@@ -658,7 +658,7 @@ class MobileRepository extends BaseRepository
     public static function trackPedido($apiorder_id)
     {
         return Pedido::from("pedidos as pe")
-            ->join("setors se", "se.id", "pe.entregasetor_id")
+            ->join("setors as se", "se.id", "pe.entregasetor_id")
             ->leftJoin("veiculos as vei", "vei.colaborador_id", "pe.colaborador_id")
             ->whereRaw("pe.apipedido_id is not null and pe.apipedido_id = $apiorder_id")
             ->selectRaw("pe.apipedido_id as cod_pedido_api, pe.colaborador_id as cod_colaborador, vei.placa, se.usarastreamento as monitorado_aplicativo")
@@ -669,7 +669,7 @@ class MobileRepository extends BaseRepository
     public static function getColaborador($order)
     {
         $colab = Setorcolaboradores::from("setorcolaboradores as seco")
-            ->join("colaboradors cola", "cola.id", "seco.colaborador_id")
+            ->join("colaboradors as cola", "cola.id", "seco.colaborador_id")
             ->whereSetorId($order->setor->id)
             ->select("cola.id")
             ->get()
@@ -694,7 +694,7 @@ class MobileRepository extends BaseRepository
     public static function checkForPendency($api_id, $pedidosituacao_id)
     {
         return Cliente::from("pedidos pe")
-            ->join("clientes cli", "cli.id", "pe.cliente_id")
+            ->join("clientes as cli", "cli.id", "pe.cliente_id")
             ->whereRaw("cli.api_id = $api_id and pe.pedidosituacao_id = $pedidosituacao_id")
             ->exists();
     }
@@ -709,9 +709,9 @@ class MobileRepository extends BaseRepository
             "(CASE WHEN sit.fechadoconcluido = 1 OR sit.entregafinalizada = 1 THEN '1' ELSE '0' END) AS entrega_realizada ";
 
         return Pedido::from("pedidos pe")
-            ->join("pedidosituacaohistoricos hist", "hist.pedido_id", "pe.id")
-            ->join("pedidosituacaos sit", "sit.id", "hist.pedidosituacao_id")
-            ->leftJoin("veiculos vei", "vei.colaborador_id", "pe.colaborador_id")
+            ->join("pedidosituacaohistoricos as hist", "hist.pedido_id", "pe.id")
+            ->join("pedidosituacaos as sit", "sit.id", "hist.pedidosituacao_id")
+            ->leftJoin("veiculos as vei", "vei.colaborador_id", "pe.colaborador_id")
             ->whereRaw("pe.apipedido_id IS NOT NULL AND pe.apipedido_id > 0 AND hist.enviadoapi = 0")
             ->selectRaw($selectRaw)
             ->orderBy("hist.datahora", "DESC")->get();
@@ -757,8 +757,8 @@ class MobileRepository extends BaseRepository
         };
 
         return Pedido::from("pedidos pe")
-            ->join("pedidoitems i", "pe.id", "i.pedido_id")
-            ->join("pedidosituacao status", $joinFn)
+            ->join("pedidoitems as i", "pe.id", "i.pedido_id")
+            ->join("pedidosituacao as status", $joinFn)
             ->where("pe.cliente_id", $client_id)
             ->whereIn("i.produto_id", $produtos)
             ->whereRaw("pe.datahora BETWEEN TO_DATE('$yearAgo', 'YYYY-MM-DD HH24:MI:SS') AND TO_DATE('$now', 'YYYY-MM-DD HH24:MI:SS')")
@@ -826,7 +826,7 @@ class MobileRepository extends BaseRepository
     public static function getClientByCpf($cpf, $telefone)
     {
         return Cliente::from("clientes cli")
-            ->join("clientetelefones tel", "tel.cliente_id", "cli.id")
+            ->join("clientetelefones as tel", "tel.cliente_id", "cli.id")
             ->whereRaw("regexp_replace(cli.cpf, '[^0-9]', '') = '$cpf' AND regexp_replace(tel.telefone, '[^0-9]', '') = '$telefone'")
             // ->where(DB::raw("regexp_replace(cli.cpf, '[^0-9]', '')"), $cpf)
             // ->where(DB::raw("regexp_replace(tel.telefone, '[^0-9]', '')"), $telefone)

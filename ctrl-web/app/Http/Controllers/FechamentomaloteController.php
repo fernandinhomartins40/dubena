@@ -203,9 +203,9 @@ class FechamentomaloteController extends Controller
 
         $parcela_ids = explode(",", $parcelasStr);
         $parcelas = Financeiroparcela::from("financeiroparcelas parc")
-            ->join("financeiros fin", "parc.financeiro_id", "fin.id")
-            ->leftJoin("chequerecebidofinanceiros chq", "chq.financeiroparcela_id", "parc.id")
-            ->leftJoin("boletos bo", "bo.financeiroparcela_id", "parc.id")
+            ->join("financeiros as fin", "parc.financeiro_id", "fin.id")
+            ->leftJoin("chequerecebidofinanceiros as chq", "chq.financeiroparcela_id", "parc.id")
+            ->leftJoin("boletos as bo", "bo.financeiroparcela_id", "parc.id")
             ->whereIn("parc.id", $parcela_ids)
             ->select(
                 "parc.id",

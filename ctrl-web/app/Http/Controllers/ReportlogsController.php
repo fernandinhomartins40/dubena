@@ -162,7 +162,7 @@ class ReportlogsController extends Controller
         $user = $filtros["user"] === "0" ? null : $filtros["user"];
         $param = $this->byGrupo($model) ? "grupo_id" : "empresa_id";
 
-        $dblogs = DB::table('revisions rev')
+        $dblogs = DB::table('revisions as rev')
                 ->join('users', 'rev.user_id', 'users.id')
                 ->whereBetween('rev.created_at', [$datainicio, $datafim])
                 ->where([

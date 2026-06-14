@@ -68,8 +68,8 @@ class NotificacoesController extends Controller
         $user = $this->getUser();
         $tipo = request()->get("tipo");
 
-        $notificacoes = DB::table('androidmensagems men')->join('users', 'men.user_id', 'users.id')
-            ->join('colaboradors cool', 'users.colaborador_id', 'cool.id')
+        $notificacoes = DB::table('androidmensagems as men')->join('users', 'men.user_id', 'users.id')
+            ->join('colaboradors as cool', 'users.colaborador_id', 'cool.id')
             ->join('empresas', 'men.empresa_id', 'empresas.id')
             ->where([
                 ['men.empresa_id', $empresa_id]
@@ -80,18 +80,18 @@ class NotificacoesController extends Controller
             ->orderBy('men.created_at', 'DESC')
             ->get();
 
-        $appNoti = DB::table('notificacoes noti')
-            ->join("notificacaousers us", "us.notificacao_id", "noti.id")
-            ->join("empresas emp", "emp.id", "us.empresa_id")
+        $appNoti = DB::table('notificacoes as noti')
+            ->join("notificacaousers as us", "us.notificacao_id", "noti.id")
+            ->join("empresas as emp", "emp.id", "us.empresa_id")
             ->whereRaw("us.user_id = $user->id AND us.empresa_id = $empresa_id AND us.status in ('N', 'R') AND noti.appnotification = 1")
             ->selectRaw("us.id as men_id, us.status as situacao, emp.nome_informal as empresa, 'Aplicativo' as nome, " .
                 "noti.descricao, noti.appnotification, noti.dangerlevel, emp.id AS empresa_id")
             ->orderBy("noti.created_at", "DESC")
             ->get();
 
-        $notiCerca = DB::table('notificacoes noti')
-            ->join("notificacaousers us", "us.notificacao_id", "noti.id")
-            ->join("empresas emp", "emp.id", "us.empresa_id")
+        $notiCerca = DB::table('notificacoes as noti')
+            ->join("notificacaousers as us", "us.notificacao_id", "noti.id")
+            ->join("empresas as emp", "emp.id", "us.empresa_id")
             ->whereRaw("us.user_id = $user->id AND us.empresa_id = $empresa_id AND us.status in ('N', 'R') AND noti.tela = 'logcercas'")
             ->selectRaw("us.id as men_id, us.status as situacao, emp.nome_informal as empresa, 'Cercas' as nome, " .
                 "noti.descricao, noti.appnotification, noti.dangerlevel, emp.id AS empresa_id")

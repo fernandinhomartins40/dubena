@@ -534,7 +534,7 @@ class ColaboradorcomissoesController extends Controller
 
     private function getSetorColaboradores()
     {
-        return DB::table('setorcolaboradores sect')
+        return DB::table('setorcolaboradores as sect')
             ->join('setors', 'sect.setor_id', 'setors.id')
             ->where('setors.empresa_id', Session::get('empresa_padrao')->id)
             ->select('sect.setor_id', 'sect.colaborador_id')

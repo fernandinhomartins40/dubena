@@ -276,7 +276,7 @@ class NfwebController extends Controller
         try {
             $this->throwIf(! Input::get("cliente_id"), 'Campo "cliente_id" não informado');
             $parcelas = Financeiro::from("financeiros f")
-                ->join("financeiroparcelas p", 'f.id', 'p.financeiro_id')
+                ->join("financeiroparcelas as p", 'f.id', 'p.financeiro_id')
                 ->where('cliente_id', Input::get('cliente_id'))
                 ->where('baixado', false)
                 ->where('datavencimento', '<', Carbon::now()->startOfDay())
@@ -664,7 +664,7 @@ class NfwebController extends Controller
                 return responseSuccess('Boleto e NF não encontrados');
             }
 
-            $configempresa = DB::table('empresaconfigs c')
+            $configempresa = DB::table('empresaconfigs as c')
                 ->where('c.empresa_id', $pedido->empresa_id)
                 ->get()->first();
             if (is_null($configempresa)) {
@@ -1684,7 +1684,7 @@ class NfwebController extends Controller
             $this->throwIf(! Input::get("cliente_id"), 'Campo "cliente_id" não informado');
             $cliente_id = Input::get('cliente_id');
             $parcelas = Financeiro::from("financeiros f")
-                ->join("financeiroparcelas p", 'f.id', 'p.financeiro_id')
+                ->join("financeiroparcelas as p", 'f.id', 'p.financeiro_id')
                 ->where('cliente_id', Input::get('cliente_id'))
                 ->where('baixado', false)
                 ->where('datavencimento', '<', Carbon::now()->startOfDay())

@@ -47,8 +47,13 @@ class NavegacaoPostgresTest extends TestCase
     {
         $resp = $this->call($metodo, $uri);
         $code = $resp->getStatusCode();
+        // 200 = renderizou de fato (SQL do módulo executou e passou).
+        // Um 302 aqui indicaria redirect por falta de permissão (mascarando
+        // o SQL): por isso o seeder concede acesso total ao admin de teste.
         $this->assertNotEquals(500, $code,
             "[$uri] retornou 500 — incompatibilidade Postgres/PHP. $msg");
+        $this->assertNotEquals(302, $code,
+            "[$uri] redirecionou (302) — sem permissão; SQL do módulo não foi exercido.");
         return $code;
     }
 
@@ -77,6 +82,35 @@ class NavegacaoPostgresTest extends TestCase
         $code = $this->assertRotaOk('GET', $uri);
         $this->assertContains($code, [200, 302, 403, 404],
             "[$uri] status inesperado: $code");
+    }
+
+    /**
+     * Telas de FORMULÁRIO (create) dos módulos transacionais do dia a dia.
+     * O create monta dezenas de dropdowns via Repository — onde o SQL de
+     * apoio (estados, produtos, condições de pagamento...) é exercido.
+     *
+     * @dataProvider formulariosProvider
+     */
+    public function test_formulario_create($uri)
+    {
+        $this->login();
+        $code = $this->assertRotaOk('GET', $uri);
+        $this->assertContains($code, [200, 302, 403],
+            "[$uri] status inesperado no form: $code");
+    }
+
+    public function formulariosProvider()
+    {
+        // Fluxos que o operador usa o dia inteiro: cadastro e telas de venda/caixa.
+        return [
+            'cliente.create'     => ['/cliente/create'],
+            'produto.create'     => ['/produto/create'],
+            'colaborador.create' => ['/colaborador/create'],
+            'veiculo.create'     => ['/veiculo/create'],
+            'conta.create'       => ['/conta/create'],
+            'caixa.index'        => ['/caixaindex'],
+            'pedido.create'      => ['/pedido/create'],
+        ];
     }
 
     public function modulosProvider()

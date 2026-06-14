@@ -70,7 +70,7 @@ class ReportvendapdvController extends Controller
 
         $operadorset = $setor == null ? '!=' : '=';
         $operadorseg = $segmento == null ? '!=' : '=';
-        $situacao = DB::table('pedidosituacaos sit')
+        $situacao = DB::table('pedidosituacaos as sit')
             ->whereRaw("grupo_id = " . $this->grupo_id . " and (fechadoconcluido = 1 or entregafinalizada = 1)")
             ->select('id')->get()->pluck('id')->toArray();
 
@@ -519,7 +519,7 @@ class ReportvendapdvController extends Controller
                             ->join('setors as setor','pedidos.entregasetor_id','setor.id')
                             ->join('pedidoitems as items','items.pedido_id','pedidos.id')
                             ->join('produtos','items.produto_id','produtos.id')
-                            ->leftJoin('clienteprodutosconvenios prodcon', function ($query) {
+                            ->leftJoin('clienteprodutosconvenios as prodcon', function ($query) {
                                 $query->on('prodcon.cliente_id', 'clientes.convenio_id');
                                 $query->on('prodcon.cliente_id', 'convenio.cliente_id');
                                 $query->on('prodcon.produto_id', 'items.produto_id');

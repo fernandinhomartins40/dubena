@@ -31,7 +31,7 @@ class ChequeProcessor
     public function getSituacaoAnterior($cheque_id, $salto = 0)
     {
         $situacao_id = Chequesituacaohistorico::where('chequerecebido_id', $cheque_id)
-            ->join('chequerecebidos recebido','chequesituacaohistoricos.chequerecebido_id','recebido.id')
+            ->join('chequerecebidos as recebido','chequesituacaohistoricos.chequerecebido_id','recebido.id')
             ->whereRaw('chequesituacaohistoricos.chequesituacao_id <> recebido.chequesituacao_id')
             ->orderBy('datahoraprocesso', 'DESC')->select('chequesituacaohistoricos.chequesituacao_id')
             ->limit(2 + $salto)->get()->pluck('chequesituacao_id');

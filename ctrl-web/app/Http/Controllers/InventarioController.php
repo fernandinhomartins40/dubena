@@ -89,7 +89,7 @@ class InventarioController extends Controller
             ->get()->first();
 
         $this->authorize('igualdade',$inventario);
-        $items = DB::table('Inventarioitems items')->join('produtos','items.produto_id','produtos.id')
+        $items = DB::table('Inventarioitems as items')->join('produtos','items.produto_id','produtos.id')
             ->where('inventario_id',$id)
             ->select('produtos.descricao','items.produto_id','items.valorunitario','items.quantidade',
                 DB::raw('(items.valorunitario * items.quantidade) as total'))
@@ -110,7 +110,7 @@ class InventarioController extends Controller
                 "to_char(datainventario,'dd/mm/yyyy') as datainventario, empresa_id"))
             ->get()->first();
         $this->authorize('igualdade',$inventario);
-        $items = DB::table('Inventarioitems items')->join('produtos','items.produto_id','produtos.id')
+        $items = DB::table('Inventarioitems as items')->join('produtos','items.produto_id','produtos.id')
             ->where('inventario_id',$id)
             ->select('produtos.descricao','items.produto_id','items.valorunitario','items.quantidade',
                 DB::raw('(items.valorunitario * items.quantidade) as total'))

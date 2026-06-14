@@ -45,8 +45,8 @@ class ChecklistController extends Controller {
         $tipo = $get["tipo"] != "" ? $get["tipo"] : null;
 
         if($get["respondido"] == "0"){
-            $checklists = DB::table('checklistforms form')->join('empresas','form.empresa_id','empresas.id')
-                        ->join('checklisttipos tipo','form.checklisttipo_id','tipo.id')
+            $checklists = DB::table('checklistforms as form')->join('empresas','form.empresa_id','empresas.id')
+                        ->join('checklisttipos as tipo','form.checklisttipo_id','tipo.id')
                         ->where([
                             ['form.empresa_id',$get["empresa"]],
                             ['form.ativo',1]
@@ -60,10 +60,10 @@ class ChecklistController extends Controller {
                                      ->get();
         }else{
             $emp = User::find(\Auth::user()->id)->empresas()->pluck('id')->toArray();
-            $checklists = DB::table('checklistpesquisas pesquisa')->join('checklistforms form','pesquisa.checklistform_id','form.id')
+            $checklists = DB::table('checklistpesquisas as pesquisa')->join('checklistforms as form','pesquisa.checklistform_id','form.id')
                         ->join('empresas','pesquisa.empresa_id','empresas.id')
-                        ->join('empresas emp2','form.empresa_id','emp2.id')
-                        ->join('checklisttipos tipo','form.checklisttipo_id','tipo.id')
+                        ->join('empresas as emp2','form.empresa_id','emp2.id')
+                        ->join('checklisttipos as tipo','form.checklisttipo_id','tipo.id')
                         ->whereBetween('datahorapesquisa',[$datainicio,$datafim]);
 
             if(empty($get["empresa"]))

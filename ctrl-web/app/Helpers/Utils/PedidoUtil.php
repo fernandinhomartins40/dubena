@@ -514,11 +514,11 @@ final class PedidoUtil
         $fechamento = getProximoVencimento($convenio->diafechamento);
         $fechamentoAnterior = Carbon::parse($fechamento)->subMonth()->toDateTimeString();
 
-        $totalcomprasConvenio = intVal(DB::table('pedidos p')->join('pedidosituacaos s', 's.id', 'p.pedidosituacao_id')
-            ->join('condicaopagamentos cond', function ($join) {
+        $totalcomprasConvenio = intVal(DB::table('pedidos as p')->join('pedidosituacaos as s', 's.id', 'p.pedidosituacao_id')
+            ->join('condicaopagamentos as cond', function ($join) {
                 $join->on('cond.id', 'p.condicaopagamento_id')->where('tipo', '4');
             })
-            ->join('pedidoitems it', function ($join) {
+            ->join('pedidoitems as it', function ($join) {
                 $join->on('it.pedido_id', 'p.id')->whereRaw("fechadocancelado <> 1 AND entregacancelada <> 1");
             })
             ->where([

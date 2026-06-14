@@ -186,7 +186,7 @@ class PlanocontaController extends Controller
 
     private function hasEmpresaEmitSped()
     {
-        return !is_null(DB::table('empresas e')->whereRaw("ativo = 1 AND grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND spedemite = 1")->get()->first());
+        return !is_null(DB::table('empresas as e')->whereRaw("ativo = 1 AND grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND spedemite = 1")->get()->first());
     }
 
     function planoContaAjax($pcdependente_id, $pcedit_id)

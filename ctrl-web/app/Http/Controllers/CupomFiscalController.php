@@ -1269,8 +1269,8 @@ class CupomFiscalController extends Controller
             $id = Input::get("empresa_id", null);
             $this->throwIf((int) $id <= 0, "Parâmetro \"empresa_id\" não informado ou incorreto;");
 
-            $empresa = Empresa::join('empresa_user empu', 'empu.empresa_id', 'empresas.id')
-                ->join("empresas_grupos eg", "eg.id", "empresas.grupo_id")
+            $empresa = Empresa::join('empresa_user as empu', 'empu.empresa_id', 'empresas.id')
+                ->join("empresas_grupos as eg", "eg.id", "empresas.grupo_id")
                 ->where('empu.user_id', $user_id)
                 ->where('empu.empresa_id', $id)
                 ->select([

@@ -325,7 +325,7 @@ class CondicaopagamentoController extends Controller
     {
         $raw = "grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND "
             . "(nfceemite = 1 OR nfeemite =  1)";
-        $first = DB::table('empresas e')->whereRaw($raw)->selectRaw('count(*) as count')->get()->first();
+        $first = DB::table('empresas as e')->whereRaw($raw)->selectRaw('count(*) as count')->get()->first();
         $nfEmit = is_null($first) ? false : $first->count > 0;
         if (strlen($nfc_tpag) === 0 && $nfEmit) {
             $msg = 'O campo Tipo Pagamento NF é obrigatório quando alguma empresa do grupo emite NF-e ou NFC-e';

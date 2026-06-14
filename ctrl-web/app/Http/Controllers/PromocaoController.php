@@ -245,7 +245,7 @@ class PromocaoController extends Controller
     public function buscaPromocaoAjax($id)
     {
         try {
-            $promocao = DB::table("promocaos p")->where("id", $id)->select(["datahorafim", "datahorainicio"])->get()->first();
+            $promocao = DB::table("promocaos as p")->where("id", $id)->select(["datahorafim", "datahorainicio"])->get()->first();
 
             if (!$promocao) {
                 throw new \Exception("");

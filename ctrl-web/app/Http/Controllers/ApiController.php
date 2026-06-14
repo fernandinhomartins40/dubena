@@ -800,10 +800,10 @@ class ApiController extends Controller
         //$dataFinal = Carbon::parse(insertDataOracle($data["data_final"]." 23:59:59"));
 
         if ($android != null && $android->setor != null) {
-            $pedidos = Pedido::join('pedidosituacaos sit', 'sit.id', 'pedidos.pedidosituacao_id')
-                ->join('ruas r', 'r.id', 'pedidos.entregarua_id')
-                ->join('bairros b', 'b.id', 'pedidos.entregabairro_id')
-                ->join('condicaopagamentos c', 'c.id', 'pedidos.condicaopagamento_id')
+            $pedidos = Pedido::join('pedidosituacaos as sit', 'sit.id', 'pedidos.pedidosituacao_id')
+                ->join('ruas as r', 'r.id', 'pedidos.entregarua_id')
+                ->join('bairros as b', 'b.id', 'pedidos.entregabairro_id')
+                ->join('condicaopagamentos as c', 'c.id', 'pedidos.condicaopagamento_id')
                 ->where('pedidos.empresa_id', $android->empresa_id)
                 ->where('pedidos.entregasetor_id', $android->setor_id)
                 ->whereBetween('pedidos.datahoraprevisaoentrega', [$dataInicial, $dataFinal])

@@ -27,8 +27,8 @@ class EstoquerequisicaoController extends Controller
         $this->authorize('view',$req);
         $dataInicial = Carbon::now()->subDays(2)->startOfDay();
         $dataFinal = Carbon::now()->endOfDay();
-        $dados = Estoquerequisicao::leftJoin('planocontas plano', 'estoquerequisicaos.planoconta_id', 'plano.id')
-            ->leftJoin('centrocustos centro', 'estoquerequisicaos.centrocusto_id', 'centro.id')
+        $dados = Estoquerequisicao::leftJoin('planocontas as plano', 'estoquerequisicaos.planoconta_id', 'plano.id')
+            ->leftJoin('centrocustos as centro', 'estoquerequisicaos.centrocusto_id', 'centro.id')
             ->whereBetween('datahora', [$dataInicial, $dataFinal])
             ->where('estoquerequisicaos.empresa_id', Session::get('empresa_padrao')->id)
             ->select('estoquerequisicaos.id','estoquerequisicaos.datahora',
@@ -44,8 +44,8 @@ class EstoquerequisicaoController extends Controller
     {
         $datainicio = Carbon::parse($dataInicial)->startOfDay();
         $datafim = Carbon::parse($dataFinal)->endOfDay();
-        $dados = Estoquerequisicao::leftJoin('planocontas plano', 'estoquerequisicaos.planoconta_id', 'plano.id')
-            ->leftJoin('centrocustos centro', 'estoquerequisicaos.centrocusto_id', 'centro.id')
+        $dados = Estoquerequisicao::leftJoin('planocontas as plano', 'estoquerequisicaos.planoconta_id', 'plano.id')
+            ->leftJoin('centrocustos as centro', 'estoquerequisicaos.centrocusto_id', 'centro.id')
             ->whereBetween('datahora', [$datainicio, $datafim])
             ->where('estoquerequisicaos.empresa_id', Session::get('empresa_padrao')->id)
             ->select('estoquerequisicaos.id','estoquerequisicaos.datahora',

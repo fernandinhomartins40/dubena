@@ -130,9 +130,9 @@ class ReportCaixaController extends Controller
         $movimentos = Contamovimento:: //with($withParcelas)
             join('contas conta', 'conta.id', 'contamovimentos.conta_id')
             ->leftJoin(DB::raw("($joinContamovimentos) fechamento"), $onClause)
-            ->leftJoin("financeiroparcelas parc", "contamovimentos.financeiroparcela_id", "parc.id")
-            ->leftJoin("financeiros fin", "parc.financeiro_id", "fin.id")
-            ->leftJoin("clientes cli", "fin.cliente_id", "cli.id")
+            ->leftJoin("financeiroparcelas as parc", "contamovimentos.financeiroparcela_id", "parc.id")
+            ->leftJoin("financeiros as fin", "parc.financeiro_id", "fin.id")
+            ->leftJoin("clientes as cli", "fin.cliente_id", "cli.id")
             ->whereIn('conta.empresa_id', $empresas_id)
             ->whereIn('conta.id', $conta_id)
             ->where('conta.ativo', $ativo)
@@ -769,11 +769,11 @@ class ReportCaixaController extends Controller
             "to_date('$datainicio', 'yyyy-mm-dd hh24:mi:ss') and " .
             "to_date('$datafim', 'yyyy-mm-dd hh24:mi:ss') and ";
 
-        $dblancamentos = DB::table('financeirorateios rato')
+        $dblancamentos = DB::table('financeirorateios as rato')
             ->join('financeiros', 'rato.financeiro_id', 'financeiros.id')
             ->join('clientes', 'financeiros.cliente_id', 'clientes.id')
-            ->join('centrocustos centro', 'rato.centrocusto_id', 'centro.id')
-            ->join('planocontas plano', 'rato.planoconta_id', 'plano.id');
+            ->join('centrocustos as centro', 'rato.centrocusto_id', 'centro.id')
+            ->join('planocontas as plano', 'rato.planoconta_id', 'plano.id');
         if ($hub == '1') {
             $financeiro .= "parc.empresa_id = $id and parc.pagarreceber = '$pagarreceber' and parc.empresa_id in ($empresas_id) group by financeiro_id";
         } else if ($hub == '2') {

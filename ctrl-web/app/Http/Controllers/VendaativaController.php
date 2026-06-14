@@ -487,7 +487,7 @@ class VendaativaController extends Controller
         $this->authorize('igualdade',$vendaativa);
         DB::beginTransaction();
         try {
-            $clientes = DB::table('vendaativaclientes cli')
+            $clientes = DB::table('vendaativaclientes as cli')
                             ->where('vendaativa_id',$id)
                             ->whereRaw('(vendaativaocorrencia_id is not null or pedido_id is not null)')
                             ->get();

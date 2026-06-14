@@ -176,7 +176,7 @@ class BoletoController extends Controller
             }
 
             $parc = Financeiroparcela::with('financeiro')->where('boleto.id', $id)
-                    ->join('boletos boleto', 'boleto.financeiroparcela_id', 'financeiroparcelas.id')
+                    ->join('boletos as boleto', 'boleto.financeiroparcela_id', 'financeiroparcelas.id')
                     ->select('financeiroparcelas.id', 'financeiroparcelas.financeiro_id', 'valorefetivado')
                     ->get()->first();
 
@@ -236,11 +236,11 @@ class BoletoController extends Controller
 
         $whereRaw = "chequerecebido_id IS NULL AND financeiroparcelas.agrupamento_status NOT IN (2, 3)";
         return Financeiroparcela::where($where)->select($select)->whereRaw($whereRaw)
-                        ->join('financeiros financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
-                        ->join('condicaopagamentos pagamento', 'financeiro.condicaopagamento_id', 'pagamento.id')
-                        ->join('clientes cliente', 'cliente.id', 'financeiro.cliente_id')
-                        ->leftJoin('boletos boleto', 'boleto.financeiroparcela_id', 'financeiroparcelas.id')
-                        ->leftJoin('chequerecebidofinanceiros cheque', 'financeiroparcelas.id', 'cheque.financeiroparcela_id')
+                        ->join('financeiros as financeiro', 'financeiro.id', 'financeiroparcelas.financeiro_id')
+                        ->join('condicaopagamentos as pagamento', 'financeiro.condicaopagamento_id', 'pagamento.id')
+                        ->join('clientes as cliente', 'cliente.id', 'financeiro.cliente_id')
+                        ->leftJoin('boletos as boleto', 'boleto.financeiroparcela_id', 'financeiroparcelas.id')
+                        ->leftJoin('chequerecebidofinanceiros as cheque', 'financeiroparcelas.id', 'cheque.financeiroparcela_id')
                         ->orderBy('cliente.nome')->orderBy('financeiro.dataemissao');
     }
 

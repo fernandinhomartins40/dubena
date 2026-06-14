@@ -261,7 +261,7 @@ class ReportcolaboradorController extends Controller
 		$exameAnteriror = null;
 		$count = 0;
 		$colaboradorexames = Colaboradorexame::with('tipoexame')->select('id', 'colaborador_id', 'datavencimento')->whereIn('id', $colaboradores->pluck('colaboradorexame_id')->toArray())->get();
-		$colaboradorexamesdata = Colaboradorexame::join('tipoexames tipo', 'tipo.id', 'colaboradorexames.tipoexame_id')->where('admissional', 0)->select('datavencimento', 'colaborador_id', 'colaboradorexames.id')->whereIn('colaborador_id', $colaboradores->pluck('colaborador_id')->toArray())->get();
+		$colaboradorexamesdata = Colaboradorexame::join('tipoexames as tipo', 'tipo.id', 'colaboradorexames.tipoexame_id')->where('admissional', 0)->select('datavencimento', 'colaborador_id', 'colaboradorexames.id')->whereIn('colaborador_id', $colaboradores->pluck('colaborador_id')->toArray())->get();
 		foreach ($colaboradores as $colaborador) {
 			$colaboradorexame = $colaboradorexames->where('colaborador_id', $colaborador->colaborador_id)->sortByDesc('datavencimento')->first();
 			$dataExame = $colaboradorexamesdata->where('colaborador_id', $colaborador->colaborador_id)->sortByDesc('datavencimento')->first();

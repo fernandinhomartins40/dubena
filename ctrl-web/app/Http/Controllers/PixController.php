@@ -89,7 +89,7 @@ class PixController extends Controller
         $pedido_id = $request->get("pedido_id");
 
         $config = Empresaconfig::from("empresaconfigs conf")
-            ->join("pedidos ped", "ped.empresa_id", "conf.empresa_id")
+            ->join("pedidos as ped", "ped.empresa_id", "conf.empresa_id")
             ->where("ped.id", $pedido_id)
             ->selectRaw("conf.*")
             ->first();

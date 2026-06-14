@@ -353,18 +353,18 @@ class FinanceiroController extends Controller
                     return "Tipo de pesquisa inválido";
             }
         }
-        $dados->leftJoin('boletos b', 'b.financeiroparcela_id', 'financeiroparcelas.id');
+        $dados->leftJoin('boletos as b', 'b.financeiroparcela_id', 'financeiroparcelas.id');
         if ($pagarreceber == 'R') {
-            $dados->leftJoin('chequerecebidofinanceiros cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id');
-            $dados->leftJoin('chequeemitidoencontrocontas encontrocontas', 'encontrocontas.financeiroparcela_id',
+            $dados->leftJoin('chequerecebidofinanceiros as cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id');
+            $dados->leftJoin('chequeemitidoencontrocontas as encontrocontas', 'encontrocontas.financeiroparcela_id',
                     'financeiroparcelas.id');
-            $dados->leftJoin('chequeemitidofinanceiros encontrocontascheque', 'encontrocontascheque.id',
+            $dados->leftJoin('chequeemitidofinanceiros as encontrocontascheque', 'encontrocontascheque.id',
                     'encontrocontas.chequeemitido_id');
         } else {
-            $dados->leftJoin('chequeemitidofinanceiros cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id');
-            $dados->leftJoin('chequerecebidoencontrocontas encontrocontas', 'encontrocontas.financeiroparcela_id',
+            $dados->leftJoin('chequeemitidofinanceiros as cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id');
+            $dados->leftJoin('chequerecebidoencontrocontas as encontrocontas', 'encontrocontas.financeiroparcela_id',
                     'financeiroparcelas.id');
-            $dados->leftJoin('chequerecebidofinanceiros encontrocontascheque', 'encontrocontascheque.id',
+            $dados->leftJoin('chequerecebidofinanceiros as encontrocontascheque', 'encontrocontascheque.id',
                     'encontrocontas.chequerecebido_id');
         }
 
@@ -616,7 +616,7 @@ class FinanceiroController extends Controller
         //$raw = "cartaoautorizacao = $autorizacao and TRUNC(f.datacompetencia) = TO_DATE('$date', 'YYYY-MM-DD HH24:MI:SS')";
         $raw = "cartaoautorizacao = '$autorizacao' ";
         $raw .= " AND agrupamento_status <= 1 AND baixado = 0 ";
-        return Financeiroparcela::with('financeiro.cliente')->join('financeiros f', 'financeiro_id', 'f.id')
+        return Financeiroparcela::with('financeiro.cliente')->join('financeiros as f', 'financeiro_id', 'f.id')
                         ->select('financeiroparcelas.id', 'financeiroparcelas.valorefetivado', 'f.cartaoautorizacao',
                                 'f.id as financeiro_id')
                         ->whereRaw($raw)->first();

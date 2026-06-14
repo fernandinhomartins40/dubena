@@ -89,10 +89,10 @@ class BoletoremessaController extends Controller
             $raw .= "AND gerouremessa = 0";
         }
         $boletos = Boleto::with('boletohistorico')
-                ->join('financeiroparcelas parcela', 'parcela.id', 'boletos.financeiroparcela_id')
-                ->join('financeiros financeiro', 'financeiro.id', 'parcela.financeiro_id')
-                ->join('clientes cliente', 'cliente.id', 'financeiro.cliente_id')
-                ->leftJoin('ocorrenciasremessas ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
+                ->join('financeiroparcelas as parcela', 'parcela.id', 'boletos.financeiroparcela_id')
+                ->join('financeiros as financeiro', 'financeiro.id', 'parcela.financeiro_id')
+                ->join('clientes as cliente', 'cliente.id', 'financeiro.cliente_id')
+                ->leftJoin('ocorrenciasremessas as ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
                 ->where('boletos.empresa_id', $empresa_id)
                 ->where('conta_id', $conta_id)
                 ->whereRaw($raw)
@@ -209,15 +209,15 @@ class BoletoremessaController extends Controller
         }
         if (!isset($userem)) {
             $boletos = Boleto::whereIn('boletos.financeiroparcela_id', $remessa->boletoremessaFinanceiro->pluck('financeiroparcela_id'))
-                    ->with('boletohistorico')->leftJoin('financeiroparcelas parcela', 'parcela.id', 'boletos.financeiroparcela_id')
-                    ->leftJoin('financeiros financeiro', 'financeiro.id', 'parcela.financeiro_id')
-                    ->leftJoin('ocorrenciasremessas ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
-                    ->leftJoin('clientes cliente', 'cliente.id', 'financeiro.cliente_id');
+                    ->with('boletohistorico')->leftJoin('financeiroparcelas as parcela', 'parcela.id', 'boletos.financeiroparcela_id')
+                    ->leftJoin('financeiros as financeiro', 'financeiro.id', 'parcela.financeiro_id')
+                    ->leftJoin('ocorrenciasremessas as ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
+                    ->leftJoin('clientes as cliente', 'cliente.id', 'financeiro.cliente_id');
 
             $boletos = $this->selectBoletos($boletos);
             $userem = false;
         }
-        $historicos = Boletoremessa::join('boletohistoricos hist', 'hist.boletoremessa_id', 'boletoremessas.id')
+        $historicos = Boletoremessa::join('boletohistoricos as hist', 'hist.boletoremessa_id', 'boletoremessas.id')
                 ->where('boletoremessas.id', $id)
                 ->where('hist.cancelado', true)
                 ->select([
@@ -254,10 +254,10 @@ class BoletoremessaController extends Controller
         }
 
         $boletos = Boleto::whereIn('boletos.financeiroparcela_id', $remessa->boletoremessaFinanceiro->pluck('financeiroparcela_id'))
-                ->with('boletohistorico')->leftJoin('financeiroparcelas parcela', 'parcela.id', 'boletos.financeiroparcela_id')
-                ->leftJoin('financeiros financeiro', 'financeiro.id', 'parcela.financeiro_id')
-                ->leftJoin('ocorrenciasremessas ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
-                ->leftJoin('clientes cliente', 'cliente.id', 'financeiro.cliente_id');
+                ->with('boletohistorico')->leftJoin('financeiroparcelas as parcela', 'parcela.id', 'boletos.financeiroparcela_id')
+                ->leftJoin('financeiros as financeiro', 'financeiro.id', 'parcela.financeiro_id')
+                ->leftJoin('ocorrenciasremessas as ocorr', 'ocorr.id', 'boletos.ultimaocorrencia_id')
+                ->leftJoin('clientes as cliente', 'cliente.id', 'financeiro.cliente_id');
         $boletos = $this->selectBoletos($boletos);
 
         return view('financeiro.boletos.boletoremessa_form', compact('contas', 'boletos', 'remessa'));
@@ -342,10 +342,10 @@ class BoletoremessaController extends Controller
         $this->authorize('update', $rem);
         $id = $request->remessa_id;
         $final = $request->final == '1';
-        $remessaBuilder = Boletoremessa::join('boletoremessafinanceiros fin', 'fin.boletoremessa_id', 'boletoremessas.id')
+        $remessaBuilder = Boletoremessa::join('boletoremessafinanceiros as fin', 'fin.boletoremessa_id', 'boletoremessas.id')
                 ->join('boletos', 'boletos.financeiroparcela_id', 'fin.financeiroparcela_id')
-                ->rightJoin('boletohistoricos hist', 'hist.boleto_id', 'boletos.id')
-                ->leftJoin('ocorrenciasremessas correm', 'hist.ocorrencia_id', 'correm.id')
+                ->rightJoin('boletohistoricos as hist', 'hist.boleto_id', 'boletos.id')
+                ->leftJoin('ocorrenciasremessas as correm', 'hist.ocorrencia_id', 'correm.id')
                 ->where('boletoremessas.id', $id);
         DB::beginTransaction();
         try {
@@ -361,7 +361,7 @@ class BoletoremessaController extends Controller
                     "parc.valor", "boletos.grupo_id", "boletos.empresa_id", "boletos.ultimaocorrencia_id",
                     "boletos.valor_abatimento"];
                 $boletos = Boleto::join('contas', 'boletos.conta_id', 'contas.id')
-                        ->join('financeiroparcelas parc', 'boletos.financeiroparcela_id', 'parc.id')
+                        ->join('financeiroparcelas as parc', 'boletos.financeiroparcela_id', 'parc.id')
                         ->join('financeiros', 'parc.financeiro_id', 'financeiros.id')
                         ->whereIn('boletos.id', $bols->pluck('id'))
                         ->select($select)

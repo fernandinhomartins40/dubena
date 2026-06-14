@@ -95,6 +95,27 @@ class DeployAdminSeeder extends Seeder
             DB::table('empresa_user')->insert(['empresa_id' => 1, 'user_id' => $user->id]);
         }
 
+        // 8) Permissões de menu: concede acesso TOTAL ao admin a todos os menus.
+        //
+        // A autorização (AuthorizeCustom) lê Session('permissoes'), populada no
+        // login a partir de menuusers JOIN menus (WHERE user_id, empresa_id).
+        // Sem registros aqui o admin é barrado em TODA tela (só vê o /home).
+        // Idempotente: usa updateOrInsert por (menu_id, user_id, empresa_id).
+        $menus = DB::table('menus')->pluck('id');
+        $concedidos = 0;
+        foreach ($menus as $menuId) {
+            DB::table('menuusers')->updateOrInsert(
+                ['menu_id' => $menuId, 'user_id' => $user->id, 'empresa_id' => 1],
+                [
+                    'visualizar' => 1, 'criar' => 1, 'editar' => 1, 'deletar' => 1,
+                    'baixar' => 1, 'alerta' => 1,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]
+            );
+            $concedidos++;
+        }
+
         $this->command->info("Admin garantido: email='{$email}' (senha via ADMIN_SEED_PASSWORD).");
+        $this->command->info("Permissões concedidas em {$concedidos} menus (acesso total).");
     }
 }

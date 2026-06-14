@@ -145,7 +145,7 @@ class SearchController extends Controller
         if (!$query && $query == '')
             return response()->json(array(), 400);
 
-        $Cliente = Cliente::where('clientes.id', $query)->leftJoin('tipopessoas p', 'p.id', 'clientes.tipopessoa_id')->select(DB::raw("clientes.*"), 'p.tipopessoacadastro')->get()->first();
+        $Cliente = Cliente::where('clientes.id', $query)->leftJoin('tipopessoas as p', 'p.id', 'clientes.tipopessoa_id')->select(DB::raw("clientes.*"), 'p.tipopessoacadastro')->get()->first();
         if ($Cliente->datanascimento != null) {
             $dt = explode('-', $Cliente->datanascimento);
             $Cliente["datanascimento"] = $dt[2] . "/" . $dt[1] . "/" . $dt[0];
@@ -275,14 +275,14 @@ class SearchController extends Controller
      */
     private function getMovimentosDB($conta_id, $fechamento)
     {
-        return DB::table('contamovimentos mov')
-            ->leftJoin('contatransferencias tra', 'mov.contatransferencia_id', 'tra.id')
-            ->leftJoin('contamovimentotipos tipos', 'mov.contamovimentotipo_id', 'tipos.id')
-            ->leftJoin('financeiroparcelas par', function ($join) {
+        return DB::table('contamovimentos as mov')
+            ->leftJoin('contatransferencias as tra', 'mov.contatransferencia_id', 'tra.id')
+            ->leftJoin('contamovimentotipos as tipos', 'mov.contamovimentotipo_id', 'tipos.id')
+            ->leftJoin('financeiroparcelas as par', function ($join) {
                 $join->on('mov.financeiroparcela_id', 'par.id')->where('agrupamento_status', '<=', "1");
             })
-            ->leftJoin('financeiros fin', 'par.financeiro_id', 'fin.id')
-            ->leftJoin('clientes cli', 'fin.cliente_id', 'cli.id')
+            ->leftJoin('financeiros as fin', 'par.financeiro_id', 'fin.id')
+            ->leftJoin('clientes as cli', 'fin.cliente_id', 'cli.id')
             ->where('mov.conta_id', $conta_id)
             ->where('mov.contafechamento_id', $fechamento->id);
     }
@@ -850,9 +850,9 @@ class SearchController extends Controller
             $rawSel = 'm.telefone, e.nome_informal, '
                 . ' CASE WHEN c.empresa_id IS NOT NULL THEN c.empresa_id ELSE m.empresa_id END'
                 . ' AS empresa_id, m.id';
-            $clienteTel = DB::table('monitoramentochamadas m')
-                ->leftJoin('clientetelefones c', 'c.telefone', 'm.telefone')
-                ->leftJoin('empresas e', 'e.id', 'm.empresa_id')
+            $clienteTel = DB::table('monitoramentochamadas as m')
+                ->leftJoin('clientetelefones as c', 'c.telefone', 'm.telefone')
+                ->leftJoin('empresas as e', 'e.id', 'm.empresa_id')
                 ->whereRaw($raw)
                 ->selectRaw($rawSel)
                 ->orderBy('m.id')
@@ -1032,8 +1032,8 @@ class SearchController extends Controller
         $datainicio = Carbon::createFromFormat('d/m/Y', $_GET['datainicio'])->startOfDay();
         $datafim = Carbon::createFromFormat('d/m/Y', $_GET['datafim'])->endOfDay();
         $setor_id = $_GET['setor_id'];
-        $pedidos = DB::table('pedidos pedido')
-            ->join('clientes cliente', 'cliente.id', 'pedido.cliente_id')
+        $pedidos = DB::table('pedidos as pedido')
+            ->join('clientes as cliente', 'cliente.id', 'pedido.cliente_id')
             ->join('bairros', 'bairros.id', 'pedido.entregabairro_id')
             ->join('ruas', 'ruas.id', 'pedido.entregarua_id')
             ->whereRaw("pedidosituacao_id IN (SELECT id FROM pedidosituacaos WHERE grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND (fechadoconcluido = 1 or entregafinalizada = 1) )")
@@ -1056,12 +1056,12 @@ class SearchController extends Controller
 
     public function searchPedidosPendentesMapaEntregas()
     {
-        $pedidos = DB::table('pedidos pedido')
-            ->join('clientes cliente', 'cliente.id', 'pedido.cliente_id')
+        $pedidos = DB::table('pedidos as pedido')
+            ->join('clientes as cliente', 'cliente.id', 'pedido.cliente_id')
             ->join('bairros', 'bairros.id', 'pedido.entregabairro_id')
             ->join('ruas', 'ruas.id', 'pedido.entregarua_id')
-            ->join('setors setor', 'setor.id', 'pedido.entregasetor_id')
-            ->join('colaboradors colaborador', 'colaborador.id', 'pedido.colaborador_id')
+            ->join('setors as setor', 'setor.id', 'pedido.entregasetor_id')
+            ->join('colaboradors as colaborador', 'colaborador.id', 'pedido.colaborador_id')
             ->whereRaw("pedidosituacao_id IN "
                 . " (SELECT id FROM pedidosituacaos WHERE fechadoconcluido <> 1 and fechadocancelado <> 1 and entregafinalizada <> 1 and entregacancelada <> 1 and"
                 . " grupo_id = " . Session::get('empresa_padrao')->grupo_id . ")")
@@ -1099,8 +1099,8 @@ class SearchController extends Controller
     public function searchPedidosMapaEntregasCoordenadas()
     {
         $data = Carbon::createFromFormat('d/m/Y', $_GET['data']);
-        $pedidos = DB::table('pedidos pedido')
-            ->join('clientes cliente', 'cliente.id', 'pedido.cliente_id')
+        $pedidos = DB::table('pedidos as pedido')
+            ->join('clientes as cliente', 'cliente.id', 'pedido.cliente_id')
             ->join('bairros', 'bairros.id', 'pedido.entregabairro_id')
             ->join('ruas', 'ruas.id', 'pedido.entregarua_id')
             ->whereBetween('pedido.entregadatahora', [$data->copy()->startOfDay()->toDateTimeString(), $data->copy()->endOfDay()->toDateTimeString()])
@@ -1127,11 +1127,11 @@ class SearchController extends Controller
     public function searchPedidosMapaEntregasAtrasadas()
     {
         $data = Carbon::createFromFormat('d/m/Y', $_GET['data']);
-        $pedidos = DB::table('pedidos pedido')
-            ->join('clientes cliente', 'cliente.id', 'pedido.cliente_id')
+        $pedidos = DB::table('pedidos as pedido')
+            ->join('clientes as cliente', 'cliente.id', 'pedido.cliente_id')
             ->join('bairros', 'bairros.id', 'pedido.entregabairro_id')
             ->join('ruas', 'ruas.id', 'pedido.entregarua_id')
-            ->leftJoin('pedidomotivoatrasos atraso', 'atraso.id', 'pedido.pedidomotivoatraso_id')
+            ->leftJoin('pedidomotivoatrasos as atraso', 'atraso.id', 'pedido.pedidomotivoatraso_id')
             ->whereRaw("pedidosituacao_id IN (SELECT id FROM pedidosituacaos WHERE grupo_id = " . Session::get('empresa_padrao')->grupo_id . " AND (fechadoconcluido = 1 OR entregafinalizada = 1))")
             ->whereBetween('pedido.entregadatahora', [$data->startOfDay()->toDateTimeString(), $data->copy()->endOfDay()->toDateTimeString()])
             ->where('pedido.empresa_id', Session::get('empresa_padrao')->id)
@@ -1326,10 +1326,10 @@ class SearchController extends Controller
             ->where('baixado', 0)
             ->join('financeiros', 'financeiros.id', '=', 'financeiroparcelas.financeiro_id')
             ->join('clientes', 'clientes.id', '=', 'financeiros.cliente_id')
-            ->leftJoin('boletos b', 'b.financeiroparcela_id', 'financeiroparcelas.id')
-            ->leftJoin('chequerecebidofinanceiros cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id')
-            ->leftJoin('chequeemitidoencontrocontas encontrocontas', 'encontrocontas.financeiroparcela_id', 'financeiroparcelas.id')
-            ->leftJoin('chequerecebidofinanceiros encontrocontascheque', 'encontrocontascheque.id', 'encontrocontas.chequeemitido_id')
+            ->leftJoin('boletos as b', 'b.financeiroparcela_id', 'financeiroparcelas.id')
+            ->leftJoin('chequerecebidofinanceiros as cheque', 'cheque.financeiroparcela_id', 'financeiroparcelas.id')
+            ->leftJoin('chequeemitidoencontrocontas as encontrocontas', 'encontrocontas.financeiroparcela_id', 'financeiroparcelas.id')
+            ->leftJoin('chequerecebidofinanceiros as encontrocontascheque', 'encontrocontascheque.id', 'encontrocontas.chequeemitido_id')
             ->select('financeiroparcelas.id', 'financeiros.documento', 'financeiroparcelas.numero', 'dataemissao', 'datavencimento', 'datahorabaixa', 'financeiroparcelas.valor', 'financeiroparcelas.multa', 'financeiroparcelas.juros', 'financeiroparcelas.desconto', 'financeiroparcelas.valorefetivado', 'clientes.nome', 'financeiros.descricao', 'financeiroparcelas.baixado', 'financeiros.cliente_id', 'financeiroparcelas.agrupamento_status', 'financeiros.cartaoautorizacao', 'cheque.numerocheque as numcheque', 'encontrocontascheque.numerocheque as encontrocontasnumcheque', 'b.nossonumero as nossonumeroboleto')
             ->get();
         $financeiroController = new FinanceiroController();
@@ -1359,8 +1359,8 @@ class SearchController extends Controller
         $raw = "rownum <= 1 AND t.telefone = '" . $telefone
             . "' AND t.grupo_id = " . Session::get('empresa_padrao')->grupo_id
             . " AND t.empresa_id in (SELECT empresa_id FROM empresa_user WHERE user_id = " . \Auth::user()->id . ")";
-        $clientetelefone = DB::table('clientetelefones t')
-            ->join('clientes cli', 'cli.id', 't.cliente_id')
+        $clientetelefone = DB::table('clientetelefones as t')
+            ->join('clientes as cli', 'cli.id', 't.cliente_id')
             ->whereRaw($raw)->select('cliente_id', 'nome')->get();
 
         if ($validateExists) {
@@ -1448,11 +1448,11 @@ class SearchController extends Controller
         ];
 
         $cliente = Cliente::with('clienteConvenio', 'condicaoPagamento', 'clienteProduto', 'clienteProduto.produto', 'convenioempresa.clienteConvenio', 'convenioempresa.produtoconvenio', 'convenioempresa.produtoconvenio.produto')
-            ->join('tipopessoas tipo', 'tipo.id', 'clientes.tipopessoa_id')
-            ->join('ruas rua', 'rua.id', 'clientes.rua_id')
-            ->join('bairros bairro', 'bairro.id', 'clientes.bairro_id')
-            ->join('cidades cidade', 'cidade.id', 'clientes.cidade_id')
-            ->leftJoin('clientetelefones tel', function ($join) {
+            ->join('tipopessoas as tipo', 'tipo.id', 'clientes.tipopessoa_id')
+            ->join('ruas as rua', 'rua.id', 'clientes.rua_id')
+            ->join('bairros as bairro', 'bairro.id', 'clientes.bairro_id')
+            ->join('cidades as cidade', 'cidade.id', 'clientes.cidade_id')
+            ->leftJoin('clientetelefones as tel', function ($join) {
                 $join->on('tel.cliente_id', 'clientes.id')->whereRaw('rownum <= 1');
             })
             ->where('clientes.id', $id)
@@ -1512,10 +1512,10 @@ class SearchController extends Controller
                 ['pedidos.cliente_id', $cliente_id],
                 ['pedidos.grupo_id', $grupo_id],
                 ['pedidos.id', '!=', $pedido_id]
-            ])->join('pedidoitems item', 'item.pedido_id', 'pedidos.id')
-            ->join('pedidosituacaos situacao', 'situacao.id', 'pedidos.pedidosituacao_id')
-            ->join('produtos produto', 'produto.id', 'item.produto_id')
-            ->join('condicaopagamentos pagamento', 'pagamento.id', 'pedidos.condicaopagamento_id')
+            ])->join('pedidoitems as item', 'item.pedido_id', 'pedidos.id')
+            ->join('pedidosituacaos as situacao', 'situacao.id', 'pedidos.pedidosituacao_id')
+            ->join('produtos as produto', 'produto.id', 'item.produto_id')
+            ->join('condicaopagamentos as pagamento', 'pagamento.id', 'pedidos.condicaopagamento_id')
             ->select($select)
             ->orderBy('pedidos.id', 'desc')
             ->take(20)
@@ -1708,11 +1708,11 @@ class SearchController extends Controller
             $fechamento = getProximoVencimento($convenio->diafechamento);
             $fechamentoAnterior = Carbon::parse($fechamento)->subMonth()->toDateTimeString();
 
-            $totalcomprasConvenio =  intVal(DB::table('pedidos p')->join('pedidosituacaos s', 's.id', 'p.pedidosituacao_id')
-                ->join('condicaopagamentos cond', function ($join) {
+            $totalcomprasConvenio =  intVal(DB::table('pedidos as p')->join('pedidosituacaos as s', 's.id', 'p.pedidosituacao_id')
+                ->join('condicaopagamentos as cond', function ($join) {
                     $join->on('cond.id', 'p.condicaopagamento_id')->where('tipo', '4');
                 })
-                ->join('pedidoitems it', function ($join) {
+                ->join('pedidoitems as it', function ($join) {
                     $join->on('it.pedido_id', 'p.id')->whereRaw("fechadocancelado <> 1 AND entregacancelada <> 1");
                 })
                 ->where([
@@ -1757,7 +1757,7 @@ class SearchController extends Controller
                 ->whereRaw("(sit.fechadoconcluido = 1 OR sit.entregafinalizada = 1)")
                 ->whereBetween('pedidos.datahoraprevisaoentrega', [$clientePromocao->datainicio, $clientePromocao->datafim])
                 ->join('pedidos', 'pedidoitems.pedido_id', '=', 'pedidos.id')
-                ->join('pedidosituacaos sit', 'sit.id', '=', 'pedidos.pedidosituacao_id')
+                ->join('pedidosituacaos as sit', 'sit.id', '=', 'pedidos.pedidosituacao_id')
                 ->select('pedidoitems.quantidade', 'pedidoitems.precovendaunitario', 'pedidoitems.produto_id', 'pedidos.datahoraprevisaoentrega')
                 ->get();
 
@@ -1868,10 +1868,10 @@ class SearchController extends Controller
             $cpfcnpj = $cliente->cnpj;
         }
 
-        $transportadoras = DB::table('clientes c')
-            ->join('cidades cid', 'cid.id', 'c.cidade_id')
-            ->join('bairros bairro', 'bairro.id', 'c.bairro_id')
-            ->join('ruas rua', 'rua.id', 'c.rua_id')
+        $transportadoras = DB::table('clientes as c')
+            ->join('cidades as cid', 'cid.id', 'c.cidade_id')
+            ->join('bairros as bairro', 'bairro.id', 'c.bairro_id')
+            ->join('ruas as rua', 'rua.id', 'c.rua_id')
             ->where('transportador', true)->where('c.empresa_id', $pedido->empresa_id)
             ->select('c.id', 'c.nome', 'c.inscricao_estadual', 'c.cnpj', 'c.cpf', 'c.indicador_ie', 'c.uf', 'cid.cod_ibge as codigoibge', 'cid.descricao as cidadedesc', 'rua.descricao as ruadesc', 'bairro.descricao as bairrodesc', 'c.bairro_id', 'c.rua_id', 'c.cidade_id', 'c.numero', DB::raw('(select telefone from clientetelefones where cliente_id = c.id and rownum <= 1) as telefone'), 'email')->get();
 
@@ -1879,8 +1879,8 @@ class SearchController extends Controller
             . " condicaopagamento_id in (select condicaopagamento_id from cliente_condicaopagamento "
             . " where cliente_id in (" . implode(', ', $transportadoras->pluck('id')->toArray()) . "))";
 
-        $condicoesPgto = DB::table('condicaopagamentos cond')
-            ->join('cliente_condicaopagamento cc', 'cc.condicaopagamento_id', 'cond.id')
+        $condicoesPgto = DB::table('condicaopagamentos as cond')
+            ->join('cliente_condicaopagamento as cc', 'cc.condicaopagamento_id', 'cond.id')
             ->whereRaw($raw)
             ->select('descricao', 'cond.id', 'cliente_id')->get();
 
@@ -1894,9 +1894,9 @@ class SearchController extends Controller
 
     public function getTipoPgtoParcela($parcela_id)
     {
-        $fin = DB::table('financeiroparcelas p')
-            ->join('financeiros f', 'f.id', 'p.financeiro_id')
-            ->join('condicaopagamentos c', 'c.id', 'f.condicaopagamento_id')
+        $fin = DB::table('financeiroparcelas as p')
+            ->join('financeiros as f', 'f.id', 'p.financeiro_id')
+            ->join('condicaopagamentos as c', 'c.id', 'f.condicaopagamento_id')
             //->whereRaw("c.tipo in (2,3) and p.id = $parcela_id")
             ->whereRaw("p.id = $parcela_id")
             ->select('c.tipo', 'f.cartaonsu', 'f.cartaoautorizacao', 'f.descricao', 'f.documento', 'p.datavencimento', 'c.tipo')->get()->first();
@@ -1934,7 +1934,7 @@ class SearchController extends Controller
         $empresa_id = $_GET["empresa"];
         $support = isset($_GET["support"]) && $_GET["support"] == 1;
 
-        $user = User::join('empresa_user emp', 'emp.user_id', 'users.id')
+        $user = User::join('empresa_user as emp', 'emp.user_id', 'users.id')
             ->where(['emp.empresa_id' => $empresa_id, 'ativo' => 1]);
 
         if (!$support) {
@@ -2067,7 +2067,7 @@ class SearchController extends Controller
     {
         try {
             $cnpj = mask($cnpj, "##.###.###/####-##");
-            $forn = DB::table('clientes c')
+            $forn = DB::table('clientes as c')
                 ->where('fornecedor', 1)
                 ->where('empresa_id', Session::get('empresa_padrao')->id)
                 ->where('cnpj', $cnpj)

@@ -57,7 +57,7 @@ class ProdutoController extends Controller
         $sped = Session::get('empresa_padrao')->spedemite;
         $classeglp = Produtoclasse::where(['grupo_id' => $this->grupo_id, 'tipo' => 'G', 'ativo' => 1])->pluck('id');
         $tipoglp = self::tipoGlp();
-        $ressarcimento = Produto::join('produtoclasses class', 'produtos.produtoclasse_id', 'class.id')
+        $ressarcimento = Produto::join('produtoclasses as class', 'produtos.produtoclasse_id', 'class.id')
             ->where([
                 ['produtos.empresa_id', $this->empresa_id],
                 ['class.tipo', 'R'],
@@ -298,7 +298,7 @@ class ProdutoController extends Controller
         $tipoglp = self::tipoGlp();
         $generos = self::getGeneros();
         $lst = self::getLst();
-        $ressarcimento = Produto::join('produtoclasses class', 'produtos.produtoclasse_id', 'class.id')
+        $ressarcimento = Produto::join('produtoclasses as class', 'produtos.produtoclasse_id', 'class.id')
             ->where([
                 ['produtos.empresa_id', $this->empresa_id],
                 ['class.tipo', 'R'],
@@ -372,7 +372,7 @@ class ProdutoController extends Controller
     {
         $produtos = Estoquesetor::join('produtos', 'estoquesetors.produto_id', '=', 'produtos.id')
             ->join('setors', 'estoquesetors.setor_id', '=', 'setors.id')
-            ->leftJoin('produtos vas', 'produtos.produtoretornavel_id', 'vas.id')
+            ->leftJoin('produtos as vas', 'produtos.produtoretornavel_id', 'vas.id')
             ->where([
                 ['estoquesetors.setor_id', $id],
                 ['setors.ativo', 1],

@@ -251,11 +251,11 @@ class RegC100 extends AbstractReg
             $this->none = true;
         }
 
-        $parcelasEmit = DB::table('nfemitidaparcelas p')
+        $parcelasEmit = DB::table('nfemitidaparcelas as p')
                         ->selectRaw("p.numeroparcela, p.valororiginal as valor, 
                             p.datavencimento, p.id, p.numeroparcela, p.nfemitida_id as nf_id")
                         ->whereIn('p.nfemitida_id', $nfs->where('tiponf', 'emitida')->pluck('nf_id'))->get();
-        $parcelasRec = DB::table('nfrecebidaparcelas p')
+        $parcelasRec = DB::table('nfrecebidaparcelas as p')
                         ->selectRaw("p.numeroparcela, p.valororiginal as valor, 
                             p.datavencimento, p.id, p.numeroparcela, p.nfrecebida_id as nf_id")
                         ->whereIn('p.nfrecebida_id', $nfs->where('tiponf', 'recebida')->pluck('nf_id'))->get();

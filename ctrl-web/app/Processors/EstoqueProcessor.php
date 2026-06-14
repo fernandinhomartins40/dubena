@@ -317,12 +317,12 @@ class EstoqueProcessor
 
     private function setProdutosFechamento($ids)
     {
-        $this->produtosFechamento = DB::table('produtos p')->whereIn('id', $ids)->get();
+        $this->produtosFechamento = DB::table('produtos as p')->whereIn('id', $ids)->get();
     }
 
     private function setSetoresFechamento($ids)
     {
-        $this->setoresFechamento = DB::table('setors s')->whereIn('id', $ids)->get();
+        $this->setoresFechamento = DB::table('setors as s')->whereIn('id', $ids)->get();
     }
 
     private function processaHistoricosPrimeiroFechamento($estoquesetorhistoricos, Estoquefechamento $estoqueFechamento)

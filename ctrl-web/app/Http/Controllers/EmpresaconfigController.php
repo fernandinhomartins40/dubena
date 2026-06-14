@@ -197,7 +197,7 @@ class EmpresaconfigController extends Controller
             ->orderBy('descricao')->pluck('descricao', 'id')->prepend('Selecione', '');
         $oppedido = Pedidooperacao::where(['grupo_id' => $this->grupo_id, 'ativo' => 1])
             ->orderBy('descricao')->pluck('descricao', 'id')->prepend('Selecione', '');
-        $transportadoras = DB::table('clientes c')->where('empresa_id', $this->empresa_id)
+        $transportadoras = DB::table('clientes as c')->where('empresa_id', $this->empresa_id)
             ->where('transportador', true)->select('id', 'nome')->pluck('nome', 'id')->prepend('Selecione', '');
         $produtos = Produto::where(['empresa_id' => $this->empresa_id, 'ativo' => 1])->whereNotNull('tipo_glp')
             ->orderBy('descricao')->pluck('descricao', 'id')->prepend('Selecione', '');

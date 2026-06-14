@@ -494,7 +494,7 @@ class ReportvalegasController extends Controller
         $datafim = Carbon::parse($filtro["datafim"])->endOfDay();
         $juridicos = Tipopessoa::where(['grupo_id'=>$this->grupo_id,'ativo'=>1,'tipopessoacadastro'=>'J'])->pluck('id')->toArray();
         $clientes = DB::table('clientes')->join('cidades','clientes.cidade_id','cidades.id')
-                            ->rightJoin('valegasvendas vendas','vendas.cliente_id','clientes.id')
+                            ->rightJoin('valegasvendas as vendas','vendas.cliente_id','clientes.id')
                             ->join('bairros','clientes.bairro_id','bairros.id')
                             ->join('ruas','clientes.rua_id','ruas.id')
                             ->whereRaw("clientes.id not in (SELECT cliente_id FROM valegasvendas vendas WHERE ".

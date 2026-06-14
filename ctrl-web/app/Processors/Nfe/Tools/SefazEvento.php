@@ -806,7 +806,7 @@ class SefazEvento
             throw new Exception("Email do destinatário não encontrado");
         }
 
-        $config = DB::table('empresaconfigs c')
+        $config = DB::table('empresaconfigs as c')
             ->where('c.empresa_id', $nfemitida->empresa_id)
             ->get()->first();
         if (is_null($config)) {

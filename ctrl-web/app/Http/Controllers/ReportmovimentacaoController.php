@@ -75,9 +75,9 @@ class ReportmovimentacaoController extends Controller
     }
 
     private function getHistorico($datainicio,$datafim,$produto_id,$setor_id,$tipodata){
-        $movimentacao = DB::table('estoquesetorhistoricos historico')
+        $movimentacao = DB::table('estoquesetorhistoricos as historico')
                     ->join('produtos','historico.produto_id','produtos.id')
-                    ->join('setors setor','historico.setor_id','setor.id')
+                    ->join('setors as setor','historico.setor_id','setor.id')
                     ->join('users','historico.user_id','users.id')
                     ->whereBetween("historico.$tipodata",[$datainicio,$datafim])
                     ->where([

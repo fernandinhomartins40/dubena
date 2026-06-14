@@ -435,8 +435,8 @@ class NfemitidaController extends Controller
             $presencacomprador = $empresaconfig->presencacomprador;
 
             $data['transportador_id'] = (int) $data['transportador_id'];
-            $this->transportadora = DB::table('clientes c')
-                ->join('cidades cid', 'cid.id', 'c.cidade_id')
+            $this->transportadora = DB::table('clientes as c')
+                ->join('cidades as cid', 'cid.id', 'c.cidade_id')
                 ->where('c.id', $data['transportador_id'])
                 ->select('cid.descricao as cidade', 'c.complemento', 'c.id', 'c.inscricao_estadual', 'c.nome', 'c.cnpj', 'c.cpf', 'c.uf')->get()
                 ->first();
@@ -1714,8 +1714,8 @@ class NfemitidaController extends Controller
             $presencacomprador = $empresaconfig->presencacompradorappnf;
 
             $data['transportador_id'] = (int) $data['transportador_id'];
-            $this->transportadora = DB::table('clientes c')
-                ->join('cidades cid', 'cid.id', 'c.cidade_id')
+            $this->transportadora = DB::table('clientes as c')
+                ->join('cidades as cid', 'cid.id', 'c.cidade_id')
                 ->where('c.id', $data['transportador_id'])
                 ->select('cid.descricao as cidade', 'c.complemento', 'c.id', 'c.inscricao_estadual', 'c.nome', 'c.cnpj', 'c.cpf', 'c.uf')->get()
                 ->first();
@@ -1981,8 +1981,8 @@ class NfemitidaController extends Controller
 
             $data['transportador_id'] = $fretemodalidade !== 9 && $fretemodalidade !== 1?(int) $data['transportador_id'] : null;
 
-            $this->transportadora = DB::table('clientes c')
-                ->join('cidades cid', 'cid.id', 'c.cidade_id')
+            $this->transportadora = DB::table('clientes as c')
+                ->join('cidades as cid', 'cid.id', 'c.cidade_id')
                 ->where('c.id', $data['transportador_id'])
                 ->select('cid.descricao as cidade', 'c.complemento', 'c.id', 'c.inscricao_estadual', 'c.nome', 'c.cnpj', 'c.cpf', 'c.uf')->get()
                 ->first();
@@ -2150,10 +2150,10 @@ class NfemitidaController extends Controller
     {
         $produtos = [];
         $totalvalorproduto = 0;
-        $items = DB::table('conveniofechamentos f')
-                   ->join('conveniofechamentopedidos fp', 'fp.conveniofechamento_id', 'f.id')
-                   ->join('pedidos p', 'p.id', 'fp.pedido_id')
-                   ->join('pedidoitems i', 'i.pedido_id', 'p.id')
+        $items = DB::table('conveniofechamentos as f')
+                   ->join('conveniofechamentopedidos as fp', 'fp.conveniofechamento_id', 'f.id')
+                   ->join('pedidos as p', 'p.id', 'fp.pedido_id')
+                   ->join('pedidoitems as i', 'i.pedido_id', 'p.id')
                    ->where('f.id', $fechamento->id)
                    ->groupBy('i.produto_id')
                    ->select('i.produto_id', DB::Raw('SUM(i.quantidade) as quantidade'), DB::Raw('SUM(i.precovendatotal) as valortotal'))

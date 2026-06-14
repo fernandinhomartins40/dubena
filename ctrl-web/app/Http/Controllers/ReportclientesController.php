@@ -512,7 +512,7 @@ class ReportclientesController extends Controller
         $datainicio = Carbon::createFromFormat('d/m/Y', $filtros['datainicio'])->startOfDay();
         $datafim = Carbon::createFromFormat('d/m/Y', $filtros['datafim'])->endOfDay();
 
-        $clientes = DB::table('clientes cliente')
+        $clientes = DB::table('clientes as cliente')
             ->rightJoin(
                 DB::raw("(SELECT cliente_id, datahoraprevisaoentrega, id as pedido_id, valordesconto
                 FROM pedidos
@@ -523,13 +523,13 @@ class ReportclientesController extends Controller
                 'pedido.cliente_id',
                 'cliente.id'
             )
-            ->join('pedidoitems item', 'item.pedido_id', 'pedido.pedido_id')
+            ->join('pedidoitems as item', 'item.pedido_id', 'pedido.pedido_id')
             ->join('ruas', 'ruas.id', 'cliente.rua_id')
             ->join('bairros', 'bairros.id', 'cliente.bairro_id')
             ->join('cidades', 'cidades.id', 'cliente.cidade_id')
-            ->join('produtos produto', 'produto.id', 'item.produto_id')
-            ->leftJoin('segmentos segmento', 'segmento.id', 'cliente.segmento_id')
-            ->leftJoin('setors setor', 'setor.id', 'cliente.setor_id')
+            ->join('produtos as produto', 'produto.id', 'item.produto_id')
+            ->leftJoin('segmentos as segmento', 'segmento.id', 'cliente.segmento_id')
+            ->leftJoin('setors as setor', 'setor.id', 'cliente.setor_id')
             ->where('cliente.empresa_id', $empresa_id)
             ->select(
                 DB::raw("(ruas.descricao || ',' || cliente.numero || ' - ' || bairros.descricao) as endereco"),
@@ -681,11 +681,11 @@ class ReportclientesController extends Controller
         $now = Carbon::now()->endOfDay()->toDateTimeString();
         // $dataFiltro = Carbon::now()->subDays($dias)->startOfDay()->toDateTimeString();
 
-        $clientes = DB::table('clientes cliente')
+        $clientes = DB::table('clientes as cliente')
             ->leftJoin(DB::raw('(SELECT max(datahoraprevisaoentrega) as datahoraprevisaoentrega, cliente_id FROM pedidos
             where pedidosituacao_id in (SELECT id FROM pedidosituacaos WHERE fechadoconcluido = 1)
             GROUP BY cliente_id) pedido'), 'pedido.cliente_id', 'cliente.id')
-            ->leftJoin('setors setor', 'cliente.setor_id', 'setor.id')
+            ->leftJoin('setors as setor', 'cliente.setor_id', 'setor.id')
             ->whereRaw("(TO_CHAR(datahoraprevisaoentrega,  'yyyy-mm-dd hh24:mi:ss') NOT BETWEEN '$dataInativacao' and '$now' or datahoraprevisaoentrega is null)")
             ->where('cliente.empresa_id', $empresa_id)
             ->where('cliente.cliente', 1)

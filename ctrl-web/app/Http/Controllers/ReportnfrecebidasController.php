@@ -76,7 +76,7 @@ class ReportnfrecebidasController extends Controller
                 break;
         }
 
-        $dbdoc = DB::table('nfrecebidas nf')->join('nfoperacaos op','nf.nfoperacao_id','op.id')
+        $dbdoc = DB::table('nfrecebidas as nf')->join('nfoperacaos as op','nf.nfoperacao_id','op.id')
                     ->join('clientes','nf.cliente_id','clientes.id')
                     ->whereBetween('nf.datahoraemissao',[$datainicio,$datafim])
                     ->where('nf.tipolancamento', "1")
@@ -153,9 +153,9 @@ class ReportnfrecebidasController extends Controller
         $produto = $filtro["produto"] == '0' ? null : $filtro["produto"];
         $operacao = $filtro["operacao"] == '0' ? null : $filtro["operacao"];
         
-        $dbdoc = DB::table('nfrecebidas nf')->join('nfrecebidaitems nfitems','nfitems.nfrecebida_id','nf.id')
+        $dbdoc = DB::table('nfrecebidas as nf')->join('nfrecebidaitems as nfitems','nfitems.nfrecebida_id','nf.id')
                         ->join('produtos','nfitems.cprod','produtos.id')
-                        ->join('nfoperacaos op','nfitems.nfoperacao_id','op.id')
+                        ->join('nfoperacaos as op','nfitems.nfoperacao_id','op.id')
                         ->join('clientes','nf.cliente_id','clientes.id')
                         ->whereBetween('nf.datahoraemissao',[$datainicio,$datafim])
                         ->where('nf.tipolancamento', "1")

@@ -304,11 +304,11 @@ class BoletoProcessor
         $boletoDb = Boleto::whereIn('boletos.numerosequencia', $boletos_id->pluck('boleto_id'))
             ->where('boletos.cancelado', 0)
             ->select('boletos.numerosequencia as boleto_id', 'parc.id as parcela_id', 'parc.datavencimento', 'parc.valor as valorparcela', 'parc.multa as multaparcela', 'parc.juros as jurosparcela', 'parc.valorefetivado', 'parc.desconto as descontoparcela', 'c.nome as cliente', 'banco.codigo as codigo_banco')
-            ->leftJoin('financeiroparcelas parc', 'boletos.financeiroparcela_id', 'parc.id')
-            ->leftJoin('financeiros fin', 'fin.id', 'parc.financeiro_id')
-            ->leftJoin('clientes c', 'c.id', 'fin.cliente_id')
-            ->leftJoin('contas conta', 'conta.id', 'boletos.conta_id')
-            ->leftJoin('bancos banco', 'banco.id', 'conta.banco_id')
+            ->leftJoin('financeiroparcelas as parc', 'boletos.financeiroparcela_id', 'parc.id')
+            ->leftJoin('financeiros as fin', 'fin.id', 'parc.financeiro_id')
+            ->leftJoin('clientes as c', 'c.id', 'fin.cliente_id')
+            ->leftJoin('contas as conta', 'conta.id', 'boletos.conta_id')
+            ->leftJoin('bancos as banco', 'banco.id', 'conta.banco_id')
             ->get();
         $detalhesFinal = collect([]);
         $ocorrencias = Ocorrenciasremessas::where('codigo_banco', $this->codigoBanco)

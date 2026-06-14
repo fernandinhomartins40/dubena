@@ -137,8 +137,8 @@ class ComodatogestaoController extends Controller
     private function getVencimentoQuery($empresa_id)
     {
         $comodatos = Comodato::from("comodatos com")
-            ->join("comodatoitems comit", "comit.comodato_id", "com.id")
-            ->join("clientes cli", "com.cliente_id", "cli.id")
+            ->join("comodatoitems as comit", "comit.comodato_id", "com.id")
+            ->join("clientes as cli", "com.cliente_id", "cli.id")
             ->where("com.empresa_id", $empresa_id)
             ->where("com.ativo", 1)
             ->select(

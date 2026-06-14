@@ -53,12 +53,12 @@ class ReportpromotorController extends Controller
     {
         $empresa_id = Session::get("empresa_padrao")->id;
 
-        $ausentesDB = DB::table("promotorvendas pro")
-            ->join("users us", "pro.user_id", "us.id")
-            ->join("cidades ci", "pro.cidade_id", "ci.id")
-            ->join("bairros ba", "pro.bairro_id", "ba.id")
+        $ausentesDB = DB::table("promotorvendas as pro")
+            ->join("users as us", "pro.user_id", "us.id")
+            ->join("cidades as ci", "pro.cidade_id", "ci.id")
+            ->join("bairros as ba", "pro.bairro_id", "ba.id")
             ->join("ruas", "pro.rua_id", "ruas.id")
-            ->join("setors se", "pro.setor_id", "se.id")
+            ->join("setors as se", "pro.setor_id", "se.id")
             ->whereBetween("pro.created_at", [$inicio, $fim])
             ->where("pro.ausente", 1)
             ->where("pro.empresa_id", $empresa_id);
@@ -137,7 +137,7 @@ class ReportpromotorController extends Controller
     {
         $empresa_id = Session::get("empresa_padrao")->id;
 
-        $users = User::rightJoin("promotorvendas pro", "pro.user_id", "users.id")
+        $users = User::rightJoin("promotorvendas as pro", "pro.user_id", "users.id")
             ->where("users.empresa_id", $empresa_id)
             ->select("users.id", "users.name as descricao")
             ->groupBy("users.id", "users.name")
@@ -159,15 +159,15 @@ class ReportpromotorController extends Controller
     {
         $empresa_id = Session::get("empresa_padrao")->id;
 
-        $visitadosDB = DB::table("promotorvendas pro")
-            ->join("users us", "pro.user_id", "us.id")
-            ->join("clientes cli", "pro.cliente_id", "cli.id")
-            ->join("cidades ci", "cli.cidade_id", "ci.id")
-            ->join("bairros ba", "cli.bairro_id", "ba.id")
+        $visitadosDB = DB::table("promotorvendas as pro")
+            ->join("users as us", "pro.user_id", "us.id")
+            ->join("clientes as cli", "pro.cliente_id", "cli.id")
+            ->join("cidades as ci", "cli.cidade_id", "ci.id")
+            ->join("bairros as ba", "cli.bairro_id", "ba.id")
             ->join("ruas", "cli.rua_id", "ruas.id")
-            ->leftJoin("setors se", "cli.setor_id", "se.id")
-            ->leftJoin("clienteprodutos clipro", "clipro.cliente_id", "cli.id")
-            ->leftJoin("produtos prod", "clipro.produto_id", "prod.id")
+            ->leftJoin("setors as se", "cli.setor_id", "se.id")
+            ->leftJoin("clienteprodutos as clipro", "clipro.cliente_id", "cli.id")
+            ->leftJoin("produtos as prod", "clipro.produto_id", "prod.id")
             ->whereBetween("pro.updated_at", [$inicio, $fim])
             ->where("pro.empresa_id", $empresa_id)
             ->where("pro.ausente", 0);

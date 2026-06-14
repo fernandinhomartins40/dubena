@@ -165,7 +165,7 @@ class SorteioController extends Controller
             ->toArray();
 
         $pedidos = Pedido::from("pedidos ped")
-            ->join("clientes cli", "ped.cliente_id", "cli.id")
+            ->join("clientes as cli", "ped.cliente_id", "cli.id")
             ->where("ped.empresa_id", $empresa_id)
             ->whereIn("ped.pedidosituacao_id", $situacoes)
             ->whereBetween("ped.datahoraprevisaoentrega", [$datainicio, $datafim]);

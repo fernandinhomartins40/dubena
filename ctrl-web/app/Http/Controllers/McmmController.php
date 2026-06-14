@@ -279,7 +279,7 @@ class McmmController extends Controller
 
         $nf = DB::table("nf$tipo" . "s nf")
                 ->join("nf$tipo" . "items item", "item.nf" . $tipo . "_id", 'nf.id')
-                ->join('produtos prod', 'item.cprod', 'prod.id')
+                ->join('produtos as prod', 'item.cprod', 'prod.id')
                 ->whereBetween('nf.datahoraentradasaida', $periodo);
 
         if ($entrada_saida === 'entrada') {

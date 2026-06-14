@@ -34,7 +34,7 @@ class Empresacontroller extends Controller
         if ($support) {
             $Empresas = Empresa::select('id', 'nome_informal', 'ativo')->get();
         } else {
-            $Empresas = Empresa::join('empresa_user empu', 'empu.empresa_id', 'empresas.id')
+            $Empresas = Empresa::join('empresa_user as empu', 'empu.empresa_id', 'empresas.id')
                             ->where('empu.user_id', $user->id)
                             ->select('id', 'nome_informal', 'ativo')->get();
         }

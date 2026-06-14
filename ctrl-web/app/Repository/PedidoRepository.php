@@ -206,8 +206,8 @@ class PedidoRepository
         $empresa_id = (int) Input::get('empresa_id', 0);
         $colaborador_id = (int) Input::get('colaborador_id', 0);
 
-        $pedidos = DB::table('pedidos pedido')->join("pedidosituacaos situacao", 'pedido.pedidosituacao_id', 'situacao.id')
-                ->leftJoin('empresaconfigs config', 'pedido.empresa_id', 'config.empresa_id')
+        $pedidos = DB::table('pedidos as pedido')->join("pedidosituacaos as situacao", 'pedido.pedidosituacao_id', 'situacao.id')
+                ->leftJoin('empresaconfigs as config', 'pedido.empresa_id', 'config.empresa_id')
                 ->whereRaw('pedido.grupo_id = ' . Session::get('empresa_padrao')->grupo_id);
 
         if ($setor_id > 0) {
@@ -245,14 +245,14 @@ class PedidoRepository
     {
         $pedidos = static::selectPedidosToMonitoramento($user)
                 ->leftJoin('pedidoitems as item', 'pedido.id', 'item.pedido_id')
-                ->join("clientes cliente", 'cliente.id', 'pedido.cliente_id')
-                ->join("colaboradors colaborador", 'colaborador.id', 'pedido.colaborador_id')
-                ->join("setors setor", 'setor.id', 'pedido.entregasetor_id')
-                ->join("empresas empresa", 'empresa.id', 'pedido.empresa_id')
-                ->join('bairros bairro', 'bairro.id', 'pedido.entregabairro_id')
-                ->join('ruas rua', 'rua.id', 'pedido.entregarua_id')
-                ->join('cidades cidade', 'cidade.id', 'pedido.entregacidade_id')
-                ->join("condicaopagamentos pagamento", 'pagamento.id', 'pedido.condicaopagamento_id');
+                ->join("clientes as cliente", 'cliente.id', 'pedido.cliente_id')
+                ->join("colaboradors as colaborador", 'colaborador.id', 'pedido.colaborador_id')
+                ->join("setors as setor", 'setor.id', 'pedido.entregasetor_id')
+                ->join("empresas as empresa", 'empresa.id', 'pedido.empresa_id')
+                ->join('bairros as bairro', 'bairro.id', 'pedido.entregabairro_id')
+                ->join('ruas as rua', 'rua.id', 'pedido.entregarua_id')
+                ->join('cidades as cidade', 'cidade.id', 'pedido.entregacidade_id')
+                ->join("condicaopagamentos as pagamento", 'pagamento.id', 'pedido.condicaopagamento_id');
 
         $caseSituacao = static::getQueryCases('caseSituacao');
 
@@ -347,8 +347,16 @@ class PedidoRepository
 
     public static function getAllSetoresAllowedUser($grupo_id, $empresas)
     {
-        return DB::table('setors s')->where('s.grupo_id', $grupo_id)
-                        ->whereIn('s.empresa_id', $empresas->keys())
+        // $empresas é uma coleção keyed por id de empresa, mas inclui a chave ''
+        // do placeholder "Selecione". O Postgres rejeita '' num IN de integer
+        // ("invalid input syntax for type integer"); MySQL/Oracle aceitavam.
+        // Filtra apenas chaves numéricas válidas.
+        $ids = $empresas->keys()->filter(function ($k) {
+            return is_numeric($k);
+        })->values();
+
+        return DB::table('setors as s')->where('s.grupo_id', $grupo_id)
+                        ->whereIn('s.empresa_id', $ids)
                         ->where('ativo', true)
                         ->orderBy('s.descricao')
                         ->selectRaw('s.descricao, s.empresa_id, s.id')
@@ -357,8 +365,8 @@ class PedidoRepository
 
     public static function getColaboradoresBySetores($setores)
     {
-        return DB::table('setorcolaboradores sc')
-                        ->join('colaboradors c', 'c.id', '=', 'sc.colaborador_id')
+        return DB::table('setorcolaboradores as sc')
+                        ->join('colaboradors as c', 'c.id', '=', 'sc.colaborador_id')
                         ->whereIn('sc.setor_id', $setores->pluck('id'))
                         ->orderby('c.nome')
                         ->selectRaw('c.id, c.nome, sc.setor_id')->get();
@@ -393,8 +401,8 @@ class PedidoRepository
 
     public static function getConfigs($empresas, $grupo_id)
     {
-        $configs = DB::table("empresaconfigs c")->whereIn('empresa_id', $empresas)
-            ->join("empresas e", "e.id", "c.empresa_id")
+        $configs = DB::table("empresaconfigs as c")->whereIn('empresa_id', $empresas)
+            ->join("empresas as e", "e.id", "c.empresa_id")
             ->select([
                 'e.id', 'empresa_id', 'tempoentrega', 'tempourgente', 'pedidostatuspadrao', 'operacaodisk',
                 'androidutiliza', 'quant_padrao', 'impressaoautomatica', 'pedidoemitenfce', 'cep', 'cidade_id',
@@ -402,13 +410,13 @@ class PedidoRepository
                 'validaatraso', 'validapixentrega', 'produtogp_id', 'condicaopagamentogp_id'
             ])->get();
 
-        $condicoesPagamentoOriginal = DB::table('condicaopagamentos c')->where([
+        $condicoesPagamentoOriginal = DB::table('condicaopagamentos as c')->where([
             ['ativo', 1],
             ['grupo_id', $grupo_id]
         ])->orderby('descricao')->select('num_parcelas', 'id', 'tipo', 'descricao')->get();
 
         $raw = "empresa_id IN (" . implode(", ", $empresas) . ") AND ativo = 1";
-        $setores = DB::table("setors s")->whereRaw($raw)->orderBy("descricao")
+        $setores = DB::table("setors as s")->whereRaw($raw)->orderBy("descricao")
             ->select(['id', 'descricao', 'empresa_id'])->get();
 
         $colaboradores = static::getColaboradoresBySetores($setores);

@@ -25,7 +25,7 @@ class VeiculotrocaoleoController extends Controller {
         $this->authorize('view',$troca);
         $this->definition();
         $veiculotrocaoleo = Veiculotrocaoleo::join('veiculos','veiculotrocaoleos.veiculo_id','veiculos.id')
-                ->join('colaboradors col','veiculotrocaoleos.colaborador_id','col.id')
+                ->join('colaboradors as col','veiculotrocaoleos.colaborador_id','col.id')
                 ->where('veiculotrocaoleos.empresa_id', $this->empresa_id)
                 ->select('veiculotrocaoleos.id',DB::raw("to_char(veiculotrocaoleos.data,'dd/mm/yyyy') data"),
                     'veiculos.placa','col.nome',

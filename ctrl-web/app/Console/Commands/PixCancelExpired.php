@@ -42,7 +42,7 @@ class PixCancelExpired extends Command
     public function handle()
     {
         $pedidos = Pixtransaction::from("pixtransactions pix")
-            ->join("pixpedidos ped", "pix.pixpedido_id", "ped.id")
+            ->join("pixpedidos as ped", "pix.pixpedido_id", "ped.id")
             ->where("pix.status", PixStatus::Ativa)
             ->whereNull("pix.pedido_id")
             ->where("pix.expires_at", "<", now("America/Sao_Paulo"))

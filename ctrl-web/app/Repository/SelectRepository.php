@@ -382,7 +382,7 @@ class SelectRepository
      */
     public static function getEmpresaNfToView($id)
     {
-        return DB::table("empresas e")->select([
+        return DB::table("empresas as e")->select([
             'e.razao_social', 'e.nome_fantasia', 'e.inscricao_estadual', 'e.cnpj',
             'e.inscricao_municipal', 'e.cnae', 'e.nfecrt', 'e.codigoibgepais', 'e.uf',
             'e.cidade_id', 'e.numero', 'e.cep', 'e.complemento', 'e.nfcetipoemissao', 'e.nfetipoemissao',
@@ -405,13 +405,13 @@ class SelectRepository
         $tableChequeEm = 'chequeemitidofinanceiros';
         $tableEnc = 'chequeemitidoencontrocontas';
         $tableEncR = 'chequeemitidoencontrocontas';
-        return DB::table('financeiroparcelas p')
+        return DB::table('financeiroparcelas as p')
             ->where('p.financeiro_id', $financeiro_id)
             ->leftJoin($tableCheque . ' cheque', 'cheque.financeiroparcela_id', 'p.id')
             ->leftJoin($tableChequeEm . ' chequee', 'chequee.financeiroparcela_id', 'p.id')
             ->leftJoin($tableEnc . ' ec', 'ec.financeiroparcela_id', 'p.id')
             ->leftJoin($tableEncR . ' ecr', 'ecr.financeiroparcela_id', 'p.id')
-            ->leftJoin('boletos b', 'b.financeiroparcela_id', 'p.id')
+            ->leftJoin('boletos as b', 'b.financeiroparcela_id', 'p.id')
             ->leftJoin($tableCheque . ' ecc', 'ecc.id', 'ec.chequeemitido_id')
             ->selectRaw($raw)
             ->get()->first();
@@ -420,8 +420,8 @@ class SelectRepository
     public function getClientesValeGasNaoImpresso()
     {
 
-        $clientes = Cliente::join("valegasvendas ven", "ven.cliente_id", "clientes.id")
-            ->join("valegas val", "val.valegasvenda_id", "ven.id")
+        $clientes = Cliente::join("valegasvendas as ven", "ven.cliente_id", "clientes.id")
+            ->join("valegas as val", "val.valegasvenda_id", "ven.id")
             ->whereIn("val.valegassituacao_id", [25, 26])
             ->where("clientes.empresa_id", $this->empresa_id)
             ->select("clientes.id", "clientes.nome")
