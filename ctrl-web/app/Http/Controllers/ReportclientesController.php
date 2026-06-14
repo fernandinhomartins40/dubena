@@ -173,8 +173,11 @@ class ReportclientesController extends Controller
             'clientes.cnpj',
             'clientes.cpf',
             'empresas.nome_informal as empresa',
-            DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel
-                            where tel.cliente_id = clientes.id and rownum <= 2) as telefone")
+            // Oracle LISTAGG+ROWNUM -> Postgres STRING_AGG + subquery LIMIT.
+            // (pega até 2 telefones do cliente e concatena com vírgula.)
+            DB::raw("(select string_agg(tel.telefone, ', ') from
+                        (select telefone from clientetelefones
+                          where cliente_id = clientes.id order by telefone limit 2) tel) as telefone")
         )
             ->orderBy('empresa')->orderBy('clientes.uf')
             ->orderBy('cidade')->orderBy('razao_social')->get();
@@ -268,8 +271,10 @@ class ReportclientesController extends Controller
             'setor.descricao as setor',
             'segmentos.descricao as segmento',
             'bairros.descricao as bairro',
-            DB::raw("(select listagg(tel.telefone,', ') within group (order by clientes.id) from clientetelefones tel" .
-                " where tel.cliente_id = clientes.id and rownum <= 2) as telefone"),
+            // Oracle LISTAGG+ROWNUM -> Postgres STRING_AGG + subquery LIMIT.
+            DB::raw("(select string_agg(tel.telefone, ', ') from" .
+                " (select telefone from clientetelefones" .
+                "  where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"),
             'cidades.id as cidade_id',
             'cidades.descricao as cidade'
         )
@@ -798,8 +803,11 @@ class ReportclientesController extends Controller
             'clientes.cnpj',
             'clientes.cpf',
             'empresas.nome_informal as empresa',
-            DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel
-                            where tel.cliente_id = clientes.id and rownum <= 2) as telefone")
+            // Oracle LISTAGG+ROWNUM -> Postgres STRING_AGG + subquery LIMIT.
+            // (pega até 2 telefones do cliente e concatena com vírgula.)
+            DB::raw("(select string_agg(tel.telefone, ', ') from
+                        (select telefone from clientetelefones
+                          where cliente_id = clientes.id order by telefone limit 2) tel) as telefone")
         )
             ->orderBy('razao_social')->get();
 

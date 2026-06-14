@@ -154,8 +154,11 @@ class SelectRepository
 
     public function getColaboradorComissaoTon()
     {
-        $colaborador = Colaboradorcomissao::join('colaboradors as co','COLABORADORCOMISSAOS.colaborador_id','co.id')
-                                    ->where(['COLABORADORCOMISSAOS.empresa_id' => $this->empresa_id, 'COLABORADORCOMISSAOS.ativo' => 1, 'tonelagem' => 1])
+        // Nome da tabela em minúsculas: Postgres trata "COLABORADORCOMISSAOS"
+        // (quoted) como identificador distinto de colaboradorcomissaos. Oracle/
+        // MySQL eram case-insensitive.
+        $colaborador = Colaboradorcomissao::join('colaboradors as co','colaboradorcomissaos.colaborador_id','co.id')
+                                    ->where(['colaboradorcomissaos.empresa_id' => $this->empresa_id, 'colaboradorcomissaos.ativo' => 1, 'tonelagem' => 1])
                                     ->select('co.id', 'co.nome')
                                     ->pluck('nome', 'id');
 

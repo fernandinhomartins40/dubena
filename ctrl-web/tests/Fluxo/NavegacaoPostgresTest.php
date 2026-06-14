@@ -112,6 +112,115 @@ class NavegacaoPostgresTest extends TestCase
             "[$uri] status inesperado no form: $code");
     }
 
+    /**
+     * Telas de RELATÓRIO (index/entrada). GET por nome de rota — exercita as
+     * queries de apoio dos relatórios, onde se concentram as funções Oracle
+     * (TO_DATE/TO_CHAR/ROWNUM/ADD_MONTHS). Os relatórios que exigem filtro de
+     * data são cobertos por test_relatorio_com_data.
+     *
+     * @dataProvider relatoriosIndexProvider
+     */
+    public function test_relatorio_index($rota)
+    {
+        $this->login();
+        if (! \Route::has($rota)) {
+            $this->markTestSkipped("rota $rota inexistente");
+            return;
+        }
+        $uri = parse_url(route($rota, [], false), PHP_URL_PATH);
+        $resp = $this->call('GET', $uri);
+        $code = $resp->getStatusCode();
+        $this->assertNotEquals(500, $code,
+            "[$rota = $uri] retornou 500 — incompatibilidade Postgres/PHP.");
+    }
+
+    /**
+     * Relatórios COM filtro de data — onde rodam de fato TO_DATE/TO_CHAR/
+     * ADD_MONTHS/aritmética de datas. Passa um período fixo (formato d/m/Y,
+     * que insertDataOracle converte) e demais filtros "todos".
+     *
+     * @dataProvider relatoriosComDataProvider
+     */
+    public function test_relatorio_com_data($rota, array $params)
+    {
+        $this->login();
+        if (! \Route::has($rota)) {
+            $this->markTestSkipped("rota $rota inexistente");
+            return;
+        }
+        $uri = parse_url(route($rota, [], false), PHP_URL_PATH);
+        // Estes relatórios lêem o superglobal $_GET diretamente (código legado),
+        // que o test client do Laravel NÃO popula (só popula o Request). Sem
+        // isso, count($_GET)===0 e o relatório devolve só a tela de filtro, sem
+        // rodar a query. Populamos $_GET para exercitar de fato o SQL.
+        $_GET = $params;
+        try {
+            $resp = $this->call('GET', $uri, $params);
+            $code = $resp->getStatusCode();
+        } finally {
+            $_GET = [];
+        }
+        $this->assertNotEquals(500, $code,
+            "[$rota] retornou 500 com filtro de data — incompat. Postgres/PHP.");
+    }
+
+    public function relatoriosComDataProvider()
+    {
+        // Período fixo de teste (d/m/Y); empresa 1; sem cliente específico.
+        $ini = '01/05/2026';
+        $fim = '31/05/2026';
+        $base = ['empresa_id' => '1', 'cliente_id' => ''];
+
+        return [
+            'contaspagar (E)' => ['report.contaspagar', $base + [
+                'datainicio' => $ini, 'datafim' => $fim, 'tipo' => 'E',
+                'situacao' => '1', 'ordem' => 'C',
+            ]],
+            'contasreceber (V)' => ['report.contasreceber', $base + [
+                'datainicio' => $ini, 'datafim' => $fim, 'tipo' => 'V',
+                'situacao' => '1', 'ordem' => 'C',
+            ]],
+            'despesas (filtro)' => ['report.despesas', $base + [
+                'datainicio' => $ini, 'datafim' => $fim,
+            ]],
+            'receitas (filtro)' => ['report.receitas', $base + [
+                'datainicio' => $ini, 'datafim' => $fim,
+            ]],
+            // Dispara a subquery LISTAGG + ROWNUM (telefones do cliente).
+            'clientespdf (listagg)' => ['report.clientespdf', [
+                'uf' => '0', 'cidade' => '0', 'segmento' => '0',
+                'tipo' => '0', 'ativo' => '1',
+            ]],
+            'fornecedorespdf (listagg)' => ['report.fornecedorespdf', [
+                'uf' => '0', 'cidade' => '0', 'segmento' => '0',
+                'tipo' => '0', 'ativo' => '1', 'empresa' => '0',
+            ]],
+        ];
+    }
+
+    public function relatoriosIndexProvider()
+    {
+        // Relatórios cujo index é GET puro (sem exigir filtro p/ renderizar).
+        $rotas = [
+            'report.clientes', 'report.fornecedores', 'report.clientesbairros',
+            'report.interacoes', 'report.contaspagar', 'report.contasreceber',
+            'report.despesas', 'report.receitas', 'report.despesas_cc',
+            'report.receitas_cc', 'report.fluxocaixa', 'report.estoquegeral',
+            'report.estoqueglp', 'report.estoquerequisicao', 'report.estoquetransferencia',
+            'report.movimentacoes', 'report.comissoes', 'report.comodatosativos',
+            'report.controlecomodato', 'report.convenio', 'report.conveniofuncionarios',
+            'report.colaboradoresaniversariantes', 'report.colaboradoresexames',
+            'report.colaboradoresfaixaetaria', 'report.colaboradoresferiasvencimento',
+            'report.clientesaniversariantes', 'report.aniversariantescompram',
+            'report.incompletos', 'report.gestaofrota', 'report.abastecimento',
+        ];
+        $out = [];
+        foreach ($rotas as $r) {
+            $out[$r] = [$r];
+        }
+        return $out;
+    }
+
     public function formulariosProvider()
     {
         // Fluxos que o operador usa o dia inteiro: cadastro e telas de venda/caixa.

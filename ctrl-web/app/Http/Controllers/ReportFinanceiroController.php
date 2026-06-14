@@ -49,7 +49,11 @@ class ReportFinanceiroController extends Controller
     {
         $this->filtros = "Período " . $datainicio . " a " . $datafim . ';';
         $this->filtros .= ' Empresa (s): ' . implode(', ', $empresas->only($empresas_id)->toArray()) . ';';
-        $cliente = DB::table('clientes')->where('id', $cliente_id)->select('nome')->get()->first();
+        // cliente_id vazio (= "Todos") não pode ir num WHERE id = '' no Postgres
+        // (rejeita '' como integer). Só busca o nome quando há cliente.
+        $cliente = $cliente_id !== '' && $cliente_id !== null
+            ? DB::table('clientes')->where('id', $cliente_id)->select('nome')->get()->first()
+            : null;
         $this->filtros .= $pagarreceber == 'R' ? ' Cliente: ' : ' Fornecedor: ';
         $this->filtros .= is_null($cliente) ? 'Todos;' : $cliente->nome . ';';
         $this->filtros .= 'Tipo de Filtro: ';
