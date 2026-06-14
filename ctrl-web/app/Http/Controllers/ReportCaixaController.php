@@ -595,7 +595,13 @@ class ReportCaixaController extends Controller
                 $descEquals = $desconto_id == $filho;
                 $juroEquals = $juros_id == $filho;
             } else if (!is_null($pai)) {
-                $queryCentro = "select id from centrocustos centro where empresa_id = $empresa start with id = $pai connect by prior id = paicentrocusto_id";
+                // Oracle START WITH ... CONNECT BY PRIOR id = paicentrocusto_id:
+                // desce a árvore de centros de custo. Postgres: WITH RECURSIVE.
+                $queryCentro = "WITH RECURSIVE arv AS (" .
+                    " SELECT id, empresa_id FROM centrocustos WHERE id = $pai" .
+                    " UNION ALL" .
+                    " SELECT c.id, c.empresa_id FROM centrocustos c JOIN arv ON c.paicentrocusto_id = arv.id" .
+                    ") SELECT id FROM arv WHERE empresa_id = $empresa";
                 $centro = collect(DB::select($queryCentro));
                 $descEquals = $centro->contains('id', $desconto_id);
                 $juroEquals = $centro->contains('id', $juros_id);
@@ -868,9 +874,12 @@ class ReportCaixaController extends Controller
             "from( " .
             "select planoconta_id, codigo, planoconta, nivel, sum(valor) as valor " .
             "from( " .
+            // Oracle START WITH id in (SUBQ) CONNECT BY prior paiplanoconta_id = id:
+            // sobe a árvore de plano de contas (do rateio até as raízes, via
+            // paiplanoconta_id). Postgres: WITH RECURSIVE asc_pc (montada abaixo).
             "select id as planoconta_id, codigo, descricao as planoconta, nivel, 0 as valor " .
-            "from planocontas " .
-            "start with id in ( " .
+            "from ( WITH RECURSIVE asc_pc AS ( " .
+            "  SELECT id, codigo, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id in ( " .
             "select rato.PLANOCONTA_ID " .
             "from financeiroparcelas parc   " .
             "inner join financeirorateios rato on rato.financeiro_id = parc.financeiro_id " .
@@ -888,8 +897,12 @@ class ReportCaixaController extends Controller
         }
         $query = $query .
             ") " .
-            "connect by prior paiplanoconta_id = id " .
+            "  UNION ALL " .
+            "  SELECT p.id, p.codigo, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p " .
+            "    JOIN asc_pc ON p.id = asc_pc.paiplanoconta_id " .
+            ") SELECT id, codigo, descricao, nivel, paiplanoconta_id FROM asc_pc " .
             "order by codigo " .
+            ") planocontas " .
             ") qry  " .
             "group by planoconta_id, codigo, planoconta, nivel " .
 

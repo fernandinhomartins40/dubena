@@ -1821,9 +1821,16 @@ class SearchController extends Controller
     {
         $centro = $_GET["centro_id"];
         $empresa = Session::get('empresa_padrao')->id;
-        $query = "SELECT id, descricao FROM centrocustos WHERE empresa_id = $empresa AND finalizador = 1 " .
-            "START WITH id = $centro " .
-            "CONNECT BY PRIOR id = paicentrocusto_id";
+        // Oracle START WITH id=$centro CONNECT BY PRIOR id = paicentrocusto_id:
+        // desce a árvore de centros de custo (do $centro p/ os descendentes).
+        // Postgres: WITH RECURSIVE descendente por paicentrocusto_id.
+        $query = "WITH RECURSIVE arv AS ( " .
+            "  SELECT id, descricao, empresa_id, finalizador FROM centrocustos WHERE id = $centro " .
+            "  UNION ALL " .
+            "  SELECT c.id, c.descricao, c.empresa_id, c.finalizador FROM centrocustos c " .
+            "    JOIN arv ON c.paicentrocusto_id = arv.id " .
+            ") " .
+            "SELECT id, descricao FROM arv WHERE empresa_id = $empresa AND finalizador = 1";
         $centro = collect(DB::select($query));
 
         return $centro->pluck('descricao', 'id');

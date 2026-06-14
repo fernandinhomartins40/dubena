@@ -245,12 +245,16 @@ class UsersController extends Controller
     private function criarPermissoes($permissions, $user)
     {
         $menus = collect([]);
-        $recursive_query = "SELECT id " .
-            "FROM menus " .
-            "WHERE descricao IS NULL " .
-            "START WITH id in (:id) " .
-            "CONNECT BY prior parent_id = id " .
-            "GROUP BY id";
+        // Oracle START WITH ... CONNECT BY prior parent_id = id: sobe a árvore
+        // de menus (dos ids dados até as raízes, via parent_id). Postgres:
+        // WITH RECURSIVE ascendente por parent_id.
+        $recursive_query = "WITH RECURSIVE anc AS ( " .
+            "  SELECT id, parent_id, descricao FROM menus WHERE id in (:id) " .
+            "  UNION ALL " .
+            "  SELECT m.id, m.parent_id, m.descricao FROM menus m " .
+            "    JOIN anc ON m.id = anc.parent_id " .
+            ") " .
+            "SELECT id FROM anc WHERE descricao IS NULL GROUP BY id";
 
         DB::beginTransaction();
         try {
