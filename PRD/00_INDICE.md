@@ -125,10 +125,10 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | D02 Fiscal NF-e | 🔴 | ⬜ | — | |
 | D03 Fiscal SPED | 🔴 | ⬜ | — | |
 | D04 Financeiro | 🔴 | ⬜ | — | |
-| D05 Clientes | 🟠 | ⬜ | — | |
+| D05 Clientes | 🟠 | ✅ | **REESCREVER** (faseado) | Cadastro central; God methods (update ~600 linhas); convênio/limite têm efeito financeiro. Quebrar em sub-recursos + Service de convênio |
 | D06 Produtos/Estoque | 🟠 | ⬜ | — | |
 | D07 Vale-Gás/Convênio | 🟠 | ⬜ | — | |
-| D08 Colaboradores | 🟡 | ⬜ | — | |
+| D08 Colaboradores | 🟡/🟠 | ✅ | **REESCREVER** cadastros/checklist · **REFATORAR** comissões | Cadastros baixo risco; comissão paga gente (Service + baseline). Achado: $_GET direto em comissões |
 | D09 Frota | 🟡 | ✅ | **REESCREVER** | CRUDs limpos, baixo risco; ganho de UX (timeline manutenção, consumo). Preservar vínculo veiculoerp_id↔Monitora |
 | D10 Cadastros base | 🟡/🔴 | ✅ | **REESCREVER** apoio · **REFATORAR** Empresa/config | CRUDs limpos (vitrine do padrão novo); Empresaconfig é fiscal — refatorar com baseline; SQLi no Bairro |
 | D11 Acesso/Menu | 🟠 | ✅ | **REESCREVER** | Fundação de acesso; HTML no model, eager 100 níveis, switch de auth — alta dívida, baixo risco fiscal |
