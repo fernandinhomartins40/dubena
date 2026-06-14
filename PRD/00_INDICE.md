@@ -122,7 +122,7 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | Domínio | Criticidade | Status PRD | Decisão | Justificativa curta |
 | --- | --- | --- | --- | --- |
 | D01 Vendas/Pedidos | 🔴🟠 | ✅ | **REFATORAR** (faseado) | God controller (1661 linhas) orquestra estoque+financeiro+NF. Regra crítica — Services/Actions+transação, NÃO reescrever do zero. Baseline BLOQUEANTE. Um dos últimos |
-| D02 Fiscal NF-e | 🔴 | ⬜ | — | |
+| D02 Fiscal NF-e | 🔴🔴 | ✅ | **MANTER** motor + **REFATORAR** orquestração + **REESCREVER** UI | Motor de imposto (Tributacao/) é o ativo mais valioso, bem estruturado, já com IBS/CBS — NUNCA reescrever. Baseline massivo BLOQUEANTE. ÚLTIMO |
 | D03 Fiscal SPED | 🔴 | ⬜ | — | |
 | D04 Financeiro | 🔴 | ✅ | **REFATORAR** (faseado) | Dinheiro real + CNAB/PIX; baixa/conciliação/remessa. Services+transação, baseline BLOQUEANTE. Cadastros (cond.pgto/plano/centro) UI cedo |
 | D05 Clientes | 🟠 | ✅ | **REESCREVER** (faseado) | Cadastro central; God methods (update ~600 linhas); convênio/limite têm efeito financeiro. Quebrar em sub-recursos + Service de convênio |
