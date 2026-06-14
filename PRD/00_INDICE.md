@@ -124,7 +124,7 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | D01 Vendas/Pedidos | 🔴🟠 | ✅ | **REFATORAR** (faseado) | God controller (1661 linhas) orquestra estoque+financeiro+NF. Regra crítica — Services/Actions+transação, NÃO reescrever do zero. Baseline BLOQUEANTE. Um dos últimos |
 | D02 Fiscal NF-e | 🔴 | ⬜ | — | |
 | D03 Fiscal SPED | 🔴 | ⬜ | — | |
-| D04 Financeiro | 🔴 | ⬜ | — | |
+| D04 Financeiro | 🔴 | ✅ | **REFATORAR** (faseado) | Dinheiro real + CNAB/PIX; baixa/conciliação/remessa. Services+transação, baseline BLOQUEANTE. Cadastros (cond.pgto/plano/centro) UI cedo |
 | D05 Clientes | 🟠 | ✅ | **REESCREVER** (faseado) | Cadastro central; God methods (update ~600 linhas); convênio/limite têm efeito financeiro. Quebrar em sub-recursos + Service de convênio |
 | D06 Produtos/Estoque | 🟠/🔴 | ✅ | **REESCREVER** Produto/cadastros · **REFATORAR** motor estoque | EstoqueProcessor já é service (manter regra, robustecer); Produto carrega tributação (NF-e) — baseline |
 | D07 Vale-Gás/Convênio | 🟠🔴 | ✅ | **REFATORAR** fechamentos/MCMM · **REESCREVER** consultas/comodato | Fechamentos geram financeiro; MCMM é registro fiscal ANP — baseline. Consultas/cadastros livres |
