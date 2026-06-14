@@ -235,7 +235,9 @@ class McmmController extends Controller
 
     private function getSaldoAnterior($empresa, $dataInicio)
     {
-        $lastMcmm = Mcmm::where('empresa_id', $empresa->id)->whereRaw("datafimfiltro <= to_date('$dataInicio')")->orderBy('id', 'desc')->select(DB::raw("max('id') as id"))->max('id');
+        // to_date('x') 1-arg é Oracle; no Postgres exige formato. Como compara
+        // com coluna date, basta o cast '$dataInicio'::date.
+        $lastMcmm = Mcmm::where('empresa_id', $empresa->id)->whereRaw("datafimfiltro <= '$dataInicio'::date")->orderBy('id', 'desc')->select(DB::raw("max('id') as id"))->max('id');
         if (is_null($lastMcmm)) {
             $saldoAnterior = (object) [];
             $saldoAnterior->qdep02 = 0;

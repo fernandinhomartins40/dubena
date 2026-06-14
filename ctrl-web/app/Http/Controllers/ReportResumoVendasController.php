@@ -74,11 +74,13 @@ class ReportResumoVendasController extends Controller
         " from ( " .
         "   select (case when length(setor) > 20 then substr(setor,0,20) || '...' else setor end) as setor, " .
         "   produto,  " .
-        "   max((select substr(c.nome,1,instr(c.nome,' ')-1) from  " .
+        // Oracle->PG: substr(...instr(nome,' ')-1) = 1º nome -> split_part(nome,' ',1);
+        // rownum<=1 -> limit 1; last_day(d) -> fim do mês via date_trunc+interval.
+        "   max((select split_part(c.nome, ' ', 1) from  " .
         "   setorcolaboradores sc  " .
         "   inner join colaboradors c on c.id = sc.colaborador_id " .
-        "   where sc.setor_id = qry.id and rownum <= 1)) AS nome, " .
-        "   sum(qtde) as qtde, round(sum(qtdemeta) / extract(day from last_day(to_date('".  $referencia ."','yyyy-mm-dd hh24:mi:ss'))),0) as qtdemeta  " .
+        "   where sc.setor_id = qry.id limit 1)) AS nome, " .
+        "   sum(qtde) as qtde, round(sum(qtdemeta) / extract(day from (date_trunc('month', to_date('".  $referencia ."','yyyy-mm-dd hh24:mi:ss')) + interval '1 month - 1 day')),0) as qtdemeta  " .
         "   from ( " .
         "     select setor.id, setor.descricao as setor, produtos.descricao as produto, sum(items.quantidade) as qtde, 0 as qtdemeta " .
         "     from pedidos " .

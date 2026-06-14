@@ -251,7 +251,7 @@ class ReportEntregasController extends Controller
 					$queryRuas .= "group by ruas.id, ruas.descricao, bairros.id ".
 					"order by items desc ".
 				") quilos ".
-				"where rownum <= 10";
+				"limit 10";
 		
 		$querySetorBairros = "select bairros.descricao as bairro, sum(items.quantidade) as quant ".
 				"from pedidos ".

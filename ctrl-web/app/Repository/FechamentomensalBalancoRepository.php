@@ -449,7 +449,7 @@ class FechamentomensalBalancoRepository
         $query = 
         " select (case when length(descricao) > 30 then (substr(descricao,1,30) || '...') else descricao end) as tipodescricao,  " .
         " null as descricao, 0 as cabecalho, 0 as clicavel, null as custo, " .
-        " valororiginal - (((sysdate - to_date(datacadastro)) * (depreciacaoporcentagem / depreciacaodias)) / 100 * valororiginal) as valor " .
+        " valororiginal - (((sysdate - datacadastro::date) * (depreciacaoporcentagem / depreciacaodias)) / 100 * valororiginal) as valor " .
         " from empresabems bens " .
         " inner join empresas on bens.empresa_id = empresas.id " .
         " where " .

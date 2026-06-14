@@ -152,20 +152,22 @@ class ReportmovimentacaoController extends Controller
           "select quantidade ".
           "from estoquefechamentosetors ".
           "where empresa_id = $empresa and setor_id = $setor_id and produto_id = $produto_id and ".
-          "estoquefechamento_id = (select id from(select id ".
+          // Oracle "(select id from (ordenado) where rownum<=1)" = pega o mais
+          // recente. Postgres: order by ... desc LIMIT 1 direto na subquery.
+          "estoquefechamento_id = (select id ".
                 "from estoquefechamentos where empresa_id = $empresa and ".
-                "to_date(datahorafechamento) <= to_date('$datainicio','yyyy-mm-dd hh24:mi:ss') and ".
+                "datahorafechamento::date <= to_date('$datainicio','yyyy-mm-dd hh24:mi:ss') and ".
                 "reaberto = 0 ".
-                "order by datahorafechamento desc) where rownum <= 1) ".
+                "order by datahorafechamento desc limit 1) ".
           
           "union all ".
           
           "select sum((case when movimentacao = 'ENTRADA' then quantidade else quantidade * -1 end)) as quantidade ".
           "from estoquesetorhistoricos hist ".
           "where empresa_id = $empresa and setor_id = $setor_id and produto_id = $produto_id and ".
-          "to_date(datahoracompetencia) > (select max(datahorafechamento) from estoquefechamentos where empresa_id = $empresa and ".
-            "to_date(datahorafechamento) < to_date('$datainicio','yyyy-mm-dd hh24:mi:ss')) and ".
-          "to_date(datahoracompetencia) < to_date('$datainicio','yyyy-mm-dd hh24:mi:ss') ".
+          "datahoracompetencia::date > (select max(datahorafechamento) from estoquefechamentos where empresa_id = $empresa and ".
+            "datahorafechamento::date < to_date('$datainicio','yyyy-mm-dd hh24:mi:ss')) and ".
+          "datahoracompetencia::date < to_date('$datainicio','yyyy-mm-dd hh24:mi:ss') ".
         ") total";
 
         return $query;
@@ -177,7 +179,7 @@ class ReportmovimentacaoController extends Controller
             "from estoquesetorhistoricos hist " .
             "where empresa_id = $empresa and " .
             "setor_id = $setor_id and produto_id = $produto_id and " .
-            "to_date(datahoracompetencia) <= to_date('$datainicio','yyyy-mm-dd hh24:mi:ss')";
+            "datahoracompetencia::date <= to_date('$datainicio','yyyy-mm-dd hh24:mi:ss')";
         return $query;
     }
 }
