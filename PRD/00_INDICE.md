@@ -129,8 +129,8 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | D06 Produtos/Estoque | 🟠 | ⬜ | — | |
 | D07 Vale-Gás/Convênio | 🟠 | ⬜ | — | |
 | D08 Colaboradores | 🟡 | ⬜ | — | |
-| D09 Frota | 🟡 | ⬜ | — | |
-| D10 Cadastros base | 🟡 | ⬜ | — | |
+| D09 Frota | 🟡 | ✅ | **REESCREVER** | CRUDs limpos, baixo risco; ganho de UX (timeline manutenção, consumo). Preservar vínculo veiculoerp_id↔Monitora |
+| D10 Cadastros base | 🟡/🔴 | ✅ | **REESCREVER** apoio · **REFATORAR** Empresa/config | CRUDs limpos (vitrine do padrão novo); Empresaconfig é fiscal — refatorar com baseline; SQLi no Bairro |
 | D11 Acesso/Menu | 🟠 | ✅ | **REESCREVER** | Fundação de acesso; HTML no model, eager 100 níveis, switch de auth — alta dívida, baixo risco fiscal |
 | D12 Relatórios | 🟢 | ⬜ | — | |
 | D13 API mobile | 🟠 | ⬜ | — | |
