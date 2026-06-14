@@ -126,7 +126,7 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 | D03 Fiscal SPED | 🔴 | ⬜ | — | |
 | D04 Financeiro | 🔴 | ⬜ | — | |
 | D05 Clientes | 🟠 | ✅ | **REESCREVER** (faseado) | Cadastro central; God methods (update ~600 linhas); convênio/limite têm efeito financeiro. Quebrar em sub-recursos + Service de convênio |
-| D06 Produtos/Estoque | 🟠 | ⬜ | — | |
+| D06 Produtos/Estoque | 🟠/🔴 | ✅ | **REESCREVER** Produto/cadastros · **REFATORAR** motor estoque | EstoqueProcessor já é service (manter regra, robustecer); Produto carrega tributação (NF-e) — baseline |
 | D07 Vale-Gás/Convênio | 🟠 | ⬜ | — | |
 | D08 Colaboradores | 🟡/🟠 | ✅ | **REESCREVER** cadastros/checklist · **REFATORAR** comissões | Cadastros baixo risco; comissão paga gente (Service + baseline). Achado: $_GET direto em comissões |
 | D09 Frota | 🟡 | ✅ | **REESCREVER** | CRUDs limpos, baixo risco; ganho de UX (timeline manutenção, consumo). Preservar vínculo veiculoerp_id↔Monitora |
