@@ -121,7 +121,7 @@ Já é módulo separado (schema monitora). Mapa, posições, cercas.
 
 | Domínio | Criticidade | Status PRD | Decisão | Justificativa curta |
 | --- | --- | --- | --- | --- |
-| D01 Vendas/Pedidos | 🟠🔴 | ⬜ | — | |
+| D01 Vendas/Pedidos | 🔴🟠 | ✅ | **REFATORAR** (faseado) | God controller (1661 linhas) orquestra estoque+financeiro+NF. Regra crítica — Services/Actions+transação, NÃO reescrever do zero. Baseline BLOQUEANTE. Um dos últimos |
 | D02 Fiscal NF-e | 🔴 | ⬜ | — | |
 | D03 Fiscal SPED | 🔴 | ⬜ | — | |
 | D04 Financeiro | 🔴 | ⬜ | — | |
