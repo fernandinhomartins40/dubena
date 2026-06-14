@@ -40,9 +40,9 @@ class FechamentomensalDreRepository
         "    select descricao as plano, " .
         "    sum(valor) as valor " .
         "    from(  " .
-        "        select plano_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-        "        listagg(descricao,'') within group (order by descricao) as descricao, sum(nivel) as nivel, " .
-        "        listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+        "        select plano_id, string_agg(codigo, '' order by codigo) as codigo, " .
+        "        string_agg(descricao, '' order by descricao) as descricao, sum(nivel) as nivel, " .
+        "        string_agg(finalizador, '' order by finalizador) as finalizador, " .
         "        sum(juros + multa) as valor " .
         "        from( " .
         "        select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
@@ -81,10 +81,10 @@ class FechamentomensalDreRepository
         "        union all " .
         "         " .
         "        select plano_desconto, " .
-        "        listagg(codigo,'') within group (order by codigo) as codigo,  " .
-        "        listagg(descricao,'') within group (order by descricao) as descricao, " .
+        "        string_agg(codigo, '' order by codigo) as codigo,  " .
+        "        string_agg(descricao, '' order by descricao) as descricao, " .
         "        sum(nivel) as nivel, " .
-        "        listagg(finalizador,'') within group (order by finalizador) as finalizador, sum(desconto) as valor  " .
+        "        string_agg(finalizador, '' order by finalizador) as finalizador, sum(desconto) as valor  " .
         "        from(  " .
         "        select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
         "        from planocontas plano  " .
@@ -382,9 +382,9 @@ class FechamentomensalDreRepository
         "   select 1 as juros, plano_id,descricao as plano, " .
         "   sum(valor) as valor " .
         "   from( " .
-        "     select plano_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-        "     listagg(descricao,'') within group (order by descricao) as descricao, sum(nivel) as nivel, " .
-        "     listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+        "     select plano_id, string_agg(codigo, '' order by codigo) as codigo, " .
+        "     string_agg(descricao, '' order by descricao) as descricao, sum(nivel) as nivel, " .
+        "     string_agg(finalizador, '' order by finalizador) as finalizador, " .
         "     sum(juros + multa) as valor " .
         "     from( " .
         "       select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
@@ -437,10 +437,10 @@ class FechamentomensalDreRepository
         "     union all " .
         "      " .
         "     select plano_desconto, " .
-        "     listagg(codigo,'') within group (order by codigo) as codigo,  " .
-        "     listagg(descricao,'') within group (order by descricao) as descricao, " .
+        "     string_agg(codigo, '' order by codigo) as codigo,  " .
+        "     string_agg(descricao, '' order by descricao) as descricao, " .
         "     sum(nivel) as nivel, " .
-        "     listagg(finalizador,'') within group (order by finalizador) as finalizador, sum(desconto) as valor  " .
+        "     string_agg(finalizador, '' order by finalizador) as finalizador, sum(desconto) as valor  " .
         "     from( " .
         "       select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
         "       from planocontas  " .
@@ -686,9 +686,9 @@ class FechamentomensalDreRepository
         "   SELECT 2 AS tipo, 'Juros/Multa' as plano, " .
         "   sum(valor) as valor " .
         "   from(  " .
-        "     select plano_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-        "     listagg(descricao,'') within group (order by descricao) as descricao, sum(nivel) as nivel, " .
-        "     listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+        "     select plano_id, string_agg(codigo, '' order by codigo) as codigo, " .
+        "     string_agg(descricao, '' order by descricao) as descricao, sum(nivel) as nivel, " .
+        "     string_agg(finalizador, '' order by finalizador) as finalizador, " .
         "     sum(juros + multa) as valor " .
         "     from( " .
         "       select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
@@ -726,10 +726,10 @@ class FechamentomensalDreRepository
         "     group by plano_id " .
         "     union all " .
         "     select plano_desconto, " .
-        "     listagg(codigo,'') within group (order by codigo) as codigo,  " .
-        "     listagg(descricao,'') within group (order by descricao) as descricao, " .
+        "     string_agg(codigo, '' order by codigo) as codigo,  " .
+        "     string_agg(descricao, '' order by descricao) as descricao, " .
         "     sum(nivel) as nivel, " .
-        "     listagg(finalizador,'') within group (order by finalizador) as finalizador, sum(desconto) as valor  " .
+        "     string_agg(finalizador, '' order by finalizador) as finalizador, sum(desconto) as valor  " .
         "     from(  " .
         "       select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
         "       from planocontas plano  " .
@@ -1097,9 +1097,9 @@ class FechamentomensalDreRepository
                         "select 1 as juros, plano_id, descricao as plano, " .
                         "sum(valor) as valor " .
                         "from( " .
-                            "select plano_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-                            "listagg(descricao,'') within group (order by descricao) as descricao, sum(nivel) as nivel, " .
-                            "listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+                            "select plano_id, string_agg(codigo, '' order by codigo) as codigo, " .
+                            "string_agg(descricao, '' order by descricao) as descricao, sum(nivel) as nivel, " .
+                            "string_agg(finalizador, '' order by finalizador) as finalizador, " .
                             "sum(juros + multa) as valor " .
                             "from( " .
                                 "select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador  " .
@@ -1145,10 +1145,10 @@ class FechamentomensalDreRepository
                             "union all " .
                             
                             "select plano_desconto, " .
-                            "listagg(codigo,'') within group (order by codigo) as codigo,  " .
-                            "listagg(descricao,'') within group (order by descricao) as descricao, " .
+                            "string_agg(codigo, '' order by codigo) as codigo,  " .
+                            "string_agg(descricao, '' order by descricao) as descricao, " .
                             "sum(nivel) as nivel, " .
-                            "listagg(finalizador,'') within group (order by finalizador) as finalizador, sum(desconto) as valor  " .
+                            "string_agg(finalizador, '' order by finalizador) as finalizador, sum(desconto) as valor  " .
                             "from( " .
                                 "select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador  " .
                                 "from planocontas  " .

@@ -272,12 +272,11 @@ class FechamentomaloteController extends Controller
                 ped.valorvenda, ped.pedidosituacao_id, sit.descricao AS status,
                 cond.id AS condicao_id, cond.descricao AS condicao,
                 fi.id AS financeiro_id, fi.cartaoautorizacao,
-                listagg('\"id\": ' || parc.id || ', \"agrupamento\": ' || parc.agrupamento_status || ', \"baixado\": ' || parc.baixado
+                string_agg('\"id\": ' || parc.id || ', \"agrupamento\": ' || parc.agrupamento_status || ', \"baixado\": ' || parc.baixado
                         || ', \"valor\": ' || parc.valor || ', \"desconto\": ' || parc.desconto
                         || ', \"possui_boleto\": ' || (CASE WHEN bo.nossonumero IS NULL THEN 0 ELSE 1 END)
                         || ', \"possui_cheque\": ' || (CASE WHEN chq.numerocheque IS NULL THEN 0 ELSE 1 END), '}, {')
-                        WITHIN GROUP (ORDER BY ped.id)
-                        OVER (PARTITION BY ped.id) AS parcelas
+                        OVER (PARTITION BY ped.id ORDER BY ped.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS parcelas
                 FROM pedidos ped
                 INNER JOIN clientes cli ON ped.cliente_id = cli.id
                 INNER JOIN cidades ci ON ped.entregacidade_id = ci.id

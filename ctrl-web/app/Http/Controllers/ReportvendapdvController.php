@@ -286,7 +286,7 @@ class ReportvendapdvController extends Controller
         $cli = $cli->select('clientes.id','clientes.nome','setor.descricao as setor','segmentos.descricao as segmento',
                             'clientes.segmento_id','clientes.setor_id',
                             DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-                            DB::raw('(select listagg(telefone) within group(order by telefone) as telefone
+                            DB::raw('(select string_agg(telefone, '' order by telefone) as telefone
                             from clientetelefones tel where tel.cliente_id = clientes.id) as telefone'))
                     ->orderBy('segmento')->orderBy('clientes.nome')->get();
         $clientes = collect([]);
@@ -656,7 +656,7 @@ class ReportvendapdvController extends Controller
         $nclientes = $nclientes->select('convenio.id as convenio_id','convenio.nome as convenio','clientes.id','clientes.nome',
                                     'clientes.setor_id', 'setor.descricao as setor',
                                     DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                    DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) as telefone 
+                                    DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) as telefone 
                                     from clientetelefones tel where cliente_id = clientes.id and rownum <= 2) as telefone"))
                                 ->orderBy('convenio')->orderBy('clientes.nome')->get();
 
@@ -845,7 +845,7 @@ class ReportvendapdvController extends Controller
 
 /*
 
-$nao = DB::select("select id,nome,endereco,listagg(telefone,', ') within group (order by telefone) as telefone,setor,segmento
+$nao = DB::select("select id,nome,endereco,string_agg(telefone, ', ' order by telefone) as telefone,setor,segmento
 from (select clientes.id,clientes.nome,tel.telefone,
 		(select descricao from cidades where clientes.cidade_id = id) || ' - ' ||
 		(select descricao from bairros where clientes.bairro_id = id) || ' - ' ||

@@ -953,7 +953,7 @@ class NfwebController extends Controller
                         "p.entregacidade_id AS DESTCIDADE_ID, ci.descricao AS DESTCIDADENOME, ci.uf AS DESTUF, p.entregacep AS DESTCEP, c.email AS DESTEMAIL," .
                         "p.cliente_id AS CLIENTE_ID, p.condicaopagamento_id, p.valorvenda AS VNF, p.valordesconto AS VDESC, " .
                         "p.entregapontoreferencia, p.financeiro_id, p.nfce_id, NVL(c.inscricao_estadual, '') AS DESTIE, e.telefone1 AS EMITTELEFONE,  " .
-                        "(select listagg(tel.telefone,', ') within group (order by tel.telefone) as telefone " .
+                        "(select string_agg(tel.telefone, ', ' order by tel.telefone) as telefone " .
                         "from clientetelefones tel where cliente_id = c.id and rownum <= 1) as desttelefone"
                 )->get();
 

@@ -939,10 +939,10 @@ class ReportCaixaController extends Controller
         $query =
             "select plano_id, codigo, descricao, nivel, finalizador, sum(juros_multa) as juros_multas, sum(desconto) as descontos " .
             "from( " .
-            "select plano_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-            "listagg(descricao,'') within group (order by descricao) as descricao, " .
+            "select plano_id, string_agg(codigo, '' order by codigo) as codigo, " .
+            "string_agg(descricao, '' order by descricao) as descricao, " .
             "sum(nivel) as nivel, " .
-            "listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+            "string_agg(finalizador, '' order by finalizador) as finalizador, " .
             "sum(juros + multa) as juros_multa, 0 as desconto " .
             "from( " .
             "select id as plano_id, codigo, descricao, nivel, 0 as juros, 0 as multa, finalizador " .
@@ -1003,10 +1003,10 @@ class ReportCaixaController extends Controller
 
             "union all " .
 
-            "select plano_desconto, listagg(codigo,'') within group (order by codigo) as codigo, " .
-            "listagg(descricao,'') within group (order by descricao) as descricao, " .
+            "select plano_desconto, string_agg(codigo, '' order by codigo) as codigo, " .
+            "string_agg(descricao, '' order by descricao) as descricao, " .
             "sum(nivel) as nivel, " .
-            "listagg(finalizador,'') within group (order by finalizador) as finalizador, " .
+            "string_agg(finalizador, '' order by finalizador) as finalizador, " .
             "0 as juros_multa, sum(desconto) as desconto " .
             "from( " .
             "select id as plano_desconto, codigo, descricao, nivel, 0 as desconto, finalizador " .
@@ -1142,10 +1142,10 @@ class ReportCaixaController extends Controller
         $query = "select centro_id, codigo, centro, nivel, finalizador, sum(juros_multa) as juros_multa, sum(descontos) as descontos " .
             "from( ";
         if ($jeq) {
-            $query .= "select centro_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-                "listagg(centro,'') within group (order by centro) as centro, " .
+            $query .= "select centro_id, string_agg(codigo, '' order by codigo) as codigo, " .
+                "string_agg(centro, '' order by centro) as centro, " .
                 "sum(nivel) as nivel, sum(juros_multa) as juros_multa, sum(descontos) as descontos, " .
-                "listagg(finalizador,'') within group (order by finalizador) as finalizador " .
+                "string_agg(finalizador, '' order by finalizador) as finalizador " .
                 "from( " .
                 "select id as centro_id, codigo, descricao as centro, nivel, 0 as juros_multa, 0 as descontos, finalizador " .
                 "from centrocustos " .
@@ -1183,10 +1183,10 @@ class ReportCaixaController extends Controller
             $query .= "union all ";
 
         if ($deq) {
-            $query .= "select centro_id, listagg(codigo,'') within group (order by codigo) as codigo, " .
-                "listagg(centro,'') within group (order by centro) as centro, " .
+            $query .= "select centro_id, string_agg(codigo, '' order by codigo) as codigo, " .
+                "string_agg(centro, '' order by centro) as centro, " .
                 "sum(nivel) as nivel, 0 as juros_multa, sum(descontos) as descontos, " .
-                "listagg(finalizador,'') within group (order by finalizador) as finalizador " .
+                "string_agg(finalizador, '' order by finalizador) as finalizador " .
                 "from( " .
                 "select id as centro_id, codigo, descricao as centro, nivel, 0 as juros_multa, 0 as descontos, finalizador " .
                 "from centrocustos " .

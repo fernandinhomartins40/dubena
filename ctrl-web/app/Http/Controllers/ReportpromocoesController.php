@@ -81,8 +81,8 @@ class ReportpromocoesController extends Controller
                                             "END ".
                                     "END)) as compras"),
                         DB::raw('max(pedidos.datahoraprevisaoentrega) as dataultima'),
-                        DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel 
-                        where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
+                        DB::raw("(select string_agg(tel.telefone, ', ') from
+                        (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
                     ->groupBy('setor.descricao','clientes.setor_id','clientes.nome','clientes.id',
                         'cidades.descricao','bairros.descricao','ruas.descricao','clientes.numero')
                     ->orderBy('setor')->orderBy('clientes.nome')->get();

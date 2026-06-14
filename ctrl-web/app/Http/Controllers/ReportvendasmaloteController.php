@@ -332,7 +332,7 @@ class ReportvendasmaloteController extends Controller
                                 'ruas.descricao as rua','clientes.numero','clientes.nome','produtos.descricao as produto','pedidos.id as pedido_id',
                                 'produtos.id as produto_id','items.quantidade','items.precovendatotal','items.precovendaunitario',
                                 'clientes.setor_id','setor.descricao as setor','pedidos.datahoraprevisaoentrega as data','pedidos.valorvenda',
-                                DB::raw("(select listagg(tel.telefone) within group (order by tel.telefone) as telefone 
+                                DB::raw("(select string_agg(tel.telefone, '' order by tel.telefone) as telefone 
                                 from clientetelefones tel where cliente_id = clientes.id and rownum <= 2) as telefone"))
                                 ->orderBy('setor')->orderBy('data')->get();
         $pedidos = collect([]);

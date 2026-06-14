@@ -309,7 +309,7 @@ class ReportclientesaniversariantesController extends Controller
 			$clientela = $clientela->where('clientes.bairro_id',$bairro_id);
 		$clientela = $clientela->select('empresas.id as empresa_id','empresas.nome_informal as empresa','clientes.id as cliente_id','clientes.nome',
 									'setor.descricao as setor','setor.id as setor_id','bairros.descricao as bairro',"ultima.datacompra as ult_compra",
-									DB::raw("(select listagg(tel.telefone) within group(order by tel.telefone)".
+									DB::raw("(select string_agg(tel.telefone, '' order by tel.telefone)".
 									"from clientetelefones tel where tel.cliente_id = clientes.id) as telefone"),
 									DB::raw("(trunc(to_date('$dataatual','yyyy-mm-dd hh24:mi:ss') -". 
 									"ultima.datacompra)) as diff"), 'ruas.descricao as rua', 'clientes.numero', 'clientes.complemento')
@@ -460,7 +460,7 @@ class ReportclientesaniversariantesController extends Controller
 		}
 		$incompletos = $incompletos->select('clientes.id','clientes.nome','clientes.datanascimento as data',
 							'setor.descricao as setor','tipo.tipopessoacadastro as tipo',
-							DB::raw("(select listagg(tel.telefone,', ') within group(order by tel.telefone) from".
+							DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from".
 								" clientetelefones tel where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
 						->orderBy('clientes.nome')->get();
 

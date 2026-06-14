@@ -296,8 +296,8 @@ class ReportvalegasController extends Controller
             'pedidos.datahoraprevisaoentrega as datapedido', 
             'valegas.codigo', 'situacao.descricao as valegas_situacao',
             DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-            DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) as telefone ". 
-                                "from clientetelefones tel where cliente_id = clientes.id and rownum <= 2) as telefone"))
+            DB::raw("(select string_agg(tel.telefone, ', ') ".
+                                "from (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
         ->orderBy('setor.descricao')->orderBy('clientes.nome')->orderBy('pedidos.id')->get();
 
         $valegas = collect([]);
@@ -422,8 +422,8 @@ class ReportvalegasController extends Controller
                                 'venda.valorunitario','venda.valortotal','condicao.descricao as condicao',
                                 'cidades.descricao as cidade','bairros.descricao as bairro','ruas.descricao as rua',
                                 'clientes.numero',
-                                DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) as telefone ". 
-                                "from clientetelefones tel where cliente_id = clientes.id and rownum <= 2) as telefone"))
+                                DB::raw("(select string_agg(tel.telefone, ', ') ".
+                                "from (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
                             ->orderBy('clientes.nome')->orderBy('venda.datavenda')->distinct()->get();
         $clientes = collect([]);
         $anterior = null;
@@ -509,7 +509,7 @@ class ReportvalegasController extends Controller
                             ->select('clientes.nome as cliente',
                                 DB::raw("(cidades.descricao || ' - ' || bairros.descricao ".
                                 "|| ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                DB::raw("(select listagg(telefone,', ') within group (order by telefone) from ".
+                                DB::raw("(select string_agg(telefone, ', ' order by telefone) from ".
                                 "clientetelefones where cliente_id = clientes.id) as telefone"))
                             ->orderBy('clientes.nome')->distinct()->get();
 

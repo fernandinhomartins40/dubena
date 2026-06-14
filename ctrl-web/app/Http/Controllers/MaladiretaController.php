@@ -147,7 +147,7 @@ class MaladiretaController extends Controller
 
         $clientes = $clientes->select('setor.descricao as setor', 'cliente.id', 'cliente.datanascimento', 'cliente.email', 'cliente.nome',
                                                     DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || cliente.numero) as endereco"),
-                                                    DB::raw("(SELECT LISTAGG(tel.telefone, ', ') WITHIN GROUP (ORDER BY tel.telefone) FROM clientetelefones tel 
+                                                    DB::raw("(SELECT string_agg(tel.telefone, ', ' order by tel.telefone) FROM clientetelefones tel 
                                                         WHERE tel.cliente_id = cliente.id AND ROWNUM <= 2 and telefonetipo_id IN 
                                                             (SELECT id FROM telefonetipos WHERE celular = 1)
                                                         ) as telefone")

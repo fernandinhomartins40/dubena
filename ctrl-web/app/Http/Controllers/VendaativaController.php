@@ -109,7 +109,7 @@ class VendaativaController extends Controller
                                     'ativa.ligarnovamente','ativa.previsaoproxcompra','clientes.datanascimento','clientes.setor_id','setors.descricao','ativa.pedido_id',
                                     DB::raw("(cidades.descricao || ', ' || bairros.descricao || ' - ' ||".
                                     " ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                    DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel ".
+                                    DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from clientetelefones tel ".
                                     "where tel.cliente_id = clientes.id and rownum <= 2) as telefone"),
                                     DB::raw("(select max(datahoraprevisaoentrega) from pedidos where pedidosituacao_id in ($sit) and" .
                                     " cliente_id = clientes.id) as dataultima"))
@@ -234,7 +234,7 @@ class VendaativaController extends Controller
                                 "in ($pedidosituacao)) as dataultimopedido"),
                                 DB::raw("(cidades.descricao || ', ' || bairros.descricao || ' - ' ||".
                                     " ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel ".
+                                DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from clientetelefones tel ".
                                 "where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
                         ->get();
 
@@ -321,7 +321,7 @@ class VendaativaController extends Controller
                                 'ultima.datacompra','clientes.rua_id','setors.descricao as setor','segmentos.descricao as segmento',
                                 DB::raw("(cidades.descricao || ', ' || bairros.descricao || ' - ' ||".
                                 " ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel ".
+                                DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from clientetelefones tel ".
                                 "where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
                             ->groupBy('clientes.id','clientes.nome','clientes.setor_id','clientes.datanascimento','ruas.descricao',
                                 'bairros.descricao','cidades.descricao','ultima.datacompra','clientes.numero','segmentos.descricao',
@@ -410,7 +410,7 @@ class VendaativaController extends Controller
                                      'clientes.nome','clientes.setor_id','clientes.datanascimento','segmentos.descricao as segmento',
                                      DB::raw("(cidades.descricao || ', ' || bairros.descricao || ' - ' ||".
                                      " ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                     DB::raw("(select listagg(tel.telefone,', ') within group (order by tel.telefone) from clientetelefones tel ".
+                                     DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from clientetelefones tel ".
                                      "where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
                                 ->orderBy('clientes.id')
                                 ->get();
