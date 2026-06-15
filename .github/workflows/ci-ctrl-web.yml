@@ -35,17 +35,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Lint PHP (php -l em todos os arquivos do app)
-        run: |
-          # Lint rápido fora do container (a imagem ubuntu já tem php-cli).
-          # Pega erro de sintaxe antes mesmo de subir o ambiente pesado.
-          err=0
-          while IFS= read -r f; do
-            out=$(php -l "$f" 2>&1) || { echo "$out"; err=1; }
-          done < <(find app routes database -name '*.php' -not -path '*/vendor/*')
-          [ "$err" -eq 0 ] || { echo "::error::Lint PHP falhou"; exit 1; }
-          echo "Lint OK"
-
       - name: Sobe ambiente de dev (db + redis + app, PHP 7.4)
         run: |
           # Reusa o docker-compose de DEV — mesma imagem PHP 7.4 do runtime.
@@ -74,6 +63,19 @@ jobs:
               composer install --no-interaction --prefer-dist --no-progress \
               --no-scripts --ignore-platform-req=ext-oci8
           fi
+
+      - name: Lint PHP (php -l no container PHP 7.4 — versão do runtime)
+        run: |
+          # Linta DENTRO do container (PHP 7.4), não no php-cli do runner (8.x):
+          # a app é 7.4 e tem sintaxe válida em 7.4 que o 8.x rejeitaria. A
+          # compatibilidade com 8.x é trabalho da Fase 2, não deste portão.
+          docker compose -f docker-compose.yml exec -T app sh -c '
+            err=0
+            for f in $(find app routes database -name "*.php" -not -path "*/vendor/*"); do
+              php -l "$f" >/dev/null 2>&1 || { php -l "$f"; err=1; }
+            done
+            [ "$err" -eq 0 ] || { echo "Lint PHP falhou"; exit 1; }
+            echo "Lint OK (PHP 7.4)"'
 
       - name: Migrations (ERP + módulos api/monitora)
         run: |
