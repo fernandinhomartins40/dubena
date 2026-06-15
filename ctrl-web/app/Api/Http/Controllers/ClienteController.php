@@ -85,8 +85,10 @@ class ClienteController extends Controller
     {
         $cliente = null;
         if ($has) {
+            // Endpoint público: telefone/nome parametrizados (eram interpolados → SQLi).
             $cliente = ClienteRepository::whereRaw(
-                "telefoneantigo = '" . $dataPhone['telefone'] . "' AND primeironome = '" . firstWord($data["nome"]) . "'"
+                "telefoneantigo = ? AND primeironome = ?",
+                [$dataPhone['telefone'], firstWord($data["nome"])]
             )->first();
         }
 

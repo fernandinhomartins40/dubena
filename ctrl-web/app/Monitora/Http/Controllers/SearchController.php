@@ -144,11 +144,12 @@ class SearchController extends Controller
         " INNER JOIN colaboradors co ON co.ID = ped.COLABORADOR_ID " .
         " INNER JOIN empresaconfigs con ON con.EMPRESA_ID = ped.EMPRESA_ID " .
         " WHERE ped.PEDIDOSITUACAO_ID IN (SELECT ID FROM pedidosituacaos WHERE fechadoconcluido <> 1 and fechadocancelado <> 1 and entregafinalizada <> 1 and entregacancelada <> 1) " .
-        " AND ped.GRUPO_ID = 2 AND ped.EMPRESA_ID = 2";
-        //dd($qry);
+        // empresa/grupo do contexto logado (antes hardcoded = 2), via bindings.
+        " AND ped.GRUPO_ID = ? AND ped.EMPRESA_ID = ?";
+        $empresa = Session::get('empresa_padrao');
         // UNIFICAÇÃO: lê o ERP no MESMO Postgres (schema public), não mais via
         // conexão Oracle externa (oracle3). Query já em sintaxe Postgres.
-        $results = DB::connection('pgsql')->select($qry, []);
+        $results = DB::connection('pgsql')->select($qry, [$empresa->grupo_id, $empresa->id]);
         $response = ["status" => 'OK', "dados" => $results];
 
         //$response = buscarDadosRastreamento('getRastreamentoPedidos');

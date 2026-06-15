@@ -409,7 +409,7 @@ class UsersController extends Controller
                 $oauth_client = new \App\Oauthclient();
                 $oauth_client->user_id = $user->id;
                 $oauth_client->name = $user->email;
-                $oauth_client->secret = base64_encode(hash_hmac('sha256', $senha, 'secret', true));
+                $oauth_client->secret = base64_encode(hash_hmac('sha256', $senha, env('OAUTH_CLIENT_HMAC_KEY', 'secret'), true));
                 $oauth_client->password_client = 1;
                 $oauth_client->personal_access_client = 0;
                 $oauth_client->redirect = 'null';
@@ -420,7 +420,7 @@ class UsersController extends Controller
             }
         } else if (($data['usaandroid'] !== null || $data['identificadorchamada'] !== null || $data['usarastreamento'] !== null)) {
             foreach ($oauth_clients as $cli) {
-                $cli->secret = base64_encode(hash_hmac('sha256', $senha, 'secret', true));
+                $cli->secret = base64_encode(hash_hmac('sha256', $senha, env('OAUTH_CLIENT_HMAC_KEY', 'secret'), true));
                 $cli->save();
             }
         }

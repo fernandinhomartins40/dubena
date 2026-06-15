@@ -83,7 +83,7 @@ class NotificacoesController extends Controller
         $appNoti = DB::table('notificacoes as noti')
             ->join("notificacaousers as us", "us.notificacao_id", "noti.id")
             ->join("empresas as emp", "emp.id", "us.empresa_id")
-            ->whereRaw("us.user_id = $user->id AND us.empresa_id = $empresa_id AND us.status in ('N', 'R') AND noti.appnotification = 1")
+            ->whereRaw("us.user_id = ? AND us.empresa_id = ? AND us.status in ('N', 'R') AND noti.appnotification = 1", [$user->id, $empresa_id])
             ->selectRaw("us.id as men_id, us.status as situacao, emp.nome_informal as empresa, 'Aplicativo' as nome, " .
                 "noti.descricao, noti.appnotification, noti.dangerlevel, emp.id AS empresa_id")
             ->orderBy("noti.created_at", "DESC")
@@ -92,7 +92,7 @@ class NotificacoesController extends Controller
         $notiCerca = DB::table('notificacoes as noti')
             ->join("notificacaousers as us", "us.notificacao_id", "noti.id")
             ->join("empresas as emp", "emp.id", "us.empresa_id")
-            ->whereRaw("us.user_id = $user->id AND us.empresa_id = $empresa_id AND us.status in ('N', 'R') AND noti.tela = 'logcercas'")
+            ->whereRaw("us.user_id = ? AND us.empresa_id = ? AND us.status in ('N', 'R') AND noti.tela = 'logcercas'", [$user->id, $empresa_id])
             ->selectRaw("us.id as men_id, us.status as situacao, emp.nome_informal as empresa, 'Cercas' as nome, " .
                 "noti.descricao, noti.appnotification, noti.dangerlevel, emp.id AS empresa_id")
             ->orderBy("noti.created_at", "DESC")

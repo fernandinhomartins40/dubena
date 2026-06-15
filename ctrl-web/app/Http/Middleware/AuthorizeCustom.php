@@ -33,6 +33,12 @@ class AuthorizeCustom
         $route = $request->route()->getName();
         $validar = $this->validar($user, $route);
 
+        // SEGURANÇA (D11 / Fase 4): BYPASS de autorização para qualquer rota ajax.*
+        // ou request AJAX. Isso permite acionar endpoints AJAX (inclusive de gravação)
+        // sem checar permissão. NÃO fechar de forma cega aqui — muitas rotas ajax.*
+        // são auxiliares (dropdowns/buscas) sem entrada em `permissoes` e quebrariam.
+        // O fechamento correto (permissão por rota AJAX via Policy/Gate) está previsto
+        // no redesenho de permissões do Bloco A da Fase 4. Ver PRD/11_acesso_permissoes.md.
         if (strpos($route, 'ajax.') !== false)
             return true;
 

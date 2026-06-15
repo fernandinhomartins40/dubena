@@ -84,10 +84,19 @@ class NfwebController extends Controller
 
     public function getToken()
     {
-        if (Input::get('app_key') !== sha1(env('APP_KEY'))) {
-            //        if (Input::get('app_key') !== env('APP_KEY')) {
+        // Segurança (S2): a app_key era sha1(APP_KEY) — e a APP_KEY vazou no repo
+        // do app. Agora compara com um segredo PRÓPRIO (APP_TOKEN_KEY) em tempo
+        // constante (hash_equals); fallback para sha1(APP_KEY) só sem APP_TOKEN_KEY,
+        // para transição. A mensagem não expõe mais o valor esperado.
+        $expected = env('APP_TOKEN_KEY');
+        if (empty($expected)) {
+            $expected = sha1(env('APP_KEY'));
+        }
+        $provided = (string) Input::get('app_key', '');
+
+        if (! hash_equals((string) $expected, $provided)) {
             return response()->json([
-                'msg'       => 'app_key is not found: ' . sha1(env('APP_KEY')),
+                'msg'       => 'invalid app_key',
                 'status'    => 'NOK'
             ], 404);
         } else {
