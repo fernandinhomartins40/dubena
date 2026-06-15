@@ -846,6 +846,22 @@ if (!function_exists('getErrorsException')) {
 
         return $error .  " Line: " . $e->getLine() . " File: " . $e->getFile();
     }
+}
+
+if (!function_exists('isForeignKeyViolation')) {
+
+    /**
+     * Detecta violação de chave estrangeira ao excluir (registro filho existe).
+     * Oracle: ORA-02292. PostgreSQL: SQLSTATE 23503 (foreign_key_violation).
+     * Mantém compatibilidade com a mensagem Oracle legada durante a migração.
+     */
+    function isForeignKeyViolation($e)
+    {
+        $msg = $e->getMessage();
+        if (strpos($msg, "23503") !== false) return true;       // PostgreSQL
+        if (strpos($msg, "ORA-02292") !== false) return true;   // Oracle (legado)
+        return false;
+    }
 
 }
 

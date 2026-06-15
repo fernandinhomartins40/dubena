@@ -57,10 +57,7 @@ class EmpresasGrupoController extends Controller
 
     if(count($img)>=2){
       $imga = base64_decode($img[1]);
-      $teste = DB::table('empresas_grupos')->whereId($id)->updateLob(
-        array(),
-        array('logoimg'=>$imga)
-      );
+      \App\Helpers\BlobWriter::update('empresas_grupos', $id, 'logoimg', $imga);
     }
 
     EmpresasGrupo::create($data);
@@ -114,10 +111,7 @@ class EmpresasGrupoController extends Controller
 
     if(count($img)>=2){
       $imga = base64_decode($img[1]);
-      $teste = DB::table('empresas_grupos')->whereId($id)->updateLob(
-        array(),
-        array('logoimg'=>$imga)
-      );
+      \App\Helpers\BlobWriter::update('empresas_grupos', $id, 'logoimg', $imga);
     }
 
     $EmpresaGrupo = EmpresasGrupo::findOrFail($id);

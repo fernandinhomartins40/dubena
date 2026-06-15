@@ -750,9 +750,10 @@ class SearchController extends Controller
             . " END as nome, "
             . " id";
         if ($mode == "C") {
-            $rawSelect .= ", cnpj, (SELECT descricao FROM cidades c WHERE cidade_id = c.id AND rownum = 1) as cidade";
-            $rawSelect .= ", cpf, (SELECT descricao FROM ruas r WHERE rua_id = r.id AND rownum = 1) as rua";
-            $rawSelect .= ", complemento, (SELECT descricao FROM bairros b WHERE bairro_id = b.id AND rownum = 1) as bairro";
+            // rownum=1 removido: a busca é por PK (c.id/r.id/b.id), já retorna 1 linha (PG).
+            $rawSelect .= ", cnpj, (SELECT descricao FROM cidades c WHERE cidade_id = c.id) as cidade";
+            $rawSelect .= ", cpf, (SELECT descricao FROM ruas r WHERE rua_id = r.id) as rua";
+            $rawSelect .= ", complemento, (SELECT descricao FROM bairros b WHERE bairro_id = b.id) as bairro";
             $rawSelect .= ", numero, uf ";
         }
         $query = str_encode_to_query(e(Input::get('q', '')));
@@ -1356,12 +1357,14 @@ class SearchController extends Controller
         $validateExists = (bool) Input::get('validateExists', false);
         $telefone = str_replace('--', ' ', $telefone);
 
-        $raw = "rownum <= 1 AND t.telefone = '" . $telefone
-            . "' AND t.grupo_id = " . Session::get('empresa_padrao')->grupo_id
-            . " AND t.empresa_id in (SELECT empresa_id FROM empresa_user WHERE user_id = " . \Auth::user()->id . ")";
+        // rownum<=1 → ->limit(1); telefone parametrizado (era interpolado → SQLi).
+        $raw = "t.telefone = ?"
+            . " AND t.grupo_id = ?"
+            . " AND t.empresa_id in (SELECT empresa_id FROM empresa_user WHERE user_id = ?)";
         $clientetelefone = DB::table('clientetelefones as t')
             ->join('clientes as cli', 'cli.id', 't.cliente_id')
-            ->whereRaw($raw)->select('cliente_id', 'nome')->get();
+            ->whereRaw($raw, [$telefone, Session::get('empresa_padrao')->grupo_id, \Auth::user()->id])
+            ->select('cliente_id', 'nome')->limit(1)->get();
 
         if ($validateExists) {
             if (count($clientetelefone) === 0) {
@@ -1452,9 +1455,9 @@ class SearchController extends Controller
             ->join('ruas as rua', 'rua.id', 'clientes.rua_id')
             ->join('bairros as bairro', 'bairro.id', 'clientes.bairro_id')
             ->join('cidades as cidade', 'cidade.id', 'clientes.cidade_id')
-            ->leftJoin('clientetelefones as tel', function ($join) {
-                $join->on('tel.cliente_id', 'clientes.id')->whereRaw('rownum <= 1');
-            })
+            // Oracle usava rownum<=1 no join p/ pegar 1 telefone; Postgres: subquery
+            // DISTINCT ON (cliente_id) garante no máximo uma linha de telefone por cliente.
+            ->leftJoin(DB::raw('(SELECT DISTINCT ON (cliente_id) cliente_id, telefone FROM clientetelefones ORDER BY cliente_id, id) as tel'), 'tel.cliente_id', 'clientes.id')
             ->where('clientes.id', $id)
             ->select($select)
             ->get()->first();

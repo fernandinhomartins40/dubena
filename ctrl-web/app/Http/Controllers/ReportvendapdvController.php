@@ -286,8 +286,8 @@ class ReportvendapdvController extends Controller
         $cli = $cli->select('clientes.id','clientes.nome','setor.descricao as setor','segmentos.descricao as segmento',
                             'clientes.segmento_id','clientes.setor_id',
                             DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-                            DB::raw('(select string_agg(telefone, '' order by telefone) as telefone
-                            from clientetelefones tel where tel.cliente_id = clientes.id) as telefone'))
+                            DB::raw("(select string_agg(telefone, '' order by telefone) as telefone
+                            from clientetelefones tel where tel.cliente_id = clientes.id) as telefone"))
                     ->orderBy('segmento')->orderBy('clientes.nome')->get();
         $clientes = collect([]);
         $seganterior = null;
@@ -656,8 +656,8 @@ class ReportvendapdvController extends Controller
         $nclientes = $nclientes->select('convenio.id as convenio_id','convenio.nome as convenio','clientes.id','clientes.nome',
                                     'clientes.setor_id', 'setor.descricao as setor',
                                     DB::raw("(bairros.descricao || ' - ' || ruas.descricao || ', ' || clientes.numero) as endereco"),
-                                    DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) as telefone 
-                                    from clientetelefones tel where cliente_id = clientes.id and rownum <= 2) as telefone"))
+                                    DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) as telefone
+                                    from (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
                                 ->orderBy('convenio')->orderBy('clientes.nome')->get();
 
         $clientes = collect([]);

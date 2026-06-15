@@ -161,8 +161,8 @@ class  PosvendaController extends Controller {
                                 'bairros.descricao as bairro','ruas.descricao as rua','pedidos.id as pedido_id',
                                 'pedidos.valorvenda','condicao.descricao as condicao','situacao.descricao as situacao',
                                 'setor.descricao as setor','pesquisa.posvenda_id','pedidos.datahoraprevisaoentrega',
-                                DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from clientetelefones tel 
-                                where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
+                                DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from
+                                (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
                             ->orderBy('clientes.nome')->get();
 
         $clientes = collect([]);

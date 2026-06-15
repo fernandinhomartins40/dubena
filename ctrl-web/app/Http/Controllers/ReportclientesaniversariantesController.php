@@ -461,7 +461,7 @@ class ReportclientesaniversariantesController extends Controller
 		$incompletos = $incompletos->select('clientes.id','clientes.nome','clientes.datanascimento as data',
 							'setor.descricao as setor','tipo.tipopessoacadastro as tipo',
 							DB::raw("(select string_agg(tel.telefone, ', ' order by tel.telefone) from".
-								" clientetelefones tel where tel.cliente_id = clientes.id and rownum <= 2) as telefone"))
+								" (select telefone from clientetelefones where cliente_id = clientes.id order by telefone limit 2) tel) as telefone"))
 						->orderBy('clientes.nome')->get();
 
 		$this->filtro = "Filtro $sem";

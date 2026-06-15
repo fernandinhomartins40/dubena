@@ -80,7 +80,7 @@ class RuaController extends Controller
             Rua::find($id)->delete();
         } catch (\Exception $e) {
             $errorMsg = getErrorsException($e);
-            if (strpos($errorMsg, "ORA-02292") === false)
+            if (!isForeignKeyViolation($e))
                 return $errorMsg;
             return " O registro está sendo usado e não pode ser excluído";
         }

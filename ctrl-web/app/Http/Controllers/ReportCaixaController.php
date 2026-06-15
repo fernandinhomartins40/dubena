@@ -1114,19 +1114,19 @@ class ReportCaixaController extends Controller
             $pai = $queryStart;
         } else if (is_null($filho)) {
             $pai_id = $pai;
+            // Oracle: start with id = $pai connect by prior id = paicentrocusto_id
+            // → DESCE a árvore ($pai + descendentes). Postgres: WITH RECURSIVE.
+            $subarvore = "WITH RECURSIVE arv AS (" .
+                " SELECT id, paicentrocusto_id, empresa_id FROM centrocustos WHERE id = $pai_id" .
+                " UNION ALL" .
+                " SELECT c.id, c.paicentrocusto_id, c.empresa_id FROM centrocustos c JOIN arv ON c.paicentrocusto_id = arv.id" .
+                ") SELECT id FROM arv WHERE empresa_id = $empresa";
             $pai = $queryStart . " and centrocusto_id in ( " .
-                "select id from centrocustos " .
-                "where empresa_id = $empresa " .
-                "start with id = $pai " .
-                "connect by prior id = paicentrocusto_id " .
+                $subarvore .
                 ") group by centrocusto_id";
 
             $filho = " and centrocusto_id in ( " .
-                "select id " .
-                "from centrocustos " .
-                "where empresa_id = $empresa " .
-                "start with id = $pai_id " .
-                "connect by prior id = paicentrocusto_id " .
+                $subarvore .
                 ")";
         } else if (!is_null($filho)) {
             $pai = $filho;
@@ -1139,10 +1139,15 @@ class ReportCaixaController extends Controller
             "select id as centro_id, codigo, descricao as centro, nivel, finalizador, 0 as valor " .
             "from centrocustos " .
             "where empresa_id = $empresa " .
-            "start with id in ( " .
-            "$pai " .
+            // Oracle: start with id in ($pai) connect by id = prior paicentrocusto_id
+            // → SOBE a árvore (nó inicial + ancestrais). Postgres: WITH RECURSIVE.
+            "and id in ( " .
+            "WITH RECURSIVE sobe AS ( " .
+            "  SELECT id, paicentrocusto_id FROM centrocustos WHERE id in ( $pai ) " .
+            "  UNION ALL " .
+            "  SELECT c.id, c.paicentrocusto_id FROM centrocustos c JOIN sobe ON c.id = sobe.paicentrocusto_id " .
+            ") SELECT id FROM sobe " .
             ") " .
-            "connect by id = prior paicentrocusto_id " .
 
             "union all  " .
 
@@ -1179,12 +1184,17 @@ class ReportCaixaController extends Controller
                 "select id as centro_id, codigo, descricao as centro, nivel, 0 as juros_multa, 0 as descontos, finalizador " .
                 "from centrocustos " .
                 "where empresa_id = $empresa " .
-                "start with id in ( " .
-                "select $juros_id " .
-                "from empresaconfigs " .
-                "where empresa_id = $empresa " .
+                // Oracle: start with id in (...) connect by prior paicentrocusto_id = id
+                // → SOBE a árvore (nó + ancestrais). Postgres: WITH RECURSIVE.
+                "and id in ( " .
+                "WITH RECURSIVE sobe AS ( " .
+                "  SELECT id, paicentrocusto_id FROM centrocustos WHERE id in ( " .
+                "    select $juros_id from empresaconfigs where empresa_id = $empresa " .
+                "  ) " .
+                "  UNION ALL " .
+                "  SELECT c.id, c.paicentrocusto_id FROM centrocustos c JOIN sobe ON c.id = sobe.paicentrocusto_id " .
+                ") SELECT id FROM sobe " .
                 ") " .
-                "connect by prior paicentrocusto_id = id " .
 
                 "union all " .
 
@@ -1220,12 +1230,17 @@ class ReportCaixaController extends Controller
                 "select id as centro_id, codigo, descricao as centro, nivel, 0 as juros_multa, 0 as descontos, finalizador " .
                 "from centrocustos " .
                 "where empresa_id = $empresa " .
-                "start with id in ( " .
-                "select $desconto_id " .
-                "from empresaconfigs " .
-                "where empresa_id = $empresa " .
+                // Oracle: start with id in (...) connect by prior paicentrocusto_id = id
+                // → SOBE a árvore (nó + ancestrais). Postgres: WITH RECURSIVE.
+                "and id in ( " .
+                "WITH RECURSIVE sobe AS ( " .
+                "  SELECT id, paicentrocusto_id FROM centrocustos WHERE id in ( " .
+                "    select $desconto_id from empresaconfigs where empresa_id = $empresa " .
+                "  ) " .
+                "  UNION ALL " .
+                "  SELECT c.id, c.paicentrocusto_id FROM centrocustos c JOIN sobe ON c.id = sobe.paicentrocusto_id " .
+                ") SELECT id FROM sobe " .
                 ") " .
-                "connect by prior paicentrocusto_id = id " .
 
                 "union all " .
 
