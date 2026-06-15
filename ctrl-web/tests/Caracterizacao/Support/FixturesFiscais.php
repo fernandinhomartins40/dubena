@@ -14,6 +14,9 @@ use App\Empresaconfig;
 use App\Produtoclasse;
 use App\Unidademedida;
 use App\Produto;
+use App\Cliente;
+use App\Planoconta;
+use App\Centrocusto;
 
 /**
  * Cria o cenário MÍNIMO sintético para exercitar os motores (estoque/financeiro)
@@ -150,5 +153,50 @@ trait FixturesFiscais
         Session::put('empresa_padrao', $empresa);
 
         return $empresa;
+    }
+
+    /** Cliente mínimo para o cenário atual (requer criarCenarioFiscal antes). */
+    protected function criarCliente()
+    {
+        $c = new Cliente();
+        $c->grupo_id = $this->empresa->grupo_id;
+        $c->empresa_id = $this->empresa->id;
+        $c->nome = 'Cliente Teste';
+        $c->numero = '1';
+        $c->cidade_id = $this->empresa->cidade_id;
+        $c->conveniolimite = 0;
+        $c->latitude = 0;
+        $c->longitude = 0;
+        $c->locationtype = 'APPROXIMATE';
+        $c->save();
+        return $c;
+    }
+
+    /** Plano de conta finalizador (codigo 3 dígitos, nivel 1). */
+    protected function criarPlanoconta($pagarreceber = 'R', $codigo = '001')
+    {
+        $p = new Planoconta();
+        $p->grupo_id = $this->empresa->grupo_id;
+        $p->empresa_id = $this->empresa->id;
+        $p->descricao = 'Plano Teste ' . $codigo;
+        $p->insumo_valor = 0;
+        $p->pagarreceber = $pagarreceber;
+        $p->codigo = $codigo;
+        $p->nivel = 1;
+        $p->save();
+        return $p;
+    }
+
+    /** Centro de custo finalizador (codigo 3 dígitos, nivel 1). */
+    protected function criarCentrocusto($codigo = '001')
+    {
+        $cc = new Centrocusto();
+        $cc->grupo_id = $this->empresa->grupo_id;
+        $cc->empresa_id = $this->empresa->id;
+        $cc->descricao = 'Centro Teste ' . $codigo;
+        $cc->codigo = $codigo;
+        $cc->nivel = 1;
+        $cc->save();
+        return $cc;
     }
 }
