@@ -1,0 +1,103 @@
+name: CI ctrl-web (testes)
+
+# Roda a suíte (lint + phpunit) do ctrl-web no MESMO ambiente do runtime
+# (PHP 7.4 / PostgreSQL / Redis, via docker-compose de dev). Existe porque a
+# suíte do Laravel 5.x NÃO roda em PHP 8.x local (PHPUnit antigo) — então o
+# único lugar fiel de validar é dentro do container. Bloqueia merge se quebrar.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ctrl-web/**'
+      - '.github/workflows/ci-ctrl-web.yml'
+  push:
+    branches:
+      - 'fase-**'
+      - 'ci-**'
+    paths:
+      - 'ctrl-web/**'
+      - '.github/workflows/ci-ctrl-web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-ctrl-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ctrl-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint PHP (php -l em todos os arquivos do app)
+        run: |
+          # Lint rápido fora do container (a imagem ubuntu já tem php-cli).
+          # Pega erro de sintaxe antes mesmo de subir o ambiente pesado.
+          err=0
+          while IFS= read -r f; do
+            out=$(php -l "$f" 2>&1) || { echo "$out"; err=1; }
+          done < <(find app routes database -name '*.php' -not -path '*/vendor/*')
+          [ "$err" -eq 0 ] || { echo "::error::Lint PHP falhou"; exit 1; }
+          echo "Lint OK"
+
+      - name: Sobe ambiente de dev (db + redis + app, PHP 7.4)
+        run: |
+          # Reusa o docker-compose de DEV — mesma imagem PHP 7.4 do runtime.
+          # Não precisamos do nginx (web) para rodar a suíte: testamos via
+          # kernel HTTP do Laravel dentro do container app.
+          docker compose -f docker-compose.yml up -d --build db redis app
+          # Espera o Postgres aceitar conexão.
+          for i in $(seq 1 30); do
+            if docker compose -f docker-compose.yml exec -T db pg_isready -U ctrl -d ctrl >/dev/null 2>&1; then
+              echo "Postgres pronto"; break
+            fi
+            echo "aguardando Postgres..."; sleep 2
+          done
+          # Espera o entrypoint do app terminar (vendor instalado, .env, APP_KEY).
+          ok=0
+          for i in $(seq 1 60); do
+            if docker compose -f docker-compose.yml exec -T app test -f vendor/autoload.php; then
+              echo "app pronto (vendor presente)"; ok=1; break
+            fi
+            echo "aguardando composer install do entrypoint..."; sleep 5
+          done
+          # Fallback determinístico: se o entrypoint ainda não instalou, instala aqui.
+          if [ "$ok" -ne 1 ]; then
+            echo "vendor ausente após espera — rodando composer install explícito"
+            docker compose -f docker-compose.yml exec -T app \
+              composer install --no-interaction --prefer-dist --no-progress \
+              --no-scripts --ignore-platform-req=ext-oci8
+          fi
+
+      - name: Migrations (ERP + módulos api/monitora)
+        run: |
+          docker compose -f docker-compose.yml exec -T app php artisan migrate --force
+          docker compose -f docker-compose.yml exec -T app php artisan migrate:api-module || true
+          docker compose -f docker-compose.yml exec -T app php artisan migrate:monitora-module || true
+
+      - name: Seeds (menus + admin com permissões totais)
+        run: |
+          # Sem menus não há permissões → telas redirecionam (302) e os testes
+          # de Fluxo (que exigem 200) falhariam por permissão, não por SQL.
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=MenuTableSeeder --force
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=NewMenusSeeder --force
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=DeployAdminSeeder --force
+
+      - name: Suíte phpunit
+        run: |
+          docker compose -f docker-compose.yml exec -T app php artisan config:clear
+          docker compose -f docker-compose.yml exec -T app vendor/bin/phpunit --colors=never
+
+      - name: Logs do app em caso de falha
+        if: failure()
+        run: docker compose -f docker-compose.yml logs --tail=80 app db || true
+
+      - name: Derruba o ambiente
+        if: always()
+        run: docker compose -f docker-compose.yml down -v || true
