@@ -176,7 +176,7 @@ class PromocaoController extends Controller
             return \Redirect::route('promocao.index')->withMessageSuccess("Promoção atualizada com sucesso!");
         }
         $this->validate($request, [
-            'descricao' => 'required|max:255'
+            'descricao' => 'required|max:255|'
             . 'unique:promocaos,descricao,' . $id . ',id,datahorainicio,' . $promocao['datahorainicio'] . ','
             . 'datahorafim,' . $promocao['datahorafim'] . ',empresa_id,' . Session::get('empresa_padrao')->id,
             'datahorainicio' => 'required',

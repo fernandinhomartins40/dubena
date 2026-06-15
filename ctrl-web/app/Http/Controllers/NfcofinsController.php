@@ -98,7 +98,7 @@ class NfcofinsController extends Controller
         try{
             Nfcofins::find($id)->delete();
             DB::commit();
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return '<br /><br />O registro não pôde ser excluído pois está sendo usado!';
         }

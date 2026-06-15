@@ -65,7 +65,7 @@ class InventarioController extends Controller
         try{
             $inventario = Inventario::create($extras);
             if( isset($inventario->id) ) $inserido = $this->criarItems($produtos,$inventario);
-        } catch (Exception $ex) {
+        } catch (\Exception $e) {
             DB::rollback();
             $this->addError("Error: " . $e->getMessage() . " Line: " . $e->getLine());
             return redirect('inventario/create')->withErrors($this->getErrors())->withInput();
@@ -159,7 +159,7 @@ class InventarioController extends Controller
         DB::beginTransaction();
         try {
             $inventario->delete();
-        } catch ( Exception $ex ) {
+        } catch ( \Exception $e ) {
             DB::rollback();
             return "<br /> Error: " . $e->getMessage() . " Line: " . $e->getLine();
         }

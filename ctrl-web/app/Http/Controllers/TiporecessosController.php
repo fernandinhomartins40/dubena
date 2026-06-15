@@ -60,7 +60,7 @@ class TiporecessosController extends Controller {
         DB::begintransaction();
         try{
             $tiporecesso->delete();
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return '<br /><br />O registro não pôde ser excluído pois está sendo usado!';
         }

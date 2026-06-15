@@ -104,8 +104,8 @@ class  PosvendaController extends Controller {
                 $objresposta->posvendaresposta_id = $resposta->respostaid;
                 $objresposta->save();
             }
-        }catch(Exception $ex){
-            DB::rdollback();
+        }catch(\Exception $ex){
+            DB::rollback();
             return Redirect::to('posvenda/create?pedido=' . $posvenda->pedido_id . '&dataatual=' . $posvenda["dataatual"])
                             ->withErrors($ex->getMessage())
                             ->withInput();

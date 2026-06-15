@@ -66,7 +66,7 @@ class RecessosController extends Controller
         try {
             $recessos->delete();
             DB::commit();
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return '<br /><br />O registro não pôde ser excluído pois está sendo usado!';
         }

@@ -494,7 +494,7 @@ class EstoqueProcessor
                         $estoquesetorhistorico->entidade = 'Estoquefisico';
                         $estoquesetorhistorico->entidade_id = $estoquefisico->id;
                         $estoquesetorhistorico->grupo_id = $estoquefisico->grupo_id;
-                        $estoquesetorhistorico->empresa_id = $estoquefisico->id;
+                        $estoquesetorhistorico->empresa_id = $estoquefisico->empresa_id;
                         array_push($estoquesetorhistoricos, $estoquesetorhistorico);
                     }
                 }

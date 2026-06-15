@@ -130,7 +130,7 @@ class SpedcreditosController extends Controller
         DB::beginTransaction();
         try {
             $credito->delete();
-        } catch (Excpetion $e) {
+        } catch (\Exception $e) {
             DB::rollback();
             $error = "Error: " . $e->getMessage() . " Line: " . $e->getLine();
             return $error;

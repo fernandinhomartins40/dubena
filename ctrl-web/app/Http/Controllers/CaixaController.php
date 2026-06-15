@@ -274,7 +274,7 @@ class CaixaController extends Controller
             }
         }
         $voltar = 0;
-        $recebimentotipos = Contamovimentotipo::whereIn('pagarreceber', [$pagarreceber, 'A'])->wwhere('ativo', true)->where('grupo_id', Session::get('empresa_padrao')->grupo_id)->orderBy('descricao')->pluck('descricao', 'id');
+        $recebimentotipos = Contamovimentotipo::whereIn('pagarreceber', [$pagarreceber, 'A'])->where('ativo', true)->where('grupo_id', Session::get('empresa_padrao')->grupo_id)->orderBy('descricao')->pluck('descricao', 'id');
         $baixarfechado = 0;
         return view('financeiro.baixar_form_bycaixa', compact('voltar', 'recebimentotipos', 'conta_id', 'parcelas', 'valor_total', 'valor_desconto', 'valor_liquido', 'valor_multa', 'valor_juros', 'contas', 'empresa_cnpj', 'empresa_razao_social', 'descricao', 'baixarfechado'));
     }

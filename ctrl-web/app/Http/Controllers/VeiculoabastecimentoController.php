@@ -61,7 +61,7 @@ class VeiculoabastecimentoController extends Controller {
             if(isset($data["telacontrolakm"])){
                 $this->updateOthers($id_veiculo, $id_colaborador,$data);
             }
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return Redirect::to('/veiculoabastecimento/create')
                             ->withErrors($ex->getMessage())
