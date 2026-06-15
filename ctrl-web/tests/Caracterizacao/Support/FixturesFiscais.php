@@ -17,6 +17,12 @@ use App\Produto;
 use App\Cliente;
 use App\Planoconta;
 use App\Centrocusto;
+use App\User;
+use App\Contatipo;
+use App\Conta;
+use App\Contauser;
+use App\Contafechamento;
+use App\Condicaopagamento;
 
 /**
  * Cria o cenário MÍNIMO sintético para exercitar os motores (estoque/financeiro)
@@ -60,6 +66,10 @@ trait FixturesFiscais
             'cidades', 'bairros', 'empresas_grupos', 'empresas', 'setors',
             'empresaconfigs', 'produtoclasses', 'unidademedidas', 'produtos',
             'estoquesetors', 'estoqueprodutos', 'estoquesetorhistoricos',
+            'clientes', 'planocontas', 'centrocustos',
+            'financeiros', 'financeiroparcelas', 'financeirorateios',
+            'users', 'contatipos', 'contas', 'contausers', 'contafechamentos',
+            'contamovimentos', 'condicaopagamentos',
         ] as $tabela) {
             $this->sincronizarSequence($tabela);
         }
@@ -198,5 +208,75 @@ trait FixturesFiscais
         $cc->nivel = 1;
         $cc->save();
         return $cc;
+    }
+
+    /** Usuário e o autentica (caixaProcessor lê \Auth::user()). */
+    protected function criarUsuarioLogado()
+    {
+        $u = new User();
+        $u->name = 'User Teste';
+        $u->email = 'user.teste.' . uniqid() . '@local.test';
+        $u->password = bcrypt('secret');
+        $u->empresa_id = $this->empresa->id;
+        $u->save();
+        $this->be($u); // autentica no guard padrão (Auth::user())
+        return $u;
+    }
+
+    /**
+     * Conta de caixa + vínculo do usuário ($user) com operar=1 + fechamento ABERTO.
+     * Retorna a Conta. Requer criarCenarioFiscal e um usuário (passe $user).
+     */
+    protected function criarContaCaixa(User $user, $saldoInicial = 0)
+    {
+        $tipo = new Contatipo();
+        $tipo->grupo_id = $this->empresa->grupo_id;
+        $tipo->empresa_id = $this->empresa->id;
+        $tipo->descricao = 'Caixa';
+        $tipo->perfil = 0;
+        $tipo->save();
+
+        $conta = new Conta();
+        $conta->grupo_id = $this->empresa->grupo_id;
+        $conta->empresa_id = $this->empresa->id;
+        $conta->contatipo_id = $tipo->id;
+        $conta->conta = 'Caixa Teste';
+        $conta->descricao = 'Caixa Teste';
+        $conta->saldoinicial = $saldoInicial;
+        $conta->saldoatual = $saldoInicial;
+        $conta->save();
+
+        $cu = new Contauser();
+        $cu->conta_id = $conta->id;
+        $cu->user_id = $user->id;
+        $cu->operar = 1;
+        $cu->visualizar = 1;
+        $cu->transferir = 1;
+        $cu->estornar = 1;
+        $cu->lancarfechado = 1;
+        $cu->save();
+
+        $fech = new Contafechamento();
+        $fech->conta_id = $conta->id;
+        $fech->datahoraabertura = \App\Services\CarbonCustom::now()->subDay();
+        $fech->saldoinicial = $saldoInicial;
+        $fech->fechado = 0;
+        $fech->save();
+
+        return $conta;
+    }
+
+    /** Condição de pagamento À VISTA (tipo 0) — evita o fluxo de cartão na baixa. */
+    protected function criarCondicaoAVista()
+    {
+        $cp = new Condicaopagamento();
+        $cp->grupo_id = $this->empresa->grupo_id;
+        $cp->empresa_id = $this->empresa->id;
+        $cp->descricao = 'À Vista';
+        $cp->tipo = 0;
+        $cp->dias_primeira = 0;
+        $cp->ativo = true;
+        $cp->save();
+        return $cp;
     }
 }
