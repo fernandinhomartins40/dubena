@@ -181,15 +181,15 @@ final class Util
         }
         // Calcula e confere primeiro dígito verificador
         for ($i = 0, $j = 10, $sum = 0; $i < 9; $i++, $j--) {
-            $sum += $cpf{$i} * $j;
+            $sum += $cpf[$i] * $j;
         }
         $resto = $sum % 11;
-        if ($cpf{9} != ($resto < 2 ? 0 : 11 - $resto)) {
+        if ($cpf[9] != ($resto < 2 ? 0 : 11 - $resto)) {
             return false;
         }
         // Calcula e confere segundo dígito verificador
         for ($i = 0, $j = 11, $sum = 0; $i < 10; $i++, $j--) {
-            $sum += $cpf{$i} * $j;
+            $sum += $cpf[$i] * $j;
         }
         $resto = $sum % 11;
         $notValid = collect([
@@ -209,7 +209,7 @@ final class Util
             return false;
         }
 
-        return $cpf{10} == ($resto < 2 ? 0 : 11 - $resto);
+        return $cpf[10] == ($resto < 2 ? 0 : 11 - $resto);
     }
 
     public static function validateCNPJ($cnpj)
@@ -221,15 +221,15 @@ final class Util
         }
         // Valida primeiro dígito verificador
         for ($i = 0, $j = 5, $soma = 0; $i < 12; $i++) {
-            $soma += $cnpj{$i} * $j;
+            $soma += $cnpj[$i] * $j;
             $j = ($j == 2) ? 9 : $j - 1;
         }
         $resto = $soma % 11;
-        if ($cnpj{12} != ($resto < 2 ? 0 : 11 - $resto))
+        if ($cnpj[12] != ($resto < 2 ? 0 : 11 - $resto))
             return false;
         // Valida segundo dígito verificador
         for ($i = 0, $j = 6, $soma = 0; $i < 13; $i++) {
-            $soma += $cnpj{$i} * $j;
+            $soma += $cnpj[$i] * $j;
             $j = ($j == 2) ? 9 : $j - 1;
         }
         $notValid = collect([
@@ -250,7 +250,7 @@ final class Util
             return false;
         }
 
-        return $cnpj{13} == ($resto < 2 ? 0 : 11 - $resto);
+        return $cnpj[13] == ($resto < 2 ? 0 : 11 - $resto);
     }
 
     public static function fillStrWith($str, $len, $fillWith)
