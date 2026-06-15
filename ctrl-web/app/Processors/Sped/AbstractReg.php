@@ -293,9 +293,6 @@ abstract class AbstractReg
 
     public function __set($name, $value)
     {
-        if (!is_string($name) || !is_string($value)) {
-            dd("Atributo  ", $name, "não existe no Registro: " . $this->numReg, "Valor: ", $value);
-        }
         throw new \Exception("Atributo \"$name\" não existe para setar \"$value\" no registro $this->numReg");
     }
 

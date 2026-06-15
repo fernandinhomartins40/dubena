@@ -169,24 +169,6 @@ class SearchController extends Controller
         }
         $cercas = Cerca::where('empresa_id', $empresa_id)->get();
         return response()->json($cercas);
-        $res = "";
-        $res .= "<table border='0' align='right' width='100%' height='100%'>";
-        $res .= "<tr>";
-        $res .= "<td align='right' width='90%'>";
-        $res .= "<B>EXIBIR CERCA ELETRÔNICA: </B>";
-        $res .= "</td>";
-        $res .= "<td align='right'>";
-        $res .= "<select name='showCerca' onchange='selectedCerca(" . $empresa_id . ", this.value);'>";
-        $res .= "<option value=-1 id='id-1' selected='selected'>Nenhuma</option>";
-        foreach ($cercas as $cerca) {
-            $res .= "<option value='" . $cerca->id . "' id='id" . $cerca->id . "'>" . $cerca->descricao . "</option>";
-        }
-        $res .= "<option value='0' id='id0'>Todas</option>";
-        $res .= "</select>";
-        $res .= "</td>";
-        $res .= "</tr>";
-        $res .= "</table>";
-        return response()->json($res);
     }
 
     public function getCoordenadasSetor()

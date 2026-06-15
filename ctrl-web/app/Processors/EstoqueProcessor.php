@@ -330,11 +330,7 @@ class EstoqueProcessor
         $lastsetor_id = 0;
         $lastproduto_id = 0;
         $qtdeMovimentada = 0;
-        $x = 0;
         foreach ($estoquesetorhistoricos as $estoquesetorhistorico) {
-            if ($estoquesetorhistorico->produto_id == 104)
-                $x = $x + 1;
-
             if ($lastsetor_id == 0 && $lastproduto_id == 0 && $qtdeMovimentada == 0) {
                 $lastsetor_id = $estoquesetorhistorico->setor_id;
                 $lastproduto_id = $estoquesetorhistorico->produto_id;

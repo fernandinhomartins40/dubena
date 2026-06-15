@@ -1626,7 +1626,7 @@ class NfemitidaController extends Controller
             $e = ValidTXT::isValid(file_get_contents($txt->getRealPath()));
 
             if (count($e) > 0) {
-                dd($e);
+                return response()->json(['erros' => $e], 422);
             }
 
             $axml = $c->toXML(file_get_contents($txt->getRealPath()));
@@ -1637,9 +1637,8 @@ class NfemitidaController extends Controller
 
             return response()->download($path)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            dump($e->getMessage());
-            dd($e->getTraceAsString());
-            return response()->json(["sucesso"]);
+            \Log::error('getXmlByTxt: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['erro' => $e->getMessage()], 500);
         }
     }
 
