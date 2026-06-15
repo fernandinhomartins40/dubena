@@ -118,19 +118,20 @@ class VeiculotrocaoleoController extends Controller {
 
     public function getTrocas()
     {
-        $veiculo_id = $_GET["veiculo"];
+        $veiculo_id = (int) request()->query('veiculo');
         $empresa_id = Session::get('empresa_padrao')->id;
+        // Postgres: rownum<=1 sobre uma ordenação → LIMIT 1 na subquery ordenada.
         $query = "select placa, kmatual, veiculo_ultima, colaborador_id, oleo_ultima ".
             "from( ".
                 "select veiculos.placa, veiculos.kmatual, veiculos.kmultimatrocaoleo as veiculo_ultima, ".
                 "veiculos.colaborador_id, oleo.kmtrocaoleo as oleo_ultima ".
                 "from veiculos ".
                 "left join veiculotrocaoleos oleo on oleo.veiculo_id = veiculos.id ".
-                "where veiculos.empresa_id = $empresa_id and veiculos.id = $veiculo_id ".
+                "where veiculos.empresa_id = ? and veiculos.id = ? ".
                 "order by oleo.data desc ".
-            ") veiculos ".
-            "where rownum <= 1";
-        $veiculos = DB::select($query);
+                "limit 1 ".
+            ") veiculos";
+        $veiculos = DB::select($query, [$empresa_id, $veiculo_id]);
         return $veiculos;
     }
 

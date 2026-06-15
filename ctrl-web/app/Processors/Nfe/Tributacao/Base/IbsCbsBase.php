@@ -203,10 +203,7 @@ class IbsCbsBase extends ValidationBase
         }
 
         if ($errors !== "") {
-            if ($this->debug)
-                dd($errors);
-            else
-                throw new Exception($errors);
+            throw new \Exception($errors);
         }
 
         return $this;

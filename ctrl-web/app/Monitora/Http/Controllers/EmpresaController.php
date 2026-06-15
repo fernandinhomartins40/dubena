@@ -75,10 +75,7 @@ class Empresacontroller extends controller {
     $empresa = Empresa::create($data);
 	if(count($img)>=2){
 		$imga = base64_decode($img[1]);
-		$teste = DB::table('empresas')->whereId($empresa->id)->updateLob(
-		array(),
-		array('logoimg'=>$imga)
-		);
+		\App\Helpers\BlobWriter::update('empresas', $empresa->id, 'logoimg', $imga);
 	}
     return \Redirect::route('monitora.empresa.index')->withMessageSuccess('Empresa cadastrada com sucesso!');
   }
@@ -135,10 +132,7 @@ class Empresacontroller extends controller {
     Session::put('empresa_padrao', $Empresa);
 	if(count($img)>=2){
 		$imga = base64_decode($img[1]);
-		$teste = DB::table('empresas')->whereId($id)->updateLob(
-		array(),
-		array('logoimg'=>$imga)
-		);
+		\App\Helpers\BlobWriter::update('empresas', $id, 'logoimg', $imga);
 	}
     return \Redirect::route('monitora.empresa.index')->withMessageSuccess('Empresa atualizada com sucesso!');
   }

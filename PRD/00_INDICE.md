@@ -1,181 +1,89 @@
-# PRD por Módulo — Índice Mestre
+# ÍNDICE — PRDs FIÉIS (linha-a-linha) · ctrl-web
 
-> **Objetivo:** mapear 100% da aplicação atual (ctrl-web + módulos api/monitora),
-> módulo por módulo, documentando regra de negócio, gambiarras e dívida técnica,
-> e **decidir por módulo** se o caminho é **REFATORAR** (manter lógica, modernizar)
-> ou **REESCREVER** (Laravel 12 + boas práticas + visual novo).
->
-> Não eliminamos o legado: cada módulo migra quando seu PRD estiver pronto e a
-> decisão tomada (padrão Strangler Fig). O sistema nunca para.
->
-> Base: 161 controllers no ERP. Data de início: 2026-06-14.
+> Estes PRDs foram escritos após **ler 100% das linhas** dos controllers de cada domínio
+> (núcleos integralmente; periféricos caracterizados + varredura sistêmica). Diferente do
+> PRD estratégico (`PRD/01..15_*.md`, por amostragem), aqui cada bug tem `arquivo:linha`.
+> Total: ~55.000 linhas lidas nos 15 domínios.
 
----
+## Os 15 domínios
 
-## Como ler / preencher
-- Cada módulo tem um arquivo `NN_dominio.md` seguindo `_TEMPLATE.md`.
-- Status do PRD: ⬜ não iniciado · 🟦 em levantamento · ✅ pronto.
-- Decisão (preenchida ao fim do PRD do módulo): **REFATORAR** · **REESCREVER** ·
-  **MANTER** (sem mexer por ora).
-- Criticidade: 🔴 fiscal/financeiro (erro = multa) · 🟠 transacional (uso diário) ·
-  🟡 cadastro/apoio · 🟢 relatório/consulta.
-
----
-
-## Domínios e módulos
-
-### D01 — Vendas / Pedidos 🟠🔴
-Núcleo transacional. Pedido move estoque + financeiro + (às vezes) NF.
-`Pedido, Pedidooperacao, Pedidosituacao, Pedidomotivoatraso, Vendaativa,
-VendaAtivaOcorrenciaTipos, Atualizarprecos, Promocao, Promotor`
-| Status | Decisão | PRD |
-| ⬜ | — | `01_vendas_pedidos.md` |
-
-### D02 — Fiscal: NF-e / NFC-e 🔴
-O coração de risco. Emissão, impostos, operações fiscais, cupom.
-`Nfemitida, Nfweb, Nfrecebida, CupomFiscal, Impostonf, NfOperacao, Nfsituacao,
-Nfgrupofiscal, Nficms, Nfpis, Nfcofins, Nfipi, Nfcst, Nfclasstrib, IBPT,
-ConfigNfcePedido, Ocorrenciasremessas`
-| Status | Decisão | PRD |
-| ⬜ | — | `02_fiscal_nfe.md` |
-
-### D03 — Fiscal: SPED 🔴
-`Spedfiscal, Spedcontribuicao, Spedcreditos`
-| ⬜ | — | `03_fiscal_sped.md` |
-
-### D04 — Financeiro / Caixa / PIX / Boleto 🔴
-`Financeiro, Caixa, Pix, Boleto, BoletoPdf, Boletoremessa, Conta,
-Contamovimentotipo, Condicaopagamento, Conciliacao, Importextrato, Layoutbanco,
-Chequeemitido, Chequerecebido, Descontocheque, Planoconta, Centrocusto`
-| ⬜ | — | `04_financeiro.md` |
-
-### D05 — Clientes / CRM 🟠
-`Cliente, Clientecontato, Clientecontatosituacao, Clientecontatotipo,
-Clienteproduto, Tipopessoa, Segmento, Maladireta, Posvenda, Posvendacadastro`
-| ⬜ | — | `05_clientes.md` |
-
-### D06 — Produtos / Estoque 🟠
-`Produto, Produtoclasse, Estoquefisico, Estoquesetor, Estoquesetoracerto,
-Estoquerequisicao, EstoqueTransferencias, Inventario, Testeestoque,
-Unidademedida, Tipocombustivel`
-| ⬜ | — | `06_produtos_estoque.md` |
-
-### D07 — Vale-Gás / Convênio / Comodato 🟠
-Específico do negócio de gás.
-`Valegasvenda, Valegasbaixar, Valegascancelar, Valegasconsulta,
-Fechamentoconvenio, Conveniogbgestao, Comodato, Comodatogestao, Cupons (cupons),
-Mcmm, Fechamentomalote`
-| ⬜ | — | `07_valegas_convenio.md` |
-
-### D08 — Colaboradores / RH 🟡
-`Colaborador, Colaboradorcomissoes, Colaboradorfamilia, Setorcolaboradores,
-Cargo, Estadocivil, Parentesco, Recessos, Recessotipo, Turno, Tipoexame,
-Checklist, Cadastrochecklist`
-| ⬜ | — | `08_colaboradores.md` |
-
-### D09 — Frota / Veículos 🟡
-`Veiculo, Veiculotipo, Veiculoabastecimento, Veiculodocumento, Veiculoentradasaida,
-Veiculopneu, Veiculotrocaoleo`
-| ⬜ | — | `09_frota.md` |
-
-### D10 — Cadastros base / Geográfico 🟡
-`Empresa, EmpresasGrupo, Empresaconfig, Empresabens, Configuracoesgerais,
-Bairro, Cidade, Rua, Regiao, Setor, Banco, Documento, Documentogestao,
-Documentotipo, Motivonaovenda, Sorteio`
-| ⬜ | — | `10_cadastros_base.md` |
-
-### D11 — Acesso / Permissões / Menu 🟠
-**Onde está a "gambiarra do menu" que você apontou.** Auth, usuários, papéis,
-e o sistema de menu data-driven que controla o que aparece.
-`Auth, Users, Role, Menu`
-| ⬜ | — | `11_acesso_permissoes.md` |
-
-### D12 — Relatórios / Dashboards 🟢
-Maior volume de funções Oracle traduzidas; valida sintaxe mas não valor.
-`Report, ReportCaixa, Reportclientes, Reportclientesaniversariantes,
-Reportcolaborador, Reportcomissoes, Reportcomodato, Reportconvenio, ReportEntregas,
-Reportestoque, ReportFinanceiro, Reportlogs, Reportlogsenha, Reportmovimentacao,
-Reportnfemitidas, Reportnfrecebida(s), Reportpromocoes, Reportpromotor,
-Reportquestionarios, ReportResumoVendas, Reportvalegas, Reportveiculos,
-Reportvendapdv, ReportVendas, Reportvendasmalote, Dashboardgerencial,
-Vendasmensaisgestao, Fechamentomensalgestao, Metavenda, Inconsistencia`
-| ⬜ | — | `12_relatorios.md` |
-
-### D13 — Mobile API (App\Api) 🟠
-Já é módulo separado (schema api). Contratos consumidos por apps publicados.
-`App\Api\* (getToken, v2/order, client, produtos, video...)`
-| ⬜ | — | `13_api_mobile.md` |
-
-### D14 — Monitoramento / GPS (App\Monitora) 🟡
-Já é módulo separado (schema monitora). Mapa, posições, cercas.
-`App\Monitora\* (Rastreamento, Cerca, Rota, Evento, posições)`
-| ⬜ | — | `14_monitoramento.md` |
-
-### D15 — Integrações / Notificações / Misc 🟡
-`Notificacoes, Appnotification, Appgiro, Appvideo, Android, Agencia, Logcerca`
-| ⬜ | — | `15_integracoes_misc.md` |
+| D | Domínio | Decisão | Arquivo |
+|---|---------|---------|---------|
+| 01 | Vendas / Pedidos | REFATORAR Pedido/Caixa · REESCREVER resto | [01_vendas_pedidos.md](01_vendas_pedidos.md) |
+| 02 | NF-e / NFC-e / SAT / Tributação | **REFATORAR** (código mais maduro) | [02_nfe_fiscal.md](02_nfe_fiscal.md) |
+| 03 | SPED (EFD ICMS/IPI + Contribuições) | REFATORAR (motor de registros) | [03_sped.md](03_sped.md) |
+| 04 | Financeiro / Tesouraria | REFATORAR núcleo · REESCREVER cadastros | [04_financeiro.md](04_financeiro.md) |
+| 05 | Clientes / CRM | REESCREVER (faseado) | [05_clientes.md](05_clientes.md) |
+| 06 | Produtos / Estoque | REFATORAR motor · REESCREVER telas | [06_produtos_estoque.md](06_produtos_estoque.md) |
+| 07 | Vale-Gás / Convênio / Cond.Pagamento | REFATORAR · REESCREVER | [07_valegas_convenio.md](07_valegas_convenio.md) |
+| 08 | Colaboradores / RH | REESCREVER · REFATORAR comissões | [08_colaboradores.md](08_colaboradores.md) |
+| 09 | Frota / Veículos | REESCREVER | [09_frota.md](09_frota.md) |
+| 10 | Cadastros base / Geográfico | REESCREVER · REFATORAR Empresa(config) | [10_cadastros_base.md](10_cadastros_base.md) |
+| 11 | Acesso / Permissões / Menu | REESCREVER | [11_acesso_permissoes.md](11_acesso_permissoes.md) |
+| 12 | Relatórios / Dashboards | REESCREVER camada | [12_relatorios.md](12_relatorios.md) |
+| 13 | API Mobile (App\Api) | **MANTER/REFATORAR** (mais moderno) | [13_api_mobile.md](13_api_mobile.md) |
+| 14 | Monitoramento GPS (App\Monitora) | REESCREVER | [14_monitoramento.md](14_monitoramento.md) |
+| 15 | Integrações / Notificações / Misc | REESCREVER · DESCARTAR obsoleto | [15_integracoes_misc.md](15_integracoes_misc.md) |
 
 ---
 
-## Painel de decisão (preenchido conforme os PRDs ficam prontos)
+## 🔴 QUEBRADO EM PRODUÇÃO HOJE (Postgres ou typo) — corrigir já, via deploy GitHub Actions
 
-| Domínio | Criticidade | Status PRD | Decisão | Justificativa curta |
-| --- | --- | --- | --- | --- |
-| D01 Vendas/Pedidos | 🔴🟠 | ✅ | **REFATORAR** (faseado) | God controller (1661 linhas) orquestra estoque+financeiro+NF. Regra crítica — Services/Actions+transação, NÃO reescrever do zero. Baseline BLOQUEANTE. Um dos últimos |
-| D02 Fiscal NF-e | 🔴🔴 | ✅ | **MANTER** motor + **REFATORAR** orquestração + **REESCREVER** UI | Motor de imposto (Tributacao/) é o ativo mais valioso, bem estruturado, já com IBS/CBS — NUNCA reescrever. Baseline massivo BLOQUEANTE. ÚLTIMO |
-| D03 Fiscal SPED | 🔴🔴 | ✅ | **MANTER** motor (119 regs) + **REESCREVER** UI | Implementação fiel do leiaute Receita; cruza com NF-e. Baseline de arquivo BLOQUEANTE. ÚLTIMO |
-| D04 Financeiro | 🔴 | ✅ | **REFATORAR** (faseado) | Dinheiro real + CNAB/PIX; baixa/conciliação/remessa. Services+transação, baseline BLOQUEANTE. Cadastros (cond.pgto/plano/centro) UI cedo |
-| D05 Clientes | 🟠 | ✅ | **REESCREVER** (faseado) | Cadastro central; God methods (update ~600 linhas); convênio/limite têm efeito financeiro. Quebrar em sub-recursos + Service de convênio |
-| D06 Produtos/Estoque | 🟠/🔴 | ✅ | **REESCREVER** Produto/cadastros · **REFATORAR** motor estoque | EstoqueProcessor já é service (manter regra, robustecer); Produto carrega tributação (NF-e) — baseline |
-| D07 Vale-Gás/Convênio | 🟠🔴 | ✅ | **REFATORAR** fechamentos/MCMM · **REESCREVER** consultas/comodato | Fechamentos geram financeiro; MCMM é registro fiscal ANP — baseline. Consultas/cadastros livres |
-| D08 Colaboradores | 🟡/🟠 | ✅ | **REESCREVER** cadastros/checklist · **REFATORAR** comissões | Cadastros baixo risco; comissão paga gente (Service + baseline). Achado: $_GET direto em comissões |
-| D09 Frota | 🟡 | ✅ | **REESCREVER** | CRUDs limpos, baixo risco; ganho de UX (timeline manutenção, consumo). Preservar vínculo veiculoerp_id↔Monitora |
-| D10 Cadastros base | 🟡/🔴 | ✅ | **REESCREVER** apoio · **REFATORAR** Empresa/config | CRUDs limpos (vitrine do padrão novo); Empresaconfig é fiscal — refatorar com baseline; SQLi no Bairro |
-| D11 Acesso/Menu | 🟠 | ✅ | **REESCREVER** | Fundação de acesso; HTML no model, eager 100 níveis, switch de auth — alta dívida, baixo risco fiscal |
-| D12 Relatórios | 🟢/🔴 | ✅ | **REESCREVER** | Camada de leitura (não grava) — modernizar UI/dashboards seguro. Fiscais (DRE/Balanço) só com baseline por valor |
-| D13 API mobile | 🟠 | ✅ | **REFATORAR** | Módulo isolado; contratos sagrados (apps publicados). Eliminar *_importacao (ler ERP direto) |
-| D14 Monitoramento | 🟡 | ✅ | **REESCREVER** | Isolado, baixo risco; mapa moderno + tempo real. oracle3 já eliminado |
-| D15 Integrações/Misc | 🟡 | ✅ | **REESCREVER**/descartar | Apoio baixo risco; triar uso pelos apps antes de descartar obsoleto |
+> A varredura por amostragem das 98 telas só exercitou os `index`. Estes residem em
+> fluxos de GRAVAÇÃO/AJAX/relatório e **quebram quando acionados**:
 
----
+1. **Resíduos Oracle não traduzidos** (a afirmação "100% traduzido" estava errada):
+   - `ReportCaixaController::getQueryCentroCusto/getQueryJurosDescontosCC` — **CONNECT BY/
+     START WITH** ativo → relatório de caixa por centro de custo quebra.
+   - `FechamentomaloteController::getParcelasStore` — **CONNECT BY** → fechamento de malote quebra.
+   - `Planoconta/Centrocusto::isUsed/isUsedByConfig/isUsedByNF` — **ROWNUM + subquery sem
+     alias** → cadastro de plano/centro filho quebra.
+   - `AtualizarprecosController::updateStatementOracle` — **UPDATE (subquery) SET Oracle**
+     → atualização de preços em massa quebra (+ SQLi).
+   - **rownum órfão**: Vendaativa (4×), Maladireta/Posvenda (D05), Veiculotrocaoleo::getTrocas
+     (D09), Reportvendasmalote/clientesaniversariantes/vendapdv (D12).
+   - `updateLob()` (driver Oracle removido) — Empresa/EmpresasGrupo logo (D10, 8 lugares).
+   - `ORA-02292`→ deveria ser SQLSTATE 23503 (delete geográfico, D10).
+2. **Typos que viram fatal/dados errados:**
+   - `DB::rdollback()` (Posvenda store, D05); `wwhere` (Caixa baixarduplicatas, D04);
+     `catch(Excpetion)` (Spedcreditos destroy, D03); `catch(Exception)` sem import (D09);
+     `$dada` em vez de `$data` → cheque recebido gravado sem banco (D04);
+     `EstoqueProcessor::efetivarEstoquefisico` grava `id` no campo `empresa_id` (D06).
+3. **Debug/dump em produção:**
+   - `dd($data)` no Recessotipo::update (D08, editar recesso quebrado);
+   - `dd()/dump()` no Nfemitida::getXmlByTxt (D02); `dd($nao)` ATIVO no Reportvendapdv (D12).
+4. **TesteestoqueController** (D06) — controller de DEBUG exposto, sem authorize, **corrompe
+   estoque real**; `Inventario::store/destroy` usa `$e` num `catch($ex)` (gravar/excluir quebra).
+5. **`getEmpresas` sem `use Session`** (Monitora, D14) — fatal.
+6. **`gerarCodigo` do vale-gás** (D07) — gera código duplicado (recursão sem retorno + coluna errada).
 
-## Síntese das decisões (15/15 PRDs concluídos · 2026-06-14)
+## 🔴 SEGURANÇA — corrigir já
+- **AJAX bypass de autorização** (AuthorizeCustom:39, D11) — `if ($request->ajax()) return true`.
+- **`'secret'` HMAC** no oauth do ERP (UsersController, D11) e **`sha1(APP_KEY)`** no
+  NfwebController::getToken (D02/D13) — chave previsível. (App\Api já corrigido na Fase 1.)
+- **`password` fora do `$hidden`** (User.php, D11).
+- **SQLi** em escrita/porta pública: Atualizarprecos (D01, massa), ClienteController
+  newClientWithPhone (D13, cadastro do app), Conveniogbgestao $produto (D07),
+  Promotor/Cliente/geográficos (D05/D10), getLancamentosFinanceiros (D04), Vendaativa (D01).
+- **Hardcode "empresa 2"**: Conveniogbgestao::getDataChartConvenioClientes (D07) e
+  Monitora::getPedidosPendentes (D14) filtram empresa 2 fixa → quebra multi-empresa.
 
-**REESCREVER (baixo risco, alto ganho de UX — começam o "novo"):**
-D11 Acesso/Menu (fundação) · D10 cadastros de apoio · D09 Frota · D08 cadastros/
-checklist · D05 Clientes (faseado) · D06 Produto+cadastros · D12 Relatórios
-operacionais · D14 Monitoramento · D15 Misc.
+## 🟡 PADRÕES RECORRENTES (candidatos a sweep global / decisão de arquitetura)
+- Controllers 100% vazios (scaffold morto): Clientecontato, Colaboradorfamilia,
+  Veiculodocumento, Menu (ERP), Android.
+- `destroy` retornando HTML `<br/>`; cadastros pequenos sem `DB::transaction`.
+- `$_GET`/`$_POST` lidos direto; HTML montado no controller (Form::select, `<input>`, `<tr>`).
+- Sobreposição de período com condições copy-paste idênticas/furadas (D05/D08/D10/D01).
+- `unique` apontando coluna errada (grupo_id × empresa_id): Tiporecessos (D08),
+  Nfgrupofiscal (D02).
+- Controller↔controller (Pedido→Nf/Api; Caixa→Financeiro; Nfweb→Nfemitida; etc.).
+- Stack EOL fiscal (NFePHP/PHPCFe/PHPExcel/Maatwebsite 2.1/laravelcollective) — bloqueia 6→8.
 
-**REFATORAR (regra crítica — preservar lógica, modernizar estrutura/UI):**
-D01 Vendas/Pedidos · D04 Financeiro · D06 motor de estoque · D07 fechamentos/MCMM ·
-D08 comissões · D13 API mobile · D02 orquestração de NF.
-
-**MANTER (motor fiscal — NUNCA reescrever do zero):**
-D02 motor de imposto (Tributacao/, já com IBS/CBS) · D03 motor SPED (119 registros).
-
-**Conclusão estratégica:** a tese de "reescrever tudo do zero" foi REFUTADA pela
-evidência — o coração fiscal (D02/D03) é o ativo mais valioso e está bem
-estruturado; reescrevê-lo seria recriar anos de regra fiscal às cegas. O caminho é
-**Strangler Fig**: reescrever a periferia (cadastros, frota, relatórios, monitora,
-clientes) ganhando UX moderna já, refatorar o núcleo transacional/financeiro
-(pedido/financeiro/estoque) com Services+testes, e MANTER o motor fiscal — tudo
-sobre o mesmo Postgres, sem big-bang. **A "gambiarra do menu" (D11) é real e o
-melhor ponto de partida da reescrita** (resolve a dor relatada e cria a fundação).
-
-**Gate para o núcleo (D01/D02/D03/D04):** o BASELINE fiscal/financeiro
-(Frente D do PLANO_FECHAMENTO_PENDENCIAS) é pré-requisito BLOQUEANTE.
-
-## Ordem de levantamento sugerida
-Começar pelos **cadastros/apoio** (mais simples, valida o método e provavelmente
-candidatos a REESCREVER com baixo risco), subir até o **fiscal** (mais complexo,
-provavelmente REFATORAR/MANTER com baseline). Sugestão:
-
-```
-D11 Acesso/Menu (piloto — resolve a "gambiarra do menu" e valida o template)
-   → D10 Cadastros base → D09 Frota → D08 Colaboradores
-   → D05 Clientes → D06 Produtos/Estoque → D01 Vendas/Pedidos
-   → D07 Vale-Gás → D04 Financeiro → D02 NF-e → D03 SPED
-   → D12 Relatórios → D13 API → D14 Monitora → D15 Misc
-```
-> Racional: o fiscal (D02/D03/D04) por último porque exige o baseline (Frente D
-> do PLANO_FECHAMENTO_PENDENCIAS) para qualquer decisão segura.
+## Veredito de arquitetura (confirmado pela leitura)
+- **Mais maduro → preservar (REFATORAR):** D02 NF-e (NfemitidaController), D13 App\Api
+  (Passport/Repos), D01 PedidoController, motores (EstoqueProcessor, financeiro/caixa/
+  cheque/boleto Processors, SpedProcessor, NfeImpostoProcessor).
+- **Reescrever:** cadastros/CRUDs, geográfico, RH, frota, relatórios, monitoramento, CRM.
+- **Ordem segura:** D11/segurança → cadastros base (D10/D06 cadastros) → estoque/financeiro
+  motores (D06/D04) com baseline → fiscal (D02/D03) → vendas/pedido (D01) por último →
+  monitoramento/API/relatórios em paralelo. Multi-tenant só depois de tudo (Fase 6).

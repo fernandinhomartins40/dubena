@@ -135,7 +135,7 @@ class ConveniogbgestaoController extends Controller
         "         FROM clientes " .
         "         INNER JOIN empresas ON clientes.empresa_id = empresas.id " .
         "         WHERE " .
-        "         empresas.id = 2 " .
+        "         empresas.id = ".Session::get("empresa_padrao")->id." " .
         "         AND clientes.ativo = 1 " .
         "         AND clientes.convenio_id IS NOT NULL " .
         "         AND clientes.CREATED_AT IS NOT NULL " .
@@ -194,14 +194,14 @@ class ConveniogbgestaoController extends Controller
         "     LEFT JOIN PEDIDOS ON PEDIDOS.CLIENTE_ID = CLIENTES.ID " .
         "     INNER JOIN SETORS setor ON PEDIDOS.ENTREGASETOR_ID = SETOR.ID " .
         "     INNER JOIN PEDIDOITEMS items ON ITEMS.PEDIDO_ID = PEDIDOS.ID " .
-        "     INNER JOIN PRODUTOS ON ITEMS.PRODUTO_ID = PRODUTOS.ID and UPPER(produtos.descricao) like UPPER('%".$produto."%') "  .
+        "     INNER JOIN PRODUTOS ON ITEMS.PRODUTO_ID = PRODUTOS.ID and UPPER(produtos.descricao) like UPPER('%' || ? || '%') "  .
         "     LEFT JOIN CLIENTEPRODUTOSCONVENIOS prodcon ON PRODCON.CLIENTE_ID = CLIENTES.CONVENIO_ID " .
         "         AND PRODCON.CLIENTE_ID = CONVENIO.CLIENTE_ID AND PRODCON.PRODUTO_ID = ITEMS.PRODUTO_ID AND PRODCON.PRODUTO_ID = PRODUTOS.ID " .
         "     WHERE " .
         "         PEDIDOS.DATAHORAPREVISAOENTREGA BETWEEN " .
-        ($mes == ''? 
+        ($mes == ''?
         "      date_trunc('month', CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP  ":
-        "       to_date('$diainicial', 'yyyy-mm-dd hh24:mi:ss') and to_date('$diafinal', 'yyyy-mm-dd hh24:mi:ss') " 
+        "       to_date(?, 'yyyy-mm-dd hh24:mi:ss') and to_date(?, 'yyyy-mm-dd hh24:mi:ss') "
         ) .
         "         AND PEDIDOS.PEDIDOSITUACAO_ID IN ( " .
         "             SELECT id FROM PEDIDOSITUACAOS p WHERE p.EMPRESA_ID = ".Session::get("empresa_padrao")->id." AND (p.ENTREGAFINALIZADA=1 OR p.FECHADOCONCLUIDO=1) " .
@@ -215,7 +215,9 @@ class ConveniogbgestaoController extends Controller
         " ) qrytotal  " .
         " GROUP BY convenio_id, nome " .
         " ORDER BY QUANTCLIENTES desc ";
-        return DB::select($query);
+        $bindings = [$produto];
+        if ($mes != '') { $bindings[] = $diainicial; $bindings[] = $diafinal; }
+        return DB::select($query, $bindings);
     }
 
         public function getDataChartValegas(){
@@ -266,12 +268,12 @@ class ConveniogbgestaoController extends Controller
         "    INNER JOIN clientes cli ON cli.id = venda.cliente_id " .
         "    INNER JOIN PRODUTOS ON produtos.id = venda.PRODUTO_ID  " .
         "    WHERE venda.datavenda BETWEEN " .
-        ($mes == ''? 
+        ($mes == ''?
         "   date_trunc('month', CURRENT_TIMESTAMP) AND CURRENT_TIMESTAMP  ":
-        "    to_date('$diainicial', 'yyyy-mm-dd hh24:mi:ss') and to_date('$diafinal', 'yyyy-mm-dd hh24:mi:ss') " 
+        "    to_date(?, 'yyyy-mm-dd hh24:mi:ss') and to_date(?, 'yyyy-mm-dd hh24:mi:ss') "
         ) .
         "    AND produtos.tipo_glp IN (3,4,5) AND produtos.PESOLIQUIDO IN (13,20,45)    " .
-        "    and UPPER(produtos.descricao) like UPPER('%".$produto."%') "  .
+        "    and UPPER(produtos.descricao) like UPPER('%' || ? || '%') "  .
         "    AND EXISTS ( " .
         "        SELECT 1 FROM valegas  " .
         "        WHERE valegas.valegasvenda_id = venda.id " .
@@ -282,6 +284,9 @@ class ConveniogbgestaoController extends Controller
         "        AND valegas.empresa_id = ".Session::get("empresa_padrao")->id."  " .
         "    ) " .
         "    GROUP BY cli.id, cli.nome order by quantidade desc ";
-        return DB::select($query);
+        $bindings = [];
+        if ($mes != '') { $bindings[] = $diainicial; $bindings[] = $diafinal; }
+        $bindings[] = $produto;
+        return DB::select($query, $bindings);
     }
 }

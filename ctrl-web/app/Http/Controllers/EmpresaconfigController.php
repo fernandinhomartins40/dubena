@@ -416,7 +416,9 @@ class EmpresaconfigController extends Controller
                 }
             }
 
-            if (!isset($replicado) && !$replicado) {
+            // lança erro quando NÃO replicou (false/null/0). O && com !isset deixava
+            // passar o caso $replicado=false (falha), pois !isset era false.
+            if (empty($replicado)) {
                 throw new Exception(implode(', ', $this->getErrors()));
             }
         } catch (Exception $ex) {

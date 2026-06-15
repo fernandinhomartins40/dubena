@@ -148,8 +148,7 @@ class Empresacontroller extends Controller
 
             if (count($img) >= 2) {
                 $imga = base64_decode($img[1]);
-                DB::table('empresas')->whereId($empresa->id)
-                    ->updateLob(array(), array('logoimg' => $imga));
+                \App\Helpers\BlobWriter::update('empresas', $empresa->id, 'logoimg', $imga);
             }
         } catch (\Exception $e) {
             DB::rollback();
@@ -375,9 +374,7 @@ class Empresacontroller extends Controller
 
             if (count($img) >= 2) {
                 $imga = base64_decode($img[1]);
-                DB::table('empresas')->whereId($id)->updateLob(
-                        array(), array('logoimg' => $imga)
-                );
+                \App\Helpers\BlobWriter::update('empresas', $id, 'logoimg', $imga);
             }
         } catch (\Exception $e) {
             DB::rollback();

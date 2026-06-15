@@ -86,7 +86,6 @@ class RecessotipoController extends Controller
 		$data = $request->only('descricao', 'ativo', 'cor', 'legenda');
 		$data["grupo_id"] = Session::get('empresa_padrao')->grupo_id;
 		$recessotipo = Recessotipo::findOrFail($id);
-		dd($data);
 		$recessotipo->update($data);
 		return 'OK|' . $recessotipo->id;
     }

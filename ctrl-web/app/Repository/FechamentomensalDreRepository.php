@@ -50,7 +50,7 @@ class FechamentomensalDreRepository
         "        where id in (  " .
         "            select pcrecetajuro_id  " .
         "            from empresaconfigs config  " .
-        "            where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        "            where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "        ) " .
         "         " .
         "        union all  " .
@@ -61,7 +61,7 @@ class FechamentomensalDreRepository
         "            select pcrecetajuro_id as plano_id, pcdespesasdesconto_id as plano_desconto, 0 as juros, " .
         "            0 as multa, 0 as desconto  " .
         "            from empresaconfigs config  " .
-        "            where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+        "            where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "             " .
         "            union all  " .
         "             " .
@@ -91,7 +91,7 @@ class FechamentomensalDreRepository
         "        where id in (  " .
         "            select pcreceitadesconto_id  " .
         "            from empresaconfigs config " .
-        "            where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+        "            where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "        ) " .
         "         " .
         "        union all  " .
@@ -102,7 +102,7 @@ class FechamentomensalDreRepository
         "        from(  " .
         "            select pcreceitadesconto_id as plano_desconto, 0 as desconto  " .
         "            from empresaconfigs config " .
-        "            where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        "            where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "             " .
         "            union all  " .
         "             " .
@@ -400,7 +400,7 @@ class FechamentomensalDreRepository
         "         pcdespesasjuro_id as plano_desconto, 0 as juros, " .
         "         0 as multa, 0 as desconto  " .
         "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "          " .
         "         union all  " .
         "          " .
@@ -457,7 +457,7 @@ class FechamentomensalDreRepository
         "           WITH RECURSIVE sobe AS ( " . " SELECT id, descricao, nivel, paiplanoconta_id FROM planocontas WHERE id = pcdespesasdesconto_id " . " UNION ALL " . " SELECT p.id, p.descricao, p.nivel, p.paiplanoconta_id FROM planocontas p JOIN sobe ON p.id = sobe.paiplanoconta_id " . " ) SELECT id FROM sobe WHERE nivel = 1 LIMIT 1 " .
         "         ) as plano_desconto, 0 as desconto " .
         "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "          " .
         "         union all " .
         "          " .
@@ -687,7 +687,7 @@ class FechamentomensalDreRepository
         "       where id in (  " .
         "         select pcrecetajuro_id  " .
         "         from empresaconfigs config  " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "       ) " .
         "       union all  " .
         "       select sum(plano_id) as plano_id, '' as codigo, '' as descricao, " .
@@ -696,7 +696,7 @@ class FechamentomensalDreRepository
         "         select pcrecetajuro_id as plano_id, pcdespesasdesconto_id as plano_desconto, 0 as juros, " .
         "         0 as multa, 0 as desconto  " .
         "         from empresaconfigs config  " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "         union all  " .
         "         SELECT  " .
         "         	0 as plano_id, 0 as plano_desconto,  " .
@@ -727,7 +727,7 @@ class FechamentomensalDreRepository
         "       where id in (  " .
         "         select pcreceitadesconto_id  " .
         "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "       ) " .
         "       union all  " .
         "       select sum(plano_desconto) as plano_desconto, '' as codigo, " .
@@ -736,7 +736,7 @@ class FechamentomensalDreRepository
         "       from(  " .
         "         select pcreceitadesconto_id as plano_desconto, 0 as desconto  " .
         "         from empresaconfigs config " .
-        "         where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+        "         where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
         "         union all  " .
         "         SELECT  " .
         " 	        0 as plano_desconto,  " .
@@ -809,9 +809,9 @@ class FechamentomensalDreRepository
         "           select produto_id, max(customedio) as custo " .
         "           from estoquefechamentosetors " .
         "           where empresa_id = ".Session::get("empresa_padrao")->id." and  " .
-        "           estoquefechamento_id = (select id from(select id from estoquefechamentos where empresa_id = ".Session::get("empresa_padrao")->id." and " .
+        "           estoquefechamento_id = (select id from estoquefechamentos where empresa_id = ".Session::get("empresa_padrao")->id." and " .
         "             datahorafechamento <= to_date('".  $dataReferencia ."','yyyy-mm-dd hh24:mi:ss')  " .
-        "             order by datahorafechamento DESC, reaberto asc) where rownum <= 1) " .
+        "             order by datahorafechamento DESC, reaberto asc limit 1) " .
         "            GROUP BY produto_id " .
         "           ) qrycusto ON qrycusto.produto_id = items.PRODUTO_ID  " .
         " CROSS JOIN ( " .
@@ -1084,7 +1084,7 @@ class FechamentomensalDreRepository
                                 "where id in (  " .
                                     "select pcdespesasjuro_id  " .
                                     "from empresaconfigs config " .
-                                    "where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+                                    "where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
                                 ") " .
                                 
                                 "union all  " .
@@ -1096,7 +1096,7 @@ class FechamentomensalDreRepository
                                     "pcdespesasjuro_id as plano_desconto, 0 as juros, " .
                                     "0 as multa, 0 as desconto  " .
                                     "from empresaconfigs config " .
-                                    "where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1  " .
+                                    "where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
                                     
                                     "union all  " .
                                     
@@ -1132,7 +1132,7 @@ class FechamentomensalDreRepository
                                 "where id in (  " .
                                     "select pcdespesasdesconto_id  " .
                                     "from empresaconfigs config " .
-                                    "where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+                                    "where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
                                 ") " .
                                 
                                 "union all  " .
@@ -1143,7 +1143,7 @@ class FechamentomensalDreRepository
                                 "from(  " .
                                     "select pcdespesasdesconto_id as plano_desconto, 0 as desconto " .
                                     "from empresaconfigs config " .
-                                    "where empresa_id = ".Session::get("empresa_padrao")->id." and rownum <= 1 " .
+                                    "where empresa_id = ".Session::get("empresa_padrao")->id." " . /* rownum<=1 removido: empresaconfigs tem 1 linha por empresa_id (PG) */
                                     
                                     "union all " .
                                     

@@ -205,7 +205,7 @@ class ApiController extends Controller
             }
             $data['telefone'] = $tel;
             $mon = Monitoramentochamadas::create($data);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return $e->getMessage();
         }
         return "OK|";

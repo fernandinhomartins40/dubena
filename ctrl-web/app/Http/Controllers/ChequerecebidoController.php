@@ -261,7 +261,7 @@ class ChequerecebidoController extends Controller
         $grupo_id = Session::get('empresa_padrao')->grupo_id;
 
         $data['grupo_id'] = $grupo_id;
-        $dada['banco_id'] = $data['banco_id_erro'];
+        $data['banco_id'] = $data['banco_id_erro'];
         $data['empresa_id'] = $empresa_id;
         if(DB::table('chequesituacaos')->find(4) == null)
             throw new \Exception("Não foi encontrado a situação de cheques cadastrado, contate a administração.");

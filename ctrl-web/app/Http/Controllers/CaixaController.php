@@ -274,7 +274,7 @@ class CaixaController extends Controller
             }
         }
         $voltar = 0;
-        $recebimentotipos = Contamovimentotipo::whereIn('pagarreceber', [$pagarreceber, 'A'])->wwhere('ativo', true)->where('grupo_id', Session::get('empresa_padrao')->grupo_id)->orderBy('descricao')->pluck('descricao', 'id');
+        $recebimentotipos = Contamovimentotipo::whereIn('pagarreceber', [$pagarreceber, 'A'])->where('ativo', true)->where('grupo_id', Session::get('empresa_padrao')->grupo_id)->orderBy('descricao')->pluck('descricao', 'id');
         $baixarfechado = 0;
         return view('financeiro.baixar_form_bycaixa', compact('voltar', 'recebimentotipos', 'conta_id', 'parcelas', 'valor_total', 'valor_desconto', 'valor_liquido', 'valor_multa', 'valor_juros', 'contas', 'empresa_cnpj', 'empresa_razao_social', 'descricao', 'baixarfechado'));
     }
@@ -832,13 +832,16 @@ class CaixaController extends Controller
             $empresa_razao_social = $empresa->razao_social;
             $empresa_cnpj = $empresa->cnpj;
 
+            // colunas reais (Postgres): pagarreceber e datahorabaixa
+            // (antes pagar_receber/data_pagamento, inexistentes → recibo CR quebrava).
             $mov = Contamovimento::with('financeiroparcela')
                 ->where('financeiroparcela_id', $parc->id)
-                ->where('pagar_receber', $parc->pagar_receber)
-                ->orderBy('data_pagamento', 'desc')
+                ->where('pagarreceber', $parc->pagarreceber)
+                ->orderBy('datahorabaixa', 'desc')
                 ->get()
                 ->first();
-            $emp = Empresa::find($mov->empresa_id);
+            if (is_null($mov))
+                continue;
             $mov['empresa_razao_social'] = $empresa_razao_social;
             $mov['empresa_cnpj'] = $empresa_cnpj;
             //$mov->empresa = null;

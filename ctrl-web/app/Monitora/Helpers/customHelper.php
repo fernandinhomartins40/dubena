@@ -560,14 +560,6 @@ if (!function_exists('buscarAccessToken')) {
 
 	function buscarAccessToken($password, $username, $scope, $grant_type, $client_id, $secret = "")
 	{
-		/*
-		echo ($password."<br>");
-		echo ($username."<br>");
-		echo ($scope."<br>");
-		echo ($grant_type."<br>");
-		echo ($client_id."<br>");
-		dd(Session::get('config')->urlsistemaweb);
-		*/
 		$client = new \GuzzleHttp\Client(['base_uri' => Session::get('config')->urlsistemaweb . '/public/oauth/']);
 		$query = array(
 			'username' => $username,

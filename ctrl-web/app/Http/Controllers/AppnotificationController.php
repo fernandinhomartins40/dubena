@@ -172,7 +172,9 @@ class AppnotificationController extends Controller
 
         DB::beginTransaction();
         try {
-            $data = $request->only(["title", "body", "instant", "islayout", "img-remove"]);
+            // formulário/validação usam fcmtitle/fcmbody (ver $this->rules e store);
+            // "title"/"body" não chegam no request → update gravava sem título/corpo.
+            $data = $request->only(["fcmtitle", "fcmbody", "instant", "islayout", "img-remove"]);
 
             $data = $this->dadosExtras($data, true);
 

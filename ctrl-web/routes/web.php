@@ -928,8 +928,6 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     //Turno
     Route::resource('turno', 'TurnoController');
     Route::get('api/nfimpostoByGfOperacao/{grupofiscal_id}/{operacao_id}', ['as' => 'ajax.imposotbyoperacao', 'uses' => 'SearchController@nfimpostoByGfOperacao']);
-    //Testes Estoque
-    Route::resource('testesestoque', 'TesteestoqueController');
     //AJAX Search Cliente
     Route::get('api/searchCliente', ['as' => 'ajax.searchcliente', 'uses' => 'SearchController@indexcliente']);
     Route::get('api/searchgeralreportnf', ['as' => 'ajax.searchgeral', 'uses' => 'SearchController@clienteReportNf']);
@@ -1092,7 +1090,6 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
         }
     })->name('ajax.organizarestoque');
 
-    Route::get('umlgenerate', 'TesteestoqueController@uml')->name('ajax.umlgenerate');
     //Tipo de Documentos
     Route::resource('documentotipo', 'DocumentotipoController');
     //Documentos

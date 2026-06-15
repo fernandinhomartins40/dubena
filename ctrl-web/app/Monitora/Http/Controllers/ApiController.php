@@ -2,6 +2,7 @@
 
 namespace App\Monitora\Http\Controllers;
 use Exception;
+use Session;
 use Illuminate\Http\Request;
 use App\Monitora\Models\Empresa;
 use App\Monitora\Models\User;

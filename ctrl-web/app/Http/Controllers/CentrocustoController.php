@@ -166,7 +166,9 @@ class CentrocustoController extends Controller
                     return 'Não foi encontrado registro pai: ' . $chave_anterior;
                 } else {
                     $data["paicentrocusto_id"] = $centrocusto2->first()->id;
-                    $cc_descricao = $centrocusto->first()->descricao;
+                    // descrição do PAI (centrocusto2 = coleção do pai por chave_anterior),
+                    // não do registro atual; $centrocusto->first() consultava a tabela toda.
+                    $cc_descricao = $centrocusto2->first()->descricao;
 
                     if($this->isUsed($data['paicentrocusto_id']))
                         throw new \Exception('Registro pai " ' . $cc_descricao . '" já é um plano de conta final.');
@@ -179,7 +181,9 @@ class CentrocustoController extends Controller
                         throw new \Exception('Registro pai " ' . $cc_descricao . '" já está sendo usando pelas configurações de Nota Fiscal. <br>'
                                                 . "Para poder realizar um cadastro, você deve remover o vínculo do plano de contas na NF.");
 
-                    Centrocusto::find($centrocusto->first()->id)->update(['finalizador' => 0]);
+                    // marca o PAI como não-finalizador (passou a ter filho).
+                    // $centrocusto aqui é o Model em edição (findOrFail); o pai é $centrocusto2.
+                    Centrocusto::find($centrocusto2->first()->id)->update(['finalizador' => 0]);
                 }
             }
 
@@ -294,25 +298,33 @@ class CentrocustoController extends Controller
 
     public function isUsed($cc_id)
     {
-        $subSel = "(SELECT id FROM ESTOQUEREQUISICAOS WHERE CENTROCUSTO_ID = $cc_id limit 1) UNION ALL "
-                                 . " (SELECT id FROM FINANCEIRORATEIOS WHERE CENTROCUSTO_ID = $cc_id limit 1)";
-        $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1 ";
+        // $cc_id é sempre um id (inteiro). Cast elimina SQLi sem repetir bindings.
+        $cc_id = (int) $cc_id;
+        // Postgres: subquery no FROM exige alias; ROWNUM não existe → LIMIT.
+        $selectStatement = "SELECT id FROM ("
+            . " (SELECT id FROM estoquerequisicaos WHERE centrocusto_id = $cc_id LIMIT 1) UNION ALL"
+            . " (SELECT id FROM financeirorateios WHERE centrocusto_id = $cc_id LIMIT 1)"
+            . ") usos LIMIT 1";
 
         return collect(DB::select($selectStatement))->count() == 1;
     }
 
     public function isUsedByConfig($cc_id)
     {
-        $subSel = "SELECT id FROM EMPRESACONFIGS WHERE (CENTROCUSTO_ID = $cc_id OR CCVALEGAS_ID = $cc_id OR CCFRETE_ID = $cc_id) limit 1";
-        $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
+        $cc_id = (int) $cc_id;
+        $selectStatement = "SELECT id FROM ("
+            . " SELECT id FROM empresaconfigs WHERE (centrocusto_id = $cc_id OR ccvalegas_id = $cc_id OR ccfrete_id = $cc_id) LIMIT 1"
+            . ") usos LIMIT 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }
 
     public function isUsedByNF($cc_id)
     {
-        $subSel = "(SELECT id FROM NFRECEBIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id limit 1) UNION ALL "
-                                . " (SELECT id FROM NFEMITIDAS WHERE CENTROCUSTO_ID = $cc_id OR FRETECENTROCUSTO_ID = $cc_id limit 1)";
-        $selectStatement = "SELECT id from ($subSel) WHERE ROWNUM <= 1";
+        $cc_id = (int) $cc_id;
+        $selectStatement = "SELECT id FROM ("
+            . " (SELECT id FROM nfrecebidas WHERE centrocusto_id = $cc_id OR fretecentrocusto_id = $cc_id LIMIT 1) UNION ALL"
+            . " (SELECT id FROM nfemitidas WHERE centrocusto_id = $cc_id OR fretecentrocusto_id = $cc_id LIMIT 1)"
+            . ") usos LIMIT 1";
         return collect(DB::select($selectStatement))->count() == 1;
     }
 

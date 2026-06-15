@@ -200,7 +200,7 @@ class ColaboradorController extends Controller {
         $this->authorize('igualdade',$colaborador);
         $estados = Estado::all()->pluck('descricao', 'uf');
         $cidade = Cidade::find($colaborador->{'cidade_id'});
-        $cidades = Cidade::where([['grupo_id', Session::get('empresa_padrao')->id],['uf', $cidade->{'uf'}]])
+        $cidades = Cidade::where([['grupo_id', Session::get('empresa_padrao')->grupo_id],['uf', $cidade->{'uf'}]])
         ->orWhere([['grupo_id', null],['uf', $cidade->{'uf'}]])
         ->orderby('descricao')->pluck('descricao', 'id');
 

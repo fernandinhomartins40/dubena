@@ -471,15 +471,19 @@ class ValegasvendaController extends Controller
     {
         $numero = random_int(100000000, 999999999);
 
+        // Se já existe, regenera e RETORNA o novo (antes descartava o retorno da
+        // recursão e devolvia o número duplicado).
         if ($this->checkCodigo($numero))
-            $this->gerarCodigo();
+            return $this->gerarCodigo();
 
         return $numero;
     }
 
     private function checkCodigo($numero)
     {
-        return Valegas::where('prevendasequencia', $numero)->exists();
+        // O código é gravado na coluna `codigo` (ver $valation->codigo), não em
+        // prevendasequencia — a unicidade tem de ser checada nessa coluna.
+        return Valegas::where('codigo', $numero)->exists();
     }
 
     private function validarParcelas($parcelas)

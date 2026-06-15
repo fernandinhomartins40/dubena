@@ -26,7 +26,7 @@ class TiporecessosController extends Controller {
         $this->definition();
         $this->validate($request, [
             'descricao' => 'required|max:100|unique:recessotipos,descricao,null,id,grupo_id,' . $this->grupo_id,
-            'legenda' => 'required|max:3|unique:recessotipos,descricao,null,id,grupo_id,' . $this->grupo_id,
+            'legenda' => 'required|max:3|unique:recessotipos,legenda,null,id,grupo_id,' . $this->grupo_id,
         ]);
         $data = $request->all();
         $data["grupo_id"] = $this->grupo_id;
@@ -43,7 +43,7 @@ class TiporecessosController extends Controller {
         $this->definition();
         $this->validate($request, [
             'descricao' => 'required|max:100|unique:recessotipos,descricao,'. $id . ',id,grupo_id,' . $this->grupo_id,
-            'legenda' => 'required|max:3|unique:recessotipos,descricao,null,id,grupo_id,' . $this->grupo_id,
+            'legenda' => 'required|max:3|unique:recessotipos,legenda,'. $id . ',id,grupo_id,' . $this->grupo_id,
         ]);
         $data = $request->all();
         $data["grupo_id"] = $this->grupo_id;
@@ -60,7 +60,7 @@ class TiporecessosController extends Controller {
         DB::begintransaction();
         try{
             $tiporecesso->delete();
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return '<br /><br />O registro não pôde ser excluído pois está sendo usado!';
         }

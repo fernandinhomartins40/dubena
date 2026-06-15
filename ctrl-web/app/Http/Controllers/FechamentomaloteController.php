@@ -442,21 +442,44 @@ class FechamentomaloteController extends Controller
 
     private function getParcelasStore($pedido_id)
     {
+        // Oracle: START WITH parc.financeiro_id = (financeiro do pedido)
+        //         CONNECT BY PRIOR parc.AGRUPADOR_FINANCEIRO_ID = parc.financeiro_id
+        // → DESCE a cadeia de agrupamento (o filho é a parcela cujo financeiro_id é
+        //   apontado pelo agrupador_financeiro_id do nó anterior).
+        // CONNECT_BY_ROOT parc.id → id da parcela-raiz (root_financeiro_id); LEVEL → nivel.
+        // NOCYCLE: o UNION ALL do WITH RECURSIVE não revisita linhas já produzidas no ramo.
+        // Postgres: WITH RECURSIVE.
         $query = "SELECT par.id, financeiro_id, agrupador_id,
             nivel, par.valor, fin.condicaopagamento_id as condicao_id, datavencimento
             FROM (
-                SELECT
-                parc.id,
-                parc.financeiro_id,
-                parc.AGRUPADOR_FINANCEIRO_ID AS agrupador_id,
-                parc.valor,
-                parc.datavencimento,
-                CONNECT_BY_ROOT parc.id AS root_financeiro_id,
-                LEVEL AS nivel
-                FROM financeiroparcelas parc
-                WHERE parc.AGRUPADOR_FINANCEIRO_ID IS NULL
-                CONNECT BY NOCYCLE PRIOR parc.AGRUPADOR_FINANCEIRO_ID = parc.financeiro_id
-                START WITH parc.financeiro_id = (SELECT financeiro_id FROM pedidos WHERE id = ?)
+                WITH RECURSIVE arv AS (
+                    SELECT
+                        parc.id,
+                        parc.financeiro_id,
+                        parc.agrupador_financeiro_id AS agrupador_id,
+                        parc.valor,
+                        parc.datavencimento,
+                        parc.id AS root_financeiro_id,
+                        1 AS nivel
+                    FROM financeiroparcelas parc
+                    WHERE parc.financeiro_id = (SELECT financeiro_id FROM pedidos WHERE id = ?)
+
+                    UNION ALL
+
+                    SELECT
+                        filho.id,
+                        filho.financeiro_id,
+                        filho.agrupador_financeiro_id AS agrupador_id,
+                        filho.valor,
+                        filho.datavencimento,
+                        arv.root_financeiro_id,
+                        arv.nivel + 1 AS nivel
+                    FROM financeiroparcelas filho
+                    JOIN arv ON arv.agrupador_id = filho.financeiro_id
+                )
+                SELECT id, financeiro_id, agrupador_id, valor, datavencimento, root_financeiro_id, nivel
+                FROM arv
+                WHERE agrupador_id IS NULL
             ) par
             INNER JOIN financeiros fin ON par.financeiro_id = fin.id";
 

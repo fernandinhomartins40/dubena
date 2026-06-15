@@ -141,18 +141,32 @@ class AtualizarprecosController extends Controller
 
     private function updateCliente($data)
     {
-        $segmento_id = $data["segmento_id"] == "" ? null : "and clientes.segmento_id = " . $data["segmento_id"];
-        $tipo = $data["tipopessoa_id"] == "" ? null : "and clientes.tipopessoa_id = " . $data["tipopessoa_id"];
-        $setor = $data["setor_id"] == "" ? null : "and clientes.setor_id = " . $data["setor_id"];
-        $valor = $data["valor"];
+        // Filtros opcionais com bindings (eram interpolados → SQLi).
+        $bindings = [];
+        $filtros = "";
+        if ($data["segmento_id"] !== "") {
+            $filtros .= " and clientes.segmento_id = ?";
+            $bindings[] = (int) $data["segmento_id"];
+        }
+        if ($data["tipopessoa_id"] !== "") {
+            $filtros .= " and clientes.tipopessoa_id = ?";
+            $bindings[] = (int) $data["tipopessoa_id"];
+        }
+        if ($data["setor_id"] !== "") {
+            $filtros .= " and clientes.setor_id = ?";
+            $bindings[] = (int) $data["setor_id"];
+        }
+        $valor = (float) $data["valor"];
         $op = $data["variacao"] == "A" ? "+" : "-";
         $empresa_id = Session::get('empresa_padrao')->id;
+        $produto_id = (int) $data["produto_id"];
 
         DB::beginTransaction();
         try{
+            // $calc é uma expressão SQL; $op é controlado (+/-) e $valor é numérico (cast acima).
             switch ($data["tipo"]) {
                 case '1':
-                    $calc = $valor;
+                    $calc = "$valor";
                     break;
                 case '2':
                     $calc = "pro.preco $op $valor";
@@ -161,9 +175,17 @@ class AtualizarprecosController extends Controller
                     $calc = "pro.preco $op (pro.preco * ( $valor / 100 ))";
                     break;
             }
-            $clientes = $this->updateStatementOracle($empresa_id, $data["produto_id"], $segmento_id, $tipo, $setor, $data["tipo"], $calc);
-            $update = DB::statement($clientes);
-        } catch (Exception $e) {
+            // Postgres: UPDATE ... FROM (Oracle usava UPDATE(subquery)SET, inválido em PG).
+            $query = "update clienteprodutos as pro " .
+                "set preco = (case when ($calc) <= 0 then 0 else ($calc) end) " .
+                "from clientes " .
+                "where pro.cliente_id = clientes.id " .
+                "and clientes.empresa_id = ? " .
+                "and pro.produto_id = ? " .
+                $filtros;
+            $params = array_merge([$empresa_id, $produto_id], $bindings);
+            $update = DB::update($query, $params);
+        } catch (\Exception $e) {
             DB::rollback();
             $error = "Error: " . $e->getMessage() . " Line: " . $e->getLine();
             $this->addErrors($error);
@@ -171,21 +193,6 @@ class AtualizarprecosController extends Controller
         }
         DB::commit();
         return $update;
-    }
-
-    private function updateStatementOracle($empresa_id, $produto_id, $segmento_id, $tipopessoa, $setor, $tipo, $calc)
-    {
-        $query = "update".
-            "(".
-                "select pro.preco ".
-                "from clienteprodutos pro ".
-                "inner join clientes on pro.cliente_id = clientes.id ".
-                "where clientes.empresa_id = $empresa_id and ".
-                "pro.produto_id = $produto_id ".
-                "$segmento_id $tipopessoa $setor".
-            ") pro ".
-            "set pro.preco = (case when $calc <= 0 then 0 else $calc end)";
-        return $query;
     }
 
     private function organizarDescricao($data)

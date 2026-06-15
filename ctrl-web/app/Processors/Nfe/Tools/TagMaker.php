@@ -1742,7 +1742,7 @@ class TagMaker extends ValidationBase
     private function validateRequired($std, $required, $tagName)
     {
         if (!$required instanceof stdClass) {
-            dd($required, $tagName);
+            throw new Exception("Definição de obrigatórios inválida para a tag $tagName");
         }
         foreach ($required as $key => $value) {
             if (!property_exists($std, $key))

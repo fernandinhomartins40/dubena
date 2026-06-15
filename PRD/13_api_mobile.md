@@ -1,58 +1,100 @@
-# PRD — API Mobile (App\Api)  ·  D13
+# PRD FIDEDIGNO (linha-a-linha) — API Mobile (módulo App\Api) · D13
 
-- **Status:** ✅ pronto
-- **Criticidade:** 🟠 (contratos consumidos por apps PUBLICADOS — não pode quebrar)
-- **Decisão:** **REFATORAR** (já é módulo isolado; modernizar sem quebrar contrato)
+> Módulo `App\Api` (unificado da antiga api-app-gc), 20 controllers (~4.100 linhas) +
+> NfwebController (1763, no ctrl-web raiz, é API/web do app de NF).
+> Lidos integralmente: ApiController(150), SecretController(252), UserController(349),
+> ClienteController(484, núcleo), PedidoController(1142, store/núcleo).
+> Caracterizados (arquitetura): Empresa/Endereco/CondicaoPagamento/Coupons/Notificacao/
+> Produto/Video/OauthClient/Passport/etc. (Repositories + Resources + Passport).
+
+- **Status:** ✅ pronto (fiel — núcleo lido; periféricos caracterizados)
+- **Criticidade:** 🔴 (porta pública: app dos clientes + revendas; cria pedido/PIX)
+- **Decisão:** **REFATORAR/MANTER** (módulo mais MODERNO que o ERP — Passport/Repos/
+  Requests/Resources) — corrigir SQLi e token de usuário fixo
 
 ---
 
-## 1. Escopo
-- Módulo `App\Api` (ex-api-app-gc), schema `api`. Já unificado dentro do ctrl-web
-  (Fase 5). `app/Api/{Models,Http/Controllers,Repository,Resources,Services}`.
-- Rotas `routes/api_mobile.php` sob `/api` (getToken, v2/order/root, client/getById,
-  produtos, video, etc.).
+## 1. O que cada peça FAZ (verificado)
+- **SecretController (252):** **autenticação do app** — `getToken` (app_key →
+  Passport accessToken), `onOpenApp` (abertura: cliente+empresas+cupom+endereço+pedido em
+  track), testToken/testTokenERP/testTokenFromApi (valida o elo app↔ERP via ApiResources).
+- **PedidoController (1142):** **pedido pelo app** — `store` (valida endereço/situação/
+  cupom/gás do povo, cria pedido, **linka ao ERP** via `linkTo`/ApiResources HTTP, PIX),
+  `track` (acompanhamento em tempo real + simulador), avaliação, itens.
+- **ClienteController (484):** **cliente final do app** — cadastro/identidade por
+  **telefone + primeiro nome** (sem senha), detecção de novo dispositivo, convênio,
+  gás do povo, push registration.
+- **UserController (349):** **revenda/distribuidora** — cadastro com horários de
+  funcionamento, polígonos de área (Polylines), gás do povo, token OAuth revenda↔ERP.
+- **ApiController (150):** reverse geocoding (Google), logs (conexão `sgcm_logs`), marker
+  de mapa, download do app.
+- **Periféricos:** Empresa (revendas próximas), Endereco, CondicaoPagamento, Coupons
+  (cupom de desconto), Notificacao (push), Produto/Categoria, Video, Feriado, ConfigUser,
+  GeneralConfig, OauthClient/Passport (tokens). Usam Repositories + ApiResources + Passport.
 
-## 2. O que o módulo FAZ
-- Backend dos apps mobile (cliente/entregador): autenticação por token, pedidos,
-  clientes, produtos, vídeos, notificações.
-- Contratos **versionados e retrocompatíveis** — apps publicados nas lojas
-  dependem dos endpoints exatos.
+> Regra real a preservar: o **contrato com os apps publicados** (rotas/payloads de
+> getToken, onOpenApp, pedido, track, cliente) — apps nas lojas dependem dele.
 
-## 3. Como FAZ hoje
-- Módulo isolado (schema api), conexão `sgcm_api`. Token via `APP_TOKEN_KEY`
-  (Fase 1, hash_equals). Repositories com SQL (alguns whereRaw já no inventário C).
-- Tabelas espelho `*_importacao` ainda existem (sincronização redundante com o ERP).
+---
 
-## 4. Gambiarras / dívida técnica
-- [ ] **Tabelas espelho `*_importacao`**: duplicam dados do ERP (sincronização) em
-      vez de ler direto — dívida da Fase 5 (Frente G do plano de fechamento).
-- [ ] `whereRaw` interpolado em alguns repositories (Frente C).
-- [ ] DATE_FORMAT já convertido p/ to_char (Postgres).
+## 2. BUGS E DÍVIDA — VERIFICADOS LINHA-A-LINHA
 
-## 5. Riscos de tocar
-- **Contrato**: qualquer mudança de payload/rota quebra apps já instalados. Só
-  ADICIONAR versões; nunca alterar/remover o que existe.
-- Token/auth: segurança (já endurecida na Fase 1).
+### 🔴 Segurança (SQLi em endpoint público)
+- **ClienteController::newClientWithPhone:88 — SQLi**: `whereRaw("telefoneantigo = '" .
+  $dataPhone['telefone'] . "' AND primeironome = '" . firstWord($data["nome"]) . "'")`
+  interpola **telefone e nome do request** sem binding. É chamado no **cadastro de cliente
+  do app** (fluxo `onOpenApp`, pré-autenticação) → **SQL injection numa porta pública**.
+  **Parametrizar.**
 
-## 6. Estado de compatibilidade Postgres
-- ✅ schema api migrado (32 tabelas); /api responde. DATE_FORMAT convertido.
-- 🟡 whereRaw a triar (Frente C); *_importacao a eliminar (Frente G).
+### 🔴 Segurança (token de usuário único) e chave previsível
+- **SecretController::getToken:51 — `User::findOrFail(env('DEFAULT_USER_ID'))`**: TODOS os
+  tokens do app são emitidos para **UM usuário fixo** → o app opera como identidade única
+  na API (sem rastreabilidade por cliente; risco multi-tenant). Padrão legado conhecido.
+- **NfwebController::getToken:87 (ctrl-web raiz) — `sha1(env('APP_KEY'))`**: ⚠️ enquanto o
+  módulo App\Api **JÁ corrigiu** (APP_TOKEN_KEY + hash_equals, Fase 1 — ver
+  SecretController:37), **o NfwebController ainda usa `sha1(APP_KEY)`** (chave previsível,
+  APP_KEY vazou no repo do app). **Migrar p/ APP_TOKEN_KEY/hash_equals igual ao App\Api.**
 
-## 7. Visão REESCRITA/REFATORADA (Laravel 12)
-- **REFATORAR**, não reescrever: já é módulo isolado e os contratos são sagrados.
-- Substituir `*_importacao` por **leitura direta** das tabelas do ERP (mesmo banco
-  agora) — fim da sincronização (Frente G).
-- API Resources/FormRequests padronizados; autenticação via Sanctum/Passport por
-  cliente com escopos (evolução do token atual, mantendo contrato antigo).
-- Versionamento: manter v1/v2 atuais; novas features em /v3.
-- Validar com **build de staging do app** apontando para a API unificada.
+### 🟠 Bugs / dívida funcional
+- **UserController::index:31 — `User::all()`** (todas as revendas, sem paginação/filtro);
+  `index/store/update` **sem authorize explícito** (dependem de middleware da rota admin).
+- **ApiController::logs/getLog/reportLog sem authorize explícito** (logs da API por rota).
+- **PedidoController::store** depende de `linkTo` HTTP ao ERP (ApiResources) — o objetivo
+  da unificação é trocar por **chamada interna** (ainda é cliente-servidor HTTP).
 
-## 8. DECISÃO e justificativa
-- **Decisão: REFATORAR.**
-- **Por quê:** já modernizado estruturalmente (módulo/schema); o valor agora é
-  eliminar a duplicação (*_importacao) e endurecer auth SEM quebrar apps publicados.
-- **Pré-requisitos:** Frente G (ler ERP direto); Frente C (whereRaw); teste com app
-  real de staging.
-- **Esforço:** médio.
-- **Ordem:** após os domínios-fonte (cliente/pedido/produto) estarem estáveis, para
-  apontar a leitura direta com segurança.
+### 🟡 Dívida estrutural
+- **Cliente-servidor HTTP interno**: App\Api ↔ ERP via `ApiResources` (erpurl) — ida-e-
+  volta HTTP dentro do mesmo app pós-unificação. Trocar por chamadas internas/eventos.
+- **Tabelas espelho** (*_importacao: ProdutoImportacao/CondPgtoImportacao) sincronizadas
+  do ERP — manter por ora; eliminar duplicação na virada (já mapeado no projeto).
+- **Controller↔controller** (Secret→Cliente/Empresa/Coupons/Endereco/Pedido).
+- `\Input` em vez de request tipado em vários (mas FormRequests presentes nos núcleos).
+
+### ✅ O que está BOM (é o módulo mais moderno)
+- **Laravel Passport** (OAuth2 real), **Repositories**, **FormRequests** (Pedido/Cliente/
+  User Request), **API Resources**, transações, `getFillable()` whitelist, `hash_equals`
+  no getToken (App\Api), Hash::check nas senhas, validação de CPF, suporte a PIX/cupom/
+  gás do povo/track em tempo real. Arquitetura claramente superior ao ERP legado.
+- getToken do App\Api **já endurecido** na Fase 1 (APP_TOKEN_KEY).
+
+## 3. Especificação do REFAT/MANTIDO (Laravel 12)
+- **Manter a arquitetura** (Passport/Repos/Requests/Resources) — modernizar junto do
+  framework. **Preservar contratos** dos apps publicados (versionamento retrocompatível).
+- **Corrigir SQLi** do newClientWithPhone (binding) — prioridade (porta pública).
+- **Token por cliente/revenda** (não DEFAULT_USER_ID fixo) — quando o app permitir
+  identidade própria; alinhar com multi-tenant.
+- **Trocar ApiResources HTTP→chamadas internas** (eliminar ida-e-volta) e aposentar
+  tabelas espelho na virada.
+- **NfwebController** → migrar p/ APP_TOKEN_KEY (igual App\Api) ou consolidar no App\Api.
+
+## 4. DECISÃO
+- **Decisão: REFATORAR/MANTER** (base moderna; correções pontuais de segurança).
+- **Quick wins aplicáveis JÁ:**
+  (a) **parametrizar o whereRaw do newClientWithPhone** (SQLi em porta pública) — prioridade;
+  (b) **NfwebController::getToken → APP_TOKEN_KEY/hash_equals** (chave previsível);
+  (c) paginar/escopar User::all() e authorize nas telas admin da API.
+- **Pré-requisitos:** contratos dos apps mapeados (não quebrar lojas); multi-tenant p/
+  token por identidade; D01 (pedido) e D04 (PIX/financeiro) alinhados.
+- **Esforço:** baixo-médio (base já moderna; correções pontuais).
+- **Ordem:** SQLi do cliente e chave do Nfweb são quick wins de segurança (já); refactor
+  do elo HTTP→interno junto da unificação final.

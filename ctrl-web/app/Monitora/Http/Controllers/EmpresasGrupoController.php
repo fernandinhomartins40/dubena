@@ -55,15 +55,15 @@ class EmpresasGrupoController extends Controller
     $data["logo"] = str_replace('data:image/png;base64,', '', $data["logo"]);
     $data["logo"] = str_replace(' ', '+', $data["logo"]);
 
+    // cria PRIMEIRO; o logo (bytea) precisa do id do registro recém-criado.
+    // (antes usava $id indefinido e gravava o logo antes do create.)
+    $grupo = EmpresasGrupo::create($data);
+
     if(count($img)>=2){
       $imga = base64_decode($img[1]);
-      $teste = DB::table('empresas_grupos')->whereId($id)->updateLob(
-        array(),
-        array('logoimg'=>$imga)
-      );
+      \App\Helpers\BlobWriter::update('empresas_grupos', $grupo->id, 'logoimg', $imga);
     }
 
-    EmpresasGrupo::create($data);
     //return $this->index();
     return "OK|";
     //      return \Redirect::route('monitora.empresas_grupo.index')->withMessageSuccess('Grupo de Empresas cadastrado com sucesso!');
@@ -114,10 +114,7 @@ class EmpresasGrupoController extends Controller
 
     if(count($img)>=2){
       $imga = base64_decode($img[1]);
-      $teste = DB::table('empresas_grupos')->whereId($id)->updateLob(
-        array(),
-        array('logoimg'=>$imga)
-      );
+      \App\Helpers\BlobWriter::update('empresas_grupos', $id, 'logoimg', $imga);
     }
 
     $EmpresaGrupo = EmpresasGrupo::findOrFail($id);

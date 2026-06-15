@@ -261,10 +261,14 @@ class FinanceiroController extends Controller
         //3 = nº NF
         //4 = Fechamento Convenio
         $tipoPesquisa = $request->only('tipoPesquisa')["tipoPesquisa"];
-        $pagarreceber = $request->only('pagarreceber')["pagarreceber"];
+        // pagarreceber em whitelist; ids como inteiros (preservando '' = não informado)
+        // para neutralizar SQLi nas montagens de SQL cru abaixo.
+        $pagarreceber = $request->only('pagarreceber')["pagarreceber"] === 'P' ? 'P' : 'R';
         $valorPesquisa = (int) trim($request->only('valorPesquisa')["valorPesquisa"]);
         $cliente_id = $request->only('cliente_id')["cliente_id"];
+        $cliente_id = $cliente_id === '' ? '' : (int) $cliente_id;
         $colaborador_id = $request->only('colaborador_id')["colaborador_id"];
+        $colaborador_id = $colaborador_id === '' ? '' : (int) $colaborador_id;
         $tipodata = $request->only('tipodata')["tipodata"];
         $status_id = $request->only('status_id')["status_id"];
         $sort = $request->only('sort')["sort"];
@@ -290,20 +294,30 @@ class FinanceiroController extends Controller
 
             $dados->where('financeiroparcelas.pagarreceber', $pagarreceber);
 
+            $dateBindings = [];
+            // $rawDateLiteral: datas já formatadas (Carbon → string de formato fixo,
+            // seguras) para uso onde a query é montada como string (ver $pednf_fin).
+            $rawDateLiteral = '1 = 1';
             if ($tipodata == 1 || $tipodata == 2 || $tipodata == 3) {
                 $dateFormat = "'yyyy-mm-dd HH24:MI:SS'";
                 if ($tipodata == 1)
-                    $rawDate = "datavencimento";
+                    $col = "datavencimento";
                 elseif($tipodata == 2)
-                    $rawDate = "dataemissao";
+                    $col = "dataemissao";
                 else
-                    $rawDate = "datahorabaixa";
-                $rawDate .= " between TO_DATE('$dataini', $dateFormat) AND TO_DATE('$datafin', $dateFormat)";
+                    $col = "datahorabaixa";
+                $di = $dataini->format('Y-m-d H:i:s');
+                $df = $datafin->format('Y-m-d H:i:s');
+                // datas parametrizadas (eram interpoladas no SQL).
+                $rawDate = "$col between TO_DATE(?, $dateFormat) AND TO_DATE(?, $dateFormat)";
+                $dateBindings = [$di, $df];
+                $rawDateLiteral = "$col between TO_DATE('$di', $dateFormat) AND TO_DATE('$df', $dateFormat)";
             } else {
                 $rawDate = '1 = 1';
             }
 
-            $dados->whereRaw("(($rawStatus) AND ($rawDate))");
+            // $rawStatus é composto só por literais controlados (sem input do usuário).
+            $dados->whereRaw("(($rawStatus) AND ($rawDate))", $dateBindings);
             if ($cliente_id != '')
                 $dados->where('financeiros.cliente_id', $cliente_id);
             else
@@ -319,14 +333,14 @@ class FinanceiroController extends Controller
                         . " INNER JOIN FINANCEIROPARCELAS PAR ON F.ID = PAR.FINANCEIRO_ID"
                         . " WHERE P.colaborador_id = $colaborador_id "
                         . " AND (F.CLIENTE_ID = $cliente_id OR $cliente_id = -1)"
-                        . " AND $rawStatus AND $rawDate AND par.pagarreceber = '$pagarreceber'"
+                        . " AND $rawStatus AND $rawDateLiteral AND par.pagarreceber = '$pagarreceber'"
                         . " AND P.EMPRESA_ID = $empresa_id"
                         . " UNION ALL SELECT DISTINCT N.FINANCEIRO_ID FROM NFEMITIDAS N "
                         . " INNER JOIN NFEMITIDAITEMS I ON I.NFEMITIDA_ID = N.ID"
                         . " INNER JOIN FINANCEIROS F ON F.ID = N.FINANCEIRO_ID"
                         . " INNER JOIN FINANCEIROPARCELAS PAR ON F.ID = PAR.FINANCEIRO_ID"
                         . " WHERE I.SETOR_ID IN ($rawSetor) "
-                        . " AND $rawStatus AND $rawDate AND par.pagarreceber = '$pagarreceber'"
+                        . " AND $rawStatus AND $rawDateLiteral AND par.pagarreceber = '$pagarreceber'"
                         . " AND (F.CLIENTE_ID = $cliente_id OR $cliente_id = -1)"
                         . " AND N.financeiro_id IS NOT NULL"
                         . " AND N.EMPRESA_ID = $empresa_id)";

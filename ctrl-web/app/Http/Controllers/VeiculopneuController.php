@@ -54,7 +54,7 @@ class VeiculopneuController extends Controller
         DB::begintransaction();
         try{
             Veiculopneu::create($data);
-        } catch (Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollback();
             return Redirect::to('veiculopneu.create')
                         ->withErrors($ex->getMessage())

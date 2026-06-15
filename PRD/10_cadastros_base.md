@@ -1,87 +1,120 @@
-# PRD — Cadastros base / Geográfico  ·  D10
+# PRD FIDEDIGNO (linha-a-linha) — Cadastros base / Geográfico · D10
 
-- **Status:** ✅ pronto
-- **Criticidade:** 🟡 (cadastro/apoio) — exceto **Empresaconfig** que é 🔴 (guarda config fiscal usada por NF-e/financeiro)
-- **Decisão:** **REESCREVER** os CRUDs simples · **REFATORAR** Empresa/Empresaconfig (ver §8)
+> Escrito após LER 100% das linhas dos 16 controllers do domínio (3.642 linhas):
+> Empresa(803), Empresaconfig(715), Documento(295), Setor(281), Sorteio(179),
+> Rua(171), Empresabens(166), Bairro(164), EmpresasGrupo(162), Cidade(136),
+> Documentotipo(127), Motivonaovenda(124), Banco(93), Regiao(83),
+> Documentogestao(83), Configuracoesgerais(61).
+
+- **Status:** ✅ pronto (fiel)
+- **Criticidade:** 🟡 cadastros · **Empresa/Empresaconfig 🔴** (config fiscal/financeira)
+- **Decisão:** **REESCREVER** CRUDs de apoio · **REFATORAR** Empresa/Empresaconfig
 
 ---
 
-## 1. Escopo
-- **Controllers:** `Empresa` (803), `Empresaconfig` (714), `Documento` (295),
-  `Setor` (281), `Sorteio` (179), `Rua` (171), `Empresabens` (166), `Bairro` (164),
-  `EmpresasGrupo` (162), `Cidade` (136), `Documentotipo` (127), `Motivonaovenda` (124),
-  `Banco` (93), `Regiao` (83), `Documentogestao` (83), `Configuracoesgerais` (61).
-- **Tabelas (public):** `empresas`, `empresas_grupos`, `empresaconfigs`, `empresabens`,
-  `configuracoesgerais`, `bairros`, `cidades`, `ruas`, `estados`, `regiaos`, `setors`,
-  `bancos`, `documentos`, `documentotipos`, `motivonaovendas`, `sorteios`.
-- **Rotas:** resources homônimos (`empresa`, `bairro`, `cidade`, `banco`...) + buscas
-  AJAX (dropdowns geográficos encadeados uf→cidade→bairro→rua).
+## 1. O que cada controller FAZ (verificado)
+- **EmpresaController (803):** CRUD da empresa/filial — **fortemente fiscal**: dezenas
+  de selects de NF-e/NFC-e/SAT/SPED (`getSelects` 584-741), certificado digital PFX
+  (`saveCertNf` 464-478, senha via `customCrypt`), contingência por UF
+  (`validateContingency` 541-582), controle de número de NF p/ evitar duplicidade
+  (`checarNfNumero` 754-801), lat/long por endereço, logo. `change` (91-122) troca
+  empresa ativa recarregando sessão (menu/permissões/config). NÃO é "só formulário".
+- **EmpresaconfigController (715):** parâmetros operacionais/financeiros — planos de
+  conta/centros de custo default (cartão, frete, juros, desconto, vale-gás, convênio),
+  PIX (client_id/secret/chavepix criptografados, webhook), senha mestre
+  (Hash::make/check + log de tentativas `logSenha`), replicação **matriz→filial**
+  (`matriz` 569-595 / `filial` 597-616).
+- **Geográfico (Bairro 164 / Cidade 136 / Rua 171):** CRUD + dropdowns encadeados
+  uf→cidade→bairro→rua; filtro por grupo (`grupo_id IS NULL` = global). Criam
+  registro on-the-fly (`createRuaFromOther`).
+- **Setor (281):** setor de entrega; vincula colaboradores (sincroniza `Android` do
+  app); regra: não inativa setor com estoque (262-268); cria rua nova se id "N".
+- **Documento (295) / Documentotipo (127) / Documentogestao (83):** documentos do
+  colaborador com versões (upload/download Storage) + dashboard de vencimento.
+- **Empresabens (166):** bens com **depreciação** (dias/meses/anos, %).
+- **Sorteio (179):** sorteia pedido apto no período (`random_int`).
+- **Banco/Regiao/Motivonaovenda/EmpresasGrupo/Configuracoesgerais:** CRUD simples.
 
-## 2. O que o módulo FAZ
-- **Empresa / Grupo de empresas**: cadastro das filiais/revendas; base do
-  multi-empresa (todo o resto referencia `empresa_id`/`grupo_id`). Define matriz,
-  dados fiscais (CNPJ, IE, endereço), regime.
-- **Empresaconfig** 🔴: a "caixa de parâmetros" da operação — planos de conta/centros
-  de custo default (frete, juros, desconto, vale-gás), config de NF-e/NFC-e,
-  tempos de entrega, chaves (Maps), senha mestre, logo. **Usada por Pedido,
-  Financeiro, NF-e, Relatórios.**
-- **Geográfico**: estados→cidades→bairros→ruas, com dropdowns encadeados; filtro
-  por grupo (cidade pode ser global `grupo_id IS NULL` ou do grupo).
-- **Setor**: setorização de entrega (liga a veículos/colaboradores/metas).
-- **Cadastros de apoio**: banco, documento/tipo, motivo de não-venda, sorteio,
-  bens da empresa — CRUD simples.
+---
 
-## 3. Como FAZ hoje
-- CRUDs em padrão Laravel resource (controller fino, Eloquent) — relativamente
-  limpos nos cadastros pequenos (Banco/Regiao/Cidade: 0 SQL cru).
-- Geográfico usa `whereRaw` nas buscas de dropdown (filtro por grupo + LIKE).
-- `Empresa`/`Empresaconfig` grandes por concentrarem MUITOS campos de config (não
-  por lógica complexa) — muito formulário, pouca regra.
+## 2. BUGS E DÍVIDA — VERIFICADOS LINHA-A-LINHA
 
-## 4. Gambiarras / dívida técnica
-- [ ] **SQLi potencial** `BairroController:40` `whereRaw("... LIKE '%$descricao%'")`
-      — `$descricao` interpolado; se vier de input, é injeção. Idem `:107`
-      (`= '$descricao'`), `:25/:28` (grupo_id/uf interpolados — menor risco, vêm de sessão).
-- [ ] Buscas geográficas com `whereRaw` poderiam ser query builder com bindings.
-- [ ] `Empresaconfig` mistura ~50 campos heterogêneos numa tabela só (config fiscal +
-      operacional + chaves + visual) — candidata a separação/normalização.
-- [ ] Validação de formulário inline nos controllers (não FormRequest dedicado em todos).
+### 🔴 Compatibilidade Postgres (QUEBRADO em runtime)
+- **`updateLob()` — método do driver Oracle (yajra/oci8, REMOVIDO na Fase 4) —
+  usado em 8 lugares**: EmpresaController:152,378; EmpresasGrupoController:64,121
+  (+ os 4 espelhos no Monitora). NÃO há macro registrada. No Postgres
+  `DB::table()->updateLob(...)` → **BadMethodCallException**. ⇒ **Gravar o logo
+  (logoimg) da empresa e do grupo está QUEBRADO no Postgres.** A varredura de 98
+  módulos não pegou porque só exercitou o `index` (logo é gravado no store/update).
+  **Corrigir: substituir updateLob por update normal de coluna bytea.**
+- **`strpos($errorMsg, "ORA-02292")`** (Bairro:145, Cidade:130, Rua:83): detecta
+  violação de FK pelo código de erro **Oracle**. No Postgres o código é `23503`
+  (SQLSTATE) → a detecção falha e retorna a **mensagem de erro crua** em vez da
+  amigável "registro em uso". Bug de UX/compat em delete de bairro/cidade/rua.
 
-## 5. Riscos de tocar
-- **Empresaconfig é 🔴**: alterar a forma como os defaults (PC/CC de frete, juros,
-  NF-e) são lidos afeta Pedido/Financeiro/NF-e. Reescrever exige cuidado e baseline.
-- Geográfico é acoplado a Cliente/Pedido/Entrega (endereço). Mudança no modelo
-  geográfico ramifica.
-- Os CRUDs de apoio (banco, documento...) são isolados → baixo risco.
+### 🔴 Segurança (SQLi)
+- **whereRaw com input do usuário interpolado** nos 3 geográficos:
+  - `Bairro:25,28,31,40,107` — `$uf_atual` vem de `$_GET['uf_filtro']` (linha 23) e
+    `$descricao` de `Input::get` (38) → **SQLi** (linha 25 e LIKE 40). `$grupo_id`
+    vem da sessão (risco menor).
+  - `Rua:26,29,32,41,154` — idêntico (`$uf_atual`/`$uf_empresa`/`$descricao`).
+  - `Cidade:25,85` — `$descricao` LIKE interpolado.
+  - Há sanitização parcial (`str_encode_to_query`, `rawTranslateSpecialChars`) mas
+    não substitui binding. **Corrigir: parametrizar (Frente C).**
 
-## 6. Estado de compatibilidade Postgres
-- ✅ CRUDs funcionam (validados na varredura de 98 módulos, 200).
-- 🟡 `BairroController` tem whereRaw interpolado a parametrizar (entra na Frente C).
-- Empresaconfig já teve fix de null-guard (caso "empresa sem config").
+### 🟠 Bug lógico
+- **EmpresaconfigController::update:419** — `if (!isset($replicado) && !$replicado)`:
+  condição **invertida** vs. o `store:365` (`if (isset($replicado) && !$replicado)`).
+  No update, se `$replicado` não setado, dispara o throw; e quando setado false, NÃO
+  dispara. Lógica de erro da replicação matriz/filial provavelmente furada.
+- **EmpresasGrupo/Banco/Documentotipo/Motivonaovenda `store`/`update` SEM transação**
+  (create/update soltos) — diferente do padrão DB::transaction do resto do domínio.
 
-## 7. Visão REESCRITA (Laravel 12)
-- **CRUDs de apoio** (banco, regiao, cidade, documento/tipo, motivo, sorteio,
-  estadocivil-like): reescrever como recursos limpos (FormRequest + Resource +
-  Policy + UI moderna em tabela/formulário padronizado). Baixo risco, ganho de UX
-  alto e rápido — bons primeiros módulos do "novo".
-- **Geográfico**: serviço de endereço com bindings (sem whereRaw); dropdowns via
-  API JSON; possível integração CEP.
-- **Empresa**: reescrever o cadastro com UX moderna, mas **mantendo o schema**
-  (muitas FKs dependem dele).
-- **Empresaconfig**: REFATORAR primeiro (separar grupos de config; expor via
-  serviço `EmpresaConfig::getForSession`), reescrever a UI depois. Não reescrever
-  o modelo de dados sem baseline fiscal (frete/juros/NF-e dependem dele).
+### 🟡 Dívida estrutural
+- **Empresa/Empresaconfig = God forms**: `index` do Empresaconfig monta ~70 variáveis
+  no compact (260-336); `getSelects` com switch de 15 casos. Muito formulário.
+- **Lógica de apresentação no controller**: `Cidade::dropdown`/`Bairro::dropdown`
+  montam `\Form::select` (HTML) e retornam string.
+- **`$_GET` lido direto** (Bairro/Rua/Cidade index: filtros + montagem de URL).
+- **`create`/`show`/`edit` vazios** em vários (Documentotipo, Motivonaovenda,
+  EmpresasGrupo, Regiao) — formulários via modal no front (acoplamento JS/back).
+- **`menuspermissoesAll()`** (Empresaconfig:189-190): confirma uso de Centrocusto::/
+  Planoconta:: (não o Menu morto do D11).
 
-## 8. DECISÃO e justificativa
-- **CRUDs de apoio → REESCREVER** (Banco, Regiao, Cidade, Documento, Documentotipo,
-  Documentogestao, Motivonaovenda, Sorteio, Empresabens, Setor): baixo risco, alto
-  ganho de UX, ótimos para estrear o padrão novo após o D11.
-- **Geográfico (Bairro/Cidade/Rua) → REFATORAR** primeiro (corrigir SQLi/whereRaw),
-  reescrever UI depois.
-- **Empresa → REESCREVER UI / manter schema.**
-- **Empresaconfig → REFATORAR** (é 🔴, lido por NF-e/financeiro; mexer no modelo só
-  com baseline fiscal — Frente D).
-- **Pré-requisitos:** SQLi do Bairro (Frente C) antes de qualquer migração; D11
-  (acesso/menu novo) antes, pois os CRUDs novos usarão a navegação nova.
-- **Esforço:** CRUDs de apoio = baixo (dias, em lote); Empresa/Empresaconfig = médio.
-- **Ordem:** depois do D11; servem de "vitrine" do padrão novo com risco mínimo.
+### ✅ O que está BOM
+- Maioria dos CRUDs com DB::transaction + rollback + autorização (`view/create/
+  update/delete` + `igualdade` por dono).
+- Empresa: `checarNfNumero` evita duplicidade de número de NF (regra fiscal real,
+  preservar). `validateContingency` (mapa UF→SVC) é regra fiscal válida.
+- PIX no Empresaconfig: client_id/secret/chavepix com `encrypt()` (Crypt). Senha
+  mestre com Hash + log de auditoria.
+- Documento: versionamento de arquivo com Storage, transações.
+- Sorteio: limpo, sem SQL cru de risco.
+
+## 3. Especificação do REESCRITO (Laravel 12) — baseada no código real
+- **CRUDs de apoio** (Banco, Regiao, Cidade, Documento/tipo/gestao, Motivonaovenda,
+  Sorteio, Empresabens, Setor, EmpresasGrupo) → recursos limpos (FormRequest/Resource/
+  Policy), UI moderna, **com transação** em todos. Vitrine do padrão novo.
+- **Geográfico** → serviço de endereço com **bindings** (sem whereRaw/`$_GET`);
+  dropdowns via API JSON (sem `Form::select` no back); detecção de FK por SQLSTATE
+  `23503` (não ORA-02292).
+- **Logo (logoimg)** → coluna `bytea`, gravada por update Eloquent normal (eliminar
+  `updateLob`). **Quick win de compat aplicável já.**
+- **Empresa** → reescrever UI (abas: cadastro / fiscal NF-e/NFC-e / SAT / SPED /
+  certificado); manter schema (muitas FKs) e as regras `checarNfNumero`/contingência.
+- **Empresaconfig** → REFATORAR: separar config em grupos; corrigir o bug do `update:419`;
+  Service de replicação matriz→filial testável. Reescrever UI depois. É 🔴 (lido por
+  NF-e/financeiro) → só mexer no modelo com baseline.
+
+## 4. DECISÃO
+- **CRUDs de apoio + geográfico + Setor + Documento + Empresabens + Sorteio →
+  REESCREVER** (baixo risco, alto ganho UX).
+- **Empresa → REESCREVER UI / manter schema e regras fiscais.**
+- **Empresaconfig → REFATORAR** (fiscal/financeiro; baseline).
+- **Quick wins de compat/segurança aplicáveis JÁ (não dependem da reescrita):**
+  (a) eliminar `updateLob` (logo quebrado no PG) — 8 lugares;
+  (b) trocar `ORA-02292` por SQLSTATE 23503 (delete geográfico) — 3 lugares;
+  (c) parametrizar whereRaw dos geográficos (SQLi) — Frente C;
+  (d) corrigir bug lógico Empresaconfig:419.
+- **Pré-requisitos:** D11 (navegação nova); baseline p/ Empresaconfig.
+- **Esforço:** apoio = baixo (lote); Empresa/Empresaconfig = médio.

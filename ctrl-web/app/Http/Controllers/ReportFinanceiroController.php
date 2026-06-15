@@ -60,15 +60,15 @@ class ReportFinanceiroController extends Controller
         switch ($tipo) {
             case 'E':
             $this->filtros .= 'Emissão;';
-            $this->filtros .= ' Ordem: ' . $ordem == 'C' ? 'Clientes;' : 'Data Emissão;';
+            $this->filtros .= ' Ordem: ' . ($ordem == 'C' ? 'Clientes;' : 'Data Emissão;');
             break;
             case 'V':
             $this->filtros .= 'Vencimento;';
-            $this->filtros .= ' Ordem: ' . $ordem == 'C' ? 'Clientes;' : 'Data Vencimento;';
+            $this->filtros .= ' Ordem: ' . ($ordem == 'C' ? 'Clientes;' : 'Data Vencimento;');
             break;
             default:
             $this->filtros .= 'Pago;';
-            $this->filtros .= ' Ordem: ' . $ordem == 'C' ? 'Clientes;' : 'Data Pagamento;';
+            $this->filtros .= ' Ordem: ' . ($ordem == 'C' ? 'Clientes;' : 'Data Pagamento;');
             break;
         }
         $this->filtros .= ' Situação:';
