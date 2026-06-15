@@ -25,7 +25,7 @@ class NfgrupofiscalController extends Controller
         $this->authorize('create',$grf);
         $data = $request->all();
         $this->validate($request, [
-            'descricao' => 'required|max:100|unique:nfgrupofiscals,descricao,NULL,id,grupo_id,' . Session::get('empresa_padrao')->id,
+            'descricao' => 'required|max:100|unique:nfgrupofiscals,descricao,NULL,id,grupo_id,' . Session::get('empresa_padrao')->grupo_id,
             ]);
         $data['empresa_id'] = Session::get('empresa_padrao')->id;
         $data['grupo_id'] = Session::get('empresa_padrao')->grupo_id;
@@ -40,7 +40,7 @@ class NfgrupofiscalController extends Controller
         $this->authorize('igualdade',$grupofiscal);
         $data = $request->all();
         $this->validate($request, [
-            'descricao' => 'required|max:100|unique:nfgrupofiscals,descricao,' . $id . ',id,grupo_id,' . Session::get('empresa_padrao')->id,
+            'descricao' => 'required|max:100|unique:nfgrupofiscals,descricao,' . $id . ',id,grupo_id,' . Session::get('empresa_padrao')->grupo_id,
             ]);
         $data['ativo'] = isset($data['ativo']) ? 1 : 0;
         $data['empresa_id'] = Session::get('empresa_padrao')->id;

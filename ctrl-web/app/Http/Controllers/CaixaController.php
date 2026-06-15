@@ -832,13 +832,16 @@ class CaixaController extends Controller
             $empresa_razao_social = $empresa->razao_social;
             $empresa_cnpj = $empresa->cnpj;
 
+            // colunas reais (Postgres): pagarreceber e datahorabaixa
+            // (antes pagar_receber/data_pagamento, inexistentes → recibo CR quebrava).
             $mov = Contamovimento::with('financeiroparcela')
                 ->where('financeiroparcela_id', $parc->id)
-                ->where('pagar_receber', $parc->pagar_receber)
-                ->orderBy('data_pagamento', 'desc')
+                ->where('pagarreceber', $parc->pagarreceber)
+                ->orderBy('datahorabaixa', 'desc')
                 ->get()
                 ->first();
-            $emp = Empresa::find($mov->empresa_id);
+            if (is_null($mov))
+                continue;
             $mov['empresa_razao_social'] = $empresa_razao_social;
             $mov['empresa_cnpj'] = $empresa_cnpj;
             //$mov->empresa = null;
