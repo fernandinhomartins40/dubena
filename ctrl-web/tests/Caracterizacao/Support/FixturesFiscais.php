@@ -70,6 +70,8 @@ trait FixturesFiscais
             'financeiros', 'financeiroparcelas', 'financeirorateios',
             'users', 'contatipos', 'contas', 'contausers', 'contafechamentos',
             'contamovimentos', 'condicaopagamentos',
+            'estoquefechamentos', 'estoquefechamentosetors',
+            'estoquefisicos', 'estoquefisicosetors',
         ] as $tabela) {
             $this->sincronizarSequence($tabela);
         }
