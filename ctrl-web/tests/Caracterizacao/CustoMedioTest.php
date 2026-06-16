@@ -52,7 +52,7 @@ class CustoMedioTest extends TestCase
     {
         $p = $this->stub(10.0);
         Produto::updateCustoMedio($p, 100, 50, 16.0, false);
-        $this->assertEquals(12.0, $p->customedioGravado, '', 0.0001);
+        $this->assertEqualsWithDelta(12.0, $p->customedioGravado, 0.0001);
     }
 
     /**
@@ -63,7 +63,7 @@ class CustoMedioTest extends TestCase
     {
         $p = $this->stub(12.0);
         Produto::updateCustoMedio($p, 150, 50, 16.0, true);
-        $this->assertEquals(10.0, $p->customedioGravado, '', 0.0001);
+        $this->assertEqualsWithDelta(10.0, $p->customedioGravado, 0.0001);
     }
 
     /**
@@ -74,7 +74,7 @@ class CustoMedioTest extends TestCase
     {
         $p = $this->stub(10.0);
         Produto::updateCustoMedio($p, 50, 50, 16.0, true);
-        $this->assertEquals(0, $p->customedioGravado, '', 0.0001);
+        $this->assertEqualsWithDelta(0, $p->customedioGravado, 0.0001);
     }
 
     /**
@@ -85,6 +85,6 @@ class CustoMedioTest extends TestCase
     {
         $p = $this->stub(0.0);
         Produto::updateCustoMedio($p, 100, 10, 20.0, false);
-        $this->assertEquals(20.0, $p->customedioGravado, '', 0.0001);
+        $this->assertEqualsWithDelta(20.0, $p->customedioGravado, 0.0001);
     }
 }

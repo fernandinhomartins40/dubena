@@ -71,13 +71,13 @@ class GravarFinanceiroTest extends TestCase
         $fin = Financeiro::where('cliente_id', $cliente->id)
             ->where('documento', 'DOC-1')->first();
         $this->assertNotNull($fin);
-        $this->assertEquals(1000.0, (float) $fin->valor, '', 0.0001);
+        $this->assertEqualsWithDelta(1000.0, (float) $fin->valor, 0.0001);
         $this->assertSame('R', $fin->pagarreceber);
 
         // Uma parcela única no valor total.
         $parcelas = Financeiroparcela::where('financeiro_id', $fin->id)->get();
         $this->assertCount(1, $parcelas);
-        $this->assertEquals(1000.0, (float) $parcelas[0]->valor, '', 0.0001);
+        $this->assertEqualsWithDelta(1000.0, (float) $parcelas[0]->valor, 0.0001);
         $this->assertEquals(1, (int) $parcelas[0]->numero);
 
         // Rateio único cobrindo 100% no centro/plano informados.
@@ -85,6 +85,6 @@ class GravarFinanceiroTest extends TestCase
         $this->assertCount(1, $rateios);
         $this->assertEquals((int) $centro->id, (int) $rateios[0]->centrocusto_id);
         $this->assertEquals((int) $plano->id, (int) $rateios[0]->planoconta_id);
-        $this->assertEquals(1000.0, (float) $rateios[0]->valor, '', 0.0001);
+        $this->assertEqualsWithDelta(1000.0, (float) $rateios[0]->valor, 0.0001);
     }
 }

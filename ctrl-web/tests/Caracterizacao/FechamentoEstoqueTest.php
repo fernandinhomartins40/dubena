@@ -84,7 +84,7 @@ class FechamentoEstoqueTest extends TestCase
             ->where('produto_id', $this->produto->id)
             ->first();
         $this->assertNotNull($linha, 'estoquefechamentosetor não gerado');
-        $this->assertEquals(6, (float) $linha->quantidade, '', 0.0001);
+        $this->assertEqualsWithDelta(6, (float) $linha->quantidade, 0.0001);
     }
 
     public function testFechamentoSemMovimentacaoFalha()

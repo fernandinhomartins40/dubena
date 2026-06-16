@@ -89,7 +89,7 @@ class EstoqueFisicoTest extends TestCase
         $setor = Estoquesetor::where('produto_id', $this->produto->id)
             ->where('setor_id', $this->setor->id)->first();
         $this->assertNotNull($setor);
-        $this->assertEquals(8, (float) $setor->quantidade, '', 0.0001);
+        $this->assertEqualsWithDelta(8, (float) $setor->quantidade, 0.0001);
 
         // Estoque físico marcado como efetivado.
         $ef->refresh();

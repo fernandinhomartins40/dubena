@@ -6,7 +6,6 @@ storage/
 nbproject/
 .vscode/
 .idea/
-composer.lock
 ctrl1.sql
 Homestead.yaml
 Homestead.json
@@ -14,5 +13,6 @@ Homestead.json
 _ide_helper.php
 _ide_helper_models.php.php
 .phpstorm.meta.php
+.phpunit.result.cache
 
 web.config

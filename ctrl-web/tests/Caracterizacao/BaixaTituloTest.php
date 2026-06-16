@@ -90,16 +90,16 @@ class BaixaTituloTest extends TestCase
         $parcela = Financeiroparcela::where('financeiro_id', $fin->id)->first();
         $this->assertNotNull($parcela);
         $this->assertTrue((bool) $parcela->baixado, 'parcela deveria estar baixada');
-        $this->assertEquals(100.0, (float) $parcela->valorefetivado, '', 0.0001);
+        $this->assertEqualsWithDelta(100.0, (float) $parcela->valorefetivado, 0.0001);
 
         // Movimento de caixa gerado para a parcela.
         $movto = Contamovimento::where('financeiroparcela_id', $parcela->id)->first();
         $this->assertNotNull($movto, 'contamovimento não gerado');
-        $this->assertEquals(100.0, (float) $movto->valorefetivado, '', 0.0001);
+        $this->assertEqualsWithDelta(100.0, (float) $movto->valorefetivado, 0.0001);
         $this->assertSame('R', $movto->pagarreceber);
 
         // Saldo da conta sobe em 100 (recebimento).
         $conta->refresh();
-        $this->assertEquals(100.0, (float) $conta->saldoatual, '', 0.0001);
+        $this->assertEqualsWithDelta(100.0, (float) $conta->saldoatual, 0.0001);
     }
 }
