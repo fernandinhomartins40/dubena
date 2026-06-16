@@ -88,7 +88,8 @@ class NfwebController extends Controller
         // do app. Agora compara com um segredo PRÓPRIO (APP_TOKEN_KEY) em tempo
         // constante (hash_equals); fallback para sha1(APP_KEY) só sem APP_TOKEN_KEY,
         // para transição. A mensagem não expõe mais o valor esperado.
-        $expected = env('APP_TOKEN_KEY');
+        // config() (não env() direto): sob config:cache, env() fora de config/ é null.
+        $expected = config('integracoes.app_token_key');
         if (empty($expected)) {
             $expected = sha1(env('APP_KEY'));
         }
