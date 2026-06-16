@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use DB;
-use Excel;
 use App\Rua;
 use Session;
 use Redirect;
@@ -27,9 +26,7 @@ use App\Clientecontato;
 use App\Clientecontatotipo;
 use Illuminate\Http\Request;
 use App\Clientecontatosituacao;
-use PHPExcel_Worksheet_Drawing;
 use App\Repository\SelectRepository;
-use PHPExcel_Worksheet_MemoryDrawing;
 use Illuminate\Support\Facades\Response;
 
 class ReportController extends Controller
@@ -124,51 +121,30 @@ class ReportController extends Controller
             array_push($xls, ['', '']);
             array_push($xls, [$contato->cliente->nome, implode($contato->cliente->telefones->pluck('telefone')->toArray(),', '), $contato->cliente->email, $contato->descricao, $contato->contatosituacao->descricao]);
         }
-        Excel::create('FollowUp', function($excel) use ($xls) {
-            $excel->sheet('FollowUp', function($sheet) use($xls) {
-                $sheet->setAutoSize(false);
-                $sheet->setPageMargin(0.5);
-                $sheet->fromArray($xls, null, 'A1', true, false);
+        // Migrado de Maatwebsite/Excel 2.1 + PHPExcel → PhpSpreadsheet (Laravel 6).
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('FollowUp');
+        $sheet->getPageMargins()->setTop(0.5)->setBottom(0.5)->setLeft(0.5)->setRight(0.5);
+        $sheet->fromArray($xls, null, 'A1');
 
-                $sheet->cells('B1:B3', function($cells) {
-                    $cells->setFontWeight('bold');
-                    $cells->setFontSize(14);
-                });
+        $sheet->getStyle('B1:B3')->getFont()->setBold(true)->setSize(14);
 
-                $sheet->setWidth('A', 40);
-                $sheet->setWidth('B', 50);
-                $sheet->setWidth('C', 50);
+        $sheet->getColumnDimension('A')->setWidth(40);
+        $sheet->getColumnDimension('B')->setWidth(50);
+        $sheet->getColumnDimension('C')->setWidth(50);
 
-                for($i=0;$i<count($xls);$i++){
-                    if($xls[$i][0]=="Nome"){
-                        $sheet->cells('A'.($i).':D'.($i), function($cells) {
-                            $cells->setFontWeight('bold');
-                            $cells->setFontSize(13);
-                        });
-                        $sheet->cells('A'.($i+1).':D'.($i+1), function($cells) {
-                            $cells->setFontWeight('bold');
-                            $cells->setFontSize(13);
-                        });
-                    }
-                }
-                if(Session::get('empresa_padrao')->logo!=null){
-                    $image = imagecreatefromstring(Session::get('empresa_padrao')->logo);
-                    imagesavealpha($image, true);
-                    $drawing = new PHPExcel_Worksheet_MemoryDrawing();
-                    $drawing->setName('teste');
-                    $drawing->setImageResource($image);
-                    $drawing->setRenderingFunction(PHPExcel_Worksheet_MemoryDrawing::RENDERING_PNG);
-                    $drawing->setMimeType(PHPExcel_Worksheet_MemoryDrawing::MIMETYPE_DEFAULT);
-                    $drawing->setWidthAndHeight(148,70);
-                    $drawing->setResizeProportional(true);
-                    $drawing->setCoordinates('A1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(5);
-                    $drawing->setWorksheet($sheet);
-                }
-            });
-        })->download('xlsx');
+        for ($i = 0; $i < count($xls); $i++) {
+            if ($xls[$i][0] == "Nome") {
+                // $xls é 0-indexed; as linhas da planilha são 1-indexed → $i+1 e $i+2.
+                $sheet->getStyle('A' . ($i + 1) . ':D' . ($i + 1))->getFont()->setBold(true)->setSize(13);
+                $sheet->getStyle('A' . ($i + 2) . ':D' . ($i + 2))->getFont()->setBold(true)->setSize(13);
+            }
+        }
 
+        \App\Helpers\XlsxExporter::inserirLogo($sheet, Session::get('empresa_padrao')->logo, 'A1');
+
+        return \App\Helpers\XlsxExporter::download($spreadsheet, 'FollowUp');
     }
     public function filtroFollowUpAll()
     {

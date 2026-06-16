@@ -23,6 +23,6 @@ class NotificationTest extends TestCase
 
         // Consulta não deve lançar exceção contra o Postgres.
         $count = DB::table('androids')->count();
-        $this->assertInternalType('int', $count);
+        $this->assertIsInt($count);
     }
 }

@@ -66,7 +66,9 @@ jobs:
           # --no-scripts evita rodar artisan antes do .env/migrate; usa o lock.
           # --no-plugins: composer 2 bloqueia plugins fora da allow-list
           # (kylekatarnls/update-helper) e abortaria o install no deploy.
-          docker compose -f docker-compose.prod.yml exec -T app \
+          # COMPOSER_PROCESS_TIMEOUT=0: o install do Laravel 6 (pacotes grandes)
+          # estoura o limite padrão de 300s no unzip — sem isso o deploy trava.
+          docker compose -f docker-compose.prod.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
             composer install --no-interaction --prefer-dist --no-progress --no-dev \
             --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8
 

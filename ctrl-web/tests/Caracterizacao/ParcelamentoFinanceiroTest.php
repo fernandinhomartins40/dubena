@@ -63,13 +63,13 @@ class ParcelamentoFinanceiroTest extends TestCase
         $parcelas = $proc->getParcelas();
         $this->assertCount(2, $parcelas);
 
-        $this->assertEquals(100, (float) $parcelas[0]['valor'], '', 0.0001);
-        $this->assertEquals(6.0, (float) $parcelas[0]['desconto'], '', 0.0001);
-        $this->assertEquals(94.0, (float) $parcelas[0]['valorefetivado'], '', 0.0001);
+        $this->assertEqualsWithDelta(100, (float) $parcelas[0]['valor'], 0.0001);
+        $this->assertEqualsWithDelta(6.0, (float) $parcelas[0]['desconto'], 0.0001);
+        $this->assertEqualsWithDelta(94.0, (float) $parcelas[0]['valorefetivado'], 0.0001);
 
-        $this->assertEquals(100, (float) $parcelas[1]['valor'], '', 0.0001);
-        $this->assertEquals(4.0, (float) $parcelas[1]['desconto'], '', 0.0001);
-        $this->assertEquals(96.0, (float) $parcelas[1]['valorefetivado'], '', 0.0001);
+        $this->assertEqualsWithDelta(100, (float) $parcelas[1]['valor'], 0.0001);
+        $this->assertEqualsWithDelta(4.0, (float) $parcelas[1]['desconto'], 0.0001);
+        $this->assertEqualsWithDelta(96.0, (float) $parcelas[1]['valorefetivado'], 0.0001);
     }
 
     /**
@@ -91,8 +91,8 @@ class ParcelamentoFinanceiroTest extends TestCase
 
         $parcelas = $proc->getParcelas();
         $this->assertCount(2, $parcelas);
-        $this->assertEquals(0, (float) $parcelas[0]['desconto'], '', 0.0001);
-        $this->assertEquals(50, (float) $parcelas[0]['valorefetivado'], '', 0.0001);
+        $this->assertEqualsWithDelta(0, (float) $parcelas[0]['desconto'], 0.0001);
+        $this->assertEqualsWithDelta(50, (float) $parcelas[0]['valorefetivado'], 0.0001);
         $this->assertEquals(1, (int) $parcelas[0]['numero']);
         $this->assertEquals(2, (int) $parcelas[1]['numero']);
         $this->assertEquals('R', $parcelas[1]['pagarreceber']);

@@ -226,7 +226,10 @@ return [
     'Excel' => Maatwebsite\Excel\Facades\Excel::class,
     'Notifications' => Illuminate\Support\Facades\Notification::class,
     'PDF' => Barryvdh\DomPDF\Facade::class,
-    'Input' => \Illuminate\Support\Facades\Input::class,
+    // Laravel 6 removeu o facade Input. Re-apontar p/ Request (que responde a
+    // get/all/only/file via __callStatic) mantém os ~39 usos de Input:: sem
+    // reescrever agora; migração p/ request()->input() fica para a limpeza (F5).
+    'Input' => \Illuminate\Support\Facades\Request::class,
     'SpreadSheet' => PhpOffice\PhpSpreadsheet\Spreadsheet::class,
     'Xlsx' => PhpOffice\PhpSpreadsheet\Writer\Xlsx::class
   ],
