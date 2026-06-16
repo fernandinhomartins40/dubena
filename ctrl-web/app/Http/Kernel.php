@@ -56,5 +56,8 @@ class Kernel extends HttpKernel
         // UNIFICAÇÃO: auth do módulo Monitoramento (guard 'monitora', redirect
         // p/ /monitora/login; sem a validação de empresa do ERP).
         'auth.monitora' => \App\Monitora\Http\Middleware\Authenticate::class,
+        // FASE 3: redireciona a tela legada p/ o recurso Filament quando a flag
+        // de UI moderna do módulo está ligada. Ex.: 'ui.moderna:cidade,/admin/cidades'
+        'ui.moderna' => \App\Http\Middleware\RedirecionaUiModerna::class,
     ];
 }

@@ -2019,3 +2019,17 @@ if (!function_exists("throwIf")) {
         }
     }
 }
+
+if (!function_exists("uiModernaAtiva")) {
+    /**
+     * FASE 3 — diz se a UI moderna (Filament) está ligada para um módulo.
+     * Exige o painel habilitado globalmente E a flag do módulo. Usado no
+     * middleware de redirecionamento por flag (RedirecionaUiModerna) e pode ser
+     * usado nas views legadas (links de menu).
+     */
+    function uiModernaAtiva($modulo)
+    {
+        return (bool) config('ui_moderna.habilitado', false)
+            && (bool) config("ui_moderna.modulos.$modulo", false);
+    }
+}

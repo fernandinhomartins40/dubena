@@ -972,11 +972,19 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::get('clientetelefone/buscaclientetelefone/{tel}', ['as' => 'ajax.clientetelefone', 'uses' => 'SearchController@buscaClienteTelefone']);
     Route::get('setorcolaboradores/buscacolaboradorsetor/{setor_id}', ['as' => 'ajax.buscacolaboradorsetor', 'uses' => 'SetorcolaboradoresController@buscaAjax']);
 
-    Route::resource('cidade', 'CidadeController');
+    // FASE 3: index de cidade/bairro com flag de UI moderna. O resource exclui o
+    // index; o index é declarado à parte com o middleware 'ui.moderna' (quando a
+    // flag do módulo está ON, redireciona p/ o recurso Filament). Sem a flag,
+    // serve a tela legada normalmente. Demais ações seguem no resource.
+    Route::resource('cidade', 'CidadeController')->except(['index']);
+    Route::get('cidade', ['as' => 'cidade.index', 'uses' => 'CidadeController@index'])
+        ->middleware('ui.moderna:cidade,/admin/cidades');
     Route::get('cidade/dropdown/{uf}', ['as' => 'ajax.dropdowncidadeuf', 'uses' => 'CidadeController@dropdown']);
     Route::get('cidade/buscaPorNomeEEstado/{nome}/{estado}', ['as' => 'ajax.buscapornomeuf', 'uses' => 'CidadeController@buscaPorNomeEEstado']);
 
-    Route::resource('bairro', 'BairroController');
+    Route::resource('bairro', 'BairroController')->except(['index']);
+    Route::get('bairro', ['as' => 'bairro.index', 'uses' => 'BairroController@index'])
+        ->middleware('ui.moderna:bairro,/admin/bairros');
     Route::get('bairro/dropdown/{id}', ['as' => 'ajax.bairrodropdown', 'uses' => 'BairroController@dropdown']);
     Route::get('bairro/dropdown/{uf}/{getOptions}', ['as' => 'ajax.bairrodropdown', 'uses' => 'BairroController@dropdown']);
     Route::get('bairro/buscaPorNomeECidade/{nome}/{cidade}', ['as' => 'ajax.buscanomecidade/{nome}/{cidade}', 'uses' => 'BairroController@buscaPorNomeECidade']);
