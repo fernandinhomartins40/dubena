@@ -13,8 +13,6 @@ use Barryvdh\DomPDF;
 use App\Monitora\Models\Veiculotipo;
 use App\Http\Requests;
 use Illuminate\Http\Request;
-use PHPExcel_Worksheet_Drawing;
-use PHPExcel_Worksheet_MemoryDrawing;
 use Illuminate\Support\Facades\Response;
 
 class ReportController extends Controller

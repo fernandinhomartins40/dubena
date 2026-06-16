@@ -12,9 +12,6 @@ use DB;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
-use Maatwebsite\Excel\Facades\Excel;
-use PHPExcel_Worksheet_Drawing;
-use PHPExcel_Worksheet_MemoryDrawing;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing;
 use Config;
@@ -158,156 +155,131 @@ class FechamentomensalgestaoController extends Controller
 
     public function geraArquivoDRE($tipoExport, $dataDreMensal, $nomearquivo)
     {
-        Excel::create($nomearquivo, function($excel) use ($dataDreMensal, $tipoExport) {
-            $excel->sheet('DRE', function($sheet) use($dataDreMensal, $tipoExport) {
-                $sheet->setAutoSize(false);
-                $sheet->setOrientation('portrait');
-                $sheet->setPageMargin(array(
-                    0.1, 0.1, 0.1, 0.1
-                ));
-                $dados = $dataDreMensal->data;
-                $sheet->fromArray($dados, null, 'A1', true, false);
-                $fulldata = $dataDreMensal->fulldata;
-                for($i=1;$i<=5;$i++){
-                    $sheet->mergeCells('B'.($i).':D'.($i));
-                }
-                for($i=count($fulldata)-2;$i<=count($fulldata);$i++){
-                    $sheet->mergeCells('B'.($i).':D'.($i));
-                }
-                $this->setStyle($sheet, 'B2', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 8, false, false, false);
-                $this->setStyle($sheet, 'B3', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_CENTER, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 12, true, false, false);
-                $this->setStyle($sheet, 'B5', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_CENTER, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, false);
-                for($i=5;$i<count($fulldata)-3;$i++){
-                    $row = $fulldata[$i];
-                    if($row->cabecalho == 2){
-                            $sheet->mergeCells('B'.($i+1).':D'.($i+1));
-                            $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_BOTTOM, 'Helvetica', 11, true, false, false);
-                            if($row->plano != ''){
-                            $sheet->setSize('B'.($i+1), 20, 25);
-                            } elseif($tipoExport=='pdf') {
-                            $sheet->setSize('B'.($i+1), 1, 1);
-                            }
-                    } elseif($row->cabecalho == 1){
-                        $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                        $this->setStyle($sheet, 'C'.($i+1).':D'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                    } else {
-                        $this->setStyle($sheet, 'B'.($i+1).':B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
-                        $this->setStyle($sheet, 'C'.($i+1).':D'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+        // Migrado de Maatwebsite/Excel 2.1 + PHPExcel → PhpSpreadsheet (Laravel 6).
+        $Align = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('DRE');
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageMargins()->setTop(0.1)->setRight(0.1)->setBottom(0.1)->setLeft(0.1);
+        $dados = $dataDreMensal->data;
+        $sheet->fromArray($dados, null, 'A1');
+        $fulldata = $dataDreMensal->fulldata;
+        for($i=1;$i<=5;$i++){
+            $sheet->mergeCells('B'.($i).':D'.($i));
+        }
+        for($i=count($fulldata)-2;$i<=count($fulldata);$i++){
+            $sheet->mergeCells('B'.($i).':D'.($i));
+        }
+        $this->setStyle($sheet, 'B2', false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 8, false, false, false);
+        $this->setStyle($sheet, 'B3', false, 'thin', $Align::HORIZONTAL_CENTER, $Align::VERTICAL_CENTER, 'Helvetica', 12, true, false, false);
+        $this->setStyle($sheet, 'B5', false, 'thin', $Align::HORIZONTAL_CENTER, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, false);
+        for($i=5;$i<count($fulldata)-3;$i++){
+            $row = $fulldata[$i];
+            if($row->cabecalho == 2){
+                    $sheet->mergeCells('B'.($i+1).':D'.($i+1));
+                    $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, $Align::VERTICAL_BOTTOM, 'Helvetica', 11, true, false, false);
+                    if($row->plano != ''){
+                    $sheet->getRowDimension($i+1)->setRowHeight(25);
+                    } elseif($tipoExport=='pdf') {
+                    $sheet->getRowDimension($i+1)->setRowHeight(1);
                     }
-                }
-                $sheet->setColumnFormat(array(
-                    'C8:D'.(count($fulldata)-3) => '#,##0.00_ ;-#,##0.00 ',
-                ));
-                $sheet->setWidth(array(
-                    'A' => $this->colWidth(5), 'B' => $this->colWidth(50), 'C' => $this->colWidth(12), 'D' => $this->colWidth(10), 'E' => $this->colWidth(5)
-                ));
-                if($tipoExport=='xlsx'){
-                    $image = imagecreatefromstring(base64_decode(Session::get('empresa_padrao')->logo));
-                    imagesavealpha($image, true);
-                    $drawing = new PHPExcel_Worksheet_MemoryDrawing();
-                    $drawing->setName('teste');
-                    $drawing->setImageResource($image);
-                    $drawing->setRenderingFunction(PHPExcel_Worksheet_MemoryDrawing::RENDERING_PNG);
-                    $drawing->setMimeType(PHPExcel_Worksheet_MemoryDrawing::MIMETYPE_DEFAULT);
-                    $drawing->setWidthAndHeight(150, 74);
-                    $drawing->setResizeProportional(true);
-                    $drawing->setCoordinates('A1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(5);
-                    $drawing->setWorksheet($sheet);
-                } else {
-                    $sheet->cells('A'.(count($fulldata)+1).':E'.(count($fulldata)+1), function($cells) {
-                        $cells->setBorder('thin', 'none', 'none', 'none');
-                        $cells->setFontSize(9);
-                    }); 
-                }
-            });
-        })->save($tipoExport);
-        $fullpath = storage_path('exports') . "/" . $nomearquivo. "." .$tipoExport;
-        return file_exists($fullpath)?$fullpath:null;
+            } elseif($row->cabecalho == 1){
+                $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
+                $this->setStyle($sheet, 'C'.($i+1).':D'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
+            } else {
+                $this->setStyle($sheet, 'B'.($i+1).':B'.($i+1), false, 'thin', false, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+                $this->setStyle($sheet, 'C'.($i+1).':D'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+            }
+        }
+        $sheet->getStyle('C8:D'.(count($fulldata)-3))->getNumberFormat()->setFormatCode('#,##0.00_ ;-#,##0.00 ');
+        $sheet->getColumnDimension('A')->setWidth($this->colWidth(5));
+        $sheet->getColumnDimension('B')->setWidth($this->colWidth(50));
+        $sheet->getColumnDimension('C')->setWidth($this->colWidth(12));
+        $sheet->getColumnDimension('D')->setWidth($this->colWidth(10));
+        $sheet->getColumnDimension('E')->setWidth($this->colWidth(5));
+        if($tipoExport=='xlsx'){
+            $logo = Session::get('empresa_padrao')->logo;
+            \App\Helpers\XlsxExporter::inserirLogo($sheet, $logo ? base64_decode($logo) : null, 'A1');
+        } else {
+            $rodape = 'A'.(count($fulldata)+1).':E'.(count($fulldata)+1);
+            $sheet->getStyle($rodape)->getFont()->setSize(9);
+            $sheet->getStyle($rodape)->getBorders()->getTop()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+
+        return \App\Helpers\XlsxExporter::salvarEmExports($spreadsheet, $nomearquivo, $tipoExport);
     }
 
     public function geraArquivoBalanco($tipoExport, $dataBalanco, $nomearquivo)
     {
-        Excel::create($nomearquivo, function($excel) use ($dataBalanco, $tipoExport) {
-            $excel->sheet('Balanço', function($sheet) use($dataBalanco, $tipoExport) {
-                $sheet->setAutoSize(false);
-                $sheet->setOrientation('portrait');
-                $sheet->setPageMargin(array(
-                    0.1, 0.1, 0.1, 0.3
-                ));
-                $dados = $dataBalanco->data;
-                $sheet->fromArray($dados, null, 'A1', true, false);
-                $fulldata = $dataBalanco->fulldata;
-                for($i=1;$i<=5;$i++){
-                    $sheet->mergeCells('B'.($i).':E'.($i));
-                }
-                for($i=count($fulldata)-2;$i<=count($fulldata);$i++){
-                    $sheet->mergeCells('B'.($i).':E'.($i));
-                }
-                $this->setStyle($sheet, 'B2', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 8, false, false, false);
-                $this->setStyle($sheet, 'B3', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_CENTER, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 12, true, false, false);
-                $this->setStyle($sheet, 'B5', false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_CENTER, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, false);
-                for($i=5;$i<count($fulldata)-3;$i++){
-                    $row = $fulldata[$i];
-                    if($row->cabecalho == 2){
-                            $sheet->mergeCells('B'.($i+1).':E'.($i+1));
-                            $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_BOTTOM, 'Helvetica', 11, true, false, false);
-                            if($row->descricao != ''){
-                            $sheet->setSize('B'.($i+1), 20, 25);
-                            } elseif($tipoExport=='pdf') {
-                            $sheet->setSize('B'.($i+1), 1, 1);
-                            }
-                    } elseif($row->cabecalho == 1){
-                        $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                        if($row->descricao == 'Conta'){
-                            $this->setStyle($sheet, 'C'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_LEFT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                        } else {
-                            $this->setStyle($sheet, 'C'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                        }
-                        $this->setStyle($sheet, 'D'.($i+1).':E'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
-                    } else {
-                        $this->setStyle($sheet, 'B'.($i+1).':B'.($i+1), false, 'thin', false, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
-                        if(is_numeric($row->descricao) || $row->descricao == 'Quantidade'){
-                            $this->setStyle($sheet, 'C'.($i+1).':E'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
-                        } else {
-                            $this->setStyle($sheet, 'C'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_LEFT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
-                            $this->setStyle($sheet, 'D'.($i+1).':E'.($i+1), false, 'thin', \PHPExcel_Style_Alignment::HORIZONTAL_RIGHT, \PHPExcel_Style_Alignment::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
-                        }
+        // Migrado de Maatwebsite/Excel 2.1 + PHPExcel → PhpSpreadsheet (Laravel 6).
+        $Align = \PhpOffice\PhpSpreadsheet\Style\Alignment::class;
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Balanço');
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageMargins()->setTop(0.1)->setRight(0.1)->setBottom(0.1)->setLeft(0.3);
+        $dados = $dataBalanco->data;
+        $sheet->fromArray($dados, null, 'A1');
+        $fulldata = $dataBalanco->fulldata;
+        for($i=1;$i<=5;$i++){
+            $sheet->mergeCells('B'.($i).':E'.($i));
+        }
+        for($i=count($fulldata)-2;$i<=count($fulldata);$i++){
+            $sheet->mergeCells('B'.($i).':E'.($i));
+        }
+        $this->setStyle($sheet, 'B2', false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 8, false, false, false);
+        $this->setStyle($sheet, 'B3', false, 'thin', $Align::HORIZONTAL_CENTER, $Align::VERTICAL_CENTER, 'Helvetica', 12, true, false, false);
+        $this->setStyle($sheet, 'B5', false, 'thin', $Align::HORIZONTAL_CENTER, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, false);
+        for($i=5;$i<count($fulldata)-3;$i++){
+            $row = $fulldata[$i];
+            if($row->cabecalho == 2){
+                    $sheet->mergeCells('B'.($i+1).':E'.($i+1));
+                    $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, $Align::VERTICAL_BOTTOM, 'Helvetica', 11, true, false, false);
+                    if($row->descricao != ''){
+                    $sheet->getRowDimension($i+1)->setRowHeight(25);
+                    } elseif($tipoExport=='pdf') {
+                    $sheet->getRowDimension($i+1)->setRowHeight(1);
                     }
-                }
-                $sheet->setColumnFormat(array(
-                    'C8:C'.(count($fulldata)-3) => '#,##0_ ;-#,##0 ',
-                    'D8:E'.(count($fulldata)-3) => '#,##0.00_ ;-#,##0.00 ',
-                ));
-                $sheet->setWidth(array(
-                    'A' => $this->colWidth(5), 'B' => $this->colWidth(30), 'C' => $this->colWidth(20), 'D' => $this->colWidth(14), 'E' => $this->colWidth(14), 'F' => $this->colWidth(5)
-                ));
-                if($tipoExport=='xlsx'){
-                    $image = imagecreatefromstring(base64_decode(Session::get('empresa_padrao')->logo));
-                    imagesavealpha($image, true);
-                    $drawing = new PHPExcel_Worksheet_MemoryDrawing();
-                    $drawing->setName('teste');
-                    $drawing->setImageResource($image);
-                    $drawing->setRenderingFunction(PHPExcel_Worksheet_MemoryDrawing::RENDERING_PNG);
-                    $drawing->setMimeType(PHPExcel_Worksheet_MemoryDrawing::MIMETYPE_DEFAULT);
-                    $drawing->setWidthAndHeight(150, 74);
-                    $drawing->setResizeProportional(true);
-                    $drawing->setCoordinates('A1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(5);
-                    $drawing->setWorksheet($sheet);
+            } elseif($row->cabecalho == 1){
+                $this->setStyle($sheet, 'B'.($i+1), false, 'thin', false, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
+                if($row->descricao == 'Conta'){
+                    $this->setStyle($sheet, 'C'.($i+1), false, 'thin', $Align::HORIZONTAL_LEFT, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
                 } else {
-                    $sheet->cells('A'.(count($fulldata)+1).':F'.(count($fulldata)+1), function($cells) {
-                        $cells->setBorder('thin', 'none', 'none', 'none');
-                        $cells->setFontSize(9);
-                    }); 
+                    $this->setStyle($sheet, 'C'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
                 }
-            });
-        })->save($tipoExport);
-        $fullpath = storage_path('exports') . "/" . $nomearquivo. "." .$tipoExport;
-        return file_exists($fullpath)?$fullpath:null;
-    }    
+                $this->setStyle($sheet, 'D'.($i+1).':E'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, true, false, 'C0C0C0');
+            } else {
+                $this->setStyle($sheet, 'B'.($i+1).':B'.($i+1), false, 'thin', false, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+                if(is_numeric($row->descricao) || $row->descricao == 'Quantidade'){
+                    $this->setStyle($sheet, 'C'.($i+1).':E'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+                } else {
+                    $this->setStyle($sheet, 'C'.($i+1), false, 'thin', $Align::HORIZONTAL_LEFT, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+                    $this->setStyle($sheet, 'D'.($i+1).':E'.($i+1), false, 'thin', $Align::HORIZONTAL_RIGHT, $Align::VERTICAL_CENTER, 'Helvetica', 10, false, false, false);
+                }
+            }
+        }
+        $sheet->getStyle('C8:C'.(count($fulldata)-3))->getNumberFormat()->setFormatCode('#,##0_ ;-#,##0 ');
+        $sheet->getStyle('D8:E'.(count($fulldata)-3))->getNumberFormat()->setFormatCode('#,##0.00_ ;-#,##0.00 ');
+        $sheet->getColumnDimension('A')->setWidth($this->colWidth(5));
+        $sheet->getColumnDimension('B')->setWidth($this->colWidth(30));
+        $sheet->getColumnDimension('C')->setWidth($this->colWidth(20));
+        $sheet->getColumnDimension('D')->setWidth($this->colWidth(14));
+        $sheet->getColumnDimension('E')->setWidth($this->colWidth(14));
+        $sheet->getColumnDimension('F')->setWidth($this->colWidth(5));
+        if($tipoExport=='xlsx'){
+            $logo = Session::get('empresa_padrao')->logo;
+            \App\Helpers\XlsxExporter::inserirLogo($sheet, $logo ? base64_decode($logo) : null, 'A1');
+        } else {
+            $rodape = 'A'.(count($fulldata)+1).':F'.(count($fulldata)+1);
+            $sheet->getStyle($rodape)->getFont()->setSize(9);
+            $sheet->getStyle($rodape)->getBorders()->getTop()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+
+        return \App\Helpers\XlsxExporter::salvarEmExports($spreadsheet, $nomearquivo, $tipoExport);
+    }
 
     public function colWidth($num){
         return $num+0.71;
@@ -443,11 +415,12 @@ class FechamentomensalgestaoController extends Controller
     }
 
     public function setStyle($sheet, $cell, $border, $border_size, $alignment_h, $alignment_v, $font_family, $font_size, $font_bold, $font_color, $background){
+        // Migrado para PhpSpreadsheet (applyFromArray usa chaves camelCase e fill p/ background).
         $styleArray = Array();
         if($border){
             $styleArray['borders'] = array(
-                'allborders' => array(
-                'style' => $border_size=='medium'?\PHPExcel_Style_Border::BORDER_MEDIUM:\PHPExcel_Style_Border::BORDER_THIN
+                'allBorders' => array(
+                'borderStyle' => $border_size=='medium'?\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM:\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
                 )
             );
         }
@@ -472,9 +445,10 @@ class FechamentomensalgestaoController extends Controller
             $styleArray['alignment'] = $alignment;
         }
         if($background){
-            $sheet->cells($cell, function($cells) use ($background) {
-                $cells->setBackground($background);
-            });
+            $styleArray['fill'] = array(
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => $background],
+            );
         }
         $sheet->getStyle($cell)->applyFromArray($styleArray);
 

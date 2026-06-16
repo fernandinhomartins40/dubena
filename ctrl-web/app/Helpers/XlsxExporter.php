@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf as PdfWriter;
 use PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -66,5 +67,34 @@ class XlsxExporter
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    /**
+     * Salva a planilha em storage/exports como xlsx OU pdf e retorna o caminho
+     * completo (ou null se falhou). Substitui o ->save($tipoExport) do
+     * Maatwebsite 2.1, que gravava em storage/exports. O DRE/Balanço usam isso e
+     * depois servem o arquivo por uma rota de download separada.
+     *
+     * @param Spreadsheet $spreadsheet
+     * @param string $nomeArquivo  sem extensão
+     * @param string $tipoExport   'xlsx' ou 'pdf'
+     * @return string|null
+     */
+    public static function salvarEmExports(Spreadsheet $spreadsheet, $nomeArquivo, $tipoExport)
+    {
+        $dir = storage_path('exports');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $fullpath = $dir . DIRECTORY_SEPARATOR . $nomeArquivo . '.' . $tipoExport;
+
+        if ($tipoExport === 'pdf') {
+            $writer = new PdfWriter($spreadsheet);
+        } else {
+            $writer = new Xlsx($spreadsheet);
+        }
+        $writer->save($fullpath);
+
+        return file_exists($fullpath) ? $fullpath : null;
     }
 }
