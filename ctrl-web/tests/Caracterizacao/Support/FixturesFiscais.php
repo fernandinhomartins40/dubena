@@ -176,6 +176,7 @@ trait FixturesFiscais
         $c->nome = 'Cliente Teste';
         $c->numero = '1';
         $c->cidade_id = $this->empresa->cidade_id;
+        $c->observacoes = '';
         $c->conveniolimite = 0;
         $c->latitude = 0;
         $c->longitude = 0;

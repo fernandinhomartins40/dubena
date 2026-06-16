@@ -8,39 +8,38 @@
     "license": "MIT",
     "type": "project",
     "require": {
-        "php": ">=7.4",
-        "league/flysystem": "^1.1",
-        "laravel/framework": "^8.0",
-        "laravel/helpers": "^1.4",
-        "laravelcollective/html": "^6.2",
-        "intervention/image": "^2.5",
-        "milon/barcode": "^8.0",
+        "php": "^8.2",
+        "league/flysystem": "^3.0",
+        "laravel/framework": "^12.0",
+        "laravel/helpers": "^1.7",
+        "rdx/laravelcollective-html": "^6.10",
+        "intervention/image": "^2.7",
+        "milon/barcode": "^13.0",
         "venturecraft/revisionable": "^1.40",
         "maatwebsite/excel": "^3.1",
-        "doctrine/dbal": "^2.13",
-        "jenssegers/date": "^4.0",
+        "doctrine/dbal": "^4.0",
         "mpdf/mpdf": "^8.0",
-        "barryvdh/laravel-dompdf": "^2.2",
-        "laravel/passport": "^10.4",
-        "guzzlehttp/guzzle": "^6.3",
-        "eduardokum/laravel-boleto": "^0.9.4",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "laravel/passport": "^13.0",
+        "guzzlehttp/guzzle": "^7.8",
+        "eduardokum/laravel-boleto": "^0.11.2",
+        "eduardokum/laravel-mail-auto-embed": "dev-master",
         "nfephp-org/sped-nfe": "5.2.1",
         "nfephp-org/sped-da": "^0.1",
         "tecnickcom/tc-lib-barcode": "1.15",
         "clue/graph-uml": "dev-master",
         "cboden/ratchet": "^0.4.1",
         "ratchet/pawl": "^0.3.4",
-        "phpoffice/phpspreadsheet": "^1.11",
-        "lcobucci/jwt": "^4.0",
-        "developersrede/erede-php": "4.2",
+        "phpoffice/phpspreadsheet": "^1.29.4",
+        "developersrede/erede-php": "^5.2",
         "phpoffice/phppresentation": "1.2.0",
         "beccha/ofxparser": "^2.1"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.9.1",
-        "mockery/mockery": "^1.4.4",
-        "phpunit/phpunit": "^9.5",
-        "barryvdh/laravel-ide-helper": "^2.6"
+        "fakerphp/faker": "^1.23",
+        "mockery/mockery": "^1.6",
+        "phpunit/phpunit": "^11.0",
+        "barryvdh/laravel-ide-helper": "^3.0"
     },
     "autoload": {
         "classmap": [
@@ -82,5 +81,7 @@
         "allow-plugins": {
             "kylekatarnls/update-helper": true
         }
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
