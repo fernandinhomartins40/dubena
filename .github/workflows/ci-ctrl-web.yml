@@ -57,9 +57,10 @@ jobs:
             echo "aguardando composer install do entrypoint..."; sleep 5
           done
           # Fallback determinístico: se o entrypoint ainda não instalou, instala aqui.
+          # COMPOSER_PROCESS_TIMEOUT=0: o install do Laravel 6 estoura os 300s padrão no unzip.
           if [ "$ok" -ne 1 ]; then
             echo "vendor ausente após espera — rodando composer install explícito"
-            docker compose -f docker-compose.yml exec -T app \
+            docker compose -f docker-compose.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
               composer install --no-interaction --prefer-dist --no-progress \
               --no-scripts --ignore-platform-req=ext-oci8
           fi
