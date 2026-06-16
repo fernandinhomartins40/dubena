@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use DB;
 use Auth;
-use Excel;
 use Session;
 use App\User;
 use App\Setor;
@@ -18,7 +17,6 @@ use App\Tipopessoa;
 use App\Pedidosituacao;
 use Illuminate\Http\Request;
 use App\Repository\SelectRepository;
-use PHPExcel_Worksheet_MemoryDrawing;
 
 class ReportclientesaniversariantesController extends Controller
 {
@@ -518,75 +516,42 @@ class ReportclientesaniversariantesController extends Controller
 		$newclientes[] = [''];
         $newclientes[] =  ['Total Geral', $totalgeral];
         $clientes = $newclientes;
-        Excel::create('Clientes Sem Compra', function($excel) use ($clientes) {
+        // Migrado de Maatwebsite/Excel 2.1 + PHPExcel → PhpSpreadsheet (Laravel 6).
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Clientes Sem Compra');
+        $sheet->getPageMargins()->setTop(0.5)->setBottom(0.5)->setLeft(0.5)->setRight(0.5);
+        $sheet->fromArray($clientes, null, 'A1');
+        $sheet->mergeCells('A1:F1');
+        $sheet->mergeCells('A2:F2');
+        $sheet->mergeCells('A3:F3');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('A3')->getFont()->setSize(10);
+        $sheet->getStyle('A5:F5')->getFont()->setBold(true);
+        $sheet->getStyle('A'.(count($clientes)).':F'.(count($clientes)))->getFont()->setBold(true);
+        $sheet->getColumnDimension('A')->setWidth(12);
+        $sheet->getColumnDimension('B')->setWidth(50);
+        $sheet->getColumnDimension('C')->setWidth(50);
+        $sheet->getColumnDimension('D')->setWidth(20);
+        $sheet->getColumnDimension('E')->setWidth(20);
+        $sheet->getColumnDimension('F')->setWidth(60);
 
-            $excel->sheet('Clientes Sem Compra', function($sheet) use($clientes) {
-                $sheet->setAutoSize(false);
-                $sheet->setPageMargin(0.5);
-                $sheet->fromArray($clientes, null, 'A1', true, false);
-                $sheet->mergeCells('A1:F1');
-                $sheet->mergeCells('A2:F2');
-                $sheet->mergeCells('A3:F3');
-                $sheet->cells('A1:A1', function($cells) {
-                    $cells->setFontWeight('bold');
-                    $cells->setFontSize(14);
-                });
-                $sheet->cells('A2:A2', function($cells) {
-                    $cells->setFontWeight('bold');
-                    $cells->setFontSize(12);
-                });
-                $sheet->cells('A3:A3', function($cells) {
-                    $cells->setFontSize(10);
-                });
-                $sheet->cells('A5:F5', function($cells) {
-                    $cells->setFontWeight('bold');
-                });
-                $sheet->cells('A'.(count($clientes)).':F'.(count($clientes)), function($cells) {
-                    $cells->setFontWeight('bold');
-                });
-                $sheet->setWidth('A', 12);
-                $sheet->setWidth('B', 50);
-                $sheet->setWidth('C', 50);
-                $sheet->setWidth('D', 20);
-                $sheet->setWidth('E', 20);
-				$sheet->setWidth('F', 60);
+        $logo = Session::get('empresa_padrao')->logo;
+        \App\Helpers\XlsxExporter::inserirLogo($sheet, $logo ? base64_decode($logo) : null, 'G1');
 
-                if(Session::get('empresa_padrao')->logo!=null){
-                    $image = imagecreatefromstring(base64_decode(Session::get('empresa_padrao')->logo));
-                    imagesavealpha($image, true);
-                    $drawing = new PHPExcel_Worksheet_MemoryDrawing();
-                    $drawing->setName('teste');
-                    $drawing->setImageResource($image);
-                    $drawing->setRenderingFunction(PHPExcel_Worksheet_MemoryDrawing::RENDERING_PNG);
-                    $drawing->setMimeType(PHPExcel_Worksheet_MemoryDrawing::MIMETYPE_DEFAULT);
-                    $drawing->setWidthAndHeight(148,70);
-                    $drawing->setResizeProportional(true);
-                    $drawing->setCoordinates('G1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(5);
-                    $drawing->setWorksheet($sheet);
+        for ($i = 0; $i < count($clientes); $i++) {
+            $cliente = $clientes[$i];
+            if (isset($cliente[0])) {
+                if ($cliente[0] == 'Cód'
+                    || substr($cliente[0], 0, 5) == "Total"
+                    || !isset($cliente[1])) {
+                    $sheet->getStyle('A'.($i+1).':F'.($i+1))->getFont()->setBold(true);
                 }
-				for($i=0; $i<count($clientes);$i++){
-					$cliente = $clientes[$i];
-					if(isset($cliente[0])){
-						if($cliente[0]=='Cód'){
-							$sheet->cells('A'.($i+1).':F'.($i+1), function($cells) {
-								$cells->setFontWeight('bold');
-							});
-						} elseif(substr($cliente[0], 0, 5)=="Total"){
-							$sheet->cells('A'.($i+1).':F'.($i+1), function($cells) {
-								$cells->setFontWeight('bold');
-							});
-						} elseif(!isset($cliente[1])){
-							$sheet->cells('A'.($i+1).':F'.($i+1), function($cells) {
-								$cells->setFontWeight('bold');
-							});
-						}
-					}
-				}
-            });
-        })->download('xlsx');
+            }
+        }
 
+        return \App\Helpers\XlsxExporter::download($spreadsheet, 'Clientes Sem Compra');
     }
 
 }

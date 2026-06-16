@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use DB;
-use Excel;
 use Session;
 use Redirect;
 use App\User;
@@ -22,7 +21,6 @@ use App\Clientecontatotipo;
 use Illuminate\Http\Request;
 use App\Clientecontatosituacao;
 use App\Repository\SelectRepository;
-use PHPExcel_Worksheet_MemoryDrawing;
 
 class ReportclientesController extends Controller
 {
@@ -847,56 +845,32 @@ class ReportclientesController extends Controller
         }
         $newclientes[] =  ['Total', count($clientes)];
         $clientes = $newclientes;
-        Excel::create('Clientes', function ($excel) use ($clientes) {
-            $excel->sheet('Clientes', function ($sheet) use ($clientes) {
-                $sheet->setAutoSize(false);
-                $sheet->setPageMargin(0.5);
-                $sheet->fromArray($clientes, null, 'A1', true, false);
-                $sheet->mergeCells('A1:D1');
-                $sheet->mergeCells('A2:D2');
-                $sheet->mergeCells('A3:D3');
-                $sheet->cells('A1:A1', function ($cells) {
-                    $cells->setFontWeight('bold');
-                    $cells->setFontSize(14);
-                });
-                $sheet->cells('A2:A2', function ($cells) {
-                    $cells->setFontWeight('bold');
-                    $cells->setFontSize(12);
-                });
-                $sheet->cells('A3:A3', function ($cells) {
-                    $cells->setFontSize(10);
-                });
-                $sheet->cells('A5:A5', function ($cells) {
-                    $cells->setFontWeight('bold');
-                });
-                $sheet->cells('A7:E7', function ($cells) {
-                    $cells->setFontWeight('bold');
-                });
-                $sheet->cells('A' . (count($clientes)) . ':E' . (count($clientes)), function ($cells) {
-                    $cells->setFontWeight('bold');
-                });
-                $sheet->setWidth('A', 15);
-                $sheet->setWidth('B', 50);
-                $sheet->setWidth('C', 50);
-                $sheet->setWidth('D', 30);
-                $sheet->setWidth('E', 40);
+        // Migrado de Maatwebsite/Excel 2.1 + PHPExcel → PhpSpreadsheet (Laravel 6).
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Clientes');
+        $sheet->getPageMargins()->setTop(0.5)->setBottom(0.5)->setLeft(0.5)->setRight(0.5);
+        $sheet->fromArray($clientes, null, 'A1');
+        $sheet->mergeCells('A1:D1');
+        $sheet->mergeCells('A2:D2');
+        $sheet->mergeCells('A3:D3');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12);
+        $sheet->getStyle('A3')->getFont()->setSize(10);
+        $sheet->getStyle('A5')->getFont()->setBold(true);
+        $sheet->getStyle('A7:E7')->getFont()->setBold(true);
+        $linhaTotal = count($clientes); // 'Total' é a última linha do array (1-indexed bate)
+        $sheet->getStyle('A' . $linhaTotal . ':E' . $linhaTotal)->getFont()->setBold(true);
+        $sheet->getColumnDimension('A')->setWidth(15);
+        $sheet->getColumnDimension('B')->setWidth(50);
+        $sheet->getColumnDimension('C')->setWidth(50);
+        $sheet->getColumnDimension('D')->setWidth(30);
+        $sheet->getColumnDimension('E')->setWidth(40);
 
-                if (Session::get('empresa_padrao')->logo != null) {
-                    $image = imagecreatefromstring(base64_decode(Session::get('empresa_padrao')->logo));
-                    imagesavealpha($image, true);
-                    $drawing = new PHPExcel_Worksheet_MemoryDrawing();
-                    $drawing->setName('teste');
-                    $drawing->setImageResource($image);
-                    $drawing->setRenderingFunction(PHPExcel_Worksheet_MemoryDrawing::RENDERING_PNG);
-                    $drawing->setMimeType(PHPExcel_Worksheet_MemoryDrawing::MIMETYPE_DEFAULT);
-                    $drawing->setWidthAndHeight(148, 70);
-                    $drawing->setResizeProportional(true);
-                    $drawing->setCoordinates('E1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(5);
-                    $drawing->setWorksheet($sheet);
-                }
-            });
-        })->download('xlsx');
+        // Aqui o logo está em base64 (decodifica antes); o helper espera binário.
+        $logo = Session::get('empresa_padrao')->logo;
+        \App\Helpers\XlsxExporter::inserirLogo($sheet, $logo ? base64_decode($logo) : null, 'E1');
+
+        return \App\Helpers\XlsxExporter::download($spreadsheet, 'Clientes');
     }
 }
