@@ -7,78 +7,62 @@ use App\User;
 use App\Cidade;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Permissões de Cidade. Fonte legada: flags em `menuusers` para o menu
+ * 'cidade.index'. Originalmente lidas só da Session('permissoes') (populada no
+ * login do AdminLTE). FASE 3: o painel Filament também usa esta Policy, mas roda
+ * fora daquele fluxo — então, se a Session não tiver as permissões, caímos para
+ * a consulta direta ao banco (User::podeNoMenu), preservando o comportamento.
+ */
 class CidadePolicy
 {
     use HandlesAuthorization;
 
-    protected $permissoes;
+    private const ROTA = 'cidade.index';
 
-    function __construct()
+    public function viewAny(User $user)
     {
-        $this->permissoes = Session::get('permissoes');
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can view the cidade.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Cidade  $cidade
-     * @return mixed
-     */
-    public function view(User $user, Cidade $cidade)
+    public function view(User $user, Cidade $cidade = null)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->visualizar == 1;
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can create cidades.
-     *
-     * @param  \App\User  $user
-     * @return mixed
-     */
     public function create(User $user)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
+        return $this->pode($user, 'criar');
+    }
 
-        return $this->getPermissoes()->criar == 1;
+    public function update(User $user, Cidade $cidade = null)
+    {
+        return $this->pode($user, 'editar');
+    }
+
+    public function delete(User $user, Cidade $cidade = null)
+    {
+        return $this->pode($user, 'deletar');
+    }
+
+    public function deleteAny(User $user)
+    {
+        return $this->pode($user, 'deletar');
     }
 
     /**
-     * Determine whether the user can update the cidade.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Cidade  $cidade
-     * @return mixed
+     * Resolve a flag ('visualizar'|'criar'|'editar'|'deletar') primeiro pela
+     * Session (caminho legado AdminLTE) e, na ausência dela, pelo banco.
      */
-    public function update(User $user, Cidade $cidade)
+    private function pode(User $user, string $flag): bool
     {
-        if(is_null($this->getPermissoes()))
-            return false;
+        $permissoes = Session::get('permissoes');
 
-        return $this->getPermissoes()->editar == 1;
-    }
+        if ($permissoes !== null) {
+            $p = $permissoes->where('descricao', self::ROTA)->first();
+            return $p !== null && (int) $p->{$flag} === 1;
+        }
 
-    /**
-     * Determine whether the user can delete the cidade.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Cidade  $cidade
-     * @return mixed
-     */
-    public function delete(User $user, Cidade $cidade)
-    {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->deletar == 1;
-    }
-
-    private function getPermissoes()
-    {
-        return $this->permissoes->where('descricao','cidade.index')->first();
+        return $user->podeNoMenu(self::ROTA, $flag);
     }
 }

@@ -7,78 +7,55 @@ use App\User;
 use App\Bairro;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Permissões de Bairro. Fonte legada: flags em `menuusers` para o menu
+ * 'bairro.index'. Ver CidadePolicy para a estratégia Session→banco (Fase 3).
+ */
 class BairroPolicy
 {
     use HandlesAuthorization;
 
-    protected $permissoes;
+    private const ROTA = 'bairro.index';
 
-    function __construct()
+    public function viewAny(User $user)
     {
-        $this->permissoes = Session::get('permissoes');
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can view the bairro.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Bairro  $bairro
-     * @return mixed
-     */
-    public function view(User $user, Bairro $bairro)
+    public function view(User $user, Bairro $bairro = null)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->visualizar == 1;
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can create bairros.
-     *
-     * @param  \App\User  $user
-     * @return mixed
-     */
     public function create(User $user)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->criar == 1;
+        return $this->pode($user, 'criar');
     }
 
-    /**
-     * Determine whether the user can update the bairro.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Bairro  $bairro
-     * @return mixed
-     */
-    public function update(User $user, Bairro $bairro)
+    public function update(User $user, Bairro $bairro = null)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->editar == 1;
+        return $this->pode($user, 'editar');
     }
 
-    /**
-     * Determine whether the user can delete the bairro.
-     *
-     * @param  \App\User  $user
-     * @param  \App\Bairro  $bairro
-     * @return mixed
-     */
-    public function delete(User $user, Bairro $bairro)
+    public function delete(User $user, Bairro $bairro = null)
     {
-        if(is_null($this->getPermissoes()))
-            return false;
-
-        return $this->getPermissoes()->deletar == 1;
+        return $this->pode($user, 'deletar');
     }
 
-    private function getPermissoes()
+    public function deleteAny(User $user)
     {
-        return $this->permissoes->where('descricao','bairro.index')->first();
+        return $this->pode($user, 'deletar');
+    }
+
+    private function pode(User $user, string $flag): bool
+    {
+        $permissoes = Session::get('permissoes');
+
+        if ($permissoes !== null) {
+            $p = $permissoes->where('descricao', self::ROTA)->first();
+            return $p !== null && (int) $p->{$flag} === 1;
+        }
+
+        return $user->podeNoMenu(self::ROTA, $flag);
     }
 }

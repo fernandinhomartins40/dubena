@@ -1,10 +1,7 @@
 {
     "name": "laravel/laravel",
     "description": "The Laravel Framework.",
-    "keywords": [
-        "framework",
-        "laravel"
-    ],
+    "keywords": ["framework", "laravel"],
     "license": "MIT",
     "type": "project",
     "require": {
@@ -33,7 +30,8 @@
         "phpoffice/phpspreadsheet": "^1.29.4",
         "developersrede/erede-php": "^5.2",
         "phpoffice/phppresentation": "1.2.0",
-        "beccha/ofxparser": "^2.1"
+        "beccha/ofxparser": "^2.1",
+        "filament/filament": "^3.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -74,6 +72,9 @@
         "post-update-cmd": [
             "Illuminate\\Foundation\\ComposerScripts::postUpdate",
             "php artisan optimize"
+        ],
+        "post-autoload-dump": [
+            "@php artisan filament:upgrade"
         ]
     },
     "config": {

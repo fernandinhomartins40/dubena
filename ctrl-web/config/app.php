@@ -155,6 +155,7 @@ return [
     App\Providers\AppServiceProvider::class,
     App\Providers\AuthServiceProvider::class,
     App\Providers\EventServiceProvider::class,
+    App\Providers\Filament\AdminPanelProvider::class,
     App\Providers\RouteServiceProvider::class,
     // FASE 4/deploy: ide-helper é dependência DE DEV — não pode ser registrado
     // fixo aqui, senão `composer install --no-dev` (produção) quebra o artisan

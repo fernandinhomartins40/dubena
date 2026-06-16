@@ -5,6 +5,8 @@ namespace App;
 use Laravel\Passport\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
 /**
  * App\User
@@ -60,10 +62,46 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * @mixin \Eloquent
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Oauthclient[] $oauth
  */
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
 
     use HasApiTokens, Notifiable;
+
+    /**
+     * FASE 3 — quem pode entrar no painel Filament (/admin).
+     *
+     * Reusa o guard 'web' e a noção de "usuário ativo" do ERP legado. O controle
+     * fino por tela/ação fica nas Policies (que leem as permissões legadas em
+     * `menuusers`). Aqui só barramos quem não deveria ver o painel de jeito nenhum.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // 'ativo' no legado é varchar '1'/'0' (ou null em registros antigos).
+        return in_array((string) $this->ativo, ['1', 'true'], true) || $this->ativo === null;
+    }
+
+    /**
+     * Permissão legada (menuusers) por nome-base de rota (= menus.descricao, ex.:
+     * 'cidade.index') e ação ('visualizar'|'criar'|'editar'|'deletar'|'baixar').
+     * Fonte de verdade compartilhada com o ERP; as Policies do Filament chamam isto
+     * em vez de depender da Session — o painel roda fora do fluxo de login AdminLTE.
+     */
+    public function podeNoMenu(string $rotaDescricao, string $acao = 'visualizar'): bool
+    {
+        if ((string) $this->support === '1') {
+            return true; // suporte vê tudo, como no AuthorizeCustom legado
+        }
+
+        $empresaId = $this->empresa_id;
+
+        return \App\Menuuser::query()
+            ->join('menus', 'menuusers.menu_id', '=', 'menus.id')
+            ->where('menuusers.user_id', $this->id)
+            ->when($empresaId, fn ($q) => $q->where('menuusers.empresa_id', $empresaId))
+            ->where('menus.descricao', $rotaDescricao)
+            ->where("menuusers.$acao", 1)
+            ->exists();
+    }
     /**
      * The attributes that are mass assignable.
      *
