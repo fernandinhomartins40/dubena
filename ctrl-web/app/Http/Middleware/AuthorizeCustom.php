@@ -33,16 +33,23 @@ class AuthorizeCustom
         $route = $request->route()->getName();
         $validar = $this->validar($user, $route);
 
-        // SEGURANÇA (D11 / Fase 4): BYPASS de autorização para qualquer rota ajax.*
-        // ou request AJAX. Isso permite acionar endpoints AJAX (inclusive de gravação)
-        // sem checar permissão. NÃO fechar de forma cega aqui — muitas rotas ajax.*
-        // são auxiliares (dropdowns/buscas) sem entrada em `permissoes` e quebrariam.
-        // O fechamento correto (permissão por rota AJAX via Policy/Gate) está previsto
-        // no redesenho de permissões do Bloco A da Fase 4. Ver PRD/11_acesso_permissoes.md.
+        // Rotas nomeadas `ajax.*` são auxiliares de leitura (dropdowns, buscas,
+        // consultas) e NÃO têm entrada em `permissoes`. Seguem liberadas para
+        // usuário autenticado — fechar isto exigiria uma allowlist por rota
+        // (etapa posterior do Bloco A). Ver PRD/11_acesso_permissoes.md.
         if (strpos($route, 'ajax.') !== false)
             return true;
 
-        if ($request->ajax())
+        // SEGURANÇA (D11 / Fase 4 Bloco A): o gatilho abaixo liberava QUALQUER
+        // request AJAX (header X-Requested-With) — inclusive POSTs de gravação em
+        // rotas "cheias" (cliente.store etc.), que o front jQuery sempre envia
+        // como AJAX. Era o vetor de bypass de autorização mais amplo.
+        //
+        // Com a flag `seguranca.fechar_bypass_ajax` LIGADA, essas requests passam
+        // a ser autorizadas pela MESMA regra das telas (checa permissão). Com a
+        // flag desligada (default), mantém o comportamento legado — kill-switch
+        // para rollback instantâneo sem redeploy.
+        if ($request->ajax() && ! config('seguranca.fechar_bypass_ajax', false))
             return true;
 
         return $validar;
