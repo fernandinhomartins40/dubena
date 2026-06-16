@@ -24,7 +24,6 @@
         "laravel/passport": "^10.4",
         "guzzlehttp/guzzle": "^6.3",
         "eduardokum/laravel-boleto": "^0.9.4",
-        "zendframework/zend-servicemanager": "^3.3",
         "nfephp-org/sped-nfe": "5.2.1",
         "nfephp-org/sped-da": "^0.1",
         "tecnickcom/tc-lib-barcode": "1.15",
