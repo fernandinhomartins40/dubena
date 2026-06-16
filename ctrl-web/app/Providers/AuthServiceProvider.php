@@ -122,14 +122,11 @@ class AuthServiceProvider extends ServiceProvider
      * @param  \Illuminate\Contracts\Auth\Access\Gate  $gate
      * @return void
      */
-    public function boot(GateContract $gate)
+    public function boot()
     {
-        $this->registerPolicies($gate);
+        $this->registerPolicies();
 
-        Passport::routes();
-        // DB::listen(function($q){
-        //     dump($q->sql);
-        //     dump($q->time);
-        // });
+        // Passport 13 (L12) removeu Passport::routes() — as rotas do OAuth são
+        // registradas automaticamente pelo service provider do Passport.
     }
 }

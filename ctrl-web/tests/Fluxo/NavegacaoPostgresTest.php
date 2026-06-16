@@ -166,7 +166,7 @@ class NavegacaoPostgresTest extends TestCase
             "[$rota] retornou 500 com filtro de data — incompat. Postgres/PHP.");
     }
 
-    public function relatoriosComDataProvider()
+    public static function relatoriosComDataProvider()
     {
         // Período fixo de teste (d/m/Y); empresa 1; sem cliente específico.
         $ini = '01/05/2026';
@@ -200,7 +200,7 @@ class NavegacaoPostgresTest extends TestCase
         ];
     }
 
-    public function relatoriosIndexProvider()
+    public static function relatoriosIndexProvider()
     {
         // Relatórios cujo index é GET puro (sem exigir filtro p/ renderizar).
         $rotas = [
@@ -223,7 +223,7 @@ class NavegacaoPostgresTest extends TestCase
         return $out;
     }
 
-    public function formulariosProvider()
+    public static function formulariosProvider()
     {
         // Fluxos que o operador usa o dia inteiro: cadastro e telas de venda/caixa.
         return [
@@ -237,7 +237,7 @@ class NavegacaoPostgresTest extends TestCase
         ];
     }
 
-    public function modulosProvider()
+    public static function modulosProvider()
     {
         // TODOS os módulos resource do ERP (index = GET /<nome>). Varre a
         // superfície inteira de listagem p/ pescar qualquer SQL incompatível
