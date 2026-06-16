@@ -1,14 +1,14 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Imagem de runtime para o ctrl-web (ERP · Laravel 5.4).
-# PHP 7.4 (constraint do composer.json: ">=7.4").
-# Banco: PostgreSQL (primeiro passo da saída do Oracle — Fase 3).
+# Imagem de runtime para o ctrl-web (ERP · Laravel 8).
+# PHP 8.1 (Fase 2 / Salto 2b — subida de 7.4 → 8.1).
+# Banco: PostgreSQL (saída do Oracle — Fase 3).
 # Oracle (oci8) NÃO é instalado: o pacote yajra/laravel-oci8 fica no vendor
 # (provider registrado não quebra o boot), mas a extensão ext-oci8 é ignorada
 # no composer e a conexão default passa a ser PostgreSQL.
 # ──────────────────────────────────────────────────────────────────────────
-FROM php:7.4-fpm
+FROM php:8.1-fpm
 
-# php:7.4-fpm é baseado em Debian Bullseye (repositórios ativos) — não mexer no apt.
+# php:8.1-fpm é baseado em Debian Bullseye (repositórios ativos) — não mexer no apt.
 
 RUN set -eux; \
     apt-get update; \

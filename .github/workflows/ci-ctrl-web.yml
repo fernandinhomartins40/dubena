@@ -88,9 +88,11 @@ jobs:
         run: |
           # Sem menus não há permissões → telas redirecionam (302) e os testes
           # de Fluxo (que exigem 200) falhariam por permissão, não por SQL.
-          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=MenuTableSeeder --force
-          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=NewMenusSeeder --force
-          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=DeployAdminSeeder --force
+          # '\' inicial: L8 prefixa Database\Seeders\ se a classe não tem namespace;
+          # os seeders do projeto não têm (classmap) → barra força o global.
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class='\MenuTableSeeder' --force
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class='\NewMenusSeeder' --force
+          docker compose -f docker-compose.yml exec -T app php artisan db:seed --class='\DeployAdminSeeder' --force
 
       - name: Suíte phpunit
         run: |

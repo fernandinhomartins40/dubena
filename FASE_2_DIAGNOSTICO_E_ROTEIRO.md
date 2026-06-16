@@ -94,12 +94,30 @@
 > 4. Ajustes L6: `Str`/`Arr` onde laravel/helpers não cobrir; config; TrustProxies.
 > 5. **Portão:** suíte F1+Fluxo verde no container; exports gerando arquivo OK; deploy.
 
-### Salto 2 — 6 → 7 → 8 + PHP 7.4 → 8.1
-- [ ] Compatibilizar libs EOL definitivamente (Excel/Form/NFePHP/Passport).
-- [ ] PHP 7.4 → 8.0 → 8.1 no Dockerfile (dev+prod). `each()`/`$var{}` já limpos.
-- [ ] **Validar emissão fiscal em homologação SEFAZ** (cobre a tributação não
-      caracterizada na F1).
-- [ ] Portão: suíte + emissão homologada + apps publicados autenticando.
+### Salto 2 — 6 → 8 (em PHP 7.4 primeiro) e depois PHP 7.4 → 8.1
+> **Diagnóstico (`composer why-not laravel/framework 8.0`, 2026-06-16):** o salto
+> 6→8 trava só por **laravel/passport v7.5.1** (teto ^7) e **milon/barcode 6.0.5**
+> (teto ~6). Transitivas (cron-expression 2→3, ramsey/uuid 3→4, symfony 4→5,
+> phpdotenv 3→5) o `composer update` resolve sozinho ao subir o framework.
+> **Reqs PHP confirmados (packagist):** Laravel 8, Passport **^10** (php ^7.3) e
+> milon/barcode **^8** (php ^7.3) RODAM em PHP 7.4. Logo:
+>
+> **Sub-etapa 2a — framework 6→8 AINDA em PHP 7.4** (isola variáveis, padrão do Salto 1):
+> - [ ] bump composer.json: `laravel/framework ^8.0`, `laravel/passport ^10.0`,
+>       `milon/barcode ^8.0`. (laravel/helpers, excel 3.x, collective 6.x já ok.)
+> - [ ] `composer update` (COMPOSER_PROCESS_TIMEOUT=0); tratar conflitos residuais.
+> - [ ] Ajustes L7/L8 acumulados: namespace de Models em factories, `Str`/`Arr`,
+>       middleware, `$casts`, eventos de model, retorno de migrations, etc.
+> - [ ] Passport 7→10: rever migrations/rotas; **não quebrar tokens** (testar getToken).
+> - [ ] Portão 2a: suíte F1 (caracterização) + navegação verdes no container 7.4.
+>
+> **Sub-etapa 2b — PHP 7.4 → 8.1** (Dockerfile dev+prod):
+> - [ ] Subir imagem para PHP 8.1; **PHPUnit 8.5 → 9** (roda em PHP 8).
+> - [ ] Varrer/corrigir deprecations PHP 8 remanescentes (curly offset/each já limpos
+>       na F0; rever passagem de null a funções de string, etc.).
+> - [ ] **Validar emissão fiscal em homologação SEFAZ** (oráculo da tributação que a
+>       F1 não cobriu por golden sintético).
+> - [ ] Portão 2b: suíte verde em PHP 8.1; emissão homologada; apps autenticando.
 
 ### Salto 3 — 8 → 9 → 10 → 11 → 12 + PHP 8.3
 - [ ] Ajustes finais (casts, middleware, rotas, `Str`/`Arr`).

@@ -102,10 +102,12 @@ jobs:
           # repovoa). Roda ANTES do DeployAdminSeeder, que concede permissões
           # sobre esses menus. NewMenusSeeder adiciona telas mais novas e é
           # best-effort (pula submenus cujo pai não exista, sem falhar).
+          # '\' inicial: L8 prefixa Database\Seeders\ p/ classe sem namespace; os
+          # seeders do projeto não têm (classmap) → barra força o global.
           docker compose -f docker-compose.prod.yml exec -T app \
-            php artisan db:seed --class=MenuTableSeeder --force
+            php artisan db:seed --class='\MenuTableSeeder' --force
           docker compose -f docker-compose.prod.yml exec -T app \
-            php artisan db:seed --class=NewMenusSeeder --force
+            php artisan db:seed --class='\NewMenusSeeder' --force
 
       - name: Seed — usuário admin + permissões totais (idempotente)
         run: |
@@ -113,10 +115,10 @@ jobs:
           # todos os menus (menuusers). A senha vem de ADMIN_SEED_PASSWORD
           # (no .env); default 'admin1234' — trocar depois.
           docker compose -f docker-compose.prod.yml exec -T app \
-            php artisan db:seed --class=DeployAdminSeeder --force
+            php artisan db:seed --class='\DeployAdminSeeder' --force
           # Admin do módulo Monitoramento (schema 'monitora', guard próprio).
           docker compose -f docker-compose.prod.yml exec -T app \
-            php artisan db:seed --class=DeployMonitoraAdminSeeder --force || true
+            php artisan db:seed --class='\DeployMonitoraAdminSeeder' --force || true
 
       - name: Health check (porta interna 3110)
         run: |
