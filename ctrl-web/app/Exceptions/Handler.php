@@ -2,7 +2,7 @@
 
 namespace App\Exceptions;
 
-use Exception;
+use Throwable;
 use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,10 +35,10 @@ class Handler extends ExceptionHandler
     ];
 
     /**
-     * @param Exception $e
-     * @throws Exception
+     * @param Throwable $e
+     * @throws Throwable
      */
-    public function report(Exception $e)
+    public function report(Throwable $e)
     {
         parent::report($e);
     }
@@ -48,7 +48,7 @@ class Handler extends ExceptionHandler
      * @param Exception $e
      * @return ResponseFactory|RedirectResponse|\Illuminate\Http\Response|Redirector|\Symfony\Component\HttpFoundation\Response
      */
-    public function render($request, Exception $e)
+    public function render($request, Throwable $e)
     {
         if($e instanceof TokenMismatchException){
             if ($request->ajax())

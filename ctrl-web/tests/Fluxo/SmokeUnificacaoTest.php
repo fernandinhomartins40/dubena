@@ -6,7 +6,7 @@ class SmokeUnificacaoTest extends TestCase
 {
     public function test_erp_e_monitora(){
         // ERP login (admin) + módulo
-        \Artisan::call('db:seed', ['--class'=>'DeployAdminSeeder','--force'=>true]);
+        \Artisan::call('db:seed', ['--class'=>'\DeployAdminSeeder','--force'=>true]);
         $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
         $this->post('/handleLogin',['email'=>env('ADMIN_SEED_EMAIL','admin'),'password'=>env('ADMIN_SEED_PASSWORD','admin1234'),'ativo'=>1]);
         $cli=$this->get('/cliente');

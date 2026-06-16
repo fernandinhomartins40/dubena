@@ -20,7 +20,9 @@ class NavegacaoPostgresTest extends TestCase
     /** Faz login real e devolve o app com sessão populada. */
     private function login()
     {
-        \Artisan::call('db:seed', ['--class' => 'DeployAdminSeeder', '--force' => true]);
+        // L8 prefixa Database\Seeders\ quando a classe não tem '\'. Os seeders do
+        // projeto não têm namespace (carregados via classmap) → barra inicial força o global.
+        \Artisan::call('db:seed', ['--class' => '\DeployAdminSeeder', '--force' => true]);
 
         // Desabilita só a verificação de CSRF para o POST de login do teste.
         $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
