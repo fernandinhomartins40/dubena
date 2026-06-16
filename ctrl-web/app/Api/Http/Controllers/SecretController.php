@@ -34,7 +34,10 @@ class SecretController extends Controller
         // preservado — apenas o valor esperado muda (rotacionar a chave + app).
         // Fallback para sha1(APP_KEY) só se APP_TOKEN_KEY não estiver definida,
         // para não quebrar ambientes antigos durante a transição.
-        $expected = env('APP_TOKEN_KEY');
+        // config() (não env() direto): sob config:cache, env() fora de config/ é null.
+        // Fallback usa env('APP_KEY') CRU (string base64:...) — é referenciado em
+        // config/app.php, então sobrevive ao cache; e o app legado fazia sha1 da string crua.
+        $expected = config('integracoes.app_token_key');
         if (empty($expected)) {
             $expected = sha1(env('APP_KEY'));
         }
@@ -48,14 +51,14 @@ class SecretController extends Controller
         } else {
             try {
 
-                $user = User::findOrFail(env('DEFAULT_USER_ID'));
+                $user = User::findOrFail(config('integracoes.default_user_id'));
 
                 $token = $user->createToken(str_random())->accessToken;
 
                 $response = (object) [
                     "token_type"    => "Bearer",
                     "access_token"  => $token,
-                    "client_id"     => env('DEFAULT_USER_ID')
+                    "client_id"     => config('integracoes.default_user_id')
                 ];
 
                 return response()->json([
