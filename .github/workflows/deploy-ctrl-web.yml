@@ -82,6 +82,20 @@ jobs:
                      bootstrap/cache &&
             chown -R www-data:www-data storage bootstrap/cache'
 
+      - name: Limpar cache de package discovery (stale entre upgrades)
+        run: |
+          # bootstrap/cache/{packages,services}.php são PERSISTIDOS no volume
+          # app_storage e sobrevivem entre deploys. Quando um pacote é REMOVIDO
+          # do composer (ex.: jenssegers/date no salto L12), o cache antigo ainda
+          # lista o ServiceProvider removido → o PRIMEIRO `php artisan` quebra com
+          # "Class ... not found" ANTES de qualquer config:clear. Como o composer
+          # install roda com --no-scripts, o package:discover não regenera sozinho.
+          # Apagar os caches e redescobrir ANTES do primeiro artisan resolve.
+          docker compose -f docker-compose.prod.yml exec -T app sh -c '
+            rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+                  bootstrap/cache/config.php'
+          docker compose -f docker-compose.prod.yml exec -T app php artisan package:discover --ansi
+
       - name: App key, migrations, cache
         run: |
           docker compose -f docker-compose.prod.yml exec -T app sh -c \
