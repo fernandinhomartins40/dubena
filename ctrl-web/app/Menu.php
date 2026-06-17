@@ -70,11 +70,8 @@ class Menu extends Model
                     array_push($menuHtml, '</ul>');
                     array_push($menuHtml, '</li>');
                 } else {
-                    if (substr($menu->descricao, 0, 6) == 'report') {
-                        array_push($menuHtml, "<li>" . link_to_route($menu->descricao, $menu->titulo) . "</li>");
-                    } else {
-                        array_push($menuHtml, "<li>" . link_to_route($menu->descricao, $menu->titulo) . "</li>");
-                    }
+                    // (legado) os dois ramos report/não-report eram idênticos — simplificado.
+                    array_push($menuHtml, "<li>" . link_to_route($menu->descricao, $menu->titulo) . "</li>");
                 }
             }
         }
@@ -106,63 +103,9 @@ class Menu extends Model
         return ($menuHtml);
     }
 
-    // public static function menuscheckinner($parent_id, $nivel) {
-    //   $menus = static::with(implode('.', array_fill(0, 100, 'children')))->orderBy('titulo')->where('parent_id', '=', $parent_id)->get();
-
-    //   $menuHtml = array();
-    //   $firstSubMenu = true;
-    //   foreach($menus as $menu){
-    //     $menu['nivel']=$nivel;
-    //     array_push($menuHtml, $menu);
-    //     if(count($menu->children)>0){
-    //       foreach(Menu::menuscheckinner($menu->id, $nivel+1) as $child){
-    //           array_push($menuHtml, $child);
-    //       }
-    //     }
-    //   }
-    //   return($menuHtml);
-    // }
-
-    // public static function menuscheck($passar = true) {
-    //   $menus = static::with(implode('.', array_fill(0, 100, 'children')))->orderBy('ordem')->where('parent_id', '=', NULL)->get();
-
-    //   $menuHtml = array();
-    //   $firstSubMenu = true;
-    //   foreach($menus as $menu){
-    //     array_push($menuHtml, $menu);
-    //     if($passar){
-    //       foreach(Menu::menuscheckinner($menu->id, 1) as $child){
-    //           array_push($menuHtml, $child);
-    //       }
-    //     }
-    //   }
-
-    //   return($menuHtml);
-    // }
-
-    public static function menuspermissoes($user_id)
-    {
-        $menus = array();
-        foreach (Menu::menuscheck() as $menu) {
-            $menu['permitido'] = 'F';
-            if (count($menu->users->where('id', intval($user_id))) > 0) {
-                $menu['permitido'] = 'T';
-            }
-            //$menus[$menu->id] = '|'.str_repeat('-', $menu->nivel*5).$menu->titulo.'!'.$menu->permitido;
-            //$menu['titulo'] =
-            array_push($menus, $menu);
-        }
-        return $menus;
-    }
-
-    public static function menuspermissoesAll($passar = true)
-    {
-        $menus = array();
-        foreach (Menu::menuscheck($passar) as $menu) {
-            $menu['permitido'] = 'F';
-            //$menus[$menu->id] = '|'.str_repeat('-', $menu->nivel*5).$menu->titulo.'!'.$menu->permitido;
-            array_push($menus, $menu);
-        }
-        return $menus;
-    }
+    // REMOVIDO (F4 Bloco A / PRD 11 §6 — código morto): menuscheck()/menuscheckinner()
+    // estavam comentados e menuspermissoes()/menuspermissoesAll() os chamavam, além de
+    // usarem $menu->users (relação inexistente neste Model) → fatal se invocados. Não
+    // havia chamadores no ERP (os usos de Menu::menuspermissoes* são do módulo Monitora,
+    // que tem seu PRÓPRIO App\Monitora\Models\Menu, intacto).
 }
