@@ -106,7 +106,14 @@ class ClienteRequest extends Request
 
     public function rules()
     {
+        // FASE 4 (fix Postgres): cliente_id vazio fazia a regra unique virar
+        // "unique:clientes,rg,,id,..." → SQL `"id" <> ''`. O Postgres rejeita ''
+        // numa coluna integer (SQLSTATE 22P02 → 500). No MySQL coagia ''→0 e passava.
+        // Normaliza p/ 'NULL' quando não há id (Laravel interpreta como "ignore nada").
         $this->id = $this->request->get('cliente_id');
+        if ($this->id === null || $this->id === '') {
+            $this->id = 'NULL';
+        }
         $this->complemento = $this->request->get('complemento');
         $prodconv = $this->request->get('clienteprodutosconvenios');
         if ($this->request->get('tipopessoa_id') == '') {
