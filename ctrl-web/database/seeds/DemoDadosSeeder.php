@@ -64,6 +64,8 @@ class DemoDadosSeeder extends Seeder
         $contaId      = $this->seedContaCaixa();
         $this->seedPlanoCentro();
 
+        $this->seedApoioCadastros(); // tabelas de apoio dos selects (ativo=1)
+
         $produtoIds = $this->seedProdutos($classeId, $unidadeId);
         $this->seedClientes($uf, $ruaId, $tipopessoaId, $segmentoId);
         $clienteIds = DB::table('clientes')->where('empresa_id', $this->empresaId)->pluck('id')->all();
@@ -89,19 +91,29 @@ class DemoDadosSeeder extends Seeder
 
     private function seedTipopessoa()
     {
-        $t = DB::table('tipopessoas')->first();
-        if ($t) return $t->id;
+        // Os selects de cliente filtram por tipopessoacadastro='F' e ativo=1.
+        $t = DB::table('tipopessoas')->where('grupo_id', $this->grupoId)->first();
+        if ($t) {
+            DB::table('tipopessoas')->where('id', $t->id)
+                ->update(['tipopessoacadastro' => 'F', 'ativo' => 1]);
+            return $t->id;
+        }
         return DB::table('tipopessoas')->insertGetId([
-            'descricao' => 'Pessoa Física', 'created_at' => $this->now(), 'updated_at' => $this->now(),
+            'grupo_id' => $this->grupoId, 'descricao' => 'Pessoa Física',
+            'tipopessoacadastro' => 'F', 'ativo' => 1,
+            'created_at' => $this->now(), 'updated_at' => $this->now(),
         ]);
     }
 
     private function seedSegmento()
     {
         $s = DB::table('segmentos')->where('grupo_id', $this->grupoId)->first();
-        if ($s) return $s->id;
+        if ($s) {
+            DB::table('segmentos')->where('id', $s->id)->update(['ativo' => 1]);
+            return $s->id;
+        }
         return DB::table('segmentos')->insertGetId([
-            'grupo_id' => $this->grupoId, 'descricao' => 'Residencial',
+            'grupo_id' => $this->grupoId, 'descricao' => 'Residencial', 'ativo' => 1,
             'created_at' => $this->now(), 'updated_at' => $this->now(),
         ]);
     }
@@ -118,11 +130,14 @@ class DemoDadosSeeder extends Seeder
 
     private function seedSetor($ruaId)
     {
-        if (DB::table('setors')->where('empresa_id', $this->empresaId)->exists()) return;
+        if (DB::table('setors')->where('empresa_id', $this->empresaId)->exists()) {
+            DB::table('setors')->where('empresa_id', $this->empresaId)->update(['ativo' => 1]);
+            return;
+        }
         DB::table('setors')->insert([
             'grupo_id' => $this->grupoId, 'empresa_id' => $this->empresaId,
             'cidade_id' => $this->cidadeId, 'bairro_id' => $this->bairroId,
-            'descricao' => 'Setor Central', 'numero' => '1', 'cep' => '00000000',
+            'descricao' => 'Setor Central', 'numero' => '1', 'cep' => '00000000', 'ativo' => 1,
             'created_at' => $this->now(), 'updated_at' => $this->now(),
         ]);
     }
@@ -150,12 +165,45 @@ class DemoDadosSeeder extends Seeder
     private function seedCondicaoPagamento()
     {
         $c = DB::table('condicaopagamentos')->where('empresa_id', $this->empresaId)->first();
-        if ($c) return $c->id;
+        if ($c) {
+            DB::table('condicaopagamentos')->where('id', $c->id)->update(['ativo' => 1]);
+            return $c->id;
+        }
         return DB::table('condicaopagamentos')->insertGetId([
             'grupo_id' => $this->grupoId, 'empresa_id' => $this->empresaId,
-            'descricao' => 'À Vista', 'tipo' => 0, 'dias_primeira' => 0,
+            'descricao' => 'À Vista', 'tipo' => 0, 'dias_primeira' => 0, 'ativo' => 1,
             'created_at' => $this->now(), 'updated_at' => $this->now(),
         ]);
+    }
+
+    /**
+     * Tabelas de apoio que alimentam os SELECTS dos formulários (cliente, etc.).
+     * Todas filtradas por ativo=1 + grupo_id nos repositories — então precisam
+     * existir com ativo=1. Idempotente: cria só se não houver no grupo.
+     */
+    private function seedApoioCadastros()
+    {
+        $porGrupo = [
+            'telefonetipos'           => [['descricao' => 'Celular', 'ativo' => 1, 'celular' => 1], ['descricao' => 'Residencial', 'ativo' => 1, 'celular' => 0], ['descricao' => 'Comercial', 'ativo' => 1, 'celular' => 0]],
+            'clientecontatosituacaos' => [['descricao' => 'Pendente', 'ativo' => 1], ['descricao' => 'Resolvido', 'ativo' => 1]],
+            'clientecontatotipos'     => [['descricao' => 'Reclamação', 'ativo' => 1], ['descricao' => 'Elogio', 'ativo' => 1], ['descricao' => 'Dúvida', 'ativo' => 1]],
+            'estadocivils'            => [['descricao' => 'Solteiro(a)', 'ativo' => 1], ['descricao' => 'Casado(a)', 'ativo' => 1], ['descricao' => 'Divorciado(a)', 'ativo' => 1]],
+            'parentescos'             => [['descricao' => 'Cônjuge', 'ativo' => 1], ['descricao' => 'Filho(a)', 'ativo' => 1], ['descricao' => 'Pai/Mãe', 'ativo' => 1]],
+        ];
+
+        foreach ($porGrupo as $tabela => $linhas) {
+            if (DB::table($tabela)->where('grupo_id', $this->grupoId)->exists()) {
+                // Garante ativo=1 nos já existentes (rodadas anteriores podiam não setar).
+                DB::table($tabela)->where('grupo_id', $this->grupoId)->update(['ativo' => 1]);
+                continue;
+            }
+            foreach ($linhas as $linha) {
+                DB::table($tabela)->insert(array_merge($linha, [
+                    'grupo_id' => $this->grupoId,
+                    'created_at' => $this->now(), 'updated_at' => $this->now(),
+                ]));
+            }
+        }
     }
 
     private function seedContaCaixa()
