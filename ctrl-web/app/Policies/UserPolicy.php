@@ -6,86 +6,66 @@ use Session;
 use App\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Permissões de Usuário (menu 'user.index'). Mesma estratégia da Fase 3
+ * (Cidade/BairroPolicy): resolve pela Session('permissoes') quando existir
+ * (fluxo AdminLTE) e, na ausência, por User::podeNoMenu (banco — fluxo Filament).
+ *
+ * NOTA: a versão legada lia Session('empresa_padrao')->id no construtor, o que
+ * causava erro fatal quando a Session não estava montada (ex.: painel Filament).
+ * Removido — a resolução de empresa fica em podeNoMenu (empresa do usuário).
+ */
 class UserPolicy
 {
     use HandlesAuthorization;
 
-    protected $empresa_id;
-    protected $permissoes;
+    private const ROTA = 'user.index';
 
-    function __construct()
+    public function viewAny(User $user)
     {
-        $this->empresa_id = Session::get('empresa_padrao')->id;
-        $this->permissoes = Session::get('permissoes');
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can view the user.
-     *
-     * @param  \App\User  $user
-     * @param  \App\User  $user
-     * @return mixed
-     */
-    public function view(User $user)
+    public function view(User $user, User $model = null)
     {
-        if(is_null($this->getPermissions()))
-            return false;
-
-        return $this->getPermissions()->visualizar == 1;
+        return $this->pode($user, 'visualizar');
     }
 
-    /**
-     * Determine whether the user can create users.
-     *
-     * @param  \App\User  $user
-     * @return mixed
-     */
     public function create(User $user)
     {
-        if(is_null($this->getPermissions()))
-            return false;
-
-        return $this->getPermissions()->criar == 1;
+        return $this->pode($user, 'criar');
     }
 
-    /**
-     * Determine whether the user can update the user.
-     *
-     * @param  \App\User  $user
-     * @param  \App\User  $user
-     * @return mixed
-     */
-    public function update(User $user)
+    public function update(User $user, User $model = null)
     {
-        if(is_null($this->getPermissions()))
-            return false;
-
-        return $this->getPermissions()->editar == 1;
+        return $this->pode($user, 'editar');
     }
 
-    /**
-     * Determine whether the user can delete the user.
-     *
-     * @param  \App\User  $user
-     * @param  \App\User  $user
-     * @return mixed
-     */
-    public function delete(User $user)
+    public function delete(User $user, User $model = null)
     {
-        if(is_null($this->getPermissions()))
-            return false;
-
-        return $this->getPermissions()->deletar == 1;
+        return $this->pode($user, 'deletar');
     }
 
+    public function deleteAny(User $user)
+    {
+        return $this->pode($user, 'deletar');
+    }
+
+    /** Mantido do legado: o usuário é ele mesmo (usado em telas de perfil). */
     public function igualdade(User $user)
     {
-        $auth_user = \Auth::user()->id;
-        return $auth_user == $user->id;
+        return \Auth::id() == $user->id;
     }
 
-    private function getPermissions()
+    private function pode(User $user, string $flag): bool
     {
-        return $this->permissoes->where('descricao','user.index')->first();
+        $permissoes = Session::get('permissoes');
+
+        if ($permissoes !== null) {
+            $p = $permissoes->where('descricao', self::ROTA)->first();
+            return $p !== null && (int) $p->{$flag} === 1;
+        }
+
+        return $user->podeNoMenu(self::ROTA, $flag);
     }
 }
