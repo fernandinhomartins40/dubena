@@ -67,7 +67,14 @@ class ClienteController extends Controller
     {
         $this->autorizar($request, 'cliente.view');
         $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
-        return response()->json(['data' => $cliente]);
+
+        // Labels p/ os selects assíncronos (cidade/bairro) no modo edição.
+        $extra = [
+            'cidade_label' => optional(\App\Cidade::find($cliente->cidade_id))->descricao,
+            'bairro_label' => $cliente->bairro_id ? optional(\App\Bairro::find($cliente->bairro_id))->descricao : null,
+        ];
+
+        return response()->json(['data' => array_merge($cliente->toArray(), $extra)]);
     }
 
     /** POST /api/admin/clientes */
@@ -104,6 +111,60 @@ class ClienteController extends Controller
         $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
         DB::transaction(fn () => $cliente->delete());
         return response()->json(['message' => 'Cliente excluído.']);
+    }
+
+    /** GET /api/admin/clientes/{id}/telefones */
+    public function telefones(Request $request, $id)
+    {
+        $this->autorizar($request, 'cliente.view');
+        $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
+
+        $tels = DB::table('clientetelefones')
+            ->where('cliente_id', $cliente->id)
+            ->orderBy('id')
+            ->get(['id', 'telefone', 'whatsapp', 'telefonetipo_id']);
+
+        return response()->json(['data' => $tels]);
+    }
+
+    /** POST /api/admin/clientes/{id}/telefones */
+    public function addTelefone(Request $request, $id)
+    {
+        $this->autorizar($request, 'cliente.edit');
+        $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
+
+        $data = $request->validate([
+            'telefone'        => 'required|string|max:20',
+            'whatsapp'        => 'nullable|boolean',
+            'telefonetipo_id' => 'required|integer',
+        ]);
+
+        $novoId = DB::table('clientetelefones')->insertGetId([
+            'cliente_id'      => $cliente->id,
+            'grupo_id'        => $cliente->grupo_id,
+            'empresa_id'      => $cliente->empresa_id,
+            'telefone'        => $data['telefone'],
+            'whatsapp'        => (int) ($data['whatsapp'] ?? 0),
+            'telefonetipo_id' => $data['telefonetipo_id'],
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+
+        return response()->json(['id' => $novoId], 201);
+    }
+
+    /** DELETE /api/admin/clientes/{id}/telefones/{telId} */
+    public function delTelefone(Request $request, $id, $telId)
+    {
+        $this->autorizar($request, 'cliente.edit');
+        $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
+
+        DB::table('clientetelefones')
+            ->where('cliente_id', $cliente->id)
+            ->where('id', $telId)
+            ->delete();
+
+        return response()->json(['message' => 'Telefone removido.']);
     }
 
     private function validar(Request $request): array

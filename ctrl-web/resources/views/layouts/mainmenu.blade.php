@@ -123,10 +123,11 @@
                 <!-- Navbar Right Menu -->
                 <div class="navbar-custom-menu">
                     <ul class="nav navbar-nav">
-                        {{-- M1 (modernização): atalho para a NOVA interface (painel Filament /admin),
-                             que coexiste com este ERP legado. Some quando a migração concluir. --}}
+                        {{-- Modernização (SPA React em /app): atalho para a NOVA interface,
+                             que coexiste com este ERP legado (Strangler). O painel Filament /admin
+                             foi descartado; a UI nova é o SPA React. Some quando a migração concluir. --}}
                         <li>
-                            <a href="{{ url('/admin') }}" title="Nova interface (beta)">
+                            <a href="{{ url('/app') }}" title="Nova interface (beta)">
                                 <i class="fa fa-rocket" aria-hidden="true"></i> Nova interface
                             </a>
                         </li>

@@ -52,6 +52,38 @@ export function useCliente(id: number | null) {
   })
 }
 
+export interface Telefone {
+  id: number
+  telefone: string
+  whatsapp: number
+  telefonetipo_id: number
+}
+
+export function useTelefones(clienteId: number | null) {
+  return useQuery<Telefone[]>({
+    queryKey: ['cliente-telefones', clienteId],
+    queryFn: async () => (await api.get(`/clientes/${clienteId}/telefones`)).data.data,
+    enabled: clienteId !== null,
+  })
+}
+
+export function useAddTelefone(clienteId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { telefone: string; whatsapp: boolean; telefonetipo_id: number }) =>
+      (await api.post(`/clientes/${clienteId}/telefones`, data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cliente-telefones', clienteId] }),
+  })
+}
+
+export function useDelTelefone(clienteId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (telId: number) => (await api.delete(`/clientes/${clienteId}/telefones/${telId}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cliente-telefones', clienteId] }),
+  })
+}
+
 export function useSalvarCliente() {
   const qc = useQueryClient()
   return useMutation({
