@@ -30,7 +30,10 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationGroup = 'Acesso';
+    // M1.3: grupo "Administração" do sidebar-alvo (MODERN_00 §3).
+    protected static ?string $navigationGroup = 'Administração';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'Usuário';
 
