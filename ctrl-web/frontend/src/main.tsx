@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from '@/lib/auth'
 import { AppShell } from '@/layouts/AppShell'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { ClientesListPage } from '@/features/clientes/ClientesListPage'
+import { ClienteFormPage } from '@/features/clientes/ClienteFormPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -27,7 +29,9 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<Protected><DashboardPage /></Protected>} />
-      {/* próximas rotas (S2): /clientes, /cidades, ... */}
+      <Route path="/clientes" element={<Protected><ClientesListPage /></Protected>} />
+      <Route path="/clientes/novo" element={<Protected><ClienteFormPage /></Protected>} />
+      <Route path="/clientes/:id" element={<Protected><ClienteFormPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
