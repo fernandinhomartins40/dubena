@@ -1,5 +1,11 @@
 # PLANO DE IMPLEMENTAÇÃO — Modernização do ctrl-web (Gás em Casa / ctrl+)
 
+> ⚠️ **SUPERSEDIDO de F4 em diante (2026-06-17):** o plano vigente passou a ser
+> `PLANO_MODERNIZACAO_UX.md` (baseado nos PRDs `PRD/MODERN_*.md` e na decisão do cliente:
+> sem menu-no-banco, navegação declarativa, página completa por entidade, RBAC). As fases
+> F0–F3 e a F4A descritas abaixo **já foram concluídas e estão em produção** — mantidas aqui
+> como referência histórica. Para o que vem a seguir, ver `PLANO_MODERNIZACAO_UX.md`.
+
 > **Base de verdade:** os 15 PRDs FIÉIS (linha-a-linha) em `PRD/` (índice: `PRD/00_INDICE.md`).
 > **Objetivo do user:** deixar a aplicação **100%** — moderna, **sem quebrar**, com **UX/UI
 > moderna e intuitiva**.
