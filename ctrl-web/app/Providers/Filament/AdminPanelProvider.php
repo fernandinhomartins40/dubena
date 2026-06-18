@@ -49,6 +49,22 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
             ->darkMode(true)
+            ->sidebarCollapsibleOnDesktop()
+            // M1.3 — NAVEGAÇÃO DECLARATIVA: a ordem do sidebar é definida aqui (não em
+            // tabela `menus`). Cada Resource declara seu navigationGroup; estes grupos
+            // são a espinha do menu-alvo (PRD/MODERN_00_VISAO_UX §3). Grupos sem recurso
+            // ainda não aparecem — surgem conforme os módulos migram para Filament.
+            ->navigationGroups([
+                'Cadastros',
+                'Vendas',
+                'Estoque',
+                'Financeiro',
+                'Fiscal',
+                'RH',
+                'Frota',
+                'Relatórios',
+                'Administração',
+            ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
