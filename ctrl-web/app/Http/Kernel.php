@@ -34,6 +34,18 @@ class Kernel extends HttpKernel
         'api' => [
             'throttle:60,1',
         ],
+
+        // S1 (SPA React): grupo da API ADMIN consumida pelo SPA (/api/admin).
+        // Sanctum SPA cookie-based → precisa do stateful (injeta sessão+CSRF p/
+        // requests do frontend confiável) + sessão + cookies criptografados.
+        'api_admin' => [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \App\Http\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            'throttle:120,1',
+        ],
     ];
 
     /**

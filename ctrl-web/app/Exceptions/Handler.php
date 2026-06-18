@@ -73,6 +73,15 @@ class Handler extends ExceptionHandler
             ]);
         }
 
+        // API ADMIN do SPA (api/admin): respostas JSON PADRÃO do Laravel
+        // (422 validação c/ errors, 401 auth, 403, 404...), que o frontend React
+        // espera. NÃO cai no responseError(400) legado da API do app mobile.
+        if (starts_with(request()->path(), 'api/admin')) {
+            return parent::render($request, $e);
+        }
+
+        // API do APP MOBILE (api/*): formato legado (erro → 400 responseError),
+        // contrato publicado — não alterar.
         if (starts_with(request()->path(), 'api')) {
             return responseError($e->getMessage(), 400);
         }
