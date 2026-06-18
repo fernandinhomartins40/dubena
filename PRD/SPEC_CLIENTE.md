@@ -41,13 +41,20 @@ Regra: campos Física×Jurídica alternam por `tipopessoa_id` (reactive).
 - [ ] Adicionar/editar/remover interações: `contatotipo_id`, `contatosituacao_id`, `descricao`,
       `acao`, data. Tabela das interações.
 
-### Aba 6 — Convênio (`convenio.blade.php`)
-- [ ] Dados de convênio: ativo, limite de compra, dia de fechamento, dia de vencimento,
-      data contrato, cliente conveniado (convenio_id), produtos do convênio. (Auditar campos
-      exatos do convenio.blade ao implementar.)
+### Aba 6 — Convênio (`convenio.blade.php`) — 2 sub-abas (auditado)
+**Sub-aba "Empresa Conveniada"** (este cliente OFERECE convênio):
+- `convenioativo` (checkbox), `datacontrato`, `limitecompra`, `comissao` (Desconto %),
+  `comissaodestino` (1 Conveniado / 2 Empresa), `diafechamento` (0-31), `diavencimento` (0-31),
+  **Produtos do convênio** (modal), Representante Legal: `nomerepresentante`, `cpfrepresentante`,
+  `rgrepresentante`. Ações: Gerar Contrato (PDF), Gerar Etiquetas.
+**Sub-aba "Colaborador de Convênio"** (este cliente É conveniado de outra empresa):
+- `convenio` (checkbox Conveniado), `convenio_id` (select empresa conveniada), `conveniolimite`,
+  `codigo_convenio`. **Parentescos/dependentes**: `nomeClienteParentesco`, `parentesco_id` (select),
+  `parentescoAtivo` — add/remover (tabela dependentes).
 
 ### Aba 7 — Preços (`precos.blade.php`)
-- [ ] Preços especiais por produto/condição de pagamento do cliente. (Auditar precos.blade.)
+- [ ] Preços especiais por produto × condição de pagamento (`condicaopagamento_id`) do cliente.
+      Auditar precos.blade (138 ln) ao implementar a aba.
 
 ## 3. AÇÕES / MÉTODOS do controller legado (paridade)
 - [ ] index, create, store, edit, update, show, destroy
