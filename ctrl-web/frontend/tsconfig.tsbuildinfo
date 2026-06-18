@@ -1,1 +1,0 @@
-{"root":["./src/main.tsx","./src/features/auth/loginpage.tsx","./src/features/dashboard/dashboardpage.tsx","./src/layouts/appshell.tsx","./src/lib/api.ts","./src/lib/auth.tsx"],"version":"5.9.3"}
