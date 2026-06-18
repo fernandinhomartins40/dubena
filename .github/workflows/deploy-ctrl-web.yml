@@ -107,6 +107,12 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app php artisan migrate:monitora-module || true
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear
           docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+          # Pré-compila as views (inclui as do Filament) AGORA, no deploy, evitando
+          # que o php-fpm (www-data) tente compilá-las em runtime e esbarre em arquivos
+          # de cache com dono root (causa de 500 "file_put_contents Permission denied"
+          # no /admin). Limpa antes p/ não herdar cache antigo de dono divergente.
+          docker compose -f docker-compose.prod.yml exec -T app php artisan view:clear
+          docker compose -f docker-compose.prod.yml exec -T app php artisan view:cache
 
       - name: Seed — menus de referência (telas do ERP)
         run: |
@@ -141,6 +147,15 @@ jobs:
           # NÃO altera menus/menuusers (transição segura).
           docker compose -f docker-compose.prod.yml exec -T app \
             php artisan db:seed --class='\RbacSeeder' --force
+
+      - name: Normalizar dono do storage (www-data) — após todos os artisan
+        run: |
+          # Os comandos artisan acima rodam como ROOT (docker exec) e podem deixar
+          # caches/logs com dono root, que o php-fpm (www-data) não consegue
+          # sobrescrever em runtime → 500 "Permission denied" (ex.: cache de views
+          # do Filament no /admin). Garante o dono correto ao FIM do deploy.
+          docker compose -f docker-compose.prod.yml exec -T app \
+            sh -c 'chown -R www-data:www-data storage bootstrap/cache'
 
       - name: Health check (porta interna 3110)
         run: |
