@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
 import { Button, Card, Input, PageHeader, Tabs } from '@/components/ui'
+import { AsyncSelect } from '@/components/AsyncSelect'
+import { TelefonesTab } from './TelefonesTab'
 import { useCliente, useSalvarCliente, type ClienteForm } from './api'
 
 const VAZIO: ClienteForm = {
@@ -20,10 +22,19 @@ export function ClienteFormPage() {
   const [aba, setAba] = useState('dados')
   const [form, setForm] = useState<ClienteForm>(VAZIO)
   const [erros, setErros] = useState<Record<string, string>>({})
+  const [cidadeLabel, setCidadeLabel] = useState<string | null>(null)
+  const [bairroLabel, setBairroLabel] = useState<string | null>(null)
 
   useEffect(() => {
     if (existente) {
-      setForm({ ...VAZIO, ...existente })
+      // só os campos do form (descarta labels e extras do show)
+      const f: ClienteForm = { ...VAZIO }
+      ;(Object.keys(VAZIO) as (keyof ClienteForm)[]).forEach((k) => {
+        if (existente[k] !== undefined && existente[k] !== null) (f as any)[k] = existente[k]
+      })
+      setForm(f)
+      setCidadeLabel(existente.cidade_label ?? null)
+      setBairroLabel(existente.bairro_label ?? null)
     }
   }, [existente])
 
@@ -68,6 +79,7 @@ export function ClienteFormPage() {
               { id: 'dados', label: 'Dados' },
               { id: 'endereco', label: 'Endereço' },
               { id: 'fiscal', label: 'Fiscal' },
+              ...(editId ? [{ id: 'telefones', label: 'Telefones' }] : []),
             ]}
           />
         </div>
@@ -86,8 +98,31 @@ export function ClienteFormPage() {
             <>
               <Input label="Número *" value={form.numero} onChange={(e) => campo('numero', e.target.value)} error={erros.numero} />
               <Input label="CEP" value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} />
-              <Input label="Cidade (ID) *" type="number" value={form.cidade_id ?? ''} onChange={(e) => campo('cidade_id', e.target.value ? Number(e.target.value) : null)} error={erros.cidade_id} />
-              <Input label="Bairro (ID)" type="number" value={form.bairro_id ?? ''} onChange={(e) => campo('bairro_id', e.target.value ? Number(e.target.value) : null)} />
+              <AsyncSelect
+                label="Cidade *"
+                endpoint="/lookups/cidades"
+                value={form.cidade_id}
+                valueLabel={cidadeLabel}
+                error={erros.cidade_id}
+                onChange={(id, opt) => {
+                  campo('cidade_id', id)
+                  setCidadeLabel(opt?.label ?? null)
+                  // troca de cidade limpa o bairro (dependente)
+                  campo('bairro_id', null)
+                  setBairroLabel(null)
+                  if (opt?.uf) campo('uf', String(opt.uf))
+                }}
+              />
+              <AsyncSelect
+                label="Bairro"
+                endpoint="/lookups/bairros"
+                params={{ cidade_id: form.cidade_id }}
+                value={form.bairro_id ?? null}
+                valueLabel={bairroLabel}
+                disabled={!form.cidade_id}
+                placeholder={form.cidade_id ? 'Selecione…' : 'Escolha a cidade primeiro'}
+                onChange={(id, opt) => { campo('bairro_id', id); setBairroLabel(opt?.label ?? null) }}
+              />
               <Input label="UF" maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} />
             </>
           )}
@@ -98,6 +133,8 @@ export function ClienteFormPage() {
               <Input label="CNPJ" value={form.cnpj ?? ''} onChange={(e) => campo('cnpj', e.target.value)} error={erros.cnpj} />
             </>
           )}
+
+          {aba === 'telefones' && editId && <TelefonesTab clienteId={editId} />}
         </div>
       </Card>
     </div>
