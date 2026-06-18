@@ -31,7 +31,8 @@
         "developersrede/erede-php": "^5.2",
         "phpoffice/phppresentation": "1.2.0",
         "beccha/ofxparser": "^2.1",
-        "filament/filament": "^3.2"
+        "filament/filament": "^3.2",
+        "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

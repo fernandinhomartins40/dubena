@@ -226,7 +226,11 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
 
     //Meta de vendas
     Route::resource('metavenda', 'MetavendaController');
-    Route::post('metavenda/{id}', ['as' => 'metavenda.update', 'uses' => 'MetavendaController@update']);
+    // M1: esta rota POST reusava o nome 'metavenda.update' já criado pelo resource
+    // (PUT/PATCH) → nome de rota DUPLICADO, que faz `php artisan route:cache` falhar
+    // ("Unable to prepare route ... Another route has already been assigned name").
+    // Renomeada p/ 'metavenda.updatePost' (mesma URI/ação; nenhum view referencia o nome).
+    Route::post('metavenda/{id}', ['as' => 'metavenda.updatePost', 'uses' => 'MetavendaController@update']);
 
     //recessos
     Route::resource('recessos', 'RecessosController');

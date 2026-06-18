@@ -7,6 +7,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * App\User
@@ -65,7 +66,9 @@ use Filament\Panel;
 class User extends Authenticatable implements FilamentUser
 {
 
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, Notifiable, HasRoles;
+
+    // M1.2 (RBAC): o guard padrão das permissões spatie é 'web' (igual ao ERP/Filament).
 
     /**
      * FASE 3 — quem pode entrar no painel Filament (/admin).
@@ -101,6 +104,37 @@ class User extends Authenticatable implements FilamentUser
             ->where('menus.descricao', $rotaDescricao)
             ->where("menuusers.$acao", 1)
             ->exists();
+    }
+
+    /**
+     * M1.2 (RBAC) — PONTE de autorização por recurso durante a transição.
+     *
+     * Pergunta "este usuário pode <ação> no <módulo>?" aceitando DUAS fontes:
+     *  (a) RBAC novo (spatie): permissão '<modulo>.<acaoRbac>' (view/create/edit/delete)
+     *      via papel ou permissão direta; e
+     *  (b) legado: menuusers ('<modulo>.index' + flag visualizar/criar/editar/deletar).
+     *
+     * Assim a UI nova (Filament/Policies) pode checar por recurso sem que ninguém
+     * perca acesso enquanto a migração menuusers→papéis não está 100%. Quando o
+     * legado for aposentado (M7), basta remover o ramo (b).
+     *
+     * @param string $modulo   ex.: 'cliente'
+     * @param string $acaoRbac 'view'|'create'|'edit'|'delete'
+     */
+    public function podeRecurso(string $modulo, string $acaoRbac = 'view'): bool
+    {
+        if ((string) $this->support === '1') {
+            return true;
+        }
+
+        // (a) RBAC
+        if ($this->can("$modulo.$acaoRbac")) {
+            return true;
+        }
+
+        // (b) legado (menuusers) — mapeia ação RBAC → flag legada
+        $flag = ['view' => 'visualizar', 'create' => 'criar', 'edit' => 'editar', 'delete' => 'deletar'][$acaoRbac] ?? 'visualizar';
+        return $this->podeNoMenu("$modulo.index", $flag);
     }
     /**
      * The attributes that are mass assignable.
