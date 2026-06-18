@@ -1,4 +1,11 @@
-# PLANO DE MODERNIZAÇÃO UX/UI — ctrl-web (vigente)
+# PLANO DE MODERNIZAÇÃO UX/UI — ctrl-web
+
+> ⚠️ **SUPERSEDIDO NA CAMADA DE FRONTEND (2026-06-18):** a UI nova deixou de ser
+> **Filament** e passou a ser um **SPA React/Vite + Laravel API (Sanctum)** — ver
+> `PLANO_SPA_REACT.md` (vigente). A FUNDAÇÃO deste plano (M1: RBAC/spatie, fix unique-PG,
+> cast moeda, navegação) **continua válida e reusada** pelo novo frontend; apenas a
+> escolha de UI (Filament) foi trocada por React. As fases M2+ aqui descritas (telas em
+> Filament) são substituídas pelas fases S2+ do plano SPA. Mantido como referência.
 
 > **Substitui** `PLANO_IMPLEMENTACAO_MODERNIZACAO.md` de F4 em diante (este passa a
 > referência histórica). Baseado na auditoria de código real em `PRD/MODERN_*.md`.
