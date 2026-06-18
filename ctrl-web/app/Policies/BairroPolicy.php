@@ -49,13 +49,16 @@ class BairroPolicy
 
     private function pode(User $user, string $flag): bool
     {
-        $permissoes = Session::get('permissoes');
+        $acaoRbac = ['visualizar' => 'view', 'criar' => 'create', 'editar' => 'edit', 'deletar' => 'delete'][$flag] ?? 'view';
 
+        $permissoes = Session::get('permissoes');
         if ($permissoes !== null) {
             $p = $permissoes->where('descricao', self::ROTA)->first();
-            return $p !== null && (int) $p->{$flag} === 1;
+            if ($p !== null && (int) $p->{$flag} === 1) {
+                return true;
+            }
         }
 
-        return $user->podeNoMenu(self::ROTA, $flag);
+        return $user->podeRecurso('bairro', $acaoRbac);
     }
 }

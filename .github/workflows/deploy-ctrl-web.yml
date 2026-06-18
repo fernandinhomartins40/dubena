@@ -134,6 +134,14 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T app \
             php artisan db:seed --class='\DeployMonitoraAdminSeeder' --force || true
 
+      - name: Seed — RBAC (papéis/permissões spatie) — M1.2
+        run: |
+          # Idempotente. Roda APÓS menus+admin (deriva permissões dos menus e migra
+          # cada usuário convertendo menuusers→permissões; support=1 → papel Admin).
+          # NÃO altera menus/menuusers (transição segura).
+          docker compose -f docker-compose.prod.yml exec -T app \
+            php artisan db:seed --class='\RbacSeeder' --force
+
       - name: Health check (porta interna 3110)
         run: |
           sleep 5
