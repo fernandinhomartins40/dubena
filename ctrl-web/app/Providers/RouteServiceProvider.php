@@ -45,11 +45,32 @@ class RouteServiceProvider extends ServiceProvider
         // nomes de rota próprios — 'monitora.*'). Antes do web do ERP.
         $this->mapMonitoraRoutes();
 
+        // S1 (SPA React): API ADMIN do ERP consumida pelo SPA (/api/admin), com
+        // Sanctum stateful (cookie). SEPARADA da API do app mobile (mapAppMobile),
+        // cujo contrato publicado não pode mudar.
+        $this->mapAdminApiRoutes();
+
         $this->mapApiRoutes();
 
         $this->mapWebRoutes();
 
         //
+    }
+
+    /**
+     * S1: rotas da API ADMIN do ERP (consumidas pelo SPA React em /app).
+     * Prefixo /api/admin, grupo de middleware 'api_admin' (Sanctum stateful).
+     */
+    protected function mapAdminApiRoutes()
+    {
+        Route::group([
+            'middleware' => 'api_admin',
+            'namespace'  => 'App\ApiAdmin\Http\Controllers',
+            'prefix'     => 'api/admin',
+            'as'         => 'admin.api.',
+        ], function ($router) {
+            require base_path('routes/api_admin.php');
+        });
     }
 
     /**
