@@ -54,6 +54,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // F1 — sub-recurso Origens do combustível (soma 100%)
     Route::get('produtos/{id}/origens', 'ProdutoController@origens')->name('produtos.origens');
     Route::put('produtos/{id}/origens', 'ProdutoController@salvarOrigensEndpoint')->name('produtos.origens.save');
+    // F1 — visão nova: estoque por setor + giro (agregado na ficha)
+    Route::get('produtos/{id}/estoque', 'ProdutoController@estoque')->name('produtos.estoque');
+    // F1 — ação: atualizar preços em massa (preview + aplicar)
+    Route::get('produtos-precos/preview', 'ProdutoController@precosPreview')->name('produtos.precos.preview');
+    Route::put('produtos-precos/aplicar', 'ProdutoController@precosAplicar')->name('produtos.precos.aplicar');
+    // F1 — Configurações do Produto (Classes / Unidades)
+    Route::get('produto-config/classes', 'ProdutoConfigController@classes')->name('produtoconfig.classes');
+    Route::post('produto-config/classes', 'ProdutoConfigController@salvarClasse')->name('produtoconfig.classes.store');
+    Route::put('produto-config/classes/{id}', 'ProdutoConfigController@salvarClasse')->name('produtoconfig.classes.update');
+    Route::delete('produto-config/classes/{id}', 'ProdutoConfigController@excluirClasse')->name('produtoconfig.classes.del');
+    Route::get('produto-config/unidades', 'ProdutoConfigController@unidades')->name('produtoconfig.unidades');
+    Route::post('produto-config/unidades', 'ProdutoConfigController@salvarUnidade')->name('produtoconfig.unidades.store');
+    Route::put('produto-config/unidades/{id}', 'ProdutoConfigController@salvarUnidade')->name('produtoconfig.unidades.update');
+    Route::delete('produto-config/unidades/{id}', 'ProdutoConfigController@excluirUnidade')->name('produtoconfig.unidades.del');
     // F1 — lookups do Produto
     Route::get('lookups/produto-classes', 'LookupController@produtoClasses')->name('lookups.produtoclasses');
     Route::get('lookups/unidades', 'LookupController@unidades')->name('lookups.unidades');

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
-import { Button, Card, Input, PageHeader, Tabs } from '@/components/ui'
-import { AsyncSelect } from '@/components/AsyncSelect'
+import {
+  Button, Card, CardContent, Field, Input, Textarea, CheckboxField, PageHeader, AsyncSelect,
+  Tabs, TabsList, TabsTrigger, TabsContent,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
+} from '@/components/ui'
 import { TelefonesTab } from './TelefonesTab'
 import { HistoricoTab } from './HistoricoTab'
 import { InteracoesTab } from './InteracoesTab'
@@ -24,15 +27,6 @@ const INDICADOR_IE = [
   { v: 9, l: 'Não Contribuinte' },
 ]
 
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (b: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-sm py-2 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="rounded" />
-      {label}
-    </label>
-  )
-}
-
 export function ClienteFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -51,7 +45,6 @@ export function ClienteFormPage() {
       ;(Object.keys(VAZIO) as (keyof ClienteForm)[]).forEach((k) => {
         const v = existente[k]
         if (v !== undefined && v !== null) {
-          // flags smallint(0/1) → boolean
           if (['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'].includes(k as string)) {
             ;(f as any)[k] = Number(v) === 1
           } else (f as any)[k] = v
@@ -59,10 +52,8 @@ export function ClienteFormPage() {
       })
       setForm(f)
       setLabels({
-        cidade: existente.cidade_label ?? null,
-        bairro: existente.bairro_label ?? null,
-        rua: existente.rua_label ?? null,
-        segmento: existente.segmento_label ?? null,
+        cidade: existente.cidade_label ?? null, bairro: existente.bairro_label ?? null,
+        rua: existente.rua_label ?? null, segmento: existente.segmento_label ?? null,
         tipopessoa: existente.tipopessoa_label ?? null,
       })
     }
@@ -72,144 +63,125 @@ export function ClienteFormPage() {
     setForm((prev) => ({ ...prev, [k]: v }))
   }
 
-  // Pessoa Jurídica quando o tipo selecionado indica J (heurística pelo label).
   const ehJuridica = (labels.tipopessoa ?? '').toUpperCase().includes('JUR')
 
   async function onSubmit() {
     setErros({})
     try {
       const salvo = await salvar.mutateAsync({ id: editId, data: form })
+      toast.success(editId ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       navigate(`/clientes/${salvo.id}`)
     } catch (e: any) {
       if (e?.response?.status === 422) {
         const ve = e.response.data.errors as Record<string, string[]>
         setErros(Object.fromEntries(Object.entries(ve).map(([k, v]) => [k, v[0]])))
         setAba('dados')
-      }
+        toast.error('Verifique os campos destacados.')
+      } else toast.error('Erro ao salvar o cliente.')
     }
   }
-
-  const tabs = [
-    { id: 'dados', label: 'Dados Gerais' },
-    { id: 'endereco', label: 'Endereço' },
-    ...(editId ? [
-      { id: 'contatos', label: 'Contatos' },
-      { id: 'historico', label: 'Histórico' },
-      { id: 'interacoes', label: 'Interações' },
-      { id: 'convenio', label: 'Convênio' },
-      { id: 'precos', label: 'Preços' },
-    ] : []),
-  ]
 
   return (
     <div>
       <PageHeader
+        breadcrumb={<button onClick={() => navigate('/clientes')} className="hover:text-foreground">Clientes</button>}
         title={editId ? (form.nome || 'Cliente') : 'Novo cliente'}
+        subtitle={editId ? `#${editId}` : 'Preencha os dados do novo cliente'}
         action={
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => navigate('/clientes')}><ArrowLeft size={16} /> Voltar</Button>
-            <Button onClick={onSubmit} disabled={salvar.isPending}>
-              <Save size={16} /> {salvar.isPending ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </div>
+          <>
+            <Button variant="outline" onClick={() => navigate('/clientes')}><ArrowLeft size={16} /> Voltar</Button>
+            <Button loading={salvar.isPending} onClick={onSubmit}><Save size={16} /> Salvar</Button>
+          </>
         }
       />
 
-      <Card>
-        <div className="px-4 pt-2 overflow-x-auto">
-          <Tabs active={aba} onChange={setAba} tabs={tabs} />
-        </div>
+      <Tabs value={aba} onValueChange={setAba}>
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="dados">Dados Gerais</TabsTrigger>
+          <TabsTrigger value="endereco">Endereço</TabsTrigger>
+          {editId && <TabsTrigger value="contatos">Contatos</TabsTrigger>}
+          {editId && <TabsTrigger value="historico">Histórico</TabsTrigger>}
+          {editId && <TabsTrigger value="interacoes">Interações</TabsTrigger>}
+          {editId && <TabsTrigger value="convenio">Convênio</TabsTrigger>}
+          {editId && <TabsTrigger value="precos">Preços</TabsTrigger>}
+        </TabsList>
 
-        <div className="p-6">
-          {aba === 'dados' && (
+        <TabsContent value="dados">
+          <Card><CardContent className="pt-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AsyncSelect
-                label="Tipo de Pessoa" endpoint="/lookups/tipo-pessoa"
-                value={form.tipopessoa_id ?? null} valueLabel={labels.tipopessoa}
-                onChange={(id, opt) => { campo('tipopessoa_id', id); setLabels((l) => ({ ...l, tipopessoa: opt?.label ?? null })) }}
-              />
-              <AsyncSelect
-                label="Segmento" endpoint="/lookups/segmentos"
-                value={form.segmento_id ?? null} valueLabel={labels.segmento}
-                onChange={(id, opt) => { campo('segmento_id', id); setLabels((l) => ({ ...l, segmento: opt?.label ?? null })) }}
-              />
-              <Input label={ehJuridica ? 'Razão Social *' : 'Nome *'} value={form.nome} onChange={(e) => campo('nome', e.target.value)} error={erros.nome} />
-              {ehJuridica && <Input label="Fantasia / Apelido" value={form.fantasia ?? ''} onChange={(e) => campo('fantasia', e.target.value)} />}
-              {!ehJuridica && (
-                <>
-                  <Input label="Nascimento" type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} />
-                  <Input label="Sexo (F/M)" maxLength={1} value={form.sexo ?? ''} onChange={(e) => campo('sexo', e.target.value.toUpperCase())} />
-                </>
-              )}
-              <Input label="E-mail" type="email" value={form.email ?? ''} onChange={(e) => campo('email', e.target.value)} error={erros.email} />
-              <Input label="Observações" value={form.observacoes ?? ''} onChange={(e) => campo('observacoes', e.target.value)} className="md:col-span-2" />
-              <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-100 dark:border-slate-800 pt-2">
-                <Check label="Cliente" checked={!!form.cliente} onChange={(b) => campo('cliente', b)} />
-                <Check label="Fornecedor" checked={!!form.fornecedor} onChange={(b) => campo('fornecedor', b)} />
-                <Check label="Transportador" checked={!!form.transportador} onChange={(b) => campo('transportador', b)} />
-                <Check label="Ativo" checked={!!form.ativo} onChange={(b) => campo('ativo', b)} />
-                <Check label="Gás do Povo" checked={!!form.gasdopovo} onChange={(b) => campo('gasdopovo', b)} />
-              </div>
+              <Field label="Tipo de Pessoa">
+                <AsyncSelect endpoint="/lookups/tipo-pessoa" value={form.tipopessoa_id ?? null} valueLabel={labels.tipopessoa}
+                  onChange={(id, opt) => { campo('tipopessoa_id', id); setLabels((l) => ({ ...l, tipopessoa: opt?.label ?? null })) }} />
+              </Field>
+              <Field label="Segmento">
+                <AsyncSelect endpoint="/lookups/segmentos" value={form.segmento_id ?? null} valueLabel={labels.segmento}
+                  onChange={(id, opt) => { campo('segmento_id', id); setLabels((l) => ({ ...l, segmento: opt?.label ?? null })) }} />
+              </Field>
+              <Field label={ehJuridica ? 'Razão Social' : 'Nome'} required error={erros.nome}>
+                <Input value={form.nome} error={!!erros.nome} onChange={(e) => campo('nome', e.target.value)} />
+              </Field>
+              {ehJuridica && <Field label="Fantasia / Apelido"><Input value={form.fantasia ?? ''} onChange={(e) => campo('fantasia', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="Nascimento"><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="Sexo (F/M)"><Input maxLength={1} value={form.sexo ?? ''} onChange={(e) => campo('sexo', e.target.value.toUpperCase())} /></Field>}
+              <Field label="E-mail" error={erros.email}><Input type="email" value={form.email ?? ''} error={!!erros.email} onChange={(e) => campo('email', e.target.value)} /></Field>
+              <Field label="Observações" className="md:col-span-2"><Textarea value={form.observacoes ?? ''} onChange={(e) => campo('observacoes', e.target.value)} /></Field>
             </div>
-          )}
 
-          {aba === 'endereco' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AsyncSelect
-                label="Cidade *" endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={erros.cidade_id}
-                onChange={(id, opt) => {
-                  campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: opt?.label ?? null, bairro: null }))
-                  campo('bairro_id', null); if (opt?.uf) campo('uf', String(opt.uf))
-                }}
-              />
-              <AsyncSelect
-                label="Bairro" endpoint="/lookups/bairros" params={{ cidade_id: form.cidade_id }}
-                value={form.bairro_id ?? null} valueLabel={labels.bairro} disabled={!form.cidade_id}
-                placeholder={form.cidade_id ? 'Selecione…' : 'Escolha a cidade primeiro'}
-                onChange={(id, opt) => { campo('bairro_id', id); setLabels((l) => ({ ...l, bairro: opt?.label ?? null })) }}
-              />
-              <Input label="Número *" value={form.numero} onChange={(e) => campo('numero', e.target.value)} error={erros.numero} />
-              <Input label="CEP" value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} />
-              <Input label="UF" maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} />
-              <Input label="Complemento" value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} />
-              <Input label="Ponto de referência" value={form.ponto_referencia ?? ''} onChange={(e) => campo('ponto_referencia', e.target.value)} className="md:col-span-2" />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-border pt-3">
+              <CheckboxField label="Cliente" checked={!!form.cliente} onChange={(b) => campo('cliente', b)} />
+              <CheckboxField label="Fornecedor" checked={!!form.fornecedor} onChange={(b) => campo('fornecedor', b)} />
+              <CheckboxField label="Transportador" checked={!!form.transportador} onChange={(b) => campo('transportador', b)} />
+              <CheckboxField label="Ativo" checked={!!form.ativo} onChange={(b) => campo('ativo', b)} />
+              <CheckboxField label="Gás do Povo" checked={!!form.gasdopovo} onChange={(b) => campo('gasdopovo', b)} />
             </div>
-          )}
 
-          {/* Documentos/Fiscal: seção dentro de Dados Gerais (varia PF×PJ). */}
-          {aba === 'dados' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 mt-4 pt-4">
-              <p className="md:col-span-2 text-sm font-semibold text-slate-500">Documentos / Fiscal</p>
-              {!ehJuridica && <Input label="CPF" value={form.cpf ?? ''} onChange={(e) => campo('cpf', e.target.value)} error={erros.cpf} />}
-              {!ehJuridica && <Input label="RG" value={form.rg ?? ''} onChange={(e) => campo('rg', e.target.value)} />}
-              {ehJuridica && <Input label="CNPJ" value={form.cnpj ?? ''} onChange={(e) => campo('cnpj', e.target.value)} error={erros.cnpj} />}
-              <Input label="Inscrição Estadual" value={form.inscricao_estadual ?? ''} onChange={(e) => campo('inscricao_estadual', e.target.value)} />
-              {ehJuridica && <Input label="Suframa" value={form.suframa ?? ''} onChange={(e) => campo('suframa', e.target.value)} />}
-              <Input label="Cód. Contábil" value={form.consisa_id ?? ''} onChange={(e) => campo('consisa_id', e.target.value)} />
-              <div className="space-y-1">
-                <label className="block text-sm font-medium">Indicador I.E.</label>
-                <select
-                  value={form.indicador_ie ?? ''} onChange={(e) => campo('indicador_ie', e.target.value ? Number(e.target.value) : null)}
-                  className="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-marca-500"
-                >
-                  <option value="">Selecione</option>
-                  {INDICADOR_IE.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-                </select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
+              <p className="md:col-span-2 text-sm font-semibold text-muted-foreground">Documentos / Fiscal</p>
+              {!ehJuridica && <Field label="CPF" error={erros.cpf}><Input value={form.cpf ?? ''} error={!!erros.cpf} onChange={(e) => campo('cpf', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="RG"><Input value={form.rg ?? ''} onChange={(e) => campo('rg', e.target.value)} /></Field>}
+              {ehJuridica && <Field label="CNPJ" error={erros.cnpj}><Input value={form.cnpj ?? ''} error={!!erros.cnpj} onChange={(e) => campo('cnpj', e.target.value)} /></Field>}
+              <Field label="Inscrição Estadual"><Input value={form.inscricao_estadual ?? ''} onChange={(e) => campo('inscricao_estadual', e.target.value)} /></Field>
+              {ehJuridica && <Field label="Suframa"><Input value={form.suframa ?? ''} onChange={(e) => campo('suframa', e.target.value)} /></Field>}
+              <Field label="Cód. Contábil"><Input value={form.consisa_id ?? ''} onChange={(e) => campo('consisa_id', e.target.value)} /></Field>
+              <Field label="Indicador I.E.">
+                <Select value={String(form.indicador_ie ?? '')} onValueChange={(v) => campo('indicador_ie', v ? Number(v) : null)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{INDICADOR_IE.map((o) => <SelectItem key={o.v} value={String(o.v)}>{o.l}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
               <div className="flex items-end gap-4">
-                <Check label="Simples" checked={!!form.simples} onChange={(b) => campo('simples', b)} />
-                <Check label="Emite NF-e" checked={!!form.nfemite} onChange={(b) => campo('nfemite', b)} />
+                <CheckboxField label="Simples" checked={!!form.simples} onChange={(b) => campo('simples', b)} />
+                <CheckboxField label="Emite NF-e" checked={!!form.nfemite} onChange={(b) => campo('nfemite', b)} />
               </div>
             </div>
-          )}
+          </CardContent></Card>
+        </TabsContent>
 
-          {aba === 'contatos' && editId && <TelefonesTab clienteId={editId} />}
-          {aba === 'historico' && editId && <HistoricoTab clienteId={editId} />}
-          {aba === 'interacoes' && editId && <InteracoesTab clienteId={editId} />}
-          {aba === 'convenio' && editId && <ConvenioTab clienteId={editId} />}
-          {aba === 'precos' && editId && <PrecosTab clienteId={editId} />}
-        </div>
-      </Card>
+        <TabsContent value="endereco">
+          <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Cidade" required error={erros.cidade_id}>
+              <AsyncSelect endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={!!erros.cidade_id}
+                onChange={(id, opt) => { campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: opt?.label ?? null, bairro: null })); campo('bairro_id', null); if (opt?.uf) campo('uf', String(opt.uf)) }} />
+            </Field>
+            <Field label="Bairro">
+              <AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: form.cidade_id }} value={form.bairro_id ?? null} valueLabel={labels.bairro} disabled={!form.cidade_id}
+                placeholder={form.cidade_id ? 'Selecione…' : 'Escolha a cidade primeiro'}
+                onChange={(id, opt) => { campo('bairro_id', id); setLabels((l) => ({ ...l, bairro: opt?.label ?? null })) }} />
+            </Field>
+            <Field label="Número" required error={erros.numero}><Input value={form.numero} error={!!erros.numero} onChange={(e) => campo('numero', e.target.value)} /></Field>
+            <Field label="CEP"><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>
+            <Field label="UF"><Input maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} /></Field>
+            <Field label="Complemento"><Input value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} /></Field>
+            <Field label="Ponto de referência" className="md:col-span-2"><Input value={form.ponto_referencia ?? ''} onChange={(e) => campo('ponto_referencia', e.target.value)} /></Field>
+          </CardContent></Card>
+        </TabsContent>
+
+        {editId && <TabsContent value="contatos"><Card><CardContent className="pt-6"><TelefonesTab clienteId={editId} /></CardContent></Card></TabsContent>}
+        {editId && <TabsContent value="historico"><HistoricoTab clienteId={editId} /></TabsContent>}
+        {editId && <TabsContent value="interacoes"><Card><CardContent className="pt-6"><InteracoesTab clienteId={editId} /></CardContent></Card></TabsContent>}
+        {editId && <TabsContent value="convenio"><Card><CardContent className="pt-6"><ConvenioTab clienteId={editId} /></CardContent></Card></TabsContent>}
+        {editId && <TabsContent value="precos"><PrecosTab clienteId={editId} /></TabsContent>}
+      </Tabs>
     </div>
   )
 }

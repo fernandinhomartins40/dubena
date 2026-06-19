@@ -225,4 +225,75 @@ class ApiAdminProdutoTest extends TestCase
         $this->actingAs($admin)->getJson('/api/admin/lookups/estados')->assertOk()->assertJsonStructure([['id', 'label', 'uf']]);
         $this->actingAs($admin)->getJson('/api/admin/lookups/tipo-glp')->assertOk()->assertJsonStructure([['id', 'label']]);
     }
+
+    // ---- Visão nova / reorganização (DS) ----
+
+    public function test_estoque_por_setor_e_giro()
+    {
+        $admin = $this->admin();
+        [$classe, $unidade] = $this->apoio($admin);
+        $grupo = optional($admin->empresa)->grupo_id ?? 1;
+        $id = $this->actingAs($admin)->postJson('/api/admin/produtos', [
+            'descricao' => 'Com Estoque', 'produtoclasse_id' => $classe,
+            'unidademedida_id' => $unidade, 'vasilhameretornavel' => false, 'diasgiro' => 7,
+        ])->json('data.id');
+
+        $setorId = \DB::table('setors')->insertGetId([
+            'grupo_id' => $grupo, 'empresa_id' => $admin->empresa_id, 'cidade_id' => 1, 'bairro_id' => 1,
+            'descricao' => 'Setor Estq', 'numero' => '1', 'cep' => '00000000', 'latitude' => 0, 'longitude' => 0,
+            'ativo' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        \DB::table('estoquesetors')->insert([
+            'grupo_id' => $grupo, 'empresa_id' => $admin->empresa_id, 'setor_id' => $setorId, 'produto_id' => $id,
+            'quantidade' => 12, 'quantidademinima' => 2, 'quantidademaxima' => 50, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $resp = $this->actingAs($admin)->getJson("/api/admin/produtos/$id/estoque");
+        $resp->assertOk()->assertJsonPath('data.diasgiro', 7)->assertJsonPath('data.total', 12);
+        $this->assertCount(1, $resp->json('data.setores'));
+    }
+
+    public function test_config_classes_crud()
+    {
+        $admin = $this->admin();
+        $resp = $this->actingAs($admin)->postJson('/api/admin/produto-config/classes', ['descricao' => 'Classe Nova', 'tipo' => 'P']);
+        $resp->assertCreated();
+        $cid = $resp->json('data.id');
+        // unicidade
+        $this->actingAs($admin)->postJson('/api/admin/produto-config/classes', ['descricao' => 'Classe Nova'])->assertStatus(422);
+        $this->actingAs($admin)->getJson('/api/admin/produto-config/classes')->assertOk()->assertJsonStructure(['data' => [['id', 'descricao', 'tipo', 'ativo']]]);
+        $this->actingAs($admin)->putJson("/api/admin/produto-config/classes/$cid", ['descricao' => 'Classe Editada'])->assertOk()->assertJsonPath('data.descricao', 'Classe Editada');
+        $this->actingAs($admin)->deleteJson("/api/admin/produto-config/classes/$cid")->assertOk();
+    }
+
+    public function test_config_unidades_crud()
+    {
+        $admin = $this->admin();
+        $resp = $this->actingAs($admin)->postJson('/api/admin/produto-config/unidades', ['descricao' => 'Caixa', 'sigla' => 'CX']);
+        $resp->assertCreated();
+        $uid = $resp->json('data.id');
+        $this->actingAs($admin)->getJson('/api/admin/produto-config/unidades')->assertOk()->assertJsonStructure(['data' => [['id', 'descricao', 'sigla', 'ativo']]]);
+        $this->actingAs($admin)->deleteJson("/api/admin/produto-config/unidades/$uid")->assertOk();
+    }
+
+    public function test_precos_preview_e_aplicar()
+    {
+        $admin = $this->admin();
+        [$classe, $unidade] = $this->apoio($admin);
+        $id = $this->actingAs($admin)->postJson('/api/admin/produtos', [
+            'descricao' => 'Preço Base', 'produtoclasse_id' => $classe,
+            'unidademedida_id' => $unidade, 'vasilhameretornavel' => false, 'precovenda' => 100,
+        ])->json('data.id');
+
+        // preview não altera; +10% → 110
+        $prev = $this->actingAs($admin)->getJson('/api/admin/produtos-precos/preview?tipo=percentual&valor=10');
+        $prev->assertOk();
+        $item = collect($prev->json('data'))->firstWhere('id', $id);
+        $this->assertEquals(110, $item['novo']);
+        $this->assertEquals(100, (float) Produto::find($id)->precovenda); // não gravou
+
+        // aplica
+        $this->actingAs($admin)->putJson('/api/admin/produtos-precos/aplicar', ['tipo' => 'percentual', 'valor' => 10])->assertOk();
+        $this->assertEquals(110, (float) Produto::find($id)->precovenda);
+    }
 }

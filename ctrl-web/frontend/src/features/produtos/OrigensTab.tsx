@@ -1,6 +1,8 @@
-import { Trash2, Plus } from 'lucide-react'
-import { Button } from '@/components/ui'
-import { AsyncSelect } from '@/components/AsyncSelect'
+import { Trash2, Plus, Fuel } from 'lucide-react'
+import {
+  Button, Field, Input, Badge, AsyncSelect, EmptyState,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui'
 import type { OrigemCombustivel } from './api'
 
 const IND_IMPORT = [
@@ -11,7 +13,7 @@ const IND_IMPORT = [
 
 /**
  * Origens do combustível (sub-recurso). A soma dos percentuais deve dar 100%
- * (regra do ProdutoController). Mostra o total ao vivo e bloqueia o salvar se ≠ 100.
+ * (regra do ProdutoController). Mostra o total ao vivo.
  */
 export function OrigensTab({
   origens, onChange, ufLabels, setUfLabel,
@@ -27,58 +29,58 @@ export function OrigensTab({
   function set(idx: number, patch: Partial<OrigemCombustivel>) {
     onChange(origens.map((o, i) => (i === idx ? { ...o, ...patch } : o)))
   }
-  function add() {
-    onChange([...origens, { indimport: 0, cuforig: 0, porig: 0 }])
-  }
-  function remove(idx: number) {
-    onChange(origens.filter((_, i) => i !== idx))
-  }
+  function add() { onChange([...origens, { indimport: 0, cuforig: 0, porig: 0 }]) }
+  function remove(idx: number) { onChange(origens.filter((_, i) => i !== idx)) }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Composição de origem do combustível (a soma dos percentuais deve ser 100%).</p>
-        <Button variant="ghost" onClick={add}><Plus size={16} /> Adicionar origem</Button>
+        <div>
+          <p className="text-sm font-medium">Composição de origem do combustível</p>
+          <p className="text-sm text-muted-foreground">A soma dos percentuais deve ser 100%.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {origens.length > 0 && (
+            <Badge variant={ok ? 'success' : 'destructive'}>
+              Total: {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%
+            </Badge>
+          )}
+          <Button variant="outline" size="sm" onClick={add}><Plus size={16} /> Adicionar</Button>
+        </div>
       </div>
 
-      {origens.length === 0 && <p className="text-sm text-slate-400">Nenhuma origem cadastrada.</p>}
-
-      {origens.map((o, idx) => (
-        <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div className="md:col-span-4">
-            <label className="block text-sm font-medium mb-1">Indicador de importação</label>
-            <select
-              value={o.indimport} onChange={(e) => set(idx, { indimport: Number(e.target.value) })}
-              className="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-marca-500"
-            >
-              {IND_IMPORT.map((i) => <option key={i.v} value={i.v}>{i.l}</option>)}
-            </select>
-          </div>
-          <div className="md:col-span-5">
-            <AsyncSelect
-              label="UF de origem" endpoint="/lookups/estados"
-              value={o.cuforig || null} valueLabel={ufLabels[idx]}
-              onChange={(id, opt) => { set(idx, { cuforig: id ?? 0 }); setUfLabel(idx, opt?.label ?? null) }}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">% Origem</label>
-            <input
-              type="number" step="0.0001" value={o.porig}
-              onChange={(e) => set(idx, { porig: parseFloat(e.target.value) || 0 })}
-              className="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-marca-500"
-            />
-          </div>
-          <div className="md:col-span-1">
-            <button onClick={() => remove(idx)} title="Remover"
-              className="p-2 rounded text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800"><Trash2 size={16} /></button>
-          </div>
-        </div>
-      ))}
-
-      {origens.length > 0 && (
-        <div className={`text-sm font-medium ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
-          Total: {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% {ok ? '✓' : '(precisa ser 100%)'}
+      {origens.length === 0 ? (
+        <EmptyState icon={<Fuel />} title="Nenhuma origem cadastrada" description="Adicione as origens para produtos GLP." />
+      ) : (
+        <div className="space-y-3">
+          {origens.map((o, idx) => (
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end rounded-lg border border-border p-3">
+              <div className="md:col-span-5">
+                <Field label="Indicador de importação">
+                  <Select value={String(o.indimport)} onValueChange={(v) => set(idx, { indimport: Number(v) })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {IND_IMPORT.map((i) => <SelectItem key={i.v} value={String(i.v)}>{i.l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="md:col-span-4">
+                <Field label="UF de origem">
+                  <AsyncSelect endpoint="/lookups/estados" value={o.cuforig || null} valueLabel={ufLabels[idx]}
+                    onChange={(id, opt) => { set(idx, { cuforig: id ?? 0 }); setUfLabel(idx, opt?.label ?? null) }} />
+                </Field>
+              </div>
+              <div className="md:col-span-2">
+                <Field label="% Origem">
+                  <Input type="number" step="0.0001" value={o.porig} onChange={(e) => set(idx, { porig: parseFloat(e.target.value) || 0 })} />
+                </Field>
+              </div>
+              <div className="md:col-span-1 flex justify-end">
+                <Button variant="ghost" size="icon" onClick={() => remove(idx)} aria-label="Remover"><Trash2 size={16} /></Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

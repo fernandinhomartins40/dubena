@@ -105,10 +105,76 @@ export function useSalvarProduto() {
   })
 }
 
+export interface EstoqueProduto {
+  diasgiro: number
+  total: number
+  setores: { setor: string; quantidade: number; minima: number; maxima: number }[]
+}
+
+export function useEstoqueProduto(id: number | null) {
+  return useQuery<EstoqueProduto>({
+    queryKey: ['produto-estoque', id],
+    queryFn: async () => (await api.get(`/produtos/${id}/estoque`)).data.data,
+    enabled: id !== null,
+  })
+}
+
 export function useExcluirProduto() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: number) => (await api.delete(`/produtos/${id}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produtos'] }),
+  })
+}
+
+// ---- Configurações (Classes / Unidades) ----
+export interface ClasseItem { id: number; descricao: string; tipo: string | null; ativo: number }
+export interface UnidadeItem { id: number; descricao: string; sigla: string | null; ativo: number }
+
+export function useClasses() {
+  return useQuery<ClasseItem[]>({ queryKey: ['produto-classes-crud'], queryFn: async () => (await api.get('/produto-config/classes')).data.data })
+}
+export function useUnidades() {
+  return useQuery<UnidadeItem[]>({ queryKey: ['produto-unidades-crud'], queryFn: async () => (await api.get('/produto-config/unidades')).data.data })
+}
+export function useSalvarClasse() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id?: number; descricao: string; tipo?: string; ativo?: boolean }) =>
+      id ? (await api.put(`/produto-config/classes/${id}`, data)).data : (await api.post('/produto-config/classes', data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produto-classes-crud'] }),
+  })
+}
+export function useExcluirClasse() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/produto-config/classes/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['produto-classes-crud'] }) })
+}
+export function useSalvarUnidade() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id?: number; descricao: string; sigla?: string; ativo?: boolean }) =>
+      id ? (await api.put(`/produto-config/unidades/${id}`, data)).data : (await api.post('/produto-config/unidades', data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produto-unidades-crud'] }),
+  })
+}
+export function useExcluirUnidade() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/produto-config/unidades/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['produto-unidades-crud'] }) })
+}
+
+// ---- Atualizar preços em massa ----
+export interface PrecoPreviewItem { id: number; descricao: string; atual: number; novo: number }
+export interface PrecoParams { tipo: 'percentual' | 'fixo'; valor: number; classe_id?: number | null }
+
+export function usePrecosPreview() {
+  return useMutation({
+    mutationFn: async (p: PrecoParams) => (await api.get('/produtos-precos/preview', { params: p })).data.data as PrecoPreviewItem[],
+  })
+}
+export function usePrecosAplicar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: PrecoParams) => (await api.put('/produtos-precos/aplicar', p)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['produtos'] }),
   })
 }
