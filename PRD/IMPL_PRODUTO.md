@@ -64,6 +64,20 @@ nfecodgen. **Vínculos:** produtoretornavel_id (vasilhame), ressarcimentoproduto
 - Sub-recurso origens: GET/PUT /produtos/{id}/origens (lista com soma 100%).
 - Reusar regras do dadosExtras (decimais/GLP/origens) num Service ou no controller da API.
 
+## 6b. REORGANIZAÇÃO / UX (ver MAPA_NAVEGACAO_ALVO.md — reorganizar ≠ eliminar)
+**Telas legadas consolidadas (de-para):**
+| Tela legada | Destino no app novo |
+|---|---|
+| produto.index | Página **Produtos** (lista + ficha em abas) |
+| produtoclasse.index | Produtos → Configurações → aba **Classes** |
+| unidademedida.index | Produtos → Configurações → aba **Unidades de medida** |
+| atualizarprecos.index | Produtos → **ação "Atualizar preços em massa"** (com preview) |
+
+**Agrupamento:** 4 telas dispersas → 1 página Produtos + 1 tela de Configurações (abas) +
+1 ação. **Visão nova:** na ficha do produto, ver preços + estoque por setor + curva de giro
+juntos (hoje exige abrir telas separadas). **Funções que ficam visíveis:** atualização de
+preços em massa (hoje escondida em submenu) vira ação destacada na lista.
+
 ## 7. DoD (Definição de Pronto)
 1. Todas as 49 colunas editáveis (nas abas) — exceto id/timestamps/grupo/empresa (auto).
 2. Regras: GLP soma 100/0, origens soma 100%, não-inativar com estoque, conversão decimal BR.

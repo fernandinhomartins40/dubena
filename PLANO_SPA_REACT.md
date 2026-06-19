@@ -99,6 +99,13 @@ ctrl-web/
 4. Só então ligar a flag e aposentar a tela legada.
 
 Specs já escritas: [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md).
+PRDs de implementação (auditados, ordem de implementação): [`PRD/IMPL_PRODUTO.md`](PRD/IMPL_PRODUTO.md),
+[`PRD/IMPL_GEOGRAFICO.md`](PRD/IMPL_GEOGRAFICO.md), …
+
+**REORGANIZAÇÃO (reorganizar ≠ eliminar):** o agrupamento das telas legadas dispersas em
+páginas completas é definido no [`PRD/MAPA_NAVEGACAO_ALVO.md`](PRD/MAPA_NAVEGACAO_ALVO.md)
+(inventário + de-para legado→novo, garantindo que NENHUMA função se perca). Cada IMPL_<modulo>
+herda esse agrupamento na seção "Reorganização/UX" e traz a tabela de-para das telas que consolida.
 
 ## FASES (Strangler — cada módulo: SPEC → API admin → tela React → testes → flag)
 

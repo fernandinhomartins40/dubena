@@ -37,6 +37,12 @@
 - /geo/cidades, /geo/bairros, /geo/ruas, /geo/regioes — CRUD; reusar lookups existentes.
 - Aplicar as REGRAS DE UNICIDADE (cidade nome+uf, bairro nome+cidade, rua nome+cidade) na API.
 
+## REORGANIZAÇÃO / UX (ver MAPA_NAVEGACAO_ALVO.md)
+**De-para:** cidade.index / bairro.index / rua.index / regiao → **1 página Geográfico** com abas
+(Cidades / Bairros / Ruas / Regiões). **Agrupamento:** 4 telas → 1 página com abas e selects
+dependentes. **Visão nova:** ao abrir uma Cidade, ver seus Bairros e Ruas na própria página
+(drill-down), em vez de 3 telas isoladas. Nada eliminado.
+
 ## DoD
 1. CRUD das 4 entidades com campos/validações/unicidade acima.
 2. Cidade respeita registros globais (grupo_id null).
