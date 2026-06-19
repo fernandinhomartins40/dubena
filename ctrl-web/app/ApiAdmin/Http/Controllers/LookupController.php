@@ -107,6 +107,100 @@ class LookupController extends Controller
         );
     }
 
+    /** GET /api/admin/lookups/produto-classes */
+    public function produtoClasses(Request $request)
+    {
+        return $this->porGrupoAtivo($request, \App\Produtoclasse::query());
+    }
+
+    /** GET /api/admin/lookups/unidades */
+    public function unidades(Request $request)
+    {
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        return response()->json(
+            \App\Unidademedida::query()->where('ativo', 1)
+                ->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+                ->orderBy('descricao')->get()
+                ->map(fn ($u) => ['id' => $u->id, 'label' => $u->descricao . ($u->sigla ? " ({$u->sigla})" : '')])
+        );
+    }
+
+    /** GET /api/admin/lookups/nf-grupos-fiscais */
+    public function nfGruposFiscais(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            \App\Nfgrupofiscal::query()->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get()
+                ->map(fn ($g) => ['id' => $g->id, 'label' => $g->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/ipis */
+    public function ipis(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            \App\Nfipi::query()
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('codigo')->get()
+                ->map(fn ($i) => ['id' => $i->id, 'label' => trim(($i->codigo ?? '') . ' - ' . ($i->descricao ?? ''), ' -')])
+        );
+    }
+
+    /** GET /api/admin/lookups/estados */
+    public function estados(Request $request)
+    {
+        return response()->json(
+            \App\Estado::query()->orderBy('descricao')->get()
+                ->map(fn ($e) => ['id' => $e->cod_ibge, 'label' => $e->descricao, 'uf' => $e->uf])
+        );
+    }
+
+    /** GET /api/admin/lookups/produtos-vasilhame — produtos cuja classe é vasilhame (tipo 'V'). */
+    public function produtosVasilhame(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        $classes = \App\Produtoclasse::where('ativo', 1)
+            ->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+            ->where('tipo', 'V')->pluck('id');
+        return response()->json(
+            DB::table('produtos')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->whereIn('produtoclasse_id', $classes)
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($p) => ['id' => $p->id, 'label' => $p->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/produtos-ressarcimento — produtos cuja classe é ressarcimento (tipo 'R'). */
+    public function produtosRessarcimento(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('produtos')->join('produtoclasses', 'produtos.produtoclasse_id', '=', 'produtoclasses.id')
+                ->where('produtos.ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('produtos.empresa_id', $empresaId))
+                ->where('produtoclasses.tipo', 'R')
+                ->orderBy('produtos.descricao')->get(['produtos.id', 'produtos.descricao'])
+                ->map(fn ($p) => ['id' => $p->id, 'label' => $p->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/tipo-glp — lista fixa (ProdutoController::tipoGlp). */
+    public function tipoGlp()
+    {
+        $tipos = [
+            1 => 'GLP P02', 2 => 'GLP P08', 3 => 'GLP P13',
+            4 => 'GLP P20', 5 => 'GLP P45', 6 => 'GLP P90',
+        ];
+        return response()->json(
+            collect($tipos)->map(fn ($l, $id) => ['id' => $id, 'label' => $l])->values()
+        );
+    }
+
     private function porGrupoAtivo(Request $request, $query)
     {
         $grupoId = optional(optional($request->user())->empresa)->grupo_id;
