@@ -24,8 +24,10 @@
 - **Defaults no create:** importacaocep_id=-1, empresa_id=empresa_padrao.id, nfecompl='Rua',
   grupo_id=grupo. **Unicidade:** descricao+cidade_id (`getRuasIguais`).
 
-## REGIÃO (`RegiaoController` SEM métodos públicos no controller — auditar model/rotas;
-   provável CRUD simples via outro caminho ou scaffold. Confirmar antes de implementar.)
+## REGIÃO (`regiaos`: id, grupo_id, descricao, ativo) — **DECIDIDO (reauditado 2026-06-19):**
+   é CRUD REAL. RegiaoController tem index/store/update (só create/show/edit são scaffold vazio,
+   não há destroy no legado). Validação: descricao required; escopo grupo_id; ativo default 0.
+   **Implementar como CRUD** (com destroy FK-amigável no app novo). Entra como aba da página Geográfico.
 
 ## PÁGINA-ALVO (React) — grupo "Cadastros"
 - Cada entidade: lista paginada/escopada (incluir registros globais grupo_id null p/ Cidade)
