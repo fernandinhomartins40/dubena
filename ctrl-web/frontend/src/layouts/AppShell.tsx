@@ -24,7 +24,7 @@ const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: <LayoutDashboard size={18} />, group: 'Geral' },
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
-  { label: 'Cidades', to: '/cidades', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
+  { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
 ]
 

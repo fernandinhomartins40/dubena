@@ -78,6 +78,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F2 — Geográfico (Cidade/Bairro/Rua/Região) — 1 página com abas
+    Route::get('geo/cidades', 'GeograficoController@cidades')->name('geo.cidades');
+    Route::post('geo/cidades', 'GeograficoController@salvarCidade')->name('geo.cidades.store');
+    Route::put('geo/cidades/{id}', 'GeograficoController@salvarCidade')->name('geo.cidades.update');
+    Route::delete('geo/cidades/{id}', 'GeograficoController@excluirCidade')->name('geo.cidades.del');
+    Route::get('geo/bairros', 'GeograficoController@bairros')->name('geo.bairros');
+    Route::post('geo/bairros', 'GeograficoController@salvarBairro')->name('geo.bairros.store');
+    Route::put('geo/bairros/{id}', 'GeograficoController@salvarBairro')->name('geo.bairros.update');
+    Route::delete('geo/bairros/{id}', 'GeograficoController@excluirBairro')->name('geo.bairros.del');
+    Route::get('geo/ruas', 'GeograficoController@ruas')->name('geo.ruas');
+    Route::post('geo/ruas', 'GeograficoController@salvarRua')->name('geo.ruas.store');
+    Route::put('geo/ruas/{id}', 'GeograficoController@salvarRua')->name('geo.ruas.update');
+    Route::delete('geo/ruas/{id}', 'GeograficoController@excluirRua')->name('geo.ruas.del');
+    Route::get('geo/regioes', 'GeograficoController@regioes')->name('geo.regioes');
+    Route::post('geo/regioes', 'GeograficoController@salvarRegiao')->name('geo.regioes.store');
+    Route::put('geo/regioes/{id}', 'GeograficoController@salvarRegiao')->name('geo.regioes.update');
+    Route::delete('geo/regioes/{id}', 'GeograficoController@excluirRegiao')->name('geo.regioes.del');
+
     // S2 — sub-recursos do Cliente (abas Histórico/Interações/Convênio/Preços)
     Route::get('clientes/{id}/historico', 'ClienteSubController@historico')->name('clientes.historico');
     Route::get('clientes/{id}/interacoes', 'ClienteSubController@interacoes')->name('clientes.interacoes');
