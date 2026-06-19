@@ -49,7 +49,9 @@ class ClienteController extends Controller
             });
         }
 
-        $page = $query->orderBy('nome')->paginate($perPage);
+        // Ordena por nome E id (desempate) — evita parecer "repetido" quando há
+        // muitos homônimos; cada linha é um registro distinto.
+        $page = $query->orderBy('nome')->orderBy('id')->paginate($perPage);
 
         return response()->json([
             'data' => $page->items(),
@@ -72,6 +74,9 @@ class ClienteController extends Controller
         $extra = [
             'cidade_label' => optional(\App\Cidade::find($cliente->cidade_id))->descricao,
             'bairro_label' => $cliente->bairro_id ? optional(\App\Bairro::find($cliente->bairro_id))->descricao : null,
+            'rua_label'    => $cliente->rua_id ? optional(\App\Rua::find($cliente->rua_id))->descricao : null,
+            'segmento_label'   => $cliente->segmento_id ? optional(\App\Segmento::find($cliente->segmento_id))->descricao : null,
+            'tipopessoa_label' => $cliente->tipopessoa_id ? optional(\App\Tipopessoa::find($cliente->tipopessoa_id))->descricao : null,
         ];
 
         return response()->json(['data' => array_merge($cliente->toArray(), $extra)]);
@@ -84,6 +89,7 @@ class ClienteController extends Controller
         $data = $this->validar($request);
 
         $user = $request->user();
+        $data = $this->normalizarFlags($data);
         $data['empresa_id'] = $user->empresa_id;
         $data['grupo_id']   = optional($user->empresa)->grupo_id;
         $data['user_id']    = $user->id;
@@ -98,10 +104,21 @@ class ClienteController extends Controller
     {
         $this->autorizar($request, 'cliente.edit');
         $cliente = $this->escopo(Cliente::query(), $request)->findOrFail($id);
-        $data = $this->validar($request);
+        $data = $this->normalizarFlags($this->validar($request));
 
         DB::transaction(fn () => $cliente->update($data));
         return response()->json(['data' => $cliente->fresh()]);
+    }
+
+    /** Flags do React vêm como bool; as colunas são smallint (0/1). */
+    private function normalizarFlags(array $data): array
+    {
+        foreach (['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'] as $f) {
+            if (array_key_exists($f, $data)) {
+                $data[$f] = ! empty($data[$f]) ? 1 : 0;
+            }
+        }
+        return $data;
     }
 
     /** DELETE /api/admin/clientes/{id} */
@@ -169,21 +186,44 @@ class ClienteController extends Controller
 
     private function validar(Request $request): array
     {
+        // Paridade com o ClienteRequest legado (SPEC_CLIENTE §4): todos os campos
+        // das abas Dados/Endereço/Fiscal. Sub-recursos (telefones/contatos/convênio/
+        // preços) têm endpoints próprios.
         return $request->validate([
-            'nome'        => 'required|string|min:3|max:255',
-            'fantasia'    => 'nullable|string|max:255',
-            'numero'      => 'required|string|max:10',
-            'cidade_id'   => 'required|integer',
-            'bairro_id'   => 'nullable|integer',
-            'uf'          => 'nullable|string|max:2',
-            'cep'         => 'nullable|string|max:9',
-            'email'       => 'nullable|email|max:255',
-            'cpf'         => 'nullable|string|max:14',
-            'cnpj'        => 'nullable|string|max:18',
-            'sexo'        => 'nullable|string|max:1',
-            'tipopessoa_id' => 'nullable|integer',
-            'segmento_id' => 'nullable|integer',
-            'observacoes' => 'nullable|string',
+            // Dados gerais
+            'nome'           => 'required|string|min:3|max:255',
+            'fantasia'       => 'nullable|string|max:255',
+            'tipopessoa_id'  => 'nullable|integer',
+            'segmento_id'    => 'nullable|integer',
+            'sexo'           => 'nullable|string|max:1',
+            'datanascimento' => 'nullable|date',
+            'observacoes'    => 'nullable|string',
+            // Fiscal / documentos
+            'cpf'            => 'nullable|string|max:14',
+            'rg'             => 'nullable|string|max:20',
+            'cnpj'           => 'nullable|string|max:18',
+            'inscricao_estadual' => 'nullable|string|max:30',
+            'indicador_ie'   => 'nullable|integer',
+            'suframa'        => 'nullable|string|max:9',
+            'consisa_id'     => 'nullable|string|max:30',
+            // Flags
+            'cliente'        => 'nullable|boolean',
+            'fornecedor'     => 'nullable|boolean',
+            'transportador'  => 'nullable|boolean',
+            'simples'        => 'nullable|boolean',
+            'ativo'          => 'nullable|boolean',
+            'nfemite'        => 'nullable|boolean',
+            'gasdopovo'      => 'nullable|boolean',
+            // Endereço
+            'numero'         => 'required|string|max:10',
+            'cidade_id'      => 'required|integer',
+            'bairro_id'      => 'nullable|integer',
+            'rua_id'         => 'nullable|integer',
+            'uf'             => 'nullable|string|max:2',
+            'cep'            => 'nullable|string|max:9',
+            'complemento'    => 'nullable|string|max:255',
+            'ponto_referencia' => 'nullable|string|max:255',
+            'email'          => 'nullable|email|max:255',
         ]);
     }
 

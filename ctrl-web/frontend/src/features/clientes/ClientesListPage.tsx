@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useClientes } from './api'
+import { Search, Plus, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { useClientes, useExcluirCliente } from './api'
 import { Button, Card, PageHeader } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 
@@ -12,6 +12,7 @@ export function ClientesListPage() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const { data, isLoading, isFetching } = useClientes(q, page)
+  const excluir = useExcluirCliente()
 
   function buscar(e: React.FormEvent) {
     e.preventDefault()
@@ -51,29 +52,40 @@ export function ClientesListPage() {
               <th className="px-4 py-3 font-medium">CPF/CNPJ</th>
               <th className="px-4 py-3 font-medium">E-mail</th>
               <th className="px-4 py-3 font-medium">UF</th>
+              <th className="px-4 py-3 font-medium text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Carregando…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Carregando…</td></tr>
             ) : data && data.data.length > 0 ? (
               data.data.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => navigate(`/clientes/${c.id}`)}
-                  className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{c.nome}</div>
+                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/clientes/${c.id}`)}>
+                    <div className="font-medium">{c.nome} {c.ativo === 0 && <span className="text-xs text-red-500">(inativo)</span>}</div>
                     {c.fantasia && <div className="text-xs text-slate-400">{c.fantasia}</div>}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{c.cpf || c.cnpj || '—'}</td>
                   <td className="px-4 py-3 text-slate-500">{c.email || '—'}</td>
                   <td className="px-4 py-3 text-slate-500">{c.uf || '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {can('cliente.edit') && (
+                        <button onClick={() => navigate(`/clientes/${c.id}`)} title="Editar"
+                          className="p-1.5 rounded text-slate-400 hover:text-marca-600 hover:bg-slate-100 dark:hover:bg-slate-800"><Pencil size={16} /></button>
+                      )}
+                      {can('cliente.delete') && (
+                        <button
+                          onClick={() => { if (confirm(`Excluir o cliente "${c.nome}"?`)) excluir.mutate(c.id) }}
+                          title="Excluir"
+                          className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800"><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Nenhum cliente encontrado.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Nenhum cliente encontrado.</td></tr>
             )}
           </tbody>
         </table>
