@@ -14,11 +14,16 @@ dos repositórios originais** (não os altera — trabalho feito sobre clones).
 
 ## Documentação do projeto
 
-- `PLANO_MODERNIZACAO_ECOSSISTEMA.md` — plano mestre (fases 0–7).
-- `FASES_1_2_EXECUTADAS.md` — segurança + testes de caracterização.
-- `FASE_3_EXECUTADA.md` — migração Oracle → PostgreSQL.
-- `FASE_4_EXECUTADA.md` — upgrade de framework (Laravel 5.8) + limpezas.
-- `FASE_5_EXECUTADA.md` — unificação web + API.
+Toda a documentação de planejamento/PRD vive em **[`docs/`](docs/)** (organizada por finalidade).
+Comece pelo que está VIGENTE:
+
+- **[docs/01-vigente/](docs/01-vigente/)** — plano e PRDs ATUAIS (SPA React + Laravel API):
+  - `PLANO_SPA_REACT.md` — plano vigente (fases S1–S8) + plano de implementação por módulo.
+  - `MAPA_NAVEGACAO_ALVO.md` — de-para legado→novo (reorganizar ≠ eliminar).
+  - `IMPL_00_INDICE.md` + `IMPL_*.md` — PRDs de implementação por módulo (auditados do código); cada um é o CONTRATO (paridade + DoD).
+- `docs/02-auditoria-legado/` — PRDs fiéis (linha-a-linha) do legado (referência).
+- `docs/03-modernizacao-filament/` — auditoria da fase Filament (descartada — histórico).
+- `docs/04-historico/` — planos antigos supersedidos (histórico).
 - `*/ANALISE_TECNICA_*.md` — auditoria técnica de cada sistema.
 - `*/README.docker.md` — como subir cada sistema em Docker.
 
