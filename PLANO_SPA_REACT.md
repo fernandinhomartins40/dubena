@@ -78,7 +78,29 @@ ctrl-web/
 
 ---
 
-## FASES (Strangler — cada módulo: API admin + tela React + permissão + validar + flag)
+## MÉTODO OBRIGATÓRIO — PARIDADE COMPLETA (não recriar enxuto)
+
+> ⚠️ Lição (2026-06-18): a 1ª versão do Cliente saiu INCOMPLETA (poucos campos, sem ações,
+> lista bugada). REGRA daqui em diante: **migrar ≠ recriar um subconjunto**. Cada módulo
+> preserva TODAS as funções/campos do legado, apenas reorganizados em UX moderna.
+
+**Para CADA módulo, antes de implementar:**
+1. **Auditar o legado** (Controller + FormRequest + views/form + tabela) e escrever
+   `PRD/SPEC_<modulo>.md`: TODOS os campos (nome/tipo/obrigatório/origem), TODAS as ações
+   (CRUD + especiais), TODOS os sub-recursos, TODAS as validações/regras.
+2. Implementar API admin + tela React cobrindo a spec 100%.
+3. **Definição de PRONTO (DoD)** — só marca pronto se:
+   - todos os campos da spec presentes;
+   - todas as ações da spec disponíveis (criar/editar/excluir + especiais);
+   - validações reaproveitadas do legado;
+   - lista paginada correta (sem bug), com ações por linha;
+   - testado de verdade (criar/editar/excluir/sub-recursos) + testes automatizados;
+   - permissão por RBAC.
+4. Só então ligar a flag e aposentar a tela legada.
+
+Specs já escritas: [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md).
+
+## FASES (Strangler — cada módulo: SPEC → API admin → tela React → testes → flag)
 
 ### S1 — FUNDAÇÃO DO SPA · risco BAIXO
 - [ ] Sanctum: instalar/configurar (stateful domains, CSRF, guard web p/ SPA).
@@ -93,12 +115,16 @@ ctrl-web/
 **Portão S1:** logar no SPA (`/app`), ver o AppShell com a marca, `me` retornando permissões.
 
 ### S2 — CADASTROS (vitrine do padrão) · risco BAIXO
-- [ ] **Cliente (página completa)** — 1º alvo: lista (paginada/filtrada, server-side via API) +
-      ficha em abas (Dados/Endereço/Fiscal/Convênio) + sub-recursos (Telefones/Contatos/Pedidos/
-      Financeiro) na mesma página. API admin de cliente reusa ClienteRequest/regras.
-- [ ] Produto, Geográfico (Cidade/Bairro/Rua), Empresa/Config — mesmos padrões React.
-- [ ] Componentes reaproveitáveis: DataTable, FormField (com máscara moeda/decimal BR),
-      Select assíncrono (cidade→bairro→rua), uploader, tabs, modais.
+- [~] **Cliente — PÁGINA COMPLETA conforme [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md)** (1º alvo).
+      Versão inicial (S2/S2b) saiu INCOMPLETA → REFAZER cobrindo a spec: 7 abas (Dados Gerais/
+      Endereço/Contatos-telefones/Histórico/Interações/Convênio/Preços), todas as ações
+      (CRUD + ativar/inativar + contrato PDF + etiquetas + convênio + edição inline), validações
+      do ClienteRequest, lista paginada SEM bug + ações por linha. DoD da spec.
+      Sub-etapa: auditar `convenio.blade`/`precos.blade` antes das abas 6/7.
+- [ ] **Produto** — escrever `PRD/SPEC_PRODUTO.md` (auditar) e implementar com paridade.
+- [ ] **Geográfico** (Cidade/Bairro/Rua), **Empresa/Config** — idem (spec → impl).
+- [ ] Componentes reaproveitáveis: DataTable (com ações por linha), FormField (máscara moeda/
+      decimal BR), AsyncSelect (cidade→bairro→rua ✅), uploader, tabs ✅, modais.
 
 **Portão S2 (por entidade):** tela React validada dev→prod; permissão por RBAC; legado da
 entidade aposentado por flag (link do legado passa a apontar p/ `/app/<modulo>`).

@@ -67,7 +67,8 @@ trait RevisionsTraitService
                 }
                 $revision = new Revision;
                 \DB::table($revision->getTable())->insert($revisions);
-                \Event::fire('revisionable.saved', array('model' => $this, 'revisions' => $revisions));
+                // L12: Event::fire() foi removido — usar dispatch() (mesma assinatura nome+payload).
+                \Event::dispatch('revisionable.saved', array('model' => $this, 'revisions' => $revisions));
             }
         }
     }
@@ -157,7 +158,8 @@ trait RevisionsTraitService
 
             $revision = new Revision;
             \DB::table($revision->getTable())->insert($revisions);
-            \Event::fire('revisionable.created', array('model' => $this, 'revisions' => $revisions));
+            // L12: Event::fire() removido → dispatch().
+            \Event::dispatch('revisionable.created', array('model' => $this, 'revisions' => $revisions));
         }
 
     }

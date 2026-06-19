@@ -23,6 +23,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // S2 — lookups p/ selects do SPA
     Route::get('lookups/cidades', 'LookupController@cidades')->name('lookups.cidades');
     Route::get('lookups/bairros', 'LookupController@bairros')->name('lookups.bairros');
+    Route::get('lookups/segmentos', 'LookupController@segmentos')->name('lookups.segmentos');
+    Route::get('lookups/tipo-pessoa', 'LookupController@tipoPessoa')->name('lookups.tipopessoa');
+    Route::get('lookups/parentescos', 'LookupController@parentescos')->name('lookups.parentescos');
+    Route::get('lookups/contato-tipos', 'LookupController@contatoTipos')->name('lookups.contatotipos');
+    Route::get('lookups/contato-situacoes', 'LookupController@contatoSituacoes')->name('lookups.contatosituacoes');
+    Route::get('lookups/produtos', 'LookupController@produtos')->name('lookups.produtos');
 
     // S2 — Cliente (página completa)
     Route::get('clientes', 'ClienteController@index')->name('clientes.index');
@@ -38,4 +44,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // lookup de tipos de telefone
     Route::get('lookups/telefone-tipos', 'LookupController@telefoneTipos')->name('lookups.telefonetipos');
+
+    // S2 — sub-recursos do Cliente (abas Histórico/Interações/Convênio/Preços)
+    Route::get('clientes/{id}/historico', 'ClienteSubController@historico')->name('clientes.historico');
+    Route::get('clientes/{id}/interacoes', 'ClienteSubController@interacoes')->name('clientes.interacoes');
+    Route::post('clientes/{id}/interacoes', 'ClienteSubController@addInteracao')->name('clientes.interacoes.add');
+    Route::delete('clientes/{id}/interacoes/{subId}', 'ClienteSubController@delInteracao')->name('clientes.interacoes.del');
+    Route::get('clientes/{id}/convenio', 'ClienteSubController@convenio')->name('clientes.convenio');
+    Route::put('clientes/{id}/convenio', 'ClienteSubController@salvarConvenio')->name('clientes.convenio.save');
+    Route::post('clientes/{id}/convenio/dependentes', 'ClienteSubController@addDependente')->name('clientes.dep.add');
+    Route::delete('clientes/{id}/convenio/dependentes/{depId}', 'ClienteSubController@delDependente')->name('clientes.dep.del');
+    Route::get('clientes/{id}/precos', 'ClienteSubController@precos')->name('clientes.precos');
 });

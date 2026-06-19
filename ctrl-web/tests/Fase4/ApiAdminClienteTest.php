@@ -66,6 +66,71 @@ class ApiAdminClienteTest extends TestCase
         $resp->assertCreated()->assertJsonPath('data.nome', 'Cliente Novo via API');
     }
 
+    public function test_store_cria_cliente_completo_com_flags_e_fiscal()
+    {
+        $admin = $this->admin();
+        $resp = $this->actingAs($admin)->postJson('/api/admin/clientes', [
+            'nome' => 'Cliente Completo PJ',
+            'fantasia' => 'Fantasia X',
+            'numero' => '99',
+            'cidade_id' => \App\Cidade::min('id') ?? 1,
+            'cnpj' => '12345678000190',
+            'inscricao_estadual' => '123456',
+            'indicador_ie' => 1,
+            'cliente' => true, 'fornecedor' => true, 'ativo' => true, 'nfemite' => true,
+            'observacoes' => 'obs teste',
+        ]);
+        $resp->assertCreated();
+        $id = $resp->json('data.id');
+        // confere persistência dos flags (smallint) e fiscal
+        $show = $this->actingAs($admin)->getJson("/api/admin/clientes/$id");
+        $show->assertOk()
+            ->assertJsonPath('data.fantasia', 'Fantasia X')
+            ->assertJsonPath('data.cnpj', '12345678000190');
+        $this->assertEquals(1, (int) $show->json('data.fornecedor'));
+        $this->assertEquals(1, (int) $show->json('data.nfemite'));
+    }
+
+    public function test_update_cliente_funciona_com_revisionable()
+    {
+        // Garante que editar cliente (entidade auditada) não quebra com o
+        // RevisionsTraitService (Event::fire removido no L12 → dispatch).
+        $admin = $this->admin();
+        $cidadeId = \App\Cidade::min('id') ?? 1;
+        $id = $this->actingAs($admin)->postJson('/api/admin/clientes', ['nome' => 'Cli Edit', 'numero' => '1', 'cidade_id' => $cidadeId])->json('data.id');
+
+        $this->actingAs($admin)->putJson("/api/admin/clientes/$id", [
+            'nome' => 'Cli Editado', 'numero' => '2', 'cidade_id' => $cidadeId, 'observacoes' => 'mudou',
+        ])->assertOk()->assertJsonPath('data.nome', 'Cli Editado');
+    }
+
+    public function test_interacoes_e_convenio_subrecursos()
+    {
+        $admin = $this->admin();
+        $cidadeId = \App\Cidade::min('id') ?? 1;
+        $cli = $this->actingAs($admin)->postJson('/api/admin/clientes', ['nome' => 'Cli Sub', 'numero' => '1', 'cidade_id' => $cidadeId])->json('data.id');
+
+        // interação (CRM) — cria tipo/situação se faltar
+        $grupo = optional($admin->empresa)->grupo_id ?? 1;
+        $tipoId = \DB::table('clientecontatotipos')->where('grupo_id', $grupo)->value('id')
+            ?? \DB::table('clientecontatotipos')->insertGetId(['grupo_id' => $grupo, 'descricao' => 'Ligação', 'ativo' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $sitId = \DB::table('clientecontatosituacaos')->where('grupo_id', $grupo)->value('id')
+            ?? \DB::table('clientecontatosituacaos')->insertGetId(['grupo_id' => $grupo, 'descricao' => 'Aberto', 'ativo' => 1, 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->actingAs($admin)->postJson("/api/admin/clientes/$cli/interacoes", [
+            'tipo_id' => $tipoId, 'situacao_id' => $sitId, 'descricao' => 'Contato inicial',
+        ])->assertCreated();
+        $this->actingAs($admin)->getJson("/api/admin/clientes/$cli/interacoes")->assertOk()->assertJsonCount(1, 'data');
+
+        // convênio (empresa conveniada)
+        $this->actingAs($admin)->putJson("/api/admin/clientes/$cli/convenio", [
+            'convenioativo' => true, 'limitecompra' => 500, 'diafechamento' => 10, 'diavencimento' => 20,
+        ])->assertOk();
+        $conv = $this->actingAs($admin)->getJson("/api/admin/clientes/$cli/convenio");
+        $conv->assertOk()->assertJsonPath('convenioativo', 1);
+        $this->assertEquals(500, (int) $conv->json('convenio.limitecompra'));
+    }
+
     public function test_store_valida_nome()
     {
         $admin = $this->admin();
