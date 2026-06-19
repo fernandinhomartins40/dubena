@@ -5,9 +5,12 @@
 > Cada IMPL traz: colunas da tabela, métodos do controller (arquivo:linha), validações,
 > regras de negócio, sub-recursos, seção Reorganização/UX (de-para legado→novo) e DoD.
 
-## Contrato de navegação (ler primeiro)
+## Ler primeiro
 - [MAPA_NAVEGACAO_ALVO.md](MAPA_NAVEGACAO_ALVO.md) — inventário do legado + páginas-alvo que
   consolidam telas dispersas + de-para (nada se perde). **Reorganizar ≠ eliminar.**
+- [PLANO_IMPLEMENTACAO_SPA.md](PLANO_IMPLEMENTACAO_SPA.md) — **plano operacional por fases**
+  (F1 Produto … F10), com entregáveis, dependências, gate e checklist de DoD. É o passo-a-passo
+  que consome estes IMPL como contrato no momento de implementar cada módulo.
 
 ## PRDs por módulo (ORDEM DE IMPLEMENTAÇÃO)
 | # | Módulo | PRD | Estado |
