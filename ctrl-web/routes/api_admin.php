@@ -45,6 +45,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // lookup de tipos de telefone
     Route::get('lookups/telefone-tipos', 'LookupController@telefoneTipos')->name('lookups.telefonetipos');
 
+    // F1 — Produto (página completa, abas)
+    Route::get('produtos', 'ProdutoController@index')->name('produtos.index');
+    Route::post('produtos', 'ProdutoController@store')->name('produtos.store');
+    Route::get('produtos/{id}', 'ProdutoController@show')->name('produtos.show');
+    Route::put('produtos/{id}', 'ProdutoController@update')->name('produtos.update');
+    Route::delete('produtos/{id}', 'ProdutoController@destroy')->name('produtos.destroy');
+    // F1 — sub-recurso Origens do combustível (soma 100%)
+    Route::get('produtos/{id}/origens', 'ProdutoController@origens')->name('produtos.origens');
+    Route::put('produtos/{id}/origens', 'ProdutoController@salvarOrigensEndpoint')->name('produtos.origens.save');
+    // F1 — lookups do Produto
+    Route::get('lookups/produto-classes', 'LookupController@produtoClasses')->name('lookups.produtoclasses');
+    Route::get('lookups/unidades', 'LookupController@unidades')->name('lookups.unidades');
+    Route::get('lookups/nf-grupos-fiscais', 'LookupController@nfGruposFiscais')->name('lookups.nfgruposfiscais');
+    Route::get('lookups/ipis', 'LookupController@ipis')->name('lookups.ipis');
+    Route::get('lookups/estados', 'LookupController@estados')->name('lookups.estados');
+    Route::get('lookups/produtos-vasilhame', 'LookupController@produtosVasilhame')->name('lookups.produtosvasilhame');
+    Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
+    Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
+
     // S2 — sub-recursos do Cliente (abas Histórico/Interações/Convênio/Preços)
     Route::get('clientes/{id}/historico', 'ClienteSubController@historico')->name('clientes.historico');
     Route::get('clientes/{id}/interacoes', 'ClienteSubController@interacoes')->name('clientes.interacoes');

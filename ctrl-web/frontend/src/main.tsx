@@ -8,6 +8,8 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ClientesListPage } from '@/features/clientes/ClientesListPage'
 import { ClienteFormPage } from '@/features/clientes/ClienteFormPage'
+import { ProdutosListPage } from '@/features/produtos/ProdutosListPage'
+import { ProdutoFormPage } from '@/features/produtos/ProdutoFormPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -32,6 +34,9 @@ function App() {
       <Route path="/clientes" element={<Protected><ClientesListPage /></Protected>} />
       <Route path="/clientes/novo" element={<Protected><ClienteFormPage /></Protected>} />
       <Route path="/clientes/:id" element={<Protected><ClienteFormPage /></Protected>} />
+      <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
+      <Route path="/produtos/novo" element={<Protected><ProdutoFormPage /></Protected>} />
+      <Route path="/produtos/:id" element={<Protected><ProdutoFormPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

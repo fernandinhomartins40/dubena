@@ -143,7 +143,7 @@ class Produto extends Model
         "observacao", "ativo", "ean", "ncm", "especie", "marca", "nfepermite", "nfedescricaofiscal", "nfetipoitem", "nfeextipi",
         "nfecodgen", "nfecodlst", "nfenatrec", "nfecodenquadramentoipi", "nfecprodanp", "nfeqbcprod", "nfevaliqprod", "nfevcide",
         "nfgrupofiscal_id", "nfipi_id", "nfealiqipi", "nfebcipi", "nfcest", "tipo_glp", "ressarcimentoproduto_id", "nfedescanp",
-        "pglp", "pgnn", "pgni", "eantrib", "enviaappnf", "diasgiro", "precogasdopovo"
+        "pglp", "pgnn", "pgni", "pGLP", "pGNn", "pGNi", "eantrib", "enviaappnf", "diasgiro", "precogasdopovo"
     ];
 
     public function empresasGrupo()
