@@ -194,6 +194,91 @@ class ProdutoController extends Controller
     }
 
     /**
+     * Atualização de PREÇOS EM MASSA com preview (IMPL_PRODUTO §6b — ação destacada).
+     * tipo: 'percentual' (ajuste %) ou 'fixo' (define o mesmo valor); base: precovenda.
+     * GET preview (não grava); PUT aplica (UPDATE em massa, bindings).
+     */
+    public function precosPreview(Request $request)
+    {
+        $this->autorizar($request, 'produto.view');
+        [$itens] = $this->calcularPrecos($request);
+        return response()->json(['data' => $itens]);
+    }
+
+    public function precosAplicar(Request $request)
+    {
+        $this->autorizar($request, 'produto.edit');
+        [$itens, $coluna] = $this->calcularPrecos($request);
+
+        DB::transaction(function () use ($itens, $coluna) {
+            foreach ($itens as $i) {
+                Produto::where('id', $i['id'])->update([$coluna => $i['novo']]);
+            }
+        });
+
+        return response()->json(['message' => count($itens) . ' produto(s) atualizado(s).', 'total' => count($itens)]);
+    }
+
+    /** Calcula os novos preços (sem gravar). Reusado por preview e aplicar. */
+    private function calcularPrecos(Request $request): array
+    {
+        $data = $request->validate([
+            'tipo'    => 'required|in:percentual,fixo',
+            'valor'   => 'required|numeric',
+            'classe_id' => 'nullable|integer',
+        ]);
+        $coluna = 'precovenda';
+
+        $query = $this->escopo(Produto::query(), $request)
+            ->when($data['classe_id'] ?? null, fn ($w, $c) => $w->where('produtoclasse_id', $c))
+            ->orderBy('descricao');
+
+        $itens = $query->get(['id', 'descricao', 'precovenda'])->map(function ($p) use ($data, $coluna) {
+            $atual = (float) $p->$coluna;
+            $novo = $data['tipo'] === 'percentual'
+                ? round($atual * (1 + $data['valor'] / 100), 4)
+                : round((float) $data['valor'], 4);
+            return ['id' => $p->id, 'descricao' => $p->descricao, 'atual' => $atual, 'novo' => $novo];
+        })->values()->all();
+
+        return [$itens, $coluna];
+    }
+
+    /**
+     * GET /api/admin/produtos/{id}/estoque — VISÃO NOVA (IMPL_PRODUTO §6b):
+     * saldo por setor + giro, agregados na ficha (no legado exigia abrir telas separadas).
+     */
+    public function estoque(Request $request, $id)
+    {
+        $this->autorizar($request, 'produto.view');
+        $produto = $this->escopo(Produto::query(), $request)->findOrFail($id);
+
+        $saldos = \App\Estoquesetor::query()
+            ->join('setors', 'estoquesetors.setor_id', '=', 'setors.id')
+            ->where('estoquesetors.produto_id', $produto->id)
+            ->orderBy('setors.descricao')
+            ->get([
+                'setors.descricao as setor',
+                'estoquesetors.quantidade',
+                'estoquesetors.quantidademinima',
+                'estoquesetors.quantidademaxima',
+            ]);
+
+        return response()->json([
+            'data' => [
+                'diasgiro' => (int) ($produto->diasgiro ?? 0),
+                'total'    => (float) $saldos->sum('quantidade'),
+                'setores'  => $saldos->map(fn ($s) => [
+                    'setor'    => $s->setor,
+                    'quantidade' => (float) $s->quantidade,
+                    'minima'   => (float) $s->quantidademinima,
+                    'maxima'   => (float) $s->quantidademaxima,
+                ])->values(),
+            ],
+        ]);
+    }
+
+    /**
      * Validação condicional (paridade ProdutoRequest §4):
      *  - sempre: produtoclasse_id, descricao, unidademedida_id, vasilhameretornavel;
      *  - nfepermite=1: + nfgrupofiscal_id, nfedescricaofiscal; se classe é GLP: + ANP/CIDE + origens;

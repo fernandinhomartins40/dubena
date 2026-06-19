@@ -2,6 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design system Dubena (IMPL_UI). Tokens em HSL via CSS vars (tema claro/escuro).
+ * Identidade: azul #2a54ad (primary), roxo #672290 (accent), amarelo #e7eb13 (destaque).
+ */
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Azul da marca */
+    --primary: 222 61% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Roxo da identidade */
+    --accent: 280 62% 35%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Amarelo de marca */
+    --destaque: 61 84% 50%;
+    --destaque-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 88%;
+    --ring: 222 61% 42%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar (azul escuro da marca) */
+    --sidebar: 224 53% 23%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-accent: 61 84% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 44% 11%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 11%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 217 70% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 18%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 280 55% 60%;
+    --accent-foreground: 222 47% 11%;
+
+    --destaque: 61 84% 55%;
+    --destaque-foreground: 222 47% 11%;
+
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 60% 45%;
+    --success-foreground: 222 47% 11%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 24%;
+    --ring: 217 70% 60%;
+
+    --sidebar: 224 60% 9%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-accent: 61 84% 55%;
+  }
+}
+
 :root {
   color-scheme: light dark;
 }
@@ -10,7 +102,15 @@ html, body, #root {
   height: 100%;
 }
 
-body {
-  @apply bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-track { background: transparent; }
 }
