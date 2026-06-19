@@ -86,7 +86,7 @@ ctrl-web/
 
 **Para CADA módulo, antes de implementar:**
 1. **Auditar o legado** (Controller + FormRequest + views/form + tabela) e escrever
-   `PRD/SPEC_<modulo>.md`: TODOS os campos (nome/tipo/obrigatório/origem), TODAS as ações
+   `docs/01-vigente/IMPL_<modulo>.md`: TODOS os campos (nome/tipo/obrigatório/origem), TODAS as ações
    (CRUD + especiais), TODOS os sub-recursos, TODAS as validações/regras.
 2. Implementar API admin + tela React cobrindo a spec 100%.
 3. **Definição de PRONTO (DoD)** — só marca pronto se:
@@ -98,7 +98,14 @@ ctrl-web/
    - permissão por RBAC.
 4. Só então ligar a flag e aposentar a tela legada.
 
-Specs já escritas: [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md).
+Specs já escritas: [`SPEC_CLIENTE.md`](SPEC_CLIENTE.md).
+PRDs de implementação (auditados, ordem de implementação): [`IMPL_PRODUTO.md`](IMPL_PRODUTO.md),
+[`IMPL_GEOGRAFICO.md`](IMPL_GEOGRAFICO.md), …
+
+**REORGANIZAÇÃO (reorganizar ≠ eliminar):** o agrupamento das telas legadas dispersas em
+páginas completas é definido no [`MAPA_NAVEGACAO_ALVO.md`](MAPA_NAVEGACAO_ALVO.md)
+(inventário + de-para legado→novo, garantindo que NENHUMA função se perca). Cada IMPL_<modulo>
+herda esse agrupamento na seção "Reorganização/UX" e traz a tabela de-para das telas que consolida.
 
 ## FASES (Strangler — cada módulo: SPEC → API admin → tela React → testes → flag)
 
@@ -115,13 +122,13 @@ Specs já escritas: [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md).
 **Portão S1:** logar no SPA (`/app`), ver o AppShell com a marca, `me` retornando permissões.
 
 ### S2 — CADASTROS (vitrine do padrão) · risco BAIXO
-- [~] **Cliente — PÁGINA COMPLETA conforme [`PRD/SPEC_CLIENTE.md`](PRD/SPEC_CLIENTE.md)** (1º alvo).
+- [~] **Cliente — PÁGINA COMPLETA conforme [`SPEC_CLIENTE.md`](SPEC_CLIENTE.md)** (1º alvo).
       Versão inicial (S2/S2b) saiu INCOMPLETA → REFAZER cobrindo a spec: 7 abas (Dados Gerais/
       Endereço/Contatos-telefones/Histórico/Interações/Convênio/Preços), todas as ações
       (CRUD + ativar/inativar + contrato PDF + etiquetas + convênio + edição inline), validações
       do ClienteRequest, lista paginada SEM bug + ações por linha. DoD da spec.
       Sub-etapa: auditar `convenio.blade`/`precos.blade` antes das abas 6/7.
-- [ ] **Produto** — escrever `PRD/SPEC_PRODUTO.md` (auditar) e implementar com paridade.
+- [ ] **Produto** — escrever o IMPL_PRODUTO.md (auditar) e implementar com paridade.
 - [ ] **Geográfico** (Cidade/Bairro/Rua), **Empresa/Config** — idem (spec → impl).
 - [ ] Componentes reaproveitáveis: DataTable (com ações por linha), FormField (máscara moeda/
       decimal BR), AsyncSelect (cidade→bairro→rua ✅), uploader, tabs ✅, modais.
