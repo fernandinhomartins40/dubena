@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
+import { EmpresaSwitcher } from './EmpresaSwitcher'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, Tooltip, Button,
@@ -87,9 +88,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="h-16 shrink-0 bg-card border-b border-border flex items-center justify-between px-4">
-          <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Alternar menu">
-            {open ? <ChevronLeft size={18} /> : <MenuIcon size={18} />}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Alternar menu">
+              {open ? <ChevronLeft size={18} /> : <MenuIcon size={18} />}
+            </Button>
+            <EmpresaSwitcher />
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleDark} aria-label="Tema">
               {dark ? <Sun size={18} /> : <Moon size={18} />}

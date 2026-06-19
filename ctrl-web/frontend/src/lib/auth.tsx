@@ -18,6 +18,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   can: (permission: string) => boolean
+  refresh: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user.is_support) return true
       return user.permissions.includes(permission)
     },
+    refresh: async () => { await qc.invalidateQueries({ queryKey: ['me'] }) },
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

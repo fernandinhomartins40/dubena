@@ -78,6 +78,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F3 — Empresa / Config / Grupos
+    Route::get('empresas', 'EmpresaController@index')->name('empresas.index');
+    Route::post('empresas', 'EmpresaController@store')->name('empresas.store');
+    Route::get('empresas/{id}', 'EmpresaController@show')->name('empresas.show');
+    Route::put('empresas/{id}', 'EmpresaController@update')->name('empresas.update');
+    Route::delete('empresas/{id}', 'EmpresaController@destroy')->name('empresas.destroy');
+    Route::post('empresas/{id}/ativar', 'EmpresaController@ativar')->name('empresas.ativar');
+    // Config da empresa (106 col, sub-abas) + senha mestra + teste SMTP
+    Route::get('empresas/{id}/config', 'EmpresaConfigController@show')->name('empresas.config');
+    Route::put('empresas/{id}/config', 'EmpresaConfigController@update')->name('empresas.config.save');
+    Route::put('empresas/{id}/config/senha-mestra', 'EmpresaConfigController@senhaMestra')->name('empresas.config.senha');
+    Route::post('empresas/{id}/config/testar-email', 'EmpresaConfigController@testarEmail')->name('empresas.config.email');
+    // Grupos de empresas
+    Route::get('grupos', 'EmpresaController@grupos')->name('grupos.index');
+    Route::post('grupos', 'EmpresaController@salvarGrupo')->name('grupos.store');
+    Route::put('grupos/{id}', 'EmpresaController@salvarGrupo')->name('grupos.update');
+    Route::delete('grupos/{id}', 'EmpresaController@excluirGrupo')->name('grupos.del');
+    // Lookups contábeis/operacionais p/ a config
+    Route::get('lookups/planos-conta', 'LookupController@planosConta')->name('lookups.planosconta');
+    Route::get('lookups/centros-custo', 'LookupController@centrosCusto')->name('lookups.centroscusto');
+    Route::get('lookups/contas', 'LookupController@contas')->name('lookups.contas');
+    Route::get('lookups/setores', 'LookupController@setores')->name('lookups.setores');
+    Route::get('lookups/regioes', 'LookupController@regioes')->name('lookups.regioes');
+
     // F2 — Geográfico (Cidade/Bairro/Rua/Região) — 1 página com abas
     Route::get('geo/cidades', 'GeograficoController@cidades')->name('geo.cidades');
     Route::post('geo/cidades', 'GeograficoController@salvarCidade')->name('geo.cidades.store');
