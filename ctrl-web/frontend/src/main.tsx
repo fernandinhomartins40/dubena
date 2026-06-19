@@ -15,6 +15,8 @@ import { ProdutoFormPage } from '@/features/produtos/ProdutoFormPage'
 import { ProdutoConfigPage } from '@/features/produtos/ProdutoConfigPage'
 import { ProdutoPrecosPage } from '@/features/produtos/ProdutoPrecosPage'
 import { GeograficoPage } from '@/features/geografico/GeograficoPage'
+import { EmpresasListPage } from '@/features/empresas/EmpresasListPage'
+import { EmpresaFormPage } from '@/features/empresas/EmpresaFormPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -45,6 +47,9 @@ function App() {
       <Route path="/produtos/novo" element={<Protected><ProdutoFormPage /></Protected>} />
       <Route path="/produtos/:id" element={<Protected><ProdutoFormPage /></Protected>} />
       <Route path="/geografico" element={<Protected><GeograficoPage /></Protected>} />
+      <Route path="/empresas" element={<Protected><EmpresasListPage /></Protected>} />
+      <Route path="/empresas/novo" element={<Protected><EmpresaFormPage /></Protected>} />
+      <Route path="/empresas/:id" element={<Protected><EmpresaFormPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

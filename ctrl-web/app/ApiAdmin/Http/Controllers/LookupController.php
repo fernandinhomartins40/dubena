@@ -201,6 +201,60 @@ class LookupController extends Controller
         );
     }
 
+    /** GET /api/admin/lookups/planos-conta */
+    public function planosConta(Request $request)
+    {
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        $q = trim((string) $request->query('q', ''));
+        return response()->json(
+            DB::table('planocontas')->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+                ->when($q !== '', fn ($w) => $w->where('descricao', 'ilike', '%' . $q . '%'))
+                ->orderBy('descricao')->limit(50)->get(['id', 'descricao', 'codigo'])
+                ->map(fn ($p) => ['id' => $p->id, 'label' => trim(($p->codigo ? $p->codigo . ' - ' : '') . $p->descricao)])
+        );
+    }
+
+    /** GET /api/admin/lookups/centros-custo */
+    public function centrosCusto(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        $q = trim((string) $request->query('q', ''));
+        return response()->json(
+            DB::table('centrocustos')->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->when($q !== '', fn ($w) => $w->where('descricao', 'ilike', '%' . $q . '%'))
+                ->orderBy('descricao')->limit(50)->get(['id', 'descricao', 'codigo'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => trim(($c->codigo ? $c->codigo . ' - ' : '') . $c->descricao)])
+        );
+    }
+
+    /** GET /api/admin/lookups/contas */
+    public function contas(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('contas')->where('ativo', 1)->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => $c->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/setores */
+    public function setores(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('setors')->where('ativo', 1)->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($s) => ['id' => $s->id, 'label' => $s->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/regioes */
+    public function regioes(Request $request)
+    {
+        return $this->porGrupoAtivo($request, \App\Regiao::query());
+    }
+
     private function porGrupoAtivo(Request $request, $query)
     {
         $grupoId = optional(optional($request->user())->empresa)->grupo_id;
