@@ -91,6 +91,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('financeiro/centros-custo/{id}', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.update');
     Route::delete('financeiro/centros-custo/{id}', 'FinanceiroController@excluirCentroCusto')->name('fin.centroscusto.del');
 
+    // F7 — Fiscal: Malha (CSTs/grupo/operações) + NF-e (lista/transmitir/cancelar) + SPED
+    Route::get('fiscal/malha/{tipo}', 'FiscalController@malhaIndex')->name('fiscal.malha');
+    Route::post('fiscal/malha/{tipo}', 'FiscalController@malhaSalvar')->name('fiscal.malha.store');
+    Route::put('fiscal/malha/{tipo}/{id}', 'FiscalController@malhaSalvar')->name('fiscal.malha.update');
+    Route::delete('fiscal/malha/{tipo}/{id}', 'FiscalController@malhaExcluir')->name('fiscal.malha.del');
+    Route::get('fiscal/operacoes', 'FiscalController@operacoes')->name('fiscal.operacoes');
+    Route::post('fiscal/operacoes', 'FiscalController@salvarOperacao')->name('fiscal.operacoes.store');
+    Route::put('fiscal/operacoes/{id}', 'FiscalController@salvarOperacao')->name('fiscal.operacoes.update');
+    Route::delete('fiscal/operacoes/{id}', 'FiscalController@excluirOperacao')->name('fiscal.operacoes.del');
+    Route::get('fiscal/nfe', 'FiscalController@nfeIndex')->name('fiscal.nfe');
+    Route::post('fiscal/nfe/{id}/transmitir', 'FiscalController@transmitir')->name('fiscal.nfe.transmitir');
+    Route::post('fiscal/nfe/{id}/cancelar', 'FiscalController@cancelar')->name('fiscal.nfe.cancelar');
+    Route::get('fiscal/sped', 'FiscalController@spedPreview')->name('fiscal.sped');
+
     // F6 — Gestão: DRE (fechamento mensal) + Conciliação (extrato)
     Route::get('financeiro/dre', 'FinanceiroGestaoController@dre')->name('fin.dre');
     Route::get('financeiro/conciliacao', 'FinanceiroGestaoController@conciliacao')->name('fin.conciliacao');

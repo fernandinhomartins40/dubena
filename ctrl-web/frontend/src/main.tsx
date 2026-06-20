@@ -21,6 +21,7 @@ import { ClienteConfigPage } from '@/features/cadastros/ClienteConfigPage'
 import { FinanceiroConfigPage } from '@/features/cadastros/FinanceiroConfigPage'
 import { EstoquePage } from '@/features/estoque/EstoquePage'
 import { FinanceiroPage } from '@/features/financeiro/FinanceiroPage'
+import { FiscalPage } from '@/features/fiscal/FiscalPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -49,6 +50,7 @@ function App() {
       <Route path="/financeiro/configuracoes" element={<Protected><FinanceiroConfigPage /></Protected>} />
       <Route path="/estoque" element={<Protected><EstoquePage /></Protected>} />
       <Route path="/financeiro" element={<Protected><FinanceiroPage /></Protected>} />
+      <Route path="/fiscal" element={<Protected><FiscalPage /></Protected>} />
       <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
       <Route path="/produtos/configuracoes" element={<Protected><ProdutoConfigPage /></Protected>} />
       <Route path="/produtos/precos" element={<Protected><ProdutoPrecosPage /></Protected>} />
