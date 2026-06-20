@@ -26,6 +26,7 @@ import { ColaboradoresListPage, ColaboradorFormPage } from '@/features/satelites
 import { VeiculosListPage, VeiculoFormPage } from '@/features/satelites/VeiculosPage'
 import { ValeGasPage } from '@/features/satelites/ValeGasPage'
 import { SatelitesPage } from '@/features/satelites/SatelitesPage'
+import { PedidosPage } from '@/features/pedidos/PedidosPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -63,6 +64,7 @@ function App() {
       <Route path="/veiculos/:id" element={<Protected><VeiculoFormPage /></Protected>} />
       <Route path="/vale-gas" element={<Protected><ValeGasPage /></Protected>} />
       <Route path="/relatorios" element={<Protected><SatelitesPage /></Protected>} />
+      <Route path="/pedidos" element={<Protected><PedidosPage /></Protected>} />
       <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
       <Route path="/produtos/configuracoes" element={<Protected><ProdutoConfigPage /></Protected>} />
       <Route path="/produtos/precos" element={<Protected><ProdutoPrecosPage /></Protected>} />
