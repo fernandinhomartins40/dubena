@@ -315,7 +315,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::get('consultaestoquesetor/consultaEstoqueSetor/{setor}', ['as' => 'ajax.consultaestoquesetor', 'uses' => 'EstoquesetorController@consultaEstoqueSetor']);
     Route::get('consultaestoquesetor/buscaquantidadeproduto/{produto_id}/{setor_id}', ['as' => 'ajax.quantidadeproduto', 'uses' => 'EstoquesetorController@consultaQuantidadeProduto']);
     Route::get('consultaestoquesetor/buscaquantidadeprodutopermitenegativar/{produto_id}/{setor_id}/{qtdemovimentar}', ['as' => 'ajax.quantidadeprodutopermitenegativar', 'uses' => 'EstoquesetorController@consultaQuantidadeProdutoPermiteNegativar']);
-    Route::get('consultaestoquesetor/buscaquantidadeprodutopermitenegativar/{produto_id}/{setor_id}/{qtdemovimentar}/{entradasaida}', ['as' => 'ajax.quantidadeprodutopermitenegativar', 'uses' => 'EstoquesetorController@consultaQuantidadeProdutoPermiteNegativar']);
+    Route::get('consultaestoquesetor/buscaquantidadeprodutopermitenegativar/{produto_id}/{setor_id}/{qtdemovimentar}/{entradasaida}', ['as' => 'ajax.quantidadeprodutopermitenegativar.entradasaida', 'uses' => 'EstoquesetorController@consultaQuantidadeProdutoPermiteNegativar']);
     //Fechamento de estoque
     Route::post('consultaestoquesetor/fecharEstoque', ['as' => 'ajax.consultaestoquesetor.store', 'uses' => 'EstoquesetorController@fecharEstoque']);
     //Reabertura de estoque
@@ -354,7 +354,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::get('nfemitida/exportarXmls/{ids}', ['as' => 'nfemitida.exportarxls', 'uses' => 'NfemitidaController@exportarXmls']);
     Route::get('nfemitida/enviarEmailNF/{id}', ['as' => 'nfemitida.enviaremailnf', 'uses' => 'NfemitidaController@enviarEmailNF'])->middleware('mailware');
     Route::get('nfemitida.import.txt', ['as' => 'nfemitida.import.txt', 'uses' => 'NfemitidaController@importTxt']);
-    Route::post('nfemitida.import.txt', ['as' => 'nfemitida.import.txt', 'uses' => 'NfemitidaController@getXmlByTxt']);
+    Route::post('nfemitida.import.txt', ['as' => 'nfemitida.import.txt.post', 'uses' => 'NfemitidaController@getXmlByTxt']);
     Route::get('api/getNfBySerieNum', ['as' => 'ajax.getNfBySerieNum', 'uses' => 'SearchController@getNfBySerieNum']);
     Route::post('api/calcularImpostoProduto', ['as' => 'ajax.calcularImpostoProduto', 'uses' => 'SearchController@calcularImpostoProduto']);
 
@@ -362,7 +362,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::resource('nfrecebida', "NfrecebidaController");
     Route::post('nfrecebida.inutilizar', ['as' => 'nfrecebida.inutilizar', 'uses' => 'NfrecebidaController@inutilizar']);
     Route::post('nfrecebida.import.xml', ['as' => 'nfrecebida.import.xml', 'uses' => 'NfrecebidaController@importXml']);
-    Route::get('api/getFornecedorByCNPJ/{cnpj}', ['as' => 'ajax.getNfBySerieNum', 'uses' => 'SearchController@getFornecedorByCNPJ']);
+    Route::get('api/getFornecedorByCNPJ/{cnpj}', ['as' => 'ajax.getFornecedorByCNPJ', 'uses' => 'SearchController@getFornecedorByCNPJ']);
 
     //SPED Fiscal
     Route::resource('spedfiscal', "SpedfiscalController");
@@ -419,7 +419,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     //venda Vale Gás
     Route::resource('vendavalegas', 'ValegasvendaController');
     Route::get('vendavalegas/duplicata/{id}', 'ValegasvendaController@gerarPDF');
-    Route::get('vendavalegas/destroy/{id}', ['as' => 'vendavalegas.destroy', 'uses' => 'ValegasvendaController@destroy']);
+    Route::get('vendavalegas/destroy/{id}', ['as' => 'vendavalegas.destroyget', 'uses' => 'ValegasvendaController@destroy']);
     Route::get('vendavalegas/buscarparcelasajax/{id}', 'ValegasvendaController@buscarParcelasAjax');
     Route::get('vendavalegas/buscarnumparcela/{id}', ['as' => 'ajax.buscanumparcela', 'uses' => 'ValegasvendaController@buscarNumParcelas']);
     Route::get('vendavalegas/ajaxbuscarprevendacli/{id}', ['as' => 'ajax.buscacliprevenda', 'uses' => 'ValegasvendaController@buscarCliPre']);
@@ -522,8 +522,8 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     //Venda Ativa
     Route::resource('vendaativa', 'VendaativaController');
     Route::get('vendaativa.filtroendereco', ['as' => 'vendaativa.filtro', 'uses' => 'VendaativaController@filtroEndereco']);
-    Route::get('vendaativa.filtrocompra', ['as' => 'vendaativa.filtro', 'uses' => 'VendaativaController@filtroCompra']);
-    Route::get('vendaativa.filtromedia', ['as' => 'vendaativa.filtro', 'uses' => 'VendaativaController@filtroMediaGiro']);
+    Route::get('vendaativa.filtrocompra', ['as' => 'vendaativa.filtrocompra', 'uses' => 'VendaativaController@filtroCompra']);
+    Route::get('vendaativa.filtromedia', ['as' => 'vendaativa.filtromedia', 'uses' => 'VendaativaController@filtroMediaGiro']);
     Route::post('vendaativa/gerarocorrencia', ['as' => 'vendaativa.ocorrencia', 'uses' => 'VendaativaController@gerarOcorrencia']);
     Route::post('vendaativa/salvarfiltros', ['as' => 'vendaativafiltro.store', 'uses' => 'VendaativaController@salvarFiltro']);
 
@@ -572,10 +572,10 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
 
     //Cheque Emitido
     Route::resource('chequeemitido', 'ChequeemitidoController');
-    Route::get('chequeemitido.editar/{operacao}/{id}', ['as' => 'chequeemitido.edit', 'uses' => 'ChequeemitidoController@editar']);
-    Route::get('chequeemitido.editar/inutilizar/{numerocheque}/{conta_id}', ['as' => 'chequeemitido.edit', 'uses' => 'ChequeemitidoController@inutilizarCheque']);
-    Route::post('chequeemitido.editar/estornar/{id}', ['as' => 'chequeemitido.edit', 'uses' => 'ChequeemitidoController@estornarCheque']);
-    Route::post('chequeemitido.editar/baixar/{id}', ['as' => 'chequeemitido.edit', 'uses' => 'ChequeemitidoController@baixarCheque']);
+    Route::get('chequeemitido.editar/{operacao}/{id}', ['as' => 'chequeemitido.editaroperacao', 'uses' => 'ChequeemitidoController@editar']);
+    Route::get('chequeemitido.editar/inutilizar/{numerocheque}/{conta_id}', ['as' => 'chequeemitido.inutilizar', 'uses' => 'ChequeemitidoController@inutilizarCheque']);
+    Route::post('chequeemitido.editar/estornar/{id}', ['as' => 'chequeemitido.estornar', 'uses' => 'ChequeemitidoController@estornarCheque']);
+    Route::post('chequeemitido.editar/baixar/{id}', ['as' => 'chequeemitido.baixar', 'uses' => 'ChequeemitidoController@baixarCheque']);
 
     //Cheque Recebido
     Route::resource('chequerecebido', 'ChequerecebidoController');
@@ -734,9 +734,9 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
 
     //Relatório de Colaboradores
     Route::get('report.colaboradoresaniversariantes', ['as' => 'report.colaboradoresaniversariantes', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantes']);
-    Route::get('report.colaboradoresaniversariantes.familiares', ['as' => 'report.colaboradoresaniversariantes.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesFamiliares']);
-    Route::get('report.colaboradoresaniversariantes.pdf', ['as' => 'report.colaboradoresaniversariantes.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesPDF']);
-    Route::get('report.colaboradoresaniversariantes.familiares.pdf', ['as' => 'report.colaboradoresaniversariantes.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesFamiliaresPDF']);
+    Route::get('report.colaboradoresaniversariantes.familiares', ['as' => 'report.colaboradoresaniversariantes.familiares.html', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesFamiliares']);
+    Route::get('report.colaboradoresaniversariantes.pdfonly', ['as' => 'report.colaboradoresaniversariantes.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesPDF']);
+    Route::get('report.colaboradoresaniversariantes.familiares.pdf', ['as' => 'report.colaboradoresaniversariantes.familiares.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresAniversariantesFamiliaresPDF']);
     Route::get('report.colaboradoresexames', ['as' => 'report.colaboradoresexames', 'uses' => 'ReportcolaboradorController@reportColaboradoresExames']);
     Route::get('report.colaboradoresexames.pdf', ['as' => 'report.colaboradoresexames.pdf', 'uses' => 'ReportcolaboradorController@reportColaboradoresExamesPDF']);
     Route::get('report.colaboradoresfaixaetaria', ['as' => 'report.colaboradoresfaixaetaria', 'uses' => 'ReportcolaboradorController@reportColaboradoresFaixaEtaria']);
@@ -778,7 +778,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
 
     //Troca de Oleo Vencido
     Route::get('report.trocaoleovencidofiltro', ['as' => 'report.trocaoleovencidofiltro', 'uses' => 'ReportveiculosController@filtroTrocaVencido']);
-    Route::get('report.trocaoleovencidopdf', ['as' => 'report.trocaoleopdf', 'uses' => 'ReportveiculosController@pdfTrocaVencida']);
+    Route::get('report.trocaoleovencidopdf', ['as' => 'report.trocaoleovencidopdf', 'uses' => 'ReportveiculosController@pdfTrocaVencida']);
 
     //Colaborador Malote
     Route::get('report.colaboradormalote', ['as' => 'report.colaboradormalote', 'uses' => 'ReportvendasmaloteController@vendasMaloteIndex']);
@@ -921,7 +921,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::get('getBairrosRuasByCidade/{cidad_id}', ['as' => 'ajax.getBairrosRuasByCidade/{cidad_id}', 'uses' => 'SearchController@getBairrosRuasByCidade']);
     Route::get('api/getCodMovRemessaByBanco/{id}/{tipo}', ['as' => 'ajax.getCodMovRemessaByBanco/{id}/{tipo}', 'uses' => 'SearchController@getCodMovRemessaByBanco']);
     Route::get('api/getCodMovRemessaByConta/{id}/{tipo}', ['as' => 'ajax.getCodMovRemessaByConta/{id}/{tipo}', 'uses' => 'SearchController@getCodMovRemessaByConta']);
-    Route::get('api/searchParcelasByIds/{parcelas}', ['as' => 'boleto.retornoparcelas', 'uses' => 'SearchController@searchParcelasByIds']);
+    Route::get('api/searchParcelasByIds/{parcelas}', ['as' => 'ajax.searchParcelasByIds', 'uses' => 'SearchController@searchParcelasByIds']);
     //Empresas por Regional
     Route::get('api/empresasbyregional', ['as' => 'ajax.empresasbyregional', 'uses' => 'SearchController@getEmpresasByRegional']);
     //api banco
@@ -990,7 +990,7 @@ Route::group(['middleware' => ['auth', 'pode'], 'where' => ['id' => '[0-9]+']], 
     Route::get('bairro', ['as' => 'bairro.index', 'uses' => 'BairroController@index'])
         ->middleware('ui.moderna:bairro,/admin/bairros');
     Route::get('bairro/dropdown/{id}', ['as' => 'ajax.bairrodropdown', 'uses' => 'BairroController@dropdown']);
-    Route::get('bairro/dropdown/{uf}/{getOptions}', ['as' => 'ajax.bairrodropdown', 'uses' => 'BairroController@dropdown']);
+    Route::get('bairro/dropdown/{uf}/{getOptions}', ['as' => 'ajax.bairrodropdown.uf', 'uses' => 'BairroController@dropdown']);
     Route::get('bairro/buscaPorNomeECidade/{nome}/{cidade}', ['as' => 'ajax.buscanomecidade/{nome}/{cidade}', 'uses' => 'BairroController@buscaPorNomeECidade']);
     // Route::post('bairro', ['middleware' => 'auth', 'as' => 'bairro.store', 'uses' => 'BairroController@store']);
 
