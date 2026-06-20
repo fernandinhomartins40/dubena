@@ -78,6 +78,42 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F8a — RH / Colaboradores
+    Route::get('colaboradores', 'ColaboradorController@index')->name('colab.index');
+    Route::post('colaboradores', 'ColaboradorController@store')->name('colab.store');
+    Route::get('colaboradores/{id}', 'ColaboradorController@show')->name('colab.show');
+    Route::put('colaboradores/{id}', 'ColaboradorController@update')->name('colab.update');
+    Route::delete('colaboradores/{id}', 'ColaboradorController@destroy')->name('colab.destroy');
+    Route::get('colaboradores/{id}/familia', 'ColaboradorController@familia')->name('colab.familia');
+    Route::post('colaboradores/{id}/familia', 'ColaboradorController@addFamilia')->name('colab.familia.add');
+    Route::delete('colaboradores/{id}/familia/{famId}', 'ColaboradorController@delFamilia')->name('colab.familia.del');
+    Route::get('colaboradores/{id}/recessos', 'ColaboradorController@recessos')->name('colab.recessos');
+    Route::get('colaboradores/{id}/comissoes', 'ColaboradorController@comissoes')->name('colab.comissoes');
+    Route::get('lookups/cargos', 'LookupController@cargos')->name('lookups.cargos');
+
+    // F8b — Frota / Veículos
+    Route::get('veiculos', 'VeiculoController@index')->name('veic.index');
+    Route::post('veiculos', 'VeiculoController@store')->name('veic.store');
+    Route::get('veiculos/{id}', 'VeiculoController@show')->name('veic.show');
+    Route::put('veiculos/{id}', 'VeiculoController@update')->name('veic.update');
+    Route::delete('veiculos/{id}', 'VeiculoController@destroy')->name('veic.destroy');
+    Route::get('veiculos/{id}/abastecimentos', 'VeiculoController@abastecimentos')->name('veic.abast');
+    Route::get('veiculos/{id}/trocas-oleo', 'VeiculoController@trocasOleo')->name('veic.oleo');
+    Route::get('veiculos/{id}/pneus', 'VeiculoController@pneus')->name('veic.pneus');
+    Route::get('lookups/veiculo-tipos', 'LookupController@veiculoTipos')->name('lookups.veiculotipos');
+    Route::get('lookups/combustiveis', 'LookupController@combustiveis')->name('lookups.combustiveis');
+
+    // F8c — Vale-Gás
+    Route::get('vale-gas', 'ValeGasController@index')->name('valegas.index');
+    Route::get('vale-gas/situacoes', 'ValeGasController@situacoes')->name('valegas.situacoes');
+    Route::post('vale-gas/baixar', 'ValeGasController@baixar')->name('valegas.baixar');
+    Route::post('vale-gas/{id}/cancelar', 'ValeGasController@cancelar')->name('valegas.cancelar');
+
+    // F8d/e/f — Satélites: Relatórios (catálogo) + Monitoramento + Integrações (status)
+    Route::get('satelites/relatorios', 'SatelitesController@relatorios')->name('sat.relatorios');
+    Route::get('satelites/monitoramento', 'SatelitesController@monitoramento')->name('sat.monitoramento');
+    Route::get('satelites/integracoes', 'SatelitesController@integracoes')->name('sat.integracoes');
+
     // F6 — Financeiro: Lançamentos + Plano/Centro de contas
     Route::get('financeiro/lancamentos', 'FinanceiroController@lancamentos')->name('fin.lancamentos');
     Route::get('financeiro/lancamentos/resumo', 'FinanceiroController@resumo')->name('fin.lancamentos.resumo');
