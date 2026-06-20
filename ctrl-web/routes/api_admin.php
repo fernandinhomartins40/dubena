@@ -78,6 +78,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F5 — Estoque (saldos + transferência + requisição + acerto + inventário + físico + fechamento)
+    Route::get('estoque/saldos', 'EstoqueController@saldos')->name('estoque.saldos');
+    Route::post('estoque/acerto', 'EstoqueController@acerto')->name('estoque.acerto');
+    Route::get('estoque/transferencias', 'EstoqueController@transferencias')->name('estoque.transferencias');
+    Route::post('estoque/transferencias', 'EstoqueController@criarTransferencia')->name('estoque.transferencias.store');
+    Route::get('estoque/requisicoes', 'EstoqueController@requisicoes')->name('estoque.requisicoes');
+    Route::post('estoque/requisicoes', 'EstoqueController@criarRequisicao')->name('estoque.requisicoes.store');
+    Route::get('estoque/inventarios', 'EstoqueController@inventarios')->name('estoque.inventarios');
+    Route::post('estoque/inventarios', 'EstoqueController@criarInventario')->name('estoque.inventarios.store');
+    Route::get('estoque/fisico', 'EstoqueController@fisicos')->name('estoque.fisicos');
+    Route::post('estoque/fisico', 'EstoqueController@criarFisico')->name('estoque.fisicos.store');
+    Route::post('estoque/fisico/{id}/efetivar', 'EstoqueController@efetivarFisico')->name('estoque.fisicos.efetivar');
+    Route::get('estoque/fechamentos', 'EstoqueController@fechamentos')->name('estoque.fechamentos');
+    Route::post('estoque/fechamentos', 'EstoqueController@fechar')->name('estoque.fechamentos.store');
+    Route::post('estoque/fechamentos/abrir', 'EstoqueController@abrir')->name('estoque.fechamentos.abrir');
+
     // F4 — Cadastros de apoio (consolidado em Configurações dos módulos donos)
     Route::get('cadastros/{tipo}', 'CadastroApoioController@index')->name('cadastros.index');
     Route::post('cadastros/{tipo}', 'CadastroApoioController@salvar')->name('cadastros.store');
