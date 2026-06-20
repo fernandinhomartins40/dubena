@@ -255,6 +255,42 @@ class LookupController extends Controller
         return $this->porGrupoAtivo($request, \App\Regiao::query());
     }
 
+    /** GET /api/admin/lookups/cargos */
+    public function cargos(Request $request)
+    {
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        return response()->json(
+            DB::table('cargos')->where('ativo', 1)
+                ->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => $c->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/veiculo-tipos */
+    public function veiculoTipos(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('veiculotipos')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($t) => ['id' => $t->id, 'label' => $t->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/combustiveis */
+    public function combustiveis(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('tipocombustivels')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($t) => ['id' => $t->id, 'label' => $t->descricao])
+        );
+    }
+
     /** GET /api/admin/lookups/clientes-fornecedores?q= */
     public function clientesFornecedores(Request $request)
     {
