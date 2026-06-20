@@ -47,7 +47,7 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
           </div>
           <div className="text-xs text-muted-foreground mb-2 px-1 tabular-nums">{brl(col.valor)}</div>
           <div className="space-y-2">
-            {col.pedidos.map((p) => (
+            {(col.pedidos ?? []).map((p) => (
               <Card key={p.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => onOpen(p.id)}>
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between"><span className="font-medium text-sm">#{p.id}</span><span className="tabular-nums text-sm">{brl(p.valorvenda)}</span></div>
@@ -56,7 +56,7 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                 </CardContent>
               </Card>
             ))}
-            {col.pedidos.length === 0 && <p className="text-xs text-muted-foreground px-1 py-4 text-center">Vazio</p>}
+            {(col.pedidos ?? []).length === 0 && <p className="text-xs text-muted-foreground px-1 py-4 text-center">Vazio</p>}
           </div>
         </div>
       ))}
@@ -79,7 +79,7 @@ function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
   return (
     <>
       <Card className="mb-4 p-3"><div className="flex flex-wrap gap-2 items-center">
-        <div className="w-56"><AsyncSelect endpoint="/pedidos/situacoes" value={sit || null} valueLabel={situacoes?.find((s) => s.id === sit)?.descricao ?? null} placeholder="Todas as situações"
+        <div className="w-56"><AsyncSelect endpoint="/lookups/pedido-situacoes" value={sit || null} valueLabel={situacoes?.find((s) => s.id === sit)?.descricao ?? null} placeholder="Todas as situações"
           onChange={(id) => { setPage(1); setSit(id ?? 0) }} /></div>
         <div className="relative flex-1 min-w-[200px]"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente ou nº…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} /></div>
         <Button variant="secondary" onClick={() => { setPage(1); setQ(busca) }}>Buscar</Button>
@@ -157,14 +157,14 @@ function NovoPedidoDialog() {
         <DialogHeader><DialogTitle>Novo pedido</DialogTitle></DialogHeader>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Cliente" required><AsyncSelect endpoint="/lookups/clientes-fornecedores" value={f.cliente_id ?? null} valueLabel={labels.cli} onChange={(id, o) => { set('cliente_id', id); setLabels((l) => ({ ...l, cli: o?.label ?? null })) }} /></Field>
-          <Field label="Situação" required><AsyncSelect endpoint="/pedidos/situacoes" value={f.pedidosituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { set('pedidosituacao_id', id); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
+          <Field label="Situação" required><AsyncSelect endpoint="/lookups/pedido-situacoes" value={f.pedidosituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { set('pedidosituacao_id', id); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
           <Field label="Condição de pagamento" required><AsyncSelect endpoint="/lookups/condicoes-pagamento" value={f.condicaopagamento_id ?? null} valueLabel={labels.cond} onChange={(id, o) => { set('condicaopagamento_id', id); setLabels((l) => ({ ...l, cond: o?.label ?? null })) }} /></Field>
           <Field label="Setor de entrega" required><AsyncSelect endpoint="/lookups/setores" value={f.entregasetor_id ?? null} valueLabel={labels.setor} onChange={(id, o) => { set('entregasetor_id', id); setLabels((l) => ({ ...l, setor: o?.label ?? null })) }} /></Field>
           <Field label="Operação" required><AsyncSelect endpoint="/lookups/pedido-operacoes" value={f.pedidooperacao_id ?? null} valueLabel={labels.oper} onChange={(id, o) => { set('pedidooperacao_id', id); setLabels((l) => ({ ...l, oper: o?.label ?? null })) }} /></Field>
           <Field label="Colaborador" required><AsyncSelect endpoint="/lookups/colaboradores" value={f.colaborador_id ?? null} valueLabel={labels.colab} onChange={(id, o) => { set('colaborador_id', id); setLabels((l) => ({ ...l, colab: o?.label ?? null })) }} /></Field>
           <Field label="Cidade (entrega)" required><AsyncSelect endpoint="/lookups/cidades" value={f.entregacidade_id ?? null} valueLabel={labels.cid} onChange={(id, o) => { set('entregacidade_id', id); setLabels((l) => ({ ...l, cid: o?.label ?? null })); if (o?.uf) set('ufentrega', String(o.uf)) }} /></Field>
           <Field label="Bairro (entrega)" required><AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: f.entregacidade_id }} value={f.entregabairro_id ?? null} valueLabel={labels.bai} disabled={!f.entregacidade_id} onChange={(id, o) => { set('entregabairro_id', id); setLabels((l) => ({ ...l, bai: o?.label ?? null })) }} /></Field>
-          <Field label="Rua (entrega)" required><AsyncSelect endpoint="/geo/ruas" params={{ cidade_id: f.entregacidade_id }} value={f.entregarua_id ?? null} valueLabel={labels.rua} disabled={!f.entregacidade_id} onChange={(id, o) => { set('entregarua_id', id); setLabels((l) => ({ ...l, rua: o?.label ?? null })) }} /></Field>
+          <Field label="Rua (entrega)" required><AsyncSelect endpoint="/lookups/ruas" params={{ cidade_id: f.entregacidade_id }} value={f.entregarua_id ?? null} valueLabel={labels.rua} disabled={!f.entregacidade_id} onChange={(id, o) => { set('entregarua_id', id); setLabels((l) => ({ ...l, rua: o?.label ?? null })) }} /></Field>
           <Field label="Número (entrega)" required><Input value={f.entreganumero ?? ''} onChange={(e) => set('entreganumero', e.target.value)} /></Field>
         </div>
 

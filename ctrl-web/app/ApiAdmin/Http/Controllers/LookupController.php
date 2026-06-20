@@ -267,6 +267,36 @@ class LookupController extends Controller
         );
     }
 
+    /** GET /api/admin/lookups/pedido-situacoes */
+    public function pedidoSituacoes(Request $request)
+    {
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        return response()->json(
+            DB::table('pedidosituacaos')->where('ativo', 1)
+                ->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+                ->orderBy('id')->get(['id', 'descricao'])
+                ->map(fn ($s) => ['id' => $s->id, 'label' => $s->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/ruas?cidade_id=&q= */
+    public function ruas(Request $request)
+    {
+        $grupoId = optional(optional($request->user())->empresa)->grupo_id;
+        $cidadeId = (int) $request->query('cidade_id', 0);
+        $q = trim((string) $request->query('q', ''));
+        if (! $cidadeId) {
+            return response()->json([]);
+        }
+        return response()->json(
+            DB::table('ruas')->where('cidade_id', $cidadeId)
+                ->when($grupoId, fn ($w) => $w->where('grupo_id', $grupoId))
+                ->when($q !== '', fn ($w) => $w->where('descricao', 'ilike', '%' . $q . '%'))
+                ->orderBy('descricao')->limit(50)->get(['id', 'descricao'])
+                ->map(fn ($r) => ['id' => $r->id, 'label' => $r->descricao])
+        );
+    }
+
     /** GET /api/admin/lookups/pedido-operacoes */
     public function pedidoOperacoes(Request $request)
     {

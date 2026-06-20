@@ -37,8 +37,10 @@ export function AsyncSelect({
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        const { data } = await api.get<Option[]>(endpoint, { params: { q: busca, ...params } })
-        setOptions(data)
+        const { data } = await api.get(endpoint, { params: { q: busca, ...params } })
+        // Aceita array puro OU { data: [...] } (lista paginada) — robustez contra endpoint que não é lookup.
+        const lista = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+        setOptions(lista as Option[])
       } catch { setOptions([]) } finally { setLoading(false) }
     }, 250)
     return () => clearTimeout(t)
