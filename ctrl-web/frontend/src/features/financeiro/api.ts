@@ -80,3 +80,31 @@ export function useFecharCaixa() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['caixa-contas'] }); qc.invalidateQueries({ queryKey: ['caixa-movimentos'] }) },
   })
 }
+
+// Cheques
+export const useChequesEmitidos = (q: string) => useQuery<any[]>({ queryKey: ['cheques-emitidos', q], queryFn: async () => (await api.get('/cheques/emitidos', { params: { q } })).data.data })
+export const useChequesRecebidos = (q: string) => useQuery<any[]>({ queryKey: ['cheques-recebidos', q], queryFn: async () => (await api.get('/cheques/recebidos', { params: { q } })).data.data })
+export function useSalvarChequeRecebido() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...d }: { id?: number } & Record<string, unknown>) => id ? (await api.put(`/cheques/recebidos/${id}`, d)).data : (await api.post('/cheques/recebidos', d)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }),
+  })
+}
+export function useExcluirChequeRecebido() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/cheques/recebidos/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }) })
+}
+
+// Boletos / PIX
+export const useBoletos = (status: string, q: string) => useQuery<any[]>({ queryKey: ['boletos', status, q], queryFn: async () => (await api.get('/boletos', { params: { status, q } })).data.data })
+export const useResumoBoletos = () => useQuery({ queryKey: ['boletos-resumo'], queryFn: async () => (await api.get('/boletos/resumo')).data.data })
+export const usePixStatus = () => useQuery({ queryKey: ['pix-status'], queryFn: async () => (await api.get('/pix/config')).data.data })
+
+// DRE / Conciliação
+export function useDRE(inicio: string, fim: string, enabled: boolean) {
+  return useQuery({ queryKey: ['fin-dre', inicio, fim], queryFn: async () => (await api.get('/financeiro/dre', { params: { inicio, fim } })).data.data, enabled })
+}
+export function useConciliacao(contaId: number | null, inicio: string, fim: string, enabled: boolean) {
+  return useQuery({ queryKey: ['fin-conciliacao', contaId, inicio, fim], queryFn: async () => (await api.get('/financeiro/conciliacao', { params: { conta_id: contaId, inicio, fim } })).data.data, enabled })
+}

@@ -12,6 +12,7 @@ import {
   type PlanoConta, type CentroCusto,
   useContasCaixa, useMovimentosCaixa, useAbrirCaixa, useFecharCaixa, type ContaCaixa,
 } from './api'
+import { ChequesTab, BoletosTab, DRETab, ConciliacaoTab } from './FinanceiroExtraTabs'
 
 const brl = (n: number) => Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (s: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—'
@@ -24,11 +25,19 @@ export function FinanceiroPage() {
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
           <TabsTrigger value="caixa">Caixa</TabsTrigger>
+          <TabsTrigger value="cheques">Cheques</TabsTrigger>
+          <TabsTrigger value="boletos">Boletos / PIX</TabsTrigger>
+          <TabsTrigger value="dre">DRE</TabsTrigger>
+          <TabsTrigger value="conciliacao">Conciliação</TabsTrigger>
           <TabsTrigger value="plano">Plano de Contas</TabsTrigger>
           <TabsTrigger value="centro">Centro de Custo</TabsTrigger>
         </TabsList>
         <TabsContent value="lancamentos"><LancamentosTab /></TabsContent>
         <TabsContent value="caixa"><CaixaTab /></TabsContent>
+        <TabsContent value="cheques"><ChequesTab /></TabsContent>
+        <TabsContent value="boletos"><BoletosTab /></TabsContent>
+        <TabsContent value="dre"><DRETab /></TabsContent>
+        <TabsContent value="conciliacao"><ConciliacaoTab /></TabsContent>
         <TabsContent value="plano"><PlanoTab /></TabsContent>
         <TabsContent value="centro"><CentroTab /></TabsContent>
       </Tabs>

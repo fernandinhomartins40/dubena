@@ -91,6 +91,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('financeiro/centros-custo/{id}', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.update');
     Route::delete('financeiro/centros-custo/{id}', 'FinanceiroController@excluirCentroCusto')->name('fin.centroscusto.del');
 
+    // F6 — Gestão: DRE (fechamento mensal) + Conciliação (extrato)
+    Route::get('financeiro/dre', 'FinanceiroGestaoController@dre')->name('fin.dre');
+    Route::get('financeiro/conciliacao', 'FinanceiroGestaoController@conciliacao')->name('fin.conciliacao');
+
+    // F6 — Boletos (consulta) + PIX (status)
+    Route::get('boletos', 'BoletoController@index')->name('boletos.index');
+    Route::get('boletos/resumo', 'BoletoController@resumo')->name('boletos.resumo');
+    Route::get('pix/config', 'BoletoController@pixStatus')->name('pix.config');
+
+    // F6 — Cheques (emitidos / recebidos)
+    Route::get('cheques/situacoes', 'ChequeController@situacoes')->name('cheques.situacoes');
+    Route::get('cheques/emitidos', 'ChequeController@emitidos')->name('cheques.emitidos');
+    Route::get('cheques/recebidos', 'ChequeController@recebidos')->name('cheques.recebidos');
+    Route::post('cheques/recebidos', 'ChequeController@salvarRecebido')->name('cheques.recebidos.store');
+    Route::put('cheques/recebidos/{id}', 'ChequeController@salvarRecebido')->name('cheques.recebidos.update');
+    Route::delete('cheques/recebidos/{id}', 'ChequeController@excluirRecebido')->name('cheques.recebidos.del');
+
     // F6 — Caixa / Tesouraria
     Route::get('caixa/contas', 'CaixaController@contas')->name('caixa.contas');
     Route::get('caixa/{contaId}/movimentos', 'CaixaController@movimentos')->name('caixa.movimentos');

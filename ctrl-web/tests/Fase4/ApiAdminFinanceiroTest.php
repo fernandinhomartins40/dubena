@@ -165,4 +165,58 @@ class ApiAdminFinanceiroTest extends TestCase
             'datahoraabertura' => now()->toDateTimeString(),
         ])->assertStatus(422);
     }
+
+    // ---------- Cheques ----------
+    private function chequeSituacao(string $tipo): int
+    {
+        return \DB::table('chequesituacaos')->insertGetId([
+            'descricao' => 'Em carteira ' . uniqid(), 'chequeemitido' => $tipo === 'emitido' ? 1 : 0,
+            'chequerecebido' => $tipo === 'recebido' ? 1 : 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    public function test_cheque_emitido_consulta()
+    {
+        $this->preparar();
+        // emitido é read-only na API admin (depende de talão); lista deve responder OK
+        $this->actingAs($this->admin)->getJson('/api/admin/cheques/emitidos')->assertOk()->assertJsonStructure(['data']);
+    }
+
+    public function test_cheque_recebido_crud_e_situacoes()
+    {
+        $this->preparar();
+        $sit = $this->chequeSituacao('recebido');
+        $banco = \DB::table('bancos')->insertGetId(['grupo_id' => $this->grupo, 'descricao' => 'Banco X', 'codigo' => '001', 'ativo' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $this->actingAs($this->admin)->getJson('/api/admin/cheques/situacoes?tipo=recebido')->assertOk()->assertJsonStructure(['data' => [['id', 'descricao']]]);
+        $id = $this->actingAs($this->admin)->postJson('/api/admin/cheques/recebidos', [
+            'numerocheque' => '999', 'valor' => 80, 'chequesituacao_id' => $sit, 'banco_id' => $banco,
+            'dataemissao' => '2026-06-01', 'datavencimento' => '2026-06-15', 'agencia' => '0001', 'numeroconta' => '12345',
+        ])->assertCreated()->json('data.id');
+        $this->actingAs($this->admin)->deleteJson("/api/admin/cheques/recebidos/$id")->assertOk();
+    }
+
+    // ---------- Boletos / PIX ----------
+    public function test_boletos_lista_e_resumo()
+    {
+        $this->preparar();
+        $this->actingAs($this->admin)->getJson('/api/admin/boletos')->assertOk()->assertJsonStructure(['data']);
+        $this->actingAs($this->admin)->getJson('/api/admin/boletos/resumo')->assertOk()->assertJsonStructure(['data' => ['total', 'pendentes', 'cancelados', 'com_remessa']]);
+        $this->actingAs($this->admin)->getJson('/api/admin/pix/config')->assertOk()->assertJsonStructure(['data' => ['configurado', 'valida_entrega']]);
+    }
+
+    // ---------- DRE / Conciliação ----------
+    public function test_dre_periodo()
+    {
+        $this->preparar();
+        $this->actingAs($this->admin)->getJson('/api/admin/financeiro/dre?inicio=2026-06-01&fim=2026-06-30')
+            ->assertOk()->assertJsonStructure(['data' => ['receitas', 'despesas', 'total_receitas', 'total_despesas', 'resultado']]);
+    }
+
+    public function test_conciliacao_conta()
+    {
+        $this->preparar();
+        $contaId = $this->conta();
+        $this->actingAs($this->admin)->getJson("/api/admin/financeiro/conciliacao?conta_id=$contaId&inicio=2026-06-01&fim=2026-06-30")
+            ->assertOk()->assertJsonStructure(['data' => ['movimentos', 'entradas', 'saidas', 'saldo']]);
+    }
 }
