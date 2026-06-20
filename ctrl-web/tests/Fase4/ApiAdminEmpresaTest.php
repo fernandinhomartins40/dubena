@@ -120,6 +120,57 @@ class ApiAdminEmpresaTest extends TestCase
         $this->assertTrue(Hash::check('nova123', Empresaconfig::where('empresa_id', $admin->empresa_id)->first()->senhamestre));
     }
 
+    public function test_certificado_status_e_upload()
+    {
+        $admin = $this->admin();
+        // garante CNPJ na empresa (necessário p/ nome do arquivo)
+        \App\Empresa::where('id', $admin->empresa_id)->update(['cnpj' => '12345678000190']);
+
+        // status inicial: sem certificado/senha
+        $this->actingAs($admin)->getJson("/api/admin/empresas/{$admin->empresa_id}/certificado")
+            ->assertOk()->assertJsonPath('data.tem_certificado', false)->assertJsonPath('data.tem_senha', false);
+
+        // upload do .pfx + senha
+        $arquivo = \Illuminate\Http\Testing\File::create('cert.pfx', 2);
+        $resp = $this->actingAs($admin)->post("/api/admin/empresas/{$admin->empresa_id}/certificado", [
+            'certificado' => $arquivo, 'senha' => 'senhaCert123',
+        ]);
+        $resp->assertOk();
+
+        // senha gravada criptografada (não em claro)
+        $emp = \App\Empresa::find($admin->empresa_id);
+        $this->assertNotEmpty($emp->nfesenhapfx);
+        $this->assertNotEquals('senhaCert123', $emp->nfesenhapfx);
+
+        // status agora indica certificado + senha
+        $this->actingAs($admin)->getJson("/api/admin/empresas/{$admin->empresa_id}/certificado")
+            ->assertOk()->assertJsonPath('data.tem_certificado', true)->assertJsonPath('data.tem_senha', true);
+
+        // limpeza do arquivo gerado
+        $f = base_path('storage/nfe/certs/12345678000190.pfx');
+        if (file_exists($f)) { @unlink($f); }
+    }
+
+    public function test_certificado_upload_valida_arquivo()
+    {
+        $admin = $this->admin();
+        \App\Empresa::where('id', $admin->empresa_id)->update(['cnpj' => '99888777000166']);
+        // sem arquivo → 422
+        $this->actingAs($admin)->postJson("/api/admin/empresas/{$admin->empresa_id}/certificado", ['senha' => 'x'])
+            ->assertStatus(422)->assertJsonValidationErrors('certificado');
+    }
+
+    public function test_nfce_token()
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->putJson("/api/admin/empresas/{$admin->empresa_id}/nfce-token", [
+            'nfcetoken' => 'CSC-HOMOLOG', 'nfcetokenid' => '1',
+        ])->assertOk();
+        $emp = \App\Empresa::find($admin->empresa_id);
+        $this->assertEquals('CSC-HOMOLOG', $emp->nfcetoken);
+        $this->assertEquals('1', $emp->nfcetokenid);
+    }
+
     public function test_grupos_crud()
     {
         $admin = $this->admin();

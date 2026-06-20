@@ -7,6 +7,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
 import { ConfigTab } from './ConfigTab'
+import { CertificadoSection } from './CertificadoSection'
 import { useEmpresa, useSalvarEmpresa } from './api'
 
 /** Campos da empresa que o form edita (subconjunto amigável do fillable). */
@@ -161,7 +162,9 @@ export function EmpresaFormPage() {
                 </Select>
               </Field>
             </div>
-            <p className="text-xs text-muted-foreground">Certificado digital e numeração de produção são geridos no módulo Fiscal (validação SEFAZ).</p>
+            {editId
+              ? <CertificadoSection empresaId={editId} />
+              : <p className="text-xs text-muted-foreground">Salve a empresa para enviar o certificado digital e os tokens NFC-e.</p>}
           </CardContent></Card>
         </TabsContent>
 

@@ -79,6 +79,34 @@ export function useTestarEmail(empresaId: number) {
   })
 }
 
+// ---- Certificado digital / NFC-e ----
+export function useCertificadoStatus(empresaId: number | null) {
+  return useQuery({
+    queryKey: ['empresa-cert', empresaId],
+    queryFn: async () => (await api.get(`/empresas/${empresaId}/certificado`)).data.data,
+    enabled: empresaId !== null,
+  })
+}
+export function useUploadCertificado(empresaId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file, senha }: { file: File; senha: string }) => {
+      const fd = new FormData()
+      fd.append('certificado', file)
+      fd.append('senha', senha)
+      return (await api.post(`/empresas/${empresaId}/certificado`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['empresa-cert', empresaId] }),
+  })
+}
+export function useSalvarNfceToken(empresaId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: Record<string, unknown>) => (await api.put(`/empresas/${empresaId}/nfce-token`, data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['empresa-cert', empresaId] }),
+  })
+}
+
 // ---- Grupos ----
 export interface GrupoItem { id: number; descricao: string; ativo: number }
 export function useGrupos() {
