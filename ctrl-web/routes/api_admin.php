@@ -78,6 +78,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F9 — Pedidos (Kanban + ficha + criar/transicionar via motor legado)
+    Route::get('pedidos', 'PedidoController@index')->name('ped.index');
+    Route::get('pedidos/kanban', 'PedidoController@kanban')->name('ped.kanban');
+    Route::get('pedidos/situacoes', 'PedidoController@situacoes')->name('ped.situacoes');
+    Route::get('pedidos/{id}', 'PedidoController@show')->name('ped.show');
+    Route::post('pedidos', 'PedidoController@store')->name('ped.store');
+    Route::put('pedidos/{id}', 'PedidoController@update')->name('ped.update');
+
     // F8a — RH / Colaboradores
     Route::get('colaboradores', 'ColaboradorController@index')->name('colab.index');
     Route::post('colaboradores', 'ColaboradorController@store')->name('colab.store');
