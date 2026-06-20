@@ -255,6 +255,32 @@ class LookupController extends Controller
         return $this->porGrupoAtivo($request, \App\Regiao::query());
     }
 
+    /** GET /api/admin/lookups/clientes-fornecedores?q= */
+    public function clientesFornecedores(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        $q = trim((string) $request->query('q', ''));
+        return response()->json(
+            DB::table('clientes')
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->when($q !== '', fn ($w) => $w->where('nome', 'ilike', '%' . $q . '%'))
+                ->orderBy('nome')->limit(30)->get(['id', 'nome'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => $c->nome])
+        );
+    }
+
+    /** GET /api/admin/lookups/condicoes-pagamento */
+    public function condicoesPagamento(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('condicaopagamentos')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => $c->descricao])
+        );
+    }
+
     private function porGrupoAtivo(Request $request, $query)
     {
         $grupoId = optional(optional($request->user())->empresa)->grupo_id;

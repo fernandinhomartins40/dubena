@@ -78,6 +78,43 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F6 — Financeiro: Lançamentos + Plano/Centro de contas
+    Route::get('financeiro/lancamentos', 'FinanceiroController@lancamentos')->name('fin.lancamentos');
+    Route::get('financeiro/lancamentos/resumo', 'FinanceiroController@resumo')->name('fin.lancamentos.resumo');
+    Route::post('financeiro/lancamentos', 'FinanceiroController@criarLancamento')->name('fin.lancamentos.store');
+    Route::get('financeiro/planos-conta', 'FinanceiroController@planosConta')->name('fin.planosconta');
+    Route::post('financeiro/planos-conta', 'FinanceiroController@salvarPlanoConta')->name('fin.planosconta.store');
+    Route::put('financeiro/planos-conta/{id}', 'FinanceiroController@salvarPlanoConta')->name('fin.planosconta.update');
+    Route::delete('financeiro/planos-conta/{id}', 'FinanceiroController@excluirPlanoConta')->name('fin.planosconta.del');
+    Route::get('financeiro/centros-custo', 'FinanceiroController@centrosCusto')->name('fin.centroscusto');
+    Route::post('financeiro/centros-custo', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.store');
+    Route::put('financeiro/centros-custo/{id}', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.update');
+    Route::delete('financeiro/centros-custo/{id}', 'FinanceiroController@excluirCentroCusto')->name('fin.centroscusto.del');
+
+    // F6 — Gestão: DRE (fechamento mensal) + Conciliação (extrato)
+    Route::get('financeiro/dre', 'FinanceiroGestaoController@dre')->name('fin.dre');
+    Route::get('financeiro/conciliacao', 'FinanceiroGestaoController@conciliacao')->name('fin.conciliacao');
+
+    // F6 — Boletos (consulta) + PIX (status)
+    Route::get('boletos', 'BoletoController@index')->name('boletos.index');
+    Route::get('boletos/resumo', 'BoletoController@resumo')->name('boletos.resumo');
+    Route::get('pix/config', 'BoletoController@pixStatus')->name('pix.config');
+
+    // F6 — Cheques (emitidos / recebidos)
+    Route::get('cheques/situacoes', 'ChequeController@situacoes')->name('cheques.situacoes');
+    Route::get('cheques/emitidos', 'ChequeController@emitidos')->name('cheques.emitidos');
+    Route::get('cheques/recebidos', 'ChequeController@recebidos')->name('cheques.recebidos');
+    Route::post('cheques/recebidos', 'ChequeController@salvarRecebido')->name('cheques.recebidos.store');
+    Route::put('cheques/recebidos/{id}', 'ChequeController@salvarRecebido')->name('cheques.recebidos.update');
+    Route::delete('cheques/recebidos/{id}', 'ChequeController@excluirRecebido')->name('cheques.recebidos.del');
+
+    // F6 — Caixa / Tesouraria
+    Route::get('caixa/contas', 'CaixaController@contas')->name('caixa.contas');
+    Route::get('caixa/{contaId}/movimentos', 'CaixaController@movimentos')->name('caixa.movimentos');
+    Route::get('caixa/{contaId}/fechamentos', 'CaixaController@fechamentos')->name('caixa.fechamentos');
+    Route::post('caixa/{contaId}/abrir', 'CaixaController@abrir')->name('caixa.abrir');
+    Route::post('caixa/{contaId}/fechar', 'CaixaController@fechar')->name('caixa.fechar');
+
     // F5 — Estoque (saldos + transferência + requisição + acerto + inventário + físico + fechamento)
     Route::get('estoque/saldos', 'EstoqueController@saldos')->name('estoque.saldos');
     Route::post('estoque/acerto', 'EstoqueController@acerto')->name('estoque.acerto');
@@ -123,6 +160,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/contas', 'LookupController@contas')->name('lookups.contas');
     Route::get('lookups/setores', 'LookupController@setores')->name('lookups.setores');
     Route::get('lookups/regioes', 'LookupController@regioes')->name('lookups.regioes');
+    Route::get('lookups/clientes-fornecedores', 'LookupController@clientesFornecedores')->name('lookups.clientesfornecedores');
+    Route::get('lookups/condicoes-pagamento', 'LookupController@condicoesPagamento')->name('lookups.condicoespagamento');
 
     // F2 — Geográfico (Cidade/Bairro/Rua/Região) — 1 página com abas
     Route::get('geo/cidades', 'GeograficoController@cidades')->name('geo.cidades');

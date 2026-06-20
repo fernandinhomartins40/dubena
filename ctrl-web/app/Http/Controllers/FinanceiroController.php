@@ -357,7 +357,7 @@ class FinanceiroController extends Controller
                 case 3:
                     $dados->whereRaw("financeiros.id in (SELECT FINANCEIRO_ID FROM NFEMITIDAS WHERE NFNUMERO = $valorPesquisa)");
                     break;
-                case 4;
+                case 4: // (corrigido) era "case 4;" — ponto-e-vírgula no lugar de dois-pontos
                     $dados->whereRaw("financeiros.id in (SELECT FINANCEIRO_ID FROM CONVENIOFECHAMENTOS WHERE ID = $valorPesquisa)");
                     break;
                 case 5:
