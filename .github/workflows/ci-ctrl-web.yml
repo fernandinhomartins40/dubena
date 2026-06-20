@@ -100,6 +100,9 @@ jobs:
           # route:clear garante que rotas novas (ex.: PUT/DELETE da API admin) não
           # fiquem mascaradas por um routes cache de build anterior (causava 405).
           docker compose -f docker-compose.yml exec -T app php artisan route:clear
+          # view:clear descarta views Blade compiladas de build anterior (ex.: que
+          # referenciavam o Livewire do Filament, já removido) — evitava 500 no legado.
+          docker compose -f docker-compose.yml exec -T app php artisan view:clear
           docker compose -f docker-compose.yml exec -T app vendor/bin/phpunit --colors=never
 
       - name: Logs do app em caso de falha
