@@ -97,6 +97,9 @@ jobs:
       - name: Suíte phpunit
         run: |
           docker compose -f docker-compose.yml exec -T app php artisan config:clear
+          # route:clear garante que rotas novas (ex.: PUT/DELETE da API admin) não
+          # fiquem mascaradas por um routes cache de build anterior (causava 405).
+          docker compose -f docker-compose.yml exec -T app php artisan route:clear
           docker compose -f docker-compose.yml exec -T app vendor/bin/phpunit --colors=never
 
       - name: Logs do app em caso de falha

@@ -126,6 +126,79 @@ class EmpresaController extends Controller
         return response()->json(['message' => 'Empresa excluída.']);
     }
 
+    // ==================== CERTIFICADO DIGITAL / NFC-e ====================
+
+    /** GET /api/admin/empresas/{id}/certificado — status (sem expor o arquivo/senha). */
+    public function certificadoStatus(Request $request, $id)
+    {
+        $this->autorizar($request, 'empresa', 'view');
+        $empresa = $this->buscar($request, $id);
+        $arquivo = $this->pathCertificado($empresa);
+        return response()->json(['data' => [
+            'tem_certificado' => $arquivo && file_exists($arquivo),
+            'tem_senha'       => ! empty($empresa->nfesenhapfx),
+            'tem_csc_homolog' => ! empty($empresa->nfcetoken) && ! empty($empresa->nfcetokenid),
+            'tem_csc_producao' => ! empty($empresa->nfcetoken_prod) && ! empty($empresa->nfcetokenid_prod),
+        ]]);
+    }
+
+    /**
+     * POST /api/admin/empresas/{id}/certificado — upload do .pfx + senha.
+     * Replica saveCertNf do legado: salva em storage/nfe/certs/{cnpj}.pfx e grava a
+     * senha criptografada (customCrypt) em nfesenhapfx.
+     */
+    public function uploadCertificado(Request $request, $id)
+    {
+        $this->autorizar($request, 'empresa', 'edit');
+        $empresa = $this->buscar($request, $id);
+
+        $request->validate([
+            // valida por extensão (.pfx/.p12) — o mimetype de PKCS#12 varia por navegador.
+            'certificado' => 'required|file|max:5120',
+            'senha'       => 'required|string|max:255',
+        ]);
+        $ext = strtolower($request->file('certificado')->getClientOriginalExtension());
+        abort_unless(in_array($ext, ['pfx', 'p12']), 422, 'O certificado deve ser um arquivo .pfx ou .p12.');
+        abort_if(empty($empresa->cnpj), 422, 'Informe o CNPJ da empresa antes de enviar o certificado.');
+
+        $dir = base_path('storage' . DIRECTORY_SEPARATOR . 'nfe' . DIRECTORY_SEPARATOR . 'certs');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $filename = str_replace(['/', '.', '-'], '', $empresa->cnpj) . '.pfx';
+        $request->file('certificado')->move($dir, $filename);
+
+        // Senha criptografada (mesma rotina do legado).
+        $empresa->update(['nfesenhapfx' => customCrypt($request->input('senha'), 6, 'hash')]);
+
+        return response()->json(['message' => 'Certificado digital enviado.']);
+    }
+
+    /** PUT /api/admin/empresas/{id}/nfce-token — CSC/ID token NFC-e (homolog e produção). */
+    public function salvarNfceToken(Request $request, $id)
+    {
+        $this->autorizar($request, 'empresa', 'edit');
+        $empresa = $this->buscar($request, $id);
+        $data = $request->validate([
+            'nfcetoken'        => 'nullable|string|max:255',
+            'nfcetokenid'      => 'nullable|string|max:20',
+            'nfcetoken_prod'   => 'nullable|string|max:255',
+            'nfcetokenid_prod' => 'nullable|string|max:20',
+        ]);
+        // só atualiza os campos enviados e não vazios
+        $empresa->update(array_filter($data, fn ($v) => $v !== null && $v !== ''));
+        return response()->json(['message' => 'Tokens NFC-e salvos.']);
+    }
+
+    private function pathCertificado(Empresa $empresa): ?string
+    {
+        if (empty($empresa->cnpj)) {
+            return null;
+        }
+        $filename = str_replace(['/', '.', '-'], '', $empresa->cnpj) . '.pfx';
+        return base_path('storage' . DIRECTORY_SEPARATOR . 'nfe' . DIRECTORY_SEPARATOR . 'certs') . DIRECTORY_SEPARATOR . $filename;
+    }
+
     // ==================== GRUPOS ====================
 
     public function grupos(Request $request)

@@ -184,7 +184,7 @@ function NfeTab() {
     <>
       <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
         <AlertCircle size={18} className="shrink-0 mt-0.5" />
-        <span>A transmissão e o cancelamento dependem de certificado digital e do ambiente SEFAZ configurado. Valide em <strong>homologação</strong> antes de usar em produção.</span>
+        <span>A transmissão e o cancelamento dependem do <strong>certificado digital</strong> (configurável em Empresas → Fiscal) e do ambiente SEFAZ. Valide em <strong>homologação</strong> antes de usar em produção.</span>
       </div>
       <Card className="mb-4 p-3"><div className="flex gap-2">
         <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar número ou chave de acesso…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} /></div>

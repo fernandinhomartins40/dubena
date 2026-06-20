@@ -24,4 +24,14 @@ class TestCase extends \Illuminate\Foundation\Testing\TestCase
 
         return $app;
     }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // A suite completa (292 testes) dispara muitas requisições em sequência e
+        // estoura o throttle do grupo api_admin (throttle:120,1) → 429. O rate limit
+        // é comportamento de produção, não deve interferir nos testes.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+    }
 }

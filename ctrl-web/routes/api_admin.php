@@ -158,6 +158,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('empresas/{id}', 'EmpresaController@update')->name('empresas.update');
     Route::delete('empresas/{id}', 'EmpresaController@destroy')->name('empresas.destroy');
     Route::post('empresas/{id}/ativar', 'EmpresaController@ativar')->name('empresas.ativar');
+    // F7 — certificado digital (.pfx + senha) e tokens NFC-e (CSC)
+    Route::get('empresas/{id}/certificado', 'EmpresaController@certificadoStatus')->name('empresas.cert');
+    Route::post('empresas/{id}/certificado', 'EmpresaController@uploadCertificado')->name('empresas.cert.upload');
+    Route::put('empresas/{id}/nfce-token', 'EmpresaController@salvarNfceToken')->name('empresas.nfcetoken');
     // Config da empresa (106 col, sub-abas) + senha mestra + teste SMTP
     Route::get('empresas/{id}/config', 'EmpresaConfigController@show')->name('empresas.config');
     Route::put('empresas/{id}/config', 'EmpresaConfigController@update')->name('empresas.config.save');
