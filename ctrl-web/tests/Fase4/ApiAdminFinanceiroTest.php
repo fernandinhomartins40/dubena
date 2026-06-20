@@ -96,4 +96,73 @@ class ApiAdminFinanceiroTest extends TestCase
         $this->actingAs($this->admin)->postJson('/api/admin/financeiro/lancamentos', [])
             ->assertStatus(422)->assertJsonValidationErrors(['cliente_id', 'pagarreceber', 'valor', 'planoconta_id']);
     }
+
+    private function contatipo(): int
+    {
+        return \DB::table('contatipos')->insertGetId([
+            'grupo_id' => $this->grupo, 'empresa_id' => $this->empresaId, 'descricao' => 'Caixa', 'perfil' => 1,
+            'ativo' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    /** Cria uma conta-caixa fechada + vínculo do admin (operar/transferir). */
+    private function conta(): int
+    {
+        $contaId = \DB::table('contas')->insertGetId([
+            'grupo_id' => $this->grupo, 'empresa_id' => $this->empresaId, 'contatipo_id' => $this->contatipo(),
+            'descricao' => 'Caixa Geral',
+            'conta' => '1', 'saldoinicial' => 0, 'saldoatual' => 0, 'fechado' => 1, 'ativo' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        \DB::table('contausers')->insert([
+            'conta_id' => $contaId, 'user_id' => $this->admin->id, 'operar' => 1, 'visualizar' => 1,
+            'transferir' => 1, 'estornar' => 1, 'lancarfechado' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return $contaId;
+    }
+
+    public function test_caixa_contas_lista()
+    {
+        $this->preparar();
+        $this->conta();
+        $this->actingAs($this->admin)->getJson('/api/admin/caixa/contas')
+            ->assertOk()->assertJsonStructure(['data' => [['id', 'descricao', 'saldoatual', 'fechado']]]);
+    }
+
+    public function test_caixa_abrir_e_fechar()
+    {
+        $this->preparar();
+        $contaId = $this->conta();
+
+        // abre
+        $this->actingAs($this->admin)->postJson("/api/admin/caixa/$contaId/abrir", [
+            'datahoraabertura' => now()->toDateTimeString(),
+        ])->assertCreated();
+        $this->assertEquals(0, (int) \App\Conta::find($contaId)->fechado);
+
+        // movimentos + saldo
+        $this->actingAs($this->admin)->getJson("/api/admin/caixa/$contaId/movimentos")
+            ->assertOk()->assertJsonStructure(['data', 'saldo', 'fechado']);
+
+        // fecha (sem movimentos posteriores → ok)
+        $this->actingAs($this->admin)->postJson("/api/admin/caixa/$contaId/fechar", [
+            'datahorafechamento' => now()->addMinute()->toDateTimeString(),
+        ])->assertOk();
+        $this->assertEquals(1, (int) \App\Conta::find($contaId)->fechado);
+    }
+
+    public function test_caixa_abrir_exige_permissao()
+    {
+        $this->preparar();
+        // conta SEM vínculo contausers → não pode abrir
+        $contaId = \DB::table('contas')->insertGetId([
+            'grupo_id' => $this->grupo, 'empresa_id' => $this->empresaId, 'contatipo_id' => $this->contatipo(),
+            'descricao' => 'Caixa Sem Vínculo',
+            'conta' => '2', 'saldoinicial' => 0, 'saldoatual' => 0, 'fechado' => 1, 'ativo' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->actingAs($this->admin)->postJson("/api/admin/caixa/$contaId/abrir", [
+            'datahoraabertura' => now()->toDateTimeString(),
+        ])->assertStatus(422);
+    }
 }

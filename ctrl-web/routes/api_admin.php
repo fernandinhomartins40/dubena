@@ -91,6 +91,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('financeiro/centros-custo/{id}', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.update');
     Route::delete('financeiro/centros-custo/{id}', 'FinanceiroController@excluirCentroCusto')->name('fin.centroscusto.del');
 
+    // F6 — Caixa / Tesouraria
+    Route::get('caixa/contas', 'CaixaController@contas')->name('caixa.contas');
+    Route::get('caixa/{contaId}/movimentos', 'CaixaController@movimentos')->name('caixa.movimentos');
+    Route::get('caixa/{contaId}/fechamentos', 'CaixaController@fechamentos')->name('caixa.fechamentos');
+    Route::post('caixa/{contaId}/abrir', 'CaixaController@abrir')->name('caixa.abrir');
+    Route::post('caixa/{contaId}/fechar', 'CaixaController@fechar')->name('caixa.fechar');
+
     // F5 — Estoque (saldos + transferência + requisição + acerto + inventário + físico + fechamento)
     Route::get('estoque/saldos', 'EstoqueController@saldos')->name('estoque.saldos');
     Route::post('estoque/acerto', 'EstoqueController@acerto')->name('estoque.acerto');
