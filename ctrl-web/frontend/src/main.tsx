@@ -19,6 +19,7 @@ import { EmpresasListPage } from '@/features/empresas/EmpresasListPage'
 import { EmpresaFormPage } from '@/features/empresas/EmpresaFormPage'
 import { ClienteConfigPage } from '@/features/cadastros/ClienteConfigPage'
 import { FinanceiroConfigPage } from '@/features/cadastros/FinanceiroConfigPage'
+import { EstoquePage } from '@/features/estoque/EstoquePage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function App() {
       <Route path="/clientes/novo" element={<Protected><ClienteFormPage /></Protected>} />
       <Route path="/clientes/:id" element={<Protected><ClienteFormPage /></Protected>} />
       <Route path="/financeiro/configuracoes" element={<Protected><FinanceiroConfigPage /></Protected>} />
+      <Route path="/estoque" element={<Protected><EstoquePage /></Protected>} />
       <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
       <Route path="/produtos/configuracoes" element={<Protected><ProdutoConfigPage /></Protected>} />
       <Route path="/produtos/precos" element={<Protected><ProdutoPrecosPage /></Protected>} />
