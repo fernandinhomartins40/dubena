@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MapPin, LogOut, Menu as MenuIcon,
   Moon, Sun, ChevronLeft, Building2, Package, Wallet, Warehouse, FileText,
+  UserCog, Truck, Flame, FileBarChart,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -30,6 +31,10 @@ const NAV: NavItem[] = [
   { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'nfemitida.view', group: 'Operações' },
   { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
   { label: 'Config. Financeira', to: '/financeiro/configuracoes', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
+  { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'RH & Frota' },
+  { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', group: 'RH & Frota' },
+  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'vendavalegas.view', group: 'Operações' },
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, group: 'Geral' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
 ]
 
