@@ -267,6 +267,32 @@ class LookupController extends Controller
         );
     }
 
+    /** GET /api/admin/lookups/pedido-operacoes */
+    public function pedidoOperacoes(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        return response()->json(
+            DB::table('pedidooperacaos')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->orderBy('descricao')->get(['id', 'descricao'])
+                ->map(fn ($o) => ['id' => $o->id, 'label' => $o->descricao])
+        );
+    }
+
+    /** GET /api/admin/lookups/colaboradores */
+    public function colaboradores(Request $request)
+    {
+        $empresaId = optional($request->user())->empresa_id;
+        $q = trim((string) $request->query('q', ''));
+        return response()->json(
+            DB::table('colaboradors')->where('ativo', 1)
+                ->when($empresaId, fn ($w) => $w->where('empresa_id', $empresaId))
+                ->when($q !== '', fn ($w) => $w->where('nome', 'ilike', '%' . $q . '%'))
+                ->orderBy('nome')->limit(30)->get(['id', 'nome'])
+                ->map(fn ($c) => ['id' => $c->id, 'label' => $c->nome])
+        );
+    }
+
     /** GET /api/admin/lookups/veiculo-tipos */
     public function veiculoTipos(Request $request)
     {
