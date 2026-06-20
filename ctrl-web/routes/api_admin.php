@@ -78,6 +78,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F4 — Cadastros de apoio (consolidado em Configurações dos módulos donos)
+    Route::get('cadastros/{tipo}', 'CadastroApoioController@index')->name('cadastros.index');
+    Route::post('cadastros/{tipo}', 'CadastroApoioController@salvar')->name('cadastros.store');
+    Route::put('cadastros/{tipo}/{id}', 'CadastroApoioController@salvar')->name('cadastros.update');
+    Route::delete('cadastros/{tipo}/{id}', 'CadastroApoioController@excluir')->name('cadastros.del');
+
     // F3 — Empresa / Config / Grupos
     Route::get('empresas', 'EmpresaController@index')->name('empresas.index');
     Route::post('empresas', 'EmpresaController@store')->name('empresas.store');
