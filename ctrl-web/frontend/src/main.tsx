@@ -17,6 +17,8 @@ import { ProdutoPrecosPage } from '@/features/produtos/ProdutoPrecosPage'
 import { GeograficoPage } from '@/features/geografico/GeograficoPage'
 import { EmpresasListPage } from '@/features/empresas/EmpresasListPage'
 import { EmpresaFormPage } from '@/features/empresas/EmpresaFormPage'
+import { ClienteConfigPage } from '@/features/cadastros/ClienteConfigPage'
+import { FinanceiroConfigPage } from '@/features/cadastros/FinanceiroConfigPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -39,8 +41,10 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<Protected><DashboardPage /></Protected>} />
       <Route path="/clientes" element={<Protected><ClientesListPage /></Protected>} />
+      <Route path="/clientes/configuracoes" element={<Protected><ClienteConfigPage /></Protected>} />
       <Route path="/clientes/novo" element={<Protected><ClienteFormPage /></Protected>} />
       <Route path="/clientes/:id" element={<Protected><ClienteFormPage /></Protected>} />
+      <Route path="/financeiro/configuracoes" element={<Protected><FinanceiroConfigPage /></Protected>} />
       <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
       <Route path="/produtos/configuracoes" element={<Protected><ProdutoConfigPage /></Protected>} />
       <Route path="/produtos/precos" element={<Protected><ProdutoPrecosPage /></Protected>} />

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User } from 'lucide-react'
+import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User, Settings } from 'lucide-react'
 import { useClientes, useExcluirCliente, type ClienteListItem } from './api'
 import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
@@ -72,7 +72,12 @@ export function ClientesListPage() {
       <PageHeader
         title="Clientes"
         subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} clientes cadastrados` : 'Carregando…'}
-        action={can('cliente.create') && <Button onClick={() => navigate('/clientes/novo')}><Plus size={16} /> Novo cliente</Button>}
+        action={
+          <>
+            {can('cliente.view') && <Button variant="outline" onClick={() => navigate('/clientes/configuracoes')}><Settings size={16} /> Configurações</Button>}
+            {can('cliente.create') && <Button onClick={() => navigate('/clientes/novo')}><Plus size={16} /> Novo cliente</Button>}
+          </>
+        }
       />
 
       <Card className="mb-4 p-3">

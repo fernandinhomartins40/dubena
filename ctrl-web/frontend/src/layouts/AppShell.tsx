@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MapPin, LogOut, Menu as MenuIcon,
-  Moon, Sun, ChevronLeft, Building2, Package,
+  Moon, Sun, ChevronLeft, Building2, Package, Wallet,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
   { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
+  { label: 'Config. Financeira', to: '/financeiro/configuracoes', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
 ]
 
