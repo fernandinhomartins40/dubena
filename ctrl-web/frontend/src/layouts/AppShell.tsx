@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
   { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
   { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoquesetor.view', group: 'Operações' },
+  { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
   { label: 'Config. Financeira', to: '/financeiro/configuracoes', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
 ]

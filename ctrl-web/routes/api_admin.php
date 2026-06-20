@@ -143,6 +143,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/contas', 'LookupController@contas')->name('lookups.contas');
     Route::get('lookups/setores', 'LookupController@setores')->name('lookups.setores');
     Route::get('lookups/regioes', 'LookupController@regioes')->name('lookups.regioes');
+    Route::get('lookups/clientes-fornecedores', 'LookupController@clientesFornecedores')->name('lookups.clientesfornecedores');
+    Route::get('lookups/condicoes-pagamento', 'LookupController@condicoesPagamento')->name('lookups.condicoespagamento');
 
     // F2 — Geográfico (Cidade/Bairro/Rua/Região) — 1 página com abas
     Route::get('geo/cidades', 'GeograficoController@cidades')->name('geo.cidades');
