@@ -86,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('pedidos', 'PedidoController@store')->name('ped.store');
     Route::put('pedidos/{id}', 'PedidoController@update')->name('ped.update');
     Route::get('lookups/pedido-operacoes', 'LookupController@pedidoOperacoes')->name('lookups.pedidooperacoes');
+    Route::get('lookups/pedido-situacoes', 'LookupController@pedidoSituacoes')->name('lookups.pedidosituacoes');
+    Route::get('lookups/ruas', 'LookupController@ruas')->name('lookups.ruas');
     Route::get('lookups/colaboradores', 'LookupController@colaboradores')->name('lookups.colaboradores');
 
     // F8a — RH / Colaboradores

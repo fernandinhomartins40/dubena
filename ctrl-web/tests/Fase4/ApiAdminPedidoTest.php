@@ -96,4 +96,14 @@ class ApiAdminPedidoTest extends TestCase
         $this->actingAs($this->admin)->postJson('/api/admin/pedidos', [])
             ->assertStatus(422)->assertJsonValidationErrors(['cliente_id', 'pedidosituacao_id', 'itens']);
     }
+
+    public function test_lookups_pedido_retornam_array_label()
+    {
+        $c = $this->cenario();
+        // AsyncSelect espera array [{id,label}] — estes lookups alimentam o form de pedido.
+        $this->actingAs($this->admin)->getJson('/api/admin/lookups/pedido-situacoes')->assertOk()->assertJsonStructure([['id', 'label']]);
+        $this->actingAs($this->admin)->getJson('/api/admin/lookups/pedido-operacoes')->assertOk()->assertJsonStructure([['id', 'label']]);
+        $this->actingAs($this->admin)->getJson('/api/admin/lookups/colaboradores')->assertOk()->assertJsonStructure([['id', 'label']]);
+        $this->actingAs($this->admin)->getJson('/api/admin/lookups/ruas?cidade_id=1')->assertOk()->assertJsonStructure([['id', 'label']]);
+    }
 }
