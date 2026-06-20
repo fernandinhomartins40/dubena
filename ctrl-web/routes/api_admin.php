@@ -78,6 +78,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('lookups/produtos-ressarcimento', 'LookupController@produtosRessarcimento')->name('lookups.produtosressarcimento');
     Route::get('lookups/tipo-glp', 'LookupController@tipoGlp')->name('lookups.tipoglp');
 
+    // F6 — Financeiro: Lançamentos + Plano/Centro de contas
+    Route::get('financeiro/lancamentos', 'FinanceiroController@lancamentos')->name('fin.lancamentos');
+    Route::get('financeiro/lancamentos/resumo', 'FinanceiroController@resumo')->name('fin.lancamentos.resumo');
+    Route::post('financeiro/lancamentos', 'FinanceiroController@criarLancamento')->name('fin.lancamentos.store');
+    Route::get('financeiro/planos-conta', 'FinanceiroController@planosConta')->name('fin.planosconta');
+    Route::post('financeiro/planos-conta', 'FinanceiroController@salvarPlanoConta')->name('fin.planosconta.store');
+    Route::put('financeiro/planos-conta/{id}', 'FinanceiroController@salvarPlanoConta')->name('fin.planosconta.update');
+    Route::delete('financeiro/planos-conta/{id}', 'FinanceiroController@excluirPlanoConta')->name('fin.planosconta.del');
+    Route::get('financeiro/centros-custo', 'FinanceiroController@centrosCusto')->name('fin.centroscusto');
+    Route::post('financeiro/centros-custo', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.store');
+    Route::put('financeiro/centros-custo/{id}', 'FinanceiroController@salvarCentroCusto')->name('fin.centroscusto.update');
+    Route::delete('financeiro/centros-custo/{id}', 'FinanceiroController@excluirCentroCusto')->name('fin.centroscusto.del');
+
     // F5 — Estoque (saldos + transferência + requisição + acerto + inventário + físico + fechamento)
     Route::get('estoque/saldos', 'EstoqueController@saldos')->name('estoque.saldos');
     Route::post('estoque/acerto', 'EstoqueController@acerto')->name('estoque.acerto');
