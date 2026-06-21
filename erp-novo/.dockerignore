@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+vendor
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+.env
+.env.*
+!.env.example
+!.env.homolog.example
+tests
+phpunit.xml
+README.md
+.editorconfig
