@@ -19,6 +19,7 @@ import { EmpresasListPage } from '@/features/empresas/EmpresasListPage'
 import { EmpresaFormPage } from '@/features/empresas/EmpresaFormPage'
 import { ClienteConfigPage } from '@/features/cadastros/ClienteConfigPage'
 import { FinanceiroConfigPage } from '@/features/cadastros/FinanceiroConfigPage'
+import { ColaboradorConfigPage } from '@/features/cadastros/ColaboradorConfigPage'
 import { EstoquePage } from '@/features/estoque/EstoquePage'
 import { FinanceiroPage } from '@/features/financeiro/FinanceiroPage'
 import { FiscalPage } from '@/features/fiscal/FiscalPage'
@@ -57,6 +58,7 @@ function App() {
       <Route path="/financeiro" element={<Protected><FinanceiroPage /></Protected>} />
       <Route path="/fiscal" element={<Protected><FiscalPage /></Protected>} />
       <Route path="/colaboradores" element={<Protected><ColaboradoresListPage /></Protected>} />
+      <Route path="/colaboradores/configuracoes" element={<Protected><ColaboradorConfigPage /></Protected>} />
       <Route path="/colaboradores/novo" element={<Protected><ColaboradorFormPage /></Protected>} />
       <Route path="/colaboradores/:id" element={<Protected><ColaboradorFormPage /></Protected>} />
       <Route path="/veiculos" element={<Protected><VeiculosListPage /></Protected>} />

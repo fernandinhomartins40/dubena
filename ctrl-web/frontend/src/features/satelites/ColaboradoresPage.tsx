@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save } from 'lucide-react'
+import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save, Settings } from 'lucide-react'
 import {
   Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
   Tabs, TabsList, TabsTrigger, TabsContent,
@@ -44,7 +44,10 @@ export function ColaboradoresListPage() {
   return (
     <div>
       <PageHeader title="Colaboradores" subtitle={data ? `${data.meta.total} colaboradores` : 'Carregando…'}
-        action={can('colaborador.create') && <Button onClick={() => navigate('/colaboradores/novo')}><Plus size={16} /> Novo colaborador</Button>} />
+        action={<div className="flex gap-2">
+          {can('colaborador.view') && <Button variant="outline" onClick={() => navigate('/colaboradores/configuracoes')}><Settings size={16} /> Configurações</Button>}
+          {can('colaborador.create') && <Button onClick={() => navigate('/colaboradores/novo')}><Plus size={16} /> Novo colaborador</Button>}
+        </div>} />
       <Card className="mb-4 p-3"><form onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(busca) }} className="flex gap-2">
         <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome…" className="pl-9" /></div>
         <Button type="submit" variant="secondary">Buscar</Button>
