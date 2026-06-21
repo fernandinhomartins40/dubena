@@ -2,6 +2,8 @@
 
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
+use App\Http\Controllers\Api\Admin\CaixaController;
+use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
@@ -148,5 +150,23 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('financeiro/centros-custo', [FinanceiroCadastroController::class, 'centroSalvar']);
         Route::put('financeiro/centros-custo/{id}', [FinanceiroCadastroController::class, 'centroSalvar'])->whereNumber('id');
         Route::delete('financeiro/centros-custo/{id}', [FinanceiroCadastroController::class, 'centroExcluir'])->whereNumber('id');
+
+        // ── Caixa / Conta — N6 ──
+        Route::get('caixa/contas', [CaixaController::class, 'contas']);
+        Route::post('caixa/contas', [CaixaController::class, 'criarConta']);
+        Route::post('caixa/transferencias', [CaixaController::class, 'transferir']);
+        Route::post('caixa/movimentos/{movimentoId}/estornar', [CaixaController::class, 'estornar'])->whereNumber('movimentoId');
+        Route::get('caixa/{contaId}/movimentos', [CaixaController::class, 'movimentos'])->whereNumber('contaId');
+        Route::post('caixa/{contaId}/abrir', [CaixaController::class, 'abrir'])->whereNumber('contaId');
+        Route::post('caixa/{contaId}/fechar', [CaixaController::class, 'fechar'])->whereNumber('contaId');
+        Route::post('caixa/{contaId}/baixar', [CaixaController::class, 'baixar'])->whereNumber('contaId');
+
+        // ── Cheques — N6 ──
+        Route::get('cheques/recebidos', [ChequeController::class, 'recebidos']);
+        Route::get('cheques/emitidos', [ChequeController::class, 'emitidos']);
+        Route::post('cheques', [ChequeController::class, 'store']);
+        Route::put('cheques/{id}', [ChequeController::class, 'update'])->whereNumber('id');
+        Route::delete('cheques/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
+        Route::put('cheques/{id}/situacao', [ChequeController::class, 'mudarSituacao'])->whereNumber('id');
     });
 });
