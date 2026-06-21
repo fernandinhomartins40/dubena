@@ -5,8 +5,6 @@ namespace App;
 use Laravel\Passport\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -63,25 +61,12 @@ use Spatie\Permission\Traits\HasRoles;
  * @mixin \Eloquent
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Oauthclient[] $oauth
  */
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable
 {
 
     use HasApiTokens, Notifiable, HasRoles;
 
     // M1.2 (RBAC): o guard padrão das permissões spatie é 'web' (igual ao ERP/Filament).
-
-    /**
-     * FASE 3 — quem pode entrar no painel Filament (/admin).
-     *
-     * Reusa o guard 'web' e a noção de "usuário ativo" do ERP legado. O controle
-     * fino por tela/ação fica nas Policies (que leem as permissões legadas em
-     * `menuusers`). Aqui só barramos quem não deveria ver o painel de jeito nenhum.
-     */
-    public function canAccessPanel(Panel $panel): bool
-    {
-        // 'ativo' no legado é varchar '1'/'0' (ou null em registros antigos).
-        return in_array((string) $this->ativo, ['1', 'true'], true) || $this->ativo === null;
-    }
 
     /**
      * Permissão legada (menuusers) por nome-base de rota (= menus.descricao, ex.:

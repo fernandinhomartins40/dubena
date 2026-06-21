@@ -1,0 +1,173 @@
+openapi: 3.0.3
+info:
+  title: Dubena — API Admin (SPA React)
+  version: "1.0"
+  description: >
+    API administrativa do ERP consumida pelo SPA React em /app. Separada da API do
+    app mobile (routes/api.php, contrato publicado e intocado). Auth por Laravel
+    Sanctum (SPA cookie-based, stateful + CSRF). Todos os endpoints abaixo, exceto
+    login/health, exigem sessão autenticada e checam RBAC (can('<modulo>.<acao>')).
+    Prefixo: /api/admin.
+
+servers:
+  - url: /api/admin
+    description: Mesmo domínio (Nginx serve /app e /api/admin)
+
+tags:
+  - name: Auth
+  - name: Clientes (F0/S2)
+  - name: Produtos (F1)
+  - name: Geográfico (F2)
+  - name: Empresas (F3)
+  - name: Cadastros de apoio (F4)
+  - name: Estoque (F5)
+  - name: Financeiro (F6)
+  - name: Fiscal (F7)
+  - name: Satélites (F8)
+  - name: Pedidos (F9)
+  - name: Lookups
+
+components:
+  securitySchemes:
+    sanctum:
+      type: apiKey
+      in: cookie
+      name: laravel_session
+      description: Sessão Sanctum (SPA). Obter CSRF via GET /sanctum/csrf-cookie antes do login.
+  responses:
+    Unauthorized: { description: Não autenticado (401) }
+    Forbidden: { description: Sem permissão RBAC (403) }
+    Validation: { description: Erro de validação ou de regra de negócio (422) }
+  schemas:
+    Paginated:
+      type: object
+      properties:
+        data: { type: array, items: { type: object } }
+        meta:
+          type: object
+          properties:
+            current_page: { type: integer }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+
+security:
+  - sanctum: []
+
+paths:
+  /login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login (Sanctum SPA)
+      responses: { '200': { description: Usuário + permissões RBAC }, '422': { $ref: '#/components/responses/Validation' } }
+  /logout: { post: { tags: [Auth], summary: Logout, responses: { '200': { description: OK } } } }
+  /me: { get: { tags: [Auth], summary: Usuário atual + permissões, responses: { '200': { description: AuthUser } } } }
+  /health: { get: { tags: [Auth], security: [], summary: Healthcheck, responses: { '200': { description: ok } } } }
+
+  # ---- Clientes ----
+  /clientes:
+    get: { tags: [Clientes (F0/S2)], summary: Lista paginada (q, page), responses: { '200': { description: Paginated } } }
+    post: { tags: [Clientes (F0/S2)], summary: Cria cliente, responses: { '201': { description: Criado }, '422': { $ref: '#/components/responses/Validation' } } }
+  /clientes/{id}:
+    get: { tags: [Clientes (F0/S2)], summary: Ficha (com labels), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: Cliente } } }
+    put: { tags: [Clientes (F0/S2)], summary: Atualiza, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+    delete: { tags: [Clientes (F0/S2)], summary: Exclui, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+  /clientes/{id}/telefones: { get: { tags: [Clientes (F0/S2)], summary: Telefones (sub-recurso), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /clientes/{id}/convenio: { get: { tags: [Clientes (F0/S2)], summary: Convênio, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+
+  # ---- Produtos ----
+  /produtos:
+    get: { tags: [Produtos (F1)], summary: Lista paginada, responses: { '200': { description: Paginated } } }
+    post: { tags: [Produtos (F1)], summary: Cria (regras GLP 100/0, origens 100%), responses: { '201': { description: Criado }, '422': { $ref: '#/components/responses/Validation' } } }
+  /produtos/{id}:
+    get: { tags: [Produtos (F1)], parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: Produto } } }
+    put: { tags: [Produtos (F1)], summary: Atualiza (não inativa com saldo), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+    delete: { tags: [Produtos (F1)], parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+  /produtos/{id}/origens: { put: { tags: [Produtos (F1)], summary: Origens do combustível (soma 100%), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK }, '422': { $ref: '#/components/responses/Validation' } } } }
+  /produtos/{id}/estoque: { get: { tags: [Produtos (F1)], summary: Estoque por setor + giro (visão nova), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /produtos-precos/preview: { get: { tags: [Produtos (F1)], summary: Preview de atualização de preços em massa, responses: { '200': { description: OK } } } }
+  /produtos-precos/aplicar: { put: { tags: [Produtos (F1)], summary: Aplica atualização de preços, responses: { '200': { description: OK } } } }
+
+  # ---- Geográfico ----
+  /geo/cidades: { get: { tags: [Geográfico (F2)], summary: 'Cidades (inclui globais). Análogo: bairros, ruas, regioes', responses: { '200': { description: Paginated } } }, post: { tags: [Geográfico (F2)], summary: Cria cidade, responses: { '201': { description: Criado } } } }
+  /geo/bairros: { get: { tags: [Geográfico (F2)], summary: Bairros (por cidade), responses: { '200': { description: Paginated } } } }
+  /geo/ruas: { get: { tags: [Geográfico (F2)], summary: Ruas (por cidade), responses: { '200': { description: Paginated } } } }
+  /geo/regioes: { get: { tags: [Geográfico (F2)], summary: Regiões, responses: { '200': { description: Paginated } } } }
+
+  # ---- Empresas ----
+  /empresas:
+    get: { tags: [Empresas (F3)], summary: Lista (flag ativa), responses: { '200': { description: OK } } }
+    post: { tags: [Empresas (F3)], summary: Cria empresa, responses: { '201': { description: Criado } } }
+  /empresas/{id}:
+    get: { tags: [Empresas (F3)], parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: Empresa } } }
+    put: { tags: [Empresas (F3)], parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }
+  /empresas/{id}/ativar: { post: { tags: [Empresas (F3)], summary: Troca empresa ativa (=change), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /empresas/{id}/config: { get: { tags: [Empresas (F3)], summary: Config (106 col, sem segredos), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }, put: { tags: [Empresas (F3)], summary: Salva config, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /empresas/{id}/certificado: { post: { tags: [Empresas (F3)], summary: 'Upload do certificado .pfx + senha (multipart)', parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK }, '422': { $ref: '#/components/responses/Validation' } } } }
+
+  # ---- Cadastros de apoio ----
+  /cadastros/{tipo}:
+    get:
+      tags: [Cadastros de apoio (F4)]
+      summary: 'Lista cadastro de apoio. tipo: segmentos|tipos-pessoa|telefone-tipos|contato-tipos|contato-situacoes|bancos|tipos-movimento'
+      parameters: [{ name: tipo, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK }, '404': { description: tipo desconhecido } }
+    post: { tags: [Cadastros de apoio (F4)], parameters: [{ name: tipo, in: path, required: true, schema: { type: string } }], responses: { '201': { description: Criado } } }
+
+  # ---- Estoque ----
+  /estoque/saldos: { get: { tags: [Estoque (F5)], summary: Saldos por setor/produto, responses: { '200': { description: OK } } } }
+  /estoque/acerto: { post: { tags: [Estoque (F5)], summary: Ajuste de saldo (via motor), responses: { '200': { description: OK }, '422': { $ref: '#/components/responses/Validation' } } } }
+  /estoque/transferencias: { post: { tags: [Estoque (F5)], summary: 'Transferência (SAÍDA origem + ENTRADA destino, atômico)', responses: { '201': { description: OK } } } }
+  /estoque/requisicoes: { post: { tags: [Estoque (F5)], summary: Requisição (entrada/saída por setor), responses: { '201': { description: OK } } } }
+  /estoque/inventarios: { post: { tags: [Estoque (F5)], summary: Inventário (documento valorado), responses: { '201': { description: OK } } } }
+  /estoque/fisico/{id}/efetivar: { post: { tags: [Estoque (F5)], summary: Efetiva estoque físico (ajusta saldo), parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /estoque/fechamentos: { post: { tags: [Estoque (F5)], summary: Fecha período, responses: { '201': { description: OK } } } }
+
+  # ---- Financeiro ----
+  /financeiro/lancamentos:
+    get: { tags: [Financeiro (F6)], summary: Lançamentos (filtros R/P, status, q), responses: { '200': { description: Paginated } } }
+    post: { tags: [Financeiro (F6)], summary: Cria lançamento (via financeiroProcessor), responses: { '201': { description: Criado } } }
+  /financeiro/lancamentos/resumo: { get: { tags: [Financeiro (F6)], summary: Totais receber/pagar aberto/baixado, responses: { '200': { description: OK } } } }
+  /financeiro/dre: { get: { tags: [Financeiro (F6)], summary: DRE por período (receitas×despesas), responses: { '200': { description: OK } } } }
+  /financeiro/conciliacao: { get: { tags: [Financeiro (F6)], summary: Extrato consolidado por conta, responses: { '200': { description: OK } } } }
+  /caixa/contas: { get: { tags: [Financeiro (F6)], summary: Contas-caixa (saldo/status), responses: { '200': { description: OK } } } }
+  /caixa/{contaId}/abrir: { post: { tags: [Financeiro (F6)], summary: Abre caixa (via caixaProcessor), parameters: [{ name: contaId, in: path, required: true, schema: { type: integer } }], responses: { '201': { description: OK }, '422': { $ref: '#/components/responses/Validation' } } } }
+  /caixa/{contaId}/fechar: { post: { tags: [Financeiro (F6)], summary: Fecha caixa, parameters: [{ name: contaId, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+  /cheques/recebidos: { get: { tags: [Financeiro (F6)], summary: Cheques recebidos, responses: { '200': { description: OK } } } }
+  /boletos: { get: { tags: [Financeiro (F6)], summary: Consulta de boletos, responses: { '200': { description: OK } } } }
+
+  # ---- Fiscal ----
+  /fiscal/malha/{tipo}:
+    get:
+      tags: [Fiscal (F7)]
+      summary: 'Malha fiscal. tipo: grupos-fiscais|cst-icms|cst-ipi|cst-pis|cst-cofins|cst'
+      parameters: [{ name: tipo, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /fiscal/operacoes: { get: { tags: [Fiscal (F7)], summary: Operações fiscais (CFOP), responses: { '200': { description: OK } } } }
+  /fiscal/nfe: { get: { tags: [Fiscal (F7)], summary: NF-e (lista/status), responses: { '200': { description: OK } } } }
+  /fiscal/nfe/{id}/transmitir: { post: { tags: [Fiscal (F7)], summary: 'Transmite NF-e (gate SEFAZ — depende de certificado/homologação)', parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK }, '422': { $ref: '#/components/responses/Validation' } } } }
+  /fiscal/sped: { get: { tags: [Fiscal (F7)], summary: Preview do SPED (contagem por período), responses: { '200': { description: OK } } } }
+
+  # ---- Satélites ----
+  /colaboradores: { get: { tags: [Satélites (F8)], summary: Colaboradores (RH) paginado, responses: { '200': { description: Paginated } } }, post: { tags: [Satélites (F8)], summary: Cria colaborador, responses: { '201': { description: Criado } } } }
+  /veiculos: { get: { tags: [Satélites (F8)], summary: Veículos (frota), responses: { '200': { description: OK } } } }
+  /vale-gas: { get: { tags: [Satélites (F8)], summary: Vale-Gás (consulta), responses: { '200': { description: OK } } } }
+  /vale-gas/baixar: { post: { tags: [Satélites (F8)], summary: Baixa vale-gás por código, responses: { '200': { description: OK }, '404': { description: não encontrado } } } }
+  /satelites/relatorios: { get: { tags: [Satélites (F8)], summary: Central de relatórios (catálogo), responses: { '200': { description: OK } } } }
+  /satelites/integracoes: { get: { tags: [Satélites (F8)], summary: Status das integrações (PIX/SMTP/Maps/FCM), responses: { '200': { description: OK } } } }
+
+  # ---- Pedidos ----
+  /pedidos:
+    get: { tags: [Pedidos (F9)], summary: Lista (filtro por situação), responses: { '200': { description: Paginated } } }
+    post:
+      tags: [Pedidos (F9)]
+      summary: >
+        Cria pedido — DELEGA ao motor legado (orquestração atômica
+        estoque+financeiro+NF+vale-gás). Contratos do app mobile intactos.
+      responses: { '201': { description: Criado }, '422': { $ref: '#/components/responses/Validation' } }
+  /pedidos/kanban: { get: { tags: [Pedidos (F9)], summary: Colunas por situação (Kanban), responses: { '200': { description: OK } } } }
+  /pedidos/{id}: { get: { tags: [Pedidos (F9)], summary: 'Ficha (jornada: cliente/itens/pagamento/NF)', parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } }, put: { tags: [Pedidos (F9)], summary: Atualiza/transiciona, parameters: [{ name: id, in: path, required: true, schema: { type: integer } }], responses: { '200': { description: OK } } } }
+
+  # ---- Lookups (selects assíncronos do SPA — sempre retornam array [{id,label}]) ----
+  /lookups/cidades: { get: { tags: [Lookups], summary: 'Cidades. Há dezenas de lookups: bairros, produtos, produto-classes, unidades, planos-conta, centros-custo, contas, setores, cargos, veiculo-tipos, combustiveis, clientes-fornecedores, condicoes-pagamento, pedido-operacoes, pedido-situacoes, ruas, colaboradores, estados, tipo-glp, nf-grupos-fiscais...', responses: { '200': { description: 'array [{id,label}]' } } } }
