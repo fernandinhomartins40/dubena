@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Http\Controllers\Api\Admin;
+
+use App\Domain\Pedido\PedidoService;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\PedidoRequest;
+use App\Http\Resources\PedidoResource;
+use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoSituacao;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+/**
+ * Pedidos / Vendas — N4. CRUD + kanban + transição de situação (máquina de estados).
+ */
+class PedidoController extends Controller
+{
+    public function __construct(private PedidoService $service)
+    {
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.view');
+        $q = trim((string) $request->query('q', ''));
+
+        $pedidos = Pedido::query()
+            ->with(['cliente:id,nome', 'situacao:id,descricao,efeito'])
+            ->when($request->query('situacao_id'), fn (Builder $b, $s) => $b->where('pedidosituacao_id', $s))
+            ->when($q !== '', fn (Builder $b) => $b->whereHas('cliente', fn ($w) => $w->where('nome', 'ilike', '%'.$q.'%')))
+            ->orderByDesc('datahora')
+            ->paginate(20);
+
+        return PedidoResource::collection($pedidos)->response();
+    }
+
+    public function show(Request $request, int $id): PedidoResource
+    {
+        $this->autorizar($request, 'pedido.view');
+
+        return new PedidoResource(
+            Pedido::query()->with(['cliente:id,nome', 'situacao', 'itens'])->findOrFail($id),
+        );
+    }
+
+    public function store(PedidoRequest $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.create');
+
+        $dados = $request->safe()->except('itens');
+        $dados['user_id'] = $request->user()->id;
+        $pedido = $this->service->criar($dados, $request->validated()['itens'] ?? []);
+
+        return (new PedidoResource($pedido->load('situacao')))->response()->setStatusCode(201);
+    }
+
+    public function update(PedidoRequest $request, int $id): PedidoResource
+    {
+        $this->autorizar($request, 'pedido.edit');
+        $pedido = Pedido::query()->findOrFail($id);
+
+        $dados = $request->safe()->except('itens');
+        $itens = $request->validated()['itens'] ?? null;
+        $atualizado = $this->service->atualizar($pedido, $dados, $itens);
+
+        return new PedidoResource($atualizado->load('situacao'));
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.delete');
+        $this->service->excluir(Pedido::query()->findOrFail($id));
+
+        return response()->json(['message' => 'Pedido excluído.']);
+    }
+
+    /** PUT /pedidos/{id}/situacao — transição na máquina de estados. */
+    public function mudarSituacao(Request $request, int $id): PedidoResource
+    {
+        $this->autorizar($request, 'pedido.edit');
+        $d = $request->validate(['pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id']);
+
+        $pedido = Pedido::query()->findOrFail($id);
+        $atualizado = $this->service->mudarSituacao($pedido, $d['pedidosituacao_id'], $request->user()->id);
+
+        return new PedidoResource($atualizado->load('situacao'));
+    }
+
+    /** GET /pedidos/situacoes */
+    public function situacoes(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.view');
+
+        return response()->json(['data' => PedidoSituacao::query()->where('ativo', true)->orderBy('ordem')->get()]);
+    }
+
+    /** GET /pedidos/kanban — colunas por situação com totais. */
+    public function kanban(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.view');
+
+        $situacoes = PedidoSituacao::query()->where('ativo', true)->orderBy('ordem')->get();
+
+        $colunas = $situacoes->map(function (PedidoSituacao $s) {
+            $pedidos = Pedido::query()->with('cliente:id,nome')
+                ->where('pedidosituacao_id', $s->id)
+                ->orderByDesc('datahora')->limit(50)->get();
+
+            return [
+                'situacao_id' => $s->id,
+                'descricao' => $s->descricao,
+                'total' => $pedidos->count(),
+                'valor' => round((float) $pedidos->sum('valor_venda'), 2),
+                'pedidos' => $pedidos->map(fn (Pedido $p) => [
+                    'id' => $p->id,
+                    'valor_venda' => (float) $p->valor_venda,
+                    'datahora' => $p->datahora?->toIso8601String(),
+                    'cliente' => $p->cliente?->nome,
+                ]),
+            ];
+        });
+
+        return response()->json(['data' => $colunas]);
+    }
+
+    private function autorizar(Request $request, string $chave): void
+    {
+        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
+    }
+}
