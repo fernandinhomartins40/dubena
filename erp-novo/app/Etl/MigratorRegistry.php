@@ -3,6 +3,8 @@
 namespace App\Etl;
 
 use App\Etl\Contracts\Migrator;
+use App\Etl\Migrators\CadastrosApoioMigrator;
+use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 
 /**
@@ -18,8 +20,9 @@ final class MigratorRegistry
             // N0 — exemplo ponta-a-ponta
             EstadosMigrator::class,
 
-            // N1 — cadastros base (a adicionar)
-            // GruposMigrator::class, EmpresasMigrator::class, ...
+            // N1 — cadastros base
+            EmpresasMigrator::class,
+            CadastrosApoioMigrator::class,
         ];
     }
 

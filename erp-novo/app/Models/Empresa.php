@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Empresa = tenant operacional (revenda). Legado: empresas.
@@ -43,5 +44,10 @@ class Empresa extends Model
     public function usuarios(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'empresa_user');
+    }
+
+    public function config(): HasOne
+    {
+        return $this->hasOne(EmpresaConfig::class);
     }
 }
