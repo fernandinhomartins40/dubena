@@ -32,6 +32,13 @@ class CadastroApoioController extends Controller
         // Financeiro → Configurações
         'bancos'               => ['tabela' => 'bancos', 'escopo' => 'grupo', 'modulo' => 'financeiro', 'extras' => ['codigo' => 'nullable|string|max:10', 'site' => 'nullable|string|max:255']],
         'tipos-movimento'      => ['tabela' => 'contamovimentotipos', 'escopo' => 'grupo', 'modulo' => 'financeiro', 'extras' => ['pagarreceber' => 'nullable|string|max:1', 'cheque' => 'bool', 'cartao' => 'bool', 'valegas' => 'bool', 'convenio' => 'bool']],
+        // Colaboradores (RH) → Configurações — CRUDs simples do menu legado Colaboradores.
+        'cargos'               => ['tabela' => 'cargos', 'escopo' => 'grupo', 'modulo' => 'colaborador', 'extras' => []],
+        'estados-civis'        => ['tabela' => 'estadocivils', 'escopo' => 'grupo', 'modulo' => 'colaborador', 'extras' => []],
+        'parentescos'          => ['tabela' => 'parentescos', 'escopo' => 'grupo', 'modulo' => 'colaborador', 'extras' => []],
+        // tipoexames tem empresa_id NOT NULL além do grupo (unicidade legada = por grupo);
+        // 'inserir_empresa' garante o empresa_id no INSERT sem afetar leitura/unicidade.
+        'tipos-exame'          => ['tabela' => 'tipoexames', 'escopo' => 'grupo', 'modulo' => 'colaborador', 'extras' => ['admissional' => 'bool'], 'inserir_empresa' => true],
     ];
 
     private function cfg(string $tipo): array
@@ -102,6 +109,9 @@ class CadastroApoioController extends Controller
             $novoId = $id;
         } else {
             $payload = array_merge($payload, $where, ['created_at' => now()]);
+            if (! empty($cfg['inserir_empresa'])) {
+                $payload['empresa_id'] = (int) $request->user()->empresa_id;
+            }
             $novoId = DB::table($cfg['tabela'])->insertGetId($payload);
         }
 

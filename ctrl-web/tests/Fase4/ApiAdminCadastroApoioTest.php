@@ -81,4 +81,33 @@ class ApiAdminCadastroApoioTest extends TestCase
             'descricao' => 'Recebimento', 'pagarreceber' => 'R', 'cheque' => true,
         ])->assertCreated()->assertJsonPath('data.pagarreceber', 'R');
     }
+
+    /** RH (menu legado Colaboradores) — cargos/estados-civis/parentescos: CRUD simples. */
+    public function test_cadastros_rh_simples_crud()
+    {
+        $admin = $this->admin();
+        foreach (['cargos', 'estados-civis', 'parentescos'] as $tipo) {
+            $nome = "RH $tipo " . uniqid();
+            $id = $this->actingAs($admin)->postJson("/api/admin/cadastros/$tipo", ['descricao' => $nome])
+                ->assertCreated()->json('data.id');
+            // unicidade no escopo do grupo
+            $this->actingAs($admin)->postJson("/api/admin/cadastros/$tipo", ['descricao' => $nome])->assertStatus(422);
+            $this->actingAs($admin)->putJson("/api/admin/cadastros/$tipo/$id", ['descricao' => $nome . ' ed'])->assertOk();
+            $this->actingAs($admin)->deleteJson("/api/admin/cadastros/$tipo/$id")->assertOk();
+        }
+    }
+
+    /** tipos-exame: extra 'admissional' (bool) + empresa_id NOT NULL preenchido no insert. */
+    public function test_tipos_exame_admissional_e_empresa_id()
+    {
+        $admin = $this->admin();
+        $id = $this->actingAs($admin)->postJson('/api/admin/cadastros/tipos-exame', [
+            'descricao' => 'Audiometria ' . uniqid(), 'admissional' => true,
+        ])->assertCreated()->json('data.id');
+
+        $row = collect($this->actingAs($admin)->getJson('/api/admin/cadastros/tipos-exame')->json('data'))->firstWhere('id', $id);
+        $this->assertEquals(1, (int) $row['admissional']);
+        // empresa_id NOT NULL foi gravado (senão o insert teria estourado)
+        $this->assertNotNull(\DB::table('tipoexames')->where('id', $id)->value('empresa_id'));
+    }
 }
