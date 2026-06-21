@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\SetorController;
@@ -119,5 +120,15 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('estoque/transferencias', [EstoqueController::class, 'transferir']);
         Route::post('estoque/acerto', [EstoqueController::class, 'acerto']);
         Route::post('estoque/fechamentos', [EstoqueController::class, 'fechar']);
+
+        // ── Pedidos / Vendas — N4 ── (rotas estáticas antes de /{id})
+        Route::get('pedidos/kanban', [PedidoController::class, 'kanban']);
+        Route::get('pedidos/situacoes', [PedidoController::class, 'situacoes']);
+        Route::get('pedidos', [PedidoController::class, 'index']);
+        Route::post('pedidos', [PedidoController::class, 'store']);
+        Route::get('pedidos/{id}', [PedidoController::class, 'show'])->whereNumber('id');
+        Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
+        Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
+        Route::put('pedidos/{id}/situacao', [PedidoController::class, 'mudarSituacao'])->whereNumber('id');
     });
 });

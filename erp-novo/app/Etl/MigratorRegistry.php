@@ -9,6 +9,7 @@ use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
+use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
 
 /**
@@ -35,6 +36,9 @@ final class MigratorRegistry
             // N3 — produtos + estoque
             ProdutosMigrator::class,
             EstoqueMigrator::class,
+
+            // N4 — pedidos / vendas
+            PedidosMigrator::class,
         ];
     }
 
