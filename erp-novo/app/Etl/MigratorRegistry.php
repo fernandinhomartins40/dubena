@@ -4,6 +4,7 @@ namespace App\Etl;
 
 use App\Etl\Contracts\Migrator;
 use App\Etl\Migrators\CadastrosApoioMigrator;
+use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
@@ -43,6 +44,9 @@ final class MigratorRegistry
 
             // N5 — financeiro (a pagar/receber)
             FinanceiroMigrator::class,
+
+            // N6 — caixa / conta / cheque
+            CaixaMigrator::class,
         ];
     }
 
