@@ -7,8 +7,11 @@ use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
+use App\Http\Controllers\Api\Admin\EstoqueController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
+use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -95,5 +98,26 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
         Route::get('clientes/{id}/precos', [ClienteSubrecursoController::class, 'precos'])->whereNumber('id');
         Route::get('clientes/{id}/historico', [ClienteSubrecursoController::class, 'historico'])->whereNumber('id');
+
+        // ── Produtos — N3 ──
+        Route::get('produtos', [ProdutoController::class, 'index']);
+        Route::post('produtos', [ProdutoController::class, 'store']);
+        Route::get('produtos/{id}', [ProdutoController::class, 'show'])->whereNumber('id');
+        Route::put('produtos/{id}', [ProdutoController::class, 'update'])->whereNumber('id');
+        Route::delete('produtos/{id}', [ProdutoController::class, 'destroy'])->whereNumber('id');
+
+        // ── Estoque — N3 ──
+        Route::get('setores', [SetorController::class, 'index']);
+        Route::post('setores', [SetorController::class, 'store']);
+        Route::put('setores/{id}', [SetorController::class, 'update'])->whereNumber('id');
+        Route::delete('setores/{id}', [SetorController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('estoque/saldos', [EstoqueController::class, 'saldos']);
+        Route::get('estoque/historico', [EstoqueController::class, 'historico']);
+        Route::post('estoque/entrada', [EstoqueController::class, 'entrada']);
+        Route::post('estoque/saida', [EstoqueController::class, 'saida']);
+        Route::post('estoque/transferencias', [EstoqueController::class, 'transferir']);
+        Route::post('estoque/acerto', [EstoqueController::class, 'acerto']);
+        Route::post('estoque/fechamentos', [EstoqueController::class, 'fechar']);
     });
 });

@@ -7,7 +7,9 @@ use App\Etl\Migrators\CadastrosApoioMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
+use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
+use App\Etl\Migrators\ProdutosMigrator;
 
 /**
  * Registro central dos migrators, em ordem de dependência.
@@ -29,6 +31,10 @@ final class MigratorRegistry
             // N2 — geográfico + clientes
             GeograficoMigrator::class,
             ClientesMigrator::class,
+
+            // N3 — produtos + estoque
+            ProdutosMigrator::class,
+            EstoqueMigrator::class,
         ];
     }
 
