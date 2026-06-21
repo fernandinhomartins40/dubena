@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
+use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
+use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
@@ -130,5 +132,21 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
         Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
         Route::put('pedidos/{id}/situacao', [PedidoController::class, 'mudarSituacao'])->whereNumber('id');
+
+        // ── Financeiro (a pagar/receber) — N5 ──
+        Route::get('financeiro/lancamentos/resumo', [FinanceiroController::class, 'resumo']);
+        Route::get('financeiro/lancamentos', [FinanceiroController::class, 'lancamentos']);
+        Route::post('financeiro/lancamentos', [FinanceiroController::class, 'criar']);
+        Route::delete('financeiro/lancamentos/{id}', [FinanceiroController::class, 'cancelar'])->whereNumber('id');
+
+        Route::get('financeiro/planos-conta', [FinanceiroCadastroController::class, 'planosIndex']);
+        Route::post('financeiro/planos-conta', [FinanceiroCadastroController::class, 'planoSalvar']);
+        Route::put('financeiro/planos-conta/{id}', [FinanceiroCadastroController::class, 'planoSalvar'])->whereNumber('id');
+        Route::delete('financeiro/planos-conta/{id}', [FinanceiroCadastroController::class, 'planoExcluir'])->whereNumber('id');
+
+        Route::get('financeiro/centros-custo', [FinanceiroCadastroController::class, 'centrosIndex']);
+        Route::post('financeiro/centros-custo', [FinanceiroCadastroController::class, 'centroSalvar']);
+        Route::put('financeiro/centros-custo/{id}', [FinanceiroCadastroController::class, 'centroSalvar'])->whereNumber('id');
+        Route::delete('financeiro/centros-custo/{id}', [FinanceiroCadastroController::class, 'centroExcluir'])->whereNumber('id');
     });
 });
