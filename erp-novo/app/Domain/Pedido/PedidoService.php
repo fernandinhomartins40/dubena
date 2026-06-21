@@ -3,6 +3,7 @@
 namespace App\Domain\Pedido;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Financeiro\FinanceiroService;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -25,8 +26,10 @@ use Illuminate\Validation\ValidationException;
  */
 class PedidoService
 {
-    public function __construct(private EstoqueService $estoque)
-    {
+    public function __construct(
+        private EstoqueService $estoque,
+        private FinanceiroService $financeiro,
+    ) {
     }
 
     /** @param array<string, mixed> $dados @param list<array<string,mixed>> $itens */
@@ -110,14 +113,17 @@ class PedidoService
 
         if ($efeito->concretiza() && ! $pedido->estoque_movimentado) {
             $this->baixarEstoque($pedido, $userId);
-            $pedido->forceFill(['estoque_movimentado' => true])->save();
-            // GANCHO N5: FinanceiroService->gerarDoPedido($pedido).
+            $financeiro = $this->financeiro->gerarDoPedido($pedido);
+            $pedido->forceFill([
+                'estoque_movimentado' => true,
+                'financeiro_id' => $financeiro?->id,
+            ])->save();
         }
 
         if ($efeito->cancela() && $pedido->estoque_movimentado) {
             $this->devolverEstoque($pedido, $userId);
-            $pedido->forceFill(['estoque_movimentado' => false])->save();
-            // GANCHO N5: FinanceiroService->estornarDoPedido($pedido).
+            $this->financeiro->estornarDoPedido($pedido);
+            $pedido->forceFill(['estoque_movimentado' => false, 'financeiro_id' => null])->save();
         }
     }
 
