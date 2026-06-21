@@ -2,8 +2,12 @@
 
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
+use App\Http\Controllers\Api\Admin\ClienteController;
+use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
+use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
+use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\AuthController;
 use Illuminate\Http\Request;
@@ -61,5 +65,35 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('cadastros/{tipo}', [CadastroApoioController::class, 'store']);
         Route::put('cadastros/{tipo}/{id}', [CadastroApoioController::class, 'update'])->whereNumber('id');
         Route::delete('cadastros/{tipo}/{id}', [CadastroApoioController::class, 'destroy'])->whereNumber('id');
+
+        // ── Geográfico (cidades/bairros/ruas) — N2 ──
+        Route::get('geo/{entidade}', [GeoController::class, 'index']);
+        Route::post('geo/{entidade}', [GeoController::class, 'store']);
+        Route::put('geo/{entidade}/{id}', [GeoController::class, 'update'])->whereNumber('id');
+        Route::delete('geo/{entidade}/{id}', [GeoController::class, 'destroy'])->whereNumber('id');
+
+        // ── Clientes — N2 ──
+        Route::get('clientes', [ClienteController::class, 'index']);
+        Route::post('clientes', [ClienteController::class, 'store']);
+        Route::get('clientes/{id}', [ClienteController::class, 'show'])->whereNumber('id');
+        Route::put('clientes/{id}', [ClienteController::class, 'update'])->whereNumber('id');
+        Route::delete('clientes/{id}', [ClienteController::class, 'destroy'])->whereNumber('id');
+
+        // Sub-recursos do cliente.
+        Route::get('clientes/{id}/telefones', [ClienteTelefoneController::class, 'index'])->whereNumber('id');
+        Route::post('clientes/{id}/telefones', [ClienteTelefoneController::class, 'store'])->whereNumber('id');
+        Route::delete('clientes/{id}/telefones/{telId}', [ClienteTelefoneController::class, 'destroy'])->whereNumber(['id', 'telId']);
+
+        Route::get('clientes/{id}/interacoes', [ClienteSubrecursoController::class, 'interacoes'])->whereNumber('id');
+        Route::post('clientes/{id}/interacoes', [ClienteSubrecursoController::class, 'addInteracao'])->whereNumber('id');
+        Route::delete('clientes/{id}/interacoes/{subId}', [ClienteSubrecursoController::class, 'delInteracao'])->whereNumber(['id', 'subId']);
+
+        Route::get('clientes/{id}/convenio', [ClienteSubrecursoController::class, 'convenio'])->whereNumber('id');
+        Route::put('clientes/{id}/convenio', [ClienteSubrecursoController::class, 'salvarConvenio'])->whereNumber('id');
+        Route::post('clientes/{id}/convenio/dependentes', [ClienteSubrecursoController::class, 'addDependente'])->whereNumber('id');
+        Route::delete('clientes/{id}/convenio/dependentes/{depId}', [ClienteSubrecursoController::class, 'delDependente'])->whereNumber(['id', 'depId']);
+
+        Route::get('clientes/{id}/precos', [ClienteSubrecursoController::class, 'precos'])->whereNumber('id');
+        Route::get('clientes/{id}/historico', [ClienteSubrecursoController::class, 'historico'])->whereNumber('id');
     });
 });
