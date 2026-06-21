@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Etl;
+
+use App\Etl\Contracts\Migrator;
+use App\Etl\Migrators\EstadosMigrator;
+
+/**
+ * Registro central dos migrators, em ordem de dependência.
+ * Cada fase do plano (N1..N11) adiciona seus migrators aqui.
+ */
+final class MigratorRegistry
+{
+    /** @return list<class-string<Migrator>> */
+    public static function all(): array
+    {
+        return [
+            // N0 — exemplo ponta-a-ponta
+            EstadosMigrator::class,
+
+            // N1 — cadastros base (a adicionar)
+            // GruposMigrator::class, EmpresasMigrator::class, ...
+        ];
+    }
+
+    /** Resolve instâncias ordenadas por dependência (topological sort simples). */
+    public static function resolved(): array
+    {
+        $classes = self::all();
+        /** @var array<string,Migrator> $byName */
+        $byName = [];
+        foreach ($classes as $class) {
+            $m = app($class);
+            $byName[$m->nome()] = $m;
+        }
+
+        $ordered = [];
+        $visiting = [];
+        $visit = function (Migrator $m) use (&$visit, &$ordered, &$visiting, $byName) {
+            if (isset($ordered[$m->nome()])) {
+                return;
+            }
+            if (isset($visiting[$m->nome()])) {
+                throw new \RuntimeException("Dependência cíclica no ETL: {$m->nome()}");
+            }
+            $visiting[$m->nome()] = true;
+            foreach ($m->dependeDe() as $dep) {
+                if (isset($byName[$dep])) {
+                    $visit($byName[$dep]);
+                }
+            }
+            unset($visiting[$m->nome()]);
+            $ordered[$m->nome()] = $m;
+        };
+
+        foreach ($byName as $m) {
+            $visit($m);
+        }
+
+        return array_values($ordered);
+    }
+}
