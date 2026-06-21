@@ -1,0 +1,77 @@
+# ──────────────────────────────────────────────────────────────────────────
+# erp-novo (backend reescrito) — HOMOLOGAÇÃO na VPS.
+#
+# COEXISTE com o ctrl-web (legado) SEM colidir:
+#   - rede própria (erpnovo), containers próprios (erpnovo-*), volumes próprios;
+#   - BANCO PRÓPRIO (Postgres isolado) — NÃO toca o banco de produção do legado;
+#   - porta interna 127.0.0.1:3120 (legado usa 3110/3111/3112; faixa 3100-3299).
+#
+# O Nginx do HOST faz TLS e proxy por domínio (ex.: homolog-erp.gasemcasa.com.br
+# → 127.0.0.1:3120). Segredos vêm de .env (NÃO versionado).
+# ──────────────────────────────────────────────────────────────────────────
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: erpnovo-app:homolog
+    container_name: erpnovo-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+      - app_storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+      - app_bootstrap_cache:/var/www/bootstrap/cache
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - erpnovo
+
+  web:
+    image: nginx:1.25-alpine
+    container_name: erpnovo-web
+    restart: unless-stopped
+    # Só local: o Nginx do HOST faz o TLS e o proxy público.
+    ports:
+      - "127.0.0.1:3120:80"
+    volumes:
+      - .:/var/www:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - erpnovo
+
+  db:
+    image: postgres:15-alpine
+    container_name: erpnovo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-erp_novo}
+      POSTGRES_USER: ${DB_USERNAME:-erp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - erpnovo
+
+  redis:
+    image: redis:7-alpine
+    container_name: erpnovo-redis
+    restart: unless-stopped
+    networks:
+      - erpnovo
+
+volumes:
+  db_data:
+  app_vendor:
+  app_storage:
+  app_bootstrap_cache:
+
+networks:
+  erpnovo:
+    driver: bridge

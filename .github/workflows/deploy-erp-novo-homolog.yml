@@ -1,0 +1,99 @@
+name: Deploy erp-novo (HOMOLOGAÇÃO)
+
+# Deploy do backend reescrito (erp-novo) em ambiente de HOMOLOGAÇÃO na VPS.
+# Roda no mesmo self-hosted runner do ctrl-web, mas em ambiente ISOLADO:
+# rede/containers/volumes próprios, banco Postgres próprio, porta 3120.
+# NÃO toca a produção do legado (princípio #1 do plano de reescrita).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'erp-novo/**'
+      - '.github/workflows/deploy-erp-novo-homolog.yml'
+  workflow_dispatch:        # permite disparar manualmente (homolog sob demanda)
+
+concurrency:
+  group: deploy-erp-novo-homolog
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted     # roda DENTRO da VPS (sem SSH)
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: erp-novo
+
+    steps:
+      - name: Corrigir permissões do workspace (antes do checkout)
+        # Containers rodam como root e podem deixar storage/cache com dono root,
+        # impedindo o checkout de limpar (EACCES). Um container root reverte o dono.
+        working-directory: .
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine:3 \
+            sh -c "chown -R $(id -u):$(id -g) /ws 2>/dev/null || true" || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restaurar .env de homologação (persistido fora do checkout)
+        run: |
+          # O checkout limpa não-rastreados; o .env (segredos) fica em
+          # /opt/dubena-env/ e é copiado a cada deploy. Crie-o uma vez na VPS
+          # a partir de erp-novo/.env.homolog.example.
+          if [ ! -f /opt/dubena-env/erp-novo-homolog.env ]; then
+            echo "ERRO: /opt/dubena-env/erp-novo-homolog.env não existe na VPS." >&2
+            exit 1
+          fi
+          cp /opt/dubena-env/erp-novo-homolog.env .env
+
+      - name: Build e subida dos containers
+        run: |
+          docker compose -f docker-compose.homolog.yml build
+          docker compose -f docker-compose.homolog.yml up -d --force-recreate
+          # Aguarda o container app ficar estável (entrypoint sobe o php-fpm sozinho).
+          for i in $(seq 1 15); do
+            st=$(docker inspect -f '{{.State.Status}}' erpnovo-app 2>/dev/null || echo none)
+            [ "$st" = "running" ] && break
+            echo "aguardando erpnovo-app ($st)..."; sleep 3
+          done
+
+      - name: Instalar dependências (composer, do lock)
+        run: |
+          docker compose -f docker-compose.homolog.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
+            composer install --no-interaction --prefer-dist --no-progress --no-dev \
+            --no-scripts --optimize-autoloader
+
+      - name: Garantir estrutura de storage (volume sobe vazio)
+        run: |
+          docker compose -f docker-compose.homolog.yml exec -T app sh -c '
+            mkdir -p storage/framework/cache storage/framework/sessions \
+                     storage/framework/views storage/logs storage/app/public \
+                     bootstrap/cache &&
+            chown -R www-data:www-data storage bootstrap/cache'
+
+      - name: App key, migrations, cache
+        run: |
+          docker compose -f docker-compose.homolog.yml exec -T app sh -c \
+            'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
+          docker compose -f docker-compose.homolog.yml exec -T app php artisan migrate --force
+          docker compose -f docker-compose.homolog.yml exec -T app php artisan config:clear
+          docker compose -f docker-compose.homolog.yml exec -T app php artisan config:cache
+
+      - name: Normalizar dono do storage (www-data) — após os artisan
+        run: |
+          # Os artisan acima rodam como ROOT (docker exec); o php-fpm é www-data.
+          docker compose -f docker-compose.homolog.yml exec -T app \
+            sh -c 'chown -R www-data:www-data storage bootstrap/cache'
+
+      - name: Health check (porta interna 3120)
+        run: |
+          sleep 5
+          # A API expõe /up (health do Laravel 12). 200 = saudável.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/up || echo 000)
+          echo "HTTP /up: $code"
+          if [ "$code" -ge 500 ] || [ "$code" = "000" ]; then
+            echo "Health check falhou (HTTP $code)" >&2
+            docker compose -f docker-compose.homolog.yml logs --tail=40 app web >&2 || true
+            exit 1
+          fi
