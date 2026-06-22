@@ -26,6 +26,9 @@ use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Mobile\AppAuthController;
+use App\Http\Controllers\Api\Mobile\AppClienteController;
+use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +42,9 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
+
+// Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador.
+Route::post('/app/v1/login', [AppAuthController::class, 'login']);
 
 // Rotas autenticadas (Sanctum) + tenant resolvido por requisição.
 Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
@@ -215,5 +221,20 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('notas/emitir', [NotaFiscalController::class, 'emitir']);
         Route::get('notas/{id}', [NotaFiscalController::class, 'show'])->whereNumber('id');
         Route::post('notas/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
+    });
+
+    // ── App mobile (cliente + entregador) — N10 ──
+    Route::prefix('app/v1')->group(function () {
+        Route::post('logout', [AppAuthController::class, 'logout']);
+        Route::post('devices', [AppAuthController::class, 'registrarDevice']);
+
+        // Cliente
+        Route::get('produtos', [AppClienteController::class, 'produtos']);
+        Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
+        Route::post('pedidos/{id}/pagar', [AppClienteController::class, 'pagar'])->whereNumber('id');
+
+        // Entregador
+        Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
+        Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
     });
 });

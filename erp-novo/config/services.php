@@ -48,4 +48,9 @@ return [
         'webhook_secret' => env('PIX_WEBHOOK_SECRET'),
     ],
 
+    // Push FCM (N10 — gate). Segredo só no .env.
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
 ];
