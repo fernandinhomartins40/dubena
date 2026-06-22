@@ -11,6 +11,7 @@ use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\FinanceiroMigrator;
+use App\Etl\Migrators\FiscalMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
@@ -55,6 +56,9 @@ final class MigratorRegistry
 
             // N8 — satélites (convênio/vale-gás/comodato)
             SatelitesMigrator::class,
+
+            // N9 — fiscal (NF-e/NFC-e/CF-e)
+            FiscalMigrator::class,
         ];
     }
 

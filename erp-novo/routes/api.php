@@ -18,7 +18,9 @@ use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
 use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
+use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
@@ -205,5 +207,13 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('comodatos', [ComodatoController::class, 'index']);
         Route::post('comodatos', [ComodatoController::class, 'store']);
         Route::post('comodatos/{id}/devolver', [ComodatoController::class, 'devolver'])->whereNumber('id');
+
+        // ── Fiscal (NF-e/NFC-e/CF-e) — N9 ──
+        Route::get('fiscal/config', [ConfigFiscalController::class, 'show']);
+        Route::put('fiscal/config', [ConfigFiscalController::class, 'update']);
+        Route::get('notas', [NotaFiscalController::class, 'index']);
+        Route::post('notas/emitir', [NotaFiscalController::class, 'emitir']);
+        Route::get('notas/{id}', [NotaFiscalController::class, 'show'])->whereNumber('id');
+        Route::post('notas/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
     });
 });
