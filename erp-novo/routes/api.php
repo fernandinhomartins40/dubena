@@ -8,6 +8,9 @@ use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\PixController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\Admin\ClienteController;
+use App\Http\Controllers\Api\Admin\ComodatoController;
+use App\Http\Controllers\Api\Admin\ConvenioController;
+use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
@@ -185,5 +188,22 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         // ── PIX — N7 (gate) ──
         Route::get('pix/config', [PixController::class, 'config']);
         Route::post('pix/cobrancas', [PixController::class, 'criar']);
+
+        // ── Convênio — N8 ──
+        Route::get('convenios', [ConvenioController::class, 'index']);
+        Route::post('convenios', [ConvenioController::class, 'store']);
+        Route::get('convenios/{id}/fechamentos', [ConvenioController::class, 'fechamentos'])->whereNumber('id');
+        Route::post('convenios/{id}/fechar', [ConvenioController::class, 'fechar'])->whereNumber('id');
+
+        // ── Vale-gás — N8 ──
+        Route::get('vale-gas/situacoes', [ValeGasController::class, 'situacoes']);
+        Route::get('vale-gas', [ValeGasController::class, 'index']);
+        Route::post('vale-gas', [ValeGasController::class, 'store']);
+        Route::post('vale-gas/baixar', [ValeGasController::class, 'baixar']);
+
+        // ── Comodato — N8 ──
+        Route::get('comodatos', [ComodatoController::class, 'index']);
+        Route::post('comodatos', [ComodatoController::class, 'store']);
+        Route::post('comodatos/{id}/devolver', [ComodatoController::class, 'devolver'])->whereNumber('id');
     });
 });

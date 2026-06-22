@@ -14,6 +14,7 @@ use App\Etl\Migrators\FinanceiroMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
+use App\Etl\Migrators\SatelitesMigrator;
 
 /**
  * Registro central dos migrators, em ordem de dependência.
@@ -51,6 +52,9 @@ final class MigratorRegistry
 
             // N7 — cobrança (boleto/pix)
             CobrancaMigrator::class,
+
+            // N8 — satélites (convênio/vale-gás/comodato)
+            SatelitesMigrator::class,
         ];
     }
 
