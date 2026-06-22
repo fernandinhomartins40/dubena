@@ -58,11 +58,25 @@ jobs:
             echo "aguardando erpnovo-app ($st)..."; sleep 3
           done
 
+      - name: Aguardar o Postgres aceitar conexão
+        run: |
+          # O --force-recreate reinicia o db; o migrate falha se rodar antes de aceitar.
+          for i in $(seq 1 30); do
+            if docker compose -f docker-compose.homolog.yml exec -T db pg_isready -U "${DB_USERNAME:-erp}" >/dev/null 2>&1; then
+              echo "Postgres pronto."; break
+            fi
+            echo "aguardando Postgres ($i)..."; sleep 2
+          done
+
       - name: Instalar dependências (composer, do lock)
         run: |
+          # IDEMPOTENTE: o volume app_vendor persiste entre deploys; instala/atualiza
+          # sempre (garante vendor presente mesmo se um deploy anterior falhou).
           docker compose -f docker-compose.homolog.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
             composer install --no-interaction --prefer-dist --no-progress --no-dev \
             --no-scripts --optimize-autoloader
+          # Garante o autoload (falha explícita se o vendor não populou — evita 500 silencioso).
+          docker compose -f docker-compose.homolog.yml exec -T app test -f vendor/autoload.php
 
       - name: Garantir estrutura de storage (volume sobe vazio)
         run: |
@@ -77,8 +91,15 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app sh -c \
             'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
           docker compose -f docker-compose.homolog.yml exec -T app php artisan migrate --force
-          docker compose -f docker-compose.homolog.yml exec -T app php artisan config:clear
+          # Limpa caches antes; config:cache por último (SPA é estática, não depende disto).
+          docker compose -f docker-compose.homolog.yml exec -T app php artisan optimize:clear
           docker compose -f docker-compose.homolog.yml exec -T app php artisan config:cache
+
+      - name: Seed — admin + empresa inicial (idempotente)
+        run: |
+          # O banco novo nasce vazio; sem usuário não há login na SPA. Idempotente.
+          docker compose -f docker-compose.homolog.yml exec -T app \
+            php artisan db:seed --class='Database\Seeders\DeployAdminSeeder' --force
 
       - name: Normalizar dono do storage (www-data) — após os artisan
         run: |
@@ -86,14 +107,20 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app \
             sh -c 'chown -R www-data:www-data storage bootstrap/cache'
 
-      - name: Health check (porta interna 3120)
+      - name: Health check (API /up + SPA /app, porta interna 3120)
         run: |
-          sleep 5
-          # A API expõe /up (health do Laravel 12). 200 = saudável.
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/up || echo 000)
-          echo "HTTP /up: $code"
-          if [ "$code" -ge 500 ] || [ "$code" = "000" ]; then
-            echo "Health check falhou (HTTP $code)" >&2
-            docker compose -f docker-compose.homolog.yml logs --tail=40 app web >&2 || true
+          # API /up (Laravel 12) com retry — php-fpm pode levar uns segundos.
+          api=000
+          for i in $(seq 1 10); do
+            api=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/up || echo 000)
+            [ "$api" = "200" ] && break
+            echo "aguardando /up ($api)..."; sleep 3
+          done
+          # SPA estática em /app (deve responder 200 com o index.html).
+          spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/app/ || echo 000)
+          echo "HTTP /up: $api | HTTP /app/: $spa"
+          if [ "$api" != "200" ] || [ "$spa" != "200" ]; then
+            echo "Health check falhou (/up=$api /app=$spa)" >&2
+            docker compose -f docker-compose.homolog.yml logs --tail=50 app web >&2 || true
             exit 1
           fi
