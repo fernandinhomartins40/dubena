@@ -1,12 +1,14 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, ensureCsrf } from './api'
+import axios from 'axios'
+import { apiPrefix, ensureCsrf, setToken, getToken } from './api'
 
 export interface AuthUser {
   id: number
   name: string
   email: string
   empresa_id: number | null
+  grupo_id: number | null
   is_support: boolean
   roles: string[]
   permissions: string[]
@@ -23,6 +25,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// Endpoints de auth ficam na RAIZ da API (/api), não sob /api/admin.
+const authUrl = (path: string) => `${apiPrefix}/api${path}`
+
+/** Normaliza o /me do backend novo ({user,tenant}) para o shape da SPA. */
+function normalizarMe(data: any): AuthUser {
+  const u = data.user ?? data
+  const t = data.tenant ?? {}
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    empresa_id: t.empresa_id ?? u.empresa_id ?? null,
+    grupo_id: t.grupo_id ?? u.grupo_id ?? null,
+    is_support: Boolean(u.support ?? u.is_support ?? false),
+    roles: u.roles ?? [],
+    permissions: u.permissions ?? [],
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
 
@@ -30,8 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ['me'],
     queryFn: async () => {
       try {
-        const { data } = await api.get<AuthUser>('/me')
-        return data
+        const { data } = await axios.get(authUrl('/me'), {
+          withCredentials: true,
+          headers: {
+            Accept: 'application/json',
+            ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+          },
+        })
+        return normalizarMe(data)
       } catch {
         return null // 401 → não logado
       }
@@ -43,14 +70,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMut = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       await ensureCsrf()
-      const { data } = await api.post<AuthUser>('/login', { email, password })
-      return data
+      const { data } = await axios.post(authUrl('/login'), { email, password }, {
+        withCredentials: true,
+        headers: { Accept: 'application/json' },
+      })
+      // Guarda o token (modo Bearer); o cookie de sessão também foi setado.
+      if (data.token) setToken(data.token)
+      return normalizarMe(data)
     },
     onSuccess: (data) => qc.setQueryData(['me'], data),
   })
 
   const logoutMut = useMutation({
-    mutationFn: async () => { await api.post('/logout') },
+    mutationFn: async () => {
+      try {
+        await axios.post(authUrl('/logout'), {}, {
+          withCredentials: true,
+          headers: {
+            Accept: 'application/json',
+            ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+          },
+        })
+      } finally {
+        setToken(null)
+      }
+    },
     onSuccess: () => qc.setQueryData(['me'], null),
   })
 

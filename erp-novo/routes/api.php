@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
+use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
@@ -231,6 +232,12 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('monitora/cercas', [MonitoraController::class, 'cercas']);
         Route::post('monitora/cercas', [MonitoraController::class, 'criarCerca']);
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
+
+        // ── Relatórios (Query Services) — N12 ──
+        Route::get('relatorios/vendas', [RelatorioController::class, 'vendas']);
+        Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);
+        Route::get('relatorios/dre', [RelatorioController::class, 'dre']);
+        Route::get('relatorios/estoque-baixo', [RelatorioController::class, 'estoqueBaixo']);
     });
 
     // ── App mobile (cliente + entregador) — N10 ──

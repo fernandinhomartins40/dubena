@@ -9,8 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Autenticação por token (Sanctum). Contrato JSON limpo — sem View/Redirect.
- * Substitui o login web baseado em Session do legado.
+ * Autenticação (Sanctum) — suporta os DOIS modos no mesmo endpoint:
+ *  - SPA (cookie): se a requisição é stateful (mesmo domínio + csrf-cookie), o
+ *    login fixa a sessão (Auth::attempt + regenerate) — o cookie autentica as
+ *    próximas requisições.
+ *  - Apps/integrações (token): sempre devolve um token Bearer no corpo.
+ * Contrato JSON limpo — sem View/Redirect.
  */
 class AuthController extends Controller
 {
@@ -18,11 +22,11 @@ class AuthController extends Controller
     {
         $credenciais = $request->validated();
 
-        if (! Auth::attempt(['email' => $credenciais['email'], 'password' => $credenciais['password']])) {
+        if (! Auth::attempt(['email' => $credenciais['email'], 'password' => $credenciais['password']], remember: true)) {
             return response()->json(['message' => 'Credenciais inválidas.'], 401);
         }
 
-        $user = $request->user() ?? Auth::user();
+        $user = Auth::user();
 
         if (! $user->ativo) {
             Auth::logout();
@@ -30,6 +34,12 @@ class AuthController extends Controller
             return response()->json(['message' => 'Usuário inativo.'], 403);
         }
 
+        // SPA cookie-based: fixa a sessão (o cookie autentica as próximas requisições).
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+
+        // Token Bearer para apps/integrações (a SPA pode ignorar e usar o cookie).
         $token = $user->createToken('spa')->plainTextToken;
 
         return response()->json([
@@ -47,7 +57,17 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        // Token: revoga o access token atual. Cookie: invalida a sessão.
+        $token = $request->user()?->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
+
+        if ($request->hasSession()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json(['message' => 'Sessão encerrada.']);
     }

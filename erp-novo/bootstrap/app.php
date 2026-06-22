@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Sanctum stateful: requisições da SPA (mesmo domínio, cookie) são tratadas
+        // como sessão; apps/integrações continuam usando token Bearer. Os dois
+        // modos coexistem no mesmo guard 'sanctum'.
+        $middleware->statefulApi();
+
         // Alias para uso em rotas (auth:sanctum + tenant).
         $middleware->alias([
             'tenant' => ResolveTenant::class,
