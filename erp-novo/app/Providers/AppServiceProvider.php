@@ -6,6 +6,8 @@ use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Cobranca\Drivers\FakeBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
+use App\Domain\Mobile\Contracts\PagamentoDriver;
+use App\Domain\Mobile\Drivers\FakePagamentoDriver;
 use App\Domain\Tenant\TenantContext;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
         // Driver SEFAZ (N9 — GATE). Default: Fake. Em produção, driver real (NFePHP
         // + certificado A1 do tenant). Troca por config sem mexer no FiscalService.
         $this->app->bind(SefazDriver::class, FakeSefazDriver::class);
+
+        // Driver de pagamento online (N10 — GATE Rede). Default: Fake. Em produção,
+        // driver real (eRede + PV/token).
+        $this->app->bind(PagamentoDriver::class, FakePagamentoDriver::class);
     }
 
     /**

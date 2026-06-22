@@ -13,6 +13,7 @@ use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\FinanceiroMigrator;
 use App\Etl\Migrators\FiscalMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
+use App\Etl\Migrators\MobileMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
 use App\Etl\Migrators\SatelitesMigrator;
@@ -59,6 +60,9 @@ final class MigratorRegistry
 
             // N9 — fiscal (NF-e/NFC-e/CF-e)
             FiscalMigrator::class,
+
+            // N10 — mobile (devices + pagamentos online)
+            MobileMigrator::class,
         ];
     }
 
