@@ -6,6 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Migrators\CadastrosApoioMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
+use App\Etl\Migrators\CobrancaMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
@@ -47,6 +48,9 @@ final class MigratorRegistry
 
             // N6 — caixa / conta / cheque
             CaixaMigrator::class,
+
+            // N7 — cobrança (boleto/pix)
+            CobrancaMigrator::class,
         ];
     }
 

@@ -1,9 +1,12 @@
 <?php
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
 use App\Http\Controllers\Api\Admin\ChequeController;
+use App\Http\Controllers\Api\Admin\PixController;
+use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
@@ -28,6 +31,9 @@ use Illuminate\Support\Facades\Route;
 
 // Autenticação (pública).
 Route::post('/login', [AuthController::class, 'login']);
+
+// Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
+Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
 
 // Rotas autenticadas (Sanctum) + tenant resolvido por requisição.
 Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
@@ -168,5 +174,16 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('cheques/{id}', [ChequeController::class, 'update'])->whereNumber('id');
         Route::delete('cheques/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
         Route::put('cheques/{id}/situacao', [ChequeController::class, 'mudarSituacao'])->whereNumber('id');
+
+        // ── Boletos (CNAB) — N7 (gate) ──
+        Route::get('boletos/resumo', [BoletoController::class, 'resumo']);
+        Route::get('boletos', [BoletoController::class, 'index']);
+        Route::post('boletos', [BoletoController::class, 'gerar']);
+        Route::post('boletos/remessa', [BoletoController::class, 'remessa']);
+        Route::post('boletos/retorno', [BoletoController::class, 'retorno']);
+
+        // ── PIX — N7 (gate) ──
+        Route::get('pix/config', [PixController::class, 'config']);
+        Route::post('pix/cobrancas', [PixController::class, 'criar']);
     });
 });
