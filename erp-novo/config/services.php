@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    // Geocoding (N2 — gate externo).
+    'geocoding' => [
+        'key' => env('GEOCODING_API_KEY'),
+    ],
+
+    // PIX (N7 — gate bancário, Itaú). Segredos só no .env.
+    'pix' => [
+        'enabled' => env('PIX_ENABLED', false),
+        'psp' => env('PIX_PSP', 'itau'),
+        'ambiente' => env('PIX_AMBIENTE', 'homologacao'),
+        'webhook_secret' => env('PIX_WEBHOOK_SECRET'),
+    ],
+
 ];
