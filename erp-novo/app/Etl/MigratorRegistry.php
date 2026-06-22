@@ -14,6 +14,7 @@ use App\Etl\Migrators\FinanceiroMigrator;
 use App\Etl\Migrators\FiscalMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\MobileMigrator;
+use App\Etl\Migrators\MonitoraMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
 use App\Etl\Migrators\SatelitesMigrator;
@@ -63,6 +64,9 @@ final class MigratorRegistry
 
             // N10 — mobile (devices + pagamentos online)
             MobileMigrator::class,
+
+            // N11 — monitora (GPS, módulo isolado)
+            MonitoraMigrator::class,
         ];
     }
 

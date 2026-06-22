@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
@@ -221,6 +222,15 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('notas/emitir', [NotaFiscalController::class, 'emitir']);
         Route::get('notas/{id}', [NotaFiscalController::class, 'show'])->whereNumber('id');
         Route::post('notas/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
+
+        // ── Monitora (GPS) — N11 (módulo isolado) ──
+        Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);
+        Route::post('monitora/veiculos', [MonitoraController::class, 'criarVeiculo']);
+        Route::post('monitora/veiculos/{id}/posicoes', [MonitoraController::class, 'ingerirPosicao'])->whereNumber('id');
+        Route::get('monitora/ultimas-posicoes', [MonitoraController::class, 'ultimasPosicoes']);
+        Route::get('monitora/cercas', [MonitoraController::class, 'cercas']);
+        Route::post('monitora/cercas', [MonitoraController::class, 'criarCerca']);
+        Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
     });
 
     // ── App mobile (cliente + entregador) — N10 ──
