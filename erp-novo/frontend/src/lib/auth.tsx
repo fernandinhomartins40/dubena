@@ -28,6 +28,12 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // Endpoints de auth ficam na RAIZ da API (/api), não sob /api/admin.
 const authUrl = (path: string) => `${apiPrefix}/api${path}`
 
+/** Lê o cookie XSRF-TOKEN (setado por /sanctum/csrf-cookie) e url-decodifica. */
+function lerXsrf(): string | null {
+  const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
 /** Normaliza o /me do backend novo ({user,tenant}) para o shape da SPA. */
 function normalizarMe(data: any): AuthUser {
   const u = data.user ?? data
@@ -69,12 +75,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMut = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      await ensureCsrf()
+      // Tenta o fluxo cookie (csrf). Se o cookie falhar, o token Bearer (abaixo)
+      // ainda autentica — login robusto a problemas de CSRF cross-path.
+      try { await ensureCsrf() } catch { /* segue: usaremos o token */ }
+
       const { data } = await axios.post(authUrl('/login'), { email, password }, {
         withCredentials: true,
-        headers: { Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          // XSRF lido do cookie e enviado manualmente (axios global não injeta).
+          ...(lerXsrf() ? { 'X-XSRF-TOKEN': lerXsrf() } : {}),
+        },
       })
-      // Guarda o token (modo Bearer); o cookie de sessão também foi setado.
+      // Guarda o token (modo Bearer); passa a autenticar as próximas chamadas.
       if (data.token) setToken(data.token)
       return normalizarMe(data)
     },
