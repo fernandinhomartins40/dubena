@@ -8,6 +8,8 @@ use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Drivers\FakePagamentoDriver;
+use App\Domain\Monitora\Contracts\SgcasaDriver;
+use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
 use App\Domain\Tenant\TenantContext;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
         // Driver de pagamento online (N10 — GATE Rede). Default: Fake. Em produção,
         // driver real (eRede + PV/token).
         $this->app->bind(PagamentoDriver::class, FakePagamentoDriver::class);
+
+        // Driver SGCasa (N11 — GATE sync GPS). Singleton p/ permitir stub em teste.
+        // Em produção, driver real consome a API do SGCasa.
+        $this->app->singleton(SgcasaDriver::class, FakeSgcasaDriver::class);
     }
 
     /**
