@@ -3,6 +3,7 @@
 namespace App\Domain\Produto;
 
 use App\Models\Produto\Produto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,6 +49,61 @@ class ProdutoService
     public function excluir(Produto $produto): void
     {
         $produto->delete();
+    }
+
+    /**
+     * Calcula o novo preço de venda de cada produto (filtrável por classe) SEM
+     * persistir — usado pelo preview da SPA antes de aplicar.
+     *
+     * @return list<array{id:int, descricao:string, atual:float, novo:float}>
+     */
+    public function previewReajuste(string $tipo, float $valor, ?int $classeId = null): array
+    {
+        return $this->produtosParaReajuste($classeId)
+            ->map(fn (Produto $p) => [
+                'id' => $p->id,
+                'descricao' => $p->descricao,
+                'atual' => (float) $p->preco_venda,
+                'novo' => $this->novoPreco((float) $p->preco_venda, $tipo, $valor),
+            ])
+            ->values()->all();
+    }
+
+    /**
+     * Aplica o reajuste de preço de venda (percentual ou valor fixo somado),
+     * numa transação. Retorna a quantidade de produtos afetados.
+     */
+    public function aplicarReajuste(string $tipo, float $valor, ?int $classeId = null): int
+    {
+        return DB::transaction(function () use ($tipo, $valor, $classeId) {
+            $afetados = 0;
+            foreach ($this->produtosParaReajuste($classeId) as $produto) {
+                $produto->preco_venda = $this->novoPreco((float) $produto->preco_venda, $tipo, $valor);
+                $produto->save();
+                $afetados++;
+            }
+
+            return $afetados;
+        });
+    }
+
+    /** @return Collection<int, Produto> */
+    private function produtosParaReajuste(?int $classeId): Collection
+    {
+        return Produto::query()
+            ->when($classeId, fn ($q) => $q->where('produtoclasse_id', $classeId))
+            ->orderBy('descricao')
+            ->get();
+    }
+
+    /** percentual: +N%; fixo: +N reais. Nunca abaixo de 0. */
+    private function novoPreco(float $atual, string $tipo, float $valor): float
+    {
+        $novo = $tipo === 'percentual'
+            ? $atual * (1 + $valor / 100)
+            : $atual + $valor;
+
+        return round(max($novo, 0), 2);
     }
 
     /** @param list<array<string, mixed>> $origens */

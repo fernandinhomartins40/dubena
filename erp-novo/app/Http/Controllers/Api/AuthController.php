@@ -44,14 +44,8 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'empresa_id' => $user->empresa_id,
-                'grupo_id' => $user->grupo_id,
-                'support' => $user->support,
-            ],
+            // Shape único (inclui roles/permissions) — o RBAC da SPA depende disto.
+            'user' => $user->payloadAuth(),
         ]);
     }
 

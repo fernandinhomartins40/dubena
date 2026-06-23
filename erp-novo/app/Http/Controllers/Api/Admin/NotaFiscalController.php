@@ -16,9 +16,7 @@ use Illuminate\Http\Request;
  */
 class NotaFiscalController extends Controller
 {
-    public function __construct(private FiscalService $service)
-    {
-    }
+    public function __construct(private FiscalService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -52,6 +50,19 @@ class NotaFiscalController extends Controller
         $nota = $this->service->emitirDoPedido($pedido, ModeloDocumento::from($d['modelo']));
 
         return response()->json(['data' => $nota->load('itens')], 201);
+    }
+
+    /**
+     * POST /fiscal/nfe/{id}/transmitir — transmite à SEFAZ uma nota já montada
+     * (RASCUNHO). Alias da SPA; reusa FiscalService::emitir (gate fake em CI).
+     */
+    public function transmitir(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.emitir');
+
+        $nota = $this->service->emitir(NotaFiscal::query()->findOrFail($id));
+
+        return response()->json(['data' => $nota->load('itens')]);
     }
 
     /** POST /notas/{id}/cancelar */

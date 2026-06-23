@@ -20,13 +20,17 @@ use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
+use App\Http\Controllers\Api\Admin\ProdutoConfigController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
+use App\Http\Controllers\Api\Admin\ProdutoPrecoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SetorController;
+use App\Http\Controllers\Api\Admin\StubController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
@@ -54,12 +58,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
     // Usuário autenticado + tenant ativo (substitui o "quem sou / qual empresa" do legado).
     Route::get('/me', function (Request $request, TenantContext $tenant) {
+        // payloadAuth inclui roles+permissions efetivas na empresa ATIVA
+        // (resolvida pelo middleware tenant) — a SPA depende disso para o RBAC.
         return response()->json([
-            'user' => [
-                'id' => $request->user()->id,
-                'name' => $request->user()->name,
-                'email' => $request->user()->email,
-            ],
+            'user' => $request->user()->payloadAuth($tenant->empresaId()),
             'tenant' => [
                 'empresa_id' => $tenant->empresaId(),
                 'grupo_id' => $tenant->grupoId(),
@@ -80,6 +82,17 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('empresas/{id}/config', [EmpresaConfigController::class, 'show'])->whereNumber('id');
         Route::put('empresas/{id}/config', [EmpresaConfigController::class, 'update'])->whereNumber('id');
         Route::put('empresas/{id}/config/senha-mestra', [EmpresaConfigController::class, 'senhaMestra'])->whereNumber('id');
+        // Uploads de empresa (certificado A1, token NFC-e, teste SMTP) — infra real na FASE C2.
+        Route::post('empresas/{id}/config/testar-email', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'teste de e-mail')->whereNumber('id');
+        Route::get('empresas/{id}/certificado', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'certificado A1')->whereNumber('id');
+        Route::post('empresas/{id}/certificado', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'certificado A1')->whereNumber('id');
+        Route::put('empresas/{id}/nfce-token', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'token NFC-e')->whereNumber('id');
+
+        // Grupos (redes) — C1.
+        Route::get('grupos', [GrupoController::class, 'index']);
+        Route::post('grupos', [GrupoController::class, 'store']);
+        Route::put('grupos/{id}', [GrupoController::class, 'update'])->whereNumber('id');
+        Route::delete('grupos/{id}', [GrupoController::class, 'destroy'])->whereNumber('id');
 
         // Regiões de atendimento.
         Route::get('regioes', [RegiaoController::class, 'index']);
@@ -129,6 +142,21 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('produtos/{id}', [ProdutoController::class, 'show'])->whereNumber('id');
         Route::put('produtos/{id}', [ProdutoController::class, 'update'])->whereNumber('id');
         Route::delete('produtos/{id}', [ProdutoController::class, 'destroy'])->whereNumber('id');
+        Route::get('produtos/{id}/estoque', [EstoqueController::class, 'porProduto'])->whereNumber('id');
+
+        // Config de produto (classes/unidades) — C1.
+        Route::get('produto-config/classes', [ProdutoConfigController::class, 'classesIndex']);
+        Route::post('produto-config/classes', [ProdutoConfigController::class, 'classeSalvar']);
+        Route::put('produto-config/classes/{id}', [ProdutoConfigController::class, 'classeSalvar'])->whereNumber('id');
+        Route::delete('produto-config/classes/{id}', [ProdutoConfigController::class, 'classeExcluir'])->whereNumber('id');
+        Route::get('produto-config/unidades', [ProdutoConfigController::class, 'unidadesIndex']);
+        Route::post('produto-config/unidades', [ProdutoConfigController::class, 'unidadeSalvar']);
+        Route::put('produto-config/unidades/{id}', [ProdutoConfigController::class, 'unidadeSalvar'])->whereNumber('id');
+        Route::delete('produto-config/unidades/{id}', [ProdutoConfigController::class, 'unidadeExcluir'])->whereNumber('id');
+
+        // Reajuste de preços em massa — C1.
+        Route::get('produtos-precos/preview', [ProdutoPrecoController::class, 'preview']);
+        Route::put('produtos-precos/aplicar', [ProdutoPrecoController::class, 'aplicar']);
 
         // ── Estoque — N3 ──
         Route::get('setores', [SetorController::class, 'index']);
@@ -140,9 +168,22 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('estoque/historico', [EstoqueController::class, 'historico']);
         Route::post('estoque/entrada', [EstoqueController::class, 'entrada']);
         Route::post('estoque/saida', [EstoqueController::class, 'saida']);
+        Route::get('estoque/transferencias', [EstoqueController::class, 'transferencias']);
         Route::post('estoque/transferencias', [EstoqueController::class, 'transferir']);
         Route::post('estoque/acerto', [EstoqueController::class, 'acerto']);
+        Route::get('estoque/fechamentos', [EstoqueController::class, 'fechamentos']);
         Route::post('estoque/fechamentos', [EstoqueController::class, 'fechar']);
+
+        // Estoque — requisição/inventário/físico + abertura de fechamento: módulo
+        // completo na FASE C4 (precisam de tabelas novas). Stub 501 até lá.
+        Route::get('estoque/requisicoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'requisições de estoque');
+        Route::post('estoque/requisicoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'requisições de estoque');
+        Route::get('estoque/inventarios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'inventário');
+        Route::post('estoque/inventarios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'inventário');
+        Route::get('estoque/fisico', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico');
+        Route::post('estoque/fisico', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico');
+        Route::post('estoque/fisico/{id}/efetivar', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico')->whereNumber('id');
+        Route::post('estoque/fechamentos/abrir', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'abertura de fechamento');
 
         // ── Pedidos / Vendas — N4 ── (rotas estáticas antes de /{id})
         Route::get('pedidos/kanban', [PedidoController::class, 'kanban']);
@@ -188,6 +229,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::delete('cheques/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
         Route::put('cheques/{id}/situacao', [ChequeController::class, 'mudarSituacao'])->whereNumber('id');
 
+        // Aliases da SPA: cheques/recebidos (CRUD) → ChequeController.
+        Route::post('cheques/recebidos', [ChequeController::class, 'store']);
+        Route::put('cheques/recebidos/{id}', [ChequeController::class, 'update'])->whereNumber('id');
+        Route::delete('cheques/recebidos/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
+
         // ── Boletos (CNAB) — N7 (gate) ──
         Route::get('boletos/resumo', [BoletoController::class, 'resumo']);
         Route::get('boletos', [BoletoController::class, 'index']);
@@ -224,6 +270,22 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('notas/{id}', [NotaFiscalController::class, 'show'])->whereNumber('id');
         Route::post('notas/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
 
+        // Aliases consumidos pela SPA (fiscal/nfe*) → NotaFiscalController.
+        Route::get('fiscal/nfe', [NotaFiscalController::class, 'index']);
+        Route::post('fiscal/nfe/{id}/transmitir', [NotaFiscalController::class, 'transmitir'])->whereNumber('id');
+        Route::post('fiscal/nfe/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
+
+        // Fiscal — operações/malha/SPED: cálculo completo + SPED entram na FASE C7. Stub 501.
+        Route::get('fiscal/operacoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais');
+        Route::post('fiscal/operacoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais');
+        Route::put('fiscal/operacoes/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais')->whereNumber('id');
+        Route::delete('fiscal/operacoes/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais')->whereNumber('id');
+        Route::get('fiscal/malha/{tipo}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal');
+        Route::post('fiscal/malha/{tipo}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal');
+        Route::put('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
+        Route::delete('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
+        Route::get('fiscal/sped', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'SPED');
+
         // ── Monitora (GPS) — N11 (módulo isolado) ──
         Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);
         Route::post('monitora/veiculos', [MonitoraController::class, 'criarVeiculo']);
@@ -238,6 +300,38 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);
         Route::get('relatorios/dre', [RelatorioController::class, 'dre']);
         Route::get('relatorios/estoque-baixo', [RelatorioController::class, 'estoqueBaixo']);
+        // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
+        Route::get('financeiro/dre', [RelatorioController::class, 'dre']);
+        // Conciliação bancária (OFX): FASE C8. Stub 501.
+        Route::get('financeiro/conciliacao', [StubController::class, 'naoImplementado'])->defaults('fase', 'C8')->defaults('modulo', 'conciliação bancária');
+
+        // ── Módulos de fases futuras consumidos pela SPA (stub 501 documentado) ──
+        // RH / Colaboradores → FASE C5.
+        Route::get('colaboradores', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores');
+        Route::post('colaboradores', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores');
+        Route::get('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::put('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::delete('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::get('colaboradores/{id}/familia', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::post('colaboradores/{id}/familia', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::delete('colaboradores/{id}/familia/{famId}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber(['id', 'famId']);
+        Route::get('colaboradores/{id}/recessos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+        Route::get('colaboradores/{id}/comissoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
+
+        // Frota / Veículos → FASE C6.
+        Route::get('veiculos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos');
+        Route::post('veiculos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos');
+        Route::get('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        Route::put('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        Route::delete('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        Route::get('veiculos/{id}/abastecimentos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        Route::get('veiculos/{id}/trocas-oleo', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        Route::get('veiculos/{id}/pneus', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+
+        // Satélites (relatórios/monitoramento/integrações agregados) → FASE C10.
+        Route::get('satelites/relatorios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
+        Route::get('satelites/monitoramento', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
+        Route::get('satelites/integracoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
     });
 
     // ── App mobile (cliente + entregador) — N10 ──

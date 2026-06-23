@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Estoque\EstoqueService;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
 use App\Models\Estoque\EstoqueSaldo;
 use Illuminate\Http\JsonResponse;
@@ -15,9 +16,7 @@ use Illuminate\Http\Request;
  */
 class EstoqueController extends Controller
 {
-    public function __construct(private EstoqueService $service)
-    {
-    }
+    public function __construct(private EstoqueService $service) {}
 
     /** GET /estoque/saldos?setor_id=&q= */
     public function saldos(Request $request): JsonResponse
@@ -39,6 +38,50 @@ class EstoqueController extends Controller
                 'custo_medio' => (float) $s->custo_medio,
                 'setor' => $s->setor?->descricao,
                 'produto' => $s->produto?->descricao,
+            ]);
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /** GET /estoque/fechamentos — lista os fechamentos (dados já existem). */
+    public function fechamentos(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.view');
+
+        $rows = EstoqueFechamento::query()
+            ->when($request->query('setor_id'), fn ($q, $s) => $q->where('setor_id', $s))
+            ->orderByDesc('data_fechamento')->limit(200)->get();
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /** GET /estoque/transferencias — histórico de transferências entre setores. */
+    public function transferencias(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.view');
+
+        $rows = EstoqueHistorico::query()
+            ->where('origem', 'transferencia')
+            ->latest()->limit(200)->get();
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /** GET /produtos/{id}/estoque — saldo do produto em todos os setores (alias da SPA). */
+    public function porProduto(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.view');
+
+        $rows = EstoqueSaldo::query()
+            ->with(['setor:id,descricao'])
+            ->where('produto_id', $id)
+            ->get()
+            ->map(fn (EstoqueSaldo $s) => [
+                'id' => $s->id,
+                'setor_id' => $s->setor_id,
+                'setor' => $s->setor?->descricao,
+                'quantidade' => (float) $s->quantidade,
+                'custo_medio' => (float) $s->custo_medio,
             ]);
 
         return response()->json(['data' => $rows]);
