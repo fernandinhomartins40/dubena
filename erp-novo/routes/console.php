@@ -18,3 +18,9 @@ Schedule::command('notify:alertas')->dailyAt('07:00')->withoutOverlapping();
 
 // Sync de posições GPS (SGCasa) — a cada minuto (gate externo; só roda se configurado).
 Schedule::command('monitora:sync-positions')->everyMinute()->withoutOverlapping();
+
+// Expira cobranças PIX vencidas — a cada minuto (espelha pix:expired do legado). C9.
+Schedule::command('pix:expirar')->everyMinute()->withoutOverlapping();
+
+// Apura parcelas a receber vencidas (lembrete de cobrança) — 07:30. C9.
+Schedule::command('financeiro:notificar-vencidos')->dailyAt('07:30')->withoutOverlapping();

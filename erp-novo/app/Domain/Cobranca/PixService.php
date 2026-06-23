@@ -41,7 +41,7 @@ class PixService
      * Processa a notificação de pagamento (webhook). SEGURO: valida estado, valor
      * e idempotência antes de confirmar e baixar a parcela.
      *
-     * @param array{txid:string, valor:float|string, e2eid?:string} $payload
+     * @param  array{txid:string, valor:float|string, e2eid?:string}  $payload
      */
     public function processarWebhook(array $payload): PixCobranca
     {
@@ -90,6 +90,19 @@ class PixService
 
             return $cobranca->refresh();
         });
+    }
+
+    /**
+     * Expira as cobranças ATIVAS cujo prazo (expira_em) já passou. Roda no cron
+     * `pix:expirar` (espelha o pix:expired do legado). Retorna a quantidade expirada.
+     */
+    public function expirarVencidas(): int
+    {
+        return PixCobranca::withoutTenant()
+            ->where('situacao', SituacaoPix::ATIVA->value)
+            ->whereNotNull('expira_em')
+            ->where('expira_em', '<', now())
+            ->update(['situacao' => SituacaoPix::EXPIRADA->value]);
     }
 
     private function gerarTxid(): string
