@@ -1,5 +1,34 @@
 # Plano de Conclusão da Reescrita — erp-novo
 
+> ## ⏱️ STATUS DE EXECUÇÃO (atualizado 2026-06-23, medido no código)
+>
+> | Fase | Status | Commit / o que falta |
+> |---|---|---|
+> | **C1** Contrato SPA×backend + RBAC | ✅ feito | `b54ee57` |
+> | **C2** Empresa/Config + uploads | ✅ feito | `ceedf21` |
+> | **C3** Seeds (homologação) | 🟡 parcial | `e8ff646` — seeds via Services OK; **ETL contra dump real NÃO rodou** (sem dump) |
+> | **C4** Regras divergentes caixa/financeiro | 🟡 parcial | `9d8af31` — caixa fechado, parcelamento, baixa lote OK; **cartão/NSU, Gás do Povo, cheque encontro-de-contas/troco NÃO feitos** |
+> | **C5** RH / Colaborador / Comissão | 🟡 parcial | `ad4b24a` — colaborador+comissão OK; **exames, turnos, férias, ponto NÃO feitos** |
+> | **C6** Frota / Veículos | ✅ feito | `50db32c` |
+> | **C7a** Cálculo de imposto | ✅ feito | `6f83da2` — **exceto IBPT e IBS/CBS** |
+> | **C7b** XML+SEFAZ | 🟡 código pronto, **não validado** | `176215f` — gate: exige certificado+homologação SEFAZ |
+> | **C7c** NF de entrada | ✅ feito | `176215f` |
+> | **C7d** SPED | 🟡 parcial | `176215f` — só **EFD ICMS/IPI**; **SPED Contribuições (PIS/COFINS) + créditos NÃO feitos** |
+> | **C8** Conciliação/OFX + Relatórios + Export | 🟡 ~20% | `1894706` — OFX OK; **5 de ~31 relatórios; export só CSV (sem PDF/Excel)** |
+> | **C9** Jobs/cron | 🟡 parcial | `71d2be2` — 2 cron novos; **IBPT, e-mails, order:send, inconsistências, jobs de fila NÃO feitos** |
+> | **C10** Pós-venda/Promoção/Sorteio/Metas/Checklist | ❌ não iniciado | grep = 0 em todos |
+> | **C11** Cupom SAT/CFe + MCMM + Documentos/Bens | ❌ não iniciado | grep = 0 |
+> | **C12** Cauda + cadastros de apoio restantes | ❌ não iniciado | |
+> | **C13** Cutover | ❌ não iniciado | depende de dump real + gates externos |
+> | **+ Lookups** (29 dropdowns) e fixes de shape SPA | ✅ feito | `b460dc1`, `4a4ce67` (fora do plano original) |
+>
+> **Resumo honesto:** o NÚCLEO (C1-C7) está fechado; a CAUDA LONGA (C8 completa,
+> C10, C11, C12) é o que o legado tem a mais e **ainda não foi executada** — está
+> toda prevista abaixo. As fases C3/C4/C5/C7d/C8/C9 entregaram o núcleo testável e
+> ficaram com os itens marcados acima pendentes (NÃO declarar essas fases "100%").
+>
+> ---
+>
 > **Por que este plano existe.** O `PLANO_REESCRITA_BACKEND.md` (N0–N12) estava
 > **subespecificado**: cada fase descrevia o módulo em uma linha ("N9 — porta NF-e/SPED",
 > "N6 — reescreve caixa"), e a implementação real entregou **apenas o núcleo testável** de
