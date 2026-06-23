@@ -195,7 +195,7 @@ export function ConciliacaoTab() {
       </CardContent></Card>
       {run && data && (
         <>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Entradas</p><p className="mt-1 text-xl font-bold tabular-nums text-success">{brl(data.entradas)}</p></CardContent></Card>
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Saídas</p><p className="mt-1 text-xl font-bold tabular-nums text-destructive">{brl(data.saidas)}</p></CardContent></Card>
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Saldo</p><p className="mt-1 text-xl font-bold tabular-nums">{brl(data.saldo)}</p></CardContent></Card>

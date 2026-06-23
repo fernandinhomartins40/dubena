@@ -119,7 +119,7 @@ function CidadesTab() {
           <DialogHeader><DialogTitle>{edit?.id ? 'Editar cidade' : 'Nova cidade'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="UF" required><AsyncSelect endpoint="/lookups/estados" value={edit?.uf ? -1 : null} valueLabel={ufLabel}
                 onChange={(_, opt) => { setEdit((s) => ({ ...s, uf: opt?.uf ? String(opt.uf) : '' })); setUfLabel(opt?.label ?? null) }} /></Field>
               <Field label="Código IBGE" required><Input type="number" value={edit?.cod_ibge ?? ''} onChange={(e) => setEdit((s) => ({ ...s, cod_ibge: e.target.value ? Number(e.target.value) : undefined }))} /></Field>
@@ -221,7 +221,7 @@ function RuasTab() {
           <DialogHeader><DialogTitle>{edit?.id ? 'Editar rua' : 'Nova rua'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
                 onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
               <Field label="CEP"><Input value={edit?.cep ?? ''} maxLength={9} onChange={(e) => setEdit((s) => ({ ...s, cep: e.target.value }))} /></Field>

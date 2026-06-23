@@ -99,7 +99,7 @@ function FichaDialog({ id, onClose }: { id: number | null; onClose: () => void }
         <DialogHeader><DialogTitle>Pedido #{id}</DialogTitle></DialogHeader>
         {isLoading || !data ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{data.cliente || '—'}</span></div>
               <div><span className="text-muted-foreground">Situação:</span> {situacaoBadge({ situacao: data.situacao })}</div>
               <div><span className="text-muted-foreground">Condição:</span> {data.condicao || '—'}</div>

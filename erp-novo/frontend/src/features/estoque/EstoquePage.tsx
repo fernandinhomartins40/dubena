@@ -248,7 +248,7 @@ function InventarioTab() {
           <DialogContent className="max-w-3xl">
             <DialogHeader><DialogTitle>Novo inventário (valoração)</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Data do inventário" required><Input type="date" value={dataInv} onChange={(e) => setDataInv(e.target.value)} /></Field>
                 <Field label="Mês de entrega" required><Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} /></Field>
               </div>
