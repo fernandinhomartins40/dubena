@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
+use App\Http\Controllers\Api\Admin\ColaboradorController;
 use App\Http\Controllers\Api\Admin\ComodatoController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConvenioController;
@@ -305,18 +306,19 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         // Conciliação bancária (OFX): FASE C8. Stub 501.
         Route::get('financeiro/conciliacao', [StubController::class, 'naoImplementado'])->defaults('fase', 'C8')->defaults('modulo', 'conciliação bancária');
 
+        // ── RH / Colaboradores — C5 ──
+        Route::get('colaboradores', [ColaboradorController::class, 'index']);
+        Route::post('colaboradores', [ColaboradorController::class, 'store']);
+        Route::get('colaboradores/{id}', [ColaboradorController::class, 'show'])->whereNumber('id');
+        Route::put('colaboradores/{id}', [ColaboradorController::class, 'update'])->whereNumber('id');
+        Route::delete('colaboradores/{id}', [ColaboradorController::class, 'destroy'])->whereNumber('id');
+        Route::get('colaboradores/{id}/familia', [ColaboradorController::class, 'familia'])->whereNumber('id');
+        Route::post('colaboradores/{id}/familia', [ColaboradorController::class, 'addFamilia'])->whereNumber('id');
+        Route::delete('colaboradores/{id}/familia/{famId}', [ColaboradorController::class, 'delFamilia'])->whereNumber(['id', 'famId']);
+        Route::get('colaboradores/{id}/recessos', [ColaboradorController::class, 'recessos'])->whereNumber('id');
+        Route::get('colaboradores/{id}/comissoes', [ColaboradorController::class, 'comissoes'])->whereNumber('id');
+
         // ── Módulos de fases futuras consumidos pela SPA (stub 501 documentado) ──
-        // RH / Colaboradores → FASE C5.
-        Route::get('colaboradores', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores');
-        Route::post('colaboradores', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores');
-        Route::get('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::put('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::delete('colaboradores/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::get('colaboradores/{id}/familia', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::post('colaboradores/{id}/familia', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::delete('colaboradores/{id}/familia/{famId}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber(['id', 'famId']);
-        Route::get('colaboradores/{id}/recessos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
-        Route::get('colaboradores/{id}/comissoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C5')->defaults('modulo', 'colaboradores')->whereNumber('id');
 
         // Frota / Veículos → FASE C6.
         Route::get('veiculos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos');

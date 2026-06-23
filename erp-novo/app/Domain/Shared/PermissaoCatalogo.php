@@ -29,6 +29,7 @@ final class PermissaoCatalogo
         'valegas' => ['view', 'edit'],
         'comodato' => ['view', 'edit'],
         'monitora' => ['view', 'edit'],
+        'colaborador' => ['view', 'create', 'edit', 'delete'],
         'empresa' => ['view', 'create', 'edit', 'delete'],
         'grupo' => ['view', 'create', 'edit', 'delete'],
         'relatorio' => ['view'],
