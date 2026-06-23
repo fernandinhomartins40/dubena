@@ -107,20 +107,22 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app \
             sh -c 'chown -R www-data:www-data storage bootstrap/cache'
 
-      - name: Health check (API /up + SPA /app, porta interna 3120)
+      - name: Health check (landing / + API /novo/up + SPA /novo/app, porta 3120)
         run: |
-          # API /up (Laravel 12) com retry — php-fpm pode levar uns segundos.
+          # API sob /novo (o nginx do container faz strip → /up) com retry.
           api=000
           for i in $(seq 1 10); do
-            api=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/up || echo 000)
+            api=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/up || echo 000)
             [ "$api" = "200" ] && break
-            echo "aguardando /up ($api)..."; sleep 3
+            echo "aguardando /novo/up ($api)..."; sleep 3
           done
-          # SPA estática em /app (deve responder 200 com o index.html).
-          spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/app/ || echo 000)
-          echo "HTTP /up: $api | HTTP /app/: $spa"
-          if [ "$api" != "200" ] || [ "$spa" != "200" ]; then
-            echo "Health check falhou (/up=$api /app=$spa)" >&2
+          # Landing na raiz exata (monorepo: servida pelo container).
+          land=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/ || echo 000)
+          # SPA estática sob /novo/app (deve responder 200 com o index.html).
+          spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/app/ || echo 000)
+          echo "HTTP /: $land | /novo/up: $api | /novo/app/: $spa"
+          if [ "$api" != "200" ] || [ "$spa" != "200" ] || [ "$land" != "200" ]; then
+            echo "Health check falhou (/=$land /novo/up=$api /novo/app=$spa)" >&2
             docker compose -f docker-compose.homolog.yml logs --tail=50 app web >&2 || true
             exit 1
           fi
