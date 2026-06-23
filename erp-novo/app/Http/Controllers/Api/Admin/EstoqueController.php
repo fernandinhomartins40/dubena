@@ -6,6 +6,8 @@ use App\Domain\Estoque\EstoqueService;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
+use App\Models\Estoque\EstoqueInventario;
+use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -176,6 +178,94 @@ class EstoqueController extends Controller
         }
 
         return $request->validate($regras);
+    }
+
+    // ── Requisições (C11) ──
+    public function requisicoesIndex(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.view');
+
+        return response()->json(['data' => EstoqueRequisicao::query()->latest()->limit(200)->get()]);
+    }
+
+    public function requisicaoCriar(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $d = $request->validate([
+            'setor_origem_id' => 'nullable|integer|exists:setores,id',
+            'setor_destino_id' => 'required|integer|exists:setores,id',
+            'produto_id' => 'required|integer|exists:produtos,id',
+            'quantidade' => 'required|numeric|gt:0',
+            'observacao' => 'nullable|string|max:255',
+            'atender' => 'nullable|boolean',
+        ]);
+
+        $req = EstoqueRequisicao::create(array_merge(
+            collect($d)->except('atender')->all(),
+            ['user_id' => $request->user()->id, 'situacao' => 'pendente'],
+        ));
+
+        // Atende na hora, se pedido e houver origem (faz a transferência).
+        if (! empty($d['atender']) && $req->setor_origem_id) {
+            $req = $this->service->atenderRequisicao($req, $request->user()->id);
+        }
+
+        return response()->json(['data' => $req], 201);
+    }
+
+    // ── Inventário / estoque físico (C11) ──
+    public function inventariosIndex(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.view');
+
+        return response()->json(['data' => EstoqueInventario::query()->with('itens')->latest()->limit(100)->get()]);
+    }
+
+    public function inventarioCriar(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $d = $request->validate([
+            'setor_id' => 'required|integer|exists:setores,id',
+            'data' => 'nullable|date',
+            'itens' => 'required|array|min:1',
+            'itens.*.produto_id' => 'required|integer|exists:produtos,id',
+            'itens.*.quantidade_contada' => 'required|numeric|gte:0',
+        ]);
+
+        $inv = EstoqueInventario::create([
+            'setor_id' => $d['setor_id'],
+            'data' => $d['data'] ?? now()->toDateString(),
+            'situacao' => 'aberto',
+        ]);
+        foreach ($d['itens'] as $i) {
+            $inv->itens()->create(['produto_id' => $i['produto_id'], 'quantidade_contada' => $i['quantidade_contada']]);
+        }
+
+        return response()->json(['data' => $inv->load('itens')], 201);
+    }
+
+    public function inventarioEfetivar(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $inv = EstoqueInventario::query()->with('itens')->findOrFail($id);
+        $inv = $this->service->efetivarInventario($inv, $request->user()->id);
+
+        return response()->json(['data' => $inv, 'message' => 'Inventário efetivado (saldos ajustados).']);
+    }
+
+    /** POST /estoque/fechamentos/abrir — registra o fechamento de um setor×produto. */
+    public function abrirFechamento(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $d = $request->validate([
+            'setor_id' => 'required|integer|exists:setores,id',
+            'produto_id' => 'required|integer|exists:produtos,id',
+            'data_fechamento' => 'nullable|date',
+        ]);
+
+        $fech = $this->service->fechar($d['setor_id'], $d['produto_id'], $d['data_fechamento'] ?? now()->toDateString());
+
+        return response()->json(['data' => $fech], 201);
     }
 
     private function autorizar(Request $request, string $chave): void

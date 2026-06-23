@@ -4,6 +4,8 @@ namespace App\Domain\Estoque;
 
 use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
+use App\Models\Estoque\EstoqueInventario;
+use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
 use App\Models\Estoque\Setor;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +24,13 @@ use Illuminate\Validation\ValidationException;
 class EstoqueService
 {
     public const ENTRADA = 'ENTRADA';
+
     public const SAIDA = 'SAIDA';
+
     public const TRANSFERENCIA = 'TRANSFERENCIA';
+
     public const INVENTARIO = 'INVENTARIO';
+
     public const ACERTO = 'ACERTO';
 
     /**
@@ -111,6 +117,7 @@ class EstoqueService
 
     /**
      * Transferência entre setores (saída de um, entrada no outro) — atômica.
+     *
      * @return array{saida: EstoqueHistorico, entrada: EstoqueHistorico}
      */
     public function transferir(int $setorOrigem, int $setorDestino, int $produtoId, float $qtd, ?int $userId = null): array
@@ -187,5 +194,50 @@ class EstoqueService
         return (float) EstoqueHistorico::withoutTenant()
             ->where('setor_id', $setorId)->where('produto_id', $produtoId)
             ->sum('quantidade');
+    }
+
+    /**
+     * Efetiva um inventário (C11): para cada item contado, ACERTA o saldo do setor
+     * para a quantidade contada (gera o movimento de diferença → saldo auditável).
+     * Grava a quantidade do sistema no momento e marca o inventário como efetivado.
+     */
+    public function efetivarInventario(EstoqueInventario $inventario, ?int $userId = null): EstoqueInventario
+    {
+        if ($inventario->situacao === 'efetivado') {
+            return $inventario;
+        }
+
+        return DB::transaction(function () use ($inventario, $userId) {
+            foreach ($inventario->itens as $item) {
+                $sistema = $this->saldoDerivado($inventario->setor_id, $item->produto_id);
+                $item->update(['quantidade_sistema' => $sistema]);
+                $this->acertar($inventario->setor_id, $item->produto_id, (float) $item->quantidade_contada, $userId);
+            }
+
+            $inventario->update(['situacao' => 'efetivado']);
+
+            return $inventario->refresh()->load('itens');
+        });
+    }
+
+    /**
+     * Atende uma requisição (C11): transfere a quantidade do setor de origem para o
+     * de destino (via transferir → mantém o saldo auditável) e marca como atendida.
+     */
+    public function atenderRequisicao(EstoqueRequisicao $req, ?int $userId = null): EstoqueRequisicao
+    {
+        if ($req->situacao !== 'pendente') {
+            throw ValidationException::withMessages(['requisicao' => 'Requisição já processada.']);
+        }
+        if (! $req->setor_origem_id) {
+            throw ValidationException::withMessages(['setor_origem_id' => 'Defina o setor de origem para atender.']);
+        }
+
+        return DB::transaction(function () use ($req, $userId) {
+            $this->transferir($req->setor_origem_id, $req->setor_destino_id, $req->produto_id, (float) $req->quantidade, $userId);
+            $req->update(['situacao' => 'atendida']);
+
+            return $req->refresh();
+        });
     }
 }

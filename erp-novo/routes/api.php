@@ -179,14 +179,16 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
         // Estoque — requisição/inventário/físico + abertura de fechamento: módulo
         // completo na FASE C4 (precisam de tabelas novas). Stub 501 até lá.
-        Route::get('estoque/requisicoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'requisições de estoque');
-        Route::post('estoque/requisicoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'requisições de estoque');
-        Route::get('estoque/inventarios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'inventário');
-        Route::post('estoque/inventarios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'inventário');
-        Route::get('estoque/fisico', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico');
-        Route::post('estoque/fisico', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico');
-        Route::post('estoque/fisico/{id}/efetivar', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'estoque físico')->whereNumber('id');
-        Route::post('estoque/fechamentos/abrir', [StubController::class, 'naoImplementado'])->defaults('fase', 'C4')->defaults('modulo', 'abertura de fechamento');
+        // Estoque — requisições / inventário / físico / abertura de fechamento — C11.
+        Route::get('estoque/requisicoes', [EstoqueController::class, 'requisicoesIndex']);
+        Route::post('estoque/requisicoes', [EstoqueController::class, 'requisicaoCriar']);
+        Route::get('estoque/inventarios', [EstoqueController::class, 'inventariosIndex']);
+        Route::post('estoque/inventarios', [EstoqueController::class, 'inventarioCriar']);
+        // "físico" é a contagem (alias do inventário).
+        Route::get('estoque/fisico', [EstoqueController::class, 'inventariosIndex']);
+        Route::post('estoque/fisico', [EstoqueController::class, 'inventarioCriar']);
+        Route::post('estoque/fisico/{id}/efetivar', [EstoqueController::class, 'inventarioEfetivar'])->whereNumber('id');
+        Route::post('estoque/fechamentos/abrir', [EstoqueController::class, 'abrirFechamento']);
 
         // ── Pedidos / Vendas — N4 ── (rotas estáticas antes de /{id})
         Route::get('pedidos/kanban', [PedidoController::class, 'kanban']);
