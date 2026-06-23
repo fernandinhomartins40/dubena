@@ -22,3 +22,8 @@ export { PageHeader } from './page-header'
 export { DataTable, type Column } from './data-table'
 export { AsyncSelect, type Option } from './async-select'
 export { toast } from 'sonner'
+// Primitivos de composição do padrão (StatCard/FormDialog/RowActions/ResourceList).
+export { StatCard, type StatAccent } from './stat-card'
+export { FormDialog } from './form-dialog'
+export { RowActions } from './row-actions'
+export { ResourceList } from './resource-list'

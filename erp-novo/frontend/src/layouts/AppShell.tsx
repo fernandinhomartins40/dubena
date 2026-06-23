@@ -115,8 +115,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
-          <div className="grid size-9 place-items-center rounded-lg bg-white font-black text-primary shadow">D</div>
-          {expandida && <span className="font-bold tracking-wide text-lg">Dubena</span>}
+          <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">D</div>
+          {expandida && <span className="font-bold tracking-wide text-lg text-white">Dubena</span>}
         </div>
         <nav className="flex-1 overflow-y-auto py-3">
           {grupos.map((g) => {
@@ -144,8 +144,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                       cn(
                         'mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-white/15 font-medium text-white shadow-sm'
-                          : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-white',
+                          ? 'bg-sidebar-accent font-medium text-white shadow-sm shadow-black/20'
+                          : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
                         !expandida && 'justify-center',
                       )
                     }

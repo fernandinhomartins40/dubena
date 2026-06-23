@@ -31,13 +31,16 @@ export default {
           foreground: hsl('--sidebar-foreground'),
           accent: hsl('--sidebar-accent'),
         },
-        // Paleta de marca Supergasbras (laranja). Telas legadas usam marca-600 etc.
+        // Paleta de marca (laranja puro #FF6200). Telas legadas usam marca-600 etc.
         marca: {
-          50: '#fef0ec', 100: '#fdd9cf', 200: '#fab19f', 300: '#f78970',
-          400: '#f46243', 500: '#f1411c', 600: '#d83610', 700: '#b32c0d',
-          800: '#8f240b', 900: '#6b1b08',
+          50: '#fff3ea', 100: '#ffe0cc', 200: '#ffbe99', 300: '#ff9b66',
+          400: '#ff7e33', 500: '#ff6200', 600: '#e05600', 700: '#b84600',
+          800: '#8f3700', 900: '#662700',
         },
-        info: { DEFAULT: '#137bc9' },
+        // Lime de destaque (energia) — usar pontualmente.
+        lime: {
+          DEFAULT: '#dbfb3b', 400: '#e3fc63', 500: '#dbfb3b', 600: '#c2e520',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
