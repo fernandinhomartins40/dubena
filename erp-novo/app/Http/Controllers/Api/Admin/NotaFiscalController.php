@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\FiscalService;
+use App\Domain\Fiscal\IbptService;
 use App\Domain\Fiscal\ModeloDocumento;
+use App\Domain\Fiscal\SpedContribuicoesService;
 use App\Domain\Fiscal\SpedFiscalService;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
@@ -95,6 +97,38 @@ class NotaFiscalController extends Controller
             'linhas' => substr_count($conteudo, "\n"),
             'periodo' => ['inicio' => $d['inicio'], 'fim' => $d['fim']],
         ]]);
+    }
+
+    /** GET /fiscal/sped-contribuicoes?inicio=&fim= — gera a EFD-Contribuições (PIS/COFINS). */
+    public function spedContribuicoes(Request $request, SpedContribuicoesService $sped): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.view');
+        $d = $request->validate([
+            'inicio' => 'required|date',
+            'fim' => 'required|date|after_or_equal:inicio',
+        ]);
+
+        $empresa = Empresa::query()->findOrFail($request->user()->empresa_id);
+        $conteudo = $sped->gerar($empresa, $d['inicio'], $d['fim']);
+
+        return response()->json(['data' => [
+            'arquivo' => $conteudo,
+            'linhas' => substr_count($conteudo, "\n"),
+            'periodo' => ['inicio' => $d['inicio'], 'fim' => $d['fim']],
+        ]]);
+    }
+
+    /** GET /fiscal/ibpt?ncm=&valor=&origem= — carga tributária aproximada (Lei 12.741). */
+    public function ibpt(Request $request, IbptService $ibpt): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.view');
+        $d = $request->validate([
+            'ncm' => 'required|string|max:10',
+            'valor' => 'required|numeric|gte:0',
+            'origem' => 'nullable|in:nacional,importado',
+        ]);
+
+        return response()->json(['data' => $ibpt->calcular($d['ncm'], (float) $d['valor'], $d['origem'] ?? 'nacional')]);
     }
 
     private function autorizar(Request $request, string $chave): void

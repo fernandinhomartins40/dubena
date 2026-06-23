@@ -296,6 +296,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaSalvar'])->whereNumber('id');
         Route::delete('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaExcluir'])->whereNumber('id');
         Route::get('fiscal/sped', [NotaFiscalController::class, 'sped']);
+        Route::get('fiscal/sped-contribuicoes', [NotaFiscalController::class, 'spedContribuicoes']);
+        Route::get('fiscal/ibpt', [NotaFiscalController::class, 'ibpt']);
 
         // ── Monitora (GPS) — N11 (módulo isolado) ──
         Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);
