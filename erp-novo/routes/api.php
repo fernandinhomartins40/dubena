@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Admin\ColaboradorController;
 use App\Http\Controllers\Api\Admin\ComodatoController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConvenioController;
+use App\Http\Controllers\Api\Admin\CrmController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
@@ -305,6 +306,34 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
 
         // ── Relatórios (Query Services) — N12 ──
+        // ── CRM / satélites (C10) ──
+        Route::get('pos-vendas', [CrmController::class, 'posVendaIndex']);
+        Route::post('pos-vendas', [CrmController::class, 'posVendaSalvar']);
+        Route::put('pos-vendas/{id}', [CrmController::class, 'posVendaSalvar'])->whereNumber('id');
+        Route::delete('pos-vendas/{id}', [CrmController::class, 'posVendaExcluir'])->whereNumber('id');
+
+        Route::get('promocoes', [CrmController::class, 'promocaoIndex']);
+        Route::post('promocoes', [CrmController::class, 'promocaoSalvar']);
+        Route::put('promocoes/{id}', [CrmController::class, 'promocaoSalvar'])->whereNumber('id');
+        Route::delete('promocoes/{id}', [CrmController::class, 'promocaoExcluir'])->whereNumber('id');
+
+        Route::get('sorteios', [CrmController::class, 'sorteioIndex']);
+        Route::post('sorteios', [CrmController::class, 'sorteioSalvar']);
+        Route::put('sorteios/{id}', [CrmController::class, 'sorteioSalvar'])->whereNumber('id');
+        Route::post('sorteios/{id}/numeros', [CrmController::class, 'sorteioNumero'])->whereNumber('id');
+        Route::post('sorteios/{id}/sortear', [CrmController::class, 'sortear'])->whereNumber('id');
+
+        Route::get('metas', [CrmController::class, 'metaIndex']);
+        Route::post('metas', [CrmController::class, 'metaSalvar']);
+        Route::put('metas/{id}', [CrmController::class, 'metaSalvar'])->whereNumber('id');
+        Route::delete('metas/{id}', [CrmController::class, 'metaExcluir'])->whereNumber('id');
+
+        Route::get('checklists', [CrmController::class, 'checklistIndex']);
+        Route::post('checklists', [CrmController::class, 'checklistSalvar']);
+        Route::put('checklists/{id}', [CrmController::class, 'checklistSalvar'])->whereNumber('id');
+        Route::post('checklists/{id}/executar', [CrmController::class, 'checklistExecutar'])->whereNumber('id');
+        Route::delete('checklists/{id}', [CrmController::class, 'checklistExcluir'])->whereNumber('id');
+
         // Dashboard (home da SPA) — contadores rápidos.
         Route::get('dashboard/resumo', [RelatorioController::class, 'dashboardResumo']);
 
