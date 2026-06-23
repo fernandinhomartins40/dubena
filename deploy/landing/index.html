@@ -3,70 +3,108 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gás em Casa · Dubena</title>
+  <title>Dubena · Gás em Casa</title>
   <style>
+    /*
+     * Landing com o MESMO design do SPA novo (design system Dubena / IMPL_UI):
+     * azul de marca #2a54ad, roxo accent #672290, amarelo destaque #e7eb13,
+     * cards brancos arredondados com sombra, fundo gradiente azul→roxo.
+     */
     :root {
-      --bg: #0f1115; --card: #181b22; --line: #262b36;
-      --txt: #e8eaed; --muted: #9aa3af; --accent: #ff5a1f; --accent2: #2563eb;
+      --marca-500:#2a54ad; --marca-600:#244a98; --marca-700:#1f3c7c;
+      --marca-800:#2a3b85; --marca-900:#1b2a5e;
+      --accent:#672290; --destaque:#e7eb13;
+      --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+      --radius:0.75rem;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(1200px 600px at 50% -10%, #1b2030, var(--bg));
-      color: var(--txt); min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, var(--marca-800) 0%, var(--accent) 100%);
+      color: var(--fg); min-height: 100vh;
       display: flex; align-items: center; justify-content: center; padding: 24px;
+      -webkit-font-smoothing: antialiased;
     }
-    .wrap { width: 100%; max-width: 880px; text-align: center; }
-    .brand { font-size: 14px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-    h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 800; margin-bottom: 8px; }
-    .sub { color: var(--muted); font-size: 16px; margin-bottom: 40px; }
+    .wrap { width: 100%; max-width: 920px; }
+
+    /* Cabeçalho com a marca (igual ao login do SPA: badge amarelo "D"). */
+    .head { display: flex; align-items: center; gap: 14px; justify-content: center; margin-bottom: 8px; }
+    .badge {
+      height: 48px; width: 48px; border-radius: 12px; background: var(--destaque);
+      color: var(--marca-900); font-weight: 900; font-size: 22px;
+      display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    }
+    .head h1 { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .head p { font-size: 13px; color: #c7d2fe; }
+    .sub { text-align: center; color: #dbe4ff; font-size: 15px; margin: 14px 0 36px; }
+
     .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+
     .card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-      padding: 28px 24px; text-align: left; text-decoration: none; color: inherit;
-      display: flex; flex-direction: column; gap: 12px; transition: transform .15s, border-color .15s;
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 28px 26px; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 12px 30px rgba(15,23,42,.18);
+      transition: transform .15s ease, box-shadow .15s ease;
     }
-    .card:hover { transform: translateY(-4px); }
-    .card.nova:hover { border-color: var(--accent); }
-    .card.antiga:hover { border-color: var(--accent2); }
-    .tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    .nova .tag { color: var(--accent); }
-    .antiga .tag { color: var(--accent2); }
-    .card h2 { font-size: 22px; font-weight: 700; }
-    .card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
-    .go { margin-top: auto; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-    .nova .go { color: var(--accent); }
-    .antiga .go { color: var(--accent2); }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(15,23,42,.28); }
+
+    .tag {
+      align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
+    }
+    .nova .tag { background: rgba(103,34,144,.10); color: var(--accent); }
+    .antiga .tag { background: rgba(42,84,173,.10); color: var(--marca-600); }
+
+    .card h2 { font-size: 20px; font-weight: 700; color: var(--marca-900); }
+    .card p.desc { color: var(--muted); font-size: 14px; line-height: 1.55; }
+
     .creds {
-      margin-top: 14px; padding: 10px 12px; border-radius: 10px;
-      background: #0d0f14; border: 1px dashed var(--line); font-size: 13px; color: var(--muted);
+      margin-top: 4px; padding: 10px 12px; border-radius: 8px;
+      background: #f1f5f9; border: 1px dashed var(--line); font-size: 13px; color: var(--muted);
     }
-    .creds b { color: var(--txt); font-weight: 600; }
-    .foot { margin-top: 36px; color: var(--muted); font-size: 12px; }
+    .creds b { color: var(--fg); font-weight: 600; }
+
+    .btn {
+      margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-weight: 600; font-size: 14px; color: #fff; padding: 10px 14px; border-radius: 8px;
+      transition: background .15s ease;
+    }
+    .nova .btn { background: var(--marca-600); }
+    .nova .btn:hover { background: var(--marca-700); }
+    .antiga .btn { background: #475569; }
+    .antiga .btn:hover { background: #334155; }
+
+    .foot { margin-top: 34px; text-align: center; color: #c7d2fe; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="brand">Dubena · Gás em Casa</div>
-    <h1>Escolha o sistema</h1>
-    <p class="sub">Ambiente de homologação — selecione qual ERP deseja acessar.</p>
+    <div class="head">
+      <div class="badge">D</div>
+      <div>
+        <h1>Dubena</h1>
+        <p>ERP · Gás em Casa</p>
+      </div>
+    </div>
+    <p class="sub">Ambiente de homologação — selecione qual sistema deseja acessar.</p>
 
     <div class="cards">
       <a class="card nova" href="/novo/app/">
         <span class="tag">Versão nova</span>
         <h2>ERP novo (SPA)</h2>
-        <p>Backend reescrito (Laravel 12) + interface React. Em homologação.</p>
+        <p class="desc">Backend reescrito (Laravel 12) com a nova interface React. Em homologação.</p>
         <div class="creds">Teste: <b>teste@gasemcasa.com</b> / <b>teste1234</b></div>
-        <span class="go">Acessar →</span>
+        <span class="btn">Acessar a nova interface →</span>
       </a>
 
       <a class="card antiga" href="/login">
         <span class="tag">Versão atual</span>
         <h2>ERP atual (legado)</h2>
-        <p>Sistema em produção hoje. Mantido intacto durante a transição.</p>
+        <p class="desc">Sistema em produção hoje. Mantido intacto durante a transição.</p>
         <div class="creds">Teste: <b>teste@gasemcasa.com</b> / <b>teste1234</b></div>
-        <span class="go">Acessar →</span>
+        <span class="btn">Acessar o sistema atual →</span>
       </a>
     </div>
 
