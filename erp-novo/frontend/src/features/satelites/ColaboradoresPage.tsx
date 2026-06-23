@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth'
 import {
   useColaboradores, useColaborador, useSalvarColaborador, useExcluirColaborador, type Colaborador,
   useFamilia, useAddFamilia, useDelFamilia, useRecessos, useComissoes,
+  useExames, useAddExame, useTurnos, useAddTurno, usePontos, useAddPonto,
 } from './api'
 
 const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
@@ -105,6 +106,9 @@ export function ColaboradorFormPage() {
           {editId && <TabsTrigger value="familia">Família</TabsTrigger>}
           {editId && <TabsTrigger value="recessos">Recessos</TabsTrigger>}
           {editId && <TabsTrigger value="comissoes">Comissões</TabsTrigger>}
+          {editId && <TabsTrigger value="exames">Exames</TabsTrigger>}
+          {editId && <TabsTrigger value="turnos">Turnos</TabsTrigger>}
+          {editId && <TabsTrigger value="ponto">Ponto</TabsTrigger>}
         </TabsList>
         <TabsContent value="dados">
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -125,6 +129,9 @@ export function ColaboradorFormPage() {
         {editId && <TabsContent value="familia"><Card><CardContent className="pt-6"><FamiliaTab colaboradorId={editId} /></CardContent></Card></TabsContent>}
         {editId && <TabsContent value="recessos"><RecessosTab colaboradorId={editId} /></TabsContent>}
         {editId && <TabsContent value="comissoes"><ComissoesTab colaboradorId={editId} /></TabsContent>}
+        {editId && <TabsContent value="exames"><Card><CardContent className="pt-6"><ExamesTab colaboradorId={editId} /></CardContent></Card></TabsContent>}
+        {editId && <TabsContent value="turnos"><Card><CardContent className="pt-6"><TurnosTab colaboradorId={editId} /></CardContent></Card></TabsContent>}
+        {editId && <TabsContent value="ponto"><Card><CardContent className="pt-6"><PontoTab colaboradorId={editId} /></CardContent></Card></TabsContent>}
       </Tabs>
     </div>
   )
@@ -174,4 +181,99 @@ function ComissoesTab({ colaboradorId }: { colaboradorId: number }) {
     { key: 'fim', header: 'Fim', cell: (c) => fmtData(c.datafim) },
   ]
   return <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} empty={<EmptyState icon={<Users />} title="Nenhuma comissão" />} />
+}
+
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+function ExamesTab({ colaboradorId }: { colaboradorId: number }) {
+  const { data, isLoading } = useExames(colaboradorId)
+  const add = useAddExame(colaboradorId)
+  const [f, setF] = useState<Record<string, any>>({ tipo: 'periodico', resultado: 'apto' })
+  async function adicionar() {
+    if (!f.realizado_em) { toast.error('Informe a data realizada.'); return }
+    try { await add.mutateAsync(f); toast.success('Exame registrado.'); setF({ tipo: 'periodico', resultado: 'apto' }) }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
+  }
+  const columns: Column<any>[] = [
+    { key: 'tipo', header: 'Tipo', cell: (r) => r.tipo },
+    { key: 'real', header: 'Realizado', cell: (r) => fmtData(r.realizado_em) },
+    { key: 'venc', header: 'Vencimento', cell: (r) => fmtData(r.vencimento) },
+    { key: 'res', header: 'Resultado', cell: (r) => <Badge variant={r.resultado === 'apto' ? 'success' : 'warning'}>{r.resultado}</Badge> },
+  ]
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end rounded-lg border border-border p-4">
+        <Field label="Tipo">
+          <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={f.tipo} onChange={(e) => setF((x) => ({ ...x, tipo: e.target.value }))}>
+            <option value="admissional">Admissional</option><option value="periodico">Periódico</option><option value="demissional">Demissional</option><option value="retorno">Retorno</option>
+          </select>
+        </Field>
+        <Field label="Realizado em"><Input type="date" value={f.realizado_em ?? ''} onChange={(e) => setF((x) => ({ ...x, realizado_em: e.target.value }))} /></Field>
+        <Field label="Vencimento"><Input type="date" value={f.vencimento ?? ''} onChange={(e) => setF((x) => ({ ...x, vencimento: e.target.value }))} /></Field>
+        <Field label="Resultado">
+          <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={f.resultado} onChange={(e) => setF((x) => ({ ...x, resultado: e.target.value }))}>
+            <option value="apto">Apto</option><option value="inapto">Inapto</option><option value="apto-com-restricao">Apto c/ restrição</option>
+          </select>
+        </Field>
+        <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Adicionar</Button>
+      </div>
+      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<Users />} title="Nenhum exame" />} />
+    </div>
+  )
+}
+
+function TurnosTab({ colaboradorId }: { colaboradorId: number }) {
+  const { data, isLoading } = useTurnos(colaboradorId)
+  const add = useAddTurno(colaboradorId)
+  const [f, setF] = useState<Record<string, any>>({ dia_semana: 1, entrada: '08:00', saida: '17:00' })
+  async function adicionar() {
+    try { await add.mutateAsync(f); toast.success('Turno salvo.') }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
+  }
+  const columns: Column<any>[] = [
+    { key: 'dia', header: 'Dia', cell: (r) => DIAS[r.dia_semana] ?? r.dia_semana },
+    { key: 'ent', header: 'Entrada', cell: (r) => r.entrada },
+    { key: 'sai', header: 'Saída', cell: (r) => r.saida },
+  ]
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end rounded-lg border border-border p-4">
+        <Field label="Dia da semana">
+          <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={f.dia_semana} onChange={(e) => setF((x) => ({ ...x, dia_semana: Number(e.target.value) }))}>
+            {DIAS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+        </Field>
+        <Field label="Entrada"><Input type="time" value={f.entrada} onChange={(e) => setF((x) => ({ ...x, entrada: e.target.value }))} /></Field>
+        <Field label="Saída"><Input type="time" value={f.saida} onChange={(e) => setF((x) => ({ ...x, saida: e.target.value }))} /></Field>
+        <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Salvar turno</Button>
+      </div>
+      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<Users />} title="Nenhum turno" />} />
+    </div>
+  )
+}
+
+function PontoTab({ colaboradorId }: { colaboradorId: number }) {
+  const { data, isLoading } = usePontos(colaboradorId)
+  const add = useAddPonto(colaboradorId)
+  const [f, setF] = useState<Record<string, any>>({ data: new Date().toISOString().slice(0, 10) })
+  async function adicionar() {
+    try { await add.mutateAsync(f); toast.success('Ponto registrado.') }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
+  }
+  const columns: Column<any>[] = [
+    { key: 'data', header: 'Data', cell: (r) => fmtData(r.data) },
+    { key: 'ent', header: 'Entrada', cell: (r) => r.entrada ?? '—' },
+    { key: 'sai', header: 'Saída', cell: (r) => r.saida ?? '—' },
+  ]
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end rounded-lg border border-border p-4">
+        <Field label="Data"><Input type="date" value={f.data} onChange={(e) => setF((x) => ({ ...x, data: e.target.value }))} /></Field>
+        <Field label="Entrada"><Input type="time" value={f.entrada ?? ''} onChange={(e) => setF((x) => ({ ...x, entrada: e.target.value }))} /></Field>
+        <Field label="Saída"><Input type="time" value={f.saida ?? ''} onChange={(e) => setF((x) => ({ ...x, saida: e.target.value }))} /></Field>
+        <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Registrar</Button>
+      </div>
+      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<Users />} title="Nenhum registro de ponto" />} />
+    </div>
+  )
 }

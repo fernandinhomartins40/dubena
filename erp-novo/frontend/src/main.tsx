@@ -28,6 +28,21 @@ import { VeiculosListPage, VeiculoFormPage } from '@/features/satelites/Veiculos
 import { ValeGasPage } from '@/features/satelites/ValeGasPage'
 import { SatelitesPage } from '@/features/satelites/SatelitesPage'
 import { PedidosPage } from '@/features/pedidos/PedidosPage'
+import { PosVendaPage } from '@/features/crm/PosVendaPage'
+import { PromocaoPage } from '@/features/crm/PromocaoPage'
+import { SorteioPage } from '@/features/crm/SorteioPage'
+import { MetaPage } from '@/features/crm/MetaPage'
+import { ChecklistPage } from '@/features/crm/ChecklistPage'
+import { CupomPage } from '@/features/gestao/CupomPage'
+import { McmmPage } from '@/features/gestao/McmmPage'
+import { DocumentoPage } from '@/features/gestao/DocumentoPage'
+import { BemPage } from '@/features/gestao/BemPage'
+import { CartaoPage } from '@/features/pagamentos/CartaoPage'
+import { GasDoPovoPage } from '@/features/pagamentos/GasDoPovoPage'
+import { ComodatoPage } from '@/features/satelites/ComodatoPage'
+import { ConvenioPage } from '@/features/satelites/ConvenioPage'
+import { MonitoraPage } from '@/features/satelites/MonitoraPage'
+import { RelatoriosPage } from '@/features/relatorios/RelatoriosPage'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -65,8 +80,29 @@ function App() {
       <Route path="/veiculos/novo" element={<Protected><VeiculoFormPage /></Protected>} />
       <Route path="/veiculos/:id" element={<Protected><VeiculoFormPage /></Protected>} />
       <Route path="/vale-gas" element={<Protected><ValeGasPage /></Protected>} />
-      <Route path="/relatorios" element={<Protected><SatelitesPage /></Protected>} />
+      <Route path="/relatorios" element={<Protected><RelatoriosPage /></Protected>} />
+      <Route path="/satelites" element={<Protected><SatelitesPage /></Protected>} />
       <Route path="/pedidos" element={<Protected><PedidosPage /></Protected>} />
+
+      {/* CRM (C10) */}
+      <Route path="/pos-venda" element={<Protected><PosVendaPage /></Protected>} />
+      <Route path="/promocoes" element={<Protected><PromocaoPage /></Protected>} />
+      <Route path="/sorteios" element={<Protected><SorteioPage /></Protected>} />
+      <Route path="/metas" element={<Protected><MetaPage /></Protected>} />
+      <Route path="/checklists" element={<Protected><ChecklistPage /></Protected>} />
+
+      {/* Gestão (C11) */}
+      <Route path="/cupons-fiscais" element={<Protected><CupomPage /></Protected>} />
+      <Route path="/mcmm" element={<Protected><McmmPage /></Protected>} />
+      <Route path="/documentos" element={<Protected><DocumentoPage /></Protected>} />
+      <Route path="/bens" element={<Protected><BemPage /></Protected>} />
+
+      {/* Pagamentos (C4) + satélites */}
+      <Route path="/cartoes" element={<Protected><CartaoPage /></Protected>} />
+      <Route path="/gas-do-povo" element={<Protected><GasDoPovoPage /></Protected>} />
+      <Route path="/comodatos" element={<Protected><ComodatoPage /></Protected>} />
+      <Route path="/convenios" element={<Protected><ConvenioPage /></Protected>} />
+      <Route path="/monitora" element={<Protected><MonitoraPage /></Protected>} />
       <Route path="/produtos" element={<Protected><ProdutosListPage /></Protected>} />
       <Route path="/produtos/configuracoes" element={<Protected><ProdutoConfigPage /></Protected>} />
       <Route path="/produtos/precos" element={<Protected><ProdutoPrecosPage /></Protected>} />

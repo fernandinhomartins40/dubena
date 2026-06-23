@@ -34,6 +34,23 @@ export function useDelFamilia(id: number) {
 export const useRecessos = (id: number) => useQuery<any[]>({ queryKey: ['colab-rec', id], queryFn: async () => (await api.get(`/colaboradores/${id}/recessos`)).data.data })
 export const useComissoes = (id: number) => useQuery<any[]>({ queryKey: ['colab-com', id], queryFn: async () => (await api.get(`/colaboradores/${id}/comissoes`)).data.data })
 
+// ---- RH complementar (C5): exames (ASO), turnos, ponto ----
+export const useExames = (id: number) => useQuery<any[]>({ queryKey: ['colab-exa', id], queryFn: async () => (await api.get(`/colaboradores/${id}/exames`)).data.data })
+export function useAddExame(id: number) {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (d: Record<string, unknown>) => (await api.post(`/colaboradores/${id}/exames`, d)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['colab-exa', id] }) })
+}
+export const useTurnos = (id: number) => useQuery<any[]>({ queryKey: ['colab-tur', id], queryFn: async () => (await api.get(`/colaboradores/${id}/turnos`)).data.data })
+export function useAddTurno(id: number) {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (d: Record<string, unknown>) => (await api.post(`/colaboradores/${id}/turnos`, d)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['colab-tur', id] }) })
+}
+export const usePontos = (id: number) => useQuery<any[]>({ queryKey: ['colab-pon', id], queryFn: async () => (await api.get(`/colaboradores/${id}/pontos`)).data.data })
+export function useAddPonto(id: number) {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (d: Record<string, unknown>) => (await api.post(`/colaboradores/${id}/pontos`, d)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['colab-pon', id] }) })
+}
+
 // ---- Frota / Veículos ----
 export interface Veiculo { id: number; placa: string; descricao: string; kmatual: number; veiculotipo_id: number; tipocombustivel_id: number }
 export const useVeiculos = (q: string) => useQuery<Veiculo[]>({ queryKey: ['veic', q], queryFn: async () => (await api.get('/veiculos', { params: { q } })).data.data })

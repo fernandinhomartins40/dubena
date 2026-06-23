@@ -2,8 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MapPin, LogOut, Menu as MenuIcon,
-  Moon, Sun, ChevronLeft, Building2, Package, Wallet, Warehouse, FileText,
+  Moon, Sun, ChevronLeft, ChevronDown, Building2, Package, Wallet, Warehouse, FileText,
   UserCog, Truck, Flame, FileBarChart, ShoppingCart,
+  MessageSquareHeart, Tag, Gift, Target, ListChecks,
+  Receipt, ArrowLeftRight, FolderArchive, Building,
+  CreditCard, HandCoins, PackageCheck, Handshake, Navigation,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -30,14 +33,36 @@ const NAV: NavItem[] = [
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
   { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoquesetor.view', group: 'Operações' },
   { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'nfemitida.view', group: 'Operações' },
+  { label: 'Cupons SAT/CFe', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Operações' },
+  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'vendavalegas.view', group: 'Operações' },
+  { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Operações' },
+
   { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
+  { label: 'Cartões', to: '/cartoes', icon: <CreditCard size={18} />, permission: 'cartao.view', group: 'Financeiro' },
+  { label: 'Gás do Povo', to: '/gas-do-povo', icon: <HandCoins size={18} />, permission: 'gasdopovo.view', group: 'Financeiro' },
+  { label: 'Convênios', to: '/convenios', icon: <Handshake size={18} />, permission: 'convenio.view', group: 'Financeiro' },
   { label: 'Config. Financeira', to: '/financeiro/configuracoes', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
+
+  { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'CRM' },
+  { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', group: 'CRM' },
+  { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', group: 'CRM' },
+  { label: 'Metas', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'CRM' },
+  { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', group: 'CRM' },
+
+  { label: 'MCMM', to: '/mcmm', icon: <ArrowLeftRight size={18} />, permission: 'mcmm.view', group: 'Gestão' },
+  { label: 'Documentos', to: '/documentos', icon: <FolderArchive size={18} />, permission: 'documento.view', group: 'Gestão' },
+  { label: 'Bens', to: '/bens', icon: <Building size={18} />, permission: 'bem.view', group: 'Gestão' },
+
   { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'RH & Frota' },
   { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', group: 'RH & Frota' },
-  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'vendavalegas.view', group: 'Operações' },
-  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, group: 'Geral' },
+  { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', group: 'RH & Frota' },
+
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
 ]
+
+// Ordem fixa das seções (grupos não listados vão ao fim, na ordem de aparição).
+const ORDEM_GRUPOS = ['Geral', 'Cadastros', 'Operações', 'Financeiro', 'CRM', 'Gestão', 'RH & Frota', 'Administração']
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout, can } = useAuth()
@@ -58,7 +83,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const expandida = open || mobileOpen
 
   const visiveis = NAV.filter((i) => !i.permission || can(i.permission))
-  const grupos = Array.from(new Set(visiveis.map((i) => i.group)))
+  const presentes = Array.from(new Set(visiveis.map((i) => i.group)))
+  const grupos = [
+    ...ORDEM_GRUPOS.filter((g) => presentes.includes(g)),
+    ...presentes.filter((g) => !ORDEM_GRUPOS.includes(g)),
+  ]
+  // Seções recolhidas (colapsadas) — por padrão todas abertas.
+  const [recolhidos, setRecolhidos] = useState<Record<string, boolean>>({})
+  const toggleGrupo = (g: string) => setRecolhidos((r) => ({ ...r, [g]: !r[g] }))
   const iniciais = (user?.name ?? '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase()
 
   return (
@@ -87,10 +119,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           {expandida && <span className="font-bold tracking-wide text-lg">Dubena</span>}
         </div>
         <nav className="flex-1 overflow-y-auto py-3">
-          {grupos.map((g) => (
+          {grupos.map((g) => {
+            const colapsado = expandida && recolhidos[g]
+            return (
             <div key={g} className="mb-4">
-              {expandida && <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">{g}</p>}
-              {visiveis.filter((i) => i.group === g).map((i) => {
+              {expandida && (
+                <button
+                  type="button"
+                  onClick={() => toggleGrupo(g)}
+                  className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors"
+                >
+                  <span>{g}</span>
+                  <ChevronDown size={13} className={cn('transition-transform', colapsado && '-rotate-90')} />
+                </button>
+              )}
+              {!colapsado && visiveis.filter((i) => i.group === g).map((i) => {
                 const link = (
                   <NavLink
                     key={i.to}
@@ -115,7 +158,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 return expandida ? link : <Tooltip key={i.to} label={i.label}>{link}</Tooltip>
               })}
             </div>
-          ))}
+            )
+          })}
         </nav>
       </aside>
 
