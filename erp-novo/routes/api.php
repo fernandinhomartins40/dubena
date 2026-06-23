@@ -397,6 +397,13 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::delete('colaboradores/{id}/familia/{famId}', [ColaboradorController::class, 'delFamilia'])->whereNumber(['id', 'famId']);
         Route::get('colaboradores/{id}/recessos', [ColaboradorController::class, 'recessos'])->whereNumber('id');
         Route::get('colaboradores/{id}/comissoes', [ColaboradorController::class, 'comissoes'])->whereNumber('id');
+        // RH complementar (C5): exames (ASO), turnos/escala, ponto.
+        Route::get('colaboradores/{id}/exames', [ColaboradorController::class, 'exames'])->whereNumber('id');
+        Route::post('colaboradores/{id}/exames', [ColaboradorController::class, 'addExame'])->whereNumber('id');
+        Route::get('colaboradores/{id}/turnos', [ColaboradorController::class, 'turnos'])->whereNumber('id');
+        Route::post('colaboradores/{id}/turnos', [ColaboradorController::class, 'addTurno'])->whereNumber('id');
+        Route::get('colaboradores/{id}/pontos', [ColaboradorController::class, 'pontos'])->whereNumber('id');
+        Route::post('colaboradores/{id}/pontos', [ColaboradorController::class, 'registrarPonto'])->whereNumber('id');
 
         // ── Módulos de fases futuras consumidos pela SPA (stub 501 documentado) ──
 

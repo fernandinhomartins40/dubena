@@ -54,4 +54,19 @@ class Colaborador extends Model
     {
         return $this->hasMany(ColaboradorComissao::class);
     }
+
+    public function exames(): HasMany
+    {
+        return $this->hasMany(ColaboradorExame::class);
+    }
+
+    public function turnos(): HasMany
+    {
+        return $this->hasMany(ColaboradorTurno::class);
+    }
+
+    public function pontos(): HasMany
+    {
+        return $this->hasMany(ColaboradorPonto::class);
+    }
 }

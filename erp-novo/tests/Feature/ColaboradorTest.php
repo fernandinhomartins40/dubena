@@ -89,4 +89,36 @@ class ColaboradorTest extends TestCase
             ->getJson('/api/admin/colaboradores')
             ->assertStatus(403);
     }
+
+    public function test_exame_turno_e_ponto(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $colab = Colaborador::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+
+        // Exame (ASO)
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/admin/colaboradores/{$colab->id}/exames", [
+                'tipo' => 'periodico', 'realizado_em' => '2026-06-01', 'vencimento' => '2027-06-01', 'resultado' => 'apto',
+            ])->assertStatus(201);
+        $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/exames")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        // Turno (upsert por dia)
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/admin/colaboradores/{$colab->id}/turnos", ['dia_semana' => 1, 'entrada' => '08:00', 'saida' => '17:00'])
+            ->assertStatus(201);
+        // Reenvio do mesmo dia → continua 1 (updateOrCreate).
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/admin/colaboradores/{$colab->id}/turnos", ['dia_semana' => 1, 'entrada' => '09:00', 'saida' => '18:00'])
+            ->assertStatus(201);
+        $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/turnos")
+            ->assertOk()->assertJsonCount(1, 'data');
+
+        // Ponto
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/admin/colaboradores/{$colab->id}/pontos", ['data' => '2026-06-23', 'entrada' => '08:05'])
+            ->assertStatus(201);
+        $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/pontos")
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
 }

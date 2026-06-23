@@ -121,6 +121,76 @@ class ColaboradorController extends Controller
         return response()->json(['data' => Colaborador::query()->findOrFail($id)->comissoes()->with('excecoes')->get()]);
     }
 
+    // ── Exames ocupacionais (ASO) — C5 ──
+    public function exames(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.view');
+
+        return response()->json(['data' => Colaborador::query()->findOrFail($id)->exames()->orderByDesc('realizado_em')->get()]);
+    }
+
+    public function addExame(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+        $d = $request->validate([
+            'tipo' => 'nullable|in:admissional,periodico,demissional,retorno',
+            'realizado_em' => 'required|date',
+            'vencimento' => 'nullable|date|after_or_equal:realizado_em',
+            'resultado' => 'nullable|in:apto,inapto,apto-com-restricao',
+            'medico' => 'nullable|string|max:255',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+
+        return response()->json(['data' => $colaborador->exames()->create($d)], 201);
+    }
+
+    // ── Turnos/escala — C5 ──
+    public function turnos(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.view');
+
+        return response()->json(['data' => Colaborador::query()->findOrFail($id)->turnos()->orderBy('dia_semana')->get()]);
+    }
+
+    public function addTurno(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+        $d = $request->validate([
+            'dia_semana' => 'required|integer|min:0|max:6',
+            'entrada' => 'required|date_format:H:i',
+            'saida' => 'required|date_format:H:i|after:entrada',
+        ]);
+        // Upsert por dia da semana (escala é única por dia).
+        $turno = $colaborador->turnos()->updateOrCreate(['dia_semana' => $d['dia_semana']], $d);
+
+        return response()->json(['data' => $turno], 201);
+    }
+
+    // ── Ponto — C5 ──
+    public function pontos(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.view');
+
+        return response()->json(['data' => Colaborador::query()->findOrFail($id)->pontos()->orderByDesc('data')->limit(60)->get()]);
+    }
+
+    public function registrarPonto(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+        $d = $request->validate([
+            'data' => 'nullable|date',
+            'entrada' => 'nullable|date_format:H:i',
+            'saida' => 'nullable|date_format:H:i',
+        ]);
+        $d['data'] ??= now()->toDateString();
+        $ponto = $colaborador->pontos()->updateOrCreate(['data' => $d['data']], $d);
+
+        return response()->json(['data' => $ponto], 201);
+    }
+
     /** @return array<string,mixed> */
     private function linha(Colaborador $c): array
     {
