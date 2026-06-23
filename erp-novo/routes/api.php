@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
+use App\Http\Controllers\Api\Admin\PagamentoController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\PixController;
 use App\Http\Controllers\Api\Admin\ProdutoConfigController;
@@ -239,6 +240,14 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('cheques/{id}', [ChequeController::class, 'update'])->whereNumber('id');
         Route::delete('cheques/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
         Route::put('cheques/{id}/situacao', [ChequeController::class, 'mudarSituacao'])->whereNumber('id');
+        Route::post('cheques/{id}/encontro-de-contas', [ChequeController::class, 'encontroDeContas'])->whereNumber('id');
+
+        // ── Pagamentos (C4): cartão (NSU) e Gás do Povo ──
+        Route::get('cartoes', [PagamentoController::class, 'cartaoIndex']);
+        Route::post('cartoes', [PagamentoController::class, 'cartaoRegistrar']);
+        Route::get('gasdopovo', [PagamentoController::class, 'gasIndex']);
+        Route::post('gasdopovo', [PagamentoController::class, 'gasRegistrar']);
+        Route::post('gasdopovo/{id}/sacar', [PagamentoController::class, 'gasSacar'])->whereNumber('id');
 
         // Aliases da SPA: cheques/recebidos (CRUD) → ChequeController.
         Route::post('cheques/recebidos', [ChequeController::class, 'store']);

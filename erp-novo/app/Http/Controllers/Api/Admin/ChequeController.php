@@ -14,9 +14,7 @@ use Illuminate\Http\Request;
  */
 class ChequeController extends Controller
 {
-    public function __construct(private ChequeService $service)
-    {
-    }
+    public function __construct(private ChequeService $service) {}
 
     public function recebidos(Request $request): JsonResponse
     {
@@ -78,6 +76,25 @@ class ChequeController extends Controller
         $cheque = $this->service->mudarSituacao(Cheque::query()->findOrFail($id), $destino, $d['conta_id'] ?? null, $request->user()->id);
 
         return response()->json(['data' => $cheque]);
+    }
+
+    /** POST /cheques/{id}/encontro-de-contas — repassa cheque p/ quitar compromisso (troco em cheque). */
+    public function encontroDeContas(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'caixa.edit');
+        $d = $request->validate([
+            'valor_compromisso' => 'required|numeric|gte:0',
+            'financeiro_parcela_id' => 'nullable|integer|exists:financeiroparcelas,id',
+        ]);
+
+        $resultado = $this->service->encontroDeContas(
+            Cheque::query()->findOrFail($id),
+            (float) $d['valor_compromisso'],
+            $d['financeiro_parcela_id'] ?? null,
+            $request->user()->id,
+        );
+
+        return response()->json(['data' => $resultado]);
     }
 
     /** @return array<string,mixed> */

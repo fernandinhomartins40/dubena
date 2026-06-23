@@ -6,7 +6,6 @@ use App\Domain\Caixa\CaixaService;
 use App\Domain\Caixa\ChequeService;
 use App\Domain\Caixa\SituacaoCheque;
 use App\Models\Caixa\Cheque;
-use App\Models\Caixa\Conta;
 use App\Models\Empresa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +19,9 @@ class ChequeServiceTest extends TestCase
     use RefreshDatabase;
 
     private ChequeService $service;
+
     private CaixaService $caixa;
+
     private Empresa $empresa;
 
     protected function setUp(): void
@@ -81,5 +82,22 @@ class ChequeServiceTest extends TestCase
         $redep = $this->service->mudarSituacao($cheque->refresh(), SituacaoCheque::DEPOSITADO);
 
         $this->assertEquals(SituacaoCheque::DEPOSITADO, $redep->situacao);
+    }
+
+    public function test_encontro_de_contas_repassa_e_calcula_troco(): void
+    {
+        $cheque = $this->cheque('R'); // valor 200
+        // Compromisso de 150 → cheque vira REPASSADO e troco = 50.
+        $res = $this->service->encontroDeContas($cheque, 150.0);
+
+        $this->assertEquals(SituacaoCheque::REPASSADO, $res['cheque']->situacao);
+        $this->assertEqualsWithDelta(50.0, $res['troco'], 0.001);
+    }
+
+    public function test_encontro_de_contas_so_aceita_cheque_recebido(): void
+    {
+        $cheque = $this->cheque('E'); // emitido
+        $this->expectException(ValidationException::class);
+        $this->service->encontroDeContas($cheque, 100.0);
     }
 }

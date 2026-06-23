@@ -13,9 +13,7 @@ use Illuminate\Validation\ValidationException;
  */
 class ChequeService
 {
-    public function __construct(private CaixaService $caixa)
-    {
-    }
+    public function __construct(private CaixaService $caixa) {}
 
     /** @param array<string,mixed> $dados */
     public function criar(array $dados): Cheque
@@ -70,6 +68,45 @@ class ChequeService
             $cheque->update(['situacao' => $destino->value]);
 
             return $cheque->refresh();
+        });
+    }
+
+    /**
+     * Encontro de contas (C4): usa um cheque RECEBIDO em carteira para quitar um
+     * compromisso (repasse a terceiro / troco em cheque). Marca o cheque como
+     * REPASSADO e registra a baixa do título a pagar associado quando informado.
+     * Não toca no caixa (não há trânsito de dinheiro — é compensação direta).
+     *
+     * Devolve o cheque atualizado e, opcionalmente, a diferença (troco) quando o
+     * valor do cheque excede o compromisso.
+     *
+     * @return array{cheque: Cheque, troco: float}
+     */
+    public function encontroDeContas(Cheque $cheque, float $valorCompromisso, ?int $financeiroParcelaId = null, ?int $userId = null): array
+    {
+        if ($cheque->especie !== 'R') {
+            throw ValidationException::withMessages(['cheque' => 'Só cheques recebidos entram em encontro de contas.']);
+        }
+        if (! $cheque->situacao->podeIrPara(SituacaoCheque::REPASSADO)) {
+            throw ValidationException::withMessages([
+                'situacao' => "Cheque em {$cheque->situacao->value} não pode ser repassado.",
+            ]);
+        }
+
+        return DB::transaction(function () use ($cheque, $valorCompromisso, $financeiroParcelaId) {
+            if ($financeiroParcelaId) {
+                DB::table('financeiroparcelas')->where('id', $financeiroParcelaId)->update([
+                    'baixado' => true,
+                    'valor_efetivado' => round(min((float) $cheque->valor, $valorCompromisso), 2),
+                    'datahora_baixa' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $cheque->update(['situacao' => SituacaoCheque::REPASSADO->value]);
+            $troco = round(max(0.0, (float) $cheque->valor - $valorCompromisso), 2);
+
+            return ['cheque' => $cheque->refresh(), 'troco' => $troco];
         });
     }
 }

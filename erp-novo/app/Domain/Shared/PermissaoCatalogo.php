@@ -40,6 +40,8 @@ final class PermissaoCatalogo
         'mcmm' => ['view', 'create', 'edit', 'delete'],
         'documento' => ['view', 'create', 'edit', 'delete'],
         'bem' => ['view', 'create', 'edit', 'delete'],
+        'cartao' => ['view', 'create'],
+        'gasdopovo' => ['view', 'create', 'edit'],
         'empresa' => ['view', 'create', 'edit', 'delete'],
         'grupo' => ['view', 'create', 'edit', 'delete'],
         'relatorio' => ['view'],
