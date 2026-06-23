@@ -313,6 +313,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/dre', [RelatorioController::class, 'dre']);
         Route::get('relatorios/estoque-baixo', [RelatorioController::class, 'estoqueBaixo']);
         Route::get('relatorios/fechamentos-caixa', [RelatorioController::class, 'fechamentosCaixa']);
+        Route::get('relatorios/aniversariantes', [RelatorioController::class, 'clientesAniversariantes']);
+        Route::get('relatorios/vale-gas', [RelatorioController::class, 'valeGas']);
+        Route::get('relatorios/comodatos', [RelatorioController::class, 'comodatos']);
+        Route::get('relatorios/comissoes', [RelatorioController::class, 'comissoes']);
+        Route::get('relatorios/movimentacao-caixa', [RelatorioController::class, 'movimentacaoCaixa']);
         // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
         Route::get('financeiro/dre', [RelatorioController::class, 'dre']);
         // Conciliação bancária (OFX): FASE C8. Stub 501.

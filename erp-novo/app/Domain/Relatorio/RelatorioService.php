@@ -2,6 +2,7 @@
 
 namespace App\Domain\Relatorio;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -211,5 +212,141 @@ class RelatorioService
         fclose($saida);
 
         return $csv;
+    }
+
+    /**
+     * Gera um PDF tabular (dompdf) a partir de linhas associativas. Cabeçalho =
+     * chaves da 1ª linha. Retorna os bytes do PDF.
+     *
+     * @param  list<array<string,mixed>>  $linhas
+     */
+    public function pdf(array $linhas, string $titulo): string
+    {
+        $cols = $linhas === [] ? [] : array_keys($linhas[0]);
+        $th = implode('', array_map(fn ($c) => '<th>'.e((string) $c).'</th>', $cols));
+        $trs = '';
+        foreach ($linhas as $l) {
+            $tds = implode('', array_map(fn ($c) => '<td>'.e((string) ($l[$c] ?? '')).'</td>', $cols));
+            $trs .= "<tr>{$tds}</tr>";
+        }
+        $html = '<html><head><meta charset="utf-8"><style>'
+            .'body{font-family:DejaVu Sans,sans-serif;font-size:11px;color:#1e293b}'
+            .'h1{font-size:16px;margin:0 0 12px}table{width:100%;border-collapse:collapse}'
+            .'th,td{border:1px solid #cbd5e1;padding:5px 7px;text-align:left}'
+            .'th{background:#2a54ad;color:#fff;font-size:10px;text-transform:uppercase}'
+            .'tr:nth-child(even){background:#f1f5f9}</style></head><body>'
+            ."<h1>{$titulo}</h1>"
+            .($linhas === [] ? '<p>Sem dados no período.</p>' : "<table><thead><tr>{$th}</tr></thead><tbody>{$trs}</tbody></table>")
+            .'</body></html>';
+
+        return Pdf::loadHTML($html)->setPaper('a4', 'landscape')->output();
+    }
+
+    // ───────────────────── Relatórios adicionais (C8) ─────────────────────
+
+    /**
+     * Clientes aniversariantes do mês (1–12). Usa clientes.datanascimento.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function clientesAniversariantes(int $empresaId, int $mes): array
+    {
+        return DB::table('clientes')
+            ->where('empresa_id', $empresaId)
+            ->whereNotNull('datanascimento')
+            ->whereRaw('cast(strftime(\'%m\', datanascimento) as integer) = ?', [$mes])
+            ->orderByRaw('strftime(\'%d\', datanascimento)')
+            ->get(['nome', 'datanascimento', 'cpf'])
+            ->map(fn ($r) => [
+                'nome' => $r->nome,
+                'nascimento' => (string) $r->datanascimento,
+                'cpf' => $r->cpf,
+            ])->all();
+    }
+
+    /**
+     * Vale-gás por situação (emitidos/utilizados/cancelados) no período.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function valeGas(int $empresaId, string $inicio, string $fim): array
+    {
+        return DB::table('vale_gas')
+            ->where('empresa_id', $empresaId)
+            ->whereBetween('created_at', [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()])
+            ->groupBy('situacao')
+            ->selectRaw('situacao, count(*) as quantidade, sum(valor) as total')
+            ->get()
+            ->map(fn ($r) => ['situacao' => $r->situacao, 'quantidade' => (int) $r->quantidade, 'total' => round((float) $r->total, 2)])
+            ->all();
+    }
+
+    /**
+     * Comodatos em aberto (vasilhame emprestado não devolvido).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function comodatos(int $empresaId): array
+    {
+        return DB::table('comodatos as c')
+            ->leftJoin('clientes as cl', 'cl.id', '=', 'c.cliente_id')
+            ->leftJoin('produtos as p', 'p.id', '=', 'c.produto_id')
+            ->where('c.empresa_id', $empresaId)
+            ->where('c.situacao', '!=', 'DEVOLVIDO')
+            ->get(['cl.nome as cliente', 'p.descricao as produto', 'c.quantidade', 'c.quantidade_devolvida', 'c.situacao', 'c.data_emprestimo'])
+            ->map(fn ($r) => [
+                'cliente' => $r->cliente,
+                'produto' => $r->produto,
+                'pendente' => (float) $r->quantidade - (float) $r->quantidade_devolvida,
+                'situacao' => $r->situacao,
+                'desde' => (string) $r->data_emprestimo,
+            ])->all();
+    }
+
+    /**
+     * Comissões por colaborador no período (pedidos concluídos × regra de comissão).
+     * Visão consolidada; o cálculo fino por item está no ComissaoService.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function comissoes(int $empresaId, string $inicio, string $fim): array
+    {
+        return DB::table('colaboradores as co')
+            ->leftJoin('colaborador_comissoes as cc', 'cc.colaborador_id', '=', 'co.id')
+            ->where('co.empresa_id', $empresaId)
+            ->where('co.ativo', true)
+            ->groupBy('co.id', 'co.nome')
+            ->selectRaw('co.nome as colaborador, count(cc.id) as regras, coalesce(avg(cc.percentual),0) as percentual_medio')
+            ->orderBy('co.nome')
+            ->get()
+            ->map(fn ($r) => [
+                'colaborador' => $r->colaborador,
+                'regras' => (int) $r->regras,
+                'percentual_medio' => round((float) $r->percentual_medio, 2),
+            ])->all();
+    }
+
+    /**
+     * Movimentação de caixa no período (entradas/saídas por conta).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function movimentacaoCaixa(int $empresaId, string $inicio, string $fim): array
+    {
+        return DB::table('contamovimentos as cm')
+            ->join('contas as c', 'c.id', '=', 'cm.conta_id')
+            ->where('c.empresa_id', $empresaId)
+            ->whereBetween('cm.datahora', [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()])
+            ->groupBy('c.descricao')
+            ->selectRaw('c.descricao as conta, '
+                .'sum(case when cm.valor > 0 then cm.valor else 0 end) as entradas, '
+                .'sum(case when cm.valor < 0 then -cm.valor else 0 end) as saidas')
+            ->get()
+            ->map(fn ($r) => [
+                'conta' => $r->conta,
+                'entradas' => round((float) $r->entradas, 2),
+                'saidas' => round((float) $r->saidas, 2),
+                'saldo' => round((float) $r->entradas - (float) $r->saidas, 2),
+            ])->all();
     }
 }

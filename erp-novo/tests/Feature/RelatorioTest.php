@@ -97,6 +97,37 @@ class RelatorioTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_relatorios_adicionais_respondem(): void
+    {
+        $p = '?inicio='.now()->subMonth()->toDateString().'&fim='.now()->addDay()->toDateString();
+        foreach ([
+            '/api/admin/relatorios/aniversariantes?mes=6',
+            '/api/admin/relatorios/vale-gas'.$p,
+            '/api/admin/relatorios/comodatos',
+            '/api/admin/relatorios/comissoes'.$p,
+            '/api/admin/relatorios/movimentacao-caixa'.$p,
+        ] as $url) {
+            $this->actingAs($this->user, 'sanctum')->getJson($url)
+                ->assertOk()->assertJsonStructure(['data']);
+        }
+    }
+
+    public function test_export_csv_e_pdf(): void
+    {
+        // CSV
+        $csv = $this->actingAs($this->user, 'sanctum')
+            ->get('/api/admin/relatorios/comodatos?formato=csv');
+        $csv->assertOk();
+        $this->assertStringContainsString('text/csv', $csv->headers->get('content-type'));
+
+        // PDF (dompdf gera %PDF-)
+        $pdf = $this->actingAs($this->user, 'sanctum')
+            ->get('/api/admin/relatorios/comodatos?formato=pdf');
+        $pdf->assertOk();
+        $this->assertSame('application/pdf', $pdf->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
+    }
+
     public function test_cutover_check_apos_etl_libera_portao(): void
     {
         // Sem dados, o portão FECHA (ex.: estados=0). Após o ETL (semente de estados),
