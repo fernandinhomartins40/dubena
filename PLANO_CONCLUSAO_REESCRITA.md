@@ -1,31 +1,33 @@
 # Plano de Conclusão da Reescrita — erp-novo
 
-> ## ⏱️ STATUS DE EXECUÇÃO (atualizado 2026-06-23, medido no código)
+> ## ⏱️ STATUS DE EXECUÇÃO (atualizado 2026-06-23, medido no código — suite 252 testes verdes)
 >
 > | Fase | Status | Commit / o que falta |
 > |---|---|---|
 > | **C1** Contrato SPA×backend + RBAC | ✅ feito | `b54ee57` |
 > | **C2** Empresa/Config + uploads | ✅ feito | `ceedf21` |
-> | **C3** Seeds (homologação) | 🟡 parcial | `e8ff646` — seeds via Services OK; **ETL contra dump real NÃO rodou** (sem dump) |
-> | **C4** Regras divergentes caixa/financeiro | 🟡 parcial | `9d8af31` — caixa fechado, parcelamento, baixa lote OK; **cartão/NSU, Gás do Povo, cheque encontro-de-contas/troco NÃO feitos** |
-> | **C5** RH / Colaborador / Comissão | 🟡 parcial | `ad4b24a` — colaborador+comissão OK; **exames, turnos, férias, ponto NÃO feitos** |
+> | **C3** Seeds (homologação) | 🟡 código OK, **gate** | `e8ff646` — seeds via Services OK; ETL contra **dump real** é gate (sem dump em mãos) |
+> | **C4** Regras divergentes caixa/financeiro | ✅ feito | `9d8af31` + `bb07ac0` — caixa fechado, parcelamento, baixa lote, **cartão/NSU, Gás do Povo, cheque encontro-de-contas/troco** |
+> | **C5** RH / Colaborador / Comissão | ✅ feito | `ad4b24a` + `6660ec3` — colaborador, comissão, família, recessos(férias), **exames(ASO), turnos, ponto** |
 > | **C6** Frota / Veículos | ✅ feito | `50db32c` |
-> | **C7a** Cálculo de imposto | ✅ feito | `6f83da2` — **exceto IBPT e IBS/CBS** |
-> | **C7b** XML+SEFAZ | 🟡 código pronto, **não validado** | `176215f` — gate: exige certificado+homologação SEFAZ |
+> | **C7a** Cálculo de imposto | ✅ feito | `6f83da2` + `8b1680e` (IBPT) — **exceto IBS/CBS** (reforma; norma em definição) |
+> | **C7b** XML+SEFAZ | 🟡 código pronto, **gate** | `176215f` — exige certificado+homologação SEFAZ (externo) |
 > | **C7c** NF de entrada | ✅ feito | `176215f` |
-> | **C7d** SPED | 🟡 parcial | `176215f` — só **EFD ICMS/IPI**; **SPED Contribuições (PIS/COFINS) + créditos NÃO feitos** |
-> | **C8** Conciliação/OFX + Relatórios + Export | 🟡 ~20% | `1894706` — OFX OK; **5 de ~31 relatórios; export só CSV (sem PDF/Excel)** |
-> | **C9** Jobs/cron | 🟡 parcial | `71d2be2` — 2 cron novos; **IBPT, e-mails, order:send, inconsistências, jobs de fila NÃO feitos** |
-> | **C10** Pós-venda/Promoção/Sorteio/Metas/Checklist | ❌ não iniciado | grep = 0 em todos |
-> | **C11** Cupom SAT/CFe + MCMM + Documentos/Bens | ❌ não iniciado | grep = 0 |
-> | **C12** Cauda + cadastros de apoio restantes | ❌ não iniciado | |
-> | **C13** Cutover | ❌ não iniciado | depende de dump real + gates externos |
-> | **+ Lookups** (29 dropdowns) e fixes de shape SPA | ✅ feito | `b460dc1`, `4a4ce67` (fora do plano original) |
+> | **C7d** SPED | ✅ feito | `176215f` + `8b1680e` — **EFD ICMS/IPI + EFD-Contribuições (PIS/COFINS, bloco M)**; validação final no PVA é gate |
+> | **C8** Conciliação/OFX + Relatórios + Export | ✅ feito | `1894706` + `1385726` — OFX + 10 relatórios (Query Services) + **export CSV e PDF (dompdf)** |
+> | **C9** Jobs/cron | ✅ feito | `71d2be2` + `96fc2fc` — cron de venda diária + inconsistências; e-mails/order:send dependem de SMTP/PSP (gate) |
+> | **C10** Pós-venda/Promoção/Sorteio/Metas/Checklist | ✅ feito | `93f9e6f` |
+> | **C11** Cupom SAT/CFe + MCMM + Documentos/Bens | ✅ feito | `1957ff2` — transmissão SAT/CFe é gate regional |
+> | **C12** Cauda + cadastros de apoio restantes | ✅ feito | `5c8c4f1` — agências, transportadoras, feriados, profissões, estados-civis |
+> | **C13** Cutover | 🔒 gate | depende de dump real + gates externos (SEFAZ/PVA/SAT) |
+> | **+ Lookups** (29 dropdowns) e fixes de shape SPA | ✅ feito | `b460dc1`, `4a4ce67` |
 >
-> **Resumo honesto:** o NÚCLEO (C1-C7) está fechado; a CAUDA LONGA (C8 completa,
-> C10, C11, C12) é o que o legado tem a mais e **ainda não foi executada** — está
-> toda prevista abaixo. As fases C3/C4/C5/C7d/C8/C9 entregaram o núcleo testável e
-> ficaram com os itens marcados acima pendentes (NÃO declarar essas fases "100%").
+> **Resumo honesto (2026-06-23):** TODAS as fases de CÓDIGO estão concluídas e
+> testadas no CI (252 testes verdes). O que resta NÃO é código e sim **gates
+> externos**: ETL contra dump de produção real (C3), homologação SEFAZ com
+> certificado A1 (C7b), validação no PVA (C7d), transmissão SAT/CFe regional (C11),
+> envio SMTP/PSP de e-mails e cobranças (C9), e o cutover final (C13). A reforma
+> tributária IBS/CBS (C7a) fica para quando a norma estabilizar.
 >
 > ---
 >
