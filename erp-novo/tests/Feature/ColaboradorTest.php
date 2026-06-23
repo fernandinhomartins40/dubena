@@ -41,7 +41,7 @@ class ColaboradorTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/colaboradores')
             ->assertOk()
-            ->assertJsonPath('total', 1);
+            ->assertJsonPath('meta.total', 1);
     }
 
     public function test_familia_adiciona_e_remove(): void
@@ -75,7 +75,7 @@ class ColaboradorTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/colaboradores')
             ->assertOk()
-            ->assertJsonPath('total', 0);
+            ->assertJsonPath('meta.total', 0);
     }
 
     public function test_sem_permissao_recebe_403(): void

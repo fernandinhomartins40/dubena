@@ -28,9 +28,17 @@ class ColaboradorController extends Controller
             ->orderBy('nome')
             ->paginate(20);
 
-        $page->getCollection()->transform(fn (Colaborador $c) => $this->linha($c));
-
-        return response()->json($page);
+        // Envelope {data, meta} — a SPA lê data.meta.total/current_page/last_page
+        // (mesmo contrato dos demais lists, ex.: ClienteResource::collection).
+        return response()->json([
+            'data' => $page->getCollection()->map(fn (Colaborador $c) => $this->linha($c))->values(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+            ],
+        ]);
     }
 
     public function show(Request $request, int $id): JsonResponse
