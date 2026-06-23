@@ -48,7 +48,14 @@ class JobsAgendadosTest extends TestCase
         $saida = Artisan::call('schedule:list');
         $this->assertSame(0, $saida);
         $texto = Artisan::output();
-        $this->assertStringContainsString('pix:expirar', $texto);
-        $this->assertStringContainsString('financeiro:notificar-vencidos', $texto);
+        foreach (['pix:expirar', 'financeiro:notificar-vencidos', 'vendas:diaria', 'notify:inconsistencias'] as $cmd) {
+            $this->assertStringContainsString($cmd, $texto);
+        }
+    }
+
+    public function test_venda_diaria_e_inconsistencias_rodam(): void
+    {
+        $this->artisan('vendas:diaria')->assertSuccessful();
+        $this->artisan('notify:inconsistencias')->assertSuccessful();
     }
 }

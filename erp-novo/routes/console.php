@@ -24,3 +24,9 @@ Schedule::command('pix:expirar')->everyMinute()->withoutOverlapping();
 
 // Apura parcelas a receber vencidas (lembrete de cobrança) — 07:30. C9.
 Schedule::command('financeiro:notificar-vencidos')->dailyAt('07:30')->withoutOverlapping();
+
+// Venda diária por empresa — 07:15 (base do e-mail; envio é gate SMTP). C9.
+Schedule::command('vendas:diaria')->dailyAt('07:15')->withoutOverlapping();
+
+// Inconsistências de saldo (estoque/caixa) — segunda 03:00. C9.
+Schedule::command('notify:inconsistencias')->weeklyOn(1, '03:00')->withoutOverlapping();
