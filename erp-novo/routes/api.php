@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\ProdutoPrecoController;
 use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
+use App\Http\Controllers\Api\Admin\SateliteStatusController;
 use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\Admin\StubController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
@@ -336,9 +337,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('veiculos/{id}/pneus', [VeiculoController::class, 'pneus'])->whereNumber('id');
 
         // Satélites (relatórios/monitoramento/integrações agregados) → FASE C10.
-        Route::get('satelites/relatorios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
-        Route::get('satelites/monitoramento', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
-        Route::get('satelites/integracoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');
+        // Satélites — status agregado — C10.
+        Route::get('satelites/relatorios', [SateliteStatusController::class, 'relatorios']);
+        Route::get('satelites/monitoramento', [SateliteStatusController::class, 'monitoramento']);
+        Route::get('satelites/integracoes', [SateliteStatusController::class, 'integracoes']);
     });
 
     // ── App mobile (cliente + entregador) — N10 ──
