@@ -6,15 +6,15 @@
   <title>Dubena · Gás em Casa</title>
   <style>
     /*
-     * Landing com o MESMO design do SPA novo (design system Dubena / IMPL_UI):
-     * azul de marca #2a54ad, roxo accent #672290, amarelo destaque #e7eb13,
-     * cards brancos arredondados com sombra, fundo gradiente azul→roxo.
+     * Landing com o MESMO design do SPA novo (design system Supergasbras):
+     * laranja de marca #F1411C, amarelo/dourado destaque #FBB034,
+     * cards brancos arredondados com sombra, fundo gradiente laranja→dourado.
      */
     :root {
-      --marca-500:#2a54ad; --marca-600:#244a98; --marca-700:#1f3c7c;
-      --marca-800:#2a3b85; --marca-900:#1b2a5e;
-      --accent:#672290; --destaque:#e7eb13;
-      --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#ffffff;
+      --marca-500:#f1411c; --marca-600:#d83610; --marca-700:#b32c0d;
+      --marca-800:#8f240b; --marca-900:#6b1b08;
+      --accent:#fbb034; --destaque:#fbb034;
+      --fg:#1a1a1a; --muted:#6b6b6b; --line:#ede3df; --card:#ffffff;
       --radius:0.75rem;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,8 +35,8 @@
       display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,.25);
     }
     .head h1 { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.1; }
-    .head p { font-size: 13px; color: #c7d2fe; }
-    .sub { text-align: center; color: #dbe4ff; font-size: 15px; margin: 14px 0 36px; }
+    .head p { font-size: 13px; color: #ffe1d4; }
+    .sub { text-align: center; color: #ffe9dd; font-size: 15px; margin: 14px 0 36px; }
 
     .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
@@ -54,8 +54,8 @@
       align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .06em;
       text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
     }
-    .nova .tag { background: rgba(103,34,144,.10); color: var(--accent); }
-    .antiga .tag { background: rgba(42,84,173,.10); color: var(--marca-600); }
+    .nova .tag { background: rgba(251,176,52,.18); color: var(--accent); }
+    .antiga .tag { background: rgba(241,65,28,.10); color: var(--marca-600); }
 
     .card h2 { font-size: 20px; font-weight: 700; color: var(--marca-900); }
     .card p.desc { color: var(--muted); font-size: 14px; line-height: 1.55; }
@@ -76,7 +76,7 @@
     .antiga .btn { background: #475569; }
     .antiga .btn:hover { background: #334155; }
 
-    .foot { margin-top: 34px; text-align: center; color: #c7d2fe; font-size: 12px; }
+    .foot { margin-top: 34px; text-align: center; color: #ffe1d4; font-size: 12px; }
   </style>
 </head>
 <body>

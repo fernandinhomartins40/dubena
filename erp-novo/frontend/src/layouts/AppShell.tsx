@@ -115,7 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
-          <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent font-black text-sidebar shadow">D</div>
+          <div className="grid size-9 place-items-center rounded-lg bg-white font-black text-primary shadow">D</div>
           {expandida && <span className="font-bold tracking-wide text-lg">Dubena</span>}
         </div>
         <nav className="flex-1 overflow-y-auto py-3">

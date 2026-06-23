@@ -31,11 +31,11 @@ export default {
           foreground: hsl('--sidebar-foreground'),
           accent: hsl('--sidebar-accent'),
         },
-        // Paleta de marca legada (telas ainda não migradas usam marca-600 etc.)
+        // Paleta de marca Supergasbras (laranja). Telas legadas usam marca-600 etc.
         marca: {
-          50: '#eef3fb', 100: '#d6e2f5', 200: '#aec5ea', 300: '#7ea2db',
-          400: '#4f7ccb', 500: '#2a54ad', 600: '#244a98', 700: '#1f3c7c',
-          800: '#2a3b85', 900: '#1b2a5e',
+          50: '#fef0ec', 100: '#fdd9cf', 200: '#fab19f', 300: '#f78970',
+          400: '#f46243', 500: '#f1411c', 600: '#d83610', 700: '#b32c0d',
+          800: '#8f240b', 900: '#6b1b08',
         },
         info: { DEFAULT: '#137bc9' },
       },
