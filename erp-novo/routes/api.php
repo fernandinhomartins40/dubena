@@ -5,25 +5,23 @@ use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
 use App\Http\Controllers\Api\Admin\ChequeController;
-use App\Http\Controllers\Api\Admin\PixController;
-use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\Admin\ClienteController;
-use App\Http\Controllers\Api\Admin\ComodatoController;
-use App\Http\Controllers\Api\Admin\ConvenioController;
-use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
+use App\Http\Controllers\Api\Admin\ComodatoController;
+use App\Http\Controllers\Api\Admin\ConfigFiscalController;
+use App\Http\Controllers\Api\Admin\ConvenioController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
 use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
-use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
+use App\Http\Controllers\Api\Admin\PixController;
 use App\Http\Controllers\Api\Admin\ProdutoConfigController;
 use App\Http\Controllers\Api\Admin\ProdutoController;
 use App\Http\Controllers\Api\Admin\ProdutoPrecoController;
@@ -31,10 +29,12 @@ use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\Admin\StubController;
+use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
+use App\Http\Controllers\Api\PixWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -82,11 +82,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('empresas/{id}/config', [EmpresaConfigController::class, 'show'])->whereNumber('id');
         Route::put('empresas/{id}/config', [EmpresaConfigController::class, 'update'])->whereNumber('id');
         Route::put('empresas/{id}/config/senha-mestra', [EmpresaConfigController::class, 'senhaMestra'])->whereNumber('id');
-        // Uploads de empresa (certificado A1, token NFC-e, teste SMTP) — infra real na FASE C2.
-        Route::post('empresas/{id}/config/testar-email', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'teste de e-mail')->whereNumber('id');
-        Route::get('empresas/{id}/certificado', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'certificado A1')->whereNumber('id');
-        Route::post('empresas/{id}/certificado', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'certificado A1')->whereNumber('id');
-        Route::put('empresas/{id}/nfce-token', [StubController::class, 'naoImplementado'])->defaults('fase', 'C2')->defaults('modulo', 'token NFC-e')->whereNumber('id');
+        // Uploads/config de empresa — C2 (certificado A1, token NFC-e, teste SMTP).
+        Route::post('empresas/{id}/config/testar-email', [EmpresaConfigController::class, 'testarEmail'])->whereNumber('id');
+        Route::get('empresas/{id}/certificado', [EmpresaConfigController::class, 'certificadoStatus'])->whereNumber('id');
+        Route::post('empresas/{id}/certificado', [EmpresaConfigController::class, 'uploadCertificado'])->whereNumber('id');
+        Route::put('empresas/{id}/nfce-token', [EmpresaConfigController::class, 'nfceToken'])->whereNumber('id');
 
         // Grupos (redes) — C1.
         Route::get('grupos', [GrupoController::class, 'index']);

@@ -22,10 +22,13 @@ class EmpresaConfig extends Model
         'tempoentrega', 'tempourgente', 'maximoparcelas',
         'email_host', 'email_port', 'email_username', 'email_password',
         'email_from_address', 'email_from_name', 'email_encryption',
+        'cert_path', 'cert_senha', 'cert_cnpj', 'cert_titular',
+        'cert_validade', 'cert_uploaded_at',
+        'nfce_csc_id', 'nfce_csc_token',
         'dados',
     ];
 
-    protected $hidden = ['senha_mestra', 'email_password'];
+    protected $hidden = ['senha_mestra', 'email_password', 'cert_senha', 'cert_path', 'nfce_csc_token'];
 
     protected function casts(): array
     {
@@ -35,6 +38,10 @@ class EmpresaConfig extends Model
             'maximoparcelas' => 'integer',
             'email_port' => 'integer',
             'email_password' => 'encrypted',
+            'cert_senha' => 'encrypted',
+            'cert_validade' => 'datetime',
+            'cert_uploaded_at' => 'datetime',
+            'nfce_csc_token' => 'encrypted',
             'dados' => 'array',
         ];
     }
