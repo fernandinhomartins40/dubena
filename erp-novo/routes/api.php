@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
 use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
+use App\Http\Controllers\Api\Admin\FiscalConfigController;
 use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
@@ -30,7 +31,6 @@ use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SateliteStatusController;
 use App\Http\Controllers\Api\Admin\SetorController;
-use App\Http\Controllers\Api\Admin\StubController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
@@ -280,15 +280,15 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('fiscal/nfe/{id}/transmitir', [NotaFiscalController::class, 'transmitir'])->whereNumber('id');
         Route::post('fiscal/nfe/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
 
-        // Fiscal — operações/malha/SPED: cálculo completo + SPED entram na FASE C7. Stub 501.
-        Route::get('fiscal/operacoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais');
-        Route::post('fiscal/operacoes', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais');
-        Route::put('fiscal/operacoes/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais')->whereNumber('id');
-        Route::delete('fiscal/operacoes/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'operações fiscais')->whereNumber('id');
-        Route::get('fiscal/malha/{tipo}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal');
-        Route::post('fiscal/malha/{tipo}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal');
-        Route::put('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
-        Route::delete('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
+        // Fiscal — operações fiscais e malha (config por tipo) — C12.
+        Route::get('fiscal/operacoes', [FiscalConfigController::class, 'operacoesIndex']);
+        Route::post('fiscal/operacoes', [FiscalConfigController::class, 'operacaoSalvar']);
+        Route::put('fiscal/operacoes/{id}', [FiscalConfigController::class, 'operacaoSalvar'])->whereNumber('id');
+        Route::delete('fiscal/operacoes/{id}', [FiscalConfigController::class, 'operacaoExcluir'])->whereNumber('id');
+        Route::get('fiscal/malha/{tipo}', [FiscalConfigController::class, 'malhaIndex']);
+        Route::post('fiscal/malha/{tipo}', [FiscalConfigController::class, 'malhaSalvar']);
+        Route::put('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaSalvar'])->whereNumber('id');
+        Route::delete('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaExcluir'])->whereNumber('id');
         Route::get('fiscal/sped', [NotaFiscalController::class, 'sped']);
 
         // ── Monitora (GPS) — N11 (módulo isolado) ──
