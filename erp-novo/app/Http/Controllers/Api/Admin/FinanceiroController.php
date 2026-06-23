@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Financeiro\ConciliacaoService;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\Financeiro;
@@ -16,9 +17,7 @@ use Illuminate\Http\Request;
  */
 class FinanceiroController extends Controller
 {
-    public function __construct(private FinanceiroService $service)
-    {
-    }
+    public function __construct(private FinanceiroService $service) {}
 
     /** GET /financeiro/lancamentos?pagarreceber=&status=&q= (parcelas) */
     public function lancamentos(Request $request): JsonResponse
@@ -116,6 +115,32 @@ class FinanceiroController extends Controller
         $this->service->cancelar(Financeiro::query()->findOrFail($id));
 
         return response()->json(['message' => 'Título cancelado.']);
+    }
+
+    /**
+     * GET/POST /financeiro/conciliacao — concilia um extrato OFX com os movimentos
+     * da conta no período (C8). Sem OFX (GET inicial), devolve os movimentos do ERP
+     * como pendentes; com OFX (campo `ofx` ou upload `arquivo`), casa as transações.
+     */
+    public function conciliacao(Request $request, ConciliacaoService $service): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.view');
+        $d = $request->validate([
+            'conta_id' => 'required|integer|exists:contas,id',
+            'inicio' => 'required|date',
+            'fim' => 'required|date|after_or_equal:inicio',
+            'ofx' => 'nullable|string',
+            'arquivo' => 'nullable|file',
+        ]);
+
+        $ofx = $d['ofx'] ?? null;
+        if (! $ofx && $request->hasFile('arquivo')) {
+            $ofx = (string) file_get_contents($request->file('arquivo')->getRealPath());
+        }
+
+        $resultado = $service->conciliar((int) $d['conta_id'], $ofx ?? '', $d['inicio'], $d['fim']);
+
+        return response()->json(['data' => $resultado]);
     }
 
     private function autorizar(Request $request, string $chave): void

@@ -118,4 +118,52 @@ class RelatorioService
                 'quantidade_minima' => (float) $r->quantidade_minima,
             ])->all();
     }
+
+    /**
+     * Fechamentos de caixa no período (saldo inicial/final por conta).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function fechamentosCaixa(int $empresaId, string $inicio, string $fim): array
+    {
+        return DB::table('contafechamentos as cf')
+            ->join('contas as c', 'c.id', '=', 'cf.conta_id')
+            ->where('cf.empresa_id', $empresaId)
+            ->whereBetween('cf.abertura', [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()])
+            ->select('c.descricao as conta', 'cf.abertura', 'cf.fechamento', 'cf.saldo_inicial', 'cf.saldo_final', 'cf.aberto')
+            ->orderByDesc('cf.abertura')
+            ->get()
+            ->map(fn ($r) => [
+                'conta' => $r->conta,
+                'abertura' => (string) $r->abertura,
+                'fechamento' => $r->fechamento ? (string) $r->fechamento : null,
+                'saldo_inicial' => round((float) $r->saldo_inicial, 2),
+                'saldo_final' => $r->saldo_final !== null ? round((float) $r->saldo_final, 2) : null,
+                'aberto' => (bool) $r->aberto,
+            ])->all();
+    }
+
+    /**
+     * Converte linhas (array de arrays associativos) em CSV (separador ';' — Excel
+     * BR). Cabeçalho a partir das chaves da primeira linha.
+     *
+     * @param  list<array<string,mixed>>  $linhas
+     */
+    public function csv(array $linhas): string
+    {
+        if ($linhas === []) {
+            return '';
+        }
+
+        $saida = fopen('php://temp', 'r+');
+        fputcsv($saida, array_keys($linhas[0]), ';');
+        foreach ($linhas as $linha) {
+            fputcsv($saida, array_map(fn ($v) => is_bool($v) ? ($v ? '1' : '0') : $v, $linha), ';');
+        }
+        rewind($saida);
+        $csv = (string) stream_get_contents($saida);
+        fclose($saida);
+
+        return $csv;
+    }
 }

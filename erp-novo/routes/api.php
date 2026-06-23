@@ -302,10 +302,13 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);
         Route::get('relatorios/dre', [RelatorioController::class, 'dre']);
         Route::get('relatorios/estoque-baixo', [RelatorioController::class, 'estoqueBaixo']);
+        Route::get('relatorios/fechamentos-caixa', [RelatorioController::class, 'fechamentosCaixa']);
         // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
         Route::get('financeiro/dre', [RelatorioController::class, 'dre']);
         // Conciliação bancária (OFX): FASE C8. Stub 501.
-        Route::get('financeiro/conciliacao', [StubController::class, 'naoImplementado'])->defaults('fase', 'C8')->defaults('modulo', 'conciliação bancária');
+        // Conciliação bancária (OFX) — C8.
+        Route::get('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
+        Route::post('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
 
         // ── RH / Colaboradores — C5 ──
         Route::get('colaboradores', [ColaboradorController::class, 'index']);
