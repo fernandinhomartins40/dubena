@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\FiscalConfigController;
 use App\Http\Controllers\Api\Admin\GeoController;
+use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
@@ -333,6 +334,26 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('checklists/{id}', [CrmController::class, 'checklistSalvar'])->whereNumber('id');
         Route::post('checklists/{id}/executar', [CrmController::class, 'checklistExecutar'])->whereNumber('id');
         Route::delete('checklists/{id}', [CrmController::class, 'checklistExcluir'])->whereNumber('id');
+
+        // ── Gestão (C11): cupom fiscal SAT/CFe, MCMM, documentos, bens ──
+        Route::get('cupons-fiscais', [GestaoController::class, 'cupomIndex']);
+        Route::post('cupons-fiscais', [GestaoController::class, 'cupomCriar']);
+        Route::post('cupons-fiscais/{id}/emitir', [GestaoController::class, 'cupomEmitir'])->whereNumber('id');
+
+        Route::get('mcmm', [GestaoController::class, 'mcmmIndex']);
+        Route::post('mcmm', [GestaoController::class, 'mcmmSalvar']);
+        Route::put('mcmm/{id}', [GestaoController::class, 'mcmmSalvar'])->whereNumber('id');
+        Route::delete('mcmm/{id}', [GestaoController::class, 'mcmmExcluir'])->whereNumber('id');
+
+        Route::get('documentos', [GestaoController::class, 'documentoIndex']);
+        Route::post('documentos', [GestaoController::class, 'documentoSalvar']);
+        Route::put('documentos/{id}', [GestaoController::class, 'documentoSalvar'])->whereNumber('id');
+        Route::delete('documentos/{id}', [GestaoController::class, 'documentoExcluir'])->whereNumber('id');
+
+        Route::get('bens', [GestaoController::class, 'bemIndex']);
+        Route::post('bens', [GestaoController::class, 'bemSalvar']);
+        Route::put('bens/{id}', [GestaoController::class, 'bemSalvar'])->whereNumber('id');
+        Route::delete('bens/{id}', [GestaoController::class, 'bemExcluir'])->whereNumber('id');
 
         // Dashboard (home da SPA) — contadores rápidos.
         Route::get('dashboard/resumo', [RelatorioController::class, 'dashboardResumo']);
