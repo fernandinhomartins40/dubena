@@ -22,20 +22,37 @@ use Illuminate\Validation\ValidationException;
 class CaixaService
 {
     public const BAIXA = 'BAIXA';
+
     public const TRANSFERENCIA = 'TRANSFERENCIA';
+
     public const ESTORNO = 'ESTORNO';
+
     public const AJUSTE = 'AJUSTE';
+
     public const ABERTURA = 'ABERTURA';
 
     /**
      * Movimento atômico de conta. `valor` ASSINADO (+entrada / -saída).
      *
-     * @param array<string,mixed> $extra juros/multa/desconto/origem/origem_id/...
+     * Regra do legado: NÃO se lança em caixa fechado, salvo "lançamento em caixa
+     * fechado" explícito (com permissão). Aqui isso é o flag `permitir_fechado` em
+     * `$extra` — só os callers internos legítimos (abertura, lançamento autorizado)
+     * o setam; o caminho normal recusa o movimento num caixa fechado.
+     *
+     * @param  array<string,mixed>  $extra  juros/multa/desconto/origem/origem_id/permitir_fechado/...
      */
     public function movimentar(int $contaId, float $valor, string $tipo, array $extra = []): ContaMovimento
     {
-        return DB::transaction(function () use ($contaId, $valor, $tipo, $extra) {
+        $permitirFechado = (bool) ($extra['permitir_fechado'] ?? false);
+
+        return DB::transaction(function () use ($contaId, $valor, $tipo, $extra, $permitirFechado) {
             $conta = Conta::withoutTenant()->whereKey($contaId)->lockForUpdate()->firstOrFail();
+
+            if ($conta->fechado && ! $permitirFechado) {
+                throw ValidationException::withMessages([
+                    'conta' => 'Caixa fechado: abra o caixa antes de lançar (ou use lançamento em caixa fechado autorizado).',
+                ]);
+            }
 
             $novoSaldo = round((float) $conta->saldo_atual + $valor, 2);
             $conta->saldo_atual = $novoSaldo;
@@ -147,7 +164,50 @@ class CaixaService
     }
 
     /**
+     * Baixa VÁRIAS parcelas numa conta, em UMA transação (tudo-ou-nada). Espelha
+     * o `baixarTitulos` do legado: o operador seleciona N títulos e baixa em lote.
+     *
+     * @param  list<array{parcela_id:int, juros?:float, multa?:float, desconto?:float}>  $itens
+     * @return list<ContaMovimento>
+     */
+    public function baixarTitulos(int $contaId, array $itens, ?int $userId = null): array
+    {
+        if ($itens === []) {
+            throw ValidationException::withMessages(['itens' => 'Selecione ao menos um título para baixar.']);
+        }
+
+        return DB::transaction(function () use ($contaId, $itens, $userId) {
+            $movimentos = [];
+            foreach ($itens as $i) {
+                $movimentos[] = $this->baixarParcela(
+                    $contaId,
+                    (int) $i['parcela_id'],
+                    (float) ($i['juros'] ?? 0),
+                    (float) ($i['multa'] ?? 0),
+                    (float) ($i['desconto'] ?? 0),
+                    $userId,
+                );
+            }
+
+            return $movimentos;
+        });
+    }
+
+    /**
+     * Lançamento AUTORIZADO em caixa fechado (retroativo) — espelha o
+     * `movimentarCaixaFechado` do legado. Exige decisão de quem chama (controller
+     * valida a permissão 'caixa.edit' + a intenção explícita).
+     *
+     * @param  array<string,mixed>  $extra
+     */
+    public function lancarEmCaixaFechado(int $contaId, float $valor, string $tipo, array $extra = []): ContaMovimento
+    {
+        return $this->movimentar($contaId, $valor, $tipo, array_merge($extra, ['permitir_fechado' => true]));
+    }
+
+    /**
      * Transferência entre contas (saída de uma, entrada na outra) — atômica.
+     *
      * @return array{saida: ContaMovimento, entrada: ContaMovimento}
      */
     public function transferir(int $contaOrigem, int $contaDestino, float $valor, ?int $userId = null): array
@@ -181,12 +241,14 @@ class CaixaService
                 throw ValidationException::withMessages(['movimento' => 'Movimento de estorno não pode ser estornado.']);
             }
 
+            // Estorno é correção: permitido mesmo com o caixa fechado.
             $inverso = $this->movimentar($original->conta_id, -(float) $original->valor, self::ESTORNO, [
                 'estorno_de_id' => $original->id,
                 'origem' => 'estorno',
                 'origem_id' => $original->id,
                 'descricao' => "Estorno do movimento #{$original->id}",
                 'user_id' => $userId,
+                'permitir_fechado' => true,
             ]);
 
             // Reabre a parcela, se a origem era uma baixa.
@@ -204,7 +266,7 @@ class CaixaService
      * Cria uma conta com o saldo inicial registrado como movimento de ABERTURA,
      * de modo que a invariante Σ movimentos = saldo_atual valha desde o início.
      *
-     * @param array<string,mixed> $dados
+     * @param  array<string,mixed>  $dados
      */
     public function criarConta(array $dados): Conta
     {

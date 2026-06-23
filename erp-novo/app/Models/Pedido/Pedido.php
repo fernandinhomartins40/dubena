@@ -23,6 +23,7 @@ class Pedido extends Model
 
     protected $fillable = [
         'empresa_id', 'grupo_id', 'cliente_id', 'pedidooperacao_id', 'pedidosituacao_id',
+        'condicaopagamento_id',
         'setor_id', 'atendente_user_id', 'entregador_user_id', 'financeiro_id',
         'datahora', 'datahora_acao', 'entrega_urgente', 'entrega_telefone',
         'entrega_taxa', 'entrega_troco_para', 'valor_venda', 'valor_desconto',

@@ -3,7 +3,9 @@
 namespace App\Domain\Financeiro;
 
 use App\Domain\Shared\CalculoParcelasService;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Financeiro\Financeiro;
+use App\Models\Pedido\Pedido;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,25 +20,23 @@ use Illuminate\Validation\ValidationException;
  */
 class FinanceiroService
 {
-    public function __construct(private CalculoParcelasService $parcelas)
-    {
-    }
+    public function __construct(private CalculoParcelasService $parcelas) {}
 
     /**
      * Cria um título + suas parcelas (e rateios opcionais), numa transação.
      *
-     * @param array<string, mixed> $dados   valor, pagarreceber, cliente_id, origem...
-     * @param array<int,array{percentual:float,dias:int}> $parcelasConfig
-     * @param list<array{planoconta_id?:int,centrocusto_id?:int,valor:float}> $rateios
+     * @param  array<string, mixed>  $dados  valor, pagarreceber, cliente_id, origem...
+     * @param  array<int,array{percentual:float,dias:int}>  $parcelasConfig
+     * @param  list<array{planoconta_id?:int,centrocusto_id?:int,valor:float}>  $rateios
      */
-    public function criar(array $dados, array $parcelasConfig = [], int $numParcelas = 1, array $rateios = []): Financeiro
+    public function criar(array $dados, array $parcelasConfig = [], int $numParcelas = 1, array $rateios = [], int $diasPrimeira = 0, int $intervalo = 30): Financeiro
     {
         $valor = round((float) $dados['valor'], 2);
         if ($valor <= 0) {
             throw ValidationException::withMessages(['valor' => 'Valor do título deve ser positivo.']);
         }
 
-        return DB::transaction(function () use ($dados, $valor, $parcelasConfig, $numParcelas, $rateios) {
+        return DB::transaction(function () use ($dados, $valor, $parcelasConfig, $numParcelas, $rateios, $diasPrimeira, $intervalo) {
             $financeiro = Financeiro::create(array_merge($dados, [
                 'valor' => $valor,
                 'data_emissao' => $dados['data_emissao'] ?? now()->toDateString(),
@@ -48,6 +48,8 @@ class FinanceiroService
                 dataBase: $base,
                 parcelasConfig: $parcelasConfig,
                 numParcelas: max(1, $numParcelas),
+                diasPrimeira: $diasPrimeira,
+                intervalo: $intervalo,
             );
 
             foreach ($parcelas as $p) {
@@ -75,7 +77,7 @@ class FinanceiroService
      * Gera um financeiro a partir de um pedido (chamado pelo PedidoService — N4).
      * Idempotente por (origem='pedido', origem_id=pedido->id).
      */
-    public function gerarDoPedido(\App\Models\Pedido\Pedido $pedido, int $numParcelas = 1): ?Financeiro
+    public function gerarDoPedido(Pedido $pedido, ?int $numParcelas = null): ?Financeiro
     {
         if ((float) $pedido->valor_venda <= 0) {
             return null;
@@ -86,6 +88,16 @@ class FinanceiroService
             return $existente; // já gerado
         }
 
+        // Parcelamento DIRIGIDO pela condição de pagamento do pedido (a auditoria
+        // apontou que antes gerava sempre 1 parcela). Sem condição: à vista (1).
+        $condicao = $pedido->condicaopagamento_id
+            ? CondicaoPagamento::query()->find($pedido->condicaopagamento_id)
+            : null;
+
+        $parcelas = $numParcelas ?? ($condicao?->num_parcelas ?? 1);
+        $diasPrimeira = $condicao?->dias_primeira ?? 0;
+        $intervalo = $condicao?->intervalo_dias ?? 30;
+
         return $this->criar([
             'empresa_id' => $pedido->empresa_id,
             'grupo_id' => $pedido->grupo_id,
@@ -95,11 +107,11 @@ class FinanceiroService
             'valor' => (float) $pedido->valor_venda,
             'origem' => 'pedido',
             'origem_id' => $pedido->id,
-        ], numParcelas: $numParcelas);
+        ], numParcelas: max(1, (int) $parcelas), diasPrimeira: (int) $diasPrimeira, intervalo: (int) $intervalo);
     }
 
     /** Estorna (cancela) o financeiro de um pedido cancelado — N4. */
-    public function estornarDoPedido(\App\Models\Pedido\Pedido $pedido): void
+    public function estornarDoPedido(Pedido $pedido): void
     {
         Financeiro::query()
             ->where('origem', 'pedido')->where('origem_id', $pedido->id)->where('cancelado', false)
@@ -120,7 +132,7 @@ class FinanceiroService
      * Agrupa vários títulos num título AGRUPADOR consolidado (ex.: fechamento de
      * convênio do mês → 1 título). Os originais viram AGRUPADO.
      *
-     * @param Collection<int,Financeiro>|list<Financeiro> $titulos
+     * @param  Collection<int,Financeiro>|list<Financeiro>  $titulos
      */
     public function agrupar(iterable $titulos, array $dadosAgrupador, int $numParcelas = 1): Financeiro
     {
