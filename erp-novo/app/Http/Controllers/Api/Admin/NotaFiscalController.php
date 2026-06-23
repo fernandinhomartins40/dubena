@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
+use App\Domain\Fiscal\SpedFiscalService;
 use App\Http\Controllers\Controller;
+use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
@@ -74,6 +76,25 @@ class NotaFiscalController extends Controller
         $nota = $this->service->cancelar(NotaFiscal::query()->findOrFail($id), $d['justificativa']);
 
         return response()->json(['data' => $nota]);
+    }
+
+    /** GET /fiscal/sped?inicio=&fim= — gera o arquivo da EFD ICMS/IPI do período. */
+    public function sped(Request $request, SpedFiscalService $sped): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.view');
+        $d = $request->validate([
+            'inicio' => 'required|date',
+            'fim' => 'required|date|after_or_equal:inicio',
+        ]);
+
+        $empresa = Empresa::query()->findOrFail($request->user()->empresa_id);
+        $conteudo = $sped->gerar($empresa, $d['inicio'], $d['fim']);
+
+        return response()->json(['data' => [
+            'arquivo' => $conteudo,
+            'linhas' => substr_count($conteudo, "\n"),
+            'periodo' => ['inicio' => $d['inicio'], 'fim' => $d['fim']],
+        ]]);
     }
 
     private function autorizar(Request $request, string $chave): void

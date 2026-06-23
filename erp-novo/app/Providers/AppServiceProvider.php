@@ -6,6 +6,7 @@ use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Cobranca\Drivers\FakeBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
+use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Drivers\FakePagamentoDriver;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
@@ -22,15 +23,21 @@ class AppServiceProvider extends ServiceProvider
     {
         // TenantContext único por ciclo de requisição (substitui Session('empresa_padrao')).
         // O middleware ResolveTenant popula; Services/Models/Scopes injetam o MESMO objeto.
-        $this->app->scoped(TenantContext::class, fn () => new TenantContext());
+        $this->app->scoped(TenantContext::class, fn () => new TenantContext);
 
         // Driver de boleto (N7 — GATE). Default: Fake (dev/homolog/CI). Em produção,
         // trocar por driver real do banco (porta eduardokum/laravel-boleto).
         $this->app->bind(BoletoDriver::class, FakeBoletoDriver::class);
 
-        // Driver SEFAZ (N9 — GATE). Default: Fake. Em produção, driver real (NFePHP
-        // + certificado A1 do tenant). Troca por config sem mexer no FiscalService.
-        $this->app->bind(SefazDriver::class, FakeSefazDriver::class);
+        // Driver SEFAZ (N9/C7b — GATE). FISCAL_DRIVER=nfephp ativa o driver REAL
+        // (NFePHP + certificado A1 do tenant); qualquer outro valor mantém o Fake
+        // (CI/homolog). O FiscalService não muda — só a config do gate.
+        $this->app->bind(
+            SefazDriver::class,
+            fn () => env('FISCAL_DRIVER') === 'nfephp'
+                ? $this->app->make(NFePHPSefazDriver::class)
+                : $this->app->make(FakeSefazDriver::class),
+        );
 
         // Driver de pagamento online (N10 — GATE Rede). Default: Fake. Em produção,
         // driver real (eRede + PV/token).

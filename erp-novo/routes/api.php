@@ -286,7 +286,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('fiscal/malha/{tipo}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal');
         Route::put('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
         Route::delete('fiscal/malha/{tipo}/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'malha fiscal')->whereNumber('id');
-        Route::get('fiscal/sped', [StubController::class, 'naoImplementado'])->defaults('fase', 'C7')->defaults('modulo', 'SPED');
+        Route::get('fiscal/sped', [NotaFiscalController::class, 'sped']);
 
         // ── Monitora (GPS) — N11 (módulo isolado) ──
         Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);

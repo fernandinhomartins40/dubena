@@ -22,8 +22,7 @@ class FiscalService
         private CalculoImpostoService $imposto,
         private SefazDriver $sefaz,
         private NumeroSequencialService $sequencia,
-    ) {
-    }
+    ) {}
 
     /**
      * Monta uma nota (RASCUNHO) a partir de um pedido, calculando os impostos por
