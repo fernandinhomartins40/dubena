@@ -106,9 +106,10 @@ class ContratoSpaTest extends TestCase
 
         foreach ($arquivos as $arquivo) {
             $conteudo = (string) file_get_contents($arquivo);
-            // Captura api.<metodo>(`/path...`  ou  api.<metodo>('/path...'
+            // Captura api.<metodo>(`/path...` ou api.<metodo>('/path...', incluindo
+            // o generic TS opcional: api.get<Tipo>('/path').
             if (preg_match_all(
-                '/api\.(get|post|put|patch|delete)\(\s*[`\'"]([^`\'"]+)/i',
+                '/api\.(get|post|put|patch|delete)\s*(?:<[^>]*>)?\(\s*[`\'"]([^`\'"]+)/i',
                 $conteudo,
                 $m,
                 PREG_SET_ORDER,

@@ -15,6 +15,15 @@ class RelatorioController extends Controller
 {
     public function __construct(private RelatorioService $service) {}
 
+    /** GET /dashboard/resumo — contadores da home da SPA. */
+    public function dashboardResumo(Request $request): JsonResponse
+    {
+        // Sem permissão específica: o dashboard é a home de qualquer usuário logado.
+        return response()->json(
+            $this->service->dashboardResumo((int) $request->user()->empresa_id),
+        );
+    }
+
     public function vendas(Request $request): JsonResponse
     {
         $this->autorizar($request, 'relatorio.view');

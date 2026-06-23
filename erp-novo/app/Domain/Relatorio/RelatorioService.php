@@ -44,6 +44,29 @@ class RelatorioService
     }
 
     /**
+     * Resumo do dashboard (contadores rápidos da operação). Escopo por empresa
+     * (clientes/pedidos/financeiro) e por grupo (produtos). Tudo COUNT no SQL.
+     *
+     * @return array{clientes:int, produtos:int, pedidos:int, financeiro:int}
+     */
+    public function dashboardResumo(int $empresaId): array
+    {
+        return [
+            'clientes' => (int) DB::table('clientes')->where('empresa_id', $empresaId)->count(),
+            'produtos' => (int) DB::table('produtos')->where('empresa_id', $empresaId)->count(),
+            'pedidos' => (int) DB::table('pedidos')->where('empresa_id', $empresaId)->count(),
+            // "financeiro" no card = títulos a receber em aberto.
+            'financeiro' => (int) DB::table('financeiroparcelas as fp')
+                ->join('financeiros as f', 'f.id', '=', 'fp.financeiro_id')
+                ->where('f.empresa_id', $empresaId)
+                ->where('f.cancelado', false)
+                ->where('f.pagarreceber', 'R')
+                ->where('fp.baixado', false)
+                ->count(),
+        ];
+    }
+
+    /**
      * Posição financeira: a receber/a pagar em aberto e vencido por período.
      *
      * @return array<string,float|int>

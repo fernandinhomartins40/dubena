@@ -301,6 +301,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
 
         // ── Relatórios (Query Services) — N12 ──
+        // Dashboard (home da SPA) — contadores rápidos.
+        Route::get('dashboard/resumo', [RelatorioController::class, 'dashboardResumo']);
+
         Route::get('relatorios/vendas', [RelatorioController::class, 'vendas']);
         Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);
         Route::get('relatorios/dre', [RelatorioController::class, 'dre']);
