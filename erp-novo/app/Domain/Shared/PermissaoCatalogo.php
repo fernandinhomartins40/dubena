@@ -30,6 +30,7 @@ final class PermissaoCatalogo
         'comodato' => ['view', 'edit'],
         'monitora' => ['view', 'edit'],
         'colaborador' => ['view', 'create', 'edit', 'delete'],
+        'veiculo' => ['view', 'create', 'edit', 'delete'],
         'empresa' => ['view', 'create', 'edit', 'delete'],
         'grupo' => ['view', 'create', 'edit', 'delete'],
         'relatorio' => ['view'],

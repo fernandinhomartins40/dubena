@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SetorController;
 use App\Http\Controllers\Api\Admin\StubController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
+use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
@@ -320,15 +321,16 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
         // ── Módulos de fases futuras consumidos pela SPA (stub 501 documentado) ──
 
-        // Frota / Veículos → FASE C6.
-        Route::get('veiculos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos');
-        Route::post('veiculos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos');
-        Route::get('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
-        Route::put('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
-        Route::delete('veiculos/{id}', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
-        Route::get('veiculos/{id}/abastecimentos', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
-        Route::get('veiculos/{id}/trocas-oleo', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
-        Route::get('veiculos/{id}/pneus', [StubController::class, 'naoImplementado'])->defaults('fase', 'C6')->defaults('modulo', 'veículos')->whereNumber('id');
+        // ── Frota / Veículos — C6 ──
+        Route::get('veiculos', [VeiculoController::class, 'index']);
+        Route::post('veiculos', [VeiculoController::class, 'store']);
+        Route::get('veiculos/{id}', [VeiculoController::class, 'show'])->whereNumber('id');
+        Route::put('veiculos/{id}', [VeiculoController::class, 'update'])->whereNumber('id');
+        Route::delete('veiculos/{id}', [VeiculoController::class, 'destroy'])->whereNumber('id');
+        Route::get('veiculos/{id}/abastecimentos', [VeiculoController::class, 'abastecimentos'])->whereNumber('id');
+        Route::post('veiculos/{id}/abastecimentos', [VeiculoController::class, 'registrarAbastecimento'])->whereNumber('id');
+        Route::get('veiculos/{id}/trocas-oleo', [VeiculoController::class, 'trocasOleo'])->whereNumber('id');
+        Route::get('veiculos/{id}/pneus', [VeiculoController::class, 'pneus'])->whereNumber('id');
 
         // Satélites (relatórios/monitoramento/integrações agregados) → FASE C10.
         Route::get('satelites/relatorios', [StubController::class, 'naoImplementado'])->defaults('fase', 'C10')->defaults('modulo', 'satélites');

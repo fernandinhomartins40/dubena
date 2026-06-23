@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Models\Frota;
+
+use App\Domain\Tenant\BelongsToTenant;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * Veículo da frota (negócio) — escopo por empresa. C6.
+ * Distinto do monitora_veiculos (GPS).
+ */
+class Veiculo extends Model
+{
+    use BelongsToTenant;
+    use HasFactory;
+
+    protected $table = 'veiculos';
+
+    protected $fillable = [
+        'empresa_id', 'grupo_id', 'veiculotipo_id', 'tipocombustivel_id',
+        'placa', 'descricao', 'renavam', 'km_atual', 'km_troca_oleo',
+        'km_ultima_troca_oleo', 'ativo',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'km_atual' => 'integer',
+            'km_troca_oleo' => 'integer',
+            'km_ultima_troca_oleo' => 'integer',
+            'ativo' => 'boolean',
+        ];
+    }
+
+    public function abastecimentos(): HasMany
+    {
+        return $this->hasMany(VeiculoAbastecimento::class);
+    }
+
+    public function trocasOleo(): HasMany
+    {
+        return $this->hasMany(VeiculoTrocaOleo::class);
+    }
+
+    public function pneus(): HasMany
+    {
+        return $this->hasMany(VeiculoPneu::class);
+    }
+}
