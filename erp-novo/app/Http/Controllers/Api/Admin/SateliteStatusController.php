@@ -4,9 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Monitora\Veiculo as MonitoraVeiculo;
-use App\Models\Satelite\Comodato;
-use App\Models\Satelite\Convenio;
-use App\Models\Satelite\ValeGas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,43 +14,56 @@ use Illuminate\Http\Request;
  */
 class SateliteStatusController extends Controller
 {
-    /** GET /satelites/relatorios — catálogo de relatórios disponíveis dos satélites. */
+    /**
+     * GET /satelites/relatorios — catálogo por CATEGORIA.
+     * Shape exigido pela SPA: [{categoria, relatorios: string[]}].
+     */
     public function relatorios(Request $request): JsonResponse
     {
         $this->autorizar($request, 'relatorio.view');
 
         return response()->json(['data' => [
-            ['chave' => 'convenios-fechamentos', 'titulo' => 'Fechamentos de convênio', 'modulo' => 'convenio'],
-            ['chave' => 'vale-gas-emitidos', 'titulo' => 'Vale-gás emitidos/utilizados', 'modulo' => 'valegas'],
-            ['chave' => 'comodatos-ativos', 'titulo' => 'Comodatos em aberto', 'modulo' => 'comodato'],
+            ['categoria' => 'Vendas', 'relatorios' => ['Vendas por período', 'Vendas por produto', 'Comissões']],
+            ['categoria' => 'Financeiro', 'relatorios' => ['Contas a receber', 'Contas a pagar', 'DRE', 'Fechamentos de caixa']],
+            ['categoria' => 'Estoque', 'relatorios' => ['Posição de estoque', 'Estoque baixo', 'Movimentações']],
+            ['categoria' => 'Satélites', 'relatorios' => ['Fechamentos de convênio', 'Vale-gás emitidos', 'Comodatos em aberto']],
+            ['categoria' => 'Fiscal', 'relatorios' => ['Notas emitidas', 'SPED Fiscal']],
         ]]);
     }
 
-    /** GET /satelites/monitoramento — visão de frota/GPS. */
+    /**
+     * GET /satelites/monitoramento — status do GPS/frota.
+     * Shape exigido pela SPA: {disponivel: bool, observacao: string}.
+     */
     public function monitoramento(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.view');
 
         $veiculos = MonitoraVeiculo::query()->count();
-        $comUltimaPosicao = MonitoraVeiculo::query()->whereHas('ultimaPosicao')->count();
+        $comPosicao = MonitoraVeiculo::query()->whereHas('ultimaPosicao')->count();
 
         return response()->json(['data' => [
-            'veiculos' => $veiculos,
-            'com_posicao' => $comUltimaPosicao,
-            'sem_posicao' => max(0, $veiculos - $comUltimaPosicao),
+            'disponivel' => $veiculos > 0,
+            'observacao' => $veiculos > 0
+                ? "{$comPosicao} de {$veiculos} veículo(s) com posição recente."
+                : 'Nenhum veículo monitorado. Configure a integração de GPS (SGCasa).',
         ]]);
     }
 
-    /** GET /satelites/integracoes — status dos gates externos (config). */
+    /**
+     * GET /satelites/integracoes — status dos gates externos.
+     * Shape exigido pela SPA: mapa { chave => bool } (pix/email_smtp/google_maps/fcm_push).
+     */
     public function integracoes(Request $request): JsonResponse
     {
         $this->autorizar($request, 'empresa.view');
 
         return response()->json(['data' => [
-            'fiscal' => ['driver' => env('FISCAL_DRIVER', 'fake'), 'ativo' => env('FISCAL_DRIVER') === 'nfephp'],
-            'convenios_ativos' => Convenio::query()->where('ativo', true)->count(),
-            'vale_gas_ativos' => ValeGas::query()->count(),
-            'comodatos_abertos' => Comodato::query()->where('situacao', 'ATIVO')->count(),
+            'pix' => (bool) env('PIX_CLIENT_ID'),
+            'email_smtp' => (bool) env('MAIL_HOST'),
+            'google_maps' => (bool) env('GOOGLE_MAPS_KEY'),
+            'fcm_push' => (bool) env('FCM_SERVER_KEY'),
+            'fiscal' => env('FISCAL_DRIVER') === 'nfephp',
         ]]);
     }
 

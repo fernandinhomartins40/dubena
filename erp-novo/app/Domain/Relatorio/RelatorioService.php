@@ -104,17 +104,40 @@ class RelatorioService
      */
     public function dre(int $empresaId, string $inicio, string $fim): array
     {
-        $vendas = $this->vendas($empresaId, $inicio, $fim);
-        $fin = $this->financeiro($empresaId, $inicio, $fim);
+        $dtInicio = Carbon::parse($inicio)->toDateString();
+        $dtFim = Carbon::parse($fim)->toDateString();
 
-        $receita = $vendas['total'];
-        $despesas = $fin['pago'];
+        // Receitas/despesas REALIZADAS no período, agrupadas por plano de conta
+        // (parcelas baixadas). Shape consumido pela SPA: receitas[]/despesas[]
+        // com {plano,total} + totais + resultado.
+        $agrupar = function (string $pagarReceber) use ($empresaId, $dtInicio, $dtFim) {
+            return DB::table('financeiroparcelas as fp')
+                ->join('financeiros as f', 'f.id', '=', 'fp.financeiro_id')
+                ->leftJoin('planos_conta as pc', 'pc.id', '=', 'f.planoconta_id')
+                ->where('f.empresa_id', $empresaId)
+                ->where('f.cancelado', false)
+                ->where('f.pagarreceber', $pagarReceber)
+                ->where('fp.baixado', true)
+                ->whereBetween('fp.datahora_baixa', [$dtInicio.' 00:00:00', $dtFim.' 23:59:59'])
+                ->groupBy('pc.descricao')
+                ->selectRaw('coalesce(pc.descricao, ?) as plano, sum(fp.valor_efetivado) as total', ['Sem plano'])
+                ->orderByDesc('total')
+                ->get()
+                ->map(fn ($r) => ['plano' => (string) $r->plano, 'total' => round((float) $r->total, 2)])
+                ->all();
+        };
+
+        $receitas = $agrupar('R');
+        $despesas = $agrupar('P');
+        $totalReceitas = round(array_sum(array_column($receitas, 'total')), 2);
+        $totalDespesas = round(array_sum(array_column($despesas, 'total')), 2);
 
         return [
-            'receita_vendas' => $receita,
-            'recebido' => $fin['recebido'],
-            'despesas_pagas' => $despesas,
-            'resultado' => round($receita - $despesas, 2),
+            'receitas' => $receitas,
+            'despesas' => $despesas,
+            'total_receitas' => $totalReceitas,
+            'total_despesas' => $totalDespesas,
+            'resultado' => round($totalReceitas - $totalDespesas, 2),
         ];
     }
 

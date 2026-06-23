@@ -26,29 +26,32 @@ class SateliteStatusTest extends TestCase
     {
         [$user] = $this->suporte();
 
+        // Shape exigido pela SPA (RelatoriosTab): [{categoria, relatorios: []}].
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/satelites/relatorios')
             ->assertOk()
-            ->assertJsonStructure(['data' => [['chave', 'titulo', 'modulo']]]);
+            ->assertJsonStructure(['data' => [['categoria', 'relatorios']]]);
     }
 
-    public function test_monitoramento_traz_contagens(): void
+    public function test_monitoramento_traz_status(): void
     {
         [$user] = $this->suporte();
 
+        // Shape exigido pela SPA (MonitoramentoTab): {disponivel, observacao}.
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/satelites/monitoramento')
             ->assertOk()
-            ->assertJsonStructure(['data' => ['veiculos', 'com_posicao', 'sem_posicao']]);
+            ->assertJsonStructure(['data' => ['disponivel', 'observacao']]);
     }
 
     public function test_integracoes_traz_status_dos_gates(): void
     {
         [$user] = $this->suporte();
 
+        // Shape exigido pela SPA (IntegracoesTab): mapa de booleans por integração.
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/satelites/integracoes')
             ->assertOk()
-            ->assertJsonStructure(['data' => ['fiscal' => ['driver', 'ativo'], 'convenios_ativos', 'vale_gas_ativos', 'comodatos_abertos']]);
+            ->assertJsonStructure(['data' => ['pix', 'email_smtp', 'google_maps', 'fcm_push']]);
     }
 }

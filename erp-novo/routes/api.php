@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\FiscalConfigController;
 use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
+use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PedidoController;
@@ -74,6 +75,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
     // ── Admin (consumido pela SPA em /api/admin) — N1 ──
     Route::prefix('admin')->group(function () {
+        // Lookups (AsyncSelect da SPA) — listas {id,label} por tipo. Só auth.
+        Route::get('lookups/{tipo}', [LookupController::class, 'index']);
+
         // Empresas (entidade-tenant) + config + troca de tenant ativo.
         Route::get('empresas', [EmpresaController::class, 'index']);
         Route::post('empresas', [EmpresaController::class, 'store']);

@@ -69,24 +69,26 @@ class EstoqueController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-    /** GET /produtos/{id}/estoque — saldo do produto em todos os setores (alias da SPA). */
+    /**
+     * GET /produtos/{id}/estoque — saldo do produto por setor.
+     * Shape exigido pela SPA (ProdutoFormPage): { setores: [{setor,quantidade,minima,maxima}] }.
+     */
     public function porProduto(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'estoque.view');
 
-        $rows = EstoqueSaldo::query()
+        $setores = EstoqueSaldo::query()
             ->with(['setor:id,descricao'])
             ->where('produto_id', $id)
             ->get()
             ->map(fn (EstoqueSaldo $s) => [
-                'id' => $s->id,
-                'setor_id' => $s->setor_id,
                 'setor' => $s->setor?->descricao,
                 'quantidade' => (float) $s->quantidade,
-                'custo_medio' => (float) $s->custo_medio,
-            ]);
+                'minima' => $s->quantidade_minima !== null ? (float) $s->quantidade_minima : 0.0,
+                'maxima' => $s->quantidade_maxima !== null ? (float) $s->quantidade_maxima : 0.0,
+            ])->values();
 
-        return response()->json(['data' => $rows]);
+        return response()->json(['data' => ['setores' => $setores]]);
     }
 
     /** GET /estoque/historico?setor_id=&produto_id= */

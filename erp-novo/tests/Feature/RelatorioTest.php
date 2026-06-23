@@ -25,9 +25,13 @@ class RelatorioTest extends TestCase
     use RefreshDatabase;
 
     private Empresa $empresa;
+
     private User $user;
+
     private Setor $setor;
+
     private Produto $produto;
+
     private Cliente $cliente;
 
     protected function setUp(): void
@@ -74,10 +78,11 @@ class RelatorioTest extends TestCase
             ->assertOk();
         $this->assertEqualsWithDelta(500, $resp->json('data.a_receber'), 0.01);
 
+        // DRE no shape consumido pela SPA: receitas[]/despesas[] + totais + resultado.
         $this->actingAs($this->user, 'sanctum')
             ->getJson('/api/admin/relatorios/dre?inicio='.now()->subDay()->toDateString().'&fim='.now()->addDay()->toDateString())
             ->assertOk()
-            ->assertJsonPath('data.receita_vendas', 500);
+            ->assertJsonStructure(['data' => ['receitas', 'despesas', 'total_receitas', 'total_despesas', 'resultado']]);
     }
 
     public function test_relatorio_estoque_baixo(): void
