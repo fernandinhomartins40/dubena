@@ -163,7 +163,7 @@ export function ProdutoFormPage() {
             <Field label="Custo médio"><Input type="number" step="0.0001" value={num(form.customedio as string)} onChange={(e) => campo('customedio', e.target.value)} /></Field>
             <Field label="Custo de frete"><Input type="number" step="0.0001" value={num(form.custofrete as string)} onChange={(e) => campo('custofrete', e.target.value)} /></Field>
             <Field label="Preço Gás do Povo"><Input type="number" step="0.0001" value={num(form.precogasdopovo as string)} onChange={(e) => campo('precogasdopovo', e.target.value)} /></Field>
-            <div className="md:col-span-2 grid grid-cols-2 gap-4 border-t border-border pt-4">
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border pt-4">
               <Field label="Peso líquido (Kg)"><Input type="number" step="0.0001" value={num(form.pesoliquido as string)} onChange={(e) => campo('pesoliquido', e.target.value)} /></Field>
               <Field label="Peso bruto (Kg)"><Input type="number" step="0.0001" value={num(form.pesobruto as string)} onChange={(e) => campo('pesobruto', e.target.value)} /></Field>
             </div>

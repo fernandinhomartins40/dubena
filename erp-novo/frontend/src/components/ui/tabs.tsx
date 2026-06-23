@@ -11,7 +11,12 @@ export const TabsList = forwardRef<
   return (
     <TabsPrimitive.List
       ref={ref}
-      className={cn('inline-flex items-center gap-1 border-b border-border w-full', className)}
+      // Rola na horizontal no mobile (muitas abas não cabem) sem cortar.
+      className={cn(
+        'flex items-center gap-1 border-b border-border w-full overflow-x-auto',
+        'scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        className,
+      )}
       {...props}
     />
   )
@@ -25,7 +30,7 @@ export const TabsTrigger = forwardRef<
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors -mb-px',
+        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors -mb-px',
         'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-t-md',
         'data-[state=active]:border-primary data-[state=active]:text-primary disabled:pointer-events-none disabled:opacity-50',
         className,
