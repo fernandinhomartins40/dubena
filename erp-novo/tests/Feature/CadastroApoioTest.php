@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Apoio\Banco;
 use App\Models\Apoio\Segmento;
 use App\Models\Empresa;
 use App\Models\User;
@@ -93,6 +94,30 @@ class CadastroApoioTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('segmentos', ['id' => $seg->id]);
+    }
+
+    public function test_cadastros_restantes_c12(): void
+    {
+        [$user, $empresa] = $this->usuarioSuporte();
+
+        // Agência com banco vinculado.
+        $banco = Banco::create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'Banco do Brasil', 'codigo' => '001']);
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/cadastros/agencias', ['descricao' => 'Centro', 'banco_id' => $banco->id, 'numero' => '1234'])
+            ->assertCreated()->assertJsonPath('data.banco_id', $banco->id);
+
+        // Feriado exige data.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/cadastros/feriados', ['descricao' => 'Natal'])
+            ->assertStatus(422)->assertJsonValidationErrors('data');
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/cadastros/feriados', ['descricao' => 'Natal', 'data' => '2026-12-25', 'recorrente' => true])
+            ->assertCreated()->assertJsonPath('data.recorrente', true);
+
+        // Profissão e transportadora.
+        $this->actingAs($user, 'sanctum')->postJson('/api/admin/cadastros/profissoes', ['descricao' => 'Entregador'])->assertCreated();
+        $this->actingAs($user, 'sanctum')->postJson('/api/admin/cadastros/transportadoras', ['descricao' => 'Expressa', 'cnpj' => '12345678000199'])->assertCreated();
+        $this->actingAs($user, 'sanctum')->postJson('/api/admin/cadastros/estados-civis', ['descricao' => 'Casado'])->assertCreated();
     }
 
     public function test_tipo_desconhecido_retorna_404(): void

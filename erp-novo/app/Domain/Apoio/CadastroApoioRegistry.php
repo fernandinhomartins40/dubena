@@ -2,14 +2,19 @@
 
 namespace App\Domain\Apoio;
 
+use App\Models\Apoio\Agencia;
 use App\Models\Apoio\Banco;
 use App\Models\Apoio\CadastroApoio;
 use App\Models\Apoio\ClienteContatoSituacao;
 use App\Models\Apoio\ClienteContatoTipo;
 use App\Models\Apoio\ContaMovimentoTipo;
+use App\Models\Apoio\EstadoCivil;
+use App\Models\Apoio\Feriado;
+use App\Models\Apoio\Profissao;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
 use App\Models\Apoio\TipoPessoa;
+use App\Models\Apoio\Transportadora;
 
 /**
  * Registro dos cadastros de apoio suportados (espelha o legado
@@ -36,6 +41,19 @@ class CadastroApoioRegistry
             'pagarreceber' => 'nullable|string|max:1',
             'cheque' => 'boolean', 'cartao' => 'boolean', 'valegas' => 'boolean', 'convenio' => 'boolean',
         ]],
+        'agencias' => ['model' => Agencia::class, 'modulo' => 'financeiro', 'extras' => [
+            'banco_id' => 'nullable|integer|exists:bancos,id',
+            'numero' => 'nullable|string|max:20', 'digito' => 'nullable|string|max:2',
+        ]],
+        // Logística / cadastros gerais
+        'transportadoras' => ['model' => Transportadora::class, 'modulo' => 'cliente', 'extras' => [
+            'cnpj' => 'nullable|string|max:14', 'telefone' => 'nullable|string|max:20',
+        ]],
+        'feriados' => ['model' => Feriado::class, 'modulo' => 'empresa', 'extras' => [
+            'data' => 'required|date', 'recorrente' => 'boolean',
+        ]],
+        'profissoes' => ['model' => Profissao::class, 'modulo' => 'cliente', 'extras' => []],
+        'estados-civis' => ['model' => EstadoCivil::class, 'modulo' => 'cliente', 'extras' => []],
     ];
 
     public function existe(string $tipo): bool
