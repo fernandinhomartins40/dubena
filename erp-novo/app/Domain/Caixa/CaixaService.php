@@ -5,6 +5,7 @@ namespace App\Domain\Caixa;
 use App\Models\Caixa\Conta;
 use App\Models\Caixa\ContaFechamento;
 use App\Models\Caixa\ContaMovimento;
+use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -132,6 +133,15 @@ class CaixaService
     ): ContaMovimento {
         return DB::transaction(function () use ($contaId, $parcelaId, $juros, $multa, $desconto, $userId) {
             $parcela = FinanceiroParcela::query()->with('financeiro')->lockForUpdate()->findOrFail($parcelaId);
+
+            // F00.5 — revalidação de tenant: `financeiroparcelas` não tem empresa_id
+            // próprio (é filha de `financeiros`). Como o id vem do request, garantimos
+            // que o título-pai pertence à empresa ativa (Financeiro é tenant-scoped),
+            // evitando baixar parcela de OUTRA empresa (IDOR apontado na auditoria).
+            if (! Financeiro::query()->whereKey($parcela->financeiro_id)->exists()) {
+                throw ValidationException::withMessages(['parcela' => 'Parcela não pertence à empresa ativa.']);
+            }
+
             if ($parcela->baixado) {
                 throw ValidationException::withMessages(['parcela' => 'Parcela já baixada.']);
             }

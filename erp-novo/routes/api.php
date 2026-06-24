@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
+use App\Http\Controllers\Api\Admin\NfEntradaController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PagamentoController;
 use App\Http\Controllers\Api\Admin\PedidoController;
@@ -184,9 +185,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('estoque/fechamentos', [EstoqueController::class, 'fechamentos']);
         Route::post('estoque/fechamentos', [EstoqueController::class, 'fechar']);
 
-        // Estoque — requisição/inventário/físico + abertura de fechamento: módulo
-        // completo na FASE C4 (precisam de tabelas novas). Stub 501 até lá.
-        // Estoque — requisições / inventário / físico / abertura de fechamento — C11.
+        // Estoque — requisições / inventário / físico / abertura de fechamento.
         Route::get('estoque/requisicoes', [EstoqueController::class, 'requisicoesIndex']);
         Route::post('estoque/requisicoes', [EstoqueController::class, 'requisicaoCriar']);
         Route::get('estoque/inventarios', [EstoqueController::class, 'inventariosIndex']);
@@ -212,6 +211,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('financeiro/lancamentos', [FinanceiroController::class, 'lancamentos']);
         Route::post('financeiro/lancamentos', [FinanceiroController::class, 'criar']);
         Route::delete('financeiro/lancamentos/{id}', [FinanceiroController::class, 'cancelar'])->whereNumber('id');
+        // Agrupamento / reparcelamento de títulos (expõe FinanceiroService) — F00.6.
+        Route::post('financeiro/lancamentos/agrupar', [FinanceiroController::class, 'agrupar']);
+        Route::post('financeiro/lancamentos/{id}/desagrupar', [FinanceiroController::class, 'desagrupar'])->whereNumber('id');
+        Route::post('financeiro/lancamentos/{id}/reparcelar', [FinanceiroController::class, 'reparcelar'])->whereNumber('id');
 
         Route::get('financeiro/planos-conta', [FinanceiroCadastroController::class, 'planosIndex']);
         Route::post('financeiro/planos-conta', [FinanceiroCadastroController::class, 'planoSalvar']);
@@ -232,6 +235,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('caixa/{contaId}/abrir', [CaixaController::class, 'abrir'])->whereNumber('contaId');
         Route::post('caixa/{contaId}/fechar', [CaixaController::class, 'fechar'])->whereNumber('contaId');
         Route::post('caixa/{contaId}/baixar', [CaixaController::class, 'baixar'])->whereNumber('contaId');
+        // Baixa em lote e lançamento em caixa fechado (expõe CaixaService) — F00.6.
+        Route::post('caixa/{contaId}/baixar-titulos', [CaixaController::class, 'baixarTitulos'])->whereNumber('contaId');
+        Route::post('caixa/{contaId}/lancar-fechado', [CaixaController::class, 'lancarFechado'])->whereNumber('contaId');
 
         // ── Cheques — N6 ──
         Route::get('cheques/recebidos', [ChequeController::class, 'recebidos']);
@@ -304,6 +310,12 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('fiscal/malha/{tipo}', [FiscalConfigController::class, 'malhaSalvar']);
         Route::put('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaSalvar'])->whereNumber('id');
         Route::delete('fiscal/malha/{tipo}/{id}', [FiscalConfigController::class, 'malhaExcluir'])->whereNumber('id');
+        // NF de entrada (recebida): importar XML → estoque + financeiro a pagar — F00.6.
+        Route::get('fiscal/nf-entrada', [NfEntradaController::class, 'index']);
+        Route::get('fiscal/nf-entrada/{id}', [NfEntradaController::class, 'show'])->whereNumber('id');
+        Route::post('fiscal/nf-entrada/importar', [NfEntradaController::class, 'importar']);
+        Route::post('fiscal/nf-entrada/{id}/processar', [NfEntradaController::class, 'processar'])->whereNumber('id');
+
         Route::get('fiscal/sped', [NotaFiscalController::class, 'sped']);
         Route::get('fiscal/sped-contribuicoes', [NotaFiscalController::class, 'spedContribuicoes']);
         Route::get('fiscal/ibpt', [NotaFiscalController::class, 'ibpt']);
@@ -381,8 +393,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/movimentacao-caixa', [RelatorioController::class, 'movimentacaoCaixa']);
         // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
         Route::get('financeiro/dre', [RelatorioController::class, 'dre']);
-        // Conciliação bancária (OFX): FASE C8. Stub 501.
-        // Conciliação bancária (OFX) — C8.
+        // Conciliação bancária (OFX) — implementada via ConciliacaoService.
         Route::get('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
         Route::post('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
 
@@ -404,8 +415,6 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('colaboradores/{id}/turnos', [ColaboradorController::class, 'addTurno'])->whereNumber('id');
         Route::get('colaboradores/{id}/pontos', [ColaboradorController::class, 'pontos'])->whereNumber('id');
         Route::post('colaboradores/{id}/pontos', [ColaboradorController::class, 'registrarPonto'])->whereNumber('id');
-
-        // ── Módulos de fases futuras consumidos pela SPA (stub 501 documentado) ──
 
         // ── Frota / Veículos — C6 ──
         Route::get('veiculos', [VeiculoController::class, 'index']);

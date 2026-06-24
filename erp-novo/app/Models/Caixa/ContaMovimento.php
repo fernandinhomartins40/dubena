@@ -2,15 +2,21 @@
 
 namespace App\Models\Caixa;
 
+use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Movimento de conta (o log que torna o saldo AUDITÁVEL). valor ASSINADO.
+ *
+ * Escopado por empresa (F00.5): tem coluna `empresa_id`, então o global scope de
+ * tenant evita estornar/ler movimento de OUTRA empresa por id (IDOR apontado na
+ * auditoria). Operações internas que precisam ignorar o escopo usam withoutTenant().
  */
 class ContaMovimento extends Model
 {
+    use BelongsToTenant;
     use HasFactory;
 
     protected $table = 'contamovimentos';

@@ -103,6 +103,53 @@ class CaixaController extends Controller
         return response()->json(['data' => $mov], 201);
     }
 
+    /**
+     * POST /caixa/{contaId}/baixar-titulos — baixa VÁRIAS parcelas em UMA transação
+     * (tudo-ou-nada). Expõe CaixaService::baixarTitulos (F00.6).
+     */
+    public function baixarTitulos(Request $request, int $contaId): JsonResponse
+    {
+        $this->autorizar($request, 'caixa.edit');
+        Conta::query()->findOrFail($contaId);
+        $d = $request->validate([
+            'itens' => 'required|array|min:1',
+            'itens.*.parcela_id' => 'required|integer|exists:financeiroparcelas,id',
+            'itens.*.juros' => 'nullable|numeric|gte:0',
+            'itens.*.multa' => 'nullable|numeric|gte:0',
+            'itens.*.desconto' => 'nullable|numeric|gte:0',
+        ]);
+
+        $movs = $this->service->baixarTitulos($contaId, $d['itens'], $request->user()->id);
+
+        return response()->json(['data' => $movs], 201);
+    }
+
+    /**
+     * POST /caixa/{contaId}/lancar-fechado — lançamento AUTORIZADO em caixa fechado
+     * (retroativo). Exige a permissão caixa.edit + intenção explícita. Expõe
+     * CaixaService::lancarEmCaixaFechado (F00.6).
+     */
+    public function lancarFechado(Request $request, int $contaId): JsonResponse
+    {
+        $this->autorizar($request, 'caixa.edit');
+        Conta::query()->findOrFail($contaId);
+        $d = $request->validate([
+            'valor' => 'required|numeric|not_in:0',
+            'tipo' => 'required|string|max:30',
+            'descricao' => 'nullable|string|max:255',
+            'datahora' => 'nullable|date',
+        ]);
+
+        $mov = $this->service->lancarEmCaixaFechado($contaId, (float) $d['valor'], $d['tipo'], [
+            'descricao' => $d['descricao'] ?? 'Lançamento em caixa fechado',
+            'datahora' => $d['datahora'] ?? null,
+            'origem' => 'lancamento-fechado',
+            'user_id' => $request->user()->id,
+        ]);
+
+        return response()->json(['data' => $mov], 201);
+    }
+
     public function transferir(Request $request): JsonResponse
     {
         $this->autorizar($request, 'caixa.edit');

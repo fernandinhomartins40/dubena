@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -108,15 +109,37 @@ class ClienteSubrecursoController extends Controller
         return response()->json(['data' => $cliente->precos()->get()]);
     }
 
-    // ── Histórico (placeholder até Pedidos/N4: deriva de interações por ora) ──
+    // ── Histórico de compras (deriva de Pedidos/N4) ──
     public function historico(Request $request, int $clienteId): JsonResponse
     {
         $this->autorizar($request, 'cliente.view');
+        // findOrFail é escopado por tenant (Cliente usa BelongsToTenant): garante
+        // que o cliente é da empresa ativa antes de listar os pedidos dele.
         $cliente = Cliente::query()->findOrFail($clienteId);
 
-        // O histórico de compras virá de Pedidos (N4). Por ora, devolve vazio
-        // (contrato estável para a SPA não quebrar).
-        return response()->json(['data' => []]);
+        $limite = (int) $request->query('limite', 30);
+        $limite = max(1, min($limite, 100));
+
+        // Pedido também é tenant-scoped: o histórico só enxerga pedidos da empresa ativa.
+        $pedidos = Pedido::query()
+            ->where('cliente_id', $cliente->id)
+            ->with(['situacao:id,descricao,efeito'])
+            ->withCount('itens')
+            ->orderByDesc('datahora')
+            ->limit($limite)
+            ->get(['id', 'pedidosituacao_id', 'datahora', 'valor_venda', 'valor_desconto']);
+
+        $data = $pedidos->map(fn (Pedido $p) => [
+            'pedido_id' => $p->id,
+            'data' => optional($p->datahora)->toDateTimeString(),
+            'situacao' => $p->situacao?->descricao,
+            'efeito' => $p->situacao?->efeito?->value,
+            'itens' => $p->itens_count,
+            'valor_venda' => (float) $p->valor_venda,
+            'valor_desconto' => (float) $p->valor_desconto,
+        ])->all();
+
+        return response()->json(['data' => $data]);
     }
 
     private function autorizar(Request $request, string $chave): void

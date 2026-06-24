@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Apoio\CadastroSlugs;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class LookupController extends Controller
         'veiculo-tipos' => ['veiculo_tipos', 'descricao', 'grupo'],
         'bancos' => ['bancos', 'descricao', 'grupo'],
         'telefone-tipos' => ['telefonetipos', 'descricao', 'grupo'],
-        'tipo-pessoa' => ['tipopessoas', 'descricao', 'grupo'],
+        'tipos-pessoa' => ['tipopessoas', 'descricao', 'grupo'],
         'contato-tipos' => ['clientecontatotipos', 'descricao', 'grupo'],
         'contato-situacoes' => ['clientecontatosituacoes', 'descricao', 'grupo'],
     ];
@@ -62,6 +63,9 @@ class LookupController extends Controller
 
     public function index(Request $request, string $tipo): JsonResponse
     {
+        // Normaliza alias → slug canônico (F00.2): /lookups/tipo-pessoa e
+        // /cadastros/tipos-pessoa passam a resolver a MESMA entidade.
+        $tipo = CadastroSlugs::canonico($tipo);
         $q = trim((string) $request->query('q', ''));
 
         if (isset(self::ESTATICOS[$tipo])) {

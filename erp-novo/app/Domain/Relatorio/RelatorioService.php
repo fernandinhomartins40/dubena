@@ -14,6 +14,21 @@ use Illuminate\Support\Facades\DB;
 class RelatorioService
 {
     /**
+     * Expressão SQL para "dia do mês" de uma coluna de data, no dialeto do driver
+     * ativo. Evita `strftime` (SQLite-only). Usado em ordenação de aniversariantes.
+     */
+    private function diaDoMesSql(string $coluna): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'pgsql' => "extract(day from {$coluna})",
+            'sqlite' => "cast(strftime('%d', {$coluna}) as integer)",
+            default => "day({$coluna})", // mysql/mariadb
+        };
+    }
+
+    /**
      * Vendas por período: total e contagem por dia (pedidos concretizados).
      *
      * @return array{periodo:array{inicio:string,fim:string}, total:float, quantidade:int, por_dia:array<int,array{dia:string,total:float,quantidade:int}>}
@@ -251,11 +266,14 @@ class RelatorioService
      */
     public function clientesAniversariantes(int $empresaId, int $mes): array
     {
+        // Filtro/ordenação por mês e dia do aniversário de forma AGNÓSTICA de banco:
+        // `whereMonth`/`orderByRaw(day(...))` do query builder traduzem para a função
+        // de data do driver ativo (Postgres/MySQL/SQLite) — sem `strftime` (SQLite-only).
         return DB::table('clientes')
             ->where('empresa_id', $empresaId)
             ->whereNotNull('datanascimento')
-            ->whereRaw('cast(strftime(\'%m\', datanascimento) as integer) = ?', [$mes])
-            ->orderByRaw('strftime(\'%d\', datanascimento)')
+            ->whereMonth('datanascimento', $mes)
+            ->orderByRaw($this->diaDoMesSql('datanascimento'))
             ->get(['nome', 'datanascimento', 'cpf'])
             ->map(fn ($r) => [
                 'nome' => $r->nome,

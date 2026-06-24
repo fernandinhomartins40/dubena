@@ -58,13 +58,16 @@ class CadastroApoioRegistry
 
     public function existe(string $tipo): bool
     {
-        return isset(self::TIPOS[$tipo]);
+        return isset(self::TIPOS[CadastroSlugs::canonico($tipo)]);
     }
 
     /** @return array{model: class-string<CadastroApoio>, modulo: string, extras: array<string, string>} */
     public function config(string $tipo): array
     {
-        abort_unless($this->existe($tipo), 404, 'Cadastro desconhecido.');
+        // Normaliza alias → slug canônico (F00.2) antes de resolver o cadastro,
+        // para que /cadastros/{tipo} e /lookups/{tipo} concordem na mesma entidade.
+        $tipo = CadastroSlugs::canonico($tipo);
+        abort_unless(isset(self::TIPOS[$tipo]), 404, 'Cadastro desconhecido.');
 
         return self::TIPOS[$tipo];
     }

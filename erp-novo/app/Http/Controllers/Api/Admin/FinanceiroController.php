@@ -118,6 +118,68 @@ class FinanceiroController extends Controller
     }
 
     /**
+     * POST /financeiro/lancamentos/agrupar — consolida vários títulos num agrupador
+     * (ex.: fechamento de convênio do mês). Expõe FinanceiroService::agrupar (F00.6).
+     * Os títulos são resolvidos via query tenant-scoped (não enxerga outra empresa).
+     */
+    public function agrupar(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+        $d = $request->validate([
+            'titulos' => 'required|array|min:1',
+            'titulos.*' => 'integer|distinct',
+            'pagarreceber' => 'required|in:P,R',
+            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'descricao' => 'nullable|string|max:255',
+            'num_parcelas' => 'nullable|integer|min:1|max:360',
+        ]);
+
+        $titulos = Financeiro::query()->whereIn('id', $d['titulos'])->get();
+        abort_if($titulos->count() !== count($d['titulos']), 422, 'Um ou mais títulos não pertencem à empresa ativa.');
+
+        $agrupador = $this->service->agrupar(
+            $titulos,
+            [
+                'empresa_id' => $request->user()->empresa_id,
+                'grupo_id' => $request->user()->grupo_id,
+                'pagarreceber' => $d['pagarreceber'],
+                'cliente_id' => $d['cliente_id'] ?? null,
+                'descricao' => $d['descricao'] ?? 'Agrupamento de títulos',
+            ],
+            numParcelas: (int) ($d['num_parcelas'] ?? 1),
+        );
+
+        return response()->json(['data' => $agrupador], 201);
+    }
+
+    /** POST /financeiro/lancamentos/{id}/desagrupar — desfaz um agrupador (F00.6). */
+    public function desagrupar(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+        $this->service->desagrupar(Financeiro::query()->findOrFail($id));
+
+        return response()->json(['message' => 'Agrupamento desfeito.']);
+    }
+
+    /** POST /financeiro/lancamentos/{id}/reparcelar — reparcela o saldo em aberto (F00.6). */
+    public function reparcelar(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+        $d = $request->validate([
+            'num_parcelas' => 'required|integer|min:1|max:360',
+            'data_base' => 'nullable|date',
+        ]);
+
+        $novo = $this->service->reparcelar(
+            Financeiro::query()->findOrFail($id),
+            (int) $d['num_parcelas'],
+            $d['data_base'] ?? null,
+        );
+
+        return response()->json(['data' => $novo], 201);
+    }
+
+    /**
      * GET/POST /financeiro/conciliacao — concilia um extrato OFX com os movimentos
      * da conta no período (C8). Sem OFX (GET inicial), devolve os movimentos do ERP
      * como pendentes; com OFX (campo `ofx` ou upload `arquivo`), casa as transações.
