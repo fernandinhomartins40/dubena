@@ -1,10 +1,13 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Wand2 } from 'lucide-react'
 import { CheckboxField } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 
 const EMAIL_KEY = 'erpnovo_lembrar_email'
+
+// Credenciais do acesso de demonstração (mesmas exibidas na landing).
+const DEMO = { email: 'teste@gasemcasa.com', senha: 'teste1234' }
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -22,6 +25,12 @@ export function LoginPage() {
     const salvo = localStorage.getItem(EMAIL_KEY)
     if (salvo) { setEmail(salvo); setLembrar(true) }
   }, [])
+
+  function preencherTeste() {
+    setEmail(DEMO.email)
+    setPassword(DEMO.senha)
+    setErro(null)
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -94,6 +103,13 @@ export function LoginPage() {
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               {enviando ? 'Entrando…' : 'Entrar'}
+            </button>
+
+            <button
+              type="button" onClick={preencherTeste}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-input py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            >
+              <Wand2 size={15} /> Preencher com acesso de demonstração
             </button>
           </form>
         </div>
