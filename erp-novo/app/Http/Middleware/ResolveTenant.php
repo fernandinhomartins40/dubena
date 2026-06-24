@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Domain\Tenant\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -44,9 +45,24 @@ class ResolveTenant
 
             if ($empresaId > 0 && $grupoId > 0) {
                 $this->tenant->set($empresaId, $grupoId);
+                $this->setRlsEmpresa($empresaId);
             }
         }
 
         return $next($request);
+    }
+
+    /**
+     * Define `app.empresa_id` na sessão do Postgres para alimentar as policies de
+     * RLS (F02.5). É a 2ª barreira: mesmo uma query crua só vê linhas da empresa
+     * ativa. NO-OP fora do pgsql. set_config(..., false) = escopo de sessão.
+     */
+    private function setRlsEmpresa(int $empresaId): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::statement('SELECT set_config(?, ?, false)', ['app.empresa_id', (string) $empresaId]);
     }
 }

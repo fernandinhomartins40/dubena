@@ -27,9 +27,22 @@ trait BelongsToTenant
 
         // Preenche empresa_id/grupo_id na criação se ainda não vierem definidos.
         static::creating(function (Model $model) use ($context) {
-            if ($context->empresaId() !== null && empty($model->getAttribute('empresa_id'))) {
-                $model->setAttribute('empresa_id', $context->empresaId());
+            if (empty($model->getAttribute('empresa_id'))) {
+                // 1ª escolha: tenant ativo (caminho normal, dentro de um request).
+                if ($context->empresaId() !== null) {
+                    $model->setAttribute('empresa_id', $context->empresaId());
+                } else {
+                    // 2ª escolha (ETL/jobs/seed/testes — SEM tenant resolvido): herda
+                    // o empresa_id do PAI quando o model é criado via relação
+                    // ($pai->filhos()->create([...])). Sem isso, a filha tenant-scoped
+                    // nasceria com empresa_id NULL e ficaria invisível a um tenant ativo.
+                    $herdado = static::empresaIdDoPai($model);
+                    if ($herdado !== null) {
+                        $model->setAttribute('empresa_id', $herdado);
+                    }
+                }
             }
+
             if ($context->grupoId() !== null
                 && in_array('grupo_id', $model->getFillable(), true)
                 && empty($model->getAttribute('grupo_id'))) {
@@ -42,6 +55,33 @@ trait BelongsToTenant
     public static function withoutTenant(): Builder
     {
         return static::query()->withoutGlobalScope(TenantScope::class);
+    }
+
+    /**
+     * Tenta descobrir o empresa_id do PAI quando a filha é criada via relação,
+     * sem tenant ativo. Usa o mapa `$tenantParent` do model (FK => tabela do pai),
+     * lendo o empresa_id do pai pela FK já preenchida pela relação. Uma consulta
+     * leve, percorrida só no caminho ETL/jobs/seed/testes. Retorna null se não der.
+     */
+    protected static function empresaIdDoPai(Model $model): ?int
+    {
+        // Convenção opcional: protected array $tenantParent = ['fk' => 'tabela_pai'];
+        $mapa = property_exists($model, 'tenantParent') ? $model->tenantParent : [];
+
+        foreach ($mapa as $fk => $tabelaPai) {
+            $valorFk = $model->getAttribute($fk);
+            if ($valorFk === null) {
+                continue;
+            }
+            $empresaId = \Illuminate\Support\Facades\DB::table($tabelaPai)
+                ->where('id', $valorFk)
+                ->value('empresa_id');
+            if ($empresaId !== null) {
+                return (int) $empresaId;
+            }
+        }
+
+        return null;
     }
 }
 

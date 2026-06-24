@@ -39,7 +39,10 @@ class CertificadoService
             Storage::disk(self::DISCO)->delete($config->cert_path);
         }
 
-        $caminho = self::PASTA.'/empresa_'.$config->empresa_id.'_'.now()->format('YmdHis').'.pfx';
+        // F02.7 — segregação física por empresa: cada tenant tem sua SUBPASTA no
+        // disco privado (certificados/empresa_<id>/...). Além do nome do arquivo já
+        // conter o empresa_id, a subpasta isola o tenant e evita leitura cruzada.
+        $caminho = self::PASTA.'/empresa_'.$config->empresa_id.'/'.now()->format('YmdHis').'.pfx';
         Storage::disk(self::DISCO)->put($caminho, $conteudoPfx);
 
         $config->forceFill([

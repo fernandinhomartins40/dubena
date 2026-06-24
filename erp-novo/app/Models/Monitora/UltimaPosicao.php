@@ -2,6 +2,7 @@
 
 namespace App\Models\Monitora;
 
+use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class UltimaPosicao extends Model
 {
+    use BelongsToTenant;
+
+    /** @var array<string,string> FK => tabela do pai (herança de empresa_id na criação sem tenant ativo). */
+    protected $tenantParent = ['veiculo_id' => 'monitora_veiculos'];
+
     use HasFactory;
 
     protected $table = 'monitora_ultima_posicao';

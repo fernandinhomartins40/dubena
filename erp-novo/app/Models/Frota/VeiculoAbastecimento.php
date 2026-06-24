@@ -2,12 +2,18 @@
 
 namespace App\Models\Frota;
 
+use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Abastecimento de um veículo — C6 (base do consumo médio). */
 class VeiculoAbastecimento extends Model
 {
+    use BelongsToTenant;
+
+    /** @var array<string,string> FK => tabela do pai (herança de empresa_id na criação sem tenant ativo). */
+    protected $tenantParent = ['veiculo_id' => 'veiculos'];
+
     protected $table = 'veiculo_abastecimentos';
 
     protected $fillable = [

@@ -2,6 +2,7 @@
 
 namespace App\Models\Fiscal;
 
+use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Produto\Produto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NotaItem extends Model
 {
+    use BelongsToTenant;
+
+    /** @var array<string,string> FK => tabela do pai (herança de empresa_id na criação sem tenant ativo). */
+    protected $tenantParent = ['nota_fiscal_id' => 'notas_fiscais'];
+
     use HasFactory;
 
     protected $table = 'nota_itens';

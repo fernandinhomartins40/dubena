@@ -123,11 +123,15 @@ class FaseF00Test extends TestCase
             'empresa_id' => $empresaB->id, 'grupo_id' => $empresaB->grupo_id, 'descricao' => 'Caixa B', 'saldo_inicial' => 0,
         ]);
 
-        // Tenant B ativo tenta baixar a parcela de A → deve falhar (422), sem vazar.
-        $this->actingAs($userB, 'sanctum')
+        // Tenant B ativo tenta baixar a parcela de A → deve falhar SEM vazar.
+        // Após a F02 (FinanceiroParcela tenant-scoped), a parcela de A é invisível
+        // para B: o findOrFail no service retorna 404 (antes era 422 via revalidação
+        // explícita). Qualquer 4xx que NÃO baixe a parcela satisfaz a garantia.
+        $resp = $this->actingAs($userB, 'sanctum')
             ->withHeader('X-Empresa-Id', (string) $empresaB->id)
-            ->postJson("/api/admin/caixa/{$contaB->id}/baixar", ['parcela_id' => $parcelaA->id])
-            ->assertStatus(422);
+            ->postJson("/api/admin/caixa/{$contaB->id}/baixar", ['parcela_id' => $parcelaA->id]);
+
+        $this->assertContains($resp->status(), [404, 422], 'Deve recusar baixa cross-tenant.');
 
         // A parcela de A continua em aberto.
         $this->assertFalse($parcelaA->refresh()->baixado);
