@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#161512">
   <title>Gás em Casa — Sistema de gestão para distribuidoras de gás e água</title>
-  <meta name="description" content="Sistema de gestão para revendas e distribuidoras de GLP e água: pedidos, entregas, frota, controle de vasilhame, emissão fiscal e financeiro integrados.">
+  <meta name="description" content="O sistema que coloca pedidos, entregas, frota, vasilhame, fiscal e financeiro da sua distribuidora de gás e água em um só lugar. Menos planilha, mais controle.">
   <style>
     :root{
-      --laranja:#ff6200; --laranja-700:#d44f00;
-      --ink:#1b1a17; --ink-2:#3f3d37; --muted:#6c6860;
-      --line:#e6e2d9; --line-2:#efebe2; --bg:#fbfaf7; --card:#fff;
-      --grafite:#181612;
-      --radius:14px; --maxw:1080px;
+      --laranja:#ff6200; --laranja-600:#e85800; --laranja-700:#c44b00;
+      --lime:#dbfb3b; --lime-700:#aecd16;
+      --grafite:#17150f; --grafite-2:#221f17; --grafite-3:#2e2a20;
+      --ink:#1b1a17; --ink-2:#403d36; --muted:#736e64;
+      --line:#e8e3d8; --line-2:#f1ede3; --bg:#fbfaf6; --card:#fff;
+      --radius:16px; --maxw:1120px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
     html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -20,96 +21,159 @@
       color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased;font-size:16px}
     a{text-decoration:none;color:inherit}
     .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
-    h1,h2,h3{letter-spacing:-.02em;line-height:1.1}
+    h1,h2,h3{letter-spacing:-.025em;line-height:1.08}
+    .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
+      letter-spacing:.1em;text-transform:uppercase;color:var(--laranja)}
+    .kicker .bar{width:22px;height:2px;background:var(--laranja);display:inline-block}
 
-    .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;
-      padding:11px 20px;border-radius:9px;border:1px solid transparent;cursor:pointer;
-      transition:background .15s ease,border-color .15s ease,color .15s ease}
-    .btn-primary{background:var(--laranja);color:#fff}
-    .btn-primary:hover{background:var(--laranja-700)}
+    .btn{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:15px;
+      padding:13px 24px;border-radius:11px;border:1.5px solid transparent;cursor:pointer;
+      transition:transform .12s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease}
+    .btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2}
+    .btn-primary{background:var(--laranja);color:#fff;box-shadow:0 8px 22px rgba(255,98,0,.30)}
+    .btn-primary:hover{background:var(--laranja-700);transform:translateY(-2px);box-shadow:0 12px 28px rgba(255,98,0,.38)}
+    .btn-lime{background:var(--lime);color:var(--grafite)}
+    .btn-lime:hover{background:var(--lime-700);transform:translateY(-2px)}
+    .btn-line-dark{background:transparent;color:#fff;border-color:rgba(255,255,255,.22)}
+    .btn-line-dark:hover{border-color:rgba(255,255,255,.55)}
     .btn-outline{background:transparent;color:var(--ink);border-color:var(--line)}
     .btn-outline:hover{border-color:var(--ink-2)}
-    .btn-sm{padding:9px 16px;font-size:14px}
+    .btn-sm{padding:10px 18px;font-size:14px}
 
     /* HEADER */
-    header{position:sticky;top:0;z-index:30;background:rgba(251,250,247,.9);
-      backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-    .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
-    .mark{height:30px;width:30px;border-radius:8px;background:var(--grafite);color:#fff;
-      display:grid;place-items:center;font-weight:800;font-size:15px;position:relative}
-    .mark::after{content:"";position:absolute;right:5px;bottom:5px;width:6px;height:6px;border-radius:50%;background:var(--laranja)}
-    .nav-links{display:flex;gap:28px;font-size:14.5px;color:var(--muted)}
-    .nav-links a:hover{color:var(--ink)}
-    @media(max-width:780px){.nav-links{display:none}}
+    header{position:sticky;top:0;z-index:40;background:rgba(23,21,15,.86);backdrop-filter:blur(10px);
+      border-bottom:1px solid rgba(255,255,255,.08)}
+    .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:18px;color:#fff}
+    .mark{height:32px;width:32px;border-radius:9px;background:var(--laranja);color:#fff;
+      display:grid;place-items:center;font-weight:900;font-size:16px;position:relative;
+      box-shadow:0 3px 12px rgba(255,98,0,.45)}
+    .mark::after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--lime)}
+    .nav-links{display:flex;gap:28px;font-size:14.5px;color:#b6b1a6}
+    .nav-links a:hover{color:#fff}
+    @media(max-width:820px){.nav-links{display:none}}
 
     /* HERO */
-    .hero{padding:96px 0 72px;border-bottom:1px solid var(--line)}
-    .hero .tag{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
-      border:1px solid var(--line);border-radius:999px;padding:5px 13px;margin-bottom:26px}
-    .hero .tag b{color:var(--ink);font-weight:600}
-    .dot{width:7px;height:7px;border-radius:50%;background:var(--laranja);display:inline-block}
-    .hero h1{font-size:clamp(36px,5.6vw,58px);font-weight:800;max-width:15ch;color:var(--ink)}
-    .hero p{margin-top:22px;font-size:clamp(17px,2.1vw,20px);color:var(--ink-2);max-width:54ch}
-    .hero .cta{margin-top:34px;display:flex;flex-wrap:wrap;gap:12px}
-    .hero .demo{margin-top:18px;font-size:13.5px;color:var(--muted)}
-    .hero .demo code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--line-2);
-      padding:2px 7px;border-radius:5px;color:var(--ink-2);font-size:12.5px}
+    .hero{position:relative;overflow:hidden;background:var(--grafite);color:#fff;padding:80px 0 0}
+    .hero::before{content:"";position:absolute;top:-180px;right:-120px;width:560px;height:560px;border-radius:50%;
+      background:radial-gradient(circle,rgba(255,98,0,.30),transparent 62%);filter:blur(8px)}
+    .hero::after{content:"";position:absolute;bottom:-40px;left:-160px;width:420px;height:420px;border-radius:50%;
+      background:radial-gradient(circle,rgba(219,251,59,.14),transparent 60%)}
+    .hero .wrap{position:relative;z-index:1}
+    .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+    @media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:8px}}
+    .hero h1{font-size:clamp(36px,5.4vw,60px);font-weight:850;max-width:16ch;margin-top:20px}
+    .hero h1 .hl{color:var(--lime)}
+    .hero h1 .hl-o{color:var(--laranja)}
+    .hero p{margin-top:22px;font-size:clamp(16px,2vw,19px);color:#c8c3b8;max-width:50ch}
+    .hero .cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:13px}
+    .hero .demo{margin-top:20px;font-size:13px;color:#8d887d}
+    .hero .demo code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:rgba(255,255,255,.08);
+      padding:3px 8px;border-radius:6px;color:#d9d4c8;font-size:12px}
+    .hero-foot{margin-top:56px;padding:22px 0;border-top:1px solid rgba(255,255,255,.09);
+      display:flex;gap:14px 30px;flex-wrap:wrap;align-items:center}
+    .hero-foot b{color:#fff;font-weight:600;font-size:13.5px}
+    .hero-foot .lbl{color:#8d887d;font-size:13px}
+    .hero-foot .tagp{font-size:13px;font-weight:600;color:#e9e6df;border:1px solid rgba(255,255,255,.14);
+      border-radius:8px;padding:6px 12px}
 
-    /* CONFIANÇA — operações atendidas */
-    .trust{padding:30px 0;border-bottom:1px solid var(--line);background:var(--card)}
-    .trust .wrap{display:flex;align-items:center;gap:14px 34px;flex-wrap:wrap}
-    .trust span{font-size:13px;color:var(--muted)}
-    .trust .pill{font-size:13.5px;font-weight:600;color:var(--ink-2);
-      border:1px solid var(--line);border-radius:8px;padding:7px 13px;background:var(--bg)}
+    /* MOCKUP dashboard (puro CSS) */
+    .mock{background:#fff;border-radius:16px;box-shadow:0 30px 70px rgba(0,0,0,.45);overflow:hidden;
+      border:1px solid rgba(255,255,255,.1);transform:translateY(28px)}
+    @media(max-width:920px){.mock{transform:none;margin-top:30px;max-width:520px}}
+    .mock .top{display:flex;align-items:center;gap:7px;padding:12px 14px;background:#f3f0ea;border-bottom:1px solid #e8e3d8}
+    .mock .top i{width:11px;height:11px;border-radius:50%;background:#d6d0c4;display:block}
+    .mock .top i:first-child{background:#ff6200}
+    .mock .body{display:flex}
+    .mock .side{width:64px;background:var(--grafite);padding:14px 0;display:flex;flex-direction:column;gap:11px;align-items:center}
+    .mock .side .s{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.08)}
+    .mock .side .s.on{background:var(--laranja)}
+    .mock .main{flex:1;padding:18px}
+    .mock .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .mock .c{border:1px solid #eee7da;border-radius:10px;padding:11px}
+    .mock .c .ico{width:26px;height:26px;border-radius:7px;margin-bottom:9px}
+    .mock .c.o .ico{background:rgba(255,98,0,.14)} .mock .c.l .ico{background:rgba(174,205,22,.28)} .mock .c.g .ico{background:rgba(23,21,15,.10)}
+    .mock .c .n{font-size:17px;font-weight:800;color:#1b1a17}
+    .mock .c .t{font-size:10px;color:#8d887d;margin-top:2px}
+    .mock .chart{margin-top:12px;border:1px solid #eee7da;border-radius:10px;padding:13px 12px 9px}
+    .mock .chart .bars{display:flex;align-items:flex-end;gap:7px;height:74px}
+    .mock .chart .bars span{flex:1;border-radius:4px 4px 0 0;background:#ece6d9}
+    .mock .chart .bars span.hot{background:var(--laranja)}
+    .mock .chart .bars span.lime{background:var(--lime-700)}
 
-    /* SECTIONS */
-    section.block{padding:80px 0}
-    .lead{max-width:620px;margin-bottom:48px}
-    .lead .kicker{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--laranja)}
-    .lead h2{font-size:clamp(26px,3.4vw,36px);font-weight:800;margin-top:12px}
+    /* SECTION base */
+    section.block{padding:84px 0}
+    .lead{max-width:640px;margin-bottom:50px}
+    .lead h2{font-size:clamp(27px,3.6vw,40px);font-weight:850;margin-top:14px}
     .lead p{margin-top:14px;color:var(--muted);font-size:17px}
 
-    /* RECURSOS */
+    /* BENEFÍCIOS (cards com cor) */
+    .bens{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    @media(max-width:880px){.bens{grid-template-columns:1fr 1fr}}
+    @media(max-width:560px){.bens{grid-template-columns:1fr}}
+    .ben{position:relative;border-radius:var(--radius);padding:28px 24px;overflow:hidden;border:1px solid var(--line);background:var(--card)}
+    .ben .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px}
+    .ben .ic svg{width:24px;height:24px;fill:none;stroke-width:2}
+    .ben h3{font-size:18.5px;font-weight:750}
+    .ben p{margin-top:9px;font-size:14.5px;color:var(--muted);line-height:1.6}
+    .ben .metric{margin-top:16px;font-size:13px;font-weight:700}
+    /* variações de cor por benefício */
+    .ben.o{border-top:3px solid var(--laranja)} .ben.o .ic{background:rgba(255,98,0,.12);color:var(--laranja)} .ben.o .metric{color:var(--laranja)}
+    .ben.l{border-top:3px solid var(--lime-700)} .ben.l .ic{background:rgba(174,205,22,.22);color:var(--lime-700)} .ben.l .metric{color:var(--lime-700)}
+    .ben.g{border-top:3px solid var(--grafite)} .ben.g .ic{background:rgba(23,21,15,.08);color:var(--grafite)} .ben.g .metric{color:var(--ink)}
+
+    /* RECURSOS (lista enxuta com cor) */
     .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
       border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
     @media(max-width:840px){.feats{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:560px){.feats{grid-template-columns:1fr}}
-    .feat{background:var(--card);padding:30px 26px}
-    .feat .ic{width:38px;height:38px;color:var(--ink);margin-bottom:16px;display:grid;place-items:center}
-    .feat .ic svg{width:26px;height:26px;stroke-width:1.6;fill:none;stroke:currentColor}
-    .feat h3{font-size:17px;font-weight:700}
-    .feat p{margin-top:8px;font-size:14.5px;color:var(--muted);line-height:1.6}
-    .feat ul{margin-top:12px;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
-    .feat li{font-size:12px;color:var(--ink-2);background:var(--line-2);border-radius:6px;padding:3px 9px}
+    .feat{background:var(--card);padding:26px 24px}
+    .feat .ic{width:40px;height:40px;border-radius:10px;background:var(--line-2);color:var(--laranja);
+      display:grid;place-items:center;margin-bottom:14px}
+    .feat .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+    .feat h3{font-size:16.5px;font-weight:700}
+    .feat p{margin-top:7px;font-size:14px;color:var(--muted);line-height:1.55}
 
-    /* INTEGRAÇÃO (escuro, sóbrio) */
+    /* FAIXA LIME (impacto, bem feito) */
+    .stripe{background:var(--lime);color:var(--grafite);position:relative;overflow:hidden}
+    .stripe::before{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;
+      background:rgba(23,21,15,.06)}
+    .stripe .wrap{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:52px 24px;flex-wrap:wrap;position:relative}
+    .stripe h2{font-size:clamp(24px,3.2vw,36px);font-weight:850;max-width:20ch}
+    .stripe p{margin-top:8px;font-size:16px;color:#43402c;max-width:42ch}
+    .stripe .btn-primary{box-shadow:0 8px 22px rgba(23,21,15,.22)}
+
+    /* FLUXO (escuro) */
     .integrated{background:var(--grafite);color:#e9e6df}
-    .integrated .wrap{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
-    @media(max-width:820px){.integrated .wrap{grid-template-columns:1fr;gap:36px}}
-    .integrated h2{font-size:clamp(26px,3.2vw,34px);font-weight:800;color:#fff;max-width:18ch}
-    .integrated p{margin-top:16px;color:#a9a499;font-size:16.5px;max-width:46ch}
-    .flow{display:flex;flex-direction:column;gap:0}
-    .flow .step{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid rgba(255,255,255,.08)}
-    .flow .step:last-child{border-bottom:0}
-    .flow .num{flex:0 0 auto;width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.18);
-      display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff}
-    .flow .step:first-child .num{background:var(--laranja);border-color:var(--laranja)}
-    .flow h4{font-size:15.5px;font-weight:600;color:#fff}
-    .flow span{font-size:14px;color:#9a958b}
+    .integrated .wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:center}
+    @media(max-width:820px){.integrated .wrap{grid-template-columns:1fr;gap:34px}}
+    .integrated h2{font-size:clamp(26px,3.2vw,36px);font-weight:850;color:#fff;max-width:16ch}
+    .integrated h2 .hl{color:var(--lime)}
+    .integrated p{margin-top:16px;color:#a9a499;font-size:16.5px;max-width:44ch}
+    .flow{display:flex;flex-direction:column;gap:10px}
+    .flow .step{display:flex;gap:15px;align-items:center;background:var(--grafite-2);
+      border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:15px 17px}
+    .flow .num{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+      font-size:13px;font-weight:800;background:rgba(255,255,255,.08);color:#fff}
+    .flow .step:nth-child(1) .num{background:var(--laranja)}
+    .flow .step:nth-child(4) .num{background:var(--lime);color:var(--grafite)}
+    .flow h4{font-size:15.5px;font-weight:650;color:#fff}
+    .flow span{font-size:13.5px;color:#938e84}
 
     /* CTA FINAL */
-    .final{padding:84px 0;border-top:1px solid var(--line)}
-    .final .box{text-align:center;max-width:620px;margin:0 auto}
-    .final h2{font-size:clamp(26px,3.4vw,36px);font-weight:800}
-    .final p{margin-top:14px;color:var(--muted);font-size:17px}
-    .final .cta{margin-top:28px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+    .final{padding:90px 0;text-align:center;background:
+      radial-gradient(700px 280px at 50% 0,rgba(255,98,0,.07),transparent 70%)}
+    .final h2{font-size:clamp(28px,3.8vw,44px);font-weight:850;max-width:16ch;margin:0 auto}
+    .final p{margin-top:15px;color:var(--muted);font-size:18px}
+    .final .cta{margin-top:30px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
 
     /* FOOTER */
     footer{border-top:1px solid var(--line);background:var(--card);padding:40px 0;font-size:14px;color:var(--muted)}
     .foot{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .foot .brand{color:var(--ink);font-size:15px}
+    .foot .brand .mark{box-shadow:none}
     .foot .legacy a{color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
-    .foot .legacy a:hover{color:var(--ink)}
+    .foot .legacy a:hover{color:var(--laranja)}
   </style>
 </head>
 <body>
@@ -117,9 +181,9 @@
     <div class="wrap nav">
       <div class="brand"><span class="mark">G</span> Gás em Casa</div>
       <nav class="nav-links">
+        <a href="#beneficios">Vantagens</a>
         <a href="#recursos">Recursos</a>
         <a href="#operacao">Como funciona</a>
-        <a href="/novo/app/">Entrar</a>
       </nav>
       <a class="btn btn-primary btn-sm" href="/novo/app/">Acessar o sistema</a>
     </div>
@@ -128,25 +192,108 @@
   <!-- HERO -->
   <section class="hero">
     <div class="wrap">
-      <span class="tag"><span class="dot"></span> Gestão para <b>distribuidoras de gás e água</b></span>
-      <h1>A operação da sua revenda, organizada num lugar só.</h1>
-      <p>Pedidos, entregas, controle de vasilhame, emissão fiscal e financeiro — integrados, do balcão à rota de entrega. Sem planilha paralela, sem dado digitado duas vezes.</p>
-      <div class="cta">
-        <a class="btn btn-primary" href="/novo/app/">Acessar o sistema</a>
-        <a class="btn btn-outline" href="#recursos">Conhecer os recursos</a>
+      <div class="hero-grid">
+        <div>
+          <span class="kicker"><span class="bar"></span> Gestão para distribuidoras de gás e água</span>
+          <h1>Sua revenda inteira <span class="hl-o">no controle</span>, num <span class="hl">só lugar</span>.</h1>
+          <p>Pedido, entrega, vasilhame, nota fiscal e financeiro conversando entre si. Você digita uma vez — o sistema cuida do resto.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="/novo/app/">Acessar o sistema <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            <a class="btn btn-line-dark" href="#beneficios">Ver vantagens</a>
+          </div>
+          <p class="demo">Demonstração: <code>teste@gasemcasa.com</code> · <code>teste1234</code></p>
+        </div>
+
+        <!-- mockup dashboard -->
+        <div class="mock" aria-hidden="true">
+          <div class="top"><i></i><i></i><i></i></div>
+          <div class="body">
+            <div class="side"><div class="s on"></div><div class="s"></div><div class="s"></div><div class="s"></div><div class="s"></div></div>
+            <div class="main">
+              <div class="cards">
+                <div class="c o"><div class="ico"></div><div class="n">128</div><div class="t">Pedidos hoje</div></div>
+                <div class="c l"><div class="ico"></div><div class="n">R$ 14k</div><div class="t">Caixa do dia</div></div>
+                <div class="c g"><div class="ico"></div><div class="n">342</div><div class="t">Vasilhames</div></div>
+              </div>
+              <div class="chart">
+                <div class="bars">
+                  <span style="height:42%"></span><span style="height:60%"></span><span class="lime" style="height:38%"></span>
+                  <span style="height:72%"></span><span class="hot" style="height:95%"></span><span style="height:55%"></span>
+                  <span style="height:80%"></span><span class="lime" style="height:48%"></span><span style="height:66%"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <p class="demo">Acesso de demonstração: <code>teste@gasemcasa.com</code> · <code>teste1234</code></p>
+
+      <div class="hero-foot">
+        <span class="lbl">Feito para:</span>
+        <span class="tagp">Revenda de GLP (botijão)</span>
+        <span class="tagp">Distribuidora de água</span>
+        <span class="tagp">Tele-entrega</span>
+        <span class="tagp">Operação multifilial</span>
+      </div>
     </div>
   </section>
 
-  <!-- OPERAÇÕES ATENDIDAS -->
-  <section class="trust">
+  <!-- BENEFÍCIOS -->
+  <section class="block" id="beneficios">
     <div class="wrap">
-      <span>Feito para:</span>
-      <span class="pill">Revenda de GLP (botijão)</span>
-      <span class="pill">Distribuidora de água</span>
-      <span class="pill">Entrega e tele-entrega</span>
-      <span class="pill">Operação multifilial</span>
+      <div class="lead">
+        <span class="kicker"><span class="bar"></span> Por que adotar</span>
+        <h2>O que muda na sua operação</h2>
+        <p>Não é só "ter um sistema" — é parar de perder dinheiro em retrabalho, vasilhame perdido e nota feita a mão.</p>
+      </div>
+      <div class="bens">
+        <div class="ben o">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></div>
+          <h3>Atendimento mais rápido</h3>
+          <p>Lance o pedido em segundos com cliente, preço e endereço salvos. A fila de entrega se organiza sozinha por rota.</p>
+          <div class="metric">Menos tempo no balcão</div>
+        </div>
+        <div class="ben l">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M20 8 12 3 4 8v8l8 5 8-5z"/><path d="M4 8l8 5 8-5M12 13v8"/></svg></div>
+          <h3>Vasilhame sob controle</h3>
+          <p>Saiba exatamente quantos botijões saíram em comodato e quais ainda estão na rua. Pare de perder ativo.</p>
+          <div class="metric">Comodato rastreado</div>
+        </div>
+        <div class="ben g">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 14h8"/></svg></div>
+          <h3>Fiscal sem dor de cabeça</h3>
+          <p>NF-e, NFC-e e cupom SAT saem do próprio pedido. SPED gerado pronto pra contabilidade.</p>
+          <div class="metric">Dentro da lei, automático</div>
+        </div>
+        <div class="ben g">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6 15h4"/></svg></div>
+          <h3>Dinheiro à vista</h3>
+          <p>Caixa por conta, contas a receber, conciliação bancária e DRE. Você sabe quanto entrou e quanto falta.</p>
+          <div class="metric">Financeiro fechado no dia</div>
+        </div>
+        <div class="ben o">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M3 7h13v9H3z"/><path d="M16 10h3.5L22 13v3h-6"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg></div>
+          <h3>Frota na palma da mão</h3>
+          <p>Posição dos veículos por GPS, abastecimento e manutenção registrados. Entrega no lugar certo, na hora certa.</p>
+          <div class="metric">Rota acompanhada ao vivo</div>
+        </div>
+        <div class="ben l">
+          <div class="ic"><svg viewBox="0 0 24 24" stroke="currentColor"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg></div>
+          <h3>Decisão com número</h3>
+          <p>Vendas, comissões, fechamentos e DRE em relatórios prontos — com exportação em PDF e CSV num clique.</p>
+          <div class="metric">Relatórios em 1 clique</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAIXA LIME -->
+  <section class="stripe">
+    <div class="wrap">
+      <div>
+        <h2>Tudo o que a planilha não dá conta.</h2>
+        <p>Um sistema pensado para o gás e a água — não um ERP genérico adaptado na marra.</p>
+      </div>
+      <a class="btn btn-primary" href="/novo/app/">Acessar o sistema</a>
     </div>
   </section>
 
@@ -154,63 +301,34 @@
   <section class="block" id="recursos">
     <div class="wrap">
       <div class="lead">
-        <span class="kicker">Recursos</span>
-        <h2>O que você controla no sistema</h2>
-        <p>Módulos que conversam entre si — cada área puxa o dado da anterior.</p>
+        <span class="kicker"><span class="bar"></span> Recursos</span>
+        <h2>Tudo que você controla</h2>
+        <p>Módulos integrados — o dado flui de um para o outro.</p>
       </div>
       <div class="feats">
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.1a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg></div>
-          <h3>Pedidos e entregas</h3>
-          <p>Atendimento por balcão ou telefone, fila de entrega por rota e acompanhamento de status até a casa do cliente.</p>
-          <ul><li>Balcão</li><li>Tele-entrega</li><li>App do entregador</li></ul>
-        </div>
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 14h8M8 17h5"/></svg></div>
-          <h3>Emissão fiscal</h3>
-          <p>NF-e, NFC-e e cupom SAT/CFe com cálculo de impostos e geração de SPED Fiscal e Contribuições.</p>
-          <ul><li>NF-e / NFC-e</li><li>SAT/CFe</li><li>SPED</li></ul>
-        </div>
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg></div>
-          <h3>Financeiro e caixa</h3>
-          <p>Contas a pagar e receber, caixa por conta, conciliação bancária, cheques, boletos, PIX e cartões.</p>
-          <ul><li>Conciliação OFX</li><li>DRE</li><li>Fluxo de caixa</li></ul>
-        </div>
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7h13v9H3z"/><path d="M16 10h3.5L22 13v3h-6"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg></div>
-          <h3>Frota e rastreamento</h3>
-          <p>Veículos, abastecimento e manutenção, com posição da frota de entrega acompanhada por GPS.</p>
-          <ul><li>Veículos</li><li>Abastecimento</li><li>GPS</li></ul>
-        </div>
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M20 8 12 3 4 8v8l8 5 8-5z"/><path d="M4 8l8 5 8-5M12 13v8"/></svg></div>
-          <h3>Estoque e vasilhame</h3>
-          <p>Saldo por setor, transferências e inventário, com controle de comodato para saber quantos vasilhames estão na rua.</p>
-          <ul><li>Comodato</li><li>Inventário</li><li>Multissetor</li></ul>
-        </div>
-        <div class="feat">
-          <div class="ic"><svg viewBox="0 0 24 24"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.6-3.4"/></svg></div>
-          <h3>Clientes e programas</h3>
-          <p>Cadastro com histórico de compras, vale-gás e Gás do Povo integrados ao caixa, além de pós-venda e promoções.</p>
-          <ul><li>Vale-gás</li><li>Gás do Povo</li><li>Pós-venda</li></ul>
-        </div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.1a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg></div><h3>Pedidos e entregas</h3><p>Balcão, telefone e app do entregador, com fila por rota.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 14h8"/></svg></div><h3>Emissão fiscal</h3><p>NF-e, NFC-e, SAT/CFe e SPED, com cálculo de impostos.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6 15h4"/></svg></div><h3>Financeiro e caixa</h3><p>Pagar/receber, conciliação, cheques, boletos, PIX e cartões.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7h13v9H3z"/><path d="M16 10h3.5L22 13v3h-6"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg></div><h3>Frota e GPS</h3><p>Veículos, abastecimento, manutenção e rastreamento.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M20 8 12 3 4 8v8l8 5 8-5z"/><path d="M4 8l8 5 8-5M12 13v8"/></svg></div><h3>Estoque e vasilhame</h3><p>Saldo por setor, inventário e controle de comodato.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/></svg></div><h3>Clientes e programas</h3><p>Histórico, vale-gás, Gás do Povo, pós-venda e promoções.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- INTEGRAÇÃO -->
+  <!-- FLUXO -->
   <section class="block integrated" id="operacao">
     <div class="wrap">
       <div>
-        <h2>Um pedido percorre o sistema inteiro sozinho.</h2>
-        <p>Você digita uma vez no atendimento. O sistema cuida do resto — estoque, nota fiscal e financeiro saem do mesmo lançamento, sem retrabalho.</p>
+        <span class="kicker" style="color:var(--lime)"><span class="bar" style="background:var(--lime)"></span> Integrado de verdade</span>
+        <h2>Um pedido percorre o <span class="hl">sistema inteiro</span> sozinho.</h2>
+        <p>Você digita uma vez no atendimento. Estoque, nota fiscal e financeiro saem do mesmo lançamento — sem retrabalho, sem erro de digitação.</p>
       </div>
       <div class="flow">
-        <div class="step"><div class="num">1</div><div><h4>Pedido lançado</h4><span>No balcão ou por telefone, com preço e cliente.</span></div></div>
+        <div class="step"><div class="num">1</div><div><h4>Pedido lançado</h4><span>No balcão ou por telefone, com cliente e preço.</span></div></div>
         <div class="step"><div class="num">2</div><div><h4>Estoque baixado</h4><span>O vasilhame sai do setor automaticamente.</span></div></div>
         <div class="step"><div class="num">3</div><div><h4>Nota emitida</h4><span>NFC-e ou cupom fiscal gerados na hora.</span></div></div>
-        <div class="step"><div class="num">4</div><div><h4>Financeiro lançado</h4><span>A venda entra no caixa e nas contas a receber.</span></div></div>
+        <div class="step"><div class="num">4</div><div><h4>Financeiro lançado</h4><span>A venda cai no caixa e nas contas a receber.</span></div></div>
       </div>
     </div>
   </section>
@@ -218,12 +336,11 @@
   <!-- CTA FINAL -->
   <section class="final">
     <div class="wrap">
-      <div class="box">
-        <h2>Veja o sistema por dentro.</h2>
-        <p>Entre com o acesso de demonstração e navegue pela operação completa.</p>
-        <div class="cta">
-          <a class="btn btn-primary" href="/novo/app/">Acessar o sistema</a>
-        </div>
+      <span class="kicker" style="justify-content:center"><span class="bar"></span> Comece agora</span>
+      <h2 style="margin-top:14px">Veja o sistema por dentro hoje.</h2>
+      <p>Entre com o acesso de demonstração e navegue pela operação completa.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="/novo/app/">Acessar o sistema <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       </div>
     </div>
   </section>
@@ -231,7 +348,7 @@
   <!-- FOOTER -->
   <footer>
     <div class="wrap foot">
-      <div class="brand" style="font-size:15px"><span class="mark">G</span> Gás em Casa</div>
+      <div class="brand"><span class="mark">G</span> Gás em Casa</div>
       <span>© <span id="ano"></span> Gás em Casa — Software de gestão para distribuidoras.</span>
       <span class="legacy">Usa o sistema anterior? <a href="/login">Acessar a versão clássica</a></span>
     </div>
