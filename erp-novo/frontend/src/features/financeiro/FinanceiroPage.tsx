@@ -13,9 +13,7 @@ import {
   useContasCaixa, useMovimentosCaixa, useAbrirCaixa, useFecharCaixa, type ContaCaixa,
 } from './api'
 import { ChequesTab, BoletosTab, DRETab, ConciliacaoTab } from './FinanceiroExtraTabs'
-
-const brl = (n: number) => Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (s: string | null) => s ? new Date(s).toLocaleDateString('pt-BR') : '—'
+import { brl, data as fmtData } from '@/lib/format'
 
 export function FinanceiroPage() {
   return (

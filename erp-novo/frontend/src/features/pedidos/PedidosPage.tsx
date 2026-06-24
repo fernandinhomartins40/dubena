@@ -7,9 +7,7 @@ import {
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, type PedidoListItem, type KanbanColuna } from './api'
-
-const brl = (n: number) => Number(n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleString('pt-BR') : '—')
+import { brl, dataHora as fmtData } from '@/lib/format'
 
 function situacaoBadge(p: { fechadoconcluido?: number; fechadocancelado?: number; situacao?: string | null; descricao?: string }) {
   const label = p.situacao ?? p.descricao ?? '—'

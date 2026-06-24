@@ -9,11 +9,12 @@ import {
   toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
+import { brl } from '@/lib/format'
 
 function moeda(v: number | string | null) {
   const n = typeof v === 'string' ? parseFloat(v) : v
   if (n == null || isNaN(n)) return '—'
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return brl(n)
 }
 
 export function ProdutosListPage() {

@@ -6,8 +6,7 @@ import {
   AsyncSelect, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
 import { usePrecosPreview, usePrecosAplicar, type PrecoPreviewItem, type PrecoParams } from './api'
-
-const moeda = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+import { brl as moeda } from '@/lib/format'
 
 export function ProdutoPrecosPage() {
   const navigate = useNavigate()

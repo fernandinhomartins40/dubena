@@ -11,9 +11,7 @@ import {
   useVeiculos, useVeiculo, useSalvarVeiculo, useExcluirVeiculo, type Veiculo,
   useAbastecimentos, useTrocasOleo, usePneus,
 } from './api'
-
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
-const num = (n: any) => Number(n ?? 0).toLocaleString('pt-BR')
+import { num, data as fmtData } from '@/lib/format'
 
 export function VeiculosListPage() {
   const navigate = useNavigate(); const { can } = useAuth()

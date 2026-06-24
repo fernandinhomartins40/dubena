@@ -1,5 +1,6 @@
 import { Tag } from 'lucide-react'
 import { DataTable, type Column, EmptyState } from '@/components/ui'
+import { brl } from '@/lib/format'
 import { usePrecos } from './api'
 
 interface PrecoEspecial { id: number; produto: string | null; produto_id: number; preco: number | null }
@@ -8,7 +9,7 @@ export function PrecosTab({ clienteId }: { clienteId: number }) {
   const { data, isLoading } = usePrecos(clienteId)
   const columns: Column<PrecoEspecial>[] = [
     { key: 'produto', header: 'Produto', cell: (p) => p.produto ?? `#${p.produto_id}` },
-    { key: 'preco', header: 'Preço', align: 'right', cell: (p) => <span className="tabular-nums">{Number(p.preco ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> },
+    { key: 'preco', header: 'Preço', align: 'right', cell: (p) => <span className="tabular-nums">{brl(p.preco)}</span> },
   ]
   return (
     <div className="space-y-3">

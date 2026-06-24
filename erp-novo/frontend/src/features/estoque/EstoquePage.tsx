@@ -11,9 +11,9 @@ import {
   useInventarios, useCriarInventario, useFisicos, useCriarFisico, useEfetivarFisico,
   useFechamentos, useFechar, useAbrirFechamento, type SaldoRow,
 } from './api'
+import { brl, num, dataHora as fmtData } from '@/lib/format'
 
-const fmt = (n: number) => Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 4 })
-const fmtData = (s: string | null) => s ? new Date(s).toLocaleString('pt-BR') : '—'
+const fmt = (n: number) => num(n, 0, 4)
 
 export function EstoquePage() {
   return (
@@ -238,7 +238,7 @@ function InventarioTab() {
   const columns: Column<any>[] = [
     { key: 'id', header: 'Nº', cell: (r) => `#${r.id}` },
     { key: 'data', header: 'Data', cell: (r) => r.datainventario },
-    { key: 'valor', header: 'Valor', align: 'right', cell: (r) => <span className="tabular-nums">{Number(r.valorinventario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> },
+    { key: 'valor', header: 'Valor', align: 'right', cell: (r) => <span className="tabular-nums">{brl(r.valorinventario)}</span> },
   ]
   return (
     <>

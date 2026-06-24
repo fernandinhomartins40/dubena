@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Plus, Gift, Hash, Trophy } from 'lucide-react'
 import {
-  Button, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Button, Input, Badge, type Column, Field, AsyncSelect,
+  ResourceList, FormDialog, toast,
 } from '@/components/ui'
+import { data as fmtData } from '@/lib/format'
 import { useSorteios, useSalvarSorteio, useAddNumeroSorteio, useSortear, type Sorteio } from './api'
-
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
 
 export function SorteioPage() {
   const { data, isLoading } = useSorteios()
@@ -45,15 +44,15 @@ export function SorteioPage() {
   const columns: Column<Sorteio>[] = [
     { key: 'descricao', header: 'Descrição', cell: (v) => <span className="font-medium">{v.descricao}</span> },
     { key: 'data', header: 'Data', cell: (v) => fmtData(v.data_sorteio) },
-    { key: 'numeros', header: 'Números', cell: (v) => <span className="tabular-nums">{v.numeros_count}</span> },
+    { key: 'numeros', header: 'Números', align: 'right', cell: (v) => <span className="tabular-nums">{v.numeros_count}</span> },
     {
       key: 'sit', header: 'Situação', cell: (v) => v.situacao === 'sorteado'
         ? <Badge variant="success">Sorteado: {v.numero_sorteado}</Badge>
         : <Badge variant="secondary">Aberto</Badge>,
     },
     {
-      key: 'acoes', header: '', cell: (v) => (
-        <div className="flex justify-end gap-1">
+      key: 'acoes', header: '', align: 'right', cell: (v) => (
+        <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="sm" onClick={() => abrirNumeros(v)}><Hash size={15} /> Números</Button>
           {v.situacao !== 'sorteado' && <Button variant="secondary" size="sm" loading={sortear.isPending} onClick={() => onSortear(v)}><Trophy size={15} /> Sortear</Button>}
         </div>
@@ -62,42 +61,35 @@ export function SorteioPage() {
   ]
 
   return (
-    <div>
-      <PageHeader title="Sorteios" subtitle="Campanhas de sorteio e ganhadores"
-        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo sorteio</Button>} />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        empty={<EmptyState icon={<Gift />} title="Nenhum sorteio" />} />
+    <>
+      <ResourceList
+        title="Sorteios"
+        subtitle="Campanhas de sorteio e ganhadores"
+        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo sorteio</Button>}
+        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        emptyIcon={<Gift />} emptyTitle="Nenhum sorteio"
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit ? 'Editar sorteio' : 'Novo sorteio'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
-            <Field label="Data do sorteio"><Input type="date" value={form.data_sorteio ?? ''} onChange={(e) => setForm((f) => ({ ...f, data_sorteio: e.target.value }))} /></Field>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={open} onOpenChange={setOpen}
+        title={edit ? 'Editar sorteio' : 'Novo sorteio'}
+        loading={salvar.isPending} onConfirm={onSalvar}
+      >
+        <Field label="Descrição" required><Input value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
+        <Field label="Data do sorteio"><Input type="date" value={form.data_sorteio ?? ''} onChange={(e) => setForm((f) => ({ ...f, data_sorteio: e.target.value }))} /></Field>
+      </FormDialog>
 
-      <Dialog open={numOpen} onOpenChange={setNumOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Números — {alvo?.descricao}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Número" required><Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="ex: 0001" /></Field>
-            <Field label="Cliente">
-              <AsyncSelect endpoint="/lookups/clientes" value={clienteId} valueLabel={clienteLabel}
-                onChange={(id, opt) => { setClienteId(id); setClienteLabel(opt?.label ?? '') }} />
-            </Field>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
-            <Button loading={addNumero.isPending} onClick={onAddNumero}>Adicionar número</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <FormDialog
+        open={numOpen} onOpenChange={setNumOpen}
+        title={`Números — ${alvo?.descricao ?? ''}`}
+        confirmLabel="Adicionar número" loading={addNumero.isPending} onConfirm={onAddNumero}
+      >
+        <Field label="Número" required><Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="ex: 0001" /></Field>
+        <Field label="Cliente">
+          <AsyncSelect endpoint="/lookups/clientes" value={clienteId} valueLabel={clienteLabel}
+            onChange={(id, opt) => { setClienteId(id); setClienteLabel(opt?.label ?? '') }} />
+        </Field>
+      </FormDialog>
+    </>
   )
 }

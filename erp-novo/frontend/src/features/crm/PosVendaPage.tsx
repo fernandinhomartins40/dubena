@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { Plus, MessageSquareHeart, Pencil, Trash2 } from 'lucide-react'
+import { Plus, MessageSquareHeart } from 'lucide-react'
 import {
-  Button, PageHeader, Input, Textarea, Badge, DataTable, type Column, EmptyState, Field,
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem, AsyncSelect,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Button, Input, Textarea, Badge, type Column, Field, AsyncSelect,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  ResourceList, FormDialog, RowActions, toast,
 } from '@/components/ui'
+import { data as fmtData } from '@/lib/format'
 import { usePosVendas, useSalvarPosVenda, useExcluirPosVenda, type PosVenda } from './api'
-
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
 
 export function PosVendaPage() {
   const { data, isLoading } = usePosVendas()
@@ -39,63 +38,58 @@ export function PosVendaPage() {
     { key: 'obs', header: 'Observação', cell: (v) => <span className="line-clamp-1">{v.observacao || '—'}</span> },
     { key: 'sit', header: 'Situação', cell: (v) => v.situacao === 'realizado' ? <Badge variant="success">Realizado</Badge> : <Badge variant="secondary">Pendente</Badge> },
     {
-      key: 'acoes', header: '', cell: (v) => (
-        <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => abrir(v)}><Pencil size={15} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => { if (confirm('Excluir?')) excluir.mutate(v.id) }}><Trash2 size={15} /></Button>
-        </div>
-      ),
+      key: 'acoes', header: '', align: 'right',
+      cell: (v) => <RowActions onEdit={() => abrir(v)} onDelete={() => excluir.mutate(v.id)} confirmMsg="Excluir esta pós-venda?" />,
     },
   ]
 
   return (
-    <div>
-      <PageHeader title="Pós-venda" subtitle="Pesquisa de satisfação (NPS) por contato"
-        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo registro</Button>} />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        empty={<EmptyState icon={<MessageSquareHeart />} title="Nenhuma pós-venda" description="Registre o primeiro contato de satisfação." />} />
+    <>
+      <ResourceList
+        title="Pós-venda"
+        subtitle="Pesquisa de satisfação (NPS) por contato"
+        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo registro</Button>}
+        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        emptyIcon={<MessageSquareHeart />} emptyTitle="Nenhuma pós-venda"
+        emptyDescription="Registre o primeiro contato de satisfação."
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit ? 'Editar pós-venda' : 'Nova pós-venda'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Cliente">
-              <AsyncSelect endpoint="/lookups/clientes" value={form.cliente_id ?? null} valueLabel={clienteLabel}
-                onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? '') }} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Data"><Input type="date" value={form.data ?? ''} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></Field>
-              <Field label="Nota (0–10)"><Input type="number" min={0} max={10} value={form.nota ?? ''} onChange={(e) => setForm((f) => ({ ...f, nota: e.target.value === '' ? null : Number(e.target.value) }))} /></Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Canal">
-                <Select value={form.canal ?? ''} onValueChange={(v) => setForm((f) => ({ ...f, canal: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="telefone">Telefone</SelectItem>
-                    <SelectItem value="email">E-mail</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Situação">
-                <Select value={form.situacao ?? 'pendente'} onValueChange={(v) => setForm((f) => ({ ...f, situacao: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="realizado">Realizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <Field label="Observação"><Textarea value={form.observacao ?? ''} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} /></Field>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <FormDialog
+        open={open} onOpenChange={setOpen}
+        title={edit ? 'Editar pós-venda' : 'Nova pós-venda'}
+        loading={salvar.isPending} onConfirm={onSalvar}
+      >
+        <Field label="Cliente">
+          <AsyncSelect endpoint="/lookups/clientes" value={form.cliente_id ?? null} valueLabel={clienteLabel}
+            onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? '') }} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Data"><Input type="date" value={form.data ?? ''} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></Field>
+          <Field label="Nota (0–10)"><Input type="number" min={0} max={10} value={form.nota ?? ''} onChange={(e) => setForm((f) => ({ ...f, nota: e.target.value === '' ? null : Number(e.target.value) }))} /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Canal">
+            <Select value={form.canal ?? ''} onValueChange={(v) => setForm((f) => ({ ...f, canal: v }))}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="telefone">Telefone</SelectItem>
+                <SelectItem value="email">E-mail</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Situação">
+            <Select value={form.situacao ?? 'pendente'} onValueChange={(v) => setForm((f) => ({ ...f, situacao: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="realizado">Realizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <Field label="Observação"><Textarea value={form.observacao ?? ''} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} /></Field>
+      </FormDialog>
+    </>
   )
 }

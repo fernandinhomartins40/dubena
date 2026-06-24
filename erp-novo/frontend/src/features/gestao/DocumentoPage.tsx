@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Plus, FolderArchive, Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { Plus, FolderArchive, AlertTriangle } from 'lucide-react'
 import {
-  Button, PageHeader, Input, DataTable, type Column, EmptyState, Field,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Button, Input, type Column, Field,
+  ResourceList, FormDialog, RowActions, toast,
 } from '@/components/ui'
+import { data as fmtData } from '@/lib/format'
 import { useDocumentos, useSalvarDocumento, useExcluirDocumento, type Documento } from './api'
 
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
 const vencido = (s: string | null) => !!s && new Date(s) < new Date()
 
 export function DocumentoPage() {
@@ -30,46 +30,40 @@ export function DocumentoPage() {
     { key: 'emissao', header: 'Emissão', cell: (v) => fmtData(v.emissao) },
     {
       key: 'validade', header: 'Validade', cell: (v) => v.validade
-        ? <span className={vencido(v.validade) ? 'text-destructive flex items-center gap-1' : ''}>{vencido(v.validade) && <AlertTriangle size={14} />}{fmtData(v.validade)}</span>
+        ? <span className={vencido(v.validade) ? 'flex items-center gap-1 text-destructive' : ''}>{vencido(v.validade) && <AlertTriangle size={14} />}{fmtData(v.validade)}</span>
         : '—',
     },
     {
-      key: 'acoes', header: '', cell: (v) => (
-        <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => abrir(v)}><Pencil size={15} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => { if (confirm('Excluir?')) excluir.mutate(v.id) }}><Trash2 size={15} /></Button>
-        </div>
-      ),
+      key: 'acoes', header: '', align: 'right',
+      cell: (v) => <RowActions onEdit={() => abrir(v)} onDelete={() => excluir.mutate(v.id)} confirmMsg="Excluir este documento?" />,
     },
   ]
 
   return (
-    <div>
-      <PageHeader title="Documentos" subtitle="Gestão documental (alvarás, licenças, contratos)"
-        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo documento</Button>} />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        empty={<EmptyState icon={<FolderArchive />} title="Nenhum documento" />} />
+    <>
+      <ResourceList
+        title="Documentos"
+        subtitle="Gestão documental (alvarás, licenças, contratos)"
+        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo documento</Button>}
+        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        emptyIcon={<FolderArchive />} emptyTitle="Nenhum documento"
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit ? 'Editar documento' : 'Novo documento'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Tipo"><Input value={form.tipo ?? ''} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} placeholder="alvará, licença…" /></Field>
-              <Field label="Número"><Input value={form.numero ?? ''} onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))} /></Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Emissão"><Input type="date" value={form.emissao ?? ''} onChange={(e) => setForm((f) => ({ ...f, emissao: e.target.value }))} /></Field>
-              <Field label="Validade"><Input type="date" value={form.validade ?? ''} onChange={(e) => setForm((f) => ({ ...f, validade: e.target.value }))} /></Field>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <FormDialog
+        open={open} onOpenChange={setOpen}
+        title={edit ? 'Editar documento' : 'Novo documento'}
+        loading={salvar.isPending} onConfirm={onSalvar}
+      >
+        <Field label="Descrição" required><Input value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Tipo"><Input value={form.tipo ?? ''} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} placeholder="alvará, licença…" /></Field>
+          <Field label="Número"><Input value={form.numero ?? ''} onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))} /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Emissão"><Input type="date" value={form.emissao ?? ''} onChange={(e) => setForm((f) => ({ ...f, emissao: e.target.value }))} /></Field>
+          <Field label="Validade"><Input type="date" value={form.validade ?? ''} onChange={(e) => setForm((f) => ({ ...f, validade: e.target.value }))} /></Field>
+        </div>
+      </FormDialog>
+    </>
   )
 }

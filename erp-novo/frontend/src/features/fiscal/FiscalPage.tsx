@@ -11,8 +11,7 @@ import {
   useNfe, useTransmitirNfe, useCancelarNfe, type NfeRow,
   useSpedPreview,
 } from './api'
-
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleString('pt-BR') : '—')
+import { dataHora as fmtData } from '@/lib/format'
 const SITUACAO_NFE: Record<number, { l: string; v: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
   100: { l: 'Autorizada', v: 'success' },
   101: { l: 'Cancelada', v: 'destructive' },

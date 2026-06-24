@@ -9,10 +9,16 @@ export function brl(v: string | number | null | undefined): string {
   return (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-/** Número com agrupamento pt-BR. */
-export function num(v: string | number | null | undefined, casas = 0): string {
+/**
+ * Número com agrupamento pt-BR. `casas` = casas decimais FIXAS (default 0).
+ * Para "até N casas" (sem zeros à direita), passe `maxCasas`.
+ */
+export function num(v: string | number | null | undefined, casas = 0, maxCasas?: number): string {
   const n = typeof v === 'string' ? Number(v) : v
-  return (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
+  return (n ?? 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: maxCasas ?? casas,
+  })
 }
 
 /** Percentual (recebe 0–100). */

@@ -10,9 +10,7 @@ import {
   useChequesEmitidos, useChequesRecebidos, useSalvarChequeRecebido, useExcluirChequeRecebido,
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
 } from './api'
-
-const brl = (n: number) => Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
+import { brl, data as fmtData } from '@/lib/format'
 
 // ---------- CHEQUES ----------
 export function ChequesTab() {

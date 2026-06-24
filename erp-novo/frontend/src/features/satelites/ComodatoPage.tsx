@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Plus, PackageCheck, Undo2 } from 'lucide-react'
 import {
-  Button, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Button, Input, Badge, type Column, Field, AsyncSelect,
+  ResourceList, FormDialog, toast,
 } from '@/components/ui'
+import { data as fmtData } from '@/lib/format'
 import { useComodatos, useCriarComodato, useDevolverComodato, type Comodato } from './extraApi'
-
-const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
 
 export function ComodatoPage() {
   const { data, isLoading } = useComodatos()
@@ -34,44 +33,42 @@ export function ComodatoPage() {
   const columns: Column<Comodato>[] = [
     { key: 'cliente', header: 'Cliente', cell: (v) => v.cliente?.nome || '—' },
     { key: 'produto', header: 'Produto', cell: (v) => v.produto?.descricao || '—' },
-    { key: 'qtd', header: 'Qtd', cell: (v) => <span className="tabular-nums">{v.quantidade}</span> },
-    { key: 'dev', header: 'Devolvido', cell: (v) => <span className="tabular-nums">{v.quantidade_devolvida}</span> },
+    { key: 'qtd', header: 'Qtd', align: 'right', cell: (v) => <span className="tabular-nums">{v.quantidade}</span> },
+    { key: 'dev', header: 'Devolvido', align: 'right', cell: (v) => <span className="tabular-nums">{v.quantidade_devolvida}</span> },
     { key: 'desde', header: 'Desde', cell: (v) => fmtData(v.data_emprestimo) },
     { key: 'sit', header: 'Situação', cell: (v) => v.situacao === 'DEVOLVIDO' ? <Badge variant="secondary">Devolvido</Badge> : <Badge variant="warning">Em aberto</Badge> },
     {
-      key: 'acoes', header: '', cell: (v) => v.situacao !== 'DEVOLVIDO'
-        ? <div className="flex justify-end"><Button variant="ghost" size="sm" onClick={() => onDevolver(v)}><Undo2 size={15} /> Devolver</Button></div>
+      key: 'acoes', header: '', align: 'right', cell: (v) => v.situacao !== 'DEVOLVIDO'
+        ? <Button variant="ghost" size="sm" onClick={() => onDevolver(v)}><Undo2 size={15} /> Devolver</Button>
         : null,
     },
   ]
 
   return (
-    <div>
-      <PageHeader title="Comodatos" subtitle="Vasilhames emprestados a clientes"
-        action={<Button onClick={abrir}><Plus size={16} /> Novo comodato</Button>} />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        empty={<EmptyState icon={<PackageCheck />} title="Nenhum comodato" />} />
+    <>
+      <ResourceList
+        title="Comodatos"
+        subtitle="Vasilhames emprestados a clientes"
+        action={<Button onClick={abrir}><Plus size={16} /> Novo comodato</Button>}
+        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        emptyIcon={<PackageCheck />} emptyTitle="Nenhum comodato"
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Novo comodato</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Cliente" required>
-              <AsyncSelect endpoint="/lookups/clientes" value={form.cliente_id ?? null} valueLabel={clienteLabel}
-                onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? '') }} />
-            </Field>
-            <Field label="Produto (vasilhame)" required>
-              <AsyncSelect endpoint="/lookups/produtos-vasilhame" value={form.produto_id ?? null} valueLabel={prodLabel}
-                onChange={(id, opt) => { setForm((f) => ({ ...f, produto_id: id })); setProdLabel(opt?.label ?? '') }} />
-            </Field>
-            <Field label="Quantidade" required><Input type="number" min={1} value={form.quantidade ?? 1} onChange={(e) => setForm((f) => ({ ...f, quantidade: Number(e.target.value) }))} /></Field>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={criar.isPending} onClick={onCriar}>Registrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <FormDialog
+        open={open} onOpenChange={setOpen}
+        title="Novo comodato" confirmLabel="Registrar"
+        loading={criar.isPending} onConfirm={onCriar}
+      >
+        <Field label="Cliente" required>
+          <AsyncSelect endpoint="/lookups/clientes" value={form.cliente_id ?? null} valueLabel={clienteLabel}
+            onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? '') }} />
+        </Field>
+        <Field label="Produto (vasilhame)" required>
+          <AsyncSelect endpoint="/lookups/produtos-vasilhame" value={form.produto_id ?? null} valueLabel={prodLabel}
+            onChange={(id, opt) => { setForm((f) => ({ ...f, produto_id: id })); setProdLabel(opt?.label ?? '') }} />
+        </Field>
+        <Field label="Quantidade" required><Input type="number" min={1} value={form.quantidade ?? 1} onChange={(e) => setForm((f) => ({ ...f, quantidade: Number(e.target.value) }))} /></Field>
+      </FormDialog>
+    </>
   )
 }

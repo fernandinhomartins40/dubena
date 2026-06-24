@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Plus, ListChecks, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, ListChecks, X } from 'lucide-react'
 import {
-  Button, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, CheckboxField,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Button, Input, Badge, type Column, Field, CheckboxField,
+  ResourceList, FormDialog, RowActions, toast,
 } from '@/components/ui'
 import { useChecklists, useSalvarChecklist, useExcluirChecklist, type Checklist } from './api'
 
@@ -34,50 +34,44 @@ export function ChecklistPage() {
 
   const columns: Column<Checklist>[] = [
     { key: 'descricao', header: 'Descrição', cell: (v) => <span className="font-medium">{v.descricao}</span> },
-    { key: 'perguntas', header: 'Itens', cell: (v) => <span className="tabular-nums">{v.perguntas.length}</span> },
+    { key: 'perguntas', header: 'Itens', align: 'right', cell: (v) => <span className="tabular-nums">{v.perguntas.length}</span> },
     { key: 'ativo', header: 'Ativo', cell: (v) => v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge> },
     {
-      key: 'acoes', header: '', cell: (v) => (
-        <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => abrir(v)}><Pencil size={15} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => { if (confirm('Excluir?')) excluir.mutate(v.id) }}><Trash2 size={15} /></Button>
-        </div>
-      ),
+      key: 'acoes', header: '', align: 'right',
+      cell: (v) => <RowActions onEdit={() => abrir(v)} onDelete={() => excluir.mutate(v.id)} confirmMsg="Excluir este checklist?" />,
     },
   ]
 
   return (
-    <div>
-      <PageHeader title="Checklists" subtitle="Modelos de verificação (abertura, conferência…)"
-        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo checklist</Button>} />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        empty={<EmptyState icon={<ListChecks />} title="Nenhum checklist" />} />
+    <>
+      <ResourceList
+        title="Checklists"
+        subtitle="Modelos de verificação (abertura, conferência…)"
+        action={<Button onClick={() => abrir()}><Plus size={16} /> Novo checklist</Button>}
+        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        emptyIcon={<ListChecks />} emptyTitle="Nenhum checklist"
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit ? 'Editar checklist' : 'Novo checklist'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
-            <div>
-              <p className="text-sm font-medium mb-2">Perguntas</p>
-              <div className="space-y-2">
-                {perguntas.map((p, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input value={p} onChange={(e) => setPerguntas((arr) => arr.map((x, j) => j === i ? e.target.value : x))} placeholder={`Pergunta ${i + 1}`} />
-                    <Button variant="ghost" size="icon" onClick={() => setPerguntas((arr) => arr.filter((_, j) => j !== i))}><X size={15} /></Button>
-                  </div>
-                ))}
+      <FormDialog
+        open={open} onOpenChange={setOpen}
+        title={edit ? 'Editar checklist' : 'Novo checklist'}
+        loading={salvar.isPending} onConfirm={onSalvar}
+      >
+        <Field label="Descrição" required><Input value={descricao} onChange={(e) => setDescricao(e.target.value)} /></Field>
+        <div>
+          <p className="mb-2 text-sm font-medium">Perguntas</p>
+          <div className="space-y-2">
+            {perguntas.map((p, i) => (
+              <div key={i} className="flex gap-2">
+                <Input value={p} onChange={(e) => setPerguntas((arr) => arr.map((x, j) => j === i ? e.target.value : x))} placeholder={`Pergunta ${i + 1}`} />
+                <Button variant="ghost" size="icon" onClick={() => setPerguntas((arr) => arr.filter((_, j) => j !== i))}><X size={15} /></Button>
               </div>
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => setPerguntas((arr) => [...arr, ''])}><Plus size={14} /> Adicionar pergunta</Button>
-            </div>
-            <CheckboxField label="Checklist ativo" checked={ativo} onChange={setAtivo} />
+            ))}
           </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => setPerguntas((arr) => [...arr, ''])}><Plus size={14} /> Adicionar pergunta</Button>
+        </div>
+        <CheckboxField label="Checklist ativo" checked={ativo} onChange={setAtivo} />
+      </FormDialog>
+    </>
   )
 }

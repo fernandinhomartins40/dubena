@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Trash2, Plus, MessagesSquare } from 'lucide-react'
 import { Button, Field, Input, Textarea, AsyncSelect, EmptyState, toast } from '@/components/ui'
+import { dataHora } from '@/lib/format'
 import { useInteracoes, useAddInteracao, useDelInteracao } from './api'
 
 export function InteracoesTab({ clienteId }: { clienteId: number }) {
@@ -43,7 +44,7 @@ export function InteracoesTab({ clienteId }: { clienteId: number }) {
           {data.map((i: any) => (
             <div key={i.id} className="flex items-start justify-between px-4 py-3">
               <div>
-                <div className="text-xs text-muted-foreground">{i.datahora ? new Date(i.datahora).toLocaleString('pt-BR') : ''} · {i.tipo} · {i.situacao}</div>
+                <div className="text-xs text-muted-foreground">{dataHora(i.datahora)} · {i.tipo} · {i.situacao}</div>
                 <div className="text-sm">{i.descricao}</div>
                 {i.acao && <div className="text-xs text-muted-foreground">Ação: {i.acao}</div>}
               </div>
