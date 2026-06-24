@@ -35,9 +35,11 @@ return [
         ],
     ],
 
-    // Geocoding (N2 — gate externo).
+    // Geocoding (N2 — gate externo). Usa a MESMA env que o painel de status
+    // (SateliteStatusController → "Google Maps"), para o indicador refletir de
+    // verdade se o geocoding funciona. GEOCODING_API_KEY mantido como fallback.
     'geocoding' => [
-        'key' => env('GEOCODING_API_KEY'),
+        'key' => env('GOOGLE_MAPS_KEY', env('GEOCODING_API_KEY')),
     ],
 
     // PIX (N7 — gate bancário, Itaú). Segredos só no .env.
