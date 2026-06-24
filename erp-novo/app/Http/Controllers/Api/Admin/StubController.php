@@ -7,7 +7,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Stub explícito (C1) para endpoints que a SPA já consome mas cujo MÓDULO será
- * entregue numa fase futura do PLANO_CONCLUSAO_REESCRITA.md.
+ * entregue numa fase futura do docs/05-planejamento-historico/PLANO_CONCLUSAO_REESCRITA.md.
  *
  * Responde 501 (Not Implemented) com um payload JSON VÁLIDO e vazio, de modo que:
  *  - a tela da SPA abre sem erro de rede (não há 404 de contrato);

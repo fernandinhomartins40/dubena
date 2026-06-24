@@ -8,6 +8,7 @@ Organizada por finalidade. **Comece pelo que está VIGENTE.**
 | [02-auditoria-legado/](02-auditoria-legado/) | PRDs FIÉIS (linha-a-linha) do sistema legado — referência do comportamento original. | 📖 referência |
 | [03-modernizacao-filament/](03-modernizacao-filament/) | Auditoria da fase Filament (DESCARTADA — viramos SPA React). Histórico. | 🗄️ histórico |
 | [04-historico/](04-historico/) | Planos antigos supersedidos (Filament/fases F0–F4). Histórico. | 🗄️ histórico |
+| [05-planejamento-historico/](05-planejamento-historico/) | Auditorias, inventários e planos da migração (fotos no tempo). **Não** medir auditoria por aqui — medir o código. | 🗄️ histórico |
 
 ## Por onde começar (implementação)
 1. [01-vigente/PLANO_IMPLEMENTACAO_SPA.md](01-vigente/PLANO_IMPLEMENTACAO_SPA.md) — **plano operacional
