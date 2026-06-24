@@ -58,12 +58,14 @@ class SateliteStatusController extends Controller
     {
         $this->autorizar($request, 'empresa.view');
 
+        // Lê de config() (não env() direto): com config:cache em produção, env()
+        // retorna vazio fora dos arquivos de config.
         return response()->json(['data' => [
-            'pix' => (bool) env('PIX_CLIENT_ID'),
-            'email_smtp' => (bool) env('MAIL_HOST'),
-            'google_maps' => (bool) env('GOOGLE_MAPS_KEY'),
-            'fcm_push' => (bool) env('FCM_SERVER_KEY'),
-            'fiscal' => env('FISCAL_DRIVER') === 'nfephp',
+            'pix' => (bool) config('services.integracoes.pix'),
+            'email_smtp' => (bool) config('services.integracoes.email_smtp'),
+            'google_maps' => (bool) config('services.integracoes.google_maps'),
+            'fcm_push' => (bool) config('services.integracoes.fcm_push'),
+            'fiscal' => config('services.fiscal.driver') === 'nfephp',
         ]]);
     }
 

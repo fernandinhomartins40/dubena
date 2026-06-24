@@ -55,4 +55,20 @@ return [
         'server_key' => env('FCM_SERVER_KEY'),
     ],
 
+    // Driver fiscal (N9/C7b — GATE). 'nfephp' ativa o driver SEFAZ real.
+    // Lido via config() (não env() direto) p/ funcionar com config:cache em prod.
+    'fiscal' => [
+        'driver' => env('FISCAL_DRIVER', 'fake'),
+    ],
+
+    // Flags dos gates externos para o painel de status (SateliteStatusController).
+    // Resolvidas aqui (build-time do config:cache) para não dependerem de env()
+    // em runtime — env() retorna vazio quando a config está cacheada (prod).
+    'integracoes' => [
+        'pix' => (bool) env('PIX_ENABLED', false) || (bool) env('PIX_CLIENT_ID'),
+        'email_smtp' => env('MAIL_MAILER') === 'smtp' && (bool) env('MAIL_HOST'),
+        'google_maps' => (bool) env('GOOGLE_MAPS_KEY', env('GEOCODING_API_KEY')),
+        'fcm_push' => (bool) env('FCM_SERVER_KEY'),
+    ],
+
 ];

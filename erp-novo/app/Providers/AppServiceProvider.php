@@ -32,9 +32,11 @@ class AppServiceProvider extends ServiceProvider
         // Driver SEFAZ (N9/C7b — GATE). FISCAL_DRIVER=nfephp ativa o driver REAL
         // (NFePHP + certificado A1 do tenant); qualquer outro valor mantém o Fake
         // (CI/homolog). O FiscalService não muda — só a config do gate.
+        // Lê de config() (não env() direto): com config:cache em produção, env()
+        // retornaria vazio e o driver real nunca ativaria.
         $this->app->bind(
             SefazDriver::class,
-            fn () => env('FISCAL_DRIVER') === 'nfephp'
+            fn () => config('services.fiscal.driver') === 'nfephp'
                 ? $this->app->make(NFePHPSefazDriver::class)
                 : $this->app->make(FakeSefazDriver::class),
         );
