@@ -17,7 +17,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, manterConectado?: boolean) => Promise<void>
   logout: () => Promise<void>
   can: (permission: string) => boolean
   refresh: () => Promise<void>
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const loginMut = useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+    mutationFn: async ({ email, password, manterConectado = true }: { email: string; password: string; manterConectado?: boolean }) => {
       // Tenta o fluxo cookie (csrf). Se o cookie falhar, o token Bearer (abaixo)
       // ainda autentica — login robusto a problemas de CSRF cross-path.
       try { await ensureCsrf() } catch { /* segue: usaremos o token */ }
@@ -87,8 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...(lerXsrf() ? { 'X-XSRF-TOKEN': lerXsrf() } : {}),
         },
       })
-      // Guarda o token (modo Bearer); passa a autenticar as próximas chamadas.
-      if (data.token) setToken(data.token)
+      // Guarda o token (modo Bearer). manterConectado=true → localStorage (persiste);
+      // false → sessionStorage (cai ao fechar o navegador).
+      if (data.token) setToken(data.token, manterConectado)
       return normalizarMe(data)
     },
     onSuccess: (data) => qc.setQueryData(['me'], data),
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user: user ?? null,
     loading: isLoading,
-    login: async (email, password) => { await loginMut.mutateAsync({ email, password }) },
+    login: async (email, password, manterConectado = true) => { await loginMut.mutateAsync({ email, password, manterConectado }) },
     logout: async () => { await logoutMut.mutateAsync() },
     can: (permission) => {
       if (!user) return false

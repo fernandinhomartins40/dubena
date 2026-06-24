@@ -14,13 +14,26 @@ const PREFIX = import.meta.env.BASE_URL.replace(/\/app\/?$/, '').replace(/\/$/, 
 
 const TOKEN_KEY = 'erpnovo_token'
 
-export function setToken(token: string | null): void {
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
+/**
+ * Persistência do token:
+ *  - persist=true  → localStorage (sobrevive ao fechar o navegador → "manter conectado")
+ *  - persist=false → sessionStorage (cai ao fechar a aba/navegador)
+ * Ao salvar num store, o outro é limpo para não haver token "fantasma".
+ */
+export function setToken(token: string | null, persist = true): void {
+  if (token) {
+    const store = persist ? localStorage : sessionStorage
+    const other = persist ? sessionStorage : localStorage
+    store.setItem(TOKEN_KEY, token)
+    other.removeItem(TOKEN_KEY)
+  } else {
+    localStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
+  }
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY)
 }
 
 export const api = axios.create({
