@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save, Settings } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
+  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   ConfirmDialog, toast,
@@ -153,11 +153,11 @@ function FamiliaTab({ colaboradorId }: { colaboradorId: number }) {
         <Field label="Nascimento"><Input type="date" value={nasc} onChange={(e) => setNasc(e.target.value)} /></Field>
         <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Adicionar</Button>
       </div>
-      {isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : data && data.length ? (
+      <AsyncState loading={isLoading} empty={!data?.length} emptyIcon={<Users />} emptyTitle="Nenhum familiar">
         <div className="rounded-lg border border-border divide-y divide-border">
-          {data.map((f) => (<div key={f.id} className="flex items-center justify-between px-4 py-2.5"><span className="text-sm">{f.nome} <span className="text-muted-foreground">· {f.parentesco}</span></span><Button variant="ghost" size="icon" onClick={() => { del.mutate(f.id); toast.success('Removido.') }}><Trash2 size={16} /></Button></div>))}
+          {data?.map((f) => (<div key={f.id} className="flex items-center justify-between px-4 py-2.5"><span className="text-sm">{f.nome} <span className="text-muted-foreground">· {f.parentesco}</span></span><Button variant="ghost" size="icon" onClick={() => { del.mutate(f.id); toast.success('Removido.') }}><Trash2 size={16} /></Button></div>))}
         </div>
-      ) : <EmptyState icon={<Users />} title="Nenhum familiar" />}
+      </AsyncState>
     </div>
   )
 }

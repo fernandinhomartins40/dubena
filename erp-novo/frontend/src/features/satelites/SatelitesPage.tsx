@@ -1,6 +1,6 @@
 import { FileBarChart, MapPin, Plug } from 'lucide-react'
 import {
-  Card, CardContent, PageHeader, Badge, EmptyState,
+  Card, CardContent, PageHeader, Badge, EmptyState, AsyncState,
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
 import { useRelatorios, useMonitoramento, useIntegracoes } from './api'
@@ -25,7 +25,7 @@ export function SatelitesPage() {
 
 function RelatoriosTab() {
   const { data, isLoading } = useRelatorios()
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
+  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {(data ?? []).map((cat: any) => (
@@ -46,7 +46,7 @@ function RelatoriosTab() {
 
 function MonitoramentoTab() {
   const { data, isLoading } = useMonitoramento()
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
+  if (isLoading) return <AsyncState loading skeletonRows={2}>{null}</AsyncState>
   return (
     <Card><CardContent className="pt-6">
       <div className="flex items-center gap-3 mb-2"><MapPin size={20} className="text-primary" /><p className="font-semibold">Monitoramento GPS</p>{data?.disponivel ? <Badge variant="success">Disponível</Badge> : <Badge variant="secondary">Módulo dedicado</Badge>}</div>
@@ -57,7 +57,7 @@ function MonitoramentoTab() {
 
 function IntegracoesTab() {
   const { data, isLoading } = useIntegracoes()
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
+  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
   const itens = [
     { k: 'pix', l: 'PIX (cobrança)' },
     { k: 'email_smtp', l: 'E-mail (SMTP)' },

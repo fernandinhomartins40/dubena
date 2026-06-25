@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, Plus, MessageCircle, Phone } from 'lucide-react'
-import { Button, Field, Input, CheckboxField, AsyncSelect, EmptyState, Badge, toast } from '@/components/ui'
+import { Button, Field, Input, CheckboxField, AsyncSelect, AsyncState, Badge, toast } from '@/components/ui'
 import { useTelefones, useAddTelefone, useDelTelefone } from './api'
 
 /** Aba Telefones da ficha do cliente (sub-recurso na mesma página). */
@@ -33,11 +33,10 @@ export function TelefonesTab({ clienteId }: { clienteId: number }) {
         <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Adicionar</Button>
       </div>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : telefones && telefones.length > 0 ? (
+      <AsyncState loading={isLoading} empty={!telefones?.length}
+        emptyIcon={<Phone />} emptyTitle="Nenhum telefone" emptyDescription="Adicione um telefone de contato.">
         <div className="rounded-lg border border-border divide-y divide-border">
-          {telefones.map((t) => (
+          {telefones?.map((t) => (
             <div key={t.id} className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-2">
                 <Phone size={15} className="text-muted-foreground" />
@@ -48,9 +47,7 @@ export function TelefonesTab({ clienteId }: { clienteId: number }) {
             </div>
           ))}
         </div>
-      ) : (
-        <EmptyState icon={<Phone />} title="Nenhum telefone" description="Adicione um telefone de contato." />
-      )}
+      </AsyncState>
     </div>
   )
 }

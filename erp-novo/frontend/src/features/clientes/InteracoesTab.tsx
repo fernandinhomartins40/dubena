@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, Plus, MessagesSquare } from 'lucide-react'
-import { Button, Field, Input, Textarea, AsyncSelect, EmptyState, toast } from '@/components/ui'
+import { Button, Field, Input, Textarea, AsyncSelect, AsyncState, toast } from '@/components/ui'
 import { dataHora } from '@/lib/format'
 import { useInteracoes, useAddInteracao, useDelInteracao } from './api'
 
@@ -37,11 +37,11 @@ export function InteracoesTab({ clienteId }: { clienteId: number }) {
         <div className="md:col-span-2"><Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Adicionar interação</Button></div>
       </div>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : data && data.length > 0 ? (
+      <AsyncState loading={isLoading} empty={!data?.length}
+        emptyIcon={<MessagesSquare />} emptyTitle="Nenhuma interação"
+        emptyDescription="Registre o histórico de contato com o cliente.">
         <div className="rounded-lg border border-border divide-y divide-border">
-          {data.map((i: any) => (
+          {data?.map((i: any) => (
             <div key={i.id} className="flex items-start justify-between px-4 py-3">
               <div>
                 <div className="text-xs text-muted-foreground">{dataHora(i.datahora)} · {i.tipo} · {i.situacao}</div>
@@ -52,9 +52,7 @@ export function InteracoesTab({ clienteId }: { clienteId: number }) {
             </div>
           ))}
         </div>
-      ) : (
-        <EmptyState icon={<MessagesSquare />} title="Nenhuma interação" description="Registre o histórico de contato com o cliente." />
-      )}
+      </AsyncState>
     </div>
   )
 }

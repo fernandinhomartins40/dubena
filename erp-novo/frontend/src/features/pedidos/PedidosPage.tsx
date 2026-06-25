@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus, LayoutGrid, List, Trash2, ShoppingCart } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
+  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState,
   Tabs, TabsList, TabsTrigger, TabsContent,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
 } from '@/components/ui'
@@ -33,8 +33,7 @@ export function PedidosPage() {
 
 function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   const { data, isLoading } = usePedidosKanban()
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
-  if (!data || data.length === 0) return <EmptyState icon={<ShoppingCart />} title="Nenhuma situação de pedido" />
+  if (isLoading || !data?.length) return <AsyncState loading={isLoading} empty={!data?.length} emptyIcon={<ShoppingCart />} emptyTitle="Nenhuma situação de pedido">{null}</AsyncState>
   return (
     <div className="flex gap-4 overflow-x-auto pb-2">
       {data.map((col: KanbanColuna) => (
@@ -110,7 +109,7 @@ function FichaDialog({ id, onClose }: { id: number | null; onClose: () => void }
     <Dialog open={id !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Pedido #{id}</DialogTitle></DialogHeader>
-        {isLoading || !data ? <p className="text-sm text-muted-foreground">Carregando…</p> : (
+        {isLoading || !data ? <AsyncState loading skeletonRows={4}>{null}</AsyncState> : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{data.cliente || '—'}</span></div>

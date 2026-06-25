@@ -18,6 +18,7 @@ export {
 export { TooltipProvider, Tooltip, TooltipRoot, TooltipTrigger, TooltipContent } from './tooltip'
 export { Skeleton } from './skeleton'
 export { EmptyState } from './empty-state'
+export { AsyncState } from './async-state'
 export { PageHeader } from './page-header'
 export { DataTable, type Column } from './data-table'
 export { AsyncSelect, type Option } from './async-select'

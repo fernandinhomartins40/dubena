@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trash2, Plus, Save, Users } from 'lucide-react'
 import {
-  Button, Field, Input, Switch, AsyncSelect, EmptyState, toast,
+  Button, Field, Input, Switch, AsyncSelect, EmptyState, AsyncState, toast,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui'
 import { useConvenio, useSalvarConvenio, useAddDependente, useDelDependente } from './api'
@@ -41,7 +41,7 @@ export function ConvenioTab({ clienteId }: { clienteId: number }) {
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao salvar convênio.') }
   }
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando…</p>
+  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
 
   return (
     <div className="space-y-6">

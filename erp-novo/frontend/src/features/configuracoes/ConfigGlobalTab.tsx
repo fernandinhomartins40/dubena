@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Switch, Skeleton, toast,
+  Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Switch, AsyncState, toast,
 } from '@/components/ui'
 import { useConfigGlobal, useSalvarConfigGlobal } from './api'
 
@@ -44,7 +44,7 @@ export function ConfigGlobalTab() {
     }
   }
 
-  if (isLoading) return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
+  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
 
   const segredo = (def: boolean) => (def ? '•••••• (definido — deixe vazio p/ manter)' : '')
 
