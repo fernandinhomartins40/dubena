@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
 use App\Http\Controllers\Api\Admin\ComodatoController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
+use App\Http\Controllers\Api\Admin\ConfigGlobalController;
 use App\Http\Controllers\Api\Admin\ConvenioController;
 use App\Http\Controllers\Api\Admin\CrmController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
@@ -98,6 +99,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('empresas/{id}/certificado', [EmpresaConfigController::class, 'certificadoStatus'])->whereNumber('id');
         Route::post('empresas/{id}/certificado', [EmpresaConfigController::class, 'uploadCertificado'])->whereNumber('id');
         Route::put('empresas/{id}/nfce-token', [EmpresaConfigController::class, 'nfceToken'])->whereNumber('id');
+
+        // Config global do grupo (F01): RT/CSRT, SMTP, SAT, Google Maps.
+        Route::get('config-global', [ConfigGlobalController::class, 'show']);
+        Route::put('config-global', [ConfigGlobalController::class, 'update']);
 
         // Grupos (redes) — C1.
         Route::get('grupos', [GrupoController::class, 'index']);

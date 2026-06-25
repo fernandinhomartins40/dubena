@@ -6,7 +6,7 @@ import {
   UserCog, Truck, Flame, FileBarChart, ShoppingCart,
   MessageSquareHeart, Tag, Gift, Target, ListChecks,
   Receipt, ArrowLeftRight, FolderArchive, Building,
-  CreditCard, HandCoins, PackageCheck, Handshake, Navigation,
+  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -59,6 +59,7 @@ const NAV: NavItem[] = [
 
   { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
+  { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração' },
 ]
 
 // Ordem fixa das seções (grupos não listados vão ao fim, na ordem de aparição).

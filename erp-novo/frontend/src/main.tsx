@@ -20,6 +20,7 @@ import { EmpresaFormPage } from '@/features/empresas/EmpresaFormPage'
 import { ClienteConfigPage } from '@/features/cadastros/ClienteConfigPage'
 import { FinanceiroConfigPage } from '@/features/cadastros/FinanceiroConfigPage'
 import { ColaboradorConfigPage } from '@/features/cadastros/ColaboradorConfigPage'
+import { ConfiguracoesPage } from '@/features/configuracoes/ConfiguracoesPage'
 import { EstoquePage } from '@/features/estoque/EstoquePage'
 import { FinanceiroPage } from '@/features/financeiro/FinanceiroPage'
 import { FiscalPage } from '@/features/fiscal/FiscalPage'
@@ -109,6 +110,7 @@ function App() {
       <Route path="/produtos/novo" element={<Protected><ProdutoFormPage /></Protected>} />
       <Route path="/produtos/:id" element={<Protected><ProdutoFormPage /></Protected>} />
       <Route path="/geografico" element={<Protected><GeograficoPage /></Protected>} />
+      <Route path="/configuracoes" element={<Protected><ConfiguracoesPage /></Protected>} />
       <Route path="/empresas" element={<Protected><EmpresasListPage /></Protected>} />
       <Route path="/empresas/novo" element={<Protected><EmpresaFormPage /></Protected>} />
       <Route path="/empresas/:id" element={<Protected><EmpresaFormPage /></Protected>} />

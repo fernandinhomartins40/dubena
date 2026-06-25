@@ -83,6 +83,18 @@ F15 Performance/Observabilidade: transversal, contínua
 **Critérios de aceite:** 1 hub de Config; config global persistida e lida pelos módulos fiscais/email.
 **Riscos:** baixo. **Complexidade:** Baixa-Média. **Estimativa:** 1 sprint.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Config global por grupo** (`config_globais` + model `ConfigGlobal`, BelongsToGrupo):
+>   Responsável Técnico (RT/CSRT, NF-e), SMTP global, SAT (CNPJ/signAC), Google Maps/link
+>   monitoramento. Segredos criptografados (cast `encrypted`) e nunca retornados no GET
+>   (flags `*_definido`); enviar vazio preserva o valor salvo.
+> - **`ConfigGlobalController`** + rotas `GET/PUT /config-global` (RBAC grupo.view/edit).
+> - **Hub de Configurações** na SPA (`/configuracoes`, grupo Administração): aba **Geral**
+>   (config global) + Clientes/Financeiro/Colaboradores (reusam `CadastroApoioTab`). As
+>   telas contextuais por módulo seguem existindo; o hub é o ponto único.
+> - **Testes**: `ConfigGlobalTest` (5: CRUD, segredo oculto, segredo preservado, isolamento
+>   por grupo, RBAC). Suíte **295 passed / 0 falhas**; SPA typecheck limpo.
+
 ---
 
 # FASE 02 — Multi-Tenancy completo + RLS (BLOQUEADOR DE PRODUÇÃO)
