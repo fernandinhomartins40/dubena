@@ -4,7 +4,7 @@ import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
   Field, CheckboxField, AsyncSelect,
   Tabs, TabsList, TabsTrigger, TabsContent,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import {
   useCidades, useBairros, useRuas, useRegioes, useSalvarGeo, useExcluirGeo,
@@ -67,16 +67,12 @@ function ConfirmDelete({ open, nome, tipo, loading, onClose, onConfirm }: {
   open: boolean; nome?: string; tipo: string; loading: boolean; onClose: () => void; onConfirm: () => void
 }) {
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Excluir {tipo}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Excluir <strong>{nome}</strong>? Esta ação não pode ser desfeita.</p>
-        <DialogFooter>
-          <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button variant="destructive" loading={loading} onClick={onConfirm}><Trash2 size={16} /> Excluir</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open} onOpenChange={(o) => !o && onClose()}
+      title={`Excluir ${tipo}`}
+      description={<>Excluir <strong>{nome}</strong>? Esta ação não pode ser desfeita.</>}
+      loading={loading} onConfirm={onConfirm}
+    />
   )
 }
 
@@ -114,20 +110,15 @@ function CidadesTab() {
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<MapPin />} title="Nenhuma cidade" />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar cidade' : 'Nova cidade'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="UF" required><AsyncSelect endpoint="/lookups/estados" value={edit?.uf ? -1 : null} valueLabel={ufLabel}
-                onChange={(_, opt) => { setEdit((s) => ({ ...s, uf: opt?.uf ? String(opt.uf) : '' })); setUfLabel(opt?.label ?? null) }} /></Field>
-              <Field label="Código IBGE" required><Input type="number" value={edit?.cod_ibge ?? ''} onChange={(e) => setEdit((s) => ({ ...s, cod_ibge: e.target.value ? Number(e.target.value) : undefined }))} /></Field>
-            </div>
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar cidade' : 'Nova cidade'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="UF" required><AsyncSelect endpoint="/lookups/estados" value={edit?.uf ? -1 : null} valueLabel={ufLabel}
+            onChange={(_, opt) => { setEdit((s) => ({ ...s, uf: opt?.uf ? String(opt.uf) : '' })); setUfLabel(opt?.label ?? null) }} /></Field>
+          <Field label="Código IBGE" required><Input type="number" value={edit?.cod_ibge ?? ''} onChange={(e) => setEdit((s) => ({ ...s, cod_ibge: e.target.value ? Number(e.target.value) : undefined }))} /></Field>
+        </div>
+      </FormDialog>
 
       <ConfirmDelete open={!!del} nome={del?.descricao} tipo="cidade" loading={excluir.isPending} onClose={() => setDel(null)}
         onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Cidade excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
@@ -166,17 +157,12 @@ function BairrosTab() {
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<MapPin />} title="Nenhum bairro" />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar bairro' : 'Novo bairro'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
-              onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar bairro' : 'Novo bairro'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
+          onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
+      </FormDialog>
 
       <ConfirmDelete open={!!del} nome={del?.descricao} tipo="bairro" loading={excluir.isPending} onClose={() => setDel(null)}
         onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Bairro excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
@@ -216,21 +202,16 @@ function RuasTab() {
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<MapPin />} title="Nenhuma rua" />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar rua' : 'Nova rua'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
-                onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
-              <Field label="CEP"><Input value={edit?.cep ?? ''} maxLength={9} onChange={(e) => setEdit((s) => ({ ...s, cep: e.target.value }))} /></Field>
-            </div>
-            <CheckboxField label="Ativa" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar rua' : 'Nova rua'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
+            onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
+          <Field label="CEP"><Input value={edit?.cep ?? ''} maxLength={9} onChange={(e) => setEdit((s) => ({ ...s, cep: e.target.value }))} /></Field>
+        </div>
+        <CheckboxField label="Ativa" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
       <ConfirmDelete open={!!del} nome={del?.descricao} tipo="rua" loading={excluir.isPending} onClose={() => setDel(null)}
         onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Rua excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
@@ -265,16 +246,11 @@ function RegioesTab() {
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<MapPin />} title="Nenhuma região" />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar região' : 'Nova região'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <CheckboxField label="Ativa" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar região' : 'Nova região'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <CheckboxField label="Ativa" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
       <ConfirmDelete open={!!del} nome={del?.descricao} tipo="região" loading={excluir.isPending} onClose={() => setDel(null)}
         onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Região excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />

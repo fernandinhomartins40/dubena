@@ -3,8 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Search, Plus, Pencil, Trash2, Truck, ArrowLeft, Save } from 'lucide-react'
 import {
   Button, Card, CardContent, PageHeader, Input, DataTable, type Column, EmptyState, Field, AsyncSelect,
-  Tabs, TabsList, TabsTrigger, TabsContent,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  Tabs, TabsList, TabsTrigger, TabsContent, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import {
@@ -39,13 +38,13 @@ export function VeiculosListPage() {
         <Button type="submit" variant="secondary">Buscar</Button>
       </form></Card>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id} onRowClick={can('veiculo.edit') ? (v) => navigate(`/veiculos/${v.id}`) : undefined} empty={<EmptyState icon={<Truck />} title="Nenhum veículo" />} />
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir veículo</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Excluir <strong>{del?.descricao}</strong>?</p>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir veículo"
+        description={<>Excluir <strong>{del?.descricao}</strong>?</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
     </div>
   )
 }

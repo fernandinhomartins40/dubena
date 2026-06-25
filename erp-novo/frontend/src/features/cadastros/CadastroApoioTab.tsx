@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, List } from 'lucide-react'
 import {
   Button, Badge, DataTable, type Column, EmptyState, Field, Input, CheckboxField,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useCadastro, useSalvarCadastro, useExcluirCadastro, type CadastroRow } from './api'
 
@@ -71,41 +71,32 @@ export function CadastroApoioTab({
         onRowClick={podeEditar ? (r) => setEdit(r) : undefined}
         empty={<EmptyState icon={<List />} title={`Nenhum registro em ${titulo}`} />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? `Editar ${titulo}` : `Novo ${titulo}`}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={String(edit?.descricao ?? '')} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            {extras.map((ex) => (
-              <Field key={ex.campo} label={ex.label}>
-                {ex.tipo === 'bool' ? (
-                  <CheckboxField label={ex.label} checked={(edit as any)?.[ex.campo] === 1 || (edit as any)?.[ex.campo] === true} onChange={(b) => setEdit((s) => ({ ...s, [ex.campo]: b ? 1 : 0 }))} />
-                ) : ex.tipo === 'select' ? (
-                  <Select value={String((edit as any)?.[ex.campo] ?? '')} onValueChange={(v) => setEdit((s) => ({ ...s, [ex.campo]: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>{(ex.opcoes ?? []).map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={String((edit as any)?.[ex.campo] ?? '')} onChange={(e) => setEdit((s) => ({ ...s, [ex.campo]: e.target.value }))} />
-                )}
-              </Field>
-            ))}
-            <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? `Editar ${titulo}` : `Novo ${titulo}`} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={String(edit?.descricao ?? '')} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        {extras.map((ex) => (
+          <Field key={ex.campo} label={ex.label}>
+            {ex.tipo === 'bool' ? (
+              <CheckboxField label={ex.label} checked={(edit as any)?.[ex.campo] === 1 || (edit as any)?.[ex.campo] === true} onChange={(b) => setEdit((s) => ({ ...s, [ex.campo]: b ? 1 : 0 }))} />
+            ) : ex.tipo === 'select' ? (
+              <Select value={String((edit as any)?.[ex.campo] ?? '')} onValueChange={(v) => setEdit((s) => ({ ...s, [ex.campo]: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>{(ex.opcoes ?? []).map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
+              </Select>
+            ) : (
+              <Input value={String((edit as any)?.[ex.campo] ?? '')} onChange={(e) => setEdit((s) => ({ ...s, [ex.campo]: e.target.value }))} />
+            )}
+          </Field>
+        ))}
+        <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir registro</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Excluir <strong>{del?.descricao}</strong>?</p>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir registro"
+        description={<>Excluir <strong>{del?.descricao}</strong>?</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
     </>
   )
 }

@@ -20,16 +20,18 @@ interface Props {
   loading?: boolean
   /** desabilita o confirmar (ex.: validação client-side) */
   confirmDisabled?: boolean
+  /** classe de largura do modal (ex.: 'max-w-2xl' p/ formulários largos) */
+  widthClass?: string
   children: ReactNode
 }
 
 export function FormDialog({
   open, onOpenChange, title, description, confirmLabel = 'Salvar',
-  onConfirm, loading, confirmDisabled, children,
+  onConfirm, loading, confirmDisabled, widthClass, children,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className={widthClass}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}

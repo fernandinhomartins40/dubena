@@ -71,9 +71,9 @@ Ordenada por impacto/risco. Tudo incremental e commitável, com typecheck a cada
 
 | # | Ação | Tipo | Risco |
 |---|---|---|---|
-| R1 | **Mover** `colaboradores`/`veiculos` de `satelites/` → `rh/` e `frota/`; manter só vale-gás/comodato/convênio/monitora em `satelites/` | refactor pastas | baixo |
-| R2 | **Code-splitting**: trocar imports eager por `React.lazy` + `Suspense` no roteador; extrair as rotas para `routes.tsx` agrupado por domínio | perf + org | baixo |
-| R3 | **Unificar diálogos**: padronizar tudo em `FormDialog`; migrar as 15 telas com Dialog cru | consistência | médio |
+| R1 | ✅ **Mover** `colaboradores`/`veiculos` de `satelites/` → `rh/` e `frota/`; manter só vale-gás/comodato/convênio/monitora em `satelites/` | refactor pastas | baixo |
+| R2 | ✅ **Code-splitting**: trocar imports eager por `React.lazy` + `Suspense` no roteador; extrair as rotas para `routes.tsx` agrupado por domínio | perf + org | baixo |
+| R3 | ✅ **Unificar diálogos**: criado `ConfirmDialog` (confirmação destrutiva) + `widthClass` no `FormDialog`; migradas 9 telas (clientes/produtos/veículos/colaboradores/empresas/geográfico/cadastros-apoio/financeiro-cheques/produto-config). Mantidos como `<Dialog>` cru os casos legítimos: multi-diálogo com fluxo/largura próprios (estoque/fiscal/financeiro/pedidos) e os com `DialogTrigger` embutido (ConfigTab/ValeGás) | consistência | médio |
 | R4 | **Contrato de estado**: componente único `AsyncState` (loading→Skeleton / erro / vazio→EmptyState) e aplicar nas 40 telas com `isLoading` | consistência/UX | médio |
 | R5 | **Hook de formulário** `useResourceForm` (estado+dirty+erros do backend) e adotar nas ~6 form pages | DRY | médio |
 | R6 | **Resolver config duplicada**: manter o hub `/configuracoes`; transformar as 3 `*ConfigPage` em redirects/atalhos (ou removê-las) | dedupe | baixo |

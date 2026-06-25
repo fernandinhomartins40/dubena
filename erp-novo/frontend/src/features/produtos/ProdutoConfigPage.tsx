@@ -5,7 +5,7 @@ import {
   Button, PageHeader, Badge, DataTable, type Column, Field, Input, CheckboxField,
   Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import {
   useClasses, useUnidades, useSalvarClasse, useExcluirClasse, useSalvarUnidade, useExcluirUnidade,
@@ -71,25 +71,17 @@ function ClassesTab() {
       <div className="mb-3 flex justify-end"><Button onClick={() => setEdit({ tipo: 'P', ativo: 1 })}><Plus size={16} /> Nova classe</Button></div>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} onRowClick={(c) => setEdit(c)} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar classe' : 'Nova classe'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <Field label="Tipo">
-              <Select value={edit?.tipo ?? 'P'} onValueChange={(v) => setEdit((s) => ({ ...s, tipo: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TIPOS.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-            <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar classe' : 'Nova classe'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <Field label="Tipo">
+          <Select value={edit?.tipo ?? 'P'} onValueChange={(v) => setEdit((s) => ({ ...s, tipo: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{TIPOS.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
       <ConfirmDelete item={del} onClose={() => setDel(null)} onConfirm={async () => {
         try { await excluir.mutateAsync(del!.id); toast.success('Classe excluída.') }
@@ -135,20 +127,12 @@ function UnidadesTab() {
       <div className="mb-3 flex justify-end"><Button onClick={() => setEdit({ ativo: 1 })}><Plus size={16} /> Nova unidade</Button></div>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(u) => u.id} onRowClick={(u) => setEdit(u)} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar unidade' : 'Nova unidade'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <Field label="Sigla"><Input value={edit?.sigla ?? ''} maxLength={10} onChange={(e) => setEdit((s) => ({ ...s, sigla: e.target.value }))} /></Field>
-            <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar unidade' : 'Nova unidade'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <Field label="Sigla"><Input value={edit?.sigla ?? ''} maxLength={10} onChange={(e) => setEdit((s) => ({ ...s, sigla: e.target.value }))} /></Field>
+        <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
       <ConfirmDelete item={del} onClose={() => setDel(null)} onConfirm={async () => {
         try { await excluir.mutateAsync(del!.id); toast.success('Unidade excluída.') }
@@ -163,15 +147,10 @@ function ConfirmDelete({ item, onClose, onConfirm, loading, nome, tipo }: {
   item: unknown | null; onClose: () => void; onConfirm: () => void; loading: boolean; nome?: string; tipo: string
 }) {
   return (
-    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Excluir {tipo}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Excluir <strong>{nome}</strong>? Esta ação não pode ser desfeita.</p>
-        <DialogFooter>
-          <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button variant="destructive" loading={loading} onClick={onConfirm}><Trash2 size={16} /> Excluir</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog open={!!item} onOpenChange={(o) => !o && onClose()}
+      title={`Excluir ${tipo}`}
+      description={<>Excluir <strong>{nome}</strong>? Esta ação não pode ser desfeita.</>}
+      loading={loading} onConfirm={onConfirm}
+    />
   )
 }

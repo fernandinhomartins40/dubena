@@ -4,7 +4,7 @@ import {
   Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
   AsyncSelect, Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import {
   useChequesEmitidos, useChequesRecebidos, useSalvarChequeRecebido, useExcluirChequeRecebido,
@@ -63,56 +63,48 @@ function ChequesRecebidosTab() {
         <Button onClick={() => { setEdit({}); setLabels({}) }}><Plus size={16} /> Novo</Button>
       </div></Card>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} onRowClick={(c) => setEdit(c)} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque recebido" />} />
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar cheque' : 'Novo cheque recebido'}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Número" required><Input value={edit?.numerocheque ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numerocheque: e.target.value }))} /></Field>
-            <Field label="Valor" required><Input type="number" step="0.01" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
-            <Field label="Banco" required><AsyncSelect endpoint="/cadastros/bancos" value={edit?.banco_id ?? null} valueLabel={labels.banco} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
-            <Field label="Situação" required><AsyncSelect endpoint="/cheques/situacoes" params={{ tipo: 'recebido' }} value={edit?.chequesituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { setEdit((s: any) => ({ ...s, chequesituacao_id: id })); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
-            <Field label="Agência"><Input value={edit?.agencia ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, agencia: e.target.value }))} /></Field>
-            <Field label="Conta"><Input value={edit?.numeroconta ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numeroconta: e.target.value }))} /></Field>
-            <Field label="Emissão" required><Input type="date" value={edit?.dataemissao ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, dataemissao: e.target.value }))} /></Field>
-            <Field label="Vencimento" required><Input type="date" value={edit?.datavencimento ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, datavencimento: e.target.value }))} /></Field>
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir cheque</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Excluir o cheque <strong>{del?.numerocheque}</strong>?</p>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} widthClass="max-w-2xl"
+        title={edit?.id ? 'Editar cheque' : 'Novo cheque recebido'} loading={salvar.isPending} onConfirm={onSalvar}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Número" required><Input value={edit?.numerocheque ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numerocheque: e.target.value }))} /></Field>
+          <Field label="Valor" required><Input type="number" step="0.01" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
+          <Field label="Banco" required><AsyncSelect endpoint="/cadastros/bancos" value={edit?.banco_id ?? null} valueLabel={labels.banco} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
+          <Field label="Situação" required><AsyncSelect endpoint="/cheques/situacoes" params={{ tipo: 'recebido' }} value={edit?.chequesituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { setEdit((s: any) => ({ ...s, chequesituacao_id: id })); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
+          <Field label="Agência"><Input value={edit?.agencia ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, agencia: e.target.value }))} /></Field>
+          <Field label="Conta"><Input value={edit?.numeroconta ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numeroconta: e.target.value }))} /></Field>
+          <Field label="Emissão" required><Input type="date" value={edit?.dataemissao ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, dataemissao: e.target.value }))} /></Field>
+          <Field label="Vencimento" required><Input type="date" value={edit?.datavencimento ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, datavencimento: e.target.value }))} /></Field>
+        </div>
+      </FormDialog>
+      <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir cheque"
+        description={<>Excluir o cheque <strong>{del?.numerocheque}</strong>?</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
       {/* Mudar situação (depósito/compensação/devolução) — F07 */}
-      <Dialog open={!!sit} onOpenChange={(o) => !o && setSit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Situação do cheque {sit?.numero ?? sit?.numerocheque}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Nova situação" required>
-              <Select value={novaSit} onValueChange={setNovaSit}>
-                <SelectTrigger><SelectValue placeholder="Escolha…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DEPOSITADO">Depositado</SelectItem>
-                  <SelectItem value="COMPENSADO">Compensado (credita o caixa)</SelectItem>
-                  <SelectItem value="DEVOLVIDO">Devolvido</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            {novaSit === 'COMPENSADO' && (
-              <Field label="Conta para crédito" required>
-                <Select value={contaId ? String(contaId) : ''} onValueChange={(v) => setContaId(Number(v))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a conta…" /></SelectTrigger>
-                  <SelectContent>{(contas ?? []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.descricao}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
-            )}
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={mudarSit.isPending} onClick={onMudarSituacao}>Aplicar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog open={!!sit} onOpenChange={(o) => !o && setSit(null)}
+        title={`Situação do cheque ${sit?.numero ?? sit?.numerocheque ?? ''}`} confirmLabel="Aplicar"
+        loading={mudarSit.isPending} onConfirm={onMudarSituacao}>
+        <Field label="Nova situação" required>
+          <Select value={novaSit} onValueChange={setNovaSit}>
+            <SelectTrigger><SelectValue placeholder="Escolha…" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DEPOSITADO">Depositado</SelectItem>
+              <SelectItem value="COMPENSADO">Compensado (credita o caixa)</SelectItem>
+              <SelectItem value="DEVOLVIDO">Devolvido</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {novaSit === 'COMPENSADO' && (
+          <Field label="Conta para crédito" required>
+            <Select value={contaId ? String(contaId) : ''} onValueChange={(v) => setContaId(Number(v))}>
+              <SelectTrigger><SelectValue placeholder="Selecione a conta…" /></SelectTrigger>
+              <SelectContent>{(contas ?? []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.descricao}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+        )}
+      </FormDialog>
     </>
   )
 }

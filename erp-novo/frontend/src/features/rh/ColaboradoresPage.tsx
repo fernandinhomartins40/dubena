@@ -5,7 +5,7 @@ import {
   Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, toast,
+  ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import {
@@ -56,13 +56,13 @@ export function ColaboradoresListPage() {
       <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(c) => c.id} onRowClick={can('colaborador.edit') ? (c) => navigate(`/colaboradores/${c.id}`) : undefined}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<Users />} title="Nenhum colaborador" />} />
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir colaborador</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Excluir <strong>{del?.nome}</strong>?</p>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir colaborador"
+        description={<>Excluir <strong>{del?.nome}</strong>?</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
     </div>
   )
 }

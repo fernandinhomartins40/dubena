@@ -5,7 +5,7 @@ import {
   Button, PageHeader, Badge, DataTable, type Column, EmptyState, Field, Input, CheckboxField,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, toast,
+  FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import {
@@ -85,17 +85,13 @@ function EmpresasTab() {
         onRowClick={can('empresa.edit') ? (e) => navigate(`/empresas/${e.id}`) : undefined}
         empty={<EmptyState icon={<Building2 />} title="Nenhuma empresa" />} />
 
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir empresa</DialogTitle><DialogDescription>Excluir <strong>{del?.nome_informal || del?.razao_social}</strong>? Esta ação não pode ser desfeita.</DialogDescription></DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button variant="destructive" loading={excluir.isPending} onClick={async () => {
-              try { await excluir.mutateAsync(del!.id); toast.success('Empresa excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) }
-            }}><Trash2 size={16} /> Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir empresa"
+        description={<>Excluir <strong>{del?.nome_informal || del?.razao_social}</strong>? Esta ação não pode ser desfeita.</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Empresa excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
     </>
   )
 }
@@ -133,27 +129,22 @@ function GruposTab() {
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(g) => g.id} onRowClick={(g) => setEdit(g)}
         empty={<EmptyState icon={<Building2 />} title="Nenhum grupo" />} />
 
-      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{edit?.id ? 'Editar grupo' : 'Novo grupo'}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-            <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
-          </div>
-          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={salvar.isPending} onClick={onSalvar}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
+        title={edit?.id ? 'Editar grupo' : 'Novo grupo'}
+        loading={salvar.isPending} onConfirm={onSalvar}
+      >
+        <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
+        <CheckboxField label="Ativo" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
+      </FormDialog>
 
-      <Dialog open={!!del} onOpenChange={(o) => !o && setDel(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Excluir grupo</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Excluir <strong>{del?.descricao}</strong>?</p>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Grupo excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!del} onOpenChange={(o) => !o && setDel(null)}
+        title="Excluir grupo"
+        description={<>Excluir <strong>{del?.descricao}</strong>?</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Grupo excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+      />
     </>
   )
 }

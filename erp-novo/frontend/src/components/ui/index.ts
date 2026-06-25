@@ -25,5 +25,6 @@ export { toast } from 'sonner'
 // Primitivos de composição do padrão (StatCard/FormDialog/RowActions/ResourceList).
 export { StatCard, type StatAccent } from './stat-card'
 export { FormDialog } from './form-dialog'
+export { ConfirmDialog } from './confirm-dialog'
 export { RowActions } from './row-actions'
 export { ResourceList } from './resource-list'

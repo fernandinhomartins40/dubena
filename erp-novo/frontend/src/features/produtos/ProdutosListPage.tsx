@@ -5,8 +5,7 @@ import { useProdutos, useExcluirProduto, type ProdutoListItem } from './api'
 import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
-  toast,
+  ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { brl } from '@/lib/format'
@@ -141,20 +140,12 @@ export function ProdutosListPage() {
         }
       />
 
-      <Dialog open={!!excluindo} onOpenChange={(o) => !o && setExcluindo(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Excluir produto</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja excluir <strong>{excluindo?.descricao}</strong>? Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-            <Button variant="destructive" loading={excluir.isPending} onClick={confirmarExclusao}><Trash2 size={16} /> Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!excluindo} onOpenChange={(o) => !o && setExcluindo(null)}
+        title="Excluir produto"
+        description={<>Tem certeza que deseja excluir <strong>{excluindo?.descricao}</strong>? Esta ação não pode ser desfeita.</>}
+        loading={excluir.isPending} onConfirm={confirmarExclusao}
+      />
     </div>
   )
 }
