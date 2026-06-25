@@ -3,9 +3,9 @@ import { LancamentosTab } from './tabs/LancamentosTab'
 import { CaixaTab } from './tabs/CaixaTab'
 import { PlanoTab } from './tabs/PlanoTab'
 import { CentroTab } from './tabs/CentroTab'
-import { ChequesTab, BoletosTab, DRETab, ConciliacaoTab } from './FinanceiroExtraTabs'
+import { ChequesTab, BoletosTab, DRETab, ConciliacaoTab } from './tabs/FinanceiroExtraTabs'
 
-/** Financeiro (F17.R7) — shell de abas; cada aba vive em ./tabs/* (extras em ./FinanceiroExtraTabs). */
+/** Financeiro (F17.R7) — shell de abas; cada aba vive em ./tabs/*. */
 export function FinanceiroPage() {
   return (
     <div>

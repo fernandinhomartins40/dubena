@@ -10,7 +10,7 @@ import {
   useChequesEmitidos, useChequesRecebidos, useSalvarChequeRecebido, useExcluirChequeRecebido,
   useMudarSituacaoCheque, useContasCaixa,
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
-} from './api'
+} from '../api'
 import { brl, data as fmtData } from '@/lib/format'
 
 // ---------- CHEQUES ----------
