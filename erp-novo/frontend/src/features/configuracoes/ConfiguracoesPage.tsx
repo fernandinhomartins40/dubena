@@ -1,18 +1,24 @@
+import { useSearchParams } from 'react-router-dom'
 import { Badge, PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
 import { CadastroApoioTab } from '@/features/cadastros/CadastroApoioTab'
 import { ConfigGlobalTab } from './ConfigGlobalTab'
 
+const ABAS = ['geral', 'clientes', 'financeiro', 'colaboradores'] as const
+
 /**
- * Hub central de Configurações (F01) — unifica num só lugar a config global do
- * grupo (Geral) e os cadastros de apoio antes dispersos em telas separadas
- * (Clientes/Financeiro/Colaboradores). As telas contextuais por módulo continuam
- * existindo; este hub é o ponto único para administração.
+ * Hub central de Configurações (F01) — ÚNICO ponto de administração: unifica a
+ * config global do grupo (Geral) e os cadastros de apoio por domínio
+ * (Clientes/Financeiro/Colaboradores). As antigas telas `*ConfigPage` foram
+ * removidas em F17.R6 e redirecionam para cá via `?tab=`.
  */
 export function ConfiguracoesPage() {
+  const [params, setParams] = useSearchParams()
+  const tabParam = params.get('tab')
+  const aba = ABAS.includes(tabParam as any) ? (tabParam as string) : 'geral'
   return (
     <div>
       <PageHeader title="Configurações" subtitle="Configuração global do grupo e cadastros de apoio" />
-      <Tabs defaultValue="geral">
+      <Tabs value={aba} onValueChange={(v) => setParams(v === 'geral' ? {} : { tab: v }, { replace: true })}>
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>

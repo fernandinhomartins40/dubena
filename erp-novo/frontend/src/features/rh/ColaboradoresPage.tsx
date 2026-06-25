@@ -47,7 +47,7 @@ export function ColaboradoresListPage() {
     <div>
       <PageHeader title="Colaboradores" subtitle={data ? `${data.meta.total} colaboradores` : 'Carregando…'}
         action={<div className="flex gap-2">
-          {can('colaborador.view') && <Button variant="outline" onClick={() => navigate('/colaboradores/configuracoes')}><Settings size={16} /> Configurações</Button>}
+          {can('colaborador.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=colaboradores')}><Settings size={16} /> Configurações</Button>}
           {can('colaborador.create') && <Button onClick={() => navigate('/colaboradores/novo')}><Plus size={16} /> Novo colaborador</Button>}
         </div>} />
       <Card className="mb-4 p-3"><form onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(busca) }} className="flex gap-2">

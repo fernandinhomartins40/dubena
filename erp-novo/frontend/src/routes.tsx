@@ -65,10 +65,6 @@ const SatelitesPage = lazyNamed(() => import('@/features/satelites/SatelitesPage
 const EmpresasListPage = lazyNamed(() => import('@/features/empresas/EmpresasListPage'), 'EmpresasListPage')
 const EmpresaFormPage = lazyNamed(() => import('@/features/empresas/EmpresaFormPage'), 'EmpresaFormPage')
 const ConfiguracoesPage = lazyNamed(() => import('@/features/configuracoes/ConfiguracoesPage'), 'ConfiguracoesPage')
-// Telas de config contextuais por módulo (serão consolidadas no hub em F17.R6).
-const ClienteConfigPage = lazyNamed(() => import('@/features/cadastros/ClienteConfigPage'), 'ClienteConfigPage')
-const FinanceiroConfigPage = lazyNamed(() => import('@/features/cadastros/FinanceiroConfigPage'), 'FinanceiroConfigPage')
-const ColaboradorConfigPage = lazyNamed(() => import('@/features/cadastros/ColaboradorConfigPage'), 'ColaboradorConfigPage')
 
 const Splash = () => <div className="h-full grid place-items-center text-muted-foreground">Carregando…</div>
 
@@ -96,7 +92,7 @@ export function AppRoutes() {
 
       {/* Cadastros */}
       <Route path="/clientes" element={p(<ClientesListPage />)} />
-      <Route path="/clientes/configuracoes" element={p(<ClienteConfigPage />)} />
+      <Route path="/clientes/configuracoes" element={<Navigate to="/configuracoes?tab=clientes" replace />} />
       <Route path="/clientes/novo" element={p(<ClienteFormPage />)} />
       <Route path="/clientes/:id" element={p(<ClienteFormPage />)} />
       <Route path="/produtos" element={p(<ProdutosListPage />)} />
@@ -116,7 +112,7 @@ export function AppRoutes() {
 
       {/* Financeiro */}
       <Route path="/financeiro" element={p(<FinanceiroPage />)} />
-      <Route path="/financeiro/configuracoes" element={p(<FinanceiroConfigPage />)} />
+      <Route path="/financeiro/configuracoes" element={<Navigate to="/configuracoes?tab=financeiro" replace />} />
       <Route path="/cartoes" element={p(<CartaoPage />)} />
       <Route path="/gas-do-povo" element={p(<GasDoPovoPage />)} />
       <Route path="/convenios" element={p(<ConvenioPage />)} />
@@ -135,7 +131,7 @@ export function AppRoutes() {
 
       {/* RH & Frota */}
       <Route path="/colaboradores" element={p(<ColaboradoresListPage />)} />
-      <Route path="/colaboradores/configuracoes" element={p(<ColaboradorConfigPage />)} />
+      <Route path="/colaboradores/configuracoes" element={<Navigate to="/configuracoes?tab=colaboradores" replace />} />
       <Route path="/colaboradores/novo" element={p(<ColaboradorFormPage />)} />
       <Route path="/colaboradores/:id" element={p(<ColaboradorFormPage />)} />
       <Route path="/veiculos" element={p(<VeiculosListPage />)} />

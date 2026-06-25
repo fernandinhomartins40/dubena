@@ -74,7 +74,7 @@ export function ClientesListPage() {
         subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} clientes cadastrados` : 'Carregando…'}
         action={
           <>
-            {can('cliente.view') && <Button variant="outline" onClick={() => navigate('/clientes/configuracoes')}><Settings size={16} /> Configurações</Button>}
+            {can('cliente.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=clientes')}><Settings size={16} /> Configurações</Button>}
             {can('cliente.create') && <Button onClick={() => navigate('/clientes/novo')}><Plus size={16} /> Novo cliente</Button>}
           </>
         }
