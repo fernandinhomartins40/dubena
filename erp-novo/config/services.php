@@ -61,6 +61,19 @@ return [
         'driver' => env('FISCAL_DRIVER', 'fake'),
     ],
 
+    // Driver de cobrança/boleto (N7/F08 — GATE bancário). 'caixa' (104) ou 'itau'
+    // (341) ativam o CNAB real; qualquer outro valor mantém o Fake (CI/homolog).
+    'cobranca' => [
+        'driver' => env('COBRANCA_DRIVER', 'fake'),
+    ],
+
+    // Conciliação contábil (CONSISA) — F08. API externa; gate por URL configurada.
+    // As credenciais por empresa ficam em empresa_configs.dados['consisa'].
+    'consisa' => [
+        'url' => env('CONSISA_API_URL'),
+        'enabled' => (bool) env('CONSISA_API_URL'),
+    ],
+
     // Flags dos gates externos para o painel de status (SateliteStatusController).
     // Resolvidas aqui (build-time do config:cache) para não dependerem de env()
     // em runtime — env() retorna vazio quando a config está cacheada (prod).
@@ -69,6 +82,8 @@ return [
         'email_smtp' => env('MAIL_MAILER') === 'smtp' && (bool) env('MAIL_HOST'),
         'google_maps' => (bool) env('GOOGLE_MAPS_KEY', env('GEOCODING_API_KEY')),
         'fcm_push' => (bool) env('FCM_SERVER_KEY'),
+        'cobranca' => env('COBRANCA_DRIVER', 'fake') !== 'fake',
+        'consisa' => (bool) env('CONSISA_API_URL'),
     ],
 
 ];

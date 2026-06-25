@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Domain\Cobranca\Contracts\BoletoDriver;
+use App\Domain\Cobranca\Drivers\CaixaBoletoDriver;
 use App\Domain\Cobranca\Drivers\FakeBoletoDriver;
+use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
@@ -25,9 +27,14 @@ class AppServiceProvider extends ServiceProvider
         // O middleware ResolveTenant popula; Services/Models/Scopes injetam o MESMO objeto.
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
 
-        // Driver de boleto (N7 — GATE). Default: Fake (dev/homolog/CI). Em produção,
-        // trocar por driver real do banco (porta eduardokum/laravel-boleto).
-        $this->app->bind(BoletoDriver::class, FakeBoletoDriver::class);
+        // Driver de boleto (N7/F08 — GATE bancário). COBRANCA_DRIVER seleciona o
+        // CNAB real por banco: 'caixa' (104) ou 'itau' (341); qualquer outro valor
+        // mantém o Fake (CI/homolog). Lê de config() (compatível com config:cache).
+        $this->app->bind(BoletoDriver::class, fn () => match (config('services.cobranca.driver')) {
+            'caixa' => $this->app->make(CaixaBoletoDriver::class),
+            'itau' => $this->app->make(ItauBoletoDriver::class),
+            default => $this->app->make(FakeBoletoDriver::class),
+        });
 
         // Driver SEFAZ (N9/C7b — GATE). FISCAL_DRIVER=nfephp ativa o driver REAL
         // (NFePHP + certificado A1 do tenant); qualquer outro valor mantém o Fake

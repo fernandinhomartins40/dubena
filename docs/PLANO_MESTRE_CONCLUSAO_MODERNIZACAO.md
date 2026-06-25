@@ -167,6 +167,26 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Migrar** (driver real boleto/CNAB; integração CONSISA).
 **Banco:** confirmar `boletos`/`boleto_ocorrencias`/`remessas_cnab` (existem). **Backend:** implementar `BoletoDriver` real (porta `eduardokum/laravel-boleto`, Caixa 104 / Itaú 341 como no legado); geração de remessa `.rem`, processamento de retorno, ocorrências; `ConciliacaoContabilService` (API CONSISA). **Frontend:** telas de boleto/remessa/retorno; conciliação contábil. **APIs:** `/cobranca/boletos`, `/cobranca/remessas`, `/conciliacao-contabil`. **Integrações:** banco (CNAB), CONSISA. **Segurança:** credenciais por empresa (encrypt). **Tenant:** escopo + path segregado de arquivos. **Testes:** geração/parse CNAB com fixtures; CobrancaServiceTest (existe). **Aceite:** boleto real emitido, remessa gerada, retorno baixa parcela; conciliação contábil bate. **Risco:** **Alto**. **Complexidade:** Alta. **Estimativa:** 2–3 sprints.
 
+> **STATUS (implementada 2026-06-24):** ✅
+> - **CNAB nativo** (sem dependência externa): `Domain/Cobranca/Cnab/CnabHelper`
+>   (módulo 10/11, fator vencimento, linha digitável 47, código de barras 44) +
+>   `ContaCobranca` (credenciais por empresa em `empresa_configs.dados['cobranca']`).
+> - **Drivers reais** `CaixaBoletoDriver` (104, SIGCB/CNAB240) e `ItauBoletoDriver`
+>   (341, CNAB400) sobre `CnabDriverBase`, atrás do contrato `BoletoDriver`.
+> - **Gate** `COBRANCA_DRIVER` (fake|caixa|itau) no `AppServiceProvider` (config-cache safe).
+> - **Remessa** grava `.rem` real em disco privado segregado por empresa
+>   (`remessas/empresa_<id>/`); **retorno** por arquivo ou linhas, liquidação baixa a parcela.
+> - **Conciliação contábil** `ConciliacaoContabilService` (CONSISA via Http client,
+>   cache 30s, modo-gate sem URL) + endpoint `/financeiro/conciliacao-contabil`.
+> - **Endpoints**: `/cobranca/boletos`, `/cobranca/remessas` (+`/{id}/arquivo`),
+>   `/cobranca/retorno`, `/conciliacao-contabil` (aliases + os `/boletos*` originais).
+> - **Testes**: `Tests\Domain\CnabBoletoTest` (6 casos: matemática FEBRABAN, boleto
+>   válido Caixa/Itaú, fluxo gerar→remessa→retorno→baixa, gate conciliação). Suíte
+>   **273 passed / 0 falhas**.
+> - **Pendente p/ produção real**: cabeçalhos de arquivo/lote CNAB completos por banco
+>   (header/trailer) e homologação com layout vigente do banco; a estrutura por-título
+>   (segmento P / detalhe 1), o código de barras e a baixa por retorno já são reais.
+
 ---
 
 # FASE 09 — Fiscal: SEFAZ real + SPED completo + Cupom SAT + IBPT

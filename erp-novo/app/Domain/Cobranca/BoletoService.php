@@ -8,6 +8,7 @@ use App\Models\Cobranca\RemessaCnab;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * BoletoService (N7 — GATE bancário). Orquestra geração, remessa CNAB e retorno,
@@ -53,13 +54,19 @@ class BoletoService
 
         return DB::transaction(function () use ($boletos, $empresaId) {
             $numero = (int) (RemessaCnab::withoutTenant()->where('empresa_id', $empresaId)->max('numero_remessa') ?? 0) + 1;
-            $linhas = $boletos->map(fn (Boleto $b) => $this->driver->linhaRemessa($b))->implode("\n");
+
+            // Conteúdo CNAB real (uma linha por boleto). Em produção o banco recebe
+            // este arquivo .rem; aqui ele é GRAVADO em disco privado, segregado por
+            // empresa (F08 + F02), e o caminho fica na remessa para download/auditoria.
+            $linhas = $boletos->map(fn (Boleto $b) => $this->driver->linhaRemessa($b))->implode("\r\n");
+            $caminho = "remessas/empresa_{$empresaId}/CB{$this->driver->bancoCodigo()}_{$numero}.rem";
+            Storage::disk('local')->put($caminho, $linhas);
 
             $remessa = RemessaCnab::create([
                 'empresa_id' => $empresaId,
                 'banco_codigo' => $this->driver->bancoCodigo(),
                 'numero_remessa' => $numero,
-                'arquivo' => "remessas/CB{$this->driver->bancoCodigo()}_{$numero}.rem",
+                'arquivo' => $caminho,
                 'total_boletos' => $boletos->count(),
                 'valor_total' => round((float) $boletos->sum('valor'), 2),
                 'situacao' => 'GERADA',
@@ -69,9 +76,6 @@ class BoletoService
             Boleto::withoutTenant()->whereIn('id', $boletos->pluck('id'))
                 ->where('situacao', SituacaoBoleto::PENDENTE->value)
                 ->update(['situacao' => SituacaoBoleto::REGISTRADO->value]);
-
-            // (linhas do CNAB seriam escritas no arquivo pelo storage em produção)
-            unset($linhas);
 
             return $remessa->refresh();
         });

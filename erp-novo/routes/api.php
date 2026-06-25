@@ -262,10 +262,19 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 
         // ── Boletos (CNAB) — N7 (gate) ──
         Route::get('boletos/resumo', [BoletoController::class, 'resumo']);
+        Route::get('boletos/remessas', [BoletoController::class, 'remessas']);
+        Route::get('boletos/remessas/{id}/arquivo', [BoletoController::class, 'baixarRemessa'])->whereNumber('id');
         Route::get('boletos', [BoletoController::class, 'index']);
         Route::post('boletos', [BoletoController::class, 'gerar']);
         Route::post('boletos/remessa', [BoletoController::class, 'remessa']);
         Route::post('boletos/retorno', [BoletoController::class, 'retorno']);
+        // Aliases /cobranca/* (F08) — mesma funcionalidade, nomenclatura do módulo.
+        Route::get('cobranca/boletos', [BoletoController::class, 'index']);
+        Route::post('cobranca/boletos', [BoletoController::class, 'gerar']);
+        Route::get('cobranca/remessas', [BoletoController::class, 'remessas']);
+        Route::post('cobranca/remessas', [BoletoController::class, 'remessa']);
+        Route::get('cobranca/remessas/{id}/arquivo', [BoletoController::class, 'baixarRemessa'])->whereNumber('id');
+        Route::post('cobranca/retorno', [BoletoController::class, 'retorno']);
 
         // ── PIX — N7 (gate) ──
         Route::get('pix/config', [PixController::class, 'config']);
@@ -396,6 +405,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         // Conciliação bancária (OFX) — implementada via ConciliacaoService.
         Route::get('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
         Route::post('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
+        // Conciliação contábil (CONSISA) — F08.
+        Route::get('financeiro/conciliacao-contabil', [FinanceiroController::class, 'conciliacaoContabil']);
+        Route::get('conciliacao-contabil', [FinanceiroController::class, 'conciliacaoContabil']);
 
         // ── RH / Colaboradores — C5 ──
         Route::get('colaboradores', [ColaboradorController::class, 'index']);

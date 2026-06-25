@@ -6,9 +6,12 @@ use App\Domain\Cobranca\BoletoService;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Http\Controllers\Controller;
 use App\Models\Cobranca\Boleto;
+use App\Models\Cobranca\RemessaCnab;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Boletos (CNAB) — N7 (GATE bancário).
@@ -66,15 +69,48 @@ class BoletoController extends Controller
         return response()->json(['data' => $remessa], 201);
     }
 
-    /** POST /boletos/retorno — processa arquivo de retorno (linhas CNAB). */
+    /**
+     * POST /boletos/retorno — processa arquivo de retorno CNAB. Aceita as `linhas`
+     * (array) OU um upload `arquivo` (.ret/.txt), que é quebrado em linhas.
+     */
     public function retorno(Request $request): JsonResponse
     {
         $this->autorizar($request, 'financeiro.edit');
-        $d = $request->validate(['linhas' => 'required|array', 'linhas.*' => 'string']);
+        $request->validate([
+            'linhas' => 'nullable|array',
+            'linhas.*' => 'string',
+            'arquivo' => 'nullable|file',
+        ]);
 
-        $n = $this->service->processarRetorno($d['linhas']);
+        $linhas = $request->input('linhas');
+        if (! $linhas && $request->hasFile('arquivo')) {
+            $conteudo = (string) file_get_contents($request->file('arquivo')->getRealPath());
+            $linhas = preg_split('/\r\n|\r|\n/', $conteudo) ?: [];
+        }
+        abort_if(empty($linhas), 422, 'Envie o retorno (linhas ou arquivo).');
+
+        $n = $this->service->processarRetorno($linhas);
 
         return response()->json(['message' => "Retorno processado: {$n} ocorrência(s).", 'processadas' => $n]);
+    }
+
+    /** GET /boletos/remessas — lista remessas geradas. */
+    public function remessas(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.view');
+
+        return response()->json(['data' => RemessaCnab::query()->orderByDesc('numero_remessa')->limit(100)->get()]);
+    }
+
+    /** GET /boletos/remessas/{id}/arquivo — baixa o .rem (CNAB) da remessa. */
+    public function baixarRemessa(Request $request, int $id): StreamedResponse
+    {
+        $this->autorizar($request, 'financeiro.view');
+        $remessa = RemessaCnab::query()->findOrFail($id); // tenant-scoped
+
+        abort_unless($remessa->arquivo && Storage::disk('local')->exists($remessa->arquivo), 404, 'Arquivo da remessa não encontrado.');
+
+        return Storage::disk('local')->download($remessa->arquivo, basename($remessa->arquivo));
     }
 
     private function autorizar(Request $request, string $chave): void

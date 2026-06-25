@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Financeiro\ConciliacaoContabilService;
 use App\Domain\Financeiro\ConciliacaoService;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Http\Controllers\Controller;
@@ -201,6 +202,30 @@ class FinanceiroController extends Controller
         }
 
         $resultado = $service->conciliar((int) $d['conta_id'], $ofx ?? '', $d['inicio'], $d['fim']);
+
+        return response()->json(['data' => $resultado]);
+    }
+
+    /**
+     * GET /financeiro/conciliacao-contabil — concilia o financeiro do ERP com o
+     * saldo contábil externo (CONSISA) por período (F08). Gate: sem CONSISA
+     * configurada, devolve o lado do ERP com diferença = valor (habilitado=false).
+     */
+    public function conciliacaoContabil(Request $request, ConciliacaoContabilService $service): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.view');
+        $d = $request->validate([
+            'inicio' => 'required|date',
+            'fim' => 'required|date|after_or_equal:inicio',
+            'tipo' => 'nullable|in:P,R',
+        ]);
+
+        $resultado = $service->conciliar(
+            (int) $request->user()->empresa_id,
+            $d['inicio'],
+            $d['fim'],
+            $d['tipo'] ?? 'R',
+        );
 
         return response()->json(['data' => $resultado]);
     }
