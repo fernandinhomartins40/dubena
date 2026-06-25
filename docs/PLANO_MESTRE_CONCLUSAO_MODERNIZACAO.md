@@ -213,6 +213,16 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Expor** (lógica pronta).
 **Banco:** —. **Backend:** rotas para agrupar/desagrupar/reparcelar; baixar títulos em lote; lançar em caixa fechado (com RBAC `lancarfechado`). **Frontend:** ações na FinanceiroPage/ExtraTabs (agrupar/reparcelar; baixa em lote; cheque depósito/devolução/troco). **APIs:** `/financeiro/lancamentos/{id}/agrupar|desagrupar|reparcelar`, `/caixa/{conta}/baixar-titulos`. **Tenant:** revalidação por id (F02). **Testes:** CaixaServiceTest/FinanceiroServiceTest/ChequeServiceTest (existem) + Feature das novas rotas. **Aceite:** paridade de caixa/financeiro/cheque com o legado. **Risco:** médio (dinheiro). **Complexidade:** Média. **Estimativa:** 1–2 sprints.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Rotas órfãs** (agrupar/desagrupar/reparcelar, baixar-titulos, lancar-fechado) já
+>   expostas na F00.6; agora **cobertas por Feature tests HTTP** (`F07FinanceiroCaixaChequeTest`,
+>   6 casos — caminho de DINHEIRO): agrupar soma + desagrupar cancela; baixa em lote
+>   tudo-ou-nada credita conta; lançamento em caixa fechado; cheque recebido
+>   COMPENSADO credita o caixa; transição inválida bloqueada.
+> - **SPA**: ação "Mudar situação" no cheque recebido (depósito/compensação→conta/
+>   devolução) via `useMudarSituacaoCheque`; hook `useReparcelarLancamento`.
+> - Suíte **317 passed / 0 falhas**; SPA typecheck limpo.
+
 ---
 
 # FASE 08 — Cobrança Bancária: Boleto + CNAB + Conciliação Contábil

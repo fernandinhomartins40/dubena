@@ -95,6 +95,25 @@ export function useExcluirChequeRecebido() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: async (id: number) => (await api.delete(`/cheques/recebidos/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }) })
 }
+/** Transição de situação do cheque (depósito/compensação/devolução) — F07. */
+export function useMudarSituacaoCheque() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, situacao, conta_id }: { id: number; situacao: string; conta_id?: number | null }) =>
+      (await api.put(`/cheques/${id}/situacao`, { situacao, conta_id })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }),
+  })
+}
+
+/** Reparcela o saldo em aberto de um título (F07). */
+export function useReparcelarLancamento() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, num_parcelas }: { id: number; num_parcelas: number }) =>
+      (await api.post(`/financeiro/lancamentos/${id}/reparcelar`, { num_parcelas })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fin-lancamentos'] }),
+  })
+}
 
 // Boletos / PIX
 export const useBoletos = (status: string, q: string) => useQuery<any[]>({ queryKey: ['boletos', status, q], queryFn: async () => (await api.get('/boletos', { params: { status, q } })).data.data })

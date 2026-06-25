@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Plus, Pencil, Trash2, TrendingUp, Wallet } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, TrendingUp, Wallet, ArrowRightLeft } from 'lucide-react'
 import {
   Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
   AsyncSelect, Tabs, TabsList, TabsTrigger, TabsContent,
@@ -8,6 +8,7 @@ import {
 } from '@/components/ui'
 import {
   useChequesEmitidos, useChequesRecebidos, useSalvarChequeRecebido, useExcluirChequeRecebido,
+  useMudarSituacaoCheque, useContasCaixa,
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
 } from './api'
 import { brl, data as fmtData } from '@/lib/format'
@@ -27,8 +28,19 @@ function ChequesRecebidosTab() {
   const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
   const { data, isLoading } = useChequesRecebidos(q)
   const salvar = useSalvarChequeRecebido(); const excluir = useExcluirChequeRecebido()
+  const mudarSit = useMudarSituacaoCheque(); const { data: contas } = useContasCaixa()
   const [edit, setEdit] = useState<any | null>(null); const [del, setDel] = useState<any | null>(null)
   const [labels, setLabels] = useState<Record<string, string | null>>({})
+  const [sit, setSit] = useState<any | null>(null); const [novaSit, setNovaSit] = useState(''); const [contaId, setContaId] = useState<number | null>(null)
+
+  async function onMudarSituacao() {
+    if (!sit || !novaSit) { toast.error('Escolha a nova situação.'); return }
+    if (novaSit === 'COMPENSADO' && !contaId) { toast.error('Informe a conta para compensar.'); return }
+    try {
+      await mudarSit.mutateAsync({ id: sit.id, situacao: novaSit, conta_id: contaId })
+      toast.success('Situação do cheque atualizada.'); setSit(null); setNovaSit(''); setContaId(null)
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Transição inválida.') }
+  }
 
   async function onSalvar() {
     const req = ['numerocheque', 'valor', 'banco_id', 'chequesituacao_id', 'dataemissao', 'datavencimento']
@@ -41,7 +53,7 @@ function ChequesRecebidosTab() {
     { key: 'valor', header: 'Valor', align: 'right', cell: (c) => <span className="tabular-nums">{brl(c.valor)}</span> },
     { key: 'venc', header: 'Vencimento', cell: (c) => fmtData(c.datavencimento) },
     { key: 'sit', header: 'Situação', cell: (c) => <Badge variant="secondary">{c.situacao || '—'}</Badge> },
-    { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (c) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => setEdit(c)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setDel(c)}><Trash2 size={16} /></Button></div> },
+    { key: 'acoes', header: '', align: 'right', width: 'w-32', cell: (c) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" title="Mudar situação" onClick={() => { setSit(c); setNovaSit(''); setContaId(null) }}><ArrowRightLeft size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setEdit(c)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setDel(c)}><Trash2 size={16} /></Button></div> },
   ]
   return (
     <>
@@ -72,6 +84,33 @@ function ChequesRecebidosTab() {
           <DialogHeader><DialogTitle>Excluir cheque</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Excluir o cheque <strong>{del?.numerocheque}</strong>?</p>
           <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button variant="destructive" loading={excluir.isPending} onClick={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}><Trash2 size={16} /> Excluir</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Mudar situação (depósito/compensação/devolução) — F07 */}
+      <Dialog open={!!sit} onOpenChange={(o) => !o && setSit(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Situação do cheque {sit?.numero ?? sit?.numerocheque}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Field label="Nova situação" required>
+              <Select value={novaSit} onValueChange={setNovaSit}>
+                <SelectTrigger><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DEPOSITADO">Depositado</SelectItem>
+                  <SelectItem value="COMPENSADO">Compensado (credita o caixa)</SelectItem>
+                  <SelectItem value="DEVOLVIDO">Devolvido</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {novaSit === 'COMPENSADO' && (
+              <Field label="Conta para crédito" required>
+                <Select value={contaId ? String(contaId) : ''} onValueChange={(v) => setContaId(Number(v))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a conta…" /></SelectTrigger>
+                  <SelectContent>{(contas ?? []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.descricao}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+            )}
+          </div>
+          <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={mudarSit.isPending} onClick={onMudarSituacao}>Aplicar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </>
