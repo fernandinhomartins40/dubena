@@ -390,6 +390,18 @@ F15 Performance/Observabilidade: transversal, contínua
 **Achados 〔auditoria〕:** sistema "homologável parcial" hoje 〔§10 q.11〕; após F00–F13, homologável pleno.
 **Atividades:** roteiros por módulo (venda→fiscal→financeiro→cobrança→relatórios); comparação de saídas (NF, boleto, SPED, DRE) com o legado; UAT do hub de cadastros/config/relatórios. **Critérios de aceite:** todos os módulos 🔴/🟡/⚠️ da auditoria fechados; nenhum item da auditoria sem tratamento (checklist abaixo). **Risco:** médio. **Estimativa:** 2 sprints.
 
+> **STATUS (artefatos prontos 2026-06-25):** ✅ ferramental + runbook; execução = UAT
+> - **Rastreabilidade automática** (`F14RastreabilidadeTest`, 3 casos): prova que TODO
+>   achado 🔴/🟡/⚠️ da auditoria tem rota/comando/driver — **guard de regressão no CI**
+>   (rota de paridade removida = teste quebra). 23 rotas + 4 comandos + 5 drivers reais.
+> - **Runbook de homologação** `docs/F14_RUNBOOK_HOMOLOGACAO.md`: roteiros UAT por módulo
+>   (cadastros, venda→estoque→financeiro, fiscal, compras, caixa/cheque, cobrança,
+>   satélites, RH/frota, CRM, monitora/mobile, relatórios, auditoria/segurança) com o
+>   comparativo esperado vs legado e critérios de aceite.
+> - Suíte **341 passed / 0 falhas**.
+> - **Pendente (operacional)**: execução do UAT com usuários + homologação dos gates
+>   externos (SEFAZ/banco/SGCasa/eRede) — fora do código.
+
 ---
 
 # FASE 15 — Migração de Dados (Oracle/legado → MySQL/Postgres)
