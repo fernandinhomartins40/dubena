@@ -2,6 +2,8 @@
 
 namespace App\Domain\Relatorio;
 
+use App\Domain\Rh\ComissaoService;
+use App\Models\Rh\ColaboradorComissao;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\DB;
  */
 class RelatorioService
 {
+    public function __construct(private ComissaoService $comissao) {}
+
     /**
      * Expressão SQL para "dia do mês" de uma coluna de data, no dialeto do driver
      * ativo. Evita `strftime` (SQLite-only). Usado em ordenação de aniversariantes.
@@ -327,21 +331,75 @@ class RelatorioService
      *
      * @return list<array<string,mixed>>
      */
+    /**
+     * Comissão REAL por colaborador no período (F10): aplica a matemática fina do
+     * ComissaoService (percentual/repasse, exceção por segmento, app×balcão) sobre
+     * os itens dos pedidos concretizados de cada entregador — em vez da média
+     * simplificada de % das regras (que a auditoria apontou como divergente §5).
+     *
+     * @return list<array<string,mixed>>
+     */
     public function comissoes(int $empresaId, string $inicio, string $fim): array
     {
-        return DB::table('colaboradores as co')
-            ->leftJoin('colaborador_comissoes as cc', 'cc.colaborador_id', '=', 'co.id')
-            ->where('co.empresa_id', $empresaId)
-            ->where('co.ativo', true)
-            ->groupBy('co.id', 'co.nome')
-            ->selectRaw('co.nome as colaborador, count(cc.id) as regras, coalesce(avg(cc.percentual),0) as percentual_medio')
-            ->orderBy('co.nome')
-            ->get()
-            ->map(fn ($r) => [
-                'colaborador' => $r->colaborador,
-                'regras' => (int) $r->regras,
-                'percentual_medio' => round((float) $r->percentual_medio, 2),
-            ])->all();
+        $dtInicio = Carbon::parse($inicio)->startOfDay();
+        $dtFim = Carbon::parse($fim)->endOfDay();
+
+        // Itens vendidos no período por entregador (pedidos concretizados).
+        $itens = DB::table('pedidoitens as pi')
+            ->join('pedidos as p', 'p.id', '=', 'pi.pedido_id')
+            ->where('p.empresa_id', $empresaId)
+            ->where('p.estoque_movimentado', true)
+            ->whereNotNull('p.entregador_user_id')
+            ->whereBetween('p.datahora', [$dtInicio, $dtFim])
+            ->selectRaw('p.entregador_user_id, p.setor_id, pi.produto_id, pi.quantidade, pi.preco_unitario,
+                         pi.valor_total as valor_venda, pi.desconto as valor_desconto')
+            ->get();
+
+        if ($itens->isEmpty()) {
+            return [];
+        }
+
+        // Regras de comissão da empresa (com exceções), indexadas p/ casamento.
+        $regras = ColaboradorComissao::withoutTenant()
+            ->where('empresa_id', $empresaId)->where('ativo', true)
+            ->with('excecoes')
+            ->get();
+
+        // Nome do colaborador a partir do user_id do entregador.
+        $nomes = DB::table('colaboradores')->where('empresa_id', $empresaId)
+            ->pluck('nome', 'user_id');
+
+        // Agrupa itens por entregador, casando cada item com a regra (produto+setor).
+        $porEntregador = [];
+        foreach ($itens as $it) {
+            $regra = $regras->first(fn ($r) => ($r->produto_id === null || (int) $r->produto_id === (int) $it->produto_id)
+                && ($r->setor_id === null || (int) $r->setor_id === (int) $it->setor_id));
+            if (! $regra) {
+                continue;
+            }
+            $porEntregador[$it->entregador_user_id][] = [[
+                'quantidade' => $it->quantidade,
+                'preco_unitario' => $it->preco_unitario,
+                'valor_venda' => $it->valor_venda,
+                'valor_desconto' => $it->valor_desconto,
+            ], $regra];
+        }
+
+        $linhas = [];
+        foreach ($porEntregador as $userId => $itensComRegra) {
+            $total = $this->comissao->totalColaborador($itensComRegra);
+            $linhas[] = [
+                'colaborador' => $nomes[$userId] ?? "user {$userId}",
+                'itens' => count($itensComRegra),
+                'comissao_percentual' => $total['percentual'],
+                'comissao_repasse' => $total['repasse'],
+                'comissao_total' => $total['total'],
+            ];
+        }
+
+        usort($linhas, fn ($a, $b) => $b['comissao_total'] <=> $a['comissao_total']);
+
+        return $linhas;
     }
 
     /**
@@ -365,6 +423,127 @@ class RelatorioService
                 'entradas' => round((float) $r->entradas, 2),
                 'saidas' => round((float) $r->saidas, 2),
                 'saldo' => round((float) $r->entradas - (float) $r->saidas, 2),
+            ])->all();
+    }
+
+    // ───────────────────── Relatórios adicionais (F10) ─────────────────────
+
+    /** Vendas por entregador no período (pedidos concretizados). */
+    public function vendasPorEntregador(int $empresaId, string $inicio, string $fim): array
+    {
+        [$di, $df] = [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()];
+
+        return DB::table('pedidos as p')
+            ->leftJoin('colaboradores as co', 'co.user_id', '=', 'p.entregador_user_id')
+            ->where('p.empresa_id', $empresaId)->where('p.estoque_movimentado', true)
+            ->whereBetween('p.datahora', [$di, $df])
+            ->groupByRaw('p.entregador_user_id, co.nome')
+            ->selectRaw('coalesce(co.nome, \'(sem entregador)\') as entregador, count(p.id) as pedidos, sum(p.valor_venda) as total')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($r) => ['entregador' => $r->entregador, 'pedidos' => (int) $r->pedidos, 'total' => round((float) $r->total, 2)])
+            ->all();
+    }
+
+    /** Vendas por operação (PDV/Disk/convênio) no período. */
+    public function vendasPorOperacao(int $empresaId, string $inicio, string $fim): array
+    {
+        [$di, $df] = [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()];
+
+        return DB::table('pedidos as p')
+            ->leftJoin('pedidooperacoes as op', 'op.id', '=', 'p.pedidooperacao_id')
+            ->where('p.empresa_id', $empresaId)->where('p.estoque_movimentado', true)
+            ->whereBetween('p.datahora', [$di, $df])
+            ->groupByRaw('p.pedidooperacao_id, op.descricao')
+            ->selectRaw('coalesce(op.descricao, \'(sem operação)\') as operacao, count(p.id) as pedidos, sum(p.valor_venda) as total')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($r) => ['operacao' => $r->operacao, 'pedidos' => (int) $r->pedidos, 'total' => round((float) $r->total, 2)])
+            ->all();
+    }
+
+    /** Vendas por produto (quantidade e valor) no período. */
+    public function vendasPorProduto(int $empresaId, string $inicio, string $fim): array
+    {
+        [$di, $df] = [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()];
+
+        return DB::table('pedidoitens as pi')
+            ->join('pedidos as p', 'p.id', '=', 'pi.pedido_id')
+            ->leftJoin('produtos as pr', 'pr.id', '=', 'pi.produto_id')
+            ->where('p.empresa_id', $empresaId)->where('p.estoque_movimentado', true)
+            ->whereBetween('p.datahora', [$di, $df])
+            ->groupByRaw('pi.produto_id, pr.descricao')
+            ->selectRaw('coalesce(pr.descricao, \'?\') as produto, sum(pi.quantidade) as quantidade, sum(pi.valor_total) as total')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($r) => ['produto' => $r->produto, 'quantidade' => round((float) $r->quantidade, 3), 'total' => round((float) $r->total, 2)])
+            ->all();
+    }
+
+    /** NF-e emitidas (autorizadas) no período. */
+    public function nfEmitidas(int $empresaId, string $inicio, string $fim): array
+    {
+        [$di, $df] = [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()];
+
+        return DB::table('notas_fiscais as n')
+            ->leftJoin('clientes as c', 'c.id', '=', 'n.cliente_id')
+            ->where('n.empresa_id', $empresaId)
+            ->whereBetween('n.emitida_em', [$di, $df])
+            ->orderBy('n.numero')
+            ->get(['n.numero', 'n.serie', 'n.modelo', 'n.chave', 'n.situacao', 'n.valor_total', 'n.emitida_em', 'c.nome as cliente'])
+            ->map(fn ($r) => [
+                'numero' => $r->numero, 'serie' => $r->serie, 'modelo' => $r->modelo,
+                'cliente' => $r->cliente, 'situacao' => $r->situacao,
+                'valor_total' => round((float) $r->valor_total, 2),
+                'emitida_em' => (string) $r->emitida_em,
+            ])->all();
+    }
+
+    /** NF de entrada (recebidas) no período. */
+    public function nfRecebidas(int $empresaId, string $inicio, string $fim): array
+    {
+        return DB::table('nf_recebidas')
+            ->where('empresa_id', $empresaId)
+            ->whereBetween('data_emissao', [$inicio, $fim])
+            ->orderBy('data_emissao')
+            ->get(['numero', 'serie', 'emitente_nome', 'data_emissao', 'valor_total', 'situacao'])
+            ->map(fn ($r) => [
+                'numero' => $r->numero, 'serie' => $r->serie, 'emitente' => $r->emitente_nome,
+                'data_emissao' => (string) $r->data_emissao, 'valor_total' => round((float) $r->valor_total, 2),
+                'situacao' => $r->situacao,
+            ])->all();
+    }
+
+    /** Promoções do grupo e adesão (clientes por promoção). */
+    public function promocoes(int $empresaId): array
+    {
+        $grupoId = (int) DB::table('empresas')->where('id', $empresaId)->value('grupo_id');
+
+        return DB::table('promocoes')
+            ->where('grupo_id', $grupoId)
+            ->orderByDesc('inicio')
+            ->get(['descricao', 'inicio', 'fim', 'desconto_percentual', 'ativo'])
+            ->map(fn ($r) => [
+                'promocao' => $r->descricao,
+                'inicio' => (string) $r->inicio, 'fim' => (string) $r->fim,
+                'desconto_percentual' => round((float) $r->desconto_percentual, 2),
+                'ativa' => (bool) $r->ativo ? 'Sim' : 'Não',
+            ])->all();
+    }
+
+    /** Frota: veículos e total abastecido (litros/valor). */
+    public function veiculos(int $empresaId): array
+    {
+        return DB::table('veiculos as v')
+            ->leftJoin('veiculo_abastecimentos as a', 'a.veiculo_id', '=', 'v.id')
+            ->where('v.empresa_id', $empresaId)
+            ->groupByRaw('v.id, v.placa, v.descricao, v.km_atual')
+            ->selectRaw('v.placa, v.descricao, v.km_atual, coalesce(sum(a.litros),0) as litros, coalesce(sum(a.valor_total),0) as valor')
+            ->orderBy('v.placa')
+            ->get()
+            ->map(fn ($r) => [
+                'placa' => $r->placa, 'veiculo' => $r->descricao, 'km_atual' => (int) $r->km_atual,
+                'litros' => round((float) $r->litros, 3), 'valor_abastecido' => round((float) $r->valor, 2),
             ])->all();
     }
 }

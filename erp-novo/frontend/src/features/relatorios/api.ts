@@ -23,6 +23,14 @@ export const RELATORIOS: RelatorioDef[] = [
   { slug: 'estoque-baixo', titulo: 'Estoque abaixo do mínimo', periodo: false },
   { slug: 'comodatos', titulo: 'Comodatos em aberto', periodo: false },
   { slug: 'aniversariantes', titulo: 'Aniversariantes do mês', periodo: false, mes: true },
+  // F10 — central completa.
+  { slug: 'vendas-entregador', titulo: 'Vendas por entregador', periodo: true },
+  { slug: 'vendas-operacao', titulo: 'Vendas por operação (PDV/Disk)', periodo: true },
+  { slug: 'vendas-produto', titulo: 'Vendas por produto', periodo: true },
+  { slug: 'nf-emitidas', titulo: 'NF-e emitidas', periodo: true },
+  { slug: 'nf-recebidas', titulo: 'NF de entrada (recebidas)', periodo: true },
+  { slug: 'promocoes', titulo: 'Promoções e adesão', periodo: false },
+  { slug: 'veiculos', titulo: 'Frota e abastecimentos', periodo: false },
 ]
 
 export function useRelatorio(slug: string, params: Record<string, unknown>, enabled: boolean) {

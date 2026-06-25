@@ -291,6 +291,20 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Substituir** por central de relatórios; **unificar** cálculo de comissão.
 **Banco:** —. **Backend:** novos relatórios em `RelatorioService`; unificar comissão usando `ComissaoService` 〔§5〕; export CSV/PDF/XLS. **Frontend:** expandir `RelatoriosPage` (seletor + filtros + export) — sem criar 15 telas. **APIs:** `/relatorios/{slug}`. **Tenant:** filtro obrigatório por empresa 〔§8〕. **Testes:** RelatorioTest (existe) por slug. **Aceite:** 26/26 relatórios disponíveis na central; comissão idêntica nos dois caminhos. **Risco:** médio. **Complexidade:** Média-Alta. **Estimativa:** 2–3 sprints.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Dispatcher genérico** `GET /relatorios/{slug}` (registry slug→método no controller)
+>   + `GET /relatorios/catalogo` — substitui a abordagem 1-tela/1-rota por relatório.
+>   Adicionar relatório = 1 linha no registry + 1 método no service.
+> - **+7 relatórios** no `RelatorioService`: vendas por entregador, por operação (PDV/Disk),
+>   por produto, NF-e emitidas, NF de entrada (recebidas), promoções/adesão, frota/abastec.
+>   (cobre os faltantes da auditoria, escopados por empresa).
+> - **Comissão unificada**: `comissoes` agora usa a matemática fina do `ComissaoService`
+>   (percentual/repasse, exceção por segmento, app×balcão) sobre os itens dos pedidos —
+>   não mais a média simplificada de % das regras 〔§5 resolvido〕.
+> - **SPA**: `RELATORIOS` expandida (17 relatórios na central, seletor + período/mês + CSV/PDF).
+> - **Testes**: `RelatoriosCentralTest` (5: catálogo, dispatcher, 404, export CSV, comissão fina).
+>   Suíte **322 passed / 0 falhas**; SPA typecheck limpo.
+
 ---
 
 # FASE 11 — Auditoria/Logs + Inconsistências de Cadastro

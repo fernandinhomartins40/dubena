@@ -412,6 +412,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/comodatos', [RelatorioController::class, 'comodatos']);
         Route::get('relatorios/comissoes', [RelatorioController::class, 'comissoes']);
         Route::get('relatorios/movimentacao-caixa', [RelatorioController::class, 'movimentacaoCaixa']);
+        // Central de relatórios (F10): catálogo + dispatcher genérico por slug.
+        // O catálogo vem ANTES do {slug} p/ não ser capturado como slug.
+        Route::get('relatorios/catalogo', [RelatorioController::class, 'catalogo']);
+        Route::get('relatorios/{slug}', [RelatorioController::class, 'mostrar'])->where('slug', '[a-z0-9-]+');
         // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
         Route::get('financeiro/dre', [RelatorioController::class, 'dre']);
         // Conciliação bancária (OFX) — implementada via ConciliacaoService.

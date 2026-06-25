@@ -137,6 +137,73 @@ class RelatorioController extends Controller
     }
 
     /** @return array{inicio:string,fim:string} */
+    /**
+     * Registry da CENTRAL de relatórios (F10): slug => [método do service, precisa
+     * período?, precisa mês?, título]. Adicionar relatório = 1 linha + 1 método no
+     * service — sem novo controller/rota. Substitui a abordagem 1-tela-por-relatório.
+     *
+     * @var array<string, array{0:string,1:bool,2:bool,3:string}>
+     */
+    private const RELATORIOS = [
+        'vendas' => ['vendas', true, false, 'Vendas por período'],
+        'financeiro' => ['financeiro', true, false, 'Posição financeira'],
+        'dre' => ['dre', true, false, 'DRE (resultado)'],
+        'movimentacao-caixa' => ['movimentacaoCaixa', true, false, 'Movimentação de caixa'],
+        'fechamentos-caixa' => ['fechamentosCaixa', true, false, 'Fechamentos de caixa'],
+        'comissoes' => ['comissoes', true, false, 'Comissões por colaborador'],
+        'vale-gas' => ['valeGas', true, false, 'Vale-gás por situação'],
+        'estoque-baixo' => ['estoqueBaixo', false, false, 'Estoque abaixo do mínimo'],
+        'comodatos' => ['comodatos', false, false, 'Comodatos em aberto'],
+        'aniversariantes' => ['clientesAniversariantes', false, true, 'Aniversariantes do mês'],
+        // F10 — novos relatórios (cobre os faltantes da auditoria).
+        'vendas-entregador' => ['vendasPorEntregador', true, false, 'Vendas por entregador'],
+        'vendas-operacao' => ['vendasPorOperacao', true, false, 'Vendas por operação (PDV/Disk)'],
+        'vendas-produto' => ['vendasPorProduto', true, false, 'Vendas por produto'],
+        'nf-emitidas' => ['nfEmitidas', true, false, 'NF-e emitidas'],
+        'nf-recebidas' => ['nfRecebidas', true, false, 'NF de entrada (recebidas)'],
+        'promocoes' => ['promocoes', false, false, 'Promoções e adesão'],
+        'veiculos' => ['veiculos', false, false, 'Frota e abastecimentos'],
+    ];
+
+    /**
+     * GET /relatorios/{slug} — central única. ?inicio&fim (período), ?mes, ?formato=csv|pdf.
+     */
+    public function mostrar(Request $request, string $slug): Response
+    {
+        $this->autorizar($request, 'relatorio.view');
+
+        $cfg = self::RELATORIOS[$slug] ?? null;
+        abort_if($cfg === null, 404, 'Relatório desconhecido.');
+        [$metodo, $precisaPeriodo, $precisaMes, $titulo] = $cfg;
+
+        $empresaId = (int) $request->user()->empresa_id;
+        $args = [$empresaId];
+        if ($precisaPeriodo) {
+            $d = $this->periodo($request);
+            $args[] = $d['inicio'];
+            $args[] = $d['fim'];
+        }
+        if ($precisaMes) {
+            $args[] = (int) ($request->query('mes') ?: now()->month);
+        }
+
+        $linhas = $this->service->{$metodo}(...$args);
+
+        return $this->exportar($request, $linhas, $slug, $titulo);
+    }
+
+    /** Catálogo dos relatórios disponíveis (alimenta o seletor da SPA). */
+    public function catalogo(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'relatorio.view');
+
+        $itens = collect(self::RELATORIOS)->map(fn ($c, $slug) => [
+            'slug' => $slug, 'titulo' => $c[3], 'periodo' => $c[1], 'mes' => $c[2],
+        ])->values();
+
+        return response()->json(['data' => $itens]);
+    }
+
     private function periodo(Request $request): array
     {
         return $request->validate([
