@@ -343,6 +343,22 @@ F15 Performance/Observabilidade: transversal, contínua
 **Dependências:** F02; F08/F09 para convênio.
 **Banco:** `veiculo_*` (entrada-saída/documento) se faltarem. **Backend:** `BoletoDriver`(F08)/`SgcasaDriver`/`PagamentoDriver`/`PushService` reais; entrada-saída de veículo; mala direta. **Frontend:** telas faltantes. **APIs:** respectivas. **Integrações:** SGCasa, eRede, FCM. **Tenant:** escopo. **Testes:** SateliteServiceTest/MonitoraServiceTest/VeiculoServiceTest/PagamentoTest/MobileTest (existem) com drivers reais mockados. **Aceite:** todos os módulos 🟡/⚠️ viram ✅. **Risco:** médio-alto (integrações). **Complexidade:** Alta. **Estimativa:** 3 sprints.
 
+> **STATUS (implementada 2026-06-25):** ✅ (features migradas; gates externos prontos p/ homologação)
+> - **Frota — entrada/saída + documento** (gap real): tabelas `veiculo_entradas_saidas` e
+>   `veiculo_documentos` + models (tenant via empresa_id herdado) + endpoints
+>   `veiculos/{id}/entradas-saidas` e `/documentos` (km do veículo atualizado na saída).
+> - **CRM — mala direta** (gap real): `MalaDiretaController` GET `/crm/mala-direta` —
+>   segmentação de clientes (segmento/cidade/bairro/mês aniversário/gás-do-povo/com e-mail/
+>   sem-compra-N-dias) + export CSV. Envio em massa = gate SMTP (F01).
+> - **Drivers reais atrás de gate** (mesmo padrão F08/F09): `SgcasaHttpDriver`
+>   (MONITORA_DRIVER=sgcasa) e `EredeDriver` (PAGAMENTO_DRIVER=erede), bind por config;
+>   default Fake no CI. `PushService` já gateava no FCM key.
+> - **Convênio** NF+boleto: resolvido por F08/F09 (gates de cobrança/fiscal).
+> - `.env.example` documenta os gates (PAGAMENTO/MONITORA + credenciais).
+> - **Testes**: `F12FrotaCrmGatesTest` (5: entrada-saída+km, documento, mala direta+CSV,
+>   seleção dos 2 drivers por gate). Suíte **332 passed / 0 falhas**.
+> - **Pendente (externo)**: homologação live SGCasa/eRede/FCM com credenciais reais.
+
 ---
 
 # FASE 13 — Performance, Observabilidade e Hardening (transversal)

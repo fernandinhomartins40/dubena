@@ -10,9 +10,11 @@ use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
+use App\Domain\Mobile\Drivers\EredeDriver;
 use App\Domain\Mobile\Drivers\FakePagamentoDriver;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
+use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Tenant\TenantContext;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,13 +50,17 @@ class AppServiceProvider extends ServiceProvider
                 : $this->app->make(FakeSefazDriver::class),
         );
 
-        // Driver de pagamento online (N10 — GATE Rede). Default: Fake. Em produção,
-        // driver real (eRede + PV/token).
-        $this->app->bind(PagamentoDriver::class, FakePagamentoDriver::class);
+        // Driver de pagamento online (N10/F12 — GATE Rede). PAGAMENTO_DRIVER=erede
+        // ativa o real (eRede + PV/token); qualquer outro valor mantém o Fake.
+        $this->app->bind(PagamentoDriver::class, fn () => config('services.pagamento.driver') === 'erede'
+            ? $this->app->make(EredeDriver::class)
+            : $this->app->make(FakePagamentoDriver::class));
 
-        // Driver SGCasa (N11 — GATE sync GPS). Singleton p/ permitir stub em teste.
-        // Em produção, driver real consome a API do SGCasa.
-        $this->app->singleton(SgcasaDriver::class, FakeSgcasaDriver::class);
+        // Driver SGCasa (N11/F12 — GATE sync GPS). MONITORA_DRIVER=sgcasa ativa o real
+        // (API SGCasa); senão Fake. Singleton p/ permitir stub em teste.
+        $this->app->singleton(SgcasaDriver::class, fn () => config('services.monitora.driver') === 'sgcasa'
+            ? $this->app->make(SgcasaHttpDriver::class)
+            : $this->app->make(FakeSgcasaDriver::class));
     }
 
     /**

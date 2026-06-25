@@ -48,4 +48,14 @@ class Veiculo extends Model
     {
         return $this->hasMany(VeiculoPneu::class);
     }
+
+    public function entradasSaidas(): HasMany
+    {
+        return $this->hasMany(VeiculoEntradaSaida::class);
+    }
+
+    public function documentos(): HasMany
+    {
+        return $this->hasMany(VeiculoDocumento::class);
+    }
 }

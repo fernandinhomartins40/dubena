@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConfigGlobalController;
 use App\Http\Controllers\Api\Admin\ConvenioController;
 use App\Http\Controllers\Api\Admin\CrmController;
+use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
@@ -383,6 +384,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('checklists/{id}/executar', [CrmController::class, 'checklistExecutar'])->whereNumber('id');
         Route::delete('checklists/{id}', [CrmController::class, 'checklistExcluir'])->whereNumber('id');
 
+        // Mala direta (F12): segmentação de clientes p/ campanha + export CSV.
+        Route::get('crm/mala-direta', [MalaDiretaController::class, 'index']);
+
         // ── Gestão (C11): cupom fiscal SAT/CFe, MCMM, documentos, bens ──
         Route::get('cupons-fiscais', [GestaoController::class, 'cupomIndex']);
         Route::post('cupons-fiscais', [GestaoController::class, 'cupomCriar']);
@@ -459,6 +463,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('veiculos/{id}/abastecimentos', [VeiculoController::class, 'registrarAbastecimento'])->whereNumber('id');
         Route::get('veiculos/{id}/trocas-oleo', [VeiculoController::class, 'trocasOleo'])->whereNumber('id');
         Route::get('veiculos/{id}/pneus', [VeiculoController::class, 'pneus'])->whereNumber('id');
+        // Entrada/saída de pátio + documentos do veículo (F12).
+        Route::get('veiculos/{id}/entradas-saidas', [VeiculoController::class, 'entradasSaidas'])->whereNumber('id');
+        Route::post('veiculos/{id}/entradas-saidas', [VeiculoController::class, 'registrarEntradaSaida'])->whereNumber('id');
+        Route::get('veiculos/{id}/documentos', [VeiculoController::class, 'documentos'])->whereNumber('id');
+        Route::post('veiculos/{id}/documentos', [VeiculoController::class, 'registrarDocumento'])->whereNumber('id');
 
         // Satélites (relatórios/monitoramento/integrações agregados) → FASE C10.
         // Satélites — status agregado — C10.

@@ -106,6 +106,57 @@ class VeiculoController extends Controller
         return response()->json(['data' => Veiculo::query()->findOrFail($id)->pneus()->get()]);
     }
 
+    // ── Entrada/saída de pátio (F12) ──
+    public function entradasSaidas(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.view');
+
+        return response()->json(['data' => Veiculo::query()->findOrFail($id)->entradasSaidas()->orderByDesc('datahora')->get()]);
+    }
+
+    public function registrarEntradaSaida(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        $v = Veiculo::query()->findOrFail($id);
+        $d = $request->validate([
+            'tipo' => 'required|in:SAIDA,ENTRADA',
+            'datahora' => 'nullable|date',
+            'km' => 'nullable|integer|min:0',
+            'colaborador_id' => 'nullable|integer|exists:colaboradores,id',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+        $reg = $v->entradasSaidas()->create(array_merge($d, ['datahora' => $d['datahora'] ?? now()]));
+        // Mantém km_atual do veículo coerente quando o km informado for maior.
+        if (! empty($d['km']) && (int) $d['km'] > (int) $v->km_atual) {
+            $v->update(['km_atual' => (int) $d['km']]);
+        }
+
+        return response()->json(['data' => $reg], 201);
+    }
+
+    // ── Documentos do veículo (F12) ──
+    public function documentos(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.view');
+
+        return response()->json(['data' => Veiculo::query()->findOrFail($id)->documentos()->orderBy('vencimento')->get()]);
+    }
+
+    public function registrarDocumento(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        $v = Veiculo::query()->findOrFail($id);
+        $d = $request->validate([
+            'tipo' => 'required|string|max:60',
+            'numero' => 'nullable|string|max:60',
+            'emissao' => 'nullable|date',
+            'vencimento' => 'nullable|date',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+
+        return response()->json(['data' => $v->documentos()->create($d)], 201);
+    }
+
     /** @return array<string,mixed> */
     private function linha(Veiculo $v): array
     {

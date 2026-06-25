@@ -74,6 +74,25 @@ return [
         'enabled' => (bool) env('CONSISA_API_URL'),
     ],
 
+    // Driver de pagamento online (N10/F12 — GATE Rede). 'erede' ativa o real; senão Fake.
+    'pagamento' => [
+        'driver' => env('PAGAMENTO_DRIVER', 'fake'),
+    ],
+    'erede' => [
+        'url' => env('EREDE_API_URL', 'https://api.userede.com.br/erede/v1'),
+        'pv' => env('EREDE_PV'),
+        'token' => env('EREDE_TOKEN'),
+    ],
+
+    // Driver de rastreamento GPS (N11/F12 — GATE). 'sgcasa' ativa o real; senão Fake.
+    'monitora' => [
+        'driver' => env('MONITORA_DRIVER', 'fake'),
+    ],
+    'sgcasa' => [
+        'url' => env('SGCASA_API_URL'),
+        'token' => env('SGCASA_TOKEN'),
+    ],
+
     // Flags dos gates externos para o painel de status (SateliteStatusController).
     // Resolvidas aqui (build-time do config:cache) para não dependerem de env()
     // em runtime — env() retorna vazio quando a config está cacheada (prod).
