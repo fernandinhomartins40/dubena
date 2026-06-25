@@ -126,6 +126,14 @@ class EstoqueService
             throw ValidationException::withMessages(['setor_destino' => 'Setores de origem e destino devem ser diferentes.']);
         }
 
+        // F05 — transferência só DENTRO da mesma empresa: mover estoque entre
+        // empresas diferentes violaria o isolamento de tenant (e o patrimônio).
+        $empOrigem = (int) Setor::withoutTenant()->whereKey($setorOrigem)->value('empresa_id');
+        $empDestino = (int) Setor::withoutTenant()->whereKey($setorDestino)->value('empresa_id');
+        if ($empOrigem === 0 || $empDestino === 0 || $empOrigem !== $empDestino) {
+            throw ValidationException::withMessages(['setor_destino' => 'Transferência só é permitida entre setores da mesma empresa.']);
+        }
+
         return DB::transaction(function () use ($setorOrigem, $setorDestino, $produtoId, $qtd, $userId) {
             $origem = EstoqueSaldo::withoutTenant()->where('setor_id', $setorOrigem)->where('produto_id', $produtoId)->first();
             $custo = $origem ? (float) $origem->custo_medio : null;

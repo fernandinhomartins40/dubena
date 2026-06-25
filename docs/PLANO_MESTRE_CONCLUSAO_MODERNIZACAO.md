@@ -177,6 +177,14 @@ F15 Performance/Observabilidade: transversal, contínua
 **Achados 〔auditoria〕:** Produto ✅, Estoque ✅ (todos os 9 fluxos cobertos por `EstoqueService`) 〔§3〕.
 **Banco/Backend/Frontend:** sem gap funcional; só endurecer testes de invariância de saldo (existe `BalanceInvariantTest`). **Tenant:** escopo. **Aceite:** suíte de estoque verde sob multi-tenant. **Risco:** baixo. **Complexidade:** Baixa. **Estimativa:** 0,5 sprint.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Guard cross-empresa** em `EstoqueService::transferir`: transferência só entre
+>   setores da MESMA empresa (mover estoque entre tenants violaria isolamento/patrimônio).
+> - **Hardening multi-tenant** (`EstoqueMultiTenantTest`, 4 casos): invariante
+>   Σ histórico = saldo POR EMPRESA; saldos/históricos não vazam sob global scope;
+>   transferência cross-empresa bloqueada; transferência intra-empresa preserva o total.
+> - Sem gap funcional (Produto/Estoque já ✅ na auditoria). Suíte **307 passed / 0 falhas**.
+
 ---
 
 # FASE 06 — Compras / NF de Entrada
