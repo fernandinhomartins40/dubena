@@ -300,6 +300,19 @@ F15 Performance/Observabilidade: transversal, contínua
 **Objetivo:** virada definitiva.
 **Atividades:** janela de corte; congelamento do legado; migração final delta; smoke test fiscal/cobrança em produção (1 NF, 1 boleto, 1 PIX reais); rollback plan. **Critérios de aceite:** operação real (fatura/cobra/rastreia) em produção multi-tenant; legado desativado. **Risco:** alto. **Estimativa:** 1 sprint + acompanhamento.
 
+> **STATUS (artefatos prontos 2026-06-25):** ✅ ferramental + runbook; execução = janela de virada
+> - **`golive:check`** — portão de prontidão de produção (PASS/WARN/FAIL): APP_KEY/ENV/DEBUG,
+>   banco pgsql + conexão, middleware tenant, RLS ativo (pg_policies), gates fiscal/cobrança,
+>   certificado A1 por empresa (se fiscal real), conta de cobrança por empresa. `--strict`
+>   trata WARN como bloqueio. Testado (`GoliveCheckTest`, 4 casos).
+> - **`cutover:check`** (já existia) — portão de integridade dos dados migrados.
+> - **Runbook completo** em `docs/F16_RUNBOOK_GOLIVE.md`: pré-condições, config `.env` de
+>   produção, portões automáticos, janela de cutover passo-a-passo, smoke test, pós-go-live,
+>   **plano de rollback** (RPO/RTO) e critérios de aceite.
+> - Suíte **290 passed / 0 falhas**.
+> - **Pendente (operacional, fora do código)**: homologação SEFAZ/banco com credenciais reais
+>   e a execução da janela de virada com o legado conectado — suportadas pelo ferramental acima.
+
 ---
 
 ## RASTREABILIDADE — nenhum achado da auditoria sem tratamento
