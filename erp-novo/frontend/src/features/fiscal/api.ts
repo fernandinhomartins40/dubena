@@ -49,3 +49,30 @@ export function useCancelarNfe() {
 export function useSpedPreview(inicio: string, fim: string, enabled: boolean) {
   return useQuery({ queryKey: ['fiscal-sped', inicio, fim], queryFn: async () => (await api.get('/fiscal/sped', { params: { inicio, fim } })).data.data, enabled })
 }
+
+// NF de Entrada (F06)
+export interface NfEntradaRow {
+  id: number; numero: string | null; serie: string | null; emitente_nome: string | null
+  data_emissao: string | null; valor_total: number; situacao: string; itens_count?: number
+}
+export function useNfEntrada() {
+  return useQuery<{ data: NfEntradaRow[]; meta: any }>({
+    queryKey: ['nf-entrada'],
+    queryFn: async () => (await api.get('/fiscal/nf-entrada')).data,
+  })
+}
+export function useImportarNfEntrada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (xml: string) => (await api.post('/fiscal/nf-entrada/importar', { xml })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['nf-entrada'] }),
+  })
+}
+export function useProcessarNfEntrada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, setor_id }: { id: number; setor_id: number }) =>
+      (await api.post(`/fiscal/nf-entrada/${id}/processar`, { setor_id })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['nf-entrada'] }),
+  })
+}

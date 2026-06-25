@@ -194,6 +194,16 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Expor** (não reescrever).
 **Banco:** confirmar tabelas `nf_recebidas`/`nf_recebida_itens` (existem). **Backend:** criar `NfEntradaController` (importar XML, processar → entrada estoque + CP). **Frontend:** nova tela "NF de Entrada" (upload XML + conferência). **APIs:** `/fiscal/nf-entrada` POST/import. **Integrações:** parser NFePHP (já no service). **Tenant:** escopo. **Testes:** `NfEntradaTest` (existe) + Feature do controller. **Aceite:** XML → estoque+financeiro a pagar. **Risco:** baixo. **Complexidade:** Baixa-Média. **Estimativa:** 1 sprint.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Backend** `NfEntradaController` (index/show/importar/processar) + rotas
+>   `/fiscal/nf-entrada*` já entregue na F00.6; reconfirmado.
+> - **Feature test HTTP** `NfEntradaApiTest` (4): importar XML via API, listar/mostrar,
+>   processar (entrada de estoque + contas a pagar, idempotente), RBAC.
+> - **SPA**: aba **"NF de Entrada"** na `FiscalPage` — importar XML (textarea), listar com
+>   situação (Importada/Processada) e **processar** escolhendo o setor de destino
+>   (AsyncSelect). Hooks `useNfEntrada/useImportarNfEntrada/useProcessarNfEntrada`.
+> - Suíte **311 passed / 0 falhas**; SPA typecheck limpo. Aceite: XML → estoque + CP.
+
 ---
 
 # FASE 07 — Financeiro, Caixa e Cheque (expor métodos órfãos)
