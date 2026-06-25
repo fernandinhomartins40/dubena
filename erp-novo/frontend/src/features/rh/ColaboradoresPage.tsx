@@ -8,6 +8,7 @@ import {
   ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
+import { useResourceForm } from '@/lib/useResourceForm'
 import {
   useColaboradores, useColaborador, useSalvarColaborador, useExcluirColaborador, type Colaborador,
   useFamilia, useAddFamilia, useDelFamilia, useRecessos, useComissoes,
@@ -74,25 +75,17 @@ export function ColaboradorFormPage() {
   const editId = id && id !== 'novo' ? Number(id) : null
   const { data: existente } = useColaborador(editId)
   const salvar = useSalvarColaborador()
-  const [form, setForm] = useState<any>({ ...VAZIO })
-  const [erros, setErros] = useState<Record<string, string>>({})
+  const { form, campo, erros, submit } = useResourceForm<any>({ vazio: { ...VAZIO }, existente })
   const [labels, setLabels] = useState<Record<string, string | null>>({})
   const [aba, setAba] = useState('dados')
 
   useEffect(() => {
-    if (existente) {
-      const f: any = { ...VAZIO }
-      Object.keys(VAZIO).forEach((k) => { if (existente[k] != null) f[k] = existente[k] })
-      setForm(f)
-      setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, cargo: existente.cargo_label })
-    }
+    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, cargo: existente.cargo_label })
   }, [existente])
-  const campo = (k: string, v: any) => setForm((s: any) => ({ ...s, [k]: v }))
 
   async function onSubmit() {
-    setErros({})
-    try { const salvo = await salvar.mutateAsync({ id: editId, data: form }); toast.success(editId ? 'Atualizado.' : 'Cadastrado.'); navigate(`/colaboradores/${salvo.id}`) }
-    catch (e: any) { if (e?.response?.status === 422) { setErros(Object.fromEntries(Object.entries(e.response.data.errors as Record<string, string[]>).map(([k, v]) => [k, v[0]]))); setAba('dados'); toast.error('Verifique os campos.') } else toast.error('Erro ao salvar.') }
+    try { const salvo = await submit((data) => salvar.mutateAsync({ id: editId, data })); toast.success(editId ? 'Atualizado.' : 'Cadastrado.'); navigate(`/colaboradores/${salvo.id}`) }
+    catch (e: any) { if (e?.response?.status === 422) { setAba('dados'); toast.error('Verifique os campos.') } else toast.error('Erro ao salvar.') }
   }
 
   return (

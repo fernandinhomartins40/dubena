@@ -11,6 +11,7 @@ import { HistoricoTab } from './HistoricoTab'
 import { InteracoesTab } from './InteracoesTab'
 import { ConvenioTab } from './ConvenioTab'
 import { PrecosTab } from './PrecosTab'
+import { useResourceForm } from '@/lib/useResourceForm'
 import { useCliente, useSalvarCliente, type ClienteForm } from './api'
 
 const VAZIO: ClienteForm = {
@@ -35,22 +36,14 @@ export function ClienteFormPage() {
   const salvar = useSalvarCliente()
 
   const [aba, setAba] = useState('dados')
-  const [form, setForm] = useState<ClienteForm>(VAZIO)
-  const [erros, setErros] = useState<Record<string, string>>({})
+  const { form, campo, erros, submit } = useResourceForm<ClienteForm>({
+    vazio: VAZIO, existente,
+    booleanKeys: ['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'],
+  })
   const [labels, setLabels] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     if (existente) {
-      const f: ClienteForm = { ...VAZIO }
-      ;(Object.keys(VAZIO) as (keyof ClienteForm)[]).forEach((k) => {
-        const v = existente[k]
-        if (v !== undefined && v !== null) {
-          if (['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'].includes(k as string)) {
-            ;(f as any)[k] = Number(v) === 1
-          } else (f as any)[k] = v
-        }
-      })
-      setForm(f)
       setLabels({
         cidade: existente.cidade_label ?? null, bairro: existente.bairro_label ?? null,
         rua: existente.rua_label ?? null, segmento: existente.segmento_label ?? null,
@@ -59,22 +52,15 @@ export function ClienteFormPage() {
     }
   }, [existente])
 
-  function campo<K extends keyof ClienteForm>(k: K, v: ClienteForm[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }))
-  }
-
   const ehJuridica = (labels.tipopessoa ?? '').toUpperCase().includes('JUR')
 
   async function onSubmit() {
-    setErros({})
     try {
-      const salvo = await salvar.mutateAsync({ id: editId, data: form })
+      const salvo = await submit((data) => salvar.mutateAsync({ id: editId, data }))
       toast.success(editId ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       navigate(`/clientes/${salvo.id}`)
     } catch (e: any) {
       if (e?.response?.status === 422) {
-        const ve = e.response.data.errors as Record<string, string[]>
-        setErros(Object.fromEntries(Object.entries(ve).map(([k, v]) => [k, v[0]])))
         setAba('dados')
         toast.error('Verifique os campos destacados.')
       } else toast.error('Erro ao salvar o cliente.')

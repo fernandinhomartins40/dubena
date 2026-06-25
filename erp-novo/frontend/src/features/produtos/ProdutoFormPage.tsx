@@ -6,7 +6,8 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent, EmptyState, Skeleton, toast,
 } from '@/components/ui'
 import { OrigensTab } from './OrigensTab'
-import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm, type OrigemCombustivel } from './api'
+import { useResourceForm } from '@/lib/useResourceForm'
+import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm } from './api'
 
 const VAZIO: ProdutoForm = {
   descricao: '', produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
@@ -32,31 +33,35 @@ export function ProdutoFormPage() {
   const salvar = useSalvarProduto()
 
   const [aba, setAba] = useState('dados')
-  const [form, setForm] = useState<ProdutoForm>(VAZIO)
-  const [erros, setErros] = useState<Record<string, string>>({})
   const [erroRegra, setErroRegra] = useState<string | null>(null)
   const [labels, setLabels] = useState<Record<string, string | null>>({})
   const [ufLabels, setUfLabels] = useState<Record<number, string | null>>({})
 
-  useEffect(() => {
-    if (existente) {
-      const f: ProdutoForm = { ...VAZIO }
-      ;(Object.keys(VAZIO) as (keyof ProdutoForm)[]).forEach((k) => {
-        const v = (existente as any)[k]
+  const BOOL_KEYS: (keyof ProdutoForm)[] = ['vasilhameretornavel', 'ativo', 'enviaappnf', 'nfepermite']
+  const { form, campo, erros, submit } = useResourceForm<ProdutoForm>({
+    vazio: VAZIO, existente: existente as Partial<ProdutoForm> | undefined,
+    hidratar: (ex, vazio) => {
+      const f: ProdutoForm = { ...vazio }
+      ;(Object.keys(vazio) as (keyof ProdutoForm)[]).forEach((k) => {
+        const v = (ex as any)[k]
         if (v !== undefined && v !== null) {
-          if (['vasilhameretornavel', 'ativo', 'enviaappnf', 'nfepermite'].includes(k as string)) {
-            ;(f as any)[k] = Number(v) === 1
-          } else (f as any)[k] = v
+          ;(f as any)[k] = BOOL_KEYS.includes(k) ? Number(v) === 1 : v
         }
       })
-      f.pgni = existente.pGNi ?? existente.pgni ?? ''
-      f.pgnn = existente.pGNn ?? existente.pgnn ?? ''
-      f.pglp = existente.pGLP ?? existente.pglp ?? ''
-      const origens: OrigemCombustivel[] = (existente.origens ?? []).map((o: any) => ({
+      const e = ex as any
+      f.pgni = e.pGNi ?? e.pgni ?? ''
+      f.pgnn = e.pGNn ?? e.pgnn ?? ''
+      f.pglp = e.pGLP ?? e.pglp ?? ''
+      f.origens = (e.origens ?? []).map((o: any) => ({
         id: o.id, indimport: Number(o.indimport), cuforig: Number(o.cuforig), porig: Number(o.porig), uf: o.uf,
       }))
-      f.origens = origens
-      setForm(f)
+      return f
+    },
+  })
+
+  useEffect(() => {
+    if (existente) {
+      const origens = form.origens ?? []
       setLabels({
         classe: existente.classe_label ?? null,
         unidade: existente.unidade_label ?? null,
@@ -65,23 +70,18 @@ export function ProdutoFormPage() {
       })
       setUfLabels(Object.fromEntries(origens.map((o, i) => [i, o.uf ? `${o.uf}` : null])))
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existente])
 
-  function campo<K extends keyof ProdutoForm>(k: K, v: ProdutoForm[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }))
-  }
-
   async function onSubmit() {
-    setErros({}); setErroRegra(null)
+    setErroRegra(null)
     try {
-      const salvo = await salvar.mutateAsync({ id: editId, data: form })
+      const salvo = await submit((data) => salvar.mutateAsync({ id: editId, data }))
       toast.success(editId ? 'Produto atualizado.' : 'Produto cadastrado.')
       navigate(`/produtos/${salvo.id}`)
     } catch (e: any) {
       const status = e?.response?.status
       if (status === 422 && e.response.data?.errors) {
-        const ve = e.response.data.errors as Record<string, string[]>
-        setErros(Object.fromEntries(Object.entries(ve).map(([k, v]) => [k, v[0]])))
         setAba('dados')
         toast.error('Verifique os campos destacados.')
       } else if (status === 422 && e.response.data?.message) {

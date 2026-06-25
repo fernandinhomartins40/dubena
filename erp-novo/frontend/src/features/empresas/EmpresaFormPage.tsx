@@ -8,6 +8,7 @@ import {
 } from '@/components/ui'
 import { ConfigTab } from './ConfigTab'
 import { CertificadoSection } from './CertificadoSection'
+import { useResourceForm } from '@/lib/useResourceForm'
 import { useEmpresa, useSalvarEmpresa } from './api'
 
 /** Campos da empresa que o form edita (subconjunto amigável do fillable). */
@@ -34,31 +35,29 @@ export function EmpresaFormPage() {
   const salvar = useSalvarEmpresa()
 
   const [aba, setAba] = useState('identificacao')
-  const [form, setForm] = useState<Form>({ ativo: true })
-  const [erros, setErros] = useState<Record<string, string>>({})
   const [labels, setLabels] = useState<Record<string, string | null>>({})
+  const { form, campo, erros, submit } = useResourceForm<Form>({
+    vazio: { ativo: true },
+    existente: existente as Form | undefined,
+    hidratar: (ex) => {
+      const f: Form = {}
+      CAMPOS.forEach((k) => { if (ex[k] !== undefined && ex[k] !== null) f[k] = ex[k] })
+      ;['ativo', 'matriz', 'nfeemite', 'nfceemite', 'spedemite', 'distribuidora'].forEach((k) => { f[k] = !!Number(ex[k]) })
+      return f
+    },
+  })
 
   useEffect(() => {
-    if (existente) {
-      const f: Form = {}
-      CAMPOS.forEach((k) => { if (existente[k] !== undefined && existente[k] !== null) f[k] = existente[k] })
-      ;['ativo', 'matriz', 'nfeemite', 'nfceemite', 'spedemite', 'distribuidora'].forEach((k) => { f[k] = !!Number(existente[k]) })
-      setForm(f)
-      setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, regiao: existente.regiao_label })
-    }
+    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, regiao: existente.regiao_label })
   }, [existente])
 
-  const campo = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }))
-
   async function onSubmit() {
-    setErros({})
     try {
-      const salvo = await salvar.mutateAsync({ id: editId, data: form })
+      const salvo = await submit((data) => salvar.mutateAsync({ id: editId, data }))
       toast.success(editId ? 'Empresa atualizada.' : 'Empresa cadastrada.')
       navigate(`/empresas/${salvo.id}`)
     } catch (e: any) {
       if (e?.response?.status === 422 && e.response.data?.errors) {
-        setErros(Object.fromEntries(Object.entries(e.response.data.errors as Record<string, string[]>).map(([k, v]) => [k, v[0]])))
         setAba('identificacao'); toast.error('Verifique os campos destacados.')
       } else toast.error(e?.response?.data?.message ?? 'Erro ao salvar a empresa.')
     }
