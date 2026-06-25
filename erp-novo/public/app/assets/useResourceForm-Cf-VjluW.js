@@ -1,0 +1,6 @@
+import{c as j,r as n}from"./index-PbQb0NPS.js";/**
+ * @license lucide-react v0.451.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const M=j("Save",[["path",{d:"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z",key:"1c8476"}],["path",{d:"M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7",key:"1ydtos"}],["path",{d:"M7 3v4a1 1 0 0 0 1 1h7",key:"t51u73"}]]);function N(d){const{vazio:a,existente:o,booleanKeys:p=[],hidratar:f}=d,[c,i]=n.useState(a),[y,m]=n.useState(a),[l,u]=n.useState({});n.useEffect(()=>{if(!o)return;let t;f?t=f(o,a):(t={...a},Object.keys(a).forEach(s=>{const e=o[s];e!=null&&(t[s]=p.includes(s)?Number(e)===1:e)})),i(t),m(t)},[o]);function v(t,s){i(e=>({...e,[t]:s}))}const h=JSON.stringify(c)!==JSON.stringify(y);async function S(t){var s,e;u({});try{return await t(c)}catch(r){if(((s=r==null?void 0:r.response)==null?void 0:s.status)===422&&((e=r.response.data)!=null&&e.errors)){const b=r.response.data.errors;u(Object.fromEntries(Object.entries(b).map(([E,O])=>[E,O[0]])))}throw r}}return{form:c,setForm:i,campo:v,erros:l,setErros:u,dirty:h,submit:S}}export{M as S,N as u};

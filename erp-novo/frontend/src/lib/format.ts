@@ -21,6 +21,11 @@ export function num(v: string | number | null | undefined, casas = 0, maxCasas?:
   })
 }
 
+/** Quantidade de estoque/produto: agrupamento pt-BR com até 4 casas (sem zeros à direita). */
+export function qtd(v: string | number | null | undefined): string {
+  return num(v, 0, 4)
+}
+
 /** Percentual (recebe 0–100). */
 export function pct(v: string | number | null | undefined, casas = 0): string {
   const n = typeof v === 'string' ? Number(v) : v

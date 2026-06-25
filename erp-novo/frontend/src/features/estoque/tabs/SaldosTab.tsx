@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { Search, Warehouse } from 'lucide-react'
 import { Button, Card, Input, DataTable, type Column, EmptyState, AsyncSelect } from '@/components/ui'
 import { useSaldos, type SaldoRow } from '../api'
-import { num } from '@/lib/format'
-
-const fmt = (n: number) => num(n, 0, 4)
+import { qtd as fmt } from '@/lib/format'
 
 export function SaldosTab() {
   const [setorId, setSetorId] = useState<number | null>(null)

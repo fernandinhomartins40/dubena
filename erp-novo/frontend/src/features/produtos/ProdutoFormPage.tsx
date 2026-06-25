@@ -7,6 +7,7 @@ import {
 } from '@/components/ui'
 import { OrigensTab } from './OrigensTab'
 import { useResourceForm } from '@/lib/useResourceForm'
+import { qtd } from '@/lib/format'
 import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm } from './api'
 
 const VAZIO: ProdutoForm = {
@@ -23,7 +24,8 @@ const VAZIO: ProdutoForm = {
   origens: [],
 }
 
-function num(v: string | null | undefined) { return v ?? '' }
+/** Valor de input controlado: nunca passa null/undefined para o <input> (evita warning). */
+function val(v: string | null | undefined) { return v ?? '' }
 
 export function ProdutoFormPage() {
   const { id } = useParams()
@@ -136,12 +138,12 @@ export function ProdutoFormPage() {
               <AsyncSelect endpoint="/lookups/unidades" value={form.unidademedida_id} valueLabel={labels.unidade} error={!!erros.unidademedida_id}
                 onChange={(id, opt) => { campo('unidademedida_id', id); setLabels((l) => ({ ...l, unidade: opt?.label ?? null })) }} />
             </Field>
-            <Field label="Espécie"><Input value={num(form.especie)} maxLength={60} onChange={(e) => campo('especie', e.target.value)} /></Field>
-            <Field label="Marca"><Input value={num(form.marca)} maxLength={60} onChange={(e) => campo('marca', e.target.value)} /></Field>
+            <Field label="Espécie"><Input value={val(form.especie)} maxLength={60} onChange={(e) => campo('especie', e.target.value)} /></Field>
+            <Field label="Marca"><Input value={val(form.marca)} maxLength={60} onChange={(e) => campo('marca', e.target.value)} /></Field>
             <Field label="Dias de giro" hint="Usado na curva de giro do estoque">
               <Input type="number" value={form.diasgiro ?? ''} onChange={(e) => campo('diasgiro', e.target.value ? Number(e.target.value) : null)} />
             </Field>
-            <Field label="Observação" className="md:col-span-2"><Textarea value={num(form.observacao)} maxLength={500} onChange={(e) => campo('observacao', e.target.value)} /></Field>
+            <Field label="Observação" className="md:col-span-2"><Textarea value={val(form.observacao)} maxLength={500} onChange={(e) => campo('observacao', e.target.value)} /></Field>
             <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-border pt-3">
               <CheckboxField label="Ativo" checked={!!form.ativo} onChange={(b) => campo('ativo', b)} />
               <CheckboxField label="Envia no app (NF)" checked={!!form.enviaappnf} onChange={(b) => campo('enviaappnf', b)} />
@@ -158,14 +160,14 @@ export function ProdutoFormPage() {
 
         <TabsContent value="precos">
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Preço de venda"><Input type="number" step="0.0001" value={num(form.precovenda as string)} onChange={(e) => campo('precovenda', e.target.value)} /></Field>
-            <Field label="Preço mínimo"><Input type="number" step="0.0001" value={num(form.precovendaminimo as string)} onChange={(e) => campo('precovendaminimo', e.target.value)} /></Field>
-            <Field label="Custo médio"><Input type="number" step="0.0001" value={num(form.customedio as string)} onChange={(e) => campo('customedio', e.target.value)} /></Field>
-            <Field label="Custo de frete"><Input type="number" step="0.0001" value={num(form.custofrete as string)} onChange={(e) => campo('custofrete', e.target.value)} /></Field>
-            <Field label="Preço Gás do Povo"><Input type="number" step="0.0001" value={num(form.precogasdopovo as string)} onChange={(e) => campo('precogasdopovo', e.target.value)} /></Field>
+            <Field label="Preço de venda"><Input type="number" step="0.0001" value={val(form.precovenda as string)} onChange={(e) => campo('precovenda', e.target.value)} /></Field>
+            <Field label="Preço mínimo"><Input type="number" step="0.0001" value={val(form.precovendaminimo as string)} onChange={(e) => campo('precovendaminimo', e.target.value)} /></Field>
+            <Field label="Custo médio"><Input type="number" step="0.0001" value={val(form.customedio as string)} onChange={(e) => campo('customedio', e.target.value)} /></Field>
+            <Field label="Custo de frete"><Input type="number" step="0.0001" value={val(form.custofrete as string)} onChange={(e) => campo('custofrete', e.target.value)} /></Field>
+            <Field label="Preço Gás do Povo"><Input type="number" step="0.0001" value={val(form.precogasdopovo as string)} onChange={(e) => campo('precogasdopovo', e.target.value)} /></Field>
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border pt-4">
-              <Field label="Peso líquido (Kg)"><Input type="number" step="0.0001" value={num(form.pesoliquido as string)} onChange={(e) => campo('pesoliquido', e.target.value)} /></Field>
-              <Field label="Peso bruto (Kg)"><Input type="number" step="0.0001" value={num(form.pesobruto as string)} onChange={(e) => campo('pesobruto', e.target.value)} /></Field>
+              <Field label="Peso líquido (Kg)"><Input type="number" step="0.0001" value={val(form.pesoliquido as string)} onChange={(e) => campo('pesoliquido', e.target.value)} /></Field>
+              <Field label="Peso bruto (Kg)"><Input type="number" step="0.0001" value={val(form.pesobruto as string)} onChange={(e) => campo('pesobruto', e.target.value)} /></Field>
             </div>
           </CardContent></Card>
         </TabsContent>
@@ -184,14 +186,14 @@ export function ProdutoFormPage() {
                   <AsyncSelect endpoint="/lookups/nf-grupos-fiscais" value={form.nfgrupofiscal_id ?? null} valueLabel={labels.grupofiscal} error={!!erros.nfgrupofiscal_id}
                     onChange={(id, opt) => { campo('nfgrupofiscal_id', id); setLabels((l) => ({ ...l, grupofiscal: opt?.label ?? null })) }} />
                 </Field>
-                <Field label="Descrição fiscal" required error={erros.nfedescricaofiscal}><Input value={num(form.nfedescricaofiscal)} maxLength={50} error={!!erros.nfedescricaofiscal} onChange={(e) => campo('nfedescricaofiscal', e.target.value)} /></Field>
+                <Field label="Descrição fiscal" required error={erros.nfedescricaofiscal}><Input value={val(form.nfedescricaofiscal)} maxLength={50} error={!!erros.nfedescricaofiscal} onChange={(e) => campo('nfedescricaofiscal', e.target.value)} /></Field>
                 {form.sped && <Field label="Tipo de item (SPED)" required error={erros.nfetipoitem}><Input type="number" value={form.nfetipoitem ?? ''} error={!!erros.nfetipoitem} onChange={(e) => campo('nfetipoitem', e.target.value ? Number(e.target.value) : null)} /></Field>}
-                <Field label="NCM"><Input value={num(form.ncm)} maxLength={8} onChange={(e) => campo('ncm', e.target.value)} /></Field>
-                <Field label="CEST"><Input value={num(form.nfcest)} maxLength={7} onChange={(e) => campo('nfcest', e.target.value)} /></Field>
-                <Field label="EAN"><Input value={num(form.ean)} maxLength={14} onChange={(e) => campo('ean', e.target.value)} /></Field>
-                <Field label="EAN tributável"><Input value={num(form.eantrib)} maxLength={14} onChange={(e) => campo('eantrib', e.target.value)} /></Field>
-                <Field label="Alíquota IPI"><Input type="number" step="0.0001" value={num(form.nfealiqipi as string)} onChange={(e) => campo('nfealiqipi', e.target.value)} /></Field>
-                <Field label="BC IPI"><Input type="number" step="0.0001" value={num(form.nfebcipi as string)} onChange={(e) => campo('nfebcipi', e.target.value)} /></Field>
+                <Field label="NCM"><Input value={val(form.ncm)} maxLength={8} onChange={(e) => campo('ncm', e.target.value)} /></Field>
+                <Field label="CEST"><Input value={val(form.nfcest)} maxLength={7} onChange={(e) => campo('nfcest', e.target.value)} /></Field>
+                <Field label="EAN"><Input value={val(form.ean)} maxLength={14} onChange={(e) => campo('ean', e.target.value)} /></Field>
+                <Field label="EAN tributável"><Input value={val(form.eantrib)} maxLength={14} onChange={(e) => campo('eantrib', e.target.value)} /></Field>
+                <Field label="Alíquota IPI"><Input type="number" step="0.0001" value={val(form.nfealiqipi as string)} onChange={(e) => campo('nfealiqipi', e.target.value)} /></Field>
+                <Field label="BC IPI"><Input type="number" step="0.0001" value={val(form.nfebcipi as string)} onChange={(e) => campo('nfebcipi', e.target.value)} /></Field>
                 <Field label="Cód. enquadramento IPI"><Input type="number" value={form.nfecodenquadramentoipi ?? ''} onChange={(e) => campo('nfecodenquadramentoipi', e.target.value ? Number(e.target.value) : null)} /></Field>
               </div>
             )}
@@ -203,15 +205,15 @@ export function ProdutoFormPage() {
             <Field label="Tipo de GLP" className="md:col-span-3">
               <AsyncSelect endpoint="/lookups/tipo-glp" value={form.tipo_glp ?? null} valueLabel={form.tipo_glp ? `GLP (${form.tipo_glp})` : null} onChange={(id) => campo('tipo_glp', id)} />
             </Field>
-            <Field label="% GNi"><Input type="number" step="0.0001" value={num(form.pgni as string)} onChange={(e) => campo('pgni', e.target.value)} /></Field>
-            <Field label="% GNn"><Input type="number" step="0.0001" value={num(form.pgnn as string)} onChange={(e) => campo('pgnn', e.target.value)} /></Field>
-            <Field label="% GLP" hint="A soma %GNi + %GNn + %GLP deve ser 100 ou 0"><Input type="number" step="0.0001" value={num(form.pglp as string)} onChange={(e) => campo('pglp', e.target.value)} /></Field>
+            <Field label="% GNi"><Input type="number" step="0.0001" value={val(form.pgni as string)} onChange={(e) => campo('pgni', e.target.value)} /></Field>
+            <Field label="% GNn"><Input type="number" step="0.0001" value={val(form.pgnn as string)} onChange={(e) => campo('pgnn', e.target.value)} /></Field>
+            <Field label="% GLP" hint="A soma %GNi + %GNn + %GLP deve ser 100 ou 0"><Input type="number" step="0.0001" value={val(form.pglp as string)} onChange={(e) => campo('pglp', e.target.value)} /></Field>
             <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
-              <Field label="Código ANP" error={erros.nfecprodanp}><Input value={num(form.nfecprodanp)} maxLength={9} error={!!erros.nfecprodanp} onChange={(e) => campo('nfecprodanp', e.target.value)} /></Field>
-              <Field label="Descrição ANP" error={erros.nfedescanp}><Input value={num(form.nfedescanp)} error={!!erros.nfedescanp} onChange={(e) => campo('nfedescanp', e.target.value)} /></Field>
-              <Field label="BC da CIDE" error={erros.nfeqbcprod}><Input type="number" step="0.0001" value={num(form.nfeqbcprod as string)} error={!!erros.nfeqbcprod} onChange={(e) => campo('nfeqbcprod', e.target.value)} /></Field>
-              <Field label="Valor alíq. CIDE" error={erros.nfevaliqprod}><Input type="number" step="0.0001" value={num(form.nfevaliqprod as string)} error={!!erros.nfevaliqprod} onChange={(e) => campo('nfevaliqprod', e.target.value)} /></Field>
-              <Field label="Valor CIDE" error={erros.nfevcide}><Input type="number" step="0.0001" value={num(form.nfevcide as string)} error={!!erros.nfevcide} onChange={(e) => campo('nfevcide', e.target.value)} /></Field>
+              <Field label="Código ANP" error={erros.nfecprodanp}><Input value={val(form.nfecprodanp)} maxLength={9} error={!!erros.nfecprodanp} onChange={(e) => campo('nfecprodanp', e.target.value)} /></Field>
+              <Field label="Descrição ANP" error={erros.nfedescanp}><Input value={val(form.nfedescanp)} error={!!erros.nfedescanp} onChange={(e) => campo('nfedescanp', e.target.value)} /></Field>
+              <Field label="BC da CIDE" error={erros.nfeqbcprod}><Input type="number" step="0.0001" value={val(form.nfeqbcprod as string)} error={!!erros.nfeqbcprod} onChange={(e) => campo('nfeqbcprod', e.target.value)} /></Field>
+              <Field label="Valor alíq. CIDE" error={erros.nfevaliqprod}><Input type="number" step="0.0001" value={val(form.nfevaliqprod as string)} error={!!erros.nfevaliqprod} onChange={(e) => campo('nfevaliqprod', e.target.value)} /></Field>
+              <Field label="Valor CIDE" error={erros.nfevcide}><Input type="number" step="0.0001" value={val(form.nfevcide as string)} error={!!erros.nfevcide} onChange={(e) => campo('nfevcide', e.target.value)} /></Field>
             </div>
           </CardContent></Card>
         </TabsContent>
@@ -235,7 +237,6 @@ export function ProdutoFormPage() {
 /** VISÃO NOVA (IMPL_PRODUTO §6b): saldo por setor + giro na própria ficha. */
 function EstoqueGiroTab({ produtoId }: { produtoId: number }) {
   const { data, isLoading } = useEstoqueProduto(produtoId)
-  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
 
   if (isLoading) {
     return <Card><CardContent className="pt-6 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
@@ -245,7 +246,7 @@ function EstoqueGiroTab({ produtoId }: { produtoId: number }) {
     <div className="grid gap-4 md:grid-cols-3">
       <Card><CardContent className="pt-6">
         <p className="text-sm text-muted-foreground">Saldo total</p>
-        <p className="mt-1 text-3xl font-bold tabular-nums">{fmt(data?.total ?? 0)}</p>
+        <p className="mt-1 text-3xl font-bold tabular-nums">{qtd(data?.total ?? 0)}</p>
       </CardContent></Card>
       <Card><CardContent className="pt-6">
         <p className="text-sm text-muted-foreground">Dias de giro</p>
@@ -268,9 +269,9 @@ function EstoqueGiroTab({ produtoId }: { produtoId: number }) {
                 {data.setores.map((s, i) => (
                   <tr key={i} className="border-b border-border/60">
                     <td className="py-2">{s.setor}</td>
-                    <td className="py-2 text-right tabular-nums font-medium">{fmt(s.quantidade)}</td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">{fmt(s.minima)}</td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">{fmt(s.maxima)}</td>
+                    <td className="py-2 text-right tabular-nums font-medium">{qtd(s.quantidade)}</td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">{qtd(s.minima)}</td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">{qtd(s.maxima)}</td>
                   </tr>
                 ))}
               </tbody>
