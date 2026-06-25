@@ -5,14 +5,17 @@ namespace App\Domain\Apoio;
 use App\Models\Apoio\Agencia;
 use App\Models\Apoio\Banco;
 use App\Models\Apoio\CadastroApoio;
+use App\Models\Apoio\Cargo;
 use App\Models\Apoio\ClienteContatoSituacao;
 use App\Models\Apoio\ClienteContatoTipo;
 use App\Models\Apoio\ContaMovimentoTipo;
 use App\Models\Apoio\EstadoCivil;
 use App\Models\Apoio\Feriado;
+use App\Models\Apoio\Parentesco;
 use App\Models\Apoio\Profissao;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
+use App\Models\Apoio\TipoExame;
 use App\Models\Apoio\TipoPessoa;
 use App\Models\Apoio\Transportadora;
 
@@ -54,6 +57,10 @@ class CadastroApoioRegistry
         ]],
         'profissoes' => ['model' => Profissao::class, 'modulo' => 'cliente', 'extras' => []],
         'estados-civis' => ['model' => EstadoCivil::class, 'modulo' => 'cliente', 'extras' => []],
+        // RH (F04) — referenciados pela SPA (config de colaboradores) e antes ausentes.
+        'cargos' => ['model' => Cargo::class, 'modulo' => 'colaborador', 'extras' => ['salario_base' => 'nullable|numeric|min:0']],
+        'parentescos' => ['model' => Parentesco::class, 'modulo' => 'colaborador', 'extras' => []],
+        'tipos-exame' => ['model' => TipoExame::class, 'modulo' => 'colaborador', 'extras' => ['admissional' => 'boolean']],
     ];
 
     public function existe(string $tipo): bool

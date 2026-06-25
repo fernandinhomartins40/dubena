@@ -157,6 +157,18 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Centralizar** apoio; **completar** histórico do cliente (vem de Pedidos).
 **Banco:** —. **Backend:** `ClienteSubrecursoController::historico` → consultar Pedidos do cliente. **Frontend:** **Hub "Cadastros de Apoio"** tabbed agregando Cargo/Estadocivil/Parentesco/Telefonetipo/Documentotipo/Unidademedida/Tipocombustivel/Tipoexame/situações/tipos (decisão: Centralizar). **APIs:** `/cadastros/{tipo}` (já existe). **Tenant:** escopo. **Testes:** CadastroApoioTest (existe) ampliado. **Aceite:** histórico real; ~15 telas a menos no menu. **Risco:** baixo. **Complexidade:** Baixa-Média. **Estimativa:** 1 sprint.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Cliente histórico**: real desde a F00.4 (deriva de Pedidos, tenant-scoped) —
+>   reconfirmado por teste.
+> - **Cadastros de apoio do RH antes ausentes** que a SPA já referenciava (gerando 404):
+>   `cargos`, `parentescos`, `tipos-exame` agora registrados no `CadastroApoioRegistry`
+>   (+ models `Apoio\Cargo`/`Parentesco`/`TipoExame`; migration cria `parentescos` e
+>   `tipos_exame`; `cargos` reusa a tabela do RH com extra `salario_base`).
+> - **Centralização**: o hub `/configuracoes` (F01) já agrega os apoio por domínio; com a
+>   F04 todos os slugs referenciados pela SPA resolvem (incluindo o alias `tipoexame`).
+> - **Testes**: `CadastroApoioRhTest` (4: CRUD cargos/parentescos/tipos-exame + alias +
+>   isolamento por grupo). Suíte **303 passed / 0 falhas**; SPA typecheck limpo.
+
 ---
 
 # FASE 05 — Produtos e Estoque (consolidar)
