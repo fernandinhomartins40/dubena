@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Fiscal\FiscalService;
+use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Pedido\PedidoService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
 use App\Http\Resources\PedidoResource;
+use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -123,6 +127,44 @@ class PedidoController extends Controller
         });
 
         return response()->json(['data' => $colunas]);
+    }
+
+    /**
+     * POST /pedidos/{id}/emitir-nfce — emite o documento fiscal (NFC-e 65 por padrão,
+     * ou NF-e 55) a PARTIR de um pedido CONCLUÍDO. Fecha o gap da F03: venda →
+     * conclusão → financeiro+estoque (já no PedidoService) → documento fiscal.
+     *
+     * - Idempotente: se já há nota não-cancelada para o pedido, devolve-a (200).
+     * - Exige o pedido concretizado (efeito CONCLUIDO) — não fatura rascunho.
+     * - O resultado real (autorizada/rejeitada) depende do gate fiscal (FISCAL_DRIVER):
+     *   em CI/homolog o Fake autoriza; em produção, o NFePHP transmite à SEFAZ.
+     */
+    public function emitirNfce(Request $request, int $id, FiscalService $fiscal): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.emitir');
+        $d = $request->validate(['modelo' => 'nullable|in:55,65']);
+        $modelo = ($d['modelo'] ?? '65') === '55' ? ModeloDocumento::NFE : ModeloDocumento::NFCE;
+
+        $pedido = Pedido::query()->with('situacao')->findOrFail($id);
+
+        // Idempotência: uma nota viva por pedido/modelo.
+        $existente = NotaFiscal::query()
+            ->where('pedido_id', $pedido->id)
+            ->where('modelo', $modelo->value)
+            ->where('situacao', '!=', 'CANCELADA')
+            ->first();
+        if ($existente) {
+            return response()->json(['data' => $existente->load('itens'), 'message' => 'Documento já emitido para este pedido.']);
+        }
+
+        // Só pedido concretizado fatura.
+        if (! $pedido->situacao || ! $pedido->situacao->efeito->concretiza()) {
+            throw ValidationException::withMessages(['pedido' => 'Só pedido concluído pode ser faturado.']);
+        }
+
+        $nota = $fiscal->emitirDoPedido($pedido, $modelo);
+
+        return response()->json(['data' => $nota->load('itens')], 201);
     }
 
     private function autorizar(Request $request, string $chave): void

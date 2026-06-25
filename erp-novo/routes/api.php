@@ -210,6 +210,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
         Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
         Route::put('pedidos/{id}/situacao', [PedidoController::class, 'mudarSituacao'])->whereNumber('id');
+        // Emissão fiscal a partir do pedido concluído (NFC-e/NF-e) — F03.
+        Route::post('pedidos/{id}/emitir-nfce', [PedidoController::class, 'emitirNfce'])->whereNumber('id');
 
         // ── Financeiro (a pagar/receber) — N5 ──
         Route::get('financeiro/lancamentos/resumo', [FinanceiroController::class, 'resumo']);

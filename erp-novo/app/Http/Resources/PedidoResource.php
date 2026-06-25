@@ -21,6 +21,11 @@ class PedidoResource extends JsonResource
             'pedidosituacao_id' => $this->pedidosituacao_id,
             'situacao' => $this->whenLoaded('situacao', fn () => $this->situacao?->descricao),
             'efeito' => $this->whenLoaded('situacao', fn () => $this->situacao?->efeito?->value),
+            // Concretizado (efeito CONCLUIDO) → habilita o faturamento na SPA (F03).
+            'fechadoconcluido' => $this->whenLoaded('situacao', fn () => $this->situacao?->efeito?->concretiza() ? 1 : 0),
+            // Já tem documento fiscal vivo (não-cancelado) para este pedido?
+            'tem_nf' => \App\Models\Fiscal\NotaFiscal::query()
+                ->where('pedido_id', $this->id)->where('situacao', '!=', 'CANCELADA')->exists(),
             'setor_id' => $this->setor_id,
             'datahora' => $this->datahora?->toIso8601String(),
             'datahora_acao' => $this->datahora_acao?->toIso8601String(),

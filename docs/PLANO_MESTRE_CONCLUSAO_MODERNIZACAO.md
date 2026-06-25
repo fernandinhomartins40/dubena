@@ -135,6 +135,19 @@ F15 Performance/Observabilidade: transversal, contínua
 **Dependências:** F02; SEFAZ real (F09).
 **Banco:** —. **Backend:** garantir gatilho de emissão fiscal pós-conclusão (acopla a F09). **Frontend:** PedidosPage — ação "emitir NFC-e" condicionada ao gate fiscal. **APIs:** `/pedidos/{id}/emitir-nfce`. **Integrações:** SEFAZ (F09). **Segurança/Tenant:** escopo já. **Testes:** PedidoServiceTest (existe) + emissão com driver Fake e real. **Aceite:** venda → conclusão → financeiro+estoque+NFC-e. **Risco:** médio (depende fiscal). **Complexidade:** Média. **Estimativa:** 1 sprint (após F09).
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **`POST /pedidos/{id}/emitir-nfce`** (`PedidoController::emitirNfce`): fatura NFC-e (65)
+>   ou NF-e (55) a partir do pedido CONCLUÍDO, reusando `FiscalService::emitirDoPedido`
+>   (F09). Idempotente (devolve a nota viva existente), bloqueia pedido não concluído,
+>   RBAC `fiscal.emitir`. Resultado real depende do gate `FISCAL_DRIVER` (Fake no CI).
+> - **PedidoResource**: expõe `fechadoconcluido` (derivado do efeito) e `tem_nf` (nota
+>   viva) — corrige campos que a SPA já consumia mas não existiam.
+> - **SPA**: botão "Emitir NFC-e" na ficha do pedido (`useEmitirNfce`), visível só quando
+>   concluído + sem NF + permissão fiscal.
+> - **Testes**: `PedidoNfceTest` (4: emissão, idempotência, bloqueio pendente, resource).
+>   Suíte **299 passed / 0 falhas**; SPA typecheck limpo.
+> - Fluxo de venda fechado ponta-a-ponta: criar → concluir (estoque+financeiro) → faturar.
+
 ---
 
 # FASE 04 — Cadastros Mestres + Hub de Cadastros de Apoio

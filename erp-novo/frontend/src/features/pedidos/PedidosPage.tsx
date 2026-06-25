@@ -6,7 +6,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
-import { usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, type PedidoListItem, type KanbanColuna } from './api'
+import { usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, useEmitirNfce, type PedidoListItem, type KanbanColuna } from './api'
 import { brl, dataHora as fmtData } from '@/lib/format'
 
 function situacaoBadge(p: { fechadoconcluido?: number; fechadocancelado?: number; situacao?: string | null; descricao?: string }) {
@@ -91,6 +91,21 @@ function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
 
 function FichaDialog({ id, onClose }: { id: number | null; onClose: () => void }) {
   const { data, isLoading } = usePedido(id)
+  const { can } = useAuth()
+  const emitir = useEmitirNfce(id)
+
+  async function onEmitir() {
+    try {
+      await emitir.mutateAsync('65')
+      toast.success('Documento fiscal emitido.')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Erro ao emitir o documento fiscal.')
+    }
+  }
+
+  // Pode faturar quando concluído e ainda sem NF, com permissão fiscal.
+  const podeEmitir = !!data && Number(data.fechadoconcluido) === 1 && !data.tem_nf && can('fiscal.emitir')
+
   return (
     <Dialog open={id !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -119,7 +134,10 @@ function FichaDialog({ id, onClose }: { id: number | null; onClose: () => void }
             </div>
           </div>
         )}
-        <DialogFooter><DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose></DialogFooter>
+        <DialogFooter>
+          {podeEmitir && <Button loading={emitir.isPending} onClick={onEmitir}>Emitir NFC-e</Button>}
+          <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

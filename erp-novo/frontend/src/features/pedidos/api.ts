@@ -31,3 +31,16 @@ export function useCriarPedido() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['pedidos'] }); qc.invalidateQueries({ queryKey: ['pedidos-kanban'] }) },
   })
 }
+
+/** Emite NFC-e/NF-e a partir do pedido concluído (F03). */
+export function useEmitirNfce(pedidoId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (modelo: '55' | '65' = '65') =>
+      (await api.post(`/pedidos/${pedidoId}/emitir-nfce`, { modelo })).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pedido', pedidoId] })
+      qc.invalidateQueries({ queryKey: ['pedidos'] })
+    },
+  })
+}
