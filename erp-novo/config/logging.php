@@ -65,6 +65,17 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // F13 — canal estruturado (JSON por linha) p/ eventos de integração/observabilidade
+        // (gates externos, jobs, webhooks). Fácil de ingerir em ELK/Loki/Datadog.
+        'estruturado' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/estruturado.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => env('LOG_DAILY_DAYS', 30),
+            'formatter' => \Monolog\Formatter\JsonFormatter::class,
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

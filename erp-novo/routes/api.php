@@ -53,8 +53,8 @@ use Illuminate\Support\Facades\Route;
 | Contrato: JSON uniforme, número cru, sem View/Redirect.
 */
 
-// Autenticação (pública).
-Route::post('/login', [AuthController::class, 'login']);
+// Autenticação (pública) — rate-limit estreito anti-brute-force (F13).
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
@@ -62,8 +62,8 @@ Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
 // Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador.
 Route::post('/app/v1/login', [AppAuthController::class, 'login']);
 
-// Rotas autenticadas (Sanctum) + tenant resolvido por requisição.
-Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
+// Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
+Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Usuário autenticado + tenant ativo (substitui o "quem sou / qual empresa" do legado).

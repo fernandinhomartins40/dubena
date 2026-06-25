@@ -68,6 +68,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Rate-limit da API (F13): por usuário autenticado (ou IP, se anônimo).
+        // 120 req/min cobre o uso normal da SPA e barra abuso/loop. O webhook PIX e
+        // o login têm limites próprios mais estreitos.
+        \Illuminate\Support\Facades\RateLimiter::for('api', fn (\Illuminate\Http\Request $r) => \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+            ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
+
+        \Illuminate\Support\Facades\RateLimiter::for('login', fn (\Illuminate\Http\Request $r) => \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+            ->by('login:'.$r->ip()));
     }
 }

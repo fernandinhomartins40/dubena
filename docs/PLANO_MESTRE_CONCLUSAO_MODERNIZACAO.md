@@ -367,6 +367,21 @@ F15 Performance/Observabilidade: transversal, contínua
 **Achados 〔auditoria〕:** queries pesadas no legado (relatórios com 20k linhas, generate_series); jobs por-tenant 〔§8〕.
 **Banco:** índices por `empresa_id`+colunas de filtro; revisar N+1. **Backend:** cache por-tenant 〔F02〕; rate-limit; logs estruturados. **Frontend:** code-splitting por rota (já lazy-friendly). **Tenant:** validar RLS sob carga. **Testes:** carga nos relatórios e listagens. **Aceite:** SLA de listagens/relatórios; sem N+1 crítico. **Risco:** médio. **Complexidade:** Média. **Estimativa:** 1–2 sprints.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Índices** começando por `empresa_id` nas tabelas quentes que o RLS (F02) filtra e
+>   estavam sem índice: `contamovimentos(empresa_id,datahora)`,
+>   `estoquehistorico(empresa_id,setor_id,produto_id)`,
+>   `financeiroparcelas(empresa_id,baixado,vencimento)`. (pedidos/clientes/notas já tinham.)
+> - **Cache por-tenant**: `Domain\Shared\TenantCache` prefixa toda chave por grupo:empresa
+>   (`t:<grupo>:<empresa>:<chave>`) — cache não vaza entre tenants (defense-in-depth F02).
+> - **Rate-limit**: limiter `api` (120/min por usuário) no grupo autenticado +
+>   `login` (10/min por IP) anti-brute-force, via RateLimiter no AppServiceProvider.
+> - **Log estruturado**: canal `estruturado` (JSON por linha, daily) p/ observabilidade
+>   de integrações/jobs (ELK/Loki/Datadog-friendly).
+> - **Testes**: `F13PerformanceTest` (6: índices, cache isolado+namespacing, throttle login
+>   429, throttle no grupo admin, canal de log). Suíte **338 passed / 0 falhas**.
+> - **Pendente (operacional)**: teste de carga/SLA real e validação de RLS sob volume.
+
 ---
 
 # FASE 14 — Homologação (paridade assistida com o legado)
