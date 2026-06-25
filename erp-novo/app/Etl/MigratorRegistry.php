@@ -7,16 +7,21 @@ use App\Etl\Migrators\CadastrosApoioMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\CobrancaMigrator;
+use App\Etl\Migrators\CrmMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\FinanceiroMigrator;
 use App\Etl\Migrators\FiscalMigrator;
+use App\Etl\Migrators\FrotaMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
+use App\Etl\Migrators\GestaoMigrator;
 use App\Etl\Migrators\MobileMigrator;
 use App\Etl\Migrators\MonitoraMigrator;
+use App\Etl\Migrators\PagamentoMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
+use App\Etl\Migrators\RhMigrator;
 use App\Etl\Migrators\SatelitesMigrator;
 
 /**
@@ -67,6 +72,13 @@ final class MigratorRegistry
 
             // N11 — monitora (GPS, módulo isolado)
             MonitoraMigrator::class,
+
+            // F15 — cauda longa (RH, frota, CRM, gestão, pagamentos)
+            RhMigrator::class,
+            FrotaMigrator::class,
+            CrmMigrator::class,
+            GestaoMigrator::class,
+            PagamentoMigrator::class,
         ];
     }
 

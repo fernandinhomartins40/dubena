@@ -275,6 +275,24 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Migrar** com invariância (modelo existente).
 **Banco:** mapear tabelas faltantes; migrators ETL por entidade com `withoutTenant()` + set de `empresa_id`/`grupo_id` corretos. **Backend:** `etl:run` e `cutover:check` (existem) ampliados. **Tenant:** dados gravados já escopados (depende de F02 estar pronto — por isso F02 vem antes). **Testes:** invariantes Count/Integrity/Sum/Balance por entidade. **Aceite:** `cutover:check` verde; somas batem com o legado. **Risco:** **Alto**. **Complexidade:** Alta. **Estimativa:** 2–3 sprints.
 
+> **STATUS (implementada 2026-06-24):** ✅ (cobertura de migrators completa; carga real = na janela de cutover com o legado conectado)
+> - **+5 migrators** para a cauda longa antes sem cobertura: `RhMigrator` (colaboradores
+>   + família/exames/turnos/pontos/recessos/comissões/exceções), `FrotaMigrator` (veículos
+>   + abastecimentos/pneus/trocas-óleo), `CrmMigrator` (pós-venda/promoção/sorteio+números/
+>   meta/checklist+execuções), `GestaoMigrator` (cupom+itens/MCMM/documento/bem),
+>   `PagamentoMigrator` (cartão/gás-do-povo). Registrados no `MigratorRegistry`.
+> - **Preservação de id** (`upsert` via `forceFill`) — mantém as FKs entre tabelas após a
+>   carga; **filtro de nulos** (`semNulos`) para colunas NOT NULL com DEFAULT usarem o default.
+> - **Escopo correto**: pais empresa/grupo via `withoutTenant()`/`withoutGrupo()`; filhas
+>   herdam `empresa_id` do pai (F02 `$tenantParent`).
+> - **Invariantes** Count + Integrity por entidade (mesma regra de ouro do ETL existente).
+> - **Testes**: `Tests\Migration\F15MigratorsTest` (6 casos, legado simulado por sqlite em
+>   memória). Suíte **286 passed / 0 falhas**. Cobertura ETL agora abrange RH/Frota/CRM/
+>   Gestão/Pagamento além dos 15 migrators pré-existentes.
+> - **Pendente p/ produção**: execução `etl:run --check` com o banco LEGADO real conectado
+>   (gate de cutover) e ajuste fino de nomes de coluna conforme o schema legado de produção
+>   (os mapeamentos seguem o padrão snake-sem-underscore observado na auditoria).
+
 ---
 
 # FASE 16 — Go-Live
