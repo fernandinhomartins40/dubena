@@ -78,7 +78,13 @@ Ordenada por impacto/risco. Tudo incremental e commitável, com typecheck a cada
 | R5 | ✅ **Hook de formulário** `useResourceForm` (estado + `campo()` + hidratação 1/0→bool + `erros` 422 + `submit` + `dirty`) em `lib/`. Adotado nas 5 form pages: cliente, produto (via `hidratar` p/ pGNi/origens), empresa (via `hidratar` c/ whitelist CAMPOS), colaborador e veículo | DRY | médio |
 | R6 | ✅ **Resolver config duplicada**: removidas as 3 `*ConfigPage` (cliente/financeiro/colaborador); o hub `/configuracoes` agora aceita `?tab=` (geral/clientes/financeiro/colaboradores) e as rotas antigas redirecionam (`Navigate`) para a aba certa. Botões "Configurações" das telas e o item de menu duplicado ("Config. Financeira") apontam para o hub | dedupe | baixo |
 | R7 | ✅ **Quebrar monólitos**: cada página virou shell de abas (Estoque 378→35, Fiscal 316→26, Financeiro 290→35 linhas); cada aba foi extraída para `tabs/` (estoque: 8 incl. ItensEditor; fiscal: 4; financeiro: 4 + extras já em FinanceiroExtraTabs). Diálogos das abas migrados p/ FormDialog/ConfirmDialog de quebra | manutenibilidade | médio |
-| R8 | Revisar a **ordem/labels do menu** (`AppShell`) e a ordem das rotas para refletir a IA dos 8 grupos | UX | baixo |
+| R8 | ✅ Revisar **ordem/labels do menu** (`AppShell`) e ordem das rotas: "Relatórios" reagrupado em *Geral* (junto do Dashboard) e `/satelites` movido para *Geral* no roteador; `ORDEM_GRUPOS` confirma os 8 grupos (Geral→Cadastros→Operações→Financeiro→CRM→Gestão→RH & Frota→Administração); rotas em `routes.tsx` já comentadas por grupo na mesma ordem | UX | baixo |
+
+> **F17 concluída (R1–R8).** Todas as sub-fases commitadas na main, cada uma com
+> `tsc --noEmit` + `vite build` verdes. Frontend agora tem: pastas por domínio,
+> code-splitting, diálogos unificados (FormDialog/ConfirmDialog), contrato de
+> estado (AsyncState), hook de formulário (useResourceForm), config única no hub,
+> monólitos quebrados em `tabs/` e navegação alinhada aos 8 grupos.
 
 ## 4. Recomendação de execução
 

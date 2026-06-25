@@ -27,6 +27,8 @@ interface NavItem {
 // Navegação DECLARATIVA (sem menu-no-banco). Cresce conforme migramos módulos.
 const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: <LayoutDashboard size={18} />, group: 'Geral' },
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
+
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
   { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
@@ -56,7 +58,6 @@ const NAV: NavItem[] = [
   { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', group: 'RH & Frota' },
   { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', group: 'RH & Frota' },
 
-  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
   { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração' },
 ]

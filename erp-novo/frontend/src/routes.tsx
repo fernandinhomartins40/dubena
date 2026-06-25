@@ -89,6 +89,7 @@ export function AppRoutes() {
       {/* Geral */}
       <Route path="/" element={p(<DashboardPage />)} />
       <Route path="/relatorios" element={p(<RelatoriosPage />)} />
+      <Route path="/satelites" element={p(<SatelitesPage />)} />
 
       {/* Cadastros */}
       <Route path="/clientes" element={p(<ClientesListPage />)} />
@@ -138,7 +139,6 @@ export function AppRoutes() {
       <Route path="/veiculos/novo" element={p(<VeiculoFormPage />)} />
       <Route path="/veiculos/:id" element={p(<VeiculoFormPage />)} />
       <Route path="/monitora" element={p(<MonitoraPage />)} />
-      <Route path="/satelites" element={p(<SatelitesPage />)} />
 
       {/* Administração */}
       <Route path="/empresas" element={p(<EmpresasListPage />)} />
