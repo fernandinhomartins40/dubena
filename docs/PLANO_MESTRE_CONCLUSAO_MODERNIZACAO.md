@@ -477,3 +477,28 @@ F15 Performance/Observabilidade: transversal, contínua
 Os demais correm em paralelo conforme capacidade da equipe.
 
 **Estimativa macro:** ~28–36 sprints, com F02/F08/F09/F15 como os maiores riscos.
+
+---
+
+# FASE 17 — Reorganização do Frontend (UX/estrutura)
+
+**Objetivo:** organização estrutural e consistência de padrões na SPA — o que o plano de
+paridade (foco backend/integrações) não cobriu. Baseada em `docs/AUDITORIA_FRONTEND.md`.
+**Achados 〔auditoria frontend〕:** `satelites/` grab-bag; config duplicada (cadastros×hub);
+sem code-splitting; diálogo inconsistente (15 Dialog cru × 13 FormDialog); loading/erro
+ad-hoc; telas-monólito; boilerplate de formulário. Estilo e data layer já estão ✅.
+**Decisão:** **refactor incremental** (não reescrita), 8 sub-fases R1→R8 (menor risco primeiro),
+1 commit por sub-fase, `tsc --noEmit` a cada passo.
+
+- **R1** mover `colaboradores`/`veiculos` de `satelites/` → `rh/` e `frota/`.
+- **R2** code-splitting (`React.lazy`+`Suspense`) + extrair `routes.tsx` agrupado.
+- **R3** unificar diálogos no `FormDialog` (migrar as 15 telas com Dialog cru).
+- **R4** contrato `AsyncState` (loading→Skeleton/erro/vazio) nas 40 telas com `isLoading`.
+- **R5** hook `useResourceForm` (estado/dirty/erros do backend) nas form pages.
+- **R6** resolver config duplicada (hub `/configuracoes` único; `*ConfigPage`→redirect/remoção).
+- **R7** quebrar monólitos (Estoque/Fiscal/Financeiro) em sub-componentes por aba.
+- **R8** revisar ordem/labels do menu e ordem das rotas (refletir os 8 grupos da IA).
+
+**Tenant/Segurança:** sem mudança (só frontend). **Testes:** `tsc --noEmit` verde + app sobe;
+suíte backend inalterada. **Aceite:** pastas coerentes, 1 padrão de diálogo/loading/form,
+bundle por rota, sem config duplicada. **Risco:** baixo-médio (refactor). **Estimativa:** 1–2 sprints.
