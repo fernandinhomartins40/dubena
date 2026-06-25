@@ -2,6 +2,7 @@
 
 namespace App\Models\Caixa;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Conta extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

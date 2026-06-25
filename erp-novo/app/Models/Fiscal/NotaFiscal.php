@@ -2,6 +2,7 @@
 
 namespace App\Models\Fiscal;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\SituacaoNota;
 use App\Domain\Tenant\BelongsToTenant;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NotaFiscal extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

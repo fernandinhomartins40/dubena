@@ -116,6 +116,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::put('regioes/{id}', [RegiaoController::class, 'update'])->whereNumber('id');
         Route::delete('regioes/{id}', [RegiaoController::class, 'destroy'])->whereNumber('id');
 
+        // Inconsistências de cadastro (rua/bairro duplicados por similaridade) — F11.
+        // ANTES de cadastros/{tipo} p/ não ser capturado como tipo.
+        Route::get('cadastros/inconsistencias', [GeoController::class, 'inconsistencias']);
+
         // Cadastros de apoio genéricos (parametrizados por tipo).
         Route::get('cadastros/{tipo}', [CadastroApoioController::class, 'index']);
         Route::post('cadastros/{tipo}', [CadastroApoioController::class, 'store']);
@@ -413,8 +417,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::get('relatorios/comissoes', [RelatorioController::class, 'comissoes']);
         Route::get('relatorios/movimentacao-caixa', [RelatorioController::class, 'movimentacaoCaixa']);
         // Central de relatórios (F10): catálogo + dispatcher genérico por slug.
-        // O catálogo vem ANTES do {slug} p/ não ser capturado como slug.
+        // O catálogo/auditoria vêm ANTES do {slug} p/ não serem capturados como slug.
         Route::get('relatorios/catalogo', [RelatorioController::class, 'catalogo']);
+        Route::get('relatorios/auditoria', [RelatorioController::class, 'auditoria']); // F11
         Route::get('relatorios/{slug}', [RelatorioController::class, 'mostrar'])->where('slug', '[a-z0-9-]+');
         // Alias da SPA: financeiro/dre → relatórios/dre (mesma função).
         Route::get('financeiro/dre', [RelatorioController::class, 'dre']);

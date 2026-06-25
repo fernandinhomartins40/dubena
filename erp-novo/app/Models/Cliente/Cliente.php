@@ -2,6 +2,7 @@
 
 namespace App\Models\Cliente;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Cliente extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

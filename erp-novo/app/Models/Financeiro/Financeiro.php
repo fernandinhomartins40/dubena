@@ -2,6 +2,7 @@
 
 namespace App\Models\Financeiro;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Financeiro\AgrupamentoStatus;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Financeiro extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

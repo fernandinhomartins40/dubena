@@ -204,6 +204,46 @@ class RelatorioController extends Controller
         return response()->json(['data' => $itens]);
     }
 
+    /**
+     * GET /relatorios/auditoria — trilha de auditoria (F11) da empresa ativa, com
+     * filtros opcionais por entidade/ação/período. Paginada.
+     */
+    public function auditoria(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'relatorio.view');
+
+        $logs = \App\Models\AuditLog::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->when($request->query('entidade'), fn ($q, $e) => $q->where('entidade', $e))
+            ->when($request->query('acao'), fn ($q, $a) => $q->where('acao', $a))
+            ->when($request->query('inicio'), fn ($q, $i) => $q->where('criado_em', '>=', $i.' 00:00:00'))
+            ->when($request->query('fim'), fn ($q, $f) => $q->where('criado_em', '<=', $f.' 23:59:59'))
+            ->orderByDesc('id')
+            ->paginate(50);
+
+        $data = collect($logs->items())->map(fn (\App\Models\AuditLog $l) => [
+            'id' => $l->id,
+            'entidade' => $l->entidade,
+            'entidade_id' => $l->entidade_id,
+            'acao' => $l->acao,
+            'user_id' => $l->user_id,
+            'antes' => $l->antes,
+            'depois' => $l->depois,
+            'ip' => $l->ip,
+            'criado_em' => $l->criado_em?->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
+        ]);
+    }
+
     private function periodo(Request $request): array
     {
         return $request->validate([

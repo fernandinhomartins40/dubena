@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToGrupo;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ConfigGlobal extends Model
 {
+    use Auditavel;
     use BelongsToGrupo;
 
     protected $table = 'config_globais';

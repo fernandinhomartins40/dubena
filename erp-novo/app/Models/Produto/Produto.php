@@ -2,6 +2,7 @@
 
 namespace App\Models\Produto;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Produto extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

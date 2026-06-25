@@ -89,6 +89,26 @@ class GeoController extends Controller
         return response()->json(['message' => 'Registro excluído.']);
     }
 
+    /**
+     * GET /cadastros/inconsistencias?tipo=ruas|bairros|todas — prováveis duplicatas
+     * de rua/bairro por similaridade de nome na mesma cidade (F11). Substitui o
+     * UTL_MATCH (Oracle) do legado por similaridade agnóstica de banco.
+     */
+    public function inconsistencias(Request $request, \App\Domain\Apoio\InconsistenciaService $service): JsonResponse
+    {
+        abort_unless($request->user()->temPermissao('cidade.view'), 403, 'Sem permissão.');
+        $grupoId = (int) $request->user()->grupo_id;
+        $tipo = (string) $request->query('tipo', 'todas');
+
+        $pares = match ($tipo) {
+            'ruas' => $service->ruas($grupoId),
+            'bairros' => $service->bairros($grupoId),
+            default => $service->todas($grupoId),
+        };
+
+        return response()->json(['data' => $pares]);
+    }
+
     /** @return array{model: class-string, regras: array<string,string>, filtros: list<string>} */
     private function cfg(Request $request, string $entidade, string $permissao): array
     {

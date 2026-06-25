@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Shared\Auditavel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class EmpresaConfig extends Model
 {
+    use Auditavel;
     use HasFactory;
 
     protected $table = 'empresa_configs';

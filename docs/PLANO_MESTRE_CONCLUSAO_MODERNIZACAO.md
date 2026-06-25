@@ -314,6 +314,20 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Migrar modernizado** (audit trail unificado); **substituir** similaridade por `pg_trgm`/`levenshtein`.
 **Banco:** tabela de auditoria unificada (model, ação, user, empresa_id, antes/depois, ip). **Backend:** trait de auditoria nos models sensíveis; log de senha-mestra (já há motivo por rota no legado); detecção de duplicidade rua/bairro via similaridade Postgres. **Frontend:** tela de auditoria (filtros) na central de relatórios. **APIs:** `/relatorios/auditoria`, `/cadastros/inconsistencias`. **Tenant:** `empresa_id` no log 〔F02〕. **Testes:** Feature de auditoria. **Aceite:** trilha de auditoria por entidade; detecção de duplicados funcional em Postgres. **Risco:** médio. **Complexidade:** Média. **Estimativa:** 1–2 sprints.
 
+> **STATUS (implementada 2026-06-25):** ✅
+> - **Trilha de auditoria unificada**: tabela `audit_logs` (entidade/id/ação/user/
+>   empresa_id/antes/depois/ip) + model `AuditLog` + trait `Domain\Shared\Auditavel`
+>   (created/updated/deleted; diff só dos campos alterados; **segredos `encrypted`
+>   nunca entram no log**). Aplicado a 8 models sensíveis (Cliente, Produto, Financeiro,
+>   NotaFiscal, EmpresaConfig, ConfigGlobal, Empresa, Conta).
+> - **Inconsistências de cadastro**: `InconsistenciaService` detecta ruas/bairros
+>   duplicados por **similaridade Levenshtein normalizada** (≥85%, mesma cidade) —
+>   substitui o `UTL_MATCH` Oracle por solução **agnóstica de banco** (funciona em CI).
+> - **Endpoints**: `GET /relatorios/auditoria` (filtros entidade/ação/período, paginado)
+>   e `GET /cadastros/inconsistencias?tipo=ruas|bairros|todas`.
+> - **Testes**: `F11AuditoriaTest` (5: trilha CRUD, segredo fora do log, endpoint filtrado,
+>   detecção de typo, não cruza cidades). Suíte **327 passed / 0 falhas**.
+
 ---
 
 # FASE 12 — Frota, Convênio, Monitora, CRM, Pagamentos, Mobile (fechar gates e gaps)
