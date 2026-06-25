@@ -310,6 +310,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         Route::post('fiscal/nfe/{id}/transmitir', [NotaFiscalController::class, 'transmitir'])->whereNumber('id');
         Route::post('fiscal/nfe/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
 
+        // Eventos fiscais (F09): inutilização de faixa + carta de correção (CCE).
+        Route::post('fiscal/inutilizacoes', [NotaFiscalController::class, 'inutilizar']);
+        Route::post('notas/{id}/carta-correcao', [NotaFiscalController::class, 'cartaCorrecao'])->whereNumber('id');
+        Route::post('fiscal/nfe/{id}/carta-correcao', [NotaFiscalController::class, 'cartaCorrecao'])->whereNumber('id');
+
         // Fiscal — operações fiscais e malha (config por tipo) — C12.
         Route::get('fiscal/operacoes', [FiscalConfigController::class, 'operacoesIndex']);
         Route::post('fiscal/operacoes', [FiscalConfigController::class, 'operacaoSalvar']);

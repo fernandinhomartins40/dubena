@@ -24,4 +24,19 @@ interface SefazDriver
      * @return array{cancelada:bool, protocolo:?string, motivo:?string}
      */
     public function cancelar(NotaFiscal $nota, string $justificativa): array;
+
+    /**
+     * Inutiliza uma FAIXA de numeração (modelo/série/num inicial-final) — para
+     * números que "pularam" e não serão usados (regra SEFAZ).
+     *
+     * @return array{inutilizada:bool, protocolo:?string, motivo:?string}
+     */
+    public function inutilizar(int $empresaId, int $modelo, int $serie, int $numeroInicial, int $numeroFinal, string $justificativa): array;
+
+    /**
+     * Carta de Correção Eletrônica (CCE) — evento sobre uma nota autorizada.
+     *
+     * @return array{registrada:bool, protocolo:?string, sequencia:int, motivo:?string}
+     */
+    public function cartaCorrecao(NotaFiscal $nota, string $correcao, int $sequencia): array;
 }

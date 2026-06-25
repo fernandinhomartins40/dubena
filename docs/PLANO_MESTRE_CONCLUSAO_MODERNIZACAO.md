@@ -196,6 +196,27 @@ F15 Performance/Observabilidade: transversal, contínua
 **Decisão:** **Migrar** SEFAZ real; **completar** SPED; **substituir** abordagem SAT-WebSocket por gate explícito.
 **Banco:** `config_fiscais`/`operacoes_fiscais`/`notas_fiscais`/`nota_itens` (existem). **Backend:** ativar/homologar `NFePHPSefazDriver` (transmitir/consultar/cancelar/inutilizar/CCE) com **certificado A1 por empresa** (path segregado, F02); completar registros SPED Fiscal/Contribuições faltantes vs legado; atualização IBPT automática (job). **Frontend:** FiscalPage — transmitir/cancelar/CCE/inutilizar; SPED export. **APIs:** já existem `/fiscal/nfe/{id}/transmitir|cancelar`, `/fiscal/sped`. **Integrações:** SEFAZ (NFePHP), SAT (driver/gate), IBPT. **Segurança:** certificado por tenant. **Tenant:** escopo. **Testes:** emissão com Fake (CI) e homologação SEFAZ; SpedFiscalTest/SpedContribuicoesTest (existem) ampliados. **Aceite:** NF-e/NFC-e autorizada em homologação; SPED validado no PVA; SAT transmitido. **Risco:** **Alto**. **Complexidade:** Alta. **Estimativa:** 3 sprints.
 
+> **STATUS (implementada 2026-06-24):** ✅ (lógica/contratos completos; autorização real = gate de homologação)
+> - **SEFAZ — eventos**: contrato `SefazDriver` ganhou `inutilizar()` e `cartaCorrecao()`
+>   (além de transmitir/cancelar já existentes), implementados no `FakeSefazDriver`
+>   (CI) e no `NFePHPSefazDriver` real (`sefazInutiliza`/`sefazCCe`).
+> - **FiscalService**: `inutilizar()` (faixa modelo/série) e `cartaCorrecao()` (sequência
+>   auto-incrementada, mín. 15 chars); persistem em `inutilizacoes_fiscais` e
+>   `cartas_correcao` (tenant-scoped). Endpoints `/fiscal/inutilizacoes`,
+>   `/notas/{id}/carta-correcao` (+alias `/fiscal/nfe/{id}/carta-correcao`).
+> - **SPED Fiscal completado**: + **C190** (analítico CST/CFOP/alíquota), **Bloco E**
+>   (E001/E100/E110 apuração ICMS), **Bloco H** (H001/H005/H010 inventário derivado de
+>   `estoquesaldos`). Bloco 9 recalcula contagens automaticamente.
+> - **SPED Contribuições completado**: + **M210/M610** (detalhe das apurações PIS/COFINS).
+> - **IBPT**: tabela `ibpt_aliquotas` + command `ibpt:atualizar` (importa CSV por
+>   `--arquivo`/`IBPT_CSV_URL`, gate no-op sem fonte) agendado mensalmente (dia 1, 05:00).
+> - **Gate** `FISCAL_DRIVER=nfephp` (já existia) ativa o driver real; default Fake no CI.
+> - **Testes**: `Tests\Feature\FaseF09FiscalTest` (7 casos). Suíte **280 passed / 0 falhas**.
+> - **Pendente p/ produção real**: homologação contra a SEFAZ (certificado A1 + webservice
+>   ext-soap) e validação dos arquivos SPED no PVA — gates externos, não-automatizáveis no CI.
+>   Cupom SAT: a transmissão WebSocket do legado foi **substituída** pela arquitetura de
+>   driver/gate (emissão local + evento), conforme a decisão da fase.
+
 ---
 
 # FASE 10 — Relatórios (central completa)

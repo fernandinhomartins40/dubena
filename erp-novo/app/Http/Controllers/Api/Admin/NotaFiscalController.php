@@ -80,6 +80,39 @@ class NotaFiscalController extends Controller
         return response()->json(['data' => $nota]);
     }
 
+    /** POST /fiscal/inutilizacoes — inutiliza uma faixa de numeração (modelo/série). */
+    public function inutilizar(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.emitir');
+        $d = $request->validate([
+            'modelo' => 'required|integer|in:55,65',
+            'serie' => 'required|integer|min:0',
+            'numero_inicial' => 'required|integer|min:1',
+            'numero_final' => 'required|integer|min:1|gte:numero_inicial',
+            'justificativa' => 'required|string|min:15|max:255',
+        ]);
+
+        $inut = $this->service->inutilizar(
+            (int) $request->user()->empresa_id,
+            (int) $d['modelo'], (int) $d['serie'],
+            (int) $d['numero_inicial'], (int) $d['numero_final'],
+            $d['justificativa'],
+        );
+
+        return response()->json(['data' => $inut], 201);
+    }
+
+    /** POST /notas/{id}/carta-correcao — registra uma CCE sobre a nota. */
+    public function cartaCorrecao(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'fiscal.emitir');
+        $d = $request->validate(['correcao' => 'required|string|min:15|max:1000']);
+
+        $cce = $this->service->cartaCorrecao(NotaFiscal::query()->findOrFail($id), $d['correcao']);
+
+        return response()->json(['data' => $cce], 201);
+    }
+
     /** GET /fiscal/sped?inicio=&fim= — gera o arquivo da EFD ICMS/IPI do período. */
     public function sped(Request $request, SpedFiscalService $sped): JsonResponse
     {

@@ -37,4 +37,23 @@ class FakeSefazDriver implements SefazDriver
             'motivo' => 'Cancelamento homologado (ambiente de teste).',
         ];
     }
+
+    public function inutilizar(int $empresaId, int $modelo, int $serie, int $numeroInicial, int $numeroFinal, string $justificativa): array
+    {
+        return [
+            'inutilizada' => true,
+            'protocolo' => '102'.str_pad((string) ($numeroInicial + $numeroFinal), 12, '0', STR_PAD_LEFT),
+            'motivo' => 'Inutilização homologada (ambiente de teste).',
+        ];
+    }
+
+    public function cartaCorrecao(NotaFiscal $nota, string $correcao, int $sequencia): array
+    {
+        return [
+            'registrada' => true,
+            'protocolo' => '135'.str_pad((string) $nota->id.$sequencia, 12, '0', STR_PAD_LEFT),
+            'sequencia' => $sequencia,
+            'motivo' => 'Carta de correção registrada (ambiente de teste).',
+        ];
+    }
 }

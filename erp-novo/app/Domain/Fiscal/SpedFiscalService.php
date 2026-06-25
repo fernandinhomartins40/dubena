@@ -94,6 +94,9 @@ class SpedFiscalService
 
         // ── Bloco C ──
         $this->reg('C001', ['0']);
+        // Acumula o analítico (C190) e a apuração (E110) à medida que percorre as notas.
+        $analitico = []; // chave CST|CFOP|ALIQ → somatórios
+        $totalDebito = 0.0;
         foreach ($notas as $nota) {
             $this->reg('C100', [
                 '1', // IND_OPER (1=saída)
@@ -133,9 +136,76 @@ class SpedFiscalService
                     $this->num($item->aliq_icms),
                     $this->num($item->valor_icms),
                 ]);
+
+                // Acumula no analítico C190 (chave CST+CFOP+alíquota).
+                $cst = $item->cst_icms ?? '';
+                $cfop = $item->cfop ?? '';
+                $aliq = (float) $item->aliq_icms;
+                $k = $cst.'|'.$cfop.'|'.number_format($aliq, 2, '.', '');
+                $analitico[$k] ??= ['cst' => $cst, 'cfop' => $cfop, 'aliq' => $aliq, 'vlr' => 0.0, 'bc' => 0.0, 'icms' => 0.0];
+                $analitico[$k]['vlr'] += (float) $item->valor_total;
+                $analitico[$k]['bc'] += (float) $item->bc_icms;
+                $analitico[$k]['icms'] += (float) $item->valor_icms;
+                $totalDebito += (float) $item->valor_icms;
             }
+
+            // C190 — registro analítico do documento (por CST/CFOP/alíquota).
+            foreach ($analitico as $a) {
+                $this->reg('C190', [
+                    $a['cst'], $a['cfop'], $this->num($a['aliq']),
+                    $this->num($a['vlr']), $this->num($a['bc']), $this->num($a['icms']),
+                    '0,00', '0,00', '0,00', '0,00', '',
+                ]);
+            }
+            $analitico = []; // reinicia por documento
         }
         $this->fecharBloco('C990', 'C');
+
+        // ── Bloco E (apuração do ICMS) ──
+        $this->reg('E001', ['0']);
+        $this->reg('E100', [$dtIni->format('dmY'), $dtFim->format('dmY')]);
+        $this->reg('E110', [
+            $this->num($totalDebito),  // VL_TOT_DEBITOS
+            '0,00',                    // VL_AJ_DEBITOS
+            '0,00',                    // VL_TOT_AJ_DEBITOS
+            '0,00',                    // VL_ESTORNOS_CRED
+            '0,00',                    // VL_TOT_CREDITOS
+            '0,00', '0,00', '0,00',    // ajustes/estornos crédito
+            '0,00',                    // VL_SLD_CREDOR_ANT
+            $this->num($totalDebito),  // VL_SLD_APURADO (devedor)
+            '0,00',                    // VL_TOT_DED
+            $this->num($totalDebito),  // VL_ICMS_RECOLHER
+            '0,00',                    // VL_SLD_CREDOR_TRANSPORTAR
+            '0,00',                    // DEB_ESP
+        ]);
+        $this->fecharBloco('E990', 'E');
+
+        // ── Bloco H (inventário) — saldo por produto, derivado de estoquesaldos ──
+        // Quantidade = Σ saldos dos setores da empresa; custo = custo médio do saldo.
+        $saldos = \App\Models\Estoque\EstoqueSaldo::query()
+            ->where('empresa_id', $empresa->id)
+            ->selectRaw('produto_id, sum(quantidade) as qtd, avg(custo_medio) as custo')
+            ->groupBy('produto_id')
+            ->get()
+            ->keyBy('produto_id');
+
+        $valorInventario = $saldos->sum(fn ($s) => (float) $s->qtd * (float) $s->custo);
+
+        $this->reg('H001', ['0']);
+        $this->reg('H005', [$dtFim->format('dmY'), $this->num($valorInventario), '01']); // MOT_INV 01=final período
+        foreach ($produtos as $prod) {
+            $s = $saldos->get($prod->id);
+            $qtd = (float) ($s->qtd ?? 0);
+            $custo = (float) ($s->custo ?? $prod->custo_medio ?? 0);
+            $this->reg('H010', [
+                (string) $prod->id, 'UN',
+                $this->num($qtd, 3),
+                $this->num($custo),
+                $this->num($qtd * $custo),
+                '0', '', '', '',
+            ]);
+        }
+        $this->fecharBloco('H990', 'H');
 
         // ── Bloco 9 (encerramento) ──
         $this->bloco9();

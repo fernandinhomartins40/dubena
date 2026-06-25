@@ -30,3 +30,7 @@ Schedule::command('vendas:diaria')->dailyAt('07:15')->withoutOverlapping();
 
 // Inconsistências de saldo (estoque/caixa) — segunda 03:00. C9.
 Schedule::command('notify:inconsistencias')->weeklyOn(1, '03:00')->withoutOverlapping();
+
+// Atualização da tabela IBPT (Lei 12.741) — dia 1 de cada mês 05:00 (gate: só roda
+// efetivamente se IBPT_CSV_URL estiver configurada). Espelha o ibpt:update do legado. F09.
+Schedule::command('ibpt:atualizar')->monthlyOn(1, '05:00')->withoutOverlapping();

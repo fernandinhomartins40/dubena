@@ -107,6 +107,18 @@ class SpedContribuicoesService
             '0,00',
             $this->num($totalPis),  // VL_TOT_CONT_PER (a recolher)
         ]);
+        // M210 — detalhamento da contribuição PIS (filho do M200), por código.
+        if ($totalPis > 0) {
+            $this->reg('M210', [
+                '01',                      // COD_CONT (01=contribuição não-cumulativa)
+                $this->num($notas->sum('valor_produtos')), // VL_REC_BRT
+                $this->num($notas->sum('valor_produtos')), // VL_BC_CONT
+                '1,6500',                  // ALIQ_PIS
+                $this->num($totalPis),     // VL_CONT_APUR
+                '0,00', '0,00', '0,00', '0,00',
+                $this->num($totalPis),     // VL_CONT_PER
+            ]);
+        }
         // M600 — consolidação da COFINS do período.
         $this->reg('M600', [
             $this->num($totalCofins),
@@ -115,6 +127,18 @@ class SpedContribuicoesService
             '0,00',
             $this->num($totalCofins),
         ]);
+        // M610 — detalhamento da COFINS (filho do M600).
+        if ($totalCofins > 0) {
+            $this->reg('M610', [
+                '01',
+                $this->num($notas->sum('valor_produtos')),
+                $this->num($notas->sum('valor_produtos')),
+                '7,6000',                  // ALIQ_COFINS
+                $this->num($totalCofins),
+                '0,00', '0,00', '0,00', '0,00',
+                $this->num($totalCofins),
+            ]);
+        }
         $this->fecharBloco('M990', 'M');
 
         // ── Bloco 9 ──

@@ -74,6 +74,64 @@ class NFePHPSefazDriver implements SefazDriver
         }
     }
 
+    public function inutilizar(int $empresaId, int $modelo, int $serie, int $numeroInicial, int $numeroFinal, string $justificativa): array
+    {
+        try {
+            $tools = $this->toolsDaEmpresa($empresaId);
+            $resp = $tools->sefazInutiliza($serie, $numeroInicial, $numeroFinal, $justificativa, $modelo);
+            $st = simplexml_load_string($resp);
+            $cStat = (string) ($st->infInut->cStat ?? $st->cStat ?? '');
+
+            return [
+                'inutilizada' => in_array($cStat, ['102', '563'], true), // 102=homologada, 563=já inutilizada
+                'protocolo' => (string) ($st->infInut->nProt ?? ''),
+                'motivo' => (string) ($st->infInut->xMotivo ?? $st->xMotivo ?? 'Sem retorno'),
+            ];
+        } catch (\Throwable $e) {
+            return ['inutilizada' => false, 'protocolo' => null, 'motivo' => $e->getMessage()];
+        }
+    }
+
+    public function cartaCorrecao(NotaFiscal $nota, string $correcao, int $sequencia): array
+    {
+        try {
+            $tools = $this->tools($nota);
+            $resp = $tools->sefazCCe((string) $nota->chave, $correcao, $sequencia);
+            $st = simplexml_load_string($resp);
+            $cStat = (string) ($st->cStat ?? $st->retEvento->infEvento->cStat ?? '');
+
+            return [
+                'registrada' => in_array($cStat, ['135', '136'], true), // 135=registrado, 136=registrado fora de prazo
+                'protocolo' => (string) ($st->retEvento->infEvento->nProt ?? ''),
+                'sequencia' => $sequencia,
+                'motivo' => (string) ($st->retEvento->infEvento->xMotivo ?? $st->xMotivo ?? 'Sem retorno'),
+            ];
+        } catch (\Throwable $e) {
+            return ['registrada' => false, 'protocolo' => null, 'sequencia' => $sequencia, 'motivo' => $e->getMessage()];
+        }
+    }
+
+    /** Tools a partir só do empresa_id (inutilização não tem nota associada). */
+    private function toolsDaEmpresa(int $empresaId): Tools
+    {
+        $config = EmpresaConfig::query()->where('empresa_id', $empresaId)->firstOrFail();
+        if (! $config->cert_path || ! Storage::disk('local')->exists($config->cert_path)) {
+            throw new \RuntimeException('Certificado A1 não configurado para esta empresa (Fase C2).');
+        }
+        $empresa = \App\Models\Empresa::query()->find($empresaId);
+        $certificate = Certificate::readPfx(Storage::disk('local')->get($config->cert_path), (string) $config->cert_senha);
+
+        return new Tools(json_encode([
+            'atualizacao' => now()->toDateString(),
+            'tpAmb' => 2,
+            'razaosocial' => $empresa?->razao_social ?? '',
+            'cnpj' => preg_replace('/\D/', '', (string) ($empresa?->cnpj ?? '')),
+            'siglaUF' => $empresa?->uf ?? 'SP',
+            'schemes' => 'PL_009_V4',
+            'versao' => '4.00',
+        ]), $certificate);
+    }
+
     /** Instancia Tools com o certificado A1 do tenant e a config da SEFAZ. */
     private function tools(NotaFiscal $nota): Tools
     {

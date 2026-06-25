@@ -4,7 +4,9 @@ namespace App\Domain\Fiscal;
 
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Shared\NumeroSequencialService;
+use App\Models\Fiscal\CartaCorrecao;
 use App\Models\Fiscal\ConfigFiscal;
+use App\Models\Fiscal\InutilizacaoFiscal;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use Illuminate\Support\Facades\DB;
@@ -157,6 +159,63 @@ class FiscalService
         }
 
         return $nota->refresh();
+    }
+
+    /**
+     * Inutiliza uma faixa de numeração (modelo/série/inicial-final). Registra o
+     * evento (auditável) e marca homologada conforme o retorno da SEFAZ.
+     */
+    public function inutilizar(int $empresaId, int $modelo, int $serie, int $numeroInicial, int $numeroFinal, string $justificativa): InutilizacaoFiscal
+    {
+        if ($numeroFinal < $numeroInicial) {
+            throw ValidationException::withMessages(['numero_final' => 'Número final deve ser ≥ inicial.']);
+        }
+        if (mb_strlen($justificativa) < 15) {
+            throw ValidationException::withMessages(['justificativa' => 'Justificativa deve ter ao menos 15 caracteres (regra SEFAZ).']);
+        }
+
+        $resultado = $this->sefaz->inutilizar($empresaId, $modelo, $serie, $numeroInicial, $numeroFinal, $justificativa);
+
+        return InutilizacaoFiscal::create([
+            'empresa_id' => $empresaId,
+            'modelo' => $modelo,
+            'serie' => $serie,
+            'numero_inicial' => $numeroInicial,
+            'numero_final' => $numeroFinal,
+            'justificativa' => $justificativa,
+            'protocolo' => $resultado['protocolo'] ?? null,
+            'homologada' => (bool) ($resultado['inutilizada'] ?? false),
+            'motivo' => $resultado['motivo'] ?? null,
+        ]);
+    }
+
+    /**
+     * Registra uma Carta de Correção (CCE) sobre uma nota autorizada. A sequência
+     * é auto-incrementada por nota (nSeqEvento). Correção mínima 15 caracteres.
+     */
+    public function cartaCorrecao(NotaFiscal $nota, string $correcao): CartaCorrecao
+    {
+        if (! $nota->situacao->autorizada()) {
+            throw ValidationException::withMessages(['nota' => 'Só nota autorizada aceita carta de correção.']);
+        }
+        if (mb_strlen($correcao) < 15) {
+            throw ValidationException::withMessages(['correcao' => 'Correção deve ter ao menos 15 caracteres (regra SEFAZ).']);
+        }
+
+        return DB::transaction(function () use ($nota, $correcao) {
+            $sequencia = (int) CartaCorrecao::query()->where('nota_fiscal_id', $nota->id)->max('sequencia') + 1;
+            $resultado = $this->sefaz->cartaCorrecao($nota, $correcao, $sequencia);
+
+            return CartaCorrecao::create([
+                'empresa_id' => $nota->empresa_id,
+                'nota_fiscal_id' => $nota->id,
+                'sequencia' => $resultado['sequencia'] ?? $sequencia,
+                'correcao' => $correcao,
+                'protocolo' => $resultado['protocolo'] ?? null,
+                'registrada' => (bool) ($resultado['registrada'] ?? false),
+                'motivo' => $resultado['motivo'] ?? null,
+            ]);
+        });
     }
 
     private function serie(int $empresaId, ModeloDocumento $modelo): int
