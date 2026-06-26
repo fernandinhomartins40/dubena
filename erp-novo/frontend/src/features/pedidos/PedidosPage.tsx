@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, LayoutGrid, List, Trash2, Pencil, MoreHorizontal, ShoppingCart } from 'lucide-react'
 import {
   Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState, SearchBar,
@@ -12,7 +12,8 @@ import { useAuth } from '@/lib/auth'
 import { useBusca } from '@/lib/useBusca'
 import {
   usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, useEmitirNfce,
-  useSalvarSituacao, useExcluirSituacao, type PedidoListItem, type KanbanColuna, type EfeitoPedido, type SituacaoForm,
+  useSalvarSituacao, useExcluirSituacao, useReordenarSituacoes, useMudarSituacaoPedido,
+  type PedidoListItem, type KanbanColuna, type EfeitoPedido, type SituacaoForm,
 } from './api'
 import { brl, dataHora as fmtData } from '@/lib/format'
 
@@ -38,28 +39,92 @@ export function PedidosPage() {
   )
 }
 
+/** Item arrastado entre colunas. */
+type ArrastoCard = { pedidoId: number; deSituacao: number }
+/** Confirmação pendente de mover card para coluna com efeito (concretiza/cancela). */
+type MoverPendente = { pedido: KanbanColuna['pedidos'][number]; destino: KanbanColuna }
+
 function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   const { data, isLoading } = usePedidosKanban()
   const { can } = useAuth()
   const excluir = useExcluirSituacao()
+  const reordenar = useReordenarSituacoes()
+  const mudar = useMudarSituacaoPedido()
   const [editar, setEditar] = useState<SituacaoForm | null>(null)
   const [excluindo, setExcluindo] = useState<KanbanColuna | null>(null)
+  const [mover, setMover] = useState<MoverPendente | null>(null)
+
+  // Espelho local das colunas p/ reordenação otimista (sincroniza quando a query muda).
+  const [colunas, setColunas] = useState<KanbanColuna[]>([])
+  useEffect(() => { if (data) setColunas(data) }, [data])
+
+  const dragCol = useRef<number | null>(null)
+  const dragCard = useRef<ArrastoCard | null>(null)
 
   const podeCriar = can('pedidosituacao.create')
   const podeEditar = can('pedidosituacao.edit')
   const podeExcluir = can('pedidosituacao.delete')
+  const podeMover = can('pedido.edit')
 
   if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
 
-  const colunas = data ?? []
+  /** Reordena colunas localmente e persiste. */
+  function soltarColuna(alvoId: number) {
+    const origemId = dragCol.current
+    dragCol.current = null
+    if (origemId == null || origemId === alvoId) return
+    const atual = [...colunas]
+    const de = atual.findIndex((c) => c.situacao_id === origemId)
+    const para = atual.findIndex((c) => c.situacao_id === alvoId)
+    if (de < 0 || para < 0) return
+    const [item] = atual.splice(de, 1)
+    atual.splice(para, 0, item)
+    setColunas(atual)
+    reordenar.mutate(atual.map((c) => c.situacao_id), {
+      onError: () => toast.error('Não foi possível salvar a ordem.'),
+    })
+  }
+
+  /** Move card; pede confirmação se o destino concretiza/cancela (mexe em estoque/financeiro). */
+  async function moverCardPara(destino: KanbanColuna) {
+    const arrasto = dragCard.current
+    dragCard.current = null
+    if (!arrasto || arrasto.deSituacao === destino.situacao_id) return
+    const origem = colunas.find((c) => c.situacao_id === arrasto.deSituacao)
+    const pedido = origem?.pedidos.find((p) => p.id === arrasto.pedidoId)
+    if (!pedido) return
+
+    if (destino.efeito === 'PENDENTE') {
+      await aplicarMover(pedido.id, destino.situacao_id)
+    } else {
+      setMover({ pedido, destino }) // confirma antes de baixar/estornar estoque
+    }
+  }
+
+  async function aplicarMover(pedidoId: number, situacaoId: number) {
+    try { await mudar.mutateAsync({ pedidoId, situacaoId }); toast.success('Pedido movido.') }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível mover o pedido.') }
+  }
+
   return (
     <>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {colunas.map((col: KanbanColuna) => (
-          <div key={col.situacao_id} className="w-72 shrink-0">
-            <div className="mb-2 rounded-lg border border-border bg-card" style={col.cor ? { borderTopColor: col.cor, borderTopWidth: 3 } : undefined}>
+          <div
+            key={col.situacao_id}
+            className="w-72 shrink-0"
+            onDragOver={(e) => { if (dragCard.current || dragCol.current != null) e.preventDefault() }}
+            onDrop={() => { if (dragCard.current) moverCardPara(col); else if (dragCol.current != null) soltarColuna(col.situacao_id) }}
+          >
+            <div
+              className="mb-2 rounded-lg border border-border bg-card"
+              style={col.cor ? { borderTopColor: col.cor, borderTopWidth: 3 } : undefined}
+              draggable={podeEditar}
+              onDragStart={() => { dragCol.current = col.situacao_id }}
+              onDragEnd={() => { dragCol.current = null }}
+            >
               <div className="flex items-center justify-between gap-2 px-3 py-2">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className={`flex items-center gap-2 min-w-0 ${podeEditar ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                   <span className="size-2.5 shrink-0 rounded-full" style={{ background: col.cor ?? 'var(--muted-foreground)' }} />
                   <span className="font-medium text-sm truncate">{col.descricao}</span>
                   <StatusBadge efeito={col.efeito} />
@@ -79,9 +144,16 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
               </div>
               <div className="px-3 pb-2 text-xs text-muted-foreground tabular-nums">{brl(col.valor)}</div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-h-[60px]">
               {(col.pedidos ?? []).map((p) => (
-                <Card key={p.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => onOpen(p.id)}>
+                <Card
+                  key={p.id}
+                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                  draggable={podeMover}
+                  onDragStart={(e) => { dragCard.current = { pedidoId: p.id, deSituacao: col.situacao_id }; e.dataTransfer.effectAllowed = 'move' }}
+                  onDragEnd={() => { dragCard.current = null }}
+                  onClick={() => onOpen(p.id)}
+                >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between"><span className="font-medium text-sm">#{p.id}</span><span className="tabular-nums text-sm">{brl(p.valorvenda)}</span></div>
                     <div className="text-xs text-muted-foreground truncate mt-1">{p.cliente || '—'}</div>
@@ -104,6 +176,8 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
         )}
       </div>
 
+      {podeMover && <p className="mt-2 text-xs text-muted-foreground">Dica: arraste um card entre colunas para mudar a situação{podeEditar ? '; arraste o cabeçalho para reordenar as colunas' : ''}.</p>}
+
       <SituacaoDialog value={editar} onClose={() => setEditar(null)} />
       <ConfirmDialog
         open={!!excluindo} onOpenChange={(o) => !o && setExcluindo(null)}
@@ -111,6 +185,16 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
         description={<>Excluir a coluna <strong>{excluindo?.descricao}</strong>? Só é possível se ela não tiver pedidos.</>}
         loading={excluir.isPending}
         onConfirm={async () => { try { await excluir.mutateAsync(excluindo!.situacao_id); toast.success('Coluna excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? e?.response?.data?.errors?.situacao?.[0] ?? 'Não foi possível excluir.') } finally { setExcluindo(null) } }}
+      />
+      <ConfirmDialog
+        open={!!mover} onOpenChange={(o) => !o && setMover(null)}
+        title={`Mover para "${mover?.destino.descricao ?? ''}"`}
+        confirmLabel="Mover" variant="default"
+        description={mover?.destino.efeito === 'CONCLUIDO'
+          ? <>Mover o pedido <strong>#{mover?.pedido.id}</strong> para esta coluna vai <strong>concluir a venda</strong>: baixa o estoque e gera o financeiro. Confirmar?</>
+          : <>Mover o pedido <strong>#{mover?.pedido.id}</strong> para esta coluna vai <strong>cancelar a venda</strong>: estorna estoque e financeiro. Confirmar?</>}
+        loading={mudar.isPending}
+        onConfirm={async () => { const m = mover!; setMover(null); await aplicarMover(m.pedido.id, m.destino.situacao_id) }}
       />
     </>
   )

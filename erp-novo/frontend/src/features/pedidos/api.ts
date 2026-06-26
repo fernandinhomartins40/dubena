@@ -53,6 +53,28 @@ export function useExcluirSituacao() {
     },
   })
 }
+
+/** Persiste a nova ordem das colunas (lista de ids na ordem desejada). */
+export function useReordenarSituacoes() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ordem: number[]) => (await api.put('/pedidos/situacoes/reordenar', { ordem })).data,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['pedidos-kanban'] }); qc.invalidateQueries({ queryKey: ['pedido-situacoes'] }) },
+  })
+}
+
+/** Move um pedido para outra situação (máquina de estados: pode baixar/estornar estoque). */
+export function useMudarSituacaoPedido() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ pedidoId, situacaoId }: { pedidoId: number; situacaoId: number }) =>
+      (await api.put(`/pedidos/${pedidoId}/situacao`, { pedidosituacao_id: situacaoId })).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pedidos-kanban'] })
+      qc.invalidateQueries({ queryKey: ['pedidos'] })
+    },
+  })
+}
 export function usePedido(id: number | null) {
   return useQuery({ queryKey: ['pedido', id], queryFn: async () => (await api.get(`/pedidos/${id}`)).data.data, enabled: id !== null })
 }

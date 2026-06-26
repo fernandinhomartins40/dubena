@@ -83,6 +83,22 @@ class PedidoSituacaoTest extends TestCase
         $this->assertDatabaseMissing('pedidosituacoes', ['id' => $s->id]);
     }
 
+    public function test_reordena_colunas(): void
+    {
+        [$user, $e] = $this->user();
+        $a = PedidoSituacao::factory()->create(['grupo_id' => $e->grupo_id, 'descricao' => 'A', 'ordem' => 0]);
+        $b = PedidoSituacao::factory()->create(['grupo_id' => $e->grupo_id, 'descricao' => 'B', 'ordem' => 1]);
+        $c = PedidoSituacao::factory()->create(['grupo_id' => $e->grupo_id, 'descricao' => 'C', 'ordem' => 2]);
+
+        $this->actingAs($user, 'sanctum')->putJson('/api/admin/pedidos/situacoes/reordenar', [
+            'ordem' => [$c->id, $a->id, $b->id],
+        ])->assertOk();
+
+        $this->assertSame(0, $c->fresh()->ordem);
+        $this->assertSame(1, $a->fresh()->ordem);
+        $this->assertSame(2, $b->fresh()->ordem);
+    }
+
     public function test_bloqueia_exclusao_com_pedidos_vinculados(): void
     {
         [$user, $e] = $this->user();

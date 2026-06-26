@@ -211,6 +211,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('pedidos/situacoes', [PedidoController::class, 'situacoes']);
         // CRUD das colunas do Kanban (situações) — config por grupo.
         Route::post('pedidos/situacoes', [PedidoController::class, 'criarSituacao']);
+        Route::put('pedidos/situacoes/reordenar', [PedidoController::class, 'reordenarSituacoes']);
         Route::put('pedidos/situacoes/{id}', [PedidoController::class, 'atualizarSituacao'])->whereNumber('id');
         Route::delete('pedidos/situacoes/{id}', [PedidoController::class, 'excluirSituacao'])->whereNumber('id');
         Route::get('pedidos', [PedidoController::class, 'index']);

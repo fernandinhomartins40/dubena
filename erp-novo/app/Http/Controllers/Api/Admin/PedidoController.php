@@ -16,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -123,6 +124,24 @@ class PedidoController extends Controller
         $situacao->update($this->validarSituacao($request, $id));
 
         return response()->json(['data' => $situacao->fresh()]);
+    }
+
+    /** PUT /pedidos/situacoes/reordenar — persiste a ordem das colunas do Kanban. */
+    public function reordenarSituacoes(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedidosituacao.edit');
+        $d = $request->validate([
+            'ordem' => ['required', 'array', 'min:1'],
+            'ordem.*' => ['integer', 'exists:pedidosituacoes,id'],
+        ]);
+
+        DB::transaction(function () use ($d) {
+            foreach (array_values($d['ordem']) as $posicao => $id) {
+                PedidoSituacao::query()->whereKey($id)->update(['ordem' => $posicao]);
+            }
+        });
+
+        return response()->json(['message' => 'Ordem atualizada.']);
     }
 
     /** DELETE /pedidos/situacoes/{id} — remove uma coluna vazia do Kanban. */
