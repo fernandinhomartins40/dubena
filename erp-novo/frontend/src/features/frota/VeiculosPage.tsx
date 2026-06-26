@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Search, Plus, Pencil, Trash2, Truck, ArrowLeft, Save } from 'lucide-react'
+import { Plus, Pencil, Trash2, Truck, ArrowLeft, Save } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, DataTable, type Column, EmptyState, Field, AsyncSelect,
+  Button, Card, CardContent, PageHeader, Input, DataTable, type Column, EmptyState, Field, AsyncSelect, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
+import { useBusca } from '@/lib/useBusca'
 import {
   useVeiculos, useVeiculo, useSalvarVeiculo, useExcluirVeiculo, type Veiculo,
   useAbastecimentos, useTrocasOleo, usePneus,
@@ -15,7 +16,7 @@ import { num, data as fmtData } from '@/lib/format'
 
 export function VeiculosListPage() {
   const navigate = useNavigate(); const { can } = useAuth()
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useVeiculos(q)
   const excluir = useExcluirVeiculo(); const [del, setDel] = useState<Veiculo | null>(null)
 
@@ -34,10 +35,7 @@ export function VeiculosListPage() {
   return (
     <div>
       <PageHeader title="Veículos" subtitle="Frota e manutenção" action={can('veiculo.create') && <Button onClick={() => navigate('/veiculos/novo')}><Plus size={16} /> Novo veículo</Button>} />
-      <Card className="mb-4 p-3"><form onSubmit={(e) => { e.preventDefault(); setQ(busca) }} className="flex gap-2">
-        <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por descrição ou placa…" className="pl-9" /></div>
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form></Card>
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar por descrição ou placa…" />
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id} onRowClick={can('veiculo.edit') ? (v) => navigate(`/veiculos/${v.id}`) : undefined} empty={<EmptyState icon={<Truck />} title="Nenhum veículo" />} />
       <ConfirmDialog
         open={!!del} onOpenChange={(o) => !o && setDel(null)}

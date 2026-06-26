@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Search, Plus, LayoutGrid, List, Trash2, ShoppingCart } from 'lucide-react'
+import { Plus, LayoutGrid, List, Trash2, ShoppingCart } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState,
+  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
+import { useBusca } from '@/lib/useBusca'
 import { usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, useEmitirNfce, type PedidoListItem, type KanbanColuna } from './api'
 import { brl, dataHora as fmtData } from '@/lib/format'
 
@@ -62,7 +63,8 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
 }
 
 function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
-  const [sit, setSit] = useState(0); const [busca, setBusca] = useState(''); const [q, setQ] = useState(''); const [page, setPage] = useState(1)
+  const [sit, setSit] = useState(0)
+  const { busca, setBusca, q, page, setPage, submit } = useBusca()
   const { data, isLoading, isFetching } = usePedidos(sit, q, page)
   const { data: situacoes } = usePedidoSituacoes()
 
@@ -75,12 +77,10 @@ function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
   ]
   return (
     <>
-      <Card className="mb-4 p-3"><div className="flex flex-wrap gap-2 items-center">
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar cliente ou nº…">
         <div className="w-56"><AsyncSelect endpoint="/lookups/pedido-situacoes" value={sit || null} valueLabel={situacoes?.find((s) => s.id === sit)?.descricao ?? null} placeholder="Todas as situações"
           onChange={(id) => { setPage(1); setSit(id ?? 0) }} /></div>
-        <div className="relative flex-1 min-w-[200px]"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente ou nº…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} /></div>
-        <Button variant="secondary" onClick={() => { setPage(1); setQ(busca) }}>Buscar</Button>
-      </div></Card>
+      </SearchBar>
       <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(p) => p.id} onRowClick={(p) => onOpen(p.id)}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<ShoppingCart />} title="Nenhum pedido" />} />

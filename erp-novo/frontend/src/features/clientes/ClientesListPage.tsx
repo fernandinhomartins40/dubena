@@ -1,27 +1,22 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User, Settings } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User, Settings } from 'lucide-react'
 import { useClientes, useExcluirCliente, type ClienteListItem } from './api'
 import {
-  Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
+  Button, PageHeader, Badge, DataTable, type Column, EmptyState, SearchBar,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
+import { useBusca } from '@/lib/useBusca'
 
 export function ClientesListPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
-  const [busca, setBusca] = useState('')
-  const [q, setQ] = useState('')
-  const [page, setPage] = useState(1)
+  const { busca, setBusca, q, page, setPage, submit } = useBusca()
   const [excluindo, setExcluindo] = useState<ClienteListItem | null>(null)
   const { data, isLoading, isFetching } = useClientes(q, page)
   const excluir = useExcluirCliente()
-
-  function buscar(e: React.FormEvent) {
-    e.preventDefault(); setPage(1); setQ(busca)
-  }
 
   async function confirmarExclusao() {
     if (!excluindo) return
@@ -80,15 +75,7 @@ export function ClientesListPage() {
         }
       />
 
-      <Card className="mb-4 p-3">
-        <form onSubmit={buscar} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, fantasia, CPF/CNPJ ou código…" className="pl-9" />
-          </div>
-          <Button type="submit" variant="secondary">Buscar</Button>
-        </form>
-      </Card>
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar por nome, fantasia, CPF/CNPJ ou código…" />
 
       <DataTable
         columns={columns}

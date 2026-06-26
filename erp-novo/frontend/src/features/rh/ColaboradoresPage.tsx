@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Search, Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save, Settings } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save, Settings } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect,
+  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   ConfirmDialog, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
+import { useBusca } from '@/lib/useBusca'
 import { data as fmtData } from '@/lib/format'
 import { useColaboradores, useColaborador, useSalvarColaborador, useExcluirColaborador, type Colaborador } from './api'
 import { FamiliaTab } from './tabs/FamiliaTab'
@@ -21,7 +22,7 @@ import { PontoTab } from './tabs/PontoTab'
 export function ColaboradoresListPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState(''); const [page, setPage] = useState(1)
+  const { busca, setBusca, q, page, setPage, submit } = useBusca()
   const { data, isLoading, isFetching } = useColaboradores(q, page)
   const excluir = useExcluirColaborador()
   const [del, setDel] = useState<Colaborador | null>(null)
@@ -51,10 +52,7 @@ export function ColaboradoresListPage() {
           {can('colaborador.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=colaboradores')}><Settings size={16} /> Configurações</Button>}
           {can('colaborador.create') && <Button onClick={() => navigate('/colaboradores/novo')}><Plus size={16} /> Novo colaborador</Button>}
         </div>} />
-      <Card className="mb-4 p-3"><form onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(busca) }} className="flex gap-2">
-        <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome…" className="pl-9" /></div>
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form></Card>
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar por nome…" />
       <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(c) => c.id} onRowClick={can('colaborador.edit') ? (c) => navigate(`/colaboradores/${c.id}`) : undefined}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<Users />} title="Nenhum colaborador" />} />

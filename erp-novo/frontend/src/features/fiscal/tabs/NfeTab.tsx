@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Search, FileText, Send, Ban, AlertCircle } from 'lucide-react'
+import { FileText, Send, Ban, AlertCircle } from 'lucide-react'
 import {
-  Button, Card, Input, Badge, DataTable, type Column, EmptyState, Field, FormDialog, toast,
+  Button, Input, Badge, DataTable, type Column, EmptyState, Field, FormDialog, SearchBar, toast,
 } from '@/components/ui'
 import { useNfe, useTransmitirNfe, useCancelarNfe, type NfeRow } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
+import { useBusca } from '@/lib/useBusca'
 
 const SITUACAO_NFE: Record<number, { l: string; v: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
   100: { l: 'Autorizada', v: 'success' },
@@ -13,7 +14,7 @@ const SITUACAO_NFE: Record<number, { l: string; v: 'success' | 'warning' | 'dest
 }
 
 export function NfeTab() {
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useNfe(q)
   const transmitir = useTransmitirNfe(); const cancelar = useCancelarNfe()
   const [cancelando, setCancelando] = useState<NfeRow | null>(null); const [justif, setJustif] = useState('')
@@ -50,10 +51,7 @@ export function NfeTab() {
         <AlertCircle size={18} className="shrink-0 mt-0.5" />
         <span>A transmissão e o cancelamento dependem do <strong>certificado digital</strong> (configurável em Empresas → Fiscal) e do ambiente SEFAZ. Valide em <strong>homologação</strong> antes de usar em produção.</span>
       </div>
-      <Card className="mb-4 p-3"><div className="flex gap-2">
-        <div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar número ou chave de acesso…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} /></div>
-        <Button variant="secondary" onClick={() => setQ(busca)}>Buscar</Button>
-      </div></Card>
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar número ou chave de acesso…" />
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(n) => n.id} empty={<EmptyState icon={<FileText />} title="Nenhuma NF-e" description="Notas são geradas a partir de pedidos." />} />
       <FormDialog open={!!cancelando} onOpenChange={(o) => !o && setCancelando(null)}
         title={`Cancelar NF-e ${cancelando?.nfserie ?? ''}/${cancelando?.nfnumero ?? ''}`}

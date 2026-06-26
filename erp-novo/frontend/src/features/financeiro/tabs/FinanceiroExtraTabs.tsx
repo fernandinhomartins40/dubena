@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Search, Plus, Pencil, Trash2, TrendingUp, Wallet, ArrowRightLeft } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingUp, Wallet, ArrowRightLeft } from 'lucide-react'
 import {
   Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
   AsyncSelect, Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  FormDialog, ConfirmDialog, toast,
+  FormDialog, ConfirmDialog, SearchBar, toast,
 } from '@/components/ui'
 import {
   useChequesEmitidos, useChequesRecebidos, useSalvarChequeRecebido, useExcluirChequeRecebido,
@@ -12,6 +12,7 @@ import {
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
 } from '../api'
 import { brl, data as fmtData } from '@/lib/format'
+import { useBusca } from '@/lib/useBusca'
 
 // ---------- CHEQUES ----------
 export function ChequesTab() {
@@ -25,7 +26,7 @@ export function ChequesTab() {
 }
 
 function ChequesRecebidosTab() {
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useChequesRecebidos(q)
   const salvar = useSalvarChequeRecebido(); const excluir = useExcluirChequeRecebido()
   const mudarSit = useMudarSituacaoCheque(); const { data: contas } = useContasCaixa()
@@ -58,8 +59,8 @@ function ChequesRecebidosTab() {
   return (
     <>
       <Card className="mb-4 p-3"><div className="flex gap-2">
-        <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nº do cheque…" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} />
-        <Button variant="secondary" onClick={() => setQ(busca)}>Buscar</Button>
+        <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nº do cheque…" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+        <Button variant="secondary" onClick={submit}>Buscar</Button>
         <Button onClick={() => { setEdit({}); setLabels({}) }}><Plus size={16} /> Novo</Button>
       </div></Card>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} onRowClick={(c) => setEdit(c)} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque recebido" />} />
@@ -110,7 +111,7 @@ function ChequesRecebidosTab() {
 }
 
 function ChequesEmitidosTab() {
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useChequesEmitidos(q)
   const columns: Column<any>[] = [
     { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numerocheque}</span> },
@@ -120,10 +121,7 @@ function ChequesEmitidosTab() {
   ]
   return (
     <>
-      <Card className="mb-4 p-3"><div className="flex gap-2">
-        <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nº do cheque…" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} />
-        <Button variant="secondary" onClick={() => setQ(busca)}>Buscar</Button>
-      </div></Card>
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar nº do cheque…" />
       <p className="text-xs text-muted-foreground mb-2">Cheques emitidos são gerados a partir do talão no fluxo de pagamento; aqui é consulta.</p>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque emitido" />} />
     </>
@@ -132,7 +130,8 @@ function ChequesEmitidosTab() {
 
 // ---------- BOLETOS / PIX ----------
 export function BoletosTab() {
-  const [status, setStatus] = useState('pendente'); const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const [status, setStatus] = useState('pendente')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useBoletos(status, q)
   const { data: resumo } = useResumoBoletos()
   const { data: pix } = usePixStatus()
@@ -152,11 +151,9 @@ export function BoletosTab() {
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Com remessa</p><p className="mt-1 text-2xl font-bold tabular-nums">{resumo?.com_remessa ?? '—'}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">PIX</p><p className="mt-1 text-lg font-semibold">{pix?.configurado ? <Badge variant="success">Configurado</Badge> : <Badge variant="secondary">Não configurado</Badge>}</p></CardContent></Card>
       </div>
-      <Card className="mb-4 p-3"><div className="flex flex-wrap gap-2 items-center">
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar nosso número ou cliente…">
         <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="cancelado">Cancelados</SelectItem><SelectItem value="todos">Todos</SelectItem></SelectContent></Select>
-        <div className="relative flex-1 min-w-[200px]"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nosso número ou cliente…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} /></div>
-        <Button variant="secondary" onClick={() => setQ(busca)}>Buscar</Button>
-      </div></Card>
+      </SearchBar>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(b) => b.id} empty={<EmptyState icon={<Wallet />} title="Nenhum boleto" description="A geração de boletos (remessa CNAB) ocorre no fluxo de cobrança." />} />
     </>
   )

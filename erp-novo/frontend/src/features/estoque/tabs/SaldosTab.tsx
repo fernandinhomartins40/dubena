@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Search, Warehouse } from 'lucide-react'
-import { Button, Card, Input, DataTable, type Column, EmptyState, AsyncSelect } from '@/components/ui'
+import { Warehouse } from 'lucide-react'
+import { DataTable, type Column, EmptyState, AsyncSelect, SearchBar } from '@/components/ui'
 import { useSaldos, type SaldoRow } from '../api'
 import { qtd as fmt } from '@/lib/format'
+import { useBusca } from '@/lib/useBusca'
 
 export function SaldosTab() {
   const [setorId, setSetorId] = useState<number | null>(null)
   const [setorLabel, setSetorLabel] = useState<string | null>(null)
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState('')
+  const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading } = useSaldos(setorId, q)
 
   const columns: Column<SaldoRow>[] = [
@@ -19,16 +20,10 @@ export function SaldosTab() {
   ]
   return (
     <>
-      <Card className="mb-4 p-3"><div className="flex flex-wrap gap-2 items-center">
+      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar produto…">
         <div className="w-56"><AsyncSelect endpoint="/lookups/setores" value={setorId} valueLabel={setorLabel} placeholder="Filtrar setor"
           onChange={(id, o) => { setSetorId(id); setSetorLabel(o?.label ?? null) }} /></div>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto…" className="pl-9"
-            onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} />
-        </div>
-        <Button variant="secondary" onClick={() => setQ(busca)}>Buscar</Button>
-      </div></Card>
+      </SearchBar>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id}
         empty={<EmptyState icon={<Warehouse />} title="Sem saldo" description="Nenhum saldo encontrado para o filtro." />} />
     </>

@@ -6,10 +6,11 @@ import {
 } from '@/components/ui'
 import { useLancamentos, useResumoFinanceiro, useCriarLancamento, type Lancamento } from '../api'
 import { brl, data as fmtData } from '@/lib/format'
+import { useBusca } from '@/lib/useBusca'
 
 export function LancamentosTab() {
   const [pr, setPr] = useState(''); const [status, setStatus] = useState('aberto')
-  const [busca, setBusca] = useState(''); const [q, setQ] = useState(''); const [page, setPage] = useState(1)
+  const { busca, setBusca, q, page, setPage, submit } = useBusca()
   const { data, isLoading, isFetching } = useLancamentos(pr, status, q, page)
   const { data: resumo } = useResumoFinanceiro()
 
@@ -41,9 +42,9 @@ export function LancamentosTab() {
         </Select>
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, documento ou descrição…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && setQ(busca)} />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, documento ou descrição…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
-        <Button variant="secondary" onClick={() => { setPage(1); setQ(busca) }}>Buscar</Button>
+        <Button variant="secondary" onClick={submit}>Buscar</Button>
         <NovoLancamentoDialog />
       </div></Card>
 
