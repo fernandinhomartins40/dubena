@@ -2,23 +2,32 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
+    // NÃO usar WithoutModelEvents: o preenchimento automático de empresa_id/grupo_id
+    // (trait BelongsToTenant) depende do evento `creating`. Desativá-lo faria as
+    // tabelas tenant-scoped nascerem com empresa_id NULL.
 
     /**
-     * Seed the application's database (deploy/homologação).
+     * Seed the application's database.
      *
-     * Ordem: admin/empresa base → RBAC (permissions + papéis do grupo).
+     * - PRODUÇÃO: só o essencial — admin/empresa base + RBAC (sem massa demo).
+     * - DEMAIS (local/homolog): massa completa de demonstração (Guarapuava),
+     *   que internamente já roda DeployAdminSeeder + RbacSeeder.
      */
     public function run(): void
     {
-        $this->call([
-            DeployAdminSeeder::class,
-            RbacSeeder::class,
-        ]);
+        if (app()->environment('production')) {
+            $this->call([
+                DeployAdminSeeder::class,
+                RbacSeeder::class,
+            ]);
+
+            return;
+        }
+
+        $this->call(DemoGuarapuavaSeeder::class);
     }
 }
