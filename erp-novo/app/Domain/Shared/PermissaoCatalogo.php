@@ -22,6 +22,7 @@ final class PermissaoCatalogo
         'produto' => ['view', 'create', 'edit', 'delete', 'config', 'preco'],
         'estoque' => ['view', 'edit'],
         'pedido' => ['view', 'create', 'edit', 'delete'],
+        'pedidosituacao' => ['view', 'create', 'edit', 'delete'], // colunas do Kanban (situações)
         'financeiro' => ['view', 'create', 'edit', 'delete'],
         'caixa' => ['view', 'edit'],
         'fiscal' => ['view', 'edit', 'emitir'],

@@ -7,9 +7,18 @@ export interface PedidoListItem {
   id: number; datahora: string | null; valorvenda: number; pedidosituacao_id: number
   cliente: string | null; situacao: string | null; fechadoconcluido: number; fechadocancelado: number
 }
+export type EfeitoPedido = 'PENDENTE' | 'CONCLUIDO' | 'CANCELADO'
+
 export interface KanbanColuna {
-  situacao_id: number; descricao: string; total: number; valor: number
+  situacao_id: number; descricao: string; efeito: EfeitoPedido; cor: string | null; total: number; valor: number
   pedidos: { id: number; valorvenda: number; datahora: string | null; cliente: string | null }[]
+}
+
+export interface PedidoSituacao {
+  id: number; descricao: string; efeito: EfeitoPedido; cor: string | null; ordem: number; ativo: boolean
+}
+export interface SituacaoForm {
+  id?: number; descricao: string; efeito: EfeitoPedido; cor?: string | null
 }
 
 export function usePedidos(situacaoId: number, q: string, page: number) {
@@ -20,7 +29,30 @@ export function usePedidos(situacaoId: number, q: string, page: number) {
   })
 }
 export const usePedidosKanban = () => useQuery<KanbanColuna[]>({ queryKey: ['pedidos-kanban'], queryFn: async () => (await api.get('/pedidos/kanban')).data.data })
-export const usePedidoSituacoes = () => useQuery<any[]>({ queryKey: ['pedido-situacoes'], queryFn: async () => (await api.get('/pedidos/situacoes')).data.data })
+export const usePedidoSituacoes = () => useQuery<PedidoSituacao[]>({ queryKey: ['pedido-situacoes'], queryFn: async () => (await api.get('/pedidos/situacoes')).data.data })
+
+/** CRUD das colunas (situações) do Kanban — invalida kanban + situações. */
+export function useSalvarSituacao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: SituacaoForm) =>
+      (id ? api.put(`/pedidos/situacoes/${id}`, data) : api.post('/pedidos/situacoes', data)).then((r) => (r as any).data.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pedidos-kanban'] })
+      qc.invalidateQueries({ queryKey: ['pedido-situacoes'] })
+    },
+  })
+}
+export function useExcluirSituacao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/pedidos/situacoes/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pedidos-kanban'] })
+      qc.invalidateQueries({ queryKey: ['pedido-situacoes'] })
+    },
+  })
+}
 export function usePedido(id: number | null) {
   return useQuery({ queryKey: ['pedido', id], queryFn: async () => (await api.get(`/pedidos/${id}`)).data.data, enabled: id !== null })
 }

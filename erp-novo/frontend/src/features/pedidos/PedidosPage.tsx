@@ -1,13 +1,19 @@
-import { useState } from 'react'
-import { Plus, LayoutGrid, List, Trash2, ShoppingCart } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus, LayoutGrid, List, Trash2, Pencil, MoreHorizontal, ShoppingCart } from 'lucide-react'
 import {
   Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, AsyncState, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+  FormDialog, ConfirmDialog,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { useBusca } from '@/lib/useBusca'
-import { usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, useEmitirNfce, type PedidoListItem, type KanbanColuna } from './api'
+import {
+  usePedidos, usePedidosKanban, usePedidoSituacoes, usePedido, useCriarPedido, useEmitirNfce,
+  useSalvarSituacao, useExcluirSituacao, type PedidoListItem, type KanbanColuna, type EfeitoPedido, type SituacaoForm,
+} from './api'
 import { brl, dataHora as fmtData } from '@/lib/format'
 
 function situacaoBadge(p: { fechadoconcluido?: number; fechadocancelado?: number; situacao?: string | null; descricao?: string }) {
@@ -34,31 +40,139 @@ export function PedidosPage() {
 
 function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   const { data, isLoading } = usePedidosKanban()
-  if (isLoading || !data?.length) return <AsyncState loading={isLoading} empty={!data?.length} emptyIcon={<ShoppingCart />} emptyTitle="Nenhuma situação de pedido">{null}</AsyncState>
+  const { can } = useAuth()
+  const excluir = useExcluirSituacao()
+  const [editar, setEditar] = useState<SituacaoForm | null>(null)
+  const [excluindo, setExcluindo] = useState<KanbanColuna | null>(null)
+
+  const podeCriar = can('pedidosituacao.create')
+  const podeEditar = can('pedidosituacao.edit')
+  const podeExcluir = can('pedidosituacao.delete')
+
+  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
+
+  const colunas = data ?? []
   return (
-    <div className="flex gap-4 overflow-x-auto pb-2">
-      {data.map((col: KanbanColuna) => (
-        <div key={col.situacao_id} className="w-72 shrink-0">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="font-medium text-sm">{col.descricao}</span>
-            <Badge variant="secondary">{col.total}</Badge>
+    <>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {colunas.map((col: KanbanColuna) => (
+          <div key={col.situacao_id} className="w-72 shrink-0">
+            <div className="mb-2 rounded-lg border border-border bg-card" style={col.cor ? { borderTopColor: col.cor, borderTopWidth: 3 } : undefined}>
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: col.cor ?? 'var(--muted-foreground)' }} />
+                  <span className="font-medium text-sm truncate">{col.descricao}</span>
+                  <StatusBadge efeito={col.efeito} />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Badge variant="secondary">{col.total}</Badge>
+                  {(podeEditar || podeExcluir) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-7"><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {podeEditar && <DropdownMenuItem onClick={() => setEditar({ id: col.situacao_id, descricao: col.descricao, efeito: col.efeito, cor: col.cor })}><Pencil /> Editar coluna</DropdownMenuItem>}
+                        {podeExcluir && (<><DropdownMenuSeparator /><DropdownMenuItem destructive onClick={() => setExcluindo(col)}><Trash2 /> Excluir coluna</DropdownMenuItem></>)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+              <div className="px-3 pb-2 text-xs text-muted-foreground tabular-nums">{brl(col.valor)}</div>
+            </div>
+            <div className="space-y-2">
+              {(col.pedidos ?? []).map((p) => (
+                <Card key={p.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => onOpen(p.id)}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between"><span className="font-medium text-sm">#{p.id}</span><span className="tabular-nums text-sm">{brl(p.valorvenda)}</span></div>
+                    <div className="text-xs text-muted-foreground truncate mt-1">{p.cliente || '—'}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
+                  </CardContent>
+                </Card>
+              ))}
+              {(col.pedidos ?? []).length === 0 && <p className="text-xs text-muted-foreground px-1 py-6 text-center">Vazio</p>}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground mb-2 px-1 tabular-nums">{brl(col.valor)}</div>
-          <div className="space-y-2">
-            {(col.pedidos ?? []).map((p) => (
-              <Card key={p.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => onOpen(p.id)}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between"><span className="font-medium text-sm">#{p.id}</span><span className="tabular-nums text-sm">{brl(p.valorvenda)}</span></div>
-                  <div className="text-xs text-muted-foreground truncate mt-1">{p.cliente || '—'}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
-                </CardContent>
-              </Card>
-            ))}
-            {(col.pedidos ?? []).length === 0 && <p className="text-xs text-muted-foreground px-1 py-4 text-center">Vazio</p>}
+        ))}
+
+        {podeCriar && (
+          <div className="w-72 shrink-0">
+            <button onClick={() => setEditar({ descricao: '', efeito: 'PENDENTE', cor: null })}
+              className="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors">
+              <Plus size={20} /> <span className="text-sm font-medium">Nova coluna</span>
+            </button>
           </div>
+        )}
+      </div>
+
+      <SituacaoDialog value={editar} onClose={() => setEditar(null)} />
+      <ConfirmDialog
+        open={!!excluindo} onOpenChange={(o) => !o && setExcluindo(null)}
+        title="Excluir coluna"
+        description={<>Excluir a coluna <strong>{excluindo?.descricao}</strong>? Só é possível se ela não tiver pedidos.</>}
+        loading={excluir.isPending}
+        onConfirm={async () => { try { await excluir.mutateAsync(excluindo!.situacao_id); toast.success('Coluna excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? e?.response?.data?.errors?.situacao?.[0] ?? 'Não foi possível excluir.') } finally { setExcluindo(null) } }}
+      />
+    </>
+  )
+}
+
+const EFEITO_META: Record<EfeitoPedido, { label: string; variant: 'warning' | 'success' | 'destructive' }> = {
+  PENDENTE: { label: 'Pendente', variant: 'warning' },
+  CONCLUIDO: { label: 'Concluído', variant: 'success' },
+  CANCELADO: { label: 'Cancelado', variant: 'destructive' },
+}
+
+/** Badge do status (efeito) da coluna — governa estoque/financeiro na transição. */
+function StatusBadge({ efeito }: { efeito: EfeitoPedido }) {
+  const m = EFEITO_META[efeito] ?? EFEITO_META.PENDENTE
+  return <Badge variant={m.variant}>{m.label}</Badge>
+}
+
+const CORES = ['#FF6200', '#DBFB3B', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#64748B', '#0EA5E9']
+
+/** Cria/edita uma coluna (situação) do Kanban: descrição + status (efeito) + cor. */
+function SituacaoDialog({ value, onClose }: { value: SituacaoForm | null; onClose: () => void }) {
+  const salvar = useSalvarSituacao()
+  const [form, setForm] = useState<SituacaoForm>({ descricao: '', efeito: 'PENDENTE', cor: null })
+
+  useEffect(() => { if (value) setForm(value) }, [value])
+  const set = <K extends keyof SituacaoForm>(k: K, v: SituacaoForm[K]) => setForm((s) => ({ ...s, [k]: v }))
+
+  async function onConfirm() {
+    if (!form.descricao.trim()) { toast.error('Informe o nome da coluna.'); return }
+    try {
+      await salvar.mutateAsync(form)
+      toast.success(form.id ? 'Coluna atualizada.' : 'Coluna criada.')
+      onClose()
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? e?.response?.data?.errors?.descricao?.[0] ?? 'Erro ao salvar a coluna.')
+    }
+  }
+
+  return (
+    <FormDialog open={!!value} onOpenChange={(o) => !o && onClose()} title={form.id ? 'Editar coluna' : 'Nova coluna'} loading={salvar.isPending} onConfirm={onConfirm}>
+      <Field label="Nome da coluna" required><Input autoFocus value={form.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Ex.: Em separação" /></Field>
+      <Field label="Status (efeito na máquina de estados)" required hint="CONCLUÍDO baixa estoque + gera financeiro; CANCELADO estorna. Mudar afeta como os pedidos desta coluna se comportam.">
+        <Select value={form.efeito} onValueChange={(v) => set('efeito', v as EfeitoPedido)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="PENDENTE">Pendente — em aberto</SelectItem>
+            <SelectItem value="CONCLUIDO">Concluído — baixa estoque/financeiro</SelectItem>
+            <SelectItem value="CANCELADO">Cancelado — estorna</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Cor">
+        <div className="flex items-center gap-2 flex-wrap">
+          {CORES.map((c) => (
+            <button key={c} type="button" onClick={() => set('cor', c)} aria-label={`Cor ${c}`}
+              className={`size-7 rounded-full border-2 transition ${form.cor === c ? 'border-foreground scale-110' : 'border-transparent'}`} style={{ background: c }} />
+          ))}
+          <button type="button" onClick={() => set('cor', null)}
+            className={`px-2 h-7 rounded-md border text-xs ${!form.cor ? 'border-foreground' : 'border-border text-muted-foreground'}`}>Sem cor</button>
         </div>
-      ))}
-    </div>
+      </Field>
+    </FormDialog>
   )
 }
 

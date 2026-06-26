@@ -209,6 +209,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Pedidos / Vendas — N4 ── (rotas estáticas antes de /{id})
         Route::get('pedidos/kanban', [PedidoController::class, 'kanban']);
         Route::get('pedidos/situacoes', [PedidoController::class, 'situacoes']);
+        // CRUD das colunas do Kanban (situações) — config por grupo.
+        Route::post('pedidos/situacoes', [PedidoController::class, 'criarSituacao']);
+        Route::put('pedidos/situacoes/{id}', [PedidoController::class, 'atualizarSituacao'])->whereNumber('id');
+        Route::delete('pedidos/situacoes/{id}', [PedidoController::class, 'excluirSituacao'])->whereNumber('id');
         Route::get('pedidos', [PedidoController::class, 'index']);
         Route::post('pedidos', [PedidoController::class, 'store']);
         Route::get('pedidos/{id}', [PedidoController::class, 'show'])->whereNumber('id');

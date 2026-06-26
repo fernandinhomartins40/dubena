@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
+use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
@@ -15,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Pedidos / Vendas — N4. CRUD + kanban + transição de situação (máquina de estados).
@@ -100,6 +102,72 @@ class PedidoController extends Controller
         return response()->json(['data' => PedidoSituacao::query()->where('ativo', true)->orderBy('ordem')->get()]);
     }
 
+    /** POST /pedidos/situacoes — cria uma coluna (situação) do Kanban. */
+    public function criarSituacao(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedidosituacao.create');
+        $dados = $this->validarSituacao($request);
+
+        // Posição no fim do kanban por padrão.
+        $dados['ordem'] = $dados['ordem'] ?? ((int) PedidoSituacao::query()->max('ordem') + 1);
+        $situacao = PedidoSituacao::query()->create($dados);
+
+        return response()->json(['data' => $situacao], 201);
+    }
+
+    /** PUT /pedidos/situacoes/{id} — edita uma coluna do Kanban. */
+    public function atualizarSituacao(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'pedidosituacao.edit');
+        $situacao = PedidoSituacao::query()->findOrFail($id);
+        $situacao->update($this->validarSituacao($request, $id));
+
+        return response()->json(['data' => $situacao->fresh()]);
+    }
+
+    /** DELETE /pedidos/situacoes/{id} — remove uma coluna vazia do Kanban. */
+    public function excluirSituacao(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'pedidosituacao.delete');
+        $situacao = PedidoSituacao::query()->findOrFail($id);
+
+        // Bloqueia exclusão de coluna com pedidos vinculados (evita órfãos; o banco
+        // já tem restrictOnDelete, mas damos a mensagem amigável antes).
+        $vinculados = Pedido::query()->where('pedidosituacao_id', $situacao->id)->count();
+        if ($vinculados > 0) {
+            throw ValidationException::withMessages([
+                'situacao' => "Não é possível excluir: há {$vinculados} pedido(s) nesta coluna. Mova-os para outra coluna antes.",
+            ]);
+        }
+
+        $situacao->delete();
+
+        return response()->json(['message' => 'Coluna excluída.']);
+    }
+
+    /**
+     * Validação compartilhada de situação. `cor` é hex #RRGGBB opcional; `efeito`
+     * governa a máquina de estados (PENDENTE/CONCLUIDO/CANCELADO). `descricao`
+     * é única por grupo (ignora o próprio registro na edição).
+     *
+     * @return array<string, mixed>
+     */
+    private function validarSituacao(Request $request, ?int $ignorarId = null): array
+    {
+        return $request->validate([
+            'descricao' => [
+                'required', 'string', 'max:255',
+                Rule::unique('pedidosituacoes', 'descricao')
+                    ->where(fn ($q) => $q->where('grupo_id', $request->user()->grupo_id))
+                    ->ignore($ignorarId),
+            ],
+            'efeito' => ['required', Rule::enum(EfeitoPedido::class)],
+            'cor' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'ordem' => ['nullable', 'integer', 'min:0'],
+            'ativo' => ['boolean'],
+        ]);
+    }
+
     /** GET /pedidos/kanban — colunas por situação com totais. */
     public function kanban(Request $request): JsonResponse
     {
@@ -115,6 +183,8 @@ class PedidoController extends Controller
             return [
                 'situacao_id' => $s->id,
                 'descricao' => $s->descricao,
+                'efeito' => $s->efeito->value,
+                'cor' => $s->cor,
                 'total' => $pedidos->count(),
                 'valor' => round((float) $pedidos->sum('valor_venda'), 2),
                 'pedidos' => $pedidos->map(fn (Pedido $p) => [
