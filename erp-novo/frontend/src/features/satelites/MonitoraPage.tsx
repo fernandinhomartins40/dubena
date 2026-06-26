@@ -1,9 +1,29 @@
-import { Navigation, Power } from 'lucide-react'
-import { Badge, type Column, ResourceList } from '@/components/ui'
+import { Navigation, Power, MapPin } from 'lucide-react'
+import {
+  Badge, type Column, ResourceList, PageHeader,
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from '@/components/ui'
 import { dataHora } from '@/lib/format'
 import { useUltimasPosicoes, type UltimaPosicao } from './extraApi'
+import { CercasTab } from './CercasTab'
 
 export function MonitoraPage() {
+  return (
+    <div>
+      <PageHeader title="Monitora (GPS)" subtitle="Posições da frota e cercas (geofencing)" />
+      <Tabs defaultValue="posicoes">
+        <TabsList>
+          <TabsTrigger value="posicoes"><Navigation size={15} className="mr-1" /> Posições</TabsTrigger>
+          <TabsTrigger value="cercas"><MapPin size={15} className="mr-1" /> Cercas</TabsTrigger>
+        </TabsList>
+        <TabsContent value="posicoes"><PosicoesTab /></TabsContent>
+        <TabsContent value="cercas"><CercasTab /></TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+function PosicoesTab() {
   const { data, isLoading } = useUltimasPosicoes()
 
   const columns: Column<UltimaPosicao>[] = [
@@ -23,8 +43,8 @@ export function MonitoraPage() {
 
   return (
     <ResourceList
-      title="Monitora (GPS)"
-      subtitle="Últimas posições da frota — atualiza a cada 30s"
+      title="Últimas posições"
+      subtitle="Frota — atualiza a cada 30s"
       columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.veiculo_id}
       emptyIcon={<Navigation />} emptyTitle="Sem posições"
       emptyDescription="Nenhum veículo reportou posição (rastreamento é gate externo)."

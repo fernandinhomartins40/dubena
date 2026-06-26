@@ -40,15 +40,57 @@ class MonitoraTest extends TestCase
         $this->assertEquals('XYZ1234', $resp->json('data.0.placa'));
     }
 
-    public function test_cria_cerca(): void
+    public function test_cria_cerca_poligonal(): void
+    {
+        [$user] = $this->suporte();
+
+        $resp = $this->actingAs($user, 'sanctum')->postJson('/api/admin/monitora/cercas', [
+            'descricao' => 'Pátio', 'cor' => '#FF6200',
+            'pontos' => [
+                ['latitude' => -25.39, 'longitude' => -51.45],
+                ['latitude' => -25.40, 'longitude' => -51.45],
+                ['latitude' => -25.40, 'longitude' => -51.46],
+                ['latitude' => -25.39, 'longitude' => -51.46],
+            ],
+        ])->assertCreated();
+
+        $resp->assertJsonPath('data.descricao', 'Pátio')->assertJsonCount(4, 'data.pontos');
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/monitora/cercas')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonCount(4, 'data.0.pontos');
+    }
+
+    public function test_cerca_exige_ao_menos_3_pontos(): void
     {
         [$user] = $this->suporte();
 
         $this->actingAs($user, 'sanctum')->postJson('/api/admin/monitora/cercas', [
-            'descricao' => 'Pátio', 'centro_lat' => -23.55, 'centro_lng' => -46.63, 'raio_metros' => 150,
-        ])->assertCreated();
+            'descricao' => 'X', 'pontos' => [['latitude' => -25.3, 'longitude' => -51.4]],
+        ])->assertStatus(422)->assertJsonValidationErrorFor('pontos');
+    }
 
-        $this->actingAs($user, 'sanctum')->getJson('/api/admin/monitora/cercas')->assertOk()->assertJsonCount(1, 'data');
+    public function test_atualiza_e_exclui_cerca(): void
+    {
+        [$user] = $this->suporte();
+        $pontos = [
+            ['latitude' => -25.39, 'longitude' => -51.45],
+            ['latitude' => -25.40, 'longitude' => -51.45],
+            ['latitude' => -25.40, 'longitude' => -51.46],
+        ];
+        $id = $this->actingAs($user, 'sanctum')->postJson('/api/admin/monitora/cercas', [
+            'descricao' => 'Antiga', 'pontos' => $pontos,
+        ])->json('data.id');
+
+        // Atualiza descrição + regrava com 4 pontos.
+        $this->actingAs($user, 'sanctum')->putJson("/api/admin/monitora/cercas/{$id}", [
+            'descricao' => 'Nova', 'pontos' => array_merge($pontos, [['latitude' => -25.39, 'longitude' => -51.46]]),
+        ])->assertOk()->assertJsonPath('data.descricao', 'Nova')->assertJsonCount(4, 'data.pontos');
+        $this->assertDatabaseHas('monitora_cercas', ['id' => $id, 'descricao' => 'Nova']);
+        $this->assertSame(4, \App\Models\Monitora\CercaPonto::where('cerca_id', $id)->count());
+
+        // Exclui (vértices em cascata).
+        $this->actingAs($user, 'sanctum')->deleteJson("/api/admin/monitora/cercas/{$id}")->assertOk();
+        $this->assertDatabaseMissing('monitora_cercas', ['id' => $id]);
+        $this->assertSame(0, \App\Models\Monitora\CercaPonto::where('cerca_id', $id)->count());
     }
 
     public function test_sync_endpoint_responde(): void

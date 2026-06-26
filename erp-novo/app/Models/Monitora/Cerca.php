@@ -5,9 +5,12 @@ namespace App\Models\Monitora;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Cerca virtual (geofencing): centro + raio em metros.
+ * Cerca virtual (geofencing). Modelo do legado (ctrl-web): POLÍGONO livre com N
+ * vértices (relação `pontos`), além de cor/setor opcionais. Mantém centro/raio
+ * nullable para um possível modo círculo no futuro.
  */
 class Cerca extends Model
 {
@@ -16,7 +19,7 @@ class Cerca extends Model
 
     protected $table = 'monitora_cercas';
 
-    protected $fillable = ['empresa_id', 'descricao', 'centro_lat', 'centro_lng', 'raio_metros', 'ativo'];
+    protected $fillable = ['empresa_id', 'grupo_id', 'descricao', 'cor', 'setor_id', 'centro_lat', 'centro_lng', 'raio_metros', 'ativo'];
 
     protected function casts(): array
     {
@@ -26,5 +29,11 @@ class Cerca extends Model
             'raio_metros' => 'decimal:2',
             'ativo' => 'boolean',
         ];
+    }
+
+    /** Vértices do polígono, em ordem. */
+    public function pontos(): HasMany
+    {
+        return $this->hasMany(CercaPonto::class)->orderBy('ordem');
     }
 }

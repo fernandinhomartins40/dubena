@@ -10,6 +10,7 @@ use App\Models\Monitora\UltimaPosicao;
 use App\Models\Monitora\Veiculo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Monitora (GPS) — N11. Veículos, ingestão de posição, última posição (mapa),
@@ -89,21 +90,90 @@ class MonitoraController extends Controller
     {
         $this->autorizar($request, 'monitora.view');
 
-        return response()->json(['data' => Cerca::query()->orderBy('descricao')->get()]);
+        return response()->json(['data' => Cerca::query()->with('pontos')->orderBy('descricao')->get()]);
     }
 
+    /** POST /monitora/cercas — cria cerca POLIGONAL (descrição + cor/setor + vértices). */
     public function criarCerca(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.edit');
-        $d = $request->validate([
-            'descricao' => 'required|string|max:255',
-            'centro_lat' => 'required|numeric',
-            'centro_lng' => 'required|numeric',
-            'raio_metros' => 'required|numeric|gt:0',
-        ]);
-        $d['empresa_id'] = $request->user()->empresa_id;
+        $d = $this->validarCerca($request);
 
-        return response()->json(['data' => Cerca::create($d)], 201);
+        $cerca = DB::transaction(function () use ($d, $request) {
+            $cerca = Cerca::create([
+                'empresa_id' => $request->user()->empresa_id,
+                'grupo_id' => $request->user()->grupo_id,
+                'descricao' => $d['descricao'],
+                'cor' => $d['cor'] ?? null,
+                'setor_id' => $d['setor_id'] ?? null,
+                'ativo' => $d['ativo'] ?? true,
+            ]);
+            $this->salvarPontos($cerca, $d['pontos']);
+
+            return $cerca;
+        });
+
+        return response()->json(['data' => $cerca->load('pontos')], 201);
+    }
+
+    /** PUT /monitora/cercas/{id} — atualiza a cerca e regrava os vértices. */
+    public function atualizarCerca(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        $cerca = Cerca::query()->findOrFail($id);
+        $d = $this->validarCerca($request);
+
+        DB::transaction(function () use ($cerca, $d) {
+            $cerca->update([
+                'descricao' => $d['descricao'],
+                'cor' => $d['cor'] ?? null,
+                'setor_id' => $d['setor_id'] ?? null,
+                'ativo' => $d['ativo'] ?? true,
+            ]);
+            $cerca->pontos()->delete();
+            $this->salvarPontos($cerca, $d['pontos']);
+        });
+
+        return response()->json(['data' => $cerca->load('pontos')]);
+    }
+
+    /** DELETE /monitora/cercas/{id} — remove a cerca (vértices em cascata). */
+    public function excluirCerca(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        Cerca::query()->findOrFail($id)->delete();
+
+        return response()->json(['message' => 'Cerca excluída.']);
+    }
+
+    /**
+     * Validação compartilhada. Polígono = ao menos 3 vértices {latitude, longitude}.
+     *
+     * @return array<string, mixed>
+     */
+    private function validarCerca(Request $request): array
+    {
+        return $request->validate([
+            'descricao' => 'required|string|max:255',
+            'cor' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
+            'setor_id' => 'nullable|integer|exists:setores,id',
+            'ativo' => 'boolean',
+            'pontos' => 'required|array|min:3',
+            'pontos.*.latitude' => 'required|numeric|between:-90,90',
+            'pontos.*.longitude' => 'required|numeric|between:-180,180',
+        ]);
+    }
+
+    /** @param  list<array{latitude: mixed, longitude: mixed}>  $pontos */
+    private function salvarPontos(Cerca $cerca, array $pontos): void
+    {
+        $cerca->pontos()->createMany(
+            array_map(fn (array $p, int $i) => [
+                'latitude' => $p['latitude'],
+                'longitude' => $p['longitude'],
+                'ordem' => $i,
+            ], $pontos, array_keys($pontos)),
+        );
     }
 
     /** POST /monitora/sync — dispara o sync com o SGCasa (gate). */

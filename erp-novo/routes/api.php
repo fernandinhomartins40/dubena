@@ -358,6 +358,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('monitora/ultimas-posicoes', [MonitoraController::class, 'ultimasPosicoes']);
         Route::get('monitora/cercas', [MonitoraController::class, 'cercas']);
         Route::post('monitora/cercas', [MonitoraController::class, 'criarCerca']);
+        Route::put('monitora/cercas/{id}', [MonitoraController::class, 'atualizarCerca'])->whereNumber('id');
+        Route::delete('monitora/cercas/{id}', [MonitoraController::class, 'excluirCerca'])->whereNumber('id');
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
 
         // ── Relatórios (Query Services) — N12 ──
