@@ -51,8 +51,21 @@ Automático: qualquer push em `main` que altere `erp-novo/**` dispara
 disparar manualmente em **Actions → Deploy erp-novo (HOMOLOGAÇÃO) → Run workflow**.
 
 O workflow: restaura o `.env` → `build` → `up -d` → `composer install --no-dev`
-→ `migrate --force` (no banco próprio) → `config:cache` → health check em
+→ `migrate --force` (no banco próprio) → **seed** → `config:cache` → health check em
 `http://127.0.0.1:3120/up`.
+
+### Migrations e seeds no deploy
+
+- **Migrations**: `migrate --force` roda **toda vez** e aplica automaticamente
+  qualquer migration nova (atuais e futuras) — sem editar o workflow.
+- **Seed base (sempre)**: `db:seed --class=DeploySeeder` — idempotente
+  (admin/empresa + RBAC). É aqui que **permissões novas** entram no catálogo a
+  cada deploy. Para incluir futuros seeders idempotentes no deploy, adicione-os
+  em `database/seeders/DeploySeeder.php` (não precisa mexer no workflow).
+- **Massa demo (só 1º deploy)**: `DemoGuarapuavaSeeder` roda **apenas com o banco
+  vazio** (sem clientes). Tem guard interno (pula se já populado), então é seguro.
+  Para repopular do zero: rodar `php artisan migrate:fresh --seed` no container
+  (apaga e recria — só em homolog/dev, nunca produção).
 
 ## Verificação
 

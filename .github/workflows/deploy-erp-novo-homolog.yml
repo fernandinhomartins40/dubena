@@ -95,11 +95,30 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app php artisan optimize:clear
           docker compose -f docker-compose.homolog.yml exec -T app php artisan config:cache
 
-      - name: Seed — admin + empresa inicial (idempotente)
+      - name: Seed base — DeploySeeder (idempotente, todo deploy)
         run: |
-          # O banco novo nasce vazio; sem usuário não há login na SPA. Idempotente.
+          # Sempre roda: admin/empresa + RBAC (catálogo de permissões atualizado;
+          # chaves novas entram automaticamente). Para adicionar futuros seeders
+          # idempotentes ao deploy, edite database/seeders/DeploySeeder.php — NÃO
+          # é preciso mexer neste workflow.
           docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan db:seed --class='Database\Seeders\DeployAdminSeeder' --force
+            php artisan db:seed --class='Database\Seeders\DeploySeeder' --force
+
+      - name: Seed massa demo (Guarapuava) — só no 1º deploy (banco vazio)
+        run: |
+          # A massa demo (200 clientes/500 pedidos) NÃO é idempotente por volume.
+          # Roda apenas quando ainda não há clientes (1º deploy / após reset).
+          # O próprio seeder tem um guard interno, mas evitamos até iniciar o processo.
+          clientes=$(docker compose -f docker-compose.homolog.yml exec -T app \
+            php artisan tinker --execute='echo \App\Models\Cliente\Cliente::withoutTenant()->count();' 2>/dev/null | tr -dc '0-9' || echo 0)
+          echo "Clientes existentes: ${clientes:-0}"
+          if [ "${clientes:-0}" -gt 0 ]; then
+            echo "Banco já populado — pulando massa demo."
+          else
+            echo "Banco vazio — populando massa demo de Guarapuava."
+            docker compose -f docker-compose.homolog.yml exec -T app \
+              php artisan db:seed --class='Database\Seeders\DemoGuarapuavaSeeder' --force
+          fi
 
       - name: Normalizar dono do storage (www-data) — após os artisan
         run: |

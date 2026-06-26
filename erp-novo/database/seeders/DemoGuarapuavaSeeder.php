@@ -91,12 +91,22 @@ class DemoGuarapuavaSeeder extends Seeder
 
     public function run(): void
     {
+        // Base idempotente (admin/empresa + RBAC) — sempre garantida.
         $this->call(DeployAdminSeeder::class);
         $this->call(RbacSeeder::class);
 
         $this->empresa = Empresa::query()->orderBy('id')->firstOrFail();
         $this->grupoId = (int) $this->empresa->grupo_id;
         app(TenantContext::class)->set($this->empresa->id, $this->grupoId);
+
+        // GUARD de idempotência: a massa demo NÃO é idempotente por volume
+        // (usa create() em laços). Se o banco já tem massa, não repopula —
+        // assim é seguro rodar em qualquer deploy. Para recriar: migrate:fresh.
+        if (Cliente::withoutTenant()->count() > 50) {
+            $this->command?->info('DemoGuarapuavaSeeder: banco já populado — pulando massa demo (apenas admin/RBAC garantidos).');
+
+            return;
+        }
 
         $this->geo = require database_path('seeders/data/guarapuava.php');
         mt_srand(2025); // determinístico: mesma massa a cada reset
