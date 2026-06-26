@@ -90,7 +90,10 @@ jobs:
         run: |
           docker compose -f docker-compose.homolog.yml exec -T app sh -c \
             'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
-          docker compose -f docker-compose.homolog.yml exec -T app php artisan migrate --force
+          # Migrations rodam com a conexão de OWNER (cria tabelas/policies/roles).
+          # O RUNTIME usa a role restrita erp_app (NOSUPERUSER/NOBYPASSRLS) p/ a RLS
+          # valer. DB_OWNER_* cai no DB_USERNAME se não definido (seguro por padrão).
+          docker compose -f docker-compose.homolog.yml exec -T app php artisan migrate --force --database=pgsql_owner
           # Limpa caches antes; config:cache por último (SPA é estática, não depende disto).
           docker compose -f docker-compose.homolog.yml exec -T app php artisan optimize:clear
           docker compose -f docker-compose.homolog.yml exec -T app php artisan config:cache

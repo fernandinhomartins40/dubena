@@ -100,6 +100,30 @@ return [
         ],
 
         /*
+        | Conexão de OWNER do banco — usada SÓ por migrations e tarefas DDL (criar
+        | tabelas/policies/roles). A role dona pode ser SUPERUSER; por isso o RUNTIME
+        | NÃO deve usá-la (superuser ignora RLS). Em runtime a conexão `pgsql` usa a
+        | role restrita `erp_app` (NOSUPERUSER/NOBYPASSRLS), para a RLS valer.
+        | Deploy: `php artisan migrate --database=pgsql_owner`.
+        | Cai nas mesmas credenciais do `pgsql` se os DB_OWNER_* não forem definidos
+        | (ex.: ambientes de 1 role só / dev) — comportamento seguro por padrão.
+        */
+        'pgsql_owner' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_OWNER_URL', env('DB_URL')),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_OWNER_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('DB_OWNER_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
+        /*
         | Conexão de LEITURA do banco LEGADO (ctrl-web em produção/staging).
         | Usada APENAS pelo ETL (app/Etl) para ler o dump e migrar para o schema
         | novo. NUNCA escrever aqui. Configurada via LEGADO_* no .env.

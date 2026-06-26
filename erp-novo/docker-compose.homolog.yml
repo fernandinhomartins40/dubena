@@ -51,9 +51,13 @@ services:
     container_name: erpnovo-db
     restart: unless-stopped
     environment:
+      # O Postgres é INICIALIZADO com a role OWNER (dona do schema, cria tabelas).
+      # O RUNTIME da app NÃO usa esta role — conecta com a role restrita erp_app
+      # (NOSUPERUSER/NOBYPASSRLS), senão o Row-Level Security é ignorado e os dados
+      # vazariam entre empresas. Fallback p/ DB_USERNAME mantém bancos já existentes.
       POSTGRES_DB: ${DB_DATABASE:-erp_novo}
-      POSTGRES_USER: ${DB_USERNAME:-erp}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-${DB_USERNAME:-erp}}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?defina DB_OWNER_PASSWORD no .env}
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:

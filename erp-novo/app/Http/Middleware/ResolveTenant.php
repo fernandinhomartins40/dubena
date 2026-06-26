@@ -21,9 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveTenant
 {
-    public function __construct(private TenantContext $tenant)
-    {
-    }
+    public function __construct(private TenantContext $tenant) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -45,7 +43,7 @@ class ResolveTenant
 
             if ($empresaId > 0 && $grupoId > 0) {
                 $this->tenant->set($empresaId, $grupoId);
-                $this->setRlsEmpresa($empresaId);
+                $this->setRlsTenant($empresaId, $grupoId);
             }
         }
 
@@ -53,16 +51,20 @@ class ResolveTenant
     }
 
     /**
-     * Define `app.empresa_id` na sessão do Postgres para alimentar as policies de
-     * RLS (F02.5). É a 2ª barreira: mesmo uma query crua só vê linhas da empresa
-     * ativa. NO-OP fora do pgsql. set_config(..., false) = escopo de sessão.
+     * Define `app.empresa_id` e `app.grupo_id` na sessão do Postgres para alimentar
+     * as policies de RLS. É a 2ª barreira: mesmo uma query crua só vê linhas do
+     * tenant ativo — empresa (tabelas operacionais) e grupo (cadastros de apoio
+     * compartilhados). NO-OP fora do pgsql. set_config(..., false) = escopo de sessão.
      */
-    private function setRlsEmpresa(int $empresaId): void
+    private function setRlsTenant(int $empresaId, int $grupoId): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
             return;
         }
 
-        DB::statement('SELECT set_config(?, ?, false)', ['app.empresa_id', (string) $empresaId]);
+        DB::statement('SELECT set_config(?, ?, false), set_config(?, ?, false)', [
+            'app.empresa_id', (string) $empresaId,
+            'app.grupo_id', (string) $grupoId,
+        ]);
     }
 }

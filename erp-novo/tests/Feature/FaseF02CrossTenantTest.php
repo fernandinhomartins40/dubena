@@ -4,11 +4,18 @@ namespace Tests\Feature;
 
 use App\Domain\Caixa\CaixaService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PedidoService;
+use App\Domain\Tenant\TenantContext;
 use App\Models\Caixa\ContaMovimento;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Models\Fiscal\ConfigFiscal;
+use App\Models\Mobile\AppDevice;
 use App\Models\Pedido\PedidoItem;
+use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -84,7 +91,7 @@ class FaseF02CrossTenantTest extends TestCase
 
         // Com o tenant B ativo, a parcela de A não existe no escopo.
         $this->actingAs($userB, 'sanctum')->withHeader('X-Empresa-Id', (string) $empresaB->id);
-        app(\App\Domain\Tenant\TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
+        app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
 
         $this->assertNull(FinanceiroParcela::query()->find($parcelaA->id));
         $this->assertNotNull(FinanceiroParcela::withoutTenant()->find($parcelaA->id));
@@ -102,19 +109,19 @@ class FaseF02CrossTenantTest extends TestCase
         $this->assertSame($empresaA->id, (int) $movA->empresa_id);
 
         // Tenant B ativo não enxerga o movimento de A.
-        app(\App\Domain\Tenant\TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
+        app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
         $this->assertNull(ContaMovimento::query()->find($movA->id));
     }
 
     public function test_pedido_item_herda_empresa_do_pedido(): void
     {
         [, $empresa] = $this->tenant();
-        $situacao = \App\Models\Pedido\PedidoSituacao::factory()->create([
-            'grupo_id' => $empresa->grupo_id, 'efeito' => \App\Domain\Pedido\EfeitoPedido::PENDENTE,
+        $situacao = PedidoSituacao::factory()->create([
+            'grupo_id' => $empresa->grupo_id, 'efeito' => EfeitoPedido::PENDENTE,
         ]);
-        $produto = \App\Models\Produto\Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'preco_venda' => 50]);
+        $produto = Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'preco_venda' => 50]);
 
-        $pedido = app(\App\Domain\Pedido\PedidoService::class)->criar([
+        $pedido = app(PedidoService::class)->criar([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
             'cliente_id' => Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id])->id,
             'pedidosituacao_id' => $situacao->id,
@@ -123,6 +130,46 @@ class FaseF02CrossTenantTest extends TestCase
         $item = PedidoItem::withoutTenant()->where('pedido_id', $pedido->id)->first();
         $this->assertNotNull($item);
         $this->assertSame($empresa->id, (int) $item->empresa_id, 'PedidoItem deve herdar empresa_id do pedido.');
+    }
+
+    public function test_config_fiscal_csc_nao_vaza_entre_empresas(): void
+    {
+        [, $empresaA] = $this->tenant();
+        [$userB, $empresaB] = $this->tenant();
+
+        // Config fiscal (com CSC, segredo NFC-e) da empresa A.
+        ConfigFiscal::withoutTenant()->create([
+            'empresa_id' => $empresaA->id, 'ambiente' => 2, 'csc_id' => '001', 'csc_token' => 'SEGREDO-A',
+        ]);
+
+        // Tenant B ativo: a config de A é invisível; firstOrCreate cria a DELE, não a de A.
+        app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
+        $this->actingAs($userB, 'sanctum')->withHeader('X-Empresa-Id', (string) $empresaB->id);
+
+        $this->assertNull(
+            ConfigFiscal::query()->where('csc_token', 'SEGREDO-A')->first(),
+            'CSC fiscal da empresa A vazou para o tenant B.'
+        );
+
+        $config = ConfigFiscal::firstOrCreate(['empresa_id' => $empresaB->id]);
+        $this->assertSame($empresaB->id, (int) $config->empresa_id);
+        $this->assertNotSame('SEGREDO-A', $config->csc_token);
+    }
+
+    public function test_app_device_nao_vaza_entre_empresas(): void
+    {
+        [, $empresaA] = $this->tenant();
+        [, $empresaB] = $this->tenant();
+
+        $userMobile = User::factory()->create(['empresa_id' => $empresaA->id, 'grupo_id' => $empresaA->grupo_id]);
+        AppDevice::withoutTenant()->create([
+            'user_id' => $userMobile->id, 'empresa_id' => $empresaA->id, 'device_id' => 'dev-A', 'ativo' => true,
+        ]);
+
+        // Tenant B ativo não enxerga o device registrado sob a empresa A.
+        app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
+        $this->assertNull(AppDevice::query()->where('device_id', 'dev-A')->first());
+        $this->assertNotNull(AppDevice::withoutTenant()->where('device_id', 'dev-A')->first());
     }
 
     public function test_cadastros_de_apoio_isolam_por_grupo(): void
