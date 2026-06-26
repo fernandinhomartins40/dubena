@@ -61,6 +61,12 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   const dragCol = useRef<number | null>(null)
   const dragCard = useRef<ArrastoCard | null>(null)
 
+  // Feedback visual do DnD (re-renderiza, ao contrário dos refs acima):
+  // card em arraste, coluna sob o cursor e índice de inserção (placeholder).
+  const [cardArrastando, setCardArrastando] = useState<number | null>(null)
+  const [colArrastando, setColArrastando] = useState<number | null>(null)
+  const [alvo, setAlvo] = useState<{ situacao: number; indice: number } | null>(null)
+
   const podeCriar = can('pedidosituacao.create')
   const podeEditar = can('pedidosituacao.edit')
   const podeExcluir = can('pedidosituacao.delete')
@@ -68,18 +74,27 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
 
   if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
 
+  /** Limpa todo o estado visual de arraste. */
+  function limparArraste() {
+    dragCol.current = null
+    dragCard.current = null
+    setCardArrastando(null)
+    setColArrastando(null)
+    setAlvo(null)
+  }
+
   /** Reordena colunas localmente e persiste. */
   function soltarColuna(alvoId: number) {
     const origemId = dragCol.current
-    dragCol.current = null
-    if (origemId == null || origemId === alvoId) return
+    if (origemId == null || origemId === alvoId) { limparArraste(); return }
     const atual = [...colunas]
     const de = atual.findIndex((c) => c.situacao_id === origemId)
     const para = atual.findIndex((c) => c.situacao_id === alvoId)
-    if (de < 0 || para < 0) return
+    if (de < 0 || para < 0) { limparArraste(); return }
     const [item] = atual.splice(de, 1)
     atual.splice(para, 0, item)
     setColunas(atual)
+    limparArraste()
     reordenar.mutate(atual.map((c) => c.situacao_id), {
       onError: () => toast.error('Não foi possível salvar a ordem.'),
     })
@@ -88,7 +103,7 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   /** Move card; pede confirmação se o destino concretiza/cancela (mexe em estoque/financeiro). */
   async function moverCardPara(destino: KanbanColuna) {
     const arrasto = dragCard.current
-    dragCard.current = null
+    limparArraste()
     if (!arrasto || arrasto.deSituacao === destino.situacao_id) return
     const origem = colunas.find((c) => c.situacao_id === arrasto.deSituacao)
     const pedido = origem?.pedidos.find((p) => p.id === arrasto.pedidoId)
@@ -109,19 +124,29 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   return (
     <>
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {colunas.map((col: KanbanColuna) => (
+        {colunas.map((col: KanbanColuna) => {
+          const arrastandoCard = cardArrastando !== null
+          const colDestaque = arrastandoCard && alvo?.situacao === col.situacao_id
+          const colReorder = colArrastando !== null && colArrastando !== col.situacao_id
+          const pedidos = col.pedidos ?? []
+          const indiceAlvo = colDestaque ? alvo!.indice : -1
+          return (
           <div
             key={col.situacao_id}
-            className="w-72 shrink-0"
-            onDragOver={(e) => { if (dragCard.current || dragCol.current != null) e.preventDefault() }}
+            className={`w-72 shrink-0 rounded-xl transition-colors ${colReorder ? 'ring-2 ring-primary/30' : ''}`}
+            onDragOver={(e) => {
+              if (dragCard.current || dragCol.current != null) e.preventDefault()
+              // Card sobre área vazia da coluna → inserir no fim.
+              if (dragCard.current) setAlvo({ situacao: col.situacao_id, indice: pedidos.length })
+            }}
             onDrop={() => { if (dragCard.current) moverCardPara(col); else if (dragCol.current != null) soltarColuna(col.situacao_id) }}
           >
             <div
-              className="mb-2 rounded-lg border border-border bg-card"
+              className={`mb-2 rounded-lg border border-border bg-card transition-shadow ${colArrastando === col.situacao_id ? 'opacity-50' : ''}`}
               style={col.cor ? { borderTopColor: col.cor, borderTopWidth: 3 } : undefined}
               draggable={podeEditar}
-              onDragStart={() => { dragCol.current = col.situacao_id }}
-              onDragEnd={() => { dragCol.current = null }}
+              onDragStart={() => { dragCol.current = col.situacao_id; setColArrastando(col.situacao_id) }}
+              onDragEnd={limparArraste}
             >
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className={`flex items-center gap-2 min-w-0 ${podeEditar ? 'cursor-grab active:cursor-grabbing' : ''}`}>
@@ -144,14 +169,27 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
               </div>
               <div className="px-3 pb-2 text-xs text-muted-foreground tabular-nums">{brl(col.valor)}</div>
             </div>
-            <div className="space-y-2 min-h-[60px]">
-              {(col.pedidos ?? []).map((p) => (
+            <div className={`flex flex-col gap-2 min-h-[80px] rounded-lg p-1 transition-colors ${colDestaque ? 'bg-primary/5 ring-2 ring-primary/40 ring-inset' : ''}`}>
+              {pedidos.map((p, idx) => [
+                indiceAlvo === idx ? <Placeholder key={`ph-${idx}`} /> : null,
                 <Card
                   key={p.id}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                  className={`cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all duration-150 ${cardArrastando === p.id ? 'opacity-40 scale-[0.97] rotate-1 ring-2 ring-primary shadow-lg' : ''}`}
                   draggable={podeMover}
-                  onDragStart={(e) => { dragCard.current = { pedidoId: p.id, deSituacao: col.situacao_id }; e.dataTransfer.effectAllowed = 'move' }}
-                  onDragEnd={() => { dragCard.current = null }}
+                  onDragStart={(e) => {
+                    dragCard.current = { pedidoId: p.id, deSituacao: col.situacao_id }
+                    e.dataTransfer.effectAllowed = 'move'
+                    setCardArrastando(p.id)
+                  }}
+                  onDragEnd={limparArraste}
+                  onDragOver={(e) => {
+                    if (!dragCard.current) return
+                    e.preventDefault(); e.stopPropagation()
+                    // Antes ou depois deste card conforme a metade do cursor.
+                    const r = e.currentTarget.getBoundingClientRect()
+                    const depois = e.clientY > r.top + r.height / 2
+                    setAlvo({ situacao: col.situacao_id, indice: idx + (depois ? 1 : 0) })
+                  }}
                   onClick={() => onOpen(p.id)}
                 >
                   <CardContent className="p-3">
@@ -159,12 +197,18 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                     <div className="text-xs text-muted-foreground truncate mt-1">{p.cliente || '—'}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
                   </CardContent>
-                </Card>
-              ))}
-              {(col.pedidos ?? []).length === 0 && <p className="text-xs text-muted-foreground px-1 py-6 text-center">Vazio</p>}
+                </Card>,
+              ])}
+              {indiceAlvo === pedidos.length && pedidos.length > 0 && <Placeholder />}
+              {pedidos.length === 0 && (
+                colDestaque
+                  ? <Placeholder />
+                  : <p className="text-xs text-muted-foreground px-1 py-6 text-center">Vazio</p>
+              )}
             </div>
           </div>
-        ))}
+          )
+        })}
 
         {podeCriar && (
           <div className="w-72 shrink-0">
@@ -210,6 +254,11 @@ const EFEITO_META: Record<EfeitoPedido, { label: string; variant: 'warning' | 's
 function StatusBadge({ efeito }: { efeito: EfeitoPedido }) {
   const m = EFEITO_META[efeito] ?? EFEITO_META.PENDENTE
   return <Badge variant={m.variant}>{m.label}</Badge>
+}
+
+/** Espaço "fantasma" que abre na coluna mostrando onde o card vai cair. */
+function Placeholder() {
+  return <div className="h-16 rounded-lg border-2 border-dashed border-primary/60 bg-primary/10 animate-pulse" />
 }
 
 const CORES = ['#FF6200', '#DBFB3B', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#64748B', '#0EA5E9']
