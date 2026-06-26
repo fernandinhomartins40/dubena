@@ -104,18 +104,21 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app \
             php artisan db:seed --class='Database\Seeders\DeploySeeder' --force
 
-      - name: Seed massa demo (Guarapuava) — só no 1º deploy (banco vazio)
+      - name: Seed massa demo (Guarapuava) — quando o banco ainda não está populado
         run: |
           # A massa demo (200 clientes/500 pedidos) NÃO é idempotente por volume.
-          # Roda apenas quando ainda não há clientes (1º deploy / após reset).
-          # O próprio seeder tem um guard interno, mas evitamos até iniciar o processo.
+          # Roda quando há POUCOS clientes (<=50): cobre o 1º deploy e também o caso
+          # de só haver resíduo de seeds antigos (ex.: 6 do GuarapuavaMapaSeeder).
+          # Acima disso considera-se populado e pula. Mesmo limiar do guard interno
+          # do seeder (proteção dupla — nunca duplica os 200).
           clientes=$(docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan tinker --execute='echo \App\Models\Cliente\Cliente::withoutTenant()->count();' 2>/dev/null | tr -dc '0-9' || echo 0)
-          echo "Clientes existentes: ${clientes:-0}"
-          if [ "${clientes:-0}" -gt 0 ]; then
-            echo "Banco já populado — pulando massa demo."
+            php artisan tinker --execute='echo \App\Models\Cliente\Cliente::withoutTenant()->count();' 2>/dev/null | tr -dc '0-9')
+          clientes=${clientes:-0}
+          echo "Clientes existentes: $clientes"
+          if [ "$clientes" -gt 50 ]; then
+            echo "Banco já populado ($clientes clientes) — pulando massa demo."
           else
-            echo "Banco vazio — populando massa demo de Guarapuava."
+            echo "Banco com poucos dados ($clientes) — populando massa demo de Guarapuava."
             docker compose -f docker-compose.homolog.yml exec -T app \
               php artisan db:seed --class='Database\Seeders\DemoGuarapuavaSeeder' --force
           fi
