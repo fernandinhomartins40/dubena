@@ -133,7 +133,10 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
           return (
           <div
             key={col.situacao_id}
-            className={`w-72 shrink-0 rounded-xl transition-colors ${colReorder ? 'ring-2 ring-primary/30' : ''}`}
+            className={`flex w-80 shrink-0 flex-col rounded-xl border border-border bg-muted/40 shadow-sm transition-all
+              ${colReorder ? 'ring-2 ring-primary/40' : ''}
+              ${colDestaque ? 'ring-2 ring-primary bg-primary/5' : ''}
+              ${colArrastando === col.situacao_id ? 'opacity-50' : ''}`}
             onDragOver={(e) => {
               if (dragCard.current || dragCol.current != null) e.preventDefault()
               // Card sobre área vazia da coluna → inserir no fim.
@@ -141,21 +144,22 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
             }}
             onDrop={() => { if (dragCard.current) moverCardPara(col); else if (dragCol.current != null) soltarColuna(col.situacao_id) }}
           >
+            {/* Cabeçalho da coluna — faixa de cor no topo + título/contador/ações */}
             <div
-              className={`mb-2 rounded-lg border border-border bg-card transition-shadow ${colArrastando === col.situacao_id ? 'opacity-50' : ''}`}
-              style={col.cor ? { borderTopColor: col.cor, borderTopWidth: 3 } : undefined}
+              className={`rounded-t-xl border-b border-border ${podeEditar ? 'cursor-grab active:cursor-grabbing' : ''}`}
+              style={{ borderTop: `3px solid ${col.cor ?? 'hsl(var(--border))'}` }}
               draggable={podeEditar}
               onDragStart={() => { dragCol.current = col.situacao_id; setColArrastando(col.situacao_id) }}
               onDragEnd={limparArraste}
             >
-              <div className="flex items-center justify-between gap-2 px-3 py-2">
-                <div className={`flex items-center gap-2 min-w-0 ${podeEditar ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: col.cor ?? 'var(--muted-foreground)' }} />
-                  <span className="font-medium text-sm truncate">{col.descricao}</span>
-                  <StatusBadge efeito={col.efeito} />
+              <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: col.cor ?? 'hsl(var(--muted-foreground))' }} />
+                  <span className="font-semibold text-sm truncate">{col.descricao}</span>
+                  <Badge variant="secondary" className="shrink-0 tabular-nums">{col.total}</Badge>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Badge variant="secondary">{col.total}</Badge>
+                  <StatusBadge efeito={col.efeito} />
                   {(podeEditar || podeExcluir) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-7"><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>
@@ -167,14 +171,16 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                   )}
                 </div>
               </div>
-              <div className="px-3 pb-2 text-xs text-muted-foreground tabular-nums">{brl(col.valor)}</div>
+              <div className="px-3 pb-2.5 pt-1 text-xs text-muted-foreground tabular-nums">{brl(col.valor)}</div>
             </div>
-            <div className={`flex flex-col gap-2 min-h-[80px] rounded-lg p-1 transition-colors ${colDestaque ? 'bg-primary/5 ring-2 ring-primary/40 ring-inset' : ''}`}>
+
+            {/* Corpo da coluna — área rolável com os cards dentro */}
+            <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2 min-h-[120px] max-h-[calc(100vh-19rem)]">
               {pedidos.map((p, idx) => [
                 indiceAlvo === idx ? <Placeholder key={`ph-${idx}`} /> : null,
                 <Card
                   key={p.id}
-                  className={`cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all duration-150 ${cardArrastando === p.id ? 'opacity-40 scale-[0.97] rotate-1 ring-2 ring-primary shadow-lg' : ''}`}
+                  className={`shrink-0 cursor-grab active:cursor-grabbing border-border bg-card shadow-sm hover:border-primary/60 hover:shadow-md transition-all duration-150 ${cardArrastando === p.id ? 'opacity-40 scale-[0.97] rotate-1 ring-2 ring-primary shadow-lg' : ''}`}
                   draggable={podeMover}
                   onDragStart={(e) => {
                     dragCard.current = { pedidoId: p.id, deSituacao: col.situacao_id }
@@ -193,9 +199,9 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                   onClick={() => onOpen(p.id)}
                 >
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between"><span className="font-medium text-sm">#{p.id}</span><span className="tabular-nums text-sm">{brl(p.valorvenda)}</span></div>
-                    <div className="text-xs text-muted-foreground truncate mt-1">{p.cliente || '—'}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
+                    <div className="flex items-center justify-between"><span className="font-semibold text-sm">#{p.id}</span><span className="tabular-nums text-sm font-medium">{brl(p.valorvenda)}</span></div>
+                    <div className="text-xs text-muted-foreground truncate mt-1.5">{p.cliente || '—'}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
                   </CardContent>
                 </Card>,
               ])}
@@ -203,7 +209,7 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
               {pedidos.length === 0 && (
                 colDestaque
                   ? <Placeholder />
-                  : <p className="text-xs text-muted-foreground px-1 py-6 text-center">Vazio</p>
+                  : <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 py-8 text-xs text-muted-foreground">Sem pedidos</div>
               )}
             </div>
           </div>
@@ -211,9 +217,9 @@ function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
         })}
 
         {podeCriar && (
-          <div className="w-72 shrink-0">
+          <div className="w-80 shrink-0">
             <button onClick={() => setEditar({ descricao: '', efeito: 'PENDENTE', cor: null })}
-              className="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors">
+              className="flex h-full min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground hover:border-primary/50 hover:bg-muted/40 hover:text-foreground transition-colors">
               <Plus size={20} /> <span className="text-sm font-medium">Nova coluna</span>
             </button>
           </div>
