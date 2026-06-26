@@ -16,7 +16,9 @@ class PedidoSituacaoFactory extends Factory
     {
         return [
             'grupo_id' => Grupo::factory(),
-            'descricao' => fake()->word(),
+            // único: a tabela tem UNIQUE (grupo_id, descricao); fake()->word() puro
+            // colide quando o teste cria várias situações no mesmo grupo.
+            'descricao' => ucfirst(fake()->unique()->word()),
             'efeito' => EfeitoPedido::PENDENTE->value,
             'ativo' => true,
         ];
