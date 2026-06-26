@@ -85,6 +85,7 @@ export function useExcluirCerca() {
   })
 }
 
-/** Chave do Google Maps (config global) — necessária para o mapa de cercas. */
+/** Chave do Google Maps (config global) — necessária para o mapa de cercas.
+ *  O endpoint embrulha em { data: {...} }: o valor vem em response.data.data. */
 export const useGoogleMapsKey = () =>
-  useQuery<string | null>({ queryKey: ['google-maps-key'], staleTime: Infinity, queryFn: async () => (await api.get('/config-global')).data?.google_maps_key ?? null })
+  useQuery<string | null>({ queryKey: ['google-maps-key'], staleTime: Infinity, queryFn: async () => (await api.get('/config-global')).data?.data?.google_maps_key ?? null })
