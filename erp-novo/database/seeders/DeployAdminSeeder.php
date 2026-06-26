@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Hash;
  * O banco novo nasce vazio; sem um usuário não há login na SPA. Cria um grupo +
  * empresa-matriz + usuário admin (support = bypass de RBAC). Credenciais via env
  * (ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD); defaults trocáveis após o 1º acesso.
+ *
+ * É o admin que recebe a massa de demonstração (DemoGuarapuavaSeeder popula a
+ * empresa-matriz); o botão de autopreenchimento da SPA usa estas credenciais.
  */
 class DeployAdminSeeder extends Seeder
 {

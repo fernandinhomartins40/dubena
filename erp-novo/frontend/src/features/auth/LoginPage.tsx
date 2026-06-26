@@ -6,8 +6,9 @@ import { useAuth } from '@/lib/auth'
 
 const EMAIL_KEY = 'erpnovo_lembrar_email'
 
-// Credenciais do acesso de demonstração (mesmas exibidas na landing).
-const DEMO = { email: 'teste@gasemcasa.com', senha: 'teste1234' }
+// Credenciais do acesso de demonstração — admin da empresa-matriz, que é quem
+// recebe a massa de dados (DeployAdminSeeder + DemoGuarapuavaSeeder).
+const DEMO = { email: 'admin@gasemcasa.com', senha: 'admin1234' }
 
 export function LoginPage() {
   const { login } = useAuth()
