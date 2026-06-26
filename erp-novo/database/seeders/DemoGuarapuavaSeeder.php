@@ -388,8 +388,8 @@ class DemoGuarapuavaSeeder extends Seeder
                 'empresa_id' => $this->empresa->id, 'grupo_id' => $this->grupoId,
                 'cargo_id' => $cargos ? $this->pick($cargos) : null,
                 'nome' => $this->nomePessoa(),
-                'cpf' => $this->cpf(),
-                'telefone' => $this->celular(),
+                'cpf' => $this->cpfNum(),
+                'telefone' => $this->foneNum(),
                 'data_nascimento' => Carbon::now()->subYears(mt_rand(20, 55))->subDays(mt_rand(0, 360)),
                 'data_admissao' => Carbon::now()->subMonths(mt_rand(1, 60)),
                 'data_desligamento' => $i % 14 === 0 ? Carbon::now()->subMonths(mt_rand(1, 6)) : null,
@@ -703,9 +703,16 @@ class DemoGuarapuavaSeeder extends Seeder
         return substr($s, 0, 12);
     }
 
+    /** CPF formatado (14 chars) — p/ colunas largas (clientes.cpf varchar(20)). */
     private function cpf(): string
     {
         return sprintf('%03d.%03d.%03d-%02d', mt_rand(0, 999), mt_rand(0, 999), mt_rand(0, 999), mt_rand(0, 99));
+    }
+
+    /** CPF só dígitos (11 chars) — p/ colunas estreitas (colaboradores.cpf varchar(11)). */
+    private function cpfNum(): string
+    {
+        return sprintf('%011d', mt_rand(0, 99999999999));
     }
 
     private function cnpj(): string
@@ -713,9 +720,16 @@ class DemoGuarapuavaSeeder extends Seeder
         return sprintf('%02d.%03d.%03d/0001-%02d', mt_rand(0, 99), mt_rand(0, 999), mt_rand(0, 999), mt_rand(0, 99));
     }
 
+    /** Celular formatado (15 chars) — p/ colunas largas (cliente/telefones varchar 20-30). */
     private function celular(): string
     {
         return sprintf('(42) 9%04d-%04d', mt_rand(0, 9999), mt_rand(0, 9999));
+    }
+
+    /** Telefone só dígitos (11 chars) — p/ colunas estreitas (colaboradores.telefone varchar(11)). */
+    private function foneNum(): string
+    {
+        return sprintf('429%08d', mt_rand(0, 99999999));
     }
 
     private function placa(): string
