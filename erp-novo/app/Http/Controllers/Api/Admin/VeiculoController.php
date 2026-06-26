@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Frota\VeiculoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Frota\Veiculo;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,6 +17,8 @@ use Illuminate\Http\Request;
  */
 class VeiculoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private VeiculoService $service) {}
 
     public function index(Request $request): JsonResponse
@@ -184,10 +187,5 @@ class VeiculoController extends Controller
             'km_ultima_troca_oleo' => 'nullable|integer|min:0',
             'ativo' => 'nullable|boolean',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

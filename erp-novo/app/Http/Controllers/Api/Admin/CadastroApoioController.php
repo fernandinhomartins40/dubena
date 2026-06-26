@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Apoio\CadastroApoioRegistry;
 use App\Domain\Apoio\CadastroApoioService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,16 +16,17 @@ use Illuminate\Http\Request;
  */
 class CadastroApoioController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(
         private CadastroApoioRegistry $registry,
         private CadastroApoioService $service,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request, string $tipo): JsonResponse
     {
         $cfg = $this->registry->config($tipo);
-        $this->autorizar($request, $cfg['modulo'], 'view');
+        $this->autorizar($request, "{$cfg['modulo']}.view");
 
         $rows = $this->service->listar($tipo, trim((string) $request->query('q', '')) ?: null);
 
@@ -34,7 +36,7 @@ class CadastroApoioController extends Controller
     public function store(Request $request, string $tipo): JsonResponse
     {
         $cfg = $this->registry->config($tipo);
-        $this->autorizar($request, $cfg['modulo'], 'create');
+        $this->autorizar($request, "{$cfg['modulo']}.create");
 
         $dados = $this->validar($request, $cfg['extras']);
         $registro = $this->service->criar($tipo, $dados);
@@ -45,7 +47,7 @@ class CadastroApoioController extends Controller
     public function update(Request $request, string $tipo, int $id): JsonResponse
     {
         $cfg = $this->registry->config($tipo);
-        $this->autorizar($request, $cfg['modulo'], 'edit');
+        $this->autorizar($request, "{$cfg['modulo']}.edit");
 
         $dados = $this->validar($request, $cfg['extras']);
         $registro = $this->service->atualizar($tipo, $id, $dados);
@@ -56,7 +58,7 @@ class CadastroApoioController extends Controller
     public function destroy(Request $request, string $tipo, int $id): JsonResponse
     {
         $cfg = $this->registry->config($tipo);
-        $this->autorizar($request, $cfg['modulo'], 'delete');
+        $this->autorizar($request, "{$cfg['modulo']}.delete");
 
         $this->service->excluir($tipo, $id);
 
@@ -66,7 +68,7 @@ class CadastroApoioController extends Controller
     /**
      * Valida descricao + ativo + os extras declarados no registry.
      *
-     * @param array<string, string> $extras
+     * @param  array<string, string>  $extras
      * @return array<string, mixed>
      */
     private function validar(Request $request, array $extras): array
@@ -77,14 +79,5 @@ class CadastroApoioController extends Controller
         );
 
         return $request->validate($regras);
-    }
-
-    private function autorizar(Request $request, string $modulo, string $acao): void
-    {
-        abort_unless(
-            $request->user()->temPermissao("{$modulo}.{$acao}"),
-            403,
-            'Sem permissão.',
-        );
     }
 }

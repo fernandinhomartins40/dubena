@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Gestao\BemService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Gestao\CupomFiscal;
 use App\Models\Gestao\Documento;
@@ -18,6 +19,8 @@ use Illuminate\Validation\ValidationException;
  */
 class GestaoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ───────── Cupom fiscal (SAT/CFe) ─────────
     public function cupomIndex(Request $request): JsonResponse
     {
@@ -173,10 +176,5 @@ class GestaoController extends Controller
         EmpresaBem::query()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Bem excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

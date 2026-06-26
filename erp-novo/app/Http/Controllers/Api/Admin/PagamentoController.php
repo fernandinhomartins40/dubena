@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Pagamento\PagamentoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Pagamento\CartaoTransacao;
 use App\Models\Pagamento\GasDoPovoBeneficio;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class PagamentoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private PagamentoService $service) {}
 
     // ───────── Cartão ─────────
@@ -73,10 +76,5 @@ class PagamentoController extends Controller
         $beneficio = GasDoPovoBeneficio::query()->findOrFail($id);
 
         return response()->json(['data' => $this->service->sacarBeneficio($beneficio, $d['pedido_id'], $d['conta_id'] ?? null)]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

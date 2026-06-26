@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\CaixaService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Caixa\Conta;
 use App\Models\Caixa\ContaMovimento;
@@ -15,9 +16,9 @@ use Illuminate\Http\Request;
  */
 class CaixaController extends Controller
 {
-    public function __construct(private CaixaService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private CaixaService $service) {}
 
     /** GET /caixa/contas */
     public function contas(Request $request): JsonResponse
@@ -172,10 +173,5 @@ class CaixaController extends Controller
         $mov = $this->service->estornar($movimentoId, $request->user()->id);
 
         return response()->json(['data' => $mov], 201);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

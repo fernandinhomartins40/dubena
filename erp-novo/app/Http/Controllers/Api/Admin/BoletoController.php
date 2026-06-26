@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Cobranca\BoletoService;
 use App\Domain\Cobranca\SituacaoBoleto;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cobranca\Boleto;
 use App\Models\Cobranca\RemessaCnab;
@@ -18,9 +19,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class BoletoController extends Controller
 {
-    public function __construct(private BoletoService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private BoletoService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -111,10 +112,5 @@ class BoletoController extends Controller
         abort_unless($remessa->arquivo && Storage::disk('local')->exists($remessa->arquivo), 404, 'Arquivo da remessa não encontrado.');
 
         return Storage::disk('local')->download($remessa->arquivo, basename($remessa->arquivo));
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

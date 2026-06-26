@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Relatorio\RelatorioService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,10 +22,12 @@ use Illuminate\Http\Response;
  */
 class MalaDiretaController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /** GET /crm/mala-direta — lista segmentada (JSON) ou CSV (?formato=csv). */
     public function index(Request $request, RelatorioService $relatorio): Response|JsonResponse
     {
-        abort_unless($request->user()->temPermissao('cliente.view'), 403, 'Sem permissão.');
+        $this->autorizar($request, 'cliente.view');
 
         $d = $request->validate([
             'segmento_id' => 'nullable|integer',

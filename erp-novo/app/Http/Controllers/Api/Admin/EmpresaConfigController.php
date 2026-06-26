@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\CertificadoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Mail;
  */
 class EmpresaConfigController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /** Colunas estruturais (fora do JSON `dados`). */
     private const COLUNAS = [
         'tempoentrega', 'tempourgente', 'maximoparcelas',
@@ -193,10 +196,5 @@ class EmpresaConfigController extends Controller
         $grupo = (int) ($user->empresa?->grupo_id ?? $user->grupo_id);
 
         return Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

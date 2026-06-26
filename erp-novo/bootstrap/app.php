@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Tenant\TenantNotResolvedException;
+use App\Http\Middleware\Permissao;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,8 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
 
         // Alias para uso em rotas (auth:sanctum + tenant).
+        // `permissao:modulo.acao` é o enforcement de borda (Fase A1), delegando ao
+        // mesmo Gate central que os controllers usam via trait AutorizaPorPermissao.
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'permissao' => Permissao::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

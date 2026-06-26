@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Regiao;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,8 @@ use Illuminate\Http\Request;
  */
 class RegiaoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function index(Request $request): JsonResponse
     {
         $this->autorizar($request, 'empresa.view');
@@ -55,10 +58,5 @@ class RegiaoController extends Controller
             'descricao' => 'required|string|max:255',
             'ativo' => 'nullable|boolean',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

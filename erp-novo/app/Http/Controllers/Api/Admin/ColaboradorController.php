@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Rh\ColaboradorService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Rh\Colaborador;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +16,8 @@ use Illuminate\Http\Request;
  */
 class ColaboradorController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private ColaboradorService $service) {}
 
     public function index(Request $request): JsonResponse
@@ -219,10 +222,5 @@ class ColaboradorController extends Controller
             'entregador' => 'nullable|boolean',
             'ativo' => 'nullable|boolean',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

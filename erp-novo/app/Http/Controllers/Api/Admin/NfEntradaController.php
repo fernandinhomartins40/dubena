@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\NfEntradaService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Fiscal\NfRecebida;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,8 @@ use Illuminate\Http\Request;
  */
 class NfEntradaController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private NfEntradaService $service) {}
 
     /** GET /fiscal/nf-entrada — lista as NFs recebidas da empresa ativa. */
@@ -95,10 +98,5 @@ class NfEntradaController extends Controller
         $nota = $this->service->processar($nota, (int) $d['setor_id']);
 
         return response()->json(['data' => $nota]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

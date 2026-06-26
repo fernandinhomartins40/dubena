@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Produto\ProdutoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProdutoRequest;
 use App\Http\Resources\ProdutoResource;
@@ -16,9 +17,9 @@ use Illuminate\Http\Request;
  */
 class ProdutoController extends Controller
 {
-    public function __construct(private ProdutoService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private ProdutoService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -65,10 +66,5 @@ class ProdutoController extends Controller
         $this->service->excluir(Produto::query()->findOrFail($id));
 
         return response()->json(['message' => 'Produto excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

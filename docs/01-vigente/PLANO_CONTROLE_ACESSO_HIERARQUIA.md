@@ -444,8 +444,8 @@ models (escopados); rotas/controllers da Central de Acessos; eventos de seguran�
 
 | Fase | Entrega | Risco | Depende |
 |---|---|---|---|
-| **A0 — Saneamento** | Corrigir drift catálogo↔menu↔controllers; teste de contrato reforçado. | Baixo | — |
-| **A1 — Enforcement central** | Gates/Policies envolvendo `temPermissao()`; middleware `can:`. Sem mudança funcional. | Baixo | A0 |
+| ~~**A0 — Saneamento**~~ ✅ | Corrigir drift catálogo↔menu↔controllers; teste de contrato reforçado. | Baixo | — |
+| ~~**A1 — Enforcement central**~~ ✅ | Gates por chave do catálogo (`AuthServiceProvider`) delegando a `temPermissao()`; trait `AutorizaPorPermissao` (ponto único nos 38 controllers); middleware de rota `permissao:`. Sem mudança funcional. | Baixo | A0 |
 | **A2 — Central de Acessos (RBAC)** | API + UI de usuários, papéis, atribuição por empresa. Substitui seeder/código. | Médio | A1 |
 | **A3 — Hierarquia** | `unidades/departamentos/setores/cargos` + escopo em `role_user` + UI. | Médio | A2 |
 | **A4 — ABAC** | `permission_conditions` + `PolicyEvaluator` (limite/ownership/horário). | Médio-alto | A1, A3 |

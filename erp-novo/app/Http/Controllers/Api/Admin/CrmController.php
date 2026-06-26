@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Crm\Checklist;
 use App\Models\Crm\ChecklistExecucao;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
  */
 class CrmController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ───────── Pós-venda ─────────
     public function posVendaIndex(Request $request): JsonResponse
     {
@@ -233,10 +236,5 @@ class CrmController extends Controller
         Checklist::query()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Checklist excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

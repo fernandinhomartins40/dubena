@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Apoio\InconsistenciaService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
@@ -17,6 +18,8 @@ use Illuminate\Http\Request;
  */
 class GeoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /** @var array<string, array{model: class-string, regras: array<string,string>, filtros: list<string>}> */
     private const ENTIDADES = [
         'cidades' => [
@@ -99,7 +102,7 @@ class GeoController extends Controller
     {
         // Geográfico é base do endereço do cliente — gerido sob a permissão de cliente
         // (mesma usada no CRUD deste controller). Mantém o catálogo sem chave órfã.
-        abort_unless($request->user()->temPermissao('cliente.view'), 403, 'Sem permissão.');
+        $this->autorizar($request, 'cliente.view');
         $grupoId = (int) $request->user()->grupo_id;
         $tipo = (string) $request->query('tipo', 'todas');
 
@@ -116,7 +119,7 @@ class GeoController extends Controller
     private function cfg(Request $request, string $entidade, string $permissao): array
     {
         abort_unless(isset(self::ENTIDADES[$entidade]), 404, 'Entidade geográfica desconhecida.');
-        abort_unless($request->user()->temPermissao($permissao), 403, 'Sem permissão.');
+        $this->autorizar($request, $permissao);
 
         return self::ENTIDADES[$entidade];
     }

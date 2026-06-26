@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\ChequeService;
 use App\Domain\Caixa\SituacaoCheque;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Caixa\Cheque;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class ChequeController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private ChequeService $service) {}
 
     public function recebidos(Request $request): JsonResponse
@@ -113,10 +116,5 @@ class ChequeController extends Controller
             'valor' => "{$req}|numeric|gt:0",
             'bom_para' => 'nullable|date',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

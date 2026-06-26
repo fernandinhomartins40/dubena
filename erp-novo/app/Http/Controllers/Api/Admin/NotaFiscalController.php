@@ -7,6 +7,7 @@ use App\Domain\Fiscal\IbptService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\SpedContribuicoesService;
 use App\Domain\Fiscal\SpedFiscalService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
@@ -20,6 +21,8 @@ use Illuminate\Http\Request;
  */
 class NotaFiscalController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private FiscalService $service) {}
 
     public function index(Request $request): JsonResponse
@@ -162,10 +165,5 @@ class NotaFiscalController extends Controller
         ]);
 
         return response()->json(['data' => $ibpt->calcular($d['ncm'], (float) $d['valor'], $d['origem'] ?? 'nacional')]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

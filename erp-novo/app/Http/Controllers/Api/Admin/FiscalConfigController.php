@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Fiscal\MalhaFiscal;
 use App\Models\Fiscal\OperacaoFiscal;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class FiscalConfigController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ── Operações fiscais ──
     public function operacoesIndex(Request $request): JsonResponse
     {
@@ -90,10 +93,5 @@ class FiscalConfigController extends Controller
         MalhaFiscal::query()->where('tipo', $tipo)->whereKey($id)->firstOrFail()->delete();
 
         return response()->json(['message' => 'Registro excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

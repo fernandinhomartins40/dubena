@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Cliente\ClienteService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClienteRequest;
 use App\Http\Resources\ClienteResource;
@@ -17,9 +18,9 @@ use Illuminate\Http\Request;
  */
 class ClienteController extends Controller
 {
-    public function __construct(private ClienteService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private ClienteService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -73,10 +74,5 @@ class ClienteController extends Controller
         $this->service->excluir(Cliente::query()->findOrFail($id));
 
         return response()->json(['message' => 'Cliente excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

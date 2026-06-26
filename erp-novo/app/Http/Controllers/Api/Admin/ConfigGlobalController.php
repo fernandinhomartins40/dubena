@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\ConfigGlobal;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class ConfigGlobalController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /** GET /config-global — config do grupo ativo (cria vazia se não existir). */
     public function show(Request $request): JsonResponse
     {
@@ -91,10 +94,5 @@ class ConfigGlobalController extends Controller
             'google_maps_key' => $c->google_maps_key,
             'link_monitoramento' => $c->link_monitoramento,
         ];
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

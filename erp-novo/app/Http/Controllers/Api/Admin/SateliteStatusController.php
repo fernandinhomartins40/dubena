@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Monitora\Veiculo as MonitoraVeiculo;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class SateliteStatusController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /**
      * GET /satelites/relatorios — catálogo por CATEGORIA.
      * Shape exigido pela SPA: [{categoria, relatorios: string[]}].
@@ -67,10 +70,5 @@ class SateliteStatusController extends Controller
             'fcm_push' => (bool) config('services.integracoes.fcm_push'),
             'fiscal' => config('services.fiscal.driver') === 'nfephp',
         ]]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

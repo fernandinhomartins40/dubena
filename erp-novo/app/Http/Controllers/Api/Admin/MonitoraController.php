@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Monitora\MonitoraSyncService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Monitora\Cerca;
 use App\Models\Monitora\UltimaPosicao;
@@ -18,11 +19,12 @@ use Illuminate\Support\Facades\DB;
  */
 class MonitoraController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(
         private MonitoraService $service,
         private MonitoraSyncService $sync,
-    ) {
-    }
+    ) {}
 
     public function veiculos(Request $request): JsonResponse
     {
@@ -183,10 +185,5 @@ class MonitoraController extends Controller
         $n = $this->sync->sincronizar((int) $request->user()->empresa_id);
 
         return response()->json(['message' => "Sync concluído: {$n} posição(ões).", 'ingeridas' => $n]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

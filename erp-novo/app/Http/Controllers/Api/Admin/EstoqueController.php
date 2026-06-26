@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
@@ -18,6 +19,8 @@ use Illuminate\Http\Request;
  */
 class EstoqueController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private EstoqueService $service) {}
 
     /** GET /estoque/saldos?setor_id=&q= */
@@ -268,10 +271,5 @@ class EstoqueController extends Controller
         $fech = $this->service->fechar($d['setor_id'], $d['produto_id'], $d['data_fechamento'] ?? now()->toDateString());
 
         return response()->json(['data' => $fech], 201);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

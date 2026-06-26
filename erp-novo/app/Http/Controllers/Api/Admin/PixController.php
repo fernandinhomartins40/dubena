@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Cobranca\PixService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Http\JsonResponse;
@@ -14,9 +15,9 @@ use Illuminate\Http\Request;
  */
 class PixController extends Controller
 {
-    public function __construct(private PixService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private PixService $service) {}
 
     /** GET /pix/config — status da integração (sem expor segredos). */
     public function config(Request $request): JsonResponse
@@ -43,10 +44,5 @@ class PixController extends Controller
         $cobranca = $this->service->criarCobranca($parcela, (int) ($d['expira_segundos'] ?? 3600));
 
         return response()->json(['data' => $cobranca], 201);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

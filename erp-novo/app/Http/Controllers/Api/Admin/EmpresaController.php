@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EmpresaRequest;
 use App\Http\Resources\EmpresaResource;
@@ -18,6 +19,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  */
 class EmpresaController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->autorizar($request, 'empresa.view');
@@ -93,10 +96,5 @@ class EmpresaController extends Controller
         $user = $request->user();
 
         return (int) ($user->empresa?->grupo_id ?? $user->grupo_id);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

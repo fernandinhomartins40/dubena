@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\CentroCusto;
 use App\Models\Financeiro\PlanoConta;
@@ -13,6 +14,8 @@ use Illuminate\Http\Request;
  */
 class FinanceiroCadastroController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ── Plano de contas ──
     public function planosIndex(Request $request): JsonResponse
     {
@@ -86,10 +89,5 @@ class FinanceiroCadastroController extends Controller
         CentroCusto::query()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Centro de custo excluído.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

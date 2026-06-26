@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Satelite\ComodatoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\Comodato;
 use Illuminate\Http\JsonResponse;
@@ -13,9 +14,9 @@ use Illuminate\Http\Request;
  */
 class ComodatoController extends Controller
 {
-    public function __construct(private ComodatoService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private ComodatoService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -54,10 +55,5 @@ class ComodatoController extends Controller
         $atualizado = $this->service->devolver($comodato, (float) $d['quantidade'], $request->user()->id);
 
         return response()->json(['data' => $atualizado]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

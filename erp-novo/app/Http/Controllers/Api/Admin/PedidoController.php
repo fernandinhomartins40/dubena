@@ -6,27 +6,28 @@ use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
 use App\Http\Resources\PedidoResource;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Pedidos / Vendas — N4. CRUD + kanban + transição de situação (máquina de estados).
  */
 class PedidoController extends Controller
 {
-    public function __construct(private PedidoService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private PedidoService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -254,10 +255,5 @@ class PedidoController extends Controller
         $nota = $fiscal->emitirDoPedido($pedido, $modelo);
 
         return response()->json(['data' => $nota->load('itens')], 201);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Satelite\SituacaoValeGas;
 use App\Domain\Satelite\ValeGasService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\ValeGas;
 use Illuminate\Http\JsonResponse;
@@ -14,9 +15,9 @@ use Illuminate\Http\Request;
  */
 class ValeGasController extends Controller
 {
-    public function __construct(private ValeGasService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private ValeGasService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -67,10 +68,5 @@ class ValeGasController extends Controller
         $atualizado = $this->service->mudarSituacao($vale, $destino, $d['pedido_id'] ?? null);
 
         return response()->json(['data' => $atualizado]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

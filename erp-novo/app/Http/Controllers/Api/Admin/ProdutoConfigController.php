@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Produto\ProdutoClasse;
 use App\Models\Produto\UnidadeMedida;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class ProdutoConfigController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ── Classes ──
     public function classesIndex(Request $request): JsonResponse
     {
@@ -81,10 +84,5 @@ class ProdutoConfigController extends Controller
         UnidadeMedida::query()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Unidade excluída.']);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

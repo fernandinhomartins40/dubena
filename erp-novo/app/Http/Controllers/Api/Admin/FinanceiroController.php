@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Financeiro\ConciliacaoContabilService;
 use App\Domain\Financeiro\ConciliacaoService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
@@ -18,6 +19,8 @@ use Illuminate\Http\Request;
  */
 class FinanceiroController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private FinanceiroService $service) {}
 
     /** GET /financeiro/lancamentos?pagarreceber=&status=&q= (parcelas) */
@@ -228,10 +231,5 @@ class FinanceiroController extends Controller
         );
 
         return response()->json(['data' => $resultado]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

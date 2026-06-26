@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Fiscal\ConfigFiscal;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,8 @@ use Illuminate\Http\Request;
  */
 class ConfigFiscalController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private TenantContext $tenant) {}
 
     public function show(Request $request): JsonResponse
@@ -44,10 +47,5 @@ class ConfigFiscalController extends Controller
         $config->update($d);
 
         return response()->json(['data' => $config->refresh()]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Satelite\ConvenioFechamentoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\Convenio;
 use App\Models\Satelite\ConvenioFechamento;
@@ -14,9 +15,9 @@ use Illuminate\Http\Request;
  */
 class ConvenioController extends Controller
 {
-    public function __construct(private ConvenioFechamentoService $service)
-    {
-    }
+    use AutorizaPorPermissao;
+
+    public function __construct(private ConvenioFechamentoService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -62,10 +63,5 @@ class ConvenioController extends Controller
         return response()->json([
             'data' => ConvenioFechamento::query()->where('convenio_id', $id)->orderByDesc('periodo_inicio')->get(),
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

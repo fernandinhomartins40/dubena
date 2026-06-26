@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
 use App\Models\Pedido\Pedido;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class ClienteSubrecursoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     // ── Interações ──
     public function interacoes(Request $request, int $clienteId): JsonResponse
     {
@@ -140,10 +143,5 @@ class ClienteSubrecursoController extends Controller
         ])->all();
 
         return response()->json(['data' => $data]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

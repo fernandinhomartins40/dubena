@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Produto\ProdutoService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,8 @@ use Illuminate\Http\Request;
  */
 class ProdutoPrecoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private ProdutoService $service) {}
 
     /** GET /produtos-precos/preview?tipo=&valor=&classe_id= */
@@ -45,10 +48,5 @@ class ProdutoPrecoController extends Controller
             'valor' => 'required|numeric',
             'classe_id' => 'nullable|integer|exists:produtoclasses,id',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

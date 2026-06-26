@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Grupo;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,8 @@ use Illuminate\Http\Request;
  */
 class GrupoController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function index(Request $request): JsonResponse
     {
         $this->autorizar($request, 'grupo.view');
@@ -59,10 +62,5 @@ class GrupoController extends Controller
             'descricao' => 'required|string|max:255',
             'ativo' => 'nullable|boolean',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }

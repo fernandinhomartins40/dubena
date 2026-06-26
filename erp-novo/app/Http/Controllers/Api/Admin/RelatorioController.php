@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Relatorio\RelatorioService;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class RelatorioController extends Controller
 {
+    use AutorizaPorPermissao;
+
     public function __construct(private RelatorioService $service) {}
 
     /** GET /dashboard/resumo — contadores da home da SPA. */
@@ -212,7 +216,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
 
-        $logs = \App\Models\AuditLog::query()
+        $logs = AuditLog::query()
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->when($request->query('entidade'), fn ($q, $e) => $q->where('entidade', $e))
             ->when($request->query('acao'), fn ($q, $a) => $q->where('acao', $a))
@@ -221,7 +225,7 @@ class RelatorioController extends Controller
             ->orderByDesc('id')
             ->paginate(50);
 
-        $data = collect($logs->items())->map(fn (\App\Models\AuditLog $l) => [
+        $data = collect($logs->items())->map(fn (AuditLog $l) => [
             'id' => $l->id,
             'entidade' => $l->entidade,
             'entidade_id' => $l->entidade_id,
@@ -250,10 +254,5 @@ class RelatorioController extends Controller
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',
         ]);
-    }
-
-    private function autorizar(Request $request, string $chave): void
-    {
-        abort_unless($request->user()->temPermissao($chave), 403, 'Sem permissão.');
     }
 }
