@@ -100,9 +100,51 @@ class RbacContratoTest extends TestCase
         );
     }
 
+    public function test_catalogo_cobre_toda_permissao_do_menu_da_spa(): void
+    {
+        $arquivo = base_path('frontend/src/layouts/AppShell.tsx');
+        if (! is_file($arquivo)) {
+            $this->markTestSkipped('AppShell.tsx não encontrado (frontend ausente neste contexto).');
+        }
+
+        $catalogo = PermissaoCatalogo::chaves();
+        $src = (string) file_get_contents($arquivo);
+
+        // Extrai `permission: 'modulo.acao'` dos itens de navegação.
+        preg_match_all("/permission:\s*'([a-z]+\.[a-z_]+)'/", $src, $m);
+        $doMenu = array_values(array_unique($m[1]));
+
+        $orfas = array_values(array_diff($doMenu, $catalogo));
+
+        $this->assertSame(
+            [],
+            $orfas,
+            "Permissões no menu da SPA (AppShell.tsx) ausentes do catálogo:\n - ".implode("\n - ", $orfas),
+        );
+    }
+
     /**
-     * Varre os controllers e extrai as chaves literais 'modulo.acao' passadas a
-     * temPermissao()/autorizar().
+     * Verbos de permissão conhecidos do sistema (parte ".acao" da chave).
+     * Usado para distinguir uma PERMISSÃO ('cidade.view') de uma string de config
+     * ('mail.mailers', 'services.x'): só é permissão se a ação for um verbo destes.
+     * Mantém a detecção de órfãs robusta mesmo para MÓDULOS fora do catálogo.
+     *
+     * @var list<string>
+     */
+    private const VERBOS = [
+        'view', 'create', 'edit', 'delete', 'config', 'preco', 'emitir',
+        'cancelar', 'aprovar', 'reprovar', 'estornar', 'export', 'import',
+        'imprimir', 'enviar', 'assinar', 'baixar', 'conciliar', 'fechar', 'reabrir',
+    ];
+
+    /**
+     * Varre os controllers e extrai as chaves literais 'modulo.acao' que são
+     * permissões — TODAS, inclusive de MÓDULO desconhecido (uma chave de módulo
+     * fora do catálogo é justamente o tipo de órfã que queremos detectar; o filtro
+     * antigo por "módulo conhecido" mascarava exatamente esse caso).
+     *
+     * Heurística anti-falso-positivo: só conta literais cuja AÇÃO é um verbo de
+     * permissão conhecido — assim 'cidade.view' entra e 'mail.mailers' fica de fora.
      *
      * @return list<string>
      */
@@ -117,13 +159,11 @@ class RbacContratoTest extends TestCase
                 continue;
             }
             $src = (string) file_get_contents($f->getPathname());
-            // 'modulo.acao' como literal (em autorizar/temPermissao ou strings simples).
-            if (preg_match_all("/'([a-z]+\.[a-z_]+)'/", $src, $m)) {
-                foreach ($m[1] as $chave) {
-                    // Só pares que parecem permissão (módulo conhecido do catálogo).
-                    $modulo = explode('.', $chave)[0];
-                    if (array_key_exists($modulo, PermissaoCatalogo::MODULOS)) {
-                        $chaves[] = $chave;
+            if (preg_match_all("/'([a-z]+)\.([a-z_]+)'/", $src, $m, PREG_SET_ORDER)) {
+                foreach ($m as $par) {
+                    [$modulo, $acao] = [$par[1], $par[2]];
+                    if (in_array($acao, self::VERBOS, true)) {
+                        $chaves[] = "{$modulo}.{$acao}";
                     }
                 }
             }

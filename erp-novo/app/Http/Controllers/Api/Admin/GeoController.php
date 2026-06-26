@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Apoio\InconsistenciaService;
 use App\Http\Controllers\Controller;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
@@ -94,9 +95,11 @@ class GeoController extends Controller
      * de rua/bairro por similaridade de nome na mesma cidade (F11). Substitui o
      * UTL_MATCH (Oracle) do legado por similaridade agnóstica de banco.
      */
-    public function inconsistencias(Request $request, \App\Domain\Apoio\InconsistenciaService $service): JsonResponse
+    public function inconsistencias(Request $request, InconsistenciaService $service): JsonResponse
     {
-        abort_unless($request->user()->temPermissao('cidade.view'), 403, 'Sem permissão.');
+        // Geográfico é base do endereço do cliente — gerido sob a permissão de cliente
+        // (mesma usada no CRUD deste controller). Mantém o catálogo sem chave órfã.
+        abort_unless($request->user()->temPermissao('cliente.view'), 403, 'Sem permissão.');
         $grupoId = (int) $request->user()->grupo_id;
         $tipo = (string) $request->query('tipo', 'todas');
 

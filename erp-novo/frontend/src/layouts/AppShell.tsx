@@ -31,12 +31,12 @@ const NAV: NavItem[] = [
 
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
-  { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cidade.view', group: 'Cadastros' },
+  { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
-  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoquesetor.view', group: 'Operações' },
-  { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'nfemitida.view', group: 'Operações' },
+  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Operações' },
+  { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Operações' },
   { label: 'Cupons SAT/CFe', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Operações' },
-  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'vendavalegas.view', group: 'Operações' },
+  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'valegas.view', group: 'Operações' },
   { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Operações' },
 
   { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
