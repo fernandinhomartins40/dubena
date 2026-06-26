@@ -559,7 +559,7 @@ class DemoGuarapuavaSeeder extends Seeder
             Cheque::create([
                 'empresa_id' => $this->empresa->id, 'grupo_id' => $this->grupoId,
                 'cliente_id' => $cli->id, 'banco_id' => $banco?->id,
-                'especie' => 'recebido', 'numero' => (string) mt_rand(100000, 999999),
+                'especie' => 'R', 'numero' => (string) mt_rand(100000, 999999),
                 'agencia' => (string) mt_rand(1000, 4999), 'conta_corrente' => (string) mt_rand(10000, 99999).'-'.mt_rand(0, 9),
                 'titular' => $cli->nome, 'valor' => mt_rand(100, 1200),
                 'bom_para' => Carbon::now()->addDays(mt_rand(5, 45)), 'situacao' => $k % 3 === 0 ? 'COMPENSADO' : 'CARTEIRA',
