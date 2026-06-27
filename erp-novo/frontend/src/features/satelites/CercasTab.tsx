@@ -55,7 +55,7 @@ export function CercasTab() {
         })
         setPronto(true)
       })
-      .catch(() => setErroMapa('Não foi possível carregar o Google Maps. Verifique a chave em Configurações.'))
+      .catch((e) => setErroMapa(e?.message ?? 'Não foi possível carregar o Google Maps. Verifique a chave em Configurações.'))
     return () => { vivo = false }
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
