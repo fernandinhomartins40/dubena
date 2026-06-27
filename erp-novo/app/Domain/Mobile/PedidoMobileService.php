@@ -2,22 +2,29 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoAvaliacao;
+use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Validation\ValidationException;
 
 /**
  * PedidoMobileService (N10) — porta o MobileAppProcessor do legado: cria pedido a
  * partir do app fazendo o MATCHING de cliente/setor por geolocalização, e delega
  * a criação ao PedidoService (N4) — sem reescrever a regra de venda.
+ *
+ * Regras de negócio do app portadas do PedidoController legado (app/Api):
+ *  - 1 pedido PENDENTE por cliente (legado: "Já existe um pedido pendente");
+ *  - cancelar só enquanto não concluído (entregue);
+ *  - avaliar 1x por pedido (nota 1–5 ou ignorado), mensagem ≤140.
+ * O bridge HTTP getToLink/link/ApiResources do legado é ELIMINADO (monólito).
  */
 class PedidoMobileService
 {
-    public function __construct(private PedidoService $pedidos)
-    {
-    }
+    public function __construct(private PedidoService $pedidos) {}
 
     /**
      * Encontra o cliente mais próximo de uma coordenada na empresa (raio em km).
@@ -44,7 +51,7 @@ class PedidoMobileService
     /**
      * Cria um pedido vindo do app. Resolve cliente (por id ou geoloc) e setor.
      *
-     * @param array<string,mixed> $payload  cliente_id|lat/lng, pedidosituacao_id, itens[]
+     * @param  array<string,mixed>  $payload  cliente_id|lat/lng, pedidosituacao_id, itens[]
      */
     public function criarDoApp(int $empresaId, int $grupoId, array $payload): Pedido
     {
@@ -61,6 +68,11 @@ class PedidoMobileService
             throw ValidationException::withMessages(['setor' => 'Nenhum setor de entrega ativo.']);
         }
 
+        // Regra do legado: 1 pedido PENDENTE por cliente.
+        if ($this->temPedidoPendente($cliente->id)) {
+            throw ValidationException::withMessages(['pedido' => 'Você já tem um pedido em andamento.']);
+        }
+
         return $this->pedidos->criar([
             'empresa_id' => $empresaId,
             'grupo_id' => $grupoId,
@@ -70,6 +82,102 @@ class PedidoMobileService
             'datahora' => now(),
             'observacao' => $payload['observacao'] ?? null,
         ], $payload['itens'] ?? []);
+    }
+
+    /** Existe pedido em situação de efeito PENDENTE para o cliente? */
+    public function temPedidoPendente(int $clienteId): bool
+    {
+        return Pedido::query()
+            ->where('cliente_id', $clienteId)
+            ->whereHas('situacao', fn ($q) => $q->where('efeito', EfeitoPedido::PENDENTE->value))
+            ->exists();
+    }
+
+    /**
+     * Cancela um pedido do cliente. Só é possível enquanto NÃO concretizado
+     * (entregue/concluído) — espelha o cancelOrder do legado. Reaproveita o
+     * PedidoService (estorno de estoque/financeiro fica a cargo dele).
+     */
+    public function cancelar(Pedido $pedido): Pedido
+    {
+        if ($pedido->situacao?->efeito === EfeitoPedido::CONCLUIDO) {
+            throw ValidationException::withMessages(['pedido' => 'Pedido já encerrado; não pode ser cancelado.']);
+        }
+        if ($pedido->situacao?->efeito === EfeitoPedido::CANCELADO) {
+            throw ValidationException::withMessages(['pedido' => 'Pedido já está cancelado.']);
+        }
+
+        $cancelada = PedidoSituacao::query()
+            ->where('grupo_id', $pedido->grupo_id)
+            ->where('efeito', EfeitoPedido::CANCELADO->value)
+            ->where('ativo', true)
+            ->orderBy('id')->first();
+
+        if (! $cancelada) {
+            throw ValidationException::withMessages(['situacao' => 'Nenhuma situação de cancelamento configurada.']);
+        }
+
+        return $this->pedidos->mudarSituacao($pedido, $cancelada->id);
+    }
+
+    /**
+     * Registra a avaliação do pedido (nota 1–5 + mensagem) ou marca como ignorada.
+     * 1 avaliação por pedido (legado: hasWithOrder).
+     *
+     * @param  array{rating?:int|null, mensagem?:string|null, ignorado?:bool}  $dados
+     */
+    public function avaliar(Pedido $pedido, array $dados): PedidoAvaliacao
+    {
+        if (PedidoAvaliacao::query()->where('pedido_id', $pedido->id)->exists()) {
+            throw ValidationException::withMessages(['pedido' => 'Pedido já foi avaliado.']);
+        }
+
+        $ignorado = (bool) ($dados['ignorado'] ?? false);
+        $mensagem = $dados['mensagem'] ?? null;
+
+        if ($mensagem !== null && mb_strlen($mensagem) > 140) {
+            throw ValidationException::withMessages(['mensagem' => 'Mensagem deve ter no máximo 140 caracteres.']);
+        }
+
+        $rating = $ignorado ? null : (int) ($dados['rating'] ?? 0);
+        if (! $ignorado && ($rating < 1 || $rating > 5)) {
+            throw ValidationException::withMessages(['rating' => 'Avalie o pedido de 1 a 5.']);
+        }
+
+        return PedidoAvaliacao::create([
+            'empresa_id' => $pedido->empresa_id,
+            'pedido_id' => $pedido->id,
+            'rating' => $rating,
+            'mensagem' => $ignorado ? null : $mensagem,
+            'ignorado' => $ignorado,
+        ]);
+    }
+
+    /**
+     * Histórico de pedidos do cliente (mais recentes primeiro).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function historico(int $empresaId, int $clienteId, int $limite = 50): array
+    {
+        return Pedido::query()
+            ->where('empresa_id', $empresaId)
+            ->where('cliente_id', $clienteId)
+            ->with(['situacao:id,descricao,efeito', 'itens:id,pedido_id,produto_id,quantidade,preco_unitario'])
+            ->orderByDesc('datahora')
+            ->limit($limite)->get()
+            ->map(fn (Pedido $p) => [
+                'id' => $p->id,
+                'datahora' => $p->datahora?->toIso8601String(),
+                'situacao' => $p->situacao?->descricao,
+                'efeito' => $p->situacao?->efeito?->value,
+                'valor_venda' => (float) $p->valor_venda,
+                'itens' => $p->itens->map(fn ($i) => [
+                    'produto_id' => $i->produto_id,
+                    'quantidade' => (float) $i->quantidade,
+                    'preco_unitario' => (float) $i->preco_unitario,
+                ]),
+            ])->all();
     }
 
     /** Distância Haversine em km. */

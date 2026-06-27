@@ -24,8 +24,11 @@ class MobileTest extends TestCase
     use RefreshDatabase;
 
     private Empresa $empresa;
+
     private User $user;
+
     private Setor $setor;
+
     private Produto $produto;
 
     protected function setUp(): void
@@ -139,6 +142,73 @@ class MobileTest extends TestCase
         $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/entregador/pedidos/{$pedidoId}/status", [
             'pedidosituacao_id' => $entregue->id, 'lat' => -23.55, 'lng' => -46.63,
         ])->assertOk()->assertJsonPath('data.situacao_id', $entregue->id);
+    }
+
+    public function test_um_pedido_pendente_por_cliente(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+
+        $payload = [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ];
+
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', $payload)->assertCreated();
+        // Segundo pedido pendente é barrado.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', $payload)->assertStatus(422);
+    }
+
+    public function test_historico_e_acompanhar_do_cliente(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 2]],
+        ])->json('data.id');
+
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos?cliente_id={$cliente->id}")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.valor_venda', 200);
+
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}?cliente_id={$cliente->id}")
+            ->assertOk()->assertJsonPath('data.efeito', 'PENDENTE');
+    }
+
+    public function test_cancelar_pedido_pendente(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        PedidoSituacao::factory()->efeito(EfeitoPedido::CANCELADO)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->json('data.id');
+
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/cancelar", ['cliente_id' => $cliente->id])
+            ->assertOk();
+
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}?cliente_id={$cliente->id}")
+            ->assertOk()->assertJsonPath('data.efeito', 'CANCELADO');
+    }
+
+    public function test_avaliar_pedido_uma_vez(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->json('data.id');
+
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/avaliar", [
+            'cliente_id' => $cliente->id, 'rating' => 5, 'mensagem' => 'Ótimo',
+        ])->assertCreated()->assertJsonPath('data.rating', 5);
+
+        // Segunda avaliação é barrada.
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/avaliar", [
+            'cliente_id' => $cliente->id, 'rating' => 1,
+        ])->assertStatus(422);
     }
 
     public function test_endpoints_exigem_autenticacao(): void

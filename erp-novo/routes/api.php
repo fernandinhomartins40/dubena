@@ -555,8 +555,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
 
         // Cliente
         Route::get('produtos', [AppClienteController::class, 'produtos']);
+        Route::get('pedidos', [AppClienteController::class, 'historico']);
         Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
+        Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');
         Route::post('pedidos/{id}/pagar', [AppClienteController::class, 'pagar'])->whereNumber('id');
+        Route::post('pedidos/{id}/cancelar', [AppClienteController::class, 'cancelar'])->whereNumber('id');
+        Route::post('pedidos/{id}/avaliar', [AppClienteController::class, 'avaliar'])->whereNumber('id');
 
         // Entregador
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
