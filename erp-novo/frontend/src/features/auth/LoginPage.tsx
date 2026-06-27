@@ -20,6 +20,9 @@ export function LoginPage() {
   const [manterConectado, setManterConectado] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  // 2FA: quando o backend exige o segundo fator (423), pedimos o código.
+  const [pedirOtp, setPedirOtp] = useState(false)
+  const [otp, setOtp] = useState('')
 
   // Recupera o e-mail salvo (se o usuário marcou "lembrar" antes).
   useEffect(() => {
@@ -38,12 +41,21 @@ export function LoginPage() {
     setErro(null)
     setEnviando(true)
     try {
-      await login(email, password, manterConectado)
+      await login(email, password, manterConectado, pedirOtp ? otp : undefined)
       if (lembrar) localStorage.setItem(EMAIL_KEY, email)
       else localStorage.removeItem(EMAIL_KEY)
       navigate('/')
-    } catch {
-      setErro('E-mail e/ou senha inválidos.')
+    } catch (e: any) {
+      const status = e?.response?.status
+      if (status === 423 || e?.response?.data?.two_factor_required) {
+        // 2FA exigido: revela o campo de código (mantém e-mail/senha).
+        setPedirOtp(true)
+        setErro(pedirOtp ? 'Código inválido. Tente novamente.' : null)
+      } else if (status === 429) {
+        setErro('Muitas tentativas. Aguarde alguns minutos e tente de novo.')
+      } else {
+        setErro('E-mail e/ou senha inválidos.')
+      }
     } finally {
       setEnviando(false)
     }
@@ -91,6 +103,19 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {pedirOtp && (
+              <div>
+                <label htmlFor="login-otp" className="mb-1.5 block text-sm font-medium text-foreground">Código de verificação (2FA)</label>
+                <input
+                  id="login-otp" type="text" inputMode="numeric" autoComplete="one-time-code"
+                  value={otp} onChange={(e) => setOtp(e.target.value)} autoFocus
+                  placeholder="000000"
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm tracking-widest outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/30"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Abra seu app autenticador ou use um código de recuperação.</p>
+              </div>
+            )}
 
             <div className="space-y-1 pt-1">
               <CheckboxField label="Lembrar meu e-mail" checked={lembrar} onChange={setLembrar} />

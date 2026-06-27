@@ -208,6 +208,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/seguranca')}>
+                  <ShieldCheck /> Segurança
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem destructive onClick={async () => { await logout(); navigate('/login') }}>
                   <LogOut /> Sair
                 </DropdownMenuItem>

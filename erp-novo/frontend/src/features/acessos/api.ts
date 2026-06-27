@@ -140,6 +140,27 @@ export const unidades = recursoEstrutura<Unidade>('unidades', 'unidades')
 export const departamentos = recursoEstrutura<Departamento>('departamentos', 'departamentos')
 export const setoresOrg = recursoEstrutura<SetorOrg>('setores-org', 'setores-org')
 
+// ---- Política de senha (A5) ----
+export interface PoliticaSenha {
+  min_len: number
+  exige_complexidade: boolean
+  expira_dias: number
+}
+
+export const usePoliticaSenha = () =>
+  useQuery<PoliticaSenha>({
+    queryKey: ['politica-senha'],
+    queryFn: async () => (await api.get('/seguranca/politica-senha')).data.data,
+  })
+
+export function useSalvarPoliticaSenha() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: PoliticaSenha) => (await api.put('/seguranca/politica-senha', data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['politica-senha'] }),
+  })
+}
+
 // ---- Condições ABAC (A4) ----
 export type CondicaoTipo = 'limite' | 'ownership' | 'horario'
 export interface Condicao {

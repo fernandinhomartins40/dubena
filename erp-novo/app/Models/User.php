@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -50,6 +51,12 @@ class User extends Authenticatable
     public function grupo(): BelongsTo
     {
         return $this->belongsTo(Grupo::class);
+    }
+
+    /** Configuração de 2FA (TOTP) do usuário (A5). */
+    public function twoFactor(): HasOne
+    {
+        return $this->hasOne(User2fa::class);
     }
 
     /** Empresas que o usuário pode acessar (multi-empresa). */

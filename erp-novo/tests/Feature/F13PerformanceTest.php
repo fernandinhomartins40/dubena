@@ -5,9 +5,10 @@ namespace Tests\Feature;
 use App\Domain\Shared\TenantCache;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Empresa;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Monolog\Formatter\JsonFormatter;
 use Tests\TestCase;
 
 /**
@@ -66,22 +67,23 @@ class F13PerformanceTest extends TestCase
         $this->assertSame('t:global:global:x', $cache->chave('x'));
     }
 
-    public function test_rate_limit_login_bloqueia_apos_limite(): void
+    public function test_login_bloqueia_apos_falhas_repetidas(): void
     {
-        // 10/min no 'login'. As 10 primeiras passam pela validação (credencial
-        // inválida = 401/422); a 11ª do mesmo IP é barrada pelo rate-limit (429).
-        for ($i = 0; $i < 10; $i++) {
+        // Defesa em camadas: o LOCKOUT da A5 (5 falhas por e-mail/IP numa janela)
+        // barra ANTES do rate-limit de 10/min. As 5 primeiras falham com 401; a 6ª
+        // é barrada (429), mesmo continuando credencial inválida.
+        for ($i = 0; $i < 5; $i++) {
             $this->postJson('/api/login', ['email' => 'x@y.com', 'password' => 'errada'])
                 ->assertStatus(401);
         }
         $this->postJson('/api/login', ['email' => 'x@y.com', 'password' => 'errada'])
-            ->assertStatus(429); // estourou o rate-limit
+            ->assertStatus(429); // lockout (A5)
     }
 
     public function test_rotas_admin_tem_throttle(): void
     {
         // A presença do middleware throttle:api é verificável na rota.
-        $rota = collect(\Illuminate\Support\Facades\Route::getRoutes())
+        $rota = collect(Route::getRoutes())
             ->first(fn ($r) => $r->uri() === 'api/admin/clientes' && in_array('GET', $r->methods(), true));
         $this->assertNotNull($rota);
         $this->assertContains('throttle:api', $rota->gatherMiddleware());
@@ -91,6 +93,6 @@ class F13PerformanceTest extends TestCase
     {
         $cfg = config('logging.channels.estruturado');
         $this->assertSame('daily', $cfg['driver']);
-        $this->assertSame(\Monolog\Formatter\JsonFormatter::class, $cfg['formatter']);
+        $this->assertSame(JsonFormatter::class, $cfg['formatter']);
     }
 }

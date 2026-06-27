@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\PixWebhookController;
+use App\Http\Controllers\Api\SegurancaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -84,6 +85,19 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
 
     // ── Admin (consumido pela SPA em /api/admin) — N1 ──
     Route::prefix('admin')->group(function () {
+        // ── Segurança da conta (A5) — 2FA e sessões do PRÓPRIO usuário ──
+        // (sob /admin pois o cliente da SPA usa baseURL .../api/admin).
+        Route::get('seguranca/2fa', [SegurancaController::class, 'twoFactorStatus']);
+        Route::post('seguranca/2fa/setup', [SegurancaController::class, 'twoFactorSetup']);
+        Route::post('seguranca/2fa/confirmar', [SegurancaController::class, 'twoFactorConfirm']);
+        Route::post('seguranca/2fa/desabilitar', [SegurancaController::class, 'twoFactorDisable']);
+        Route::get('seguranca/sessoes', [SegurancaController::class, 'sessoes']);
+        Route::delete('seguranca/sessoes/{id}', [SegurancaController::class, 'revogarSessao'])->whereNumber('id');
+        Route::post('seguranca/sessoes/revogar-outras', [SegurancaController::class, 'revogarOutras']);
+        // Política de senha da empresa (admin de acessos).
+        Route::get('seguranca/politica-senha', [SegurancaController::class, 'politicaSenhaShow']);
+        Route::put('seguranca/politica-senha', [SegurancaController::class, 'politicaSenhaUpdate']);
+
         // Lookups (AsyncSelect da SPA) — listas {id,label} por tipo. Só auth.
         Route::get('lookups/{tipo}', [LookupController::class, 'index']);
 

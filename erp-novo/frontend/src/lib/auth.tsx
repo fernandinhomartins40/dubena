@@ -17,7 +17,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
-  login: (email: string, password: string, manterConectado?: boolean) => Promise<void>
+  login: (email: string, password: string, manterConectado?: boolean, otp?: string) => Promise<void>
   logout: () => Promise<void>
   can: (permission: string) => boolean
   refresh: () => Promise<void>
@@ -74,12 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const loginMut = useMutation({
-    mutationFn: async ({ email, password, manterConectado = true }: { email: string; password: string; manterConectado?: boolean }) => {
+    mutationFn: async ({ email, password, otp, manterConectado = true }: { email: string; password: string; otp?: string; manterConectado?: boolean }) => {
       // Tenta o fluxo cookie (csrf). Se o cookie falhar, o token Bearer (abaixo)
       // ainda autentica — login robusto a problemas de CSRF cross-path.
       try { await ensureCsrf() } catch { /* segue: usaremos o token */ }
 
-      const { data } = await axios.post(authUrl('/login'), { email, password }, {
+      const { data } = await axios.post(authUrl('/login'), { email, password, ...(otp ? { otp } : {}) }, {
         withCredentials: true,
         headers: {
           Accept: 'application/json',
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user: user ?? null,
     loading: isLoading,
-    login: async (email, password, manterConectado = true) => { await loginMut.mutateAsync({ email, password, manterConectado }) },
+    login: async (email, password, manterConectado = true, otp) => { await loginMut.mutateAsync({ email, password, otp, manterConectado }) },
     logout: async () => { await logoutMut.mutateAsync() },
     can: (permission) => {
       if (!user) return false

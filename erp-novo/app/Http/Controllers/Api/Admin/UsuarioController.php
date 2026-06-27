@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Seguranca\PasswordPolicyService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -33,7 +34,10 @@ class UsuarioController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private TenantContext $tenant) {}
+    public function __construct(
+        private TenantContext $tenant,
+        private PasswordPolicyService $politicaSenha,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -106,7 +110,7 @@ class UsuarioController extends Controller
         $this->autorizar($request, 'usuario.reset');
         $usuario = $this->doTenant($id);
 
-        $dados = $request->validate(['password' => 'required|string|min:8|confirmed']);
+        $dados = $request->validate(['password' => ['required', 'string', 'confirmed', $this->politicaSenha->regra()]]);
         $usuario->update(['password' => Hash::make($dados['password'])]);
 
         // Revoga tokens de API existentes (força novo login nos apps).
@@ -193,7 +197,7 @@ class UsuarioController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($usuario?->id)],
-            'password' => $usuario ? 'prohibited' : 'required|string|min:8|confirmed',
+            'password' => $usuario ? 'prohibited' : ['required', 'string', 'confirmed', $this->politicaSenha->regra()],
             'ativo' => 'sometimes|boolean',
             // Aceita inteiro (id) OU objeto com escopo (A3). Normalizado em sincronizarPapeis.
             'papeis' => 'sometimes|array',

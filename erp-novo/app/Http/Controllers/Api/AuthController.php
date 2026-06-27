@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Seguranca\LoginSeguranca;
+use App\Domain\Seguranca\Totp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,30 +17,67 @@ use Illuminate\Support\Facades\Auth;
  *    login fixa a sessão (Auth::attempt + regenerate) — o cookie autentica as
  *    próximas requisições.
  *  - Apps/integrações (token): sempre devolve um token Bearer no corpo.
- * Contrato JSON limpo — sem View/Redirect.
+ *
+ * A5 — segurança: trilha em login_logs, LOCKOUT por falhas recentes (além do
+ * rate-limit) e 2FA (TOTP). Se o usuário tem 2FA habilitado e não envia um `otp`
+ * válido, o login responde 423 com `two_factor_required` (sem emitir token).
  */
 class AuthController extends Controller
 {
+    public function __construct(
+        private LoginSeguranca $seguranca,
+        private Totp $totp,
+    ) {}
+
     public function login(LoginRequest $request): JsonResponse
     {
-        $credenciais = $request->validated();
+        $cred = $request->validated();
+        $email = (string) $cred['email'];
 
-        if (! Auth::attempt(['email' => $credenciais['email'], 'password' => $credenciais['password']], remember: true)) {
+        // Lockout: barra antes mesmo de tentar autenticar.
+        if ($this->seguranca->bloqueado($email, $request->ip())) {
+            $this->seguranca->registrar($request, $email, false, 'lockout');
+
+            return response()->json(['message' => 'Muitas tentativas. Tente novamente em alguns minutos.'], 429);
+        }
+
+        if (! Auth::attempt(['email' => $email, 'password' => $cred['password']], remember: true)) {
+            $this->seguranca->registrar($request, $email, false, 'credenciais');
+
             return response()->json(['message' => 'Credenciais inválidas.'], 401);
         }
 
+        /** @var User $user */
         $user = Auth::user();
 
         if (! $user->ativo) {
             Auth::logout();
+            $this->seguranca->registrar($request, $email, false, 'inativo', $user->id, $user->empresa_id);
 
             return response()->json(['message' => 'Usuário inativo.'], 403);
+        }
+
+        // 2FA: se habilitado, exige um OTP válido (ou um recovery code).
+        $twofa = $user->twoFactor;
+        if ($twofa && $twofa->habilitado) {
+            $otp = (string) ($request->input('otp', ''));
+            if ($otp === '' || ! $this->verificar2fa($user, $otp)) {
+                Auth::logout();
+                $this->seguranca->registrar($request, $email, false, '2fa', $user->id, $user->empresa_id);
+
+                return response()->json([
+                    'message' => 'Código de verificação necessário.',
+                    'two_factor_required' => true,
+                ], 423);
+            }
         }
 
         // SPA cookie-based: fixa a sessão (o cookie autentica as próximas requisições).
         if ($request->hasSession()) {
             $request->session()->regenerate();
         }
+
+        $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
 
         // Token Bearer para apps/integrações (a SPA pode ignorar e usar o cookie).
         $token = $user->createToken('spa')->plainTextToken;
@@ -64,5 +104,30 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Sessão encerrada.']);
+    }
+
+    /** Verifica OTP TOTP ou consome um recovery code (uso único). */
+    private function verificar2fa(User $user, string $otp): bool
+    {
+        $twofa = $user->twoFactor;
+        if ($twofa === null) {
+            return false;
+        }
+
+        if ($this->totp->verificar($twofa->secret, $otp)) {
+            return true;
+        }
+
+        // Recovery code (one-time): se bater, consome e segue.
+        $codes = $twofa->recovery_codes ?? [];
+        $idx = array_search(strtoupper(trim($otp)), array_map('strtoupper', $codes), true);
+        if ($idx !== false) {
+            unset($codes[$idx]);
+            $twofa->update(['recovery_codes' => array_values($codes)]);
+
+            return true;
+        }
+
+        return false;
     }
 }
