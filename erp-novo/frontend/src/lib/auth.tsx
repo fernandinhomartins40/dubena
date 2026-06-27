@@ -20,6 +20,8 @@ interface AuthContextValue {
   login: (email: string, password: string, manterConectado?: boolean, otp?: string) => Promise<void>
   logout: () => Promise<void>
   can: (permission: string) => boolean
+  /** Field-level (A7): pode ver/editar um campo controlado? `can('modulo.campo.{nome}.{acao}')`. */
+  canField: (modulo: string, campo: string, acao: 'view' | 'edit') => boolean
   refresh: () => Promise<void>
 }
 
@@ -121,6 +123,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) return false
       if (user.is_support) return true
       return user.permissions.includes(permission)
+    },
+    canField: (modulo, campo, acao) => {
+      if (!user) return false
+      if (user.is_support) return true
+      return user.permissions.includes(`${modulo}.campo.${campo}.${acao}`)
     },
     refresh: async () => { await qc.invalidateQueries({ queryKey: ['me'] }) },
   }

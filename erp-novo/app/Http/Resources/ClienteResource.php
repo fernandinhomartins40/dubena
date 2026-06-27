@@ -2,18 +2,23 @@
 
 namespace App\Http\Resources;
 
+use App\Domain\Acesso\CamposPermitidos;
+use App\Models\Cliente\Cliente;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Cliente\Cliente
+ * @mixin Cliente
  */
 class ClienteResource extends JsonResource
 {
+    /** Campos sob controle field-level (A7) — só viajam se o usuário tiver `view`. */
+    private const CAMPOS_SENSIVEIS = ['credito_limite', 'credito_saldo', 'convenio_limite'];
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        return [
+        $dados = [
             'id' => $this->id,
             'nome' => $this->nome,
             'fantasia' => $this->fantasia,
@@ -66,5 +71,9 @@ class ClienteResource extends JsonResource
                 'telefonetipo_id' => $t->telefonetipo_id,
             ])),
         ];
+
+        // Field-level (A7): oculta campos sensíveis sem `cliente.campo.{nome}.view`.
+        return app(CamposPermitidos::class)
+            ->filtrarLeitura($request->user(), 'cliente', $dados, self::CAMPOS_SENSIVEIS);
     }
 }

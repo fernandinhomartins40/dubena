@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User, Settings } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Users, Building2, User, Settings, Download } from 'lucide-react'
 import { useClientes, useExcluirCliente, type ClienteListItem } from './api'
 import {
   Button, PageHeader, Badge, DataTable, type Column, EmptyState, SearchBar,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  ConfirmDialog, toast,
+  ConfirmDialog, Can, toast,
 } from '@/components/ui'
+import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useBusca } from '@/lib/useBusca'
 
@@ -23,6 +24,16 @@ export function ClientesListPage() {
     try { await excluir.mutateAsync(excluindo.id); toast.success(`Cliente "${excluindo.nome}" excluído.`) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível excluir.') }
     finally { setExcluindo(null) }
+  }
+
+  async function exportar() {
+    try {
+      const resp = await api.get('/clientes/exportar', { responseType: 'blob' })
+      const url = URL.createObjectURL(resp.data as Blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'clientes.csv'; a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível exportar.') }
   }
 
   const columns: Column<ClienteListItem>[] = [
@@ -69,6 +80,7 @@ export function ClientesListPage() {
         subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} clientes cadastrados` : 'Carregando…'}
         action={
           <>
+            <Can permission="cliente.export"><Button variant="outline" onClick={exportar}><Download size={16} /> Exportar</Button></Can>
             {can('cliente.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=clientes')}><Settings size={16} /> Configurações</Button>}
             {can('cliente.create') && <Button onClick={() => navigate('/clientes/novo')}><Plus size={16} /> Novo cliente</Button>}
           </>

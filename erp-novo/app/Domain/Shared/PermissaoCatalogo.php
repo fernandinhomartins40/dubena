@@ -58,6 +58,34 @@ final class PermissaoCatalogo
     ];
 
     /**
+     * Permissões GRANULARES (A7) — chaves já formadas, fora do esquema
+     * `modulo.acao` padrão (campos sensíveis, relatórios e export/import).
+     * Entram incrementalmente: declarar aqui já as inclui no catálogo, no Gate,
+     * no RbacSeeder e no contrato — sem explodir tudo de uma vez.
+     *
+     * Convenção (plano §6.1):
+     *  - campo:    `modulo.campo.{nome}.{view|edit}`
+     *  - relatório: `relatorio.{slug}.view`
+     *  - export/import: `modulo.export` / `modulo.import`
+     *
+     * @var array<string, string> chave => descrição
+     */
+    public const GRANULARES = [
+        // Campos sensíveis do cliente (crédito/convênio).
+        'cliente.campo.credito_limite.view' => 'Cliente — Ver limite de crédito',
+        'cliente.campo.credito_limite.edit' => 'Cliente — Editar limite de crédito',
+        'cliente.campo.credito_saldo.view' => 'Cliente — Ver saldo de crédito',
+        'cliente.campo.convenio_limite.view' => 'Cliente — Ver limite de convênio',
+        'cliente.campo.convenio_limite.edit' => 'Cliente — Editar limite de convênio',
+        // Export/import.
+        'cliente.export' => 'Cliente — Exportar',
+        'produto.export' => 'Produto — Exportar',
+        // Relatórios específicos.
+        'relatorio.dre.view' => 'Relatório — DRE',
+        'relatorio.vendas.view' => 'Relatório — Vendas',
+    ];
+
+    /**
      * Descrições amigáveis por ação (para a coluna `descricao`).
      *
      * @var array<string, string>
@@ -71,6 +99,8 @@ final class PermissaoCatalogo
         'preco' => 'Gerir preços',
         'emitir' => 'Emitir',
         'reset' => 'Resetar senha',
+        'export' => 'Exportar',
+        'import' => 'Importar',
     ];
 
     /**
@@ -86,6 +116,9 @@ final class PermissaoCatalogo
                 $chaves[] = "{$modulo}.{$acao}";
             }
         }
+
+        // Granulares (A7) — campos/relatórios/export.
+        $chaves = array_merge($chaves, array_keys(self::GRANULARES));
 
         return $chaves;
     }
@@ -104,6 +137,9 @@ final class PermissaoCatalogo
                 $mapa["{$modulo}.{$acao}"] = "{$rotulo} — ".(self::ACOES[$acao] ?? ucfirst($acao));
             }
         }
+
+        // Granulares (A7) já vêm com descrição própria.
+        $mapa = array_merge($mapa, self::GRANULARES);
 
         return $mapa;
     }

@@ -451,7 +451,11 @@ models (escopados); rotas/controllers da Central de Acessos; eventos de seguran�
 | ~~**A4 — ABAC**~~ ✅ | `permission_conditions` (RLS) + `PolicyEvaluator` (`permite(user,acao,recurso)` = RBAC + escopo hierárquico da A3 + condições limite/ownership/horário). Integrado ao Gate central (recurso opcional → sem recurso = RBAC puro, compatível com A1); trait `autorizarRecurso()`. API+UI de condições por papel (aba Perfis). | Médio-alto | A1, A3 |
 | ~~**A5 — Segurança avançada**~~ ✅ | `login_logs` (trilha de tentativas) + **lockout** (5 falhas/15min por e-mail/IP) + **2FA TOTP nativo** (RFC 6238, sem dependência; `user_2fa` com secret/recovery cifrados; exigido no login com 423) + **política de senha** por empresa (`password_policies`, RLS) aplicada em create/reset + **sessões ativas** (listar/revogar tokens Sanctum). UI: página Segurança (2FA + sessões), campo OTP no login, aba Política de senha. | Médio | A2 |
 | ~~**A6 — Auditoria de segurança + histórico**~~ ✅ | `security_events` (papel criado/editado/excluído, papéis do usuário, 2FA on/off, reset de senha, **403 autorização negada**) via recorder único `AuditoriaSeguranca`; `role_versions` (snapshot a cada alteração de papel) + endpoint de histórico; API de auditoria (eventos + login_logs) gated por `auditoria.view`. UI: aba Auditoria (eventos + logins) na Central de Acessos. | Baixo | A2 |
-| **A7 — Granularidade fina** | Field-level, relatórios/widgets/integrações como permissões. | Médio | A2 |
+| ~~**A7 — Granularidade fina**~~ ✅ | Catálogo estendido com chaves GRANULARES (`modulo.campo.{nome}.{view\|edit}`, `modulo.export`, `relatorio.{slug}.view`). Field-level no backend (`CamposPermitidos`: oculta sem `view`, ignora na escrita sem `edit`) aplicado no Cliente (crédito/convênio) + export gated. SPA: `<Can>` e `canField()`; botão Exportar gated em Clientes. Entra incrementalmente (declarar a chave já a ativa em catálogo/Gate/seed/contrato). | Médio | A2 |
+
+> **Todas as fases A0–A7 concluídas.** Próximos passos são aplicação incremental
+> (mais campos/relatórios/exports por módulo) e o enforcement ABAC ponto-a-ponto nos
+> fluxos sensíveis (`autorizarRecurso`), conforme a prioridade do negócio.
 
 > Cada fase é commit+deploy independente (fluxo do projeto: 1 fase = 1 commit na main).
 

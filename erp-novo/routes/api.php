@@ -193,6 +193,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::delete('geo/{entidade}/{id}', [GeoController::class, 'destroy'])->whereNumber('id');
 
         // ── Clientes — N2 ──
+        Route::get('clientes/exportar', [ClienteController::class, 'exportar']); // antes de /{id}
         Route::get('clientes', [ClienteController::class, 'index']);
         Route::post('clientes', [ClienteController::class, 'store']);
         Route::get('clientes/{id}', [ClienteController::class, 'show'])->whereNumber('id');
