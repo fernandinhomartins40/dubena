@@ -1,10 +1,11 @@
 import useNotificationClick from "@/hooks/useNotificationClick"
 import useAppStore from "@/store/appStore"
+import { initSecureStorage } from "@/store/storage"
 import { rootStyle } from "@/styles/theme"
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
 import { Href, SplashScreen, Stack, useRouter } from "expo-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { StyleProp, ViewStyle } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
@@ -15,10 +16,25 @@ const queryClient = new QueryClient()
 SplashScreen.preventAutoHideAsync()
 
 export default function App() {
-    // const { user, config } = useAppStore()
-    // const router = useRouter()
+    // Boot de segurança (F0): monta o MMKV cifrado e só então hidrata as stores.
+    const [storageReady, setStorageReady] = useState(false)
+
+    useEffect(() => {
+        let mounted = true
+        ;(async () => {
+            await initSecureStorage()
+            await useAppStore.persist.rehydrate()
+            if (mounted) setStorageReady(true)
+        })()
+        return () => {
+            mounted = false
+        }
+    }, [])
 
     useNotificationClick()
+
+    // Mantém a splash até o storage cifrado estar pronto (evita "flash" de tela de login).
+    if (!storageReady) return null
 
     // useEffect(() => {
     //     const timer = setTimeout(() => {

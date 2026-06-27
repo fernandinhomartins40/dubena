@@ -1,4 +1,5 @@
 import { CardBrands } from "@/types/types"
+import Constants from "expo-constants"
 
 export const PER_WIDTH = 0.5
 
@@ -87,24 +88,37 @@ export const SupportedBrands: Brands[] = [
 
 export const DEFAULT_LOCATION = { latitude: -25.3862077, longitude: -51.4867962 }
 
-// ? Local env
-// debug: true,
-// api_url: "http://192.168.0.108/api-integration/public/api/",
-// app_key: "40c20d46182c497aa5147242b91c6923d6a6258e",
-// gap_key: "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8",
-// ? Homolog env
-// debug: true,
-// api_url: "http://qtidevel.ddns.net:8181/api-integration/public/api/",
-// app_key: "40c20d46182c497aa5147242b91c6923d6a6258e",
-// gap_key: "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8",
-// ? Prod env
-// debug: false,
-// api_url: "https://gasemcasa.com.br/api-app/public/api/",
-// app_key: "40c20d46182c497aa5147242b91c6923d6a6258e",
-// gap_key: "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8",
+/**
+ * Configuração de runtime (F0 — segurança).
+ *
+ * Os valores vêm de `expo-constants` (bloco `extra` de app.config.ts, alimentado
+ * por variáveis de ambiente). Nenhum segredo ou URL fica mais hardcoded no código.
+ * `api_url` agora aponta para a API do ERP-NOVO (ver .env / app.config.ts).
+ *
+ * Em dev, se a env não estiver configurada, falhamos cedo e de forma clara em vez
+ * de silenciosamente cair em uma URL errada.
+ */
+type AppExtra = {
+    appEnv?: string
+    apiUrl?: string
+    googleMapsApiKey?: string
+    debug?: boolean
+}
+
+const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra
+
+if (!extra.apiUrl) {
+    // eslint-disable-next-line no-console
+    console.warn(
+        "[config] API_URL não configurada. Defina-a no .env (veja .env.example) — as chamadas à API vão falhar.",
+    )
+}
+
 export const APP = {
-    debug: false,
-    api_url: "https://gasemcasa.com.br/api-app/public/api/",
-    app_key: "40c20d46182c497aa5147242b91c6923d6a6258e",
-    gap_key: "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8",
+    env: extra.appEnv ?? "prod",
+    debug: extra.debug ?? false,
+    /** Base da API do ERP-NOVO (com barra final). Ex.: https://app.erp.com.br/api/ */
+    api_url: extra.apiUrl ?? "",
+    /** Chave do Google Maps/Geocode. */
+    gap_key: extra.googleMapsApiKey ?? "",
 }

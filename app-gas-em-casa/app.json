@@ -15,18 +15,10 @@
       "entitlements": {
         "aps-environment": "production"
       },
-      "config": {
-        "googleMapsApiKey": "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8"
-      },
       "icon": {
         "light": "./assets/icons/ios-light.png",
         "dark": "./assets/icons/ios-dark.png",
         "tinted": "./assets/icons/ios-tinted.png"
-      },
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
       }
     },
     "android": {
@@ -43,13 +35,8 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8"
-        }
-      },
       "edgeToEdgeEnabled": true,
-      "allowHttp": true
+      "allowHttp": false
     },
     "web": {
       "favicon": "./assets/favicon.png"

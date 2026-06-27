@@ -137,6 +137,9 @@ const useAppStore = create<AppStore>()(
         {
             name: "default-storage",
             storage: createJSONStorage(() => zustandStorage),
+            // Hidratação manual: só após initSecureStorage() montar o MMKV cifrado
+            // (ver src/app/_layout.tsx). Evita ler do storage antes da chave estar pronta.
+            skipHydration: true,
         },
     ),
 )
