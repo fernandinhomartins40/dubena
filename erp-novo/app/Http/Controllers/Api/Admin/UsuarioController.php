@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Organizacao\Departamento;
+use App\Models\Organizacao\SetorOrg;
+use App\Models\Organizacao\Unidade;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -136,27 +139,49 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Atribui papéis ao usuário NA empresa ativa. Aceita só papéis do grupo ativo.
+     * Atribui papéis ao usuário NA empresa ativa, com ESCOPO hierárquico opcional
+     * (A3). Aceita duas formas em `papeis[]`:
+     *   - inteiro: só o id do papel (escopo = empresa inteira);
+     *   - objeto: { id, unidade_id?, departamento_id?, setor_id?, herda_filhos? }.
+     * Só papéis do grupo ativo são aceitos; nós de escopo são validados como da
+     * empresa ativa (global scope garante o tenant).
      *
-     * @param  list<int>  $papelIds
+     * @param  list<int|array<string,mixed>>  $papeis
      */
-    private function sincronizarPapeis(User $usuario, array $papelIds): void
+    private function sincronizarPapeis(User $usuario, array $papeis): void
     {
         $empresaId = $this->tenant->requireEmpresaId();
         $grupoId = $this->tenant->requireGrupoId();
 
-        // Só papéis do grupo ativo (rejeita ids de outra rede).
-        $validos = Role::query()
-            ->where('grupo_id', $grupoId)
-            ->whereIn('id', array_values(array_unique($papelIds)))
-            ->pluck('id')
-            ->all();
+        // Papéis válidos do grupo (mapa id => true para filtro rápido).
+        $papeisDoGrupo = Role::query()->where('grupo_id', $grupoId)->pluck('id')->flip();
 
-        // Remove apenas as atribuições DESTA empresa e recria (não toca papéis de
-        // outras empresas do mesmo usuário).
+        // Nós de escopo que existem na empresa ativa (validação de tenant).
+        $unidadesOk = Unidade::query()->pluck('id')->flip();
+        $deptosOk = Departamento::query()->pluck('id')->flip();
+        $setoresOk = SetorOrg::query()->pluck('id')->flip();
+
+        // Recria apenas as atribuições DESTA empresa (não toca outras empresas).
         $usuario->roles()->wherePivot('empresa_id', $empresaId)->detach();
-        foreach ($validos as $roleId) {
-            $usuario->roles()->attach($roleId, ['empresa_id' => $empresaId]);
+
+        foreach ($papeis as $item) {
+            $roleId = is_array($item) ? (int) ($item['id'] ?? 0) : (int) $item;
+            if (! $papeisDoGrupo->has($roleId)) {
+                continue;
+            }
+
+            $esc = is_array($item) ? $item : [];
+            $unidadeId = isset($esc['unidade_id']) && $unidadesOk->has((int) $esc['unidade_id']) ? (int) $esc['unidade_id'] : null;
+            $deptoId = isset($esc['departamento_id']) && $deptosOk->has((int) $esc['departamento_id']) ? (int) $esc['departamento_id'] : null;
+            $setorId = isset($esc['setor_id']) && $setoresOk->has((int) $esc['setor_id']) ? (int) $esc['setor_id'] : null;
+
+            $usuario->roles()->attach($roleId, [
+                'empresa_id' => $empresaId,
+                'unidade_id' => $unidadeId,
+                'departamento_id' => $deptoId,
+                'setor_id' => $setorId,
+                'herda_filhos' => $esc['herda_filhos'] ?? true,
+            ]);
         }
     }
 
@@ -170,8 +195,8 @@ class UsuarioController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($usuario?->id)],
             'password' => $usuario ? 'prohibited' : 'required|string|min:8|confirmed',
             'ativo' => 'sometimes|boolean',
+            // Aceita inteiro (id) OU objeto com escopo (A3). Normalizado em sincronizarPapeis.
             'papeis' => 'sometimes|array',
-            'papeis.*' => 'integer',
         ]);
     }
 
@@ -184,7 +209,15 @@ class UsuarioController extends Controller
             'email' => $usuario->email,
             'ativo' => (bool) $usuario->ativo,
             'support' => (bool) $usuario->support,
-            'papeis' => $usuario->roles->map(fn (Role $r) => ['id' => $r->id, 'nome' => $r->nome])->values()->all(),
+            'papeis' => $usuario->roles->map(fn (Role $r) => [
+                'id' => $r->id,
+                'nome' => $r->nome,
+                // Escopo hierárquico da atribuição (A3) — null = empresa inteira.
+                'unidade_id' => $r->pivot->unidade_id,
+                'departamento_id' => $r->pivot->departamento_id,
+                'setor_id' => $r->pivot->setor_id,
+                'herda_filhos' => (bool) $r->pivot->herda_filhos,
+            ])->values()->all(),
         ];
     }
 }

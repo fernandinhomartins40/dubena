@@ -49,6 +49,10 @@ final class PermissaoCatalogo
         // Central de Acessos (A2) — administração de usuários e papéis.
         'usuario' => ['view', 'create', 'edit', 'delete', 'reset'],
         'papel' => ['view', 'create', 'edit', 'delete'],
+        // Estrutura organizacional (A3) — árvore unidade → departamento → setor.
+        'unidade' => ['view', 'create', 'edit', 'delete'],
+        'departamento' => ['view', 'create', 'edit', 'delete'],
+        'setor' => ['view', 'create', 'edit', 'delete'],
     ];
 
     /**

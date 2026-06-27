@@ -86,3 +86,56 @@ export function useResetarSenha() {
       (await api.post(`/usuarios/${id}/resetar-senha`, data)).data,
   })
 }
+
+// ---- Estrutura organizacional (A3) ----
+export interface Unidade {
+  id: number
+  parent_id: number | null
+  tipo: string
+  nome: string
+  cnpj: string | null
+  ativo: boolean
+  departamentos_count?: number
+}
+export interface Departamento {
+  id: number
+  unidade_id: number
+  nome: string
+  ativo: boolean
+  setores_count?: number
+}
+export interface SetorOrg {
+  id: number
+  departamento_id: number
+  nome: string
+  ativo: boolean
+}
+
+/** CRUD genérico para um recurso simples da estrutura (lista + salvar + excluir). */
+function recursoEstrutura<T>(rota: string, chaveQuery: string) {
+  const useList = (params?: Record<string, unknown>) =>
+    useQuery<T[]>({
+      queryKey: [chaveQuery, params ?? {}],
+      queryFn: async () => (await api.get(`/${rota}`, { params })).data.data,
+    })
+  const useSalvar = () => {
+    const qc = useQueryClient()
+    return useMutation({
+      mutationFn: async ({ id, data }: { id: number | null; data: Record<string, unknown> }) =>
+        id ? (await api.put(`/${rota}/${id}`, data)).data.data : (await api.post(`/${rota}`, data)).data.data,
+      onSuccess: () => qc.invalidateQueries({ queryKey: [chaveQuery] }),
+    })
+  }
+  const useExcluir = () => {
+    const qc = useQueryClient()
+    return useMutation({
+      mutationFn: async (id: number) => (await api.delete(`/${rota}/${id}`)).data,
+      onSuccess: () => qc.invalidateQueries({ queryKey: [chaveQuery] }),
+    })
+  }
+  return { useList, useSalvar, useExcluir }
+}
+
+export const unidades = recursoEstrutura<Unidade>('unidades', 'unidades')
+export const departamentos = recursoEstrutura<Departamento>('departamentos', 'departamentos')
+export const setoresOrg = recursoEstrutura<SetorOrg>('setores-org', 'setores-org')

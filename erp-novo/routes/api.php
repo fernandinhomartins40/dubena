@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\CrmController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
+use App\Http\Controllers\Api\Admin\EstruturaController;
 use App\Http\Controllers\Api\Admin\FinanceiroCadastroController;
 use App\Http\Controllers\Api\Admin\FinanceiroController;
 use App\Http\Controllers\Api\Admin\FiscalConfigController;
@@ -127,6 +128,22 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::put('usuarios/{id}', [UsuarioController::class, 'update'])->whereNumber('id');
         Route::post('usuarios/{id}/resetar-senha', [UsuarioController::class, 'resetarSenha'])->whereNumber('id');
         Route::delete('usuarios/{id}', [UsuarioController::class, 'destroy'])->whereNumber('id');
+
+        // ── Estrutura organizacional (A3) — unidades/departamentos/setores/cargos ──
+        Route::get('unidades', [EstruturaController::class, 'unidadesIndex']);
+        Route::post('unidades', [EstruturaController::class, 'unidadeStore']);
+        Route::put('unidades/{id}', [EstruturaController::class, 'unidadeUpdate'])->whereNumber('id');
+        Route::delete('unidades/{id}', [EstruturaController::class, 'unidadeDestroy'])->whereNumber('id');
+
+        Route::get('departamentos', [EstruturaController::class, 'departamentosIndex']);
+        Route::post('departamentos', [EstruturaController::class, 'departamentoStore']);
+        Route::put('departamentos/{id}', [EstruturaController::class, 'departamentoUpdate'])->whereNumber('id');
+        Route::delete('departamentos/{id}', [EstruturaController::class, 'departamentoDestroy'])->whereNumber('id');
+
+        Route::get('setores-org', [EstruturaController::class, 'setoresIndex']);
+        Route::post('setores-org', [EstruturaController::class, 'setorStore']);
+        Route::put('setores-org/{id}', [EstruturaController::class, 'setorUpdate'])->whereNumber('id');
+        Route::delete('setores-org/{id}', [EstruturaController::class, 'setorDestroy'])->whereNumber('id');
 
         // Regiões de atendimento.
         Route::get('regioes', [RegiaoController::class, 'index']);

@@ -60,7 +60,9 @@ class User extends Authenticatable
 
     public function roles(): BelongsToMany
     {
-        return $this->belongsToMany(Role::class, 'role_user')->withPivot('empresa_id');
+        // Pivot carrega a empresa e o ESCOPO hierárquico da atribuição (A3).
+        return $this->belongsToMany(Role::class, 'role_user')
+            ->withPivot('empresa_id', 'unidade_id', 'departamento_id', 'setor_id', 'herda_filhos');
     }
 
     // ---- Tenant (usado por ResolveTenant) ----

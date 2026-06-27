@@ -3,6 +3,7 @@ import { PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/componen
 import { useAuth } from '@/lib/auth'
 import { UsuariosTab } from './UsuariosTab'
 import { PerfisTab } from './PerfisTab'
+import { EstruturaTab } from './EstruturaTab'
 
 /**
  * Central de Acessos (A2) — administração de usuários e perfis (papéis) por
@@ -15,10 +16,12 @@ export function AcessosPage() {
   const { can } = useAuth()
   const podeUsuarios = can('usuario.view')
   const podePapeis = can('papel.view')
+  const podeEstrutura = can('unidade.view')
 
   const abaParam = params.get('tab')
-  const padrao = podeUsuarios ? 'usuarios' : 'perfis'
-  const aba = abaParam === 'perfis' || abaParam === 'usuarios' ? abaParam : padrao
+  const padrao = podeUsuarios ? 'usuarios' : podePapeis ? 'perfis' : 'estrutura'
+  const validas = ['usuarios', 'perfis', 'estrutura']
+  const aba = abaParam && validas.includes(abaParam) ? abaParam : padrao
 
   return (
     <div>
@@ -27,9 +30,11 @@ export function AcessosPage() {
         <TabsList>
           {podeUsuarios && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}
           {podePapeis && <TabsTrigger value="perfis">Perfis</TabsTrigger>}
+          {podeEstrutura && <TabsTrigger value="estrutura">Estrutura</TabsTrigger>}
         </TabsList>
         {podeUsuarios && <TabsContent value="usuarios"><UsuariosTab /></TabsContent>}
         {podePapeis && <TabsContent value="perfis"><PerfisTab /></TabsContent>}
+        {podeEstrutura && <TabsContent value="estrutura"><EstruturaTab /></TabsContent>}
       </Tabs>
     </div>
   )
