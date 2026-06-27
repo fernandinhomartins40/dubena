@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Caixa\Conta;
 use App\Models\Caixa\ContaMovimento;
+use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -78,7 +79,7 @@ class CaixaController extends Controller
 
     public function fechar(Request $request, int $contaId): JsonResponse
     {
-        $this->autorizar($request, 'caixa.edit');
+        $this->autorizar($request, 'caixa.fechar'); // verbo sensível (A7)
         Conta::query()->findOrFail($contaId);
         $d = $request->validate(['datahorafechamento' => 'nullable|date']);
 
@@ -90,7 +91,6 @@ class CaixaController extends Controller
     /** POST /caixa/{contaId}/baixar */
     public function baixar(Request $request, int $contaId): JsonResponse
     {
-        $this->autorizar($request, 'caixa.edit');
         Conta::query()->findOrFail($contaId);
         $d = $request->validate([
             'parcela_id' => 'required|integer|exists:financeiroparcelas,id',
@@ -98,6 +98,10 @@ class CaixaController extends Controller
             'multa' => 'nullable|numeric|gte:0',
             'desconto' => 'nullable|numeric|gte:0',
         ]);
+
+        // ABAC (A4): baixa é verbo sensível; o limite ABAC aplica sobre o valor da parcela.
+        $valor = (float) FinanceiroParcela::query()->whereKey($d['parcela_id'])->value('valor');
+        $this->autorizarRecurso($request, 'financeiro.baixar', ['valor' => $valor]);
 
         $mov = $this->service->baixarParcela($contaId, $d['parcela_id'], (float) ($d['juros'] ?? 0), (float) ($d['multa'] ?? 0), (float) ($d['desconto'] ?? 0), $request->user()->id);
 
@@ -110,7 +114,7 @@ class CaixaController extends Controller
      */
     public function baixarTitulos(Request $request, int $contaId): JsonResponse
     {
-        $this->autorizar($request, 'caixa.edit');
+        $this->autorizar($request, 'financeiro.baixar'); // verbo sensível (A7)
         Conta::query()->findOrFail($contaId);
         $d = $request->validate([
             'itens' => 'required|array|min:1',
@@ -167,8 +171,16 @@ class CaixaController extends Controller
 
     public function estornar(Request $request, int $movimentoId): JsonResponse
     {
-        $this->autorizar($request, 'caixa.edit');
-        ContaMovimento::query()->whereKey($movimentoId)->firstOrFail();
+        $movimento = ContaMovimento::query()->whereKey($movimentoId)->firstOrFail();
+
+        // ABAC (A4) ponto-a-ponto: estornar é verbo sensível. O recurso carrega o
+        // DONO do lançamento (user_id → condição ownership: "só estorna o próprio")
+        // e o VALOR (condição limite: "estorna até R$ X"). Sem condições no papel,
+        // basta ter 'caixa.estornar'.
+        $this->autorizarRecurso($request, 'caixa.estornar', [
+            'user_id' => $movimento->user_id,
+            'valor' => abs((float) $movimento->valor),
+        ]);
 
         $mov = $this->service->estornar($movimentoId, $request->user()->id);
 

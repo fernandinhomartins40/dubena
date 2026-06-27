@@ -63,8 +63,11 @@ class RbacSeeder extends Seeder
         $this->role($grupoId, 'Gerente', $gerente->values()->all());
 
         // Operador: operação do dia a dia (sem fiscal/empresa/grupo/relatórios sensíveis).
+        // Inclui os verbos sensíveis do COTIDIANO do operador (baixar/fechar caixa);
+        // estornar e aprovar ficam de fora (default-deny: o admin concede via UI).
         $operador = $todas->filter(function ($id, string $chave) {
-            return preg_match('/^(cliente|produto|estoque|pedido|financeiro|caixa|convenio|valegas|comodato)\.(view|create|edit)$/', $chave) === 1;
+            return preg_match('/^(cliente|produto|estoque|pedido|financeiro|caixa|convenio|valegas|comodato)\.(view|create|edit)$/', $chave) === 1
+                || in_array($chave, ['financeiro.baixar', 'caixa.fechar'], true);
         });
         $this->role($grupoId, 'Operador', $operador->values()->all());
 

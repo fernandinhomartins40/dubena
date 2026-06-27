@@ -21,10 +21,10 @@ final class PermissaoCatalogo
         'cliente' => ['view', 'create', 'edit', 'delete'],
         'produto' => ['view', 'create', 'edit', 'delete', 'config', 'preco'],
         'estoque' => ['view', 'edit'],
-        'pedido' => ['view', 'create', 'edit', 'delete'],
+        'pedido' => ['view', 'create', 'edit', 'delete', 'aprovar'], // aprovar = verbo sensível (ABAC)
         'pedidosituacao' => ['view', 'create', 'edit', 'delete'], // colunas do Kanban (situações)
-        'financeiro' => ['view', 'create', 'edit', 'delete'],
-        'caixa' => ['view', 'edit'],
+        'financeiro' => ['view', 'create', 'edit', 'delete', 'baixar'], // baixar = verbo sensível (ABAC)
+        'caixa' => ['view', 'edit', 'fechar', 'estornar'], // verbos sensíveis (ABAC: limite/ownership)
         'fiscal' => ['view', 'edit', 'emitir'],
         'convenio' => ['view', 'edit'],
         'valegas' => ['view', 'edit'],
@@ -101,6 +101,10 @@ final class PermissaoCatalogo
         'reset' => 'Resetar senha',
         'export' => 'Exportar',
         'import' => 'Importar',
+        'aprovar' => 'Aprovar',
+        'baixar' => 'Baixar (financeiro)',
+        'fechar' => 'Fechar',
+        'estornar' => 'Estornar',
     ];
 
     /**
