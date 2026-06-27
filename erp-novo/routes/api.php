@@ -417,6 +417,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::put('monitora/veiculos/{id}', [MonitoraController::class, 'atualizarVeiculo'])->whereNumber('id');
         Route::post('monitora/veiculos/{id}/posicoes', [MonitoraController::class, 'ingerirPosicao'])->whereNumber('id');
         Route::get('monitora/veiculos/{id}/historico', [MonitoraController::class, 'historico'])->whereNumber('id');
+        Route::get('monitora/veiculos/{id}/eventos', [MonitoraController::class, 'relatorioEventos'])->whereNumber('id');
         Route::get('monitora/tipos', [MonitoraController::class, 'tipos']);
         Route::post('monitora/tipos', [MonitoraController::class, 'criarTipo']);
         Route::get('monitora/ultimas-posicoes', [MonitoraController::class, 'ultimasPosicoes']);

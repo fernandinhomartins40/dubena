@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Monitora\MonitoraSyncService;
+use App\Domain\Monitora\RelatorioMonitoraService;
+use App\Domain\Relatorio\RelatorioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Monitora\Cerca;
@@ -12,6 +14,7 @@ use App\Models\Monitora\Veiculo;
 use App\Models\Monitora\VeiculoTipo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,6 +28,8 @@ class MonitoraController extends Controller
     public function __construct(
         private MonitoraService $service,
         private MonitoraSyncService $sync,
+        private RelatorioMonitoraService $relatorio,
+        private RelatorioService $exportador,
     ) {}
 
     public function veiculos(Request $request): JsonResponse
@@ -120,6 +125,43 @@ class MonitoraController extends Controller
             ]);
 
         return response()->json(['data' => $posicoes]);
+    }
+
+    /**
+     * GET /monitora/veiculos/{id}/eventos?de&ate&formato=csv|pdf — relatório de paradas
+     * e excessos de velocidade (paridade com o ReportController do legado).
+     */
+    public function relatorioEventos(Request $request, int $id): Response|JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+        $veiculo = Veiculo::query()->with('tipo')->findOrFail($id);
+
+        $d = $request->validate([
+            'de' => 'required|date',
+            'ate' => 'required|date|after_or_equal:de',
+            'formato' => 'nullable|in:csv,pdf',
+        ]);
+
+        $formato = $d['formato'] ?? null;
+        if ($formato !== null) {
+            $linhas = $this->relatorio->linhasEventos($veiculo, $d['de'], $d['ate']);
+            $titulo = "Eventos do veículo {$veiculo->placa} ({$d['de']} a {$d['ate']})";
+            $nome = "eventos-{$veiculo->placa}";
+
+            if ($formato === 'csv') {
+                return response($this->exportador->csv($linhas), 200, [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$nome}.csv\"",
+                ]);
+            }
+
+            return response($this->exportador->pdf($linhas, $titulo), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "attachment; filename=\"{$nome}.pdf\"",
+            ]);
+        }
+
+        return response()->json(['data' => $this->relatorio->eventosVeiculo($veiculo, $d['de'], $d['ate'])]);
     }
 
     /** POST /monitora/veiculos/{id}/posicoes — ingestão de posição (rastreador/app). */

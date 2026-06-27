@@ -1,4 +1,4 @@
-import { Navigation, Power, MapPin, Map } from 'lucide-react'
+import { Navigation, Power, MapPin, Map, Route as RouteIcon } from 'lucide-react'
 import {
   Badge, type Column, ResourceList, PageHeader,
   Tabs, TabsList, TabsTrigger, TabsContent,
@@ -7,18 +7,21 @@ import { dataHora } from '@/lib/format'
 import { useUltimasPosicoes, type UltimaPosicao } from './extraApi'
 import { CercasTab } from './CercasTab'
 import { MapaAoVivoTab } from './MapaAoVivoTab'
+import { RotaTab } from './RotaTab'
 
 export function MonitoraPage() {
   return (
     <div>
-      <PageHeader title="Monitora (GPS)" subtitle="Frota no mapa, posições e cercas (geofencing)" />
+      <PageHeader title="Monitora (GPS)" subtitle="Frota no mapa, rota, posições e cercas (geofencing)" />
       <Tabs defaultValue="mapa">
         <TabsList>
           <TabsTrigger value="mapa"><Map size={15} className="mr-1" /> Mapa ao vivo</TabsTrigger>
+          <TabsTrigger value="rota"><RouteIcon size={15} className="mr-1" /> Rota</TabsTrigger>
           <TabsTrigger value="posicoes"><Navigation size={15} className="mr-1" /> Posições</TabsTrigger>
           <TabsTrigger value="cercas"><MapPin size={15} className="mr-1" /> Cercas</TabsTrigger>
         </TabsList>
         <TabsContent value="mapa"><MapaAoVivoTab /></TabsContent>
+        <TabsContent value="rota"><RotaTab /></TabsContent>
         <TabsContent value="posicoes"><PosicoesTab /></TabsContent>
         <TabsContent value="cercas"><CercasTab /></TabsContent>
       </Tabs>

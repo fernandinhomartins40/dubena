@@ -39,6 +39,41 @@ export function useCriarTipo() {
   })
 }
 
+// ---- Histórico / Rota (replay) + Relatório de eventos (F2) ----
+export interface PosicaoHistorico { latitude: number; longitude: number; velocidade: number; direcao: number | null; ignicao: boolean; registrado_em: string | null }
+export function useHistorico(veiculoId: number | null, de: string, ate: string) {
+  return useQuery<PosicaoHistorico[]>({
+    queryKey: ['monitora-historico', veiculoId, de, ate],
+    enabled: !!veiculoId && !!de && !!ate,
+    queryFn: async () => (await api.get(`/monitora/veiculos/${veiculoId}/historico`, { params: { de, ate, limite: 5000 } })).data.data,
+  })
+}
+
+export interface EventosVeiculo {
+  veiculo: { id: number; placa: string; descricao: string | null; tipo: string | null; velocidade_maxima: number | null }
+  paradas: { inicio: string; fim: string; duracao_min: number; latitude: number; longitude: number }[]
+  excessos: { registrado_em: string; velocidade: number; latitude: number; longitude: number }[]
+  resumo: { total_paradas: number; total_excessos: number; posicoes: number }
+}
+export function useEventos(veiculoId: number | null, de: string, ate: string) {
+  return useQuery<EventosVeiculo>({
+    queryKey: ['monitora-eventos', veiculoId, de, ate],
+    enabled: !!veiculoId && !!de && !!ate,
+    queryFn: async () => (await api.get(`/monitora/veiculos/${veiculoId}/eventos`, { params: { de, ate } })).data.data,
+  })
+}
+
+/** Baixa o relatório de eventos (csv|pdf) disparando o download no browser. */
+export async function baixarEventos(veiculoId: number, de: string, ate: string, formato: 'csv' | 'pdf'): Promise<void> {
+  const resp = await api.get(`/monitora/veiculos/${veiculoId}/eventos`, { params: { de, ate, formato }, responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `eventos.${formato}`
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 // ---- Cercas (geofencing poligonal) ----
 export interface CercaPonto { latitude: number | string; longitude: number | string; ordem?: number }
 export interface Cerca {
