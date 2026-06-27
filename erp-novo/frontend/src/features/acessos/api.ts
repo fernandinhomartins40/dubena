@@ -139,3 +139,38 @@ function recursoEstrutura<T>(rota: string, chaveQuery: string) {
 export const unidades = recursoEstrutura<Unidade>('unidades', 'unidades')
 export const departamentos = recursoEstrutura<Departamento>('departamentos', 'departamentos')
 export const setoresOrg = recursoEstrutura<SetorOrg>('setores-org', 'setores-org')
+
+// ---- Condições ABAC (A4) ----
+export type CondicaoTipo = 'limite' | 'ownership' | 'horario'
+export interface Condicao {
+  id: number
+  permissao: string
+  tipo: CondicaoTipo
+  parametros: Record<string, unknown> | null
+  ativo: boolean
+}
+
+export const useCondicoes = (papelId: number | null) =>
+  useQuery<Condicao[]>({
+    queryKey: ['papeis', papelId, 'condicoes'],
+    enabled: papelId != null,
+    queryFn: async () => (await api.get(`/papeis/${papelId}/condicoes`)).data.data,
+  })
+
+export function useCriarCondicao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ papelId, data }: { papelId: number; data: Record<string, unknown> }) =>
+      (await api.post(`/papeis/${papelId}/condicoes`, data)).data,
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['papeis', v.papelId, 'condicoes'] }),
+  })
+}
+
+export function useExcluirCondicao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ papelId, id }: { papelId: number; id: number }) =>
+      (await api.delete(`/papeis/${papelId}/condicoes/${id}`)).data,
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['papeis', v.papelId, 'condicoes'] }),
+  })
+}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus, ShieldCheck } from 'lucide-react'
+import { Plus, ShieldCheck, SlidersHorizontal } from 'lucide-react'
 import {
   Button, Input, Badge, Field, type Column,
   ResourceList, FormDialog, RowActions, Checkbox, toast,
@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth'
 import {
   usePapeis, useSalvarPapel, useExcluirPapel, useCatalogoPermissoes, type Papel,
 } from './api'
+import { CondicoesDialog } from './CondicoesDialog'
 
 /**
  * Perfis (papéis) da Central de Acessos. CRUD de papéis do grupo + marcação de
@@ -27,6 +28,9 @@ export function PerfisTab() {
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
+
+  // Diálogo de condições ABAC (A4) por papel.
+  const [condPapel, setCondPapel] = useState<Papel | null>(null)
 
   const modulos = useMemo(() => Object.entries(catalogo ?? {}), [catalogo])
 
@@ -76,6 +80,11 @@ export function PerfisTab() {
       key: 'acoes', header: '', align: 'right',
       cell: (v) => (
         <RowActions
+          extra={can('papel.edit') ? (
+            <Button variant="ghost" size="icon" aria-label="Condições" onClick={() => setCondPapel(v)}>
+              <SlidersHorizontal size={15} />
+            </Button>
+          ) : undefined}
           onEdit={podeEditar ? () => abrir(v) : undefined}
           onDelete={can('papel.delete') ? () => excluir.mutate(v.id) : undefined}
           confirmMsg="Excluir este perfil?"
@@ -141,6 +150,8 @@ export function PerfisTab() {
           </div>
         </div>
       </FormDialog>
+
+      <CondicoesDialog papel={condPapel} open={condPapel !== null} onOpenChange={(v) => !v && setCondPapel(null)} />
     </>
   )
 }

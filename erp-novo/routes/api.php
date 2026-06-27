@@ -121,6 +121,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('papeis', [PapelController::class, 'store']);
         Route::put('papeis/{id}', [PapelController::class, 'update'])->whereNumber('id');
         Route::delete('papeis/{id}', [PapelController::class, 'destroy'])->whereNumber('id');
+        // Condições ABAC (A4) por papel.
+        Route::get('papeis/{id}/condicoes', [PapelController::class, 'condicoesIndex'])->whereNumber('id');
+        Route::post('papeis/{id}/condicoes', [PapelController::class, 'condicaoStore'])->whereNumber('id');
+        Route::delete('papeis/{id}/condicoes/{condId}', [PapelController::class, 'condicaoDestroy'])->whereNumber(['id', 'condId']);
 
         // Usuários da empresa ativa + atribuição de papéis + reset de senha.
         Route::get('usuarios', [UsuarioController::class, 'index']);

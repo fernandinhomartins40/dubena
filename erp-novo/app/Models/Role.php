@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
@@ -15,6 +16,12 @@ class Role extends Model
     public function grupo(): BelongsTo
     {
         return $this->belongsTo(Grupo::class);
+    }
+
+    /** Condições ABAC (A4) deste papel (escopadas por empresa). */
+    public function conditions(): HasMany
+    {
+        return $this->hasMany(PermissionCondition::class);
     }
 
     public function permissions(): BelongsToMany

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -26,5 +27,18 @@ trait AutorizaPorPermissao
     protected function autorizar(Request $request, string $chave): void
     {
         abort_if(Gate::forUser($request->user())->denies($chave), 403, 'Sem permissão.');
+    }
+
+    /**
+     * Autoriza considerando o RECURSO (ABAC — A4): além do RBAC, aplica o escopo
+     * hierárquico (A3) e as condições de atributo (limite/ownership/horário).
+     * Use quando a decisão depende do dado (ex.: aprovar pedido até um limite,
+     * estornar só o caixa próprio, agir só na sua filial).
+     *
+     * @param  array<string,mixed>|Model  $recurso
+     */
+    protected function autorizarRecurso(Request $request, string $chave, array|Model $recurso): void
+    {
+        abort_if(Gate::forUser($request->user())->denies($chave, [$recurso]), 403, 'Sem permissão.');
     }
 }

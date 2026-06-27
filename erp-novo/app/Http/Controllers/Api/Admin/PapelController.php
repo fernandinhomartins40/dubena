@@ -7,9 +7,11 @@ use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Permission;
+use App\Models\PermissionCondition;
 use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -100,6 +102,89 @@ class PapelController extends Controller
         $papel->delete();
 
         return response()->json(['message' => 'Papel excluído.']);
+    }
+
+    // ─────────────── Condições ABAC (A4) ───────────────
+
+    /** Lista as condições ABAC de um papel (na empresa ativa). */
+    public function condicoesIndex(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'papel.view');
+        $papel = $this->doGrupo($id);
+
+        $rows = PermissionCondition::query()
+            ->where('role_id', $papel->id)
+            ->with('permission:id,chave')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (PermissionCondition $c) => [
+                'id' => $c->id,
+                'permissao' => $c->permission->chave,
+                'tipo' => $c->tipo,
+                'parametros' => $c->parametros,
+                'ativo' => $c->ativo,
+            ]);
+
+        return response()->json(['data' => $rows]);
+    }
+
+    public function condicaoStore(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'papel.edit');
+        $papel = $this->doGrupo($id);
+        $dados = $this->validarCondicao($request, $papel);
+
+        $cond = PermissionCondition::create([
+            'role_id' => $papel->id,
+            'permission_id' => $dados['permission_id'],
+            'tipo' => $dados['tipo'],
+            'parametros' => $dados['parametros'] ?? [],
+            'ativo' => true,
+        ]);
+
+        return response()->json(['data' => ['id' => $cond->id]], 201);
+    }
+
+    public function condicaoDestroy(Request $request, int $id, int $condId): JsonResponse
+    {
+        $this->autorizar($request, 'papel.edit');
+        $papel = $this->doGrupo($id);
+
+        // Garante que a condição é deste papel (e da empresa ativa, via global scope).
+        PermissionCondition::query()->where('role_id', $papel->id)->findOrFail($condId)->delete();
+
+        return response()->json(['message' => 'Condição removida.']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validarCondicao(Request $request, Role $papel): array
+    {
+        $dados = $request->validate([
+            // Aceita o id direto OU a chave 'modulo.acao' (a SPA usa a chave).
+            'permission_id' => ['required_without:permissao', 'integer', 'exists:permissions,id'],
+            'permissao' => ['required_without:permission_id', 'string'],
+            'tipo' => ['required', Rule::in(PermissionCondition::TIPOS)],
+            'parametros' => 'nullable|array',
+        ]);
+
+        $permissionId = $dados['permission_id']
+            ?? Permission::query()->where('chave', $dados['permissao'])->value('id');
+
+        if ($permissionId === null) {
+            throw ValidationException::withMessages(['permissao' => 'Permissão inexistente.']);
+        }
+
+        // A permissão precisa pertencer ao papel (não faz sentido condicionar uma
+        // permissão que o papel nem concede).
+        if (! $papel->permissions()->whereKey($permissionId)->exists()) {
+            throw ValidationException::withMessages(['permission_id' => 'Esta permissão não pertence ao papel.']);
+        }
+
+        $dados['permission_id'] = $permissionId;
+
+        return $dados;
     }
 
     /** Garante que o papel é do grupo ativo (isolamento de tenant). */
