@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\PasswordPolicyService;
 use App\Domain\Seguranca\Totp;
 use App\Domain\Tenant\TenantContext;
@@ -28,6 +29,7 @@ class SegurancaController extends Controller
         private Totp $totp,
         private TenantContext $tenant,
         private PasswordPolicyService $politica,
+        private AuditoriaSeguranca $auditoria,
     ) {}
 
     /** Estado do 2FA do usuário (para a tela de segurança). */
@@ -71,6 +73,7 @@ class SegurancaController extends Controller
         // Gera 8 recovery codes de uso único.
         $recovery = collect(range(1, 8))->map(fn () => strtoupper(Str::random(10)))->all();
         $twofa->update(['habilitado' => true, 'confirmado_em' => now(), 'recovery_codes' => $recovery]);
+        $this->auditoria->registrar('2fa.habilitado', "user:{$user->id}");
 
         return response()->json([
             'message' => '2FA habilitado.',
@@ -87,6 +90,7 @@ class SegurancaController extends Controller
         abort_unless(Hash::check($request->string('password'), $user->password), 422, 'Senha incorreta.');
 
         User2fa::query()->where('user_id', $user->id)->delete();
+        $this->auditoria->registrar('2fa.desabilitado', "user:{$user->id}");
 
         return response()->json(['message' => '2FA desabilitado.']);
     }

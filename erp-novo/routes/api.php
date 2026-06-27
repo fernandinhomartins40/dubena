@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
@@ -139,6 +140,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('papeis/{id}/condicoes', [PapelController::class, 'condicoesIndex'])->whereNumber('id');
         Route::post('papeis/{id}/condicoes', [PapelController::class, 'condicaoStore'])->whereNumber('id');
         Route::delete('papeis/{id}/condicoes/{condId}', [PapelController::class, 'condicaoDestroy'])->whereNumber(['id', 'condId']);
+        // Histórico de versões do papel (A6).
+        Route::get('papeis/{id}/historico', [PapelController::class, 'historico'])->whereNumber('id');
+
+        // ── Auditoria de segurança (A6) ──
+        Route::get('auditoria/eventos', [AuditoriaController::class, 'eventos']);
+        Route::get('auditoria/logins', [AuditoriaController::class, 'logins']);
 
         // Usuários da empresa ativa + atribuição de papéis + reset de senha.
         Route::get('usuarios', [UsuarioController::class, 'index']);

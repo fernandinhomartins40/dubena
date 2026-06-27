@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Shared\PermissaoCatalogo;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -9,8 +10,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Permission;
 use App\Models\PermissionCondition;
 use App\Models\Role;
+use App\Models\RoleVersion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -31,7 +34,10 @@ class PapelController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private TenantContext $tenant) {}
+    public function __construct(
+        private TenantContext $tenant,
+        private AuditoriaSeguranca $auditoria,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -74,6 +80,9 @@ class PapelController extends Controller
         ]);
         $this->sincronizarPermissoes($request, $papel, $dados['permissoes'] ?? []);
 
+        $this->auditoria->registrar('papel.criado', "role:{$papel->id}", ['nome' => $papel->nome]);
+        $this->versionar($papel->fresh(['permissions']));
+
         return response()->json(['data' => $this->serializar($papel->fresh(['permissions']))], 201);
     }
 
@@ -88,6 +97,9 @@ class PapelController extends Controller
             $this->sincronizarPermissoes($request, $papel, $dados['permissoes']);
         }
 
+        $this->auditoria->registrar('papel.editado', "role:{$papel->id}", ['nome' => $papel->nome]);
+        $this->versionar($papel->fresh(['permissions']));
+
         return response()->json(['data' => $this->serializar($papel->fresh(['permissions']))]);
     }
 
@@ -98,10 +110,47 @@ class PapelController extends Controller
 
         abort_if($papel->users()->exists(), 422, 'Papel em uso por usuários — remova as atribuições antes de excluir.');
 
+        $this->auditoria->registrar('papel.excluido', "role:{$papel->id}", ['nome' => $papel->nome]);
         $papel->permissions()->detach();
         $papel->delete();
 
         return response()->json(['message' => 'Papel excluído.']);
+    }
+
+    /** Histórico de versões (snapshots) de um papel (A6). */
+    public function historico(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'auditoria.view');
+        $papel = $this->doGrupo($id);
+
+        $rows = RoleVersion::query()
+            ->where('role_id', $papel->id)
+            ->with('autor:id,name')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (RoleVersion $v) => [
+                'id' => $v->id,
+                'snapshot' => $v->snapshot,
+                'autor' => $v->autor?->name,
+                'criado_em' => $v->criado_em,
+            ]);
+
+        return response()->json(['data' => $rows]);
+    }
+
+    /** Grava um snapshot do estado atual do papel (nome/descrição/permissões). */
+    private function versionar(Role $papel): void
+    {
+        RoleVersion::create([
+            'role_id' => $papel->id,
+            'snapshot' => [
+                'nome' => $papel->nome,
+                'descricao' => $papel->descricao,
+                'permissoes' => $papel->permissions->pluck('chave')->values()->all(),
+            ],
+            'alterado_por' => Auth::id(),
+        ]);
     }
 
     // ─────────────── Condições ABAC (A4) ───────────────

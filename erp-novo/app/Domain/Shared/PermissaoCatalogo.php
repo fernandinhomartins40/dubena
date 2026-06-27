@@ -53,6 +53,8 @@ final class PermissaoCatalogo
         'unidade' => ['view', 'create', 'edit', 'delete'],
         'departamento' => ['view', 'create', 'edit', 'delete'],
         'setor' => ['view', 'create', 'edit', 'delete'],
+        // Auditoria de segurança (A6) — trilha de eventos e histórico de papéis.
+        'auditoria' => ['view'],
     ];
 
     /**

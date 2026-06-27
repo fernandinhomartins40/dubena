@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\PasswordPolicyService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -37,6 +38,7 @@ class UsuarioController extends Controller
     public function __construct(
         private TenantContext $tenant,
         private PasswordPolicyService $politicaSenha,
+        private AuditoriaSeguranca $auditoria,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -116,6 +118,8 @@ class UsuarioController extends Controller
         // Revoga tokens de API existentes (força novo login nos apps).
         $usuario->tokens()->delete();
 
+        $this->auditoria->registrar('usuario.senha_resetada', "user:{$usuario->id}");
+
         return response()->json(['message' => 'Senha redefinida.']);
     }
 
@@ -187,6 +191,10 @@ class UsuarioController extends Controller
                 'herda_filhos' => $esc['herda_filhos'] ?? true,
             ]);
         }
+
+        $this->auditoria->registrar('usuario.papeis', "user:{$usuario->id}", [
+            'papeis' => $usuario->roles()->wherePivot('empresa_id', $empresaId)->pluck('roles.id')->all(),
+        ]);
     }
 
     /**

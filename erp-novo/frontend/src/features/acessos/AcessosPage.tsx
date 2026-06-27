@@ -5,6 +5,7 @@ import { UsuariosTab } from './UsuariosTab'
 import { PerfisTab } from './PerfisTab'
 import { EstruturaTab } from './EstruturaTab'
 import { PoliticaSenhaTab } from './PoliticaSenhaTab'
+import { AuditoriaTab } from './AuditoriaTab'
 
 /**
  * Central de Acessos (A2/A3/A5) — administração de usuários, perfis (papéis),
@@ -18,10 +19,11 @@ export function AcessosPage() {
   const podePapeis = can('papel.view')
   const podeEstrutura = can('unidade.view')
   const podePolitica = can('usuario.edit')
+  const podeAuditoria = can('auditoria.view')
 
   const abaParam = params.get('tab')
-  const padrao = podeUsuarios ? 'usuarios' : podePapeis ? 'perfis' : podeEstrutura ? 'estrutura' : 'politica'
-  const validas = ['usuarios', 'perfis', 'estrutura', 'politica']
+  const padrao = podeUsuarios ? 'usuarios' : podePapeis ? 'perfis' : podeEstrutura ? 'estrutura' : podePolitica ? 'politica' : 'auditoria'
+  const validas = ['usuarios', 'perfis', 'estrutura', 'politica', 'auditoria']
   const aba = abaParam && validas.includes(abaParam) ? abaParam : padrao
 
   return (
@@ -33,11 +35,13 @@ export function AcessosPage() {
           {podePapeis && <TabsTrigger value="perfis">Perfis</TabsTrigger>}
           {podeEstrutura && <TabsTrigger value="estrutura">Estrutura</TabsTrigger>}
           {podePolitica && <TabsTrigger value="politica">Política de senha</TabsTrigger>}
+          {podeAuditoria && <TabsTrigger value="auditoria">Auditoria</TabsTrigger>}
         </TabsList>
         {podeUsuarios && <TabsContent value="usuarios"><UsuariosTab /></TabsContent>}
         {podePapeis && <TabsContent value="perfis"><PerfisTab /></TabsContent>}
         {podeEstrutura && <TabsContent value="estrutura"><EstruturaTab /></TabsContent>}
         {podePolitica && <TabsContent value="politica"><PoliticaSenhaTab /></TabsContent>}
+        {podeAuditoria && <TabsContent value="auditoria"><AuditoriaTab /></TabsContent>}
       </Tabs>
     </div>
   )

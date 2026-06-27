@@ -57,7 +57,8 @@ class RbacSeeder extends Seeder
                 || str_starts_with($chave, 'papel.')
                 || str_starts_with($chave, 'unidade.')
                 || str_starts_with($chave, 'departamento.')
-                || str_starts_with($chave, 'setor.');
+                || str_starts_with($chave, 'setor.')
+                || str_starts_with($chave, 'auditoria.');
         });
         $this->role($grupoId, 'Gerente', $gerente->values()->all());
 

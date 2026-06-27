@@ -140,6 +140,37 @@ export const unidades = recursoEstrutura<Unidade>('unidades', 'unidades')
 export const departamentos = recursoEstrutura<Departamento>('departamentos', 'departamentos')
 export const setoresOrg = recursoEstrutura<SetorOrg>('setores-org', 'setores-org')
 
+// ---- Auditoria de segurança (A6) ----
+export interface EventoSeguranca {
+  id: number
+  tipo: string
+  alvo: string | null
+  detalhes: Record<string, unknown> | null
+  autor: string | null
+  ip: string | null
+  criado_em: string
+}
+export interface LoginLogItem {
+  id: number
+  email: string | null
+  sucesso: boolean
+  motivo: string | null
+  ip: string | null
+  criado_em: string
+}
+
+export const useEventosSeguranca = () =>
+  useQuery<EventoSeguranca[]>({
+    queryKey: ['auditoria', 'eventos'],
+    queryFn: async () => (await api.get('/auditoria/eventos')).data.data,
+  })
+
+export const useLoginLogs = (apenasFalhas = false) =>
+  useQuery<LoginLogItem[]>({
+    queryKey: ['auditoria', 'logins', apenasFalhas],
+    queryFn: async () => (await api.get('/auditoria/logins', { params: apenasFalhas ? { apenas_falhas: 1 } : {} })).data.data,
+  })
+
 // ---- Política de senha (A5) ----
 export interface PoliticaSenha {
   min_len: number

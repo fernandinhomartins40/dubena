@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -26,7 +27,10 @@ trait AutorizaPorPermissao
      */
     protected function autorizar(Request $request, string $chave): void
     {
-        abort_if(Gate::forUser($request->user())->denies($chave), 403, 'Sem permissão.');
+        if (Gate::forUser($request->user())->denies($chave)) {
+            $this->registrarNegacao($request, $chave);
+            abort(403, 'Sem permissão.');
+        }
     }
 
     /**
@@ -39,6 +43,25 @@ trait AutorizaPorPermissao
      */
     protected function autorizarRecurso(Request $request, string $chave, array|Model $recurso): void
     {
-        abort_if(Gate::forUser($request->user())->denies($chave, [$recurso]), 403, 'Sem permissão.');
+        if (Gate::forUser($request->user())->denies($chave, [$recurso])) {
+            $this->registrarNegacao($request, $chave);
+            abort(403, 'Sem permissão.');
+        }
+    }
+
+    /**
+     * Registra a negação de autorização (A6) — trilha de 403 para auditoria de
+     * segurança. Tolerante a falha (auditoria nunca deve derrubar a request).
+     */
+    private function registrarNegacao(Request $request, string $chave): void
+    {
+        try {
+            app(AuditoriaSeguranca::class)->registrar('autorizacao.negada', $chave, [
+                'rota' => $request->path(),
+                'metodo' => $request->method(),
+            ]);
+        } catch (\Throwable) {
+            // silencioso: auditoria não bloqueia o fluxo.
+        }
     }
 }
