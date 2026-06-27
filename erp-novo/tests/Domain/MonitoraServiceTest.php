@@ -65,6 +65,26 @@ class MonitoraServiceTest extends TestCase
         $this->assertFalse($svc->dentroDaCerca($cerca, -22.9068, -43.1729));
     }
 
+    public function test_geofencing_poligono_dentro_e_fora(): void
+    {
+        $svc = app(MonitoraService::class);
+        // Quadrado ~ (-23.55,-46.64) a (-23.54,-46.63). Sem centro/raio (cerca polígono).
+        $cerca = Cerca::create([
+            'empresa_id' => $this->empresa->id, 'descricao' => 'Zona Centro', 'ativo' => true,
+        ]);
+        $cerca->pontos()->createMany([
+            ['latitude' => -23.55, 'longitude' => -46.64, 'ordem' => 0],
+            ['latitude' => -23.55, 'longitude' => -46.63, 'ordem' => 1],
+            ['latitude' => -23.54, 'longitude' => -46.63, 'ordem' => 2],
+            ['latitude' => -23.54, 'longitude' => -46.64, 'ordem' => 3],
+        ]);
+
+        // Ponto no meio do quadrado → dentro.
+        $this->assertTrue($svc->dentroDaCerca($cerca->fresh(), -23.545, -46.635));
+        // Ponto fora do quadrado → fora.
+        $this->assertFalse($svc->dentroDaCerca($cerca->fresh(), -23.60, -46.70));
+    }
+
     public function test_cercas_no_ponto_lista_apenas_as_que_contem(): void
     {
         $svc = app(MonitoraService::class);
@@ -81,7 +101,7 @@ class MonitoraServiceTest extends TestCase
         $veiculo = $this->veiculo('IMEI-123');
 
         // Stub do driver com posições fixas.
-        $fake = new FakeSgcasaDriver();
+        $fake = new FakeSgcasaDriver;
         $fake->posicoes = [
             ['imei' => 'IMEI-123', 'latitude' => -23.55, 'longitude' => -46.63, 'velocidade' => 25, 'ignicao' => true, 'registrado_em' => now()->toDateTimeString()],
             ['imei' => 'OUTRO', 'latitude' => 0, 'longitude' => 0, 'velocidade' => 0, 'ignicao' => false, 'registrado_em' => now()->toDateTimeString()],

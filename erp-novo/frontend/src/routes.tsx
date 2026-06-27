@@ -32,14 +32,14 @@ const PedidosPage = lazyNamed(() => import('@/features/pedidos/PedidosPage'), 'P
 const EstoquePage = lazyNamed(() => import('@/features/estoque/EstoquePage'), 'EstoquePage')
 const FiscalPage = lazyNamed(() => import('@/features/fiscal/FiscalPage'), 'FiscalPage')
 const CupomPage = lazyNamed(() => import('@/features/gestao/CupomPage'), 'CupomPage')
-const ValeGasPage = lazyNamed(() => import('@/features/satelites/ValeGasPage'), 'ValeGasPage')
-const ComodatoPage = lazyNamed(() => import('@/features/satelites/ComodatoPage'), 'ComodatoPage')
+const ValeGasPage = lazyNamed(() => import('@/features/valegas/ValeGasPage'), 'ValeGasPage')
+const ComodatoPage = lazyNamed(() => import('@/features/comodatos/ComodatoPage'), 'ComodatoPage')
 
 // Financeiro
 const FinanceiroPage = lazyNamed(() => import('@/features/financeiro/FinanceiroPage'), 'FinanceiroPage')
 const CartaoPage = lazyNamed(() => import('@/features/pagamentos/CartaoPage'), 'CartaoPage')
 const GasDoPovoPage = lazyNamed(() => import('@/features/pagamentos/GasDoPovoPage'), 'GasDoPovoPage')
-const ConvenioPage = lazyNamed(() => import('@/features/satelites/ConvenioPage'), 'ConvenioPage')
+const ConvenioPage = lazyNamed(() => import('@/features/convenios/ConvenioPage'), 'ConvenioPage')
 
 // CRM
 const PosVendaPage = lazyNamed(() => import('@/features/crm/PosVendaPage'), 'PosVendaPage')

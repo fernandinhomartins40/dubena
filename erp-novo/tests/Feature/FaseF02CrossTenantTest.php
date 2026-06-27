@@ -13,6 +13,8 @@ use App\Models\Empresa;
 use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Fiscal\ConfigFiscal;
 use App\Models\Mobile\AppDevice;
+use App\Models\Monitora\Cerca;
+use App\Models\Monitora\CercaPonto;
 use App\Models\Pedido\PedidoItem;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -170,6 +172,32 @@ class FaseF02CrossTenantTest extends TestCase
         app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
         $this->assertNull(AppDevice::query()->where('device_id', 'dev-A')->first());
         $this->assertNotNull(AppDevice::withoutTenant()->where('device_id', 'dev-A')->first());
+    }
+
+    public function test_ponto_de_cerca_herda_empresa_e_nao_vaza(): void
+    {
+        // F0: monitora_cerca_pontos não tinha tenant — vértices de geofence de todas
+        // as empresas conviviam sem isolamento. Agora a filha herda empresa_id da cerca.
+        [, $empresaA] = $this->tenant();
+        [, $empresaB] = $this->tenant();
+
+        $cercaA = Cerca::withoutTenant()->create([
+            'empresa_id' => $empresaA->id, 'grupo_id' => $empresaA->grupo_id, 'descricao' => 'Zona A', 'ativo' => true,
+        ]);
+        $cercaA->pontos()->createMany([
+            ['latitude' => -25.0, 'longitude' => -51.0, 'ordem' => 0],
+            ['latitude' => -25.0, 'longitude' => -51.1, 'ordem' => 1],
+            ['latitude' => -25.1, 'longitude' => -51.1, 'ordem' => 2],
+        ]);
+
+        $pontoA = CercaPonto::withoutTenant()->where('cerca_id', $cercaA->id)->first();
+        $this->assertNotNull($pontoA);
+        $this->assertSame($empresaA->id, (int) $pontoA->empresa_id, 'CercaPonto deve herdar empresa_id da cerca.');
+
+        // Tenant B ativo não enxerga os vértices da empresa A.
+        app(TenantContext::class)->set($empresaB->id, $empresaB->grupo_id);
+        $this->assertNull(CercaPonto::query()->find($pontoA->id), 'Vértice de cerca da empresa A vazou para o tenant B.');
+        $this->assertNotNull(CercaPonto::withoutTenant()->find($pontoA->id));
     }
 
     public function test_cadastros_de_apoio_isolam_por_grupo(): void
