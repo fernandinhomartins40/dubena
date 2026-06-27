@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\PagamentoOnlineService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
 use App\Models\Pedido\Pedido;
-use App\Models\Produto\Produto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,22 +20,35 @@ class AppClienteController extends Controller
     public function __construct(
         private PedidoMobileService $pedidoMobile,
         private PagamentoOnlineService $pagamento,
+        private CatalogoMobileService $catalogo,
     ) {}
 
     /** GET /app/v1/produtos — catálogo da empresa (só ativos com preço). */
     public function produtos(Request $request): JsonResponse
     {
-        $produtos = Produto::query()->where('ativo', true)
-            ->where('empresa_id', $request->user()->empresa_id)
-            ->orderBy('descricao')
-            ->get(['id', 'descricao', 'preco_venda', 'preco_gasdopovo'])
-            ->map(fn (Produto $p) => [
-                'id' => $p->id,
-                'descricao' => $p->descricao,
-                'preco' => (float) $p->preco_venda,
-            ]);
+        return response()->json(['data' => $this->catalogo->produtos($request->user()->empresa_id)]);
+    }
 
-        return response()->json(['data' => $produtos]);
+    /** GET /app/v1/init — pacote de abertura do app: produtos + condições de pagamento. */
+    public function init(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $apenasGp = $request->boolean('gasdopovo');
+
+        return response()->json(['data' => $this->catalogo->init($user->empresa_id, $user->grupo_id, $apenasGp)]);
+    }
+
+    /** GET /app/v1/cupom?codigo= — valida um cupom (promoção com código) vigente. */
+    public function cupom(Request $request): JsonResponse
+    {
+        $codigo = (string) $request->query('codigo', '');
+        $promo = $this->catalogo->validarCupom($request->user()->grupo_id, $codigo);
+
+        return response()->json(['data' => [
+            'codigo' => $promo->codigo,
+            'descricao' => $promo->descricao,
+            'desconto_percentual' => (float) $promo->desconto_percentual,
+        ]]);
     }
 
     /** POST /app/v1/pedidos — cria pedido do app (cliente por id ou geoloc). */
@@ -47,6 +60,7 @@ class AppClienteController extends Controller
             'lng' => 'required_without:cliente_id|numeric',
             'pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id',
             'observacao' => 'nullable|string',
+            'codigo_cupom' => 'nullable|string|max:40',
             'itens' => 'required|array|min:1',
             'itens.*.produto_id' => 'required|integer|exists:produtos,id',
             'itens.*.quantidade' => 'required|numeric|gt:0',
@@ -55,7 +69,11 @@ class AppClienteController extends Controller
         $user = $request->user();
         $pedido = $this->pedidoMobile->criarDoApp($user->empresa_id, $user->grupo_id, $d);
 
-        return response()->json(['data' => ['id' => $pedido->id, 'valor_venda' => (float) $pedido->valor_venda]], 201);
+        return response()->json(['data' => [
+            'id' => $pedido->id,
+            'valor_venda' => (float) $pedido->valor_venda,
+            'valor_desconto' => (float) $pedido->valor_desconto,
+        ]], 201);
     }
 
     /** POST /app/v1/pedidos/{id}/pagar — pagamento online (cartão). */

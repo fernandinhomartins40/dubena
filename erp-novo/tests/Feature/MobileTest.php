@@ -6,8 +6,12 @@ use App\Domain\Estoque\EstoqueService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Cliente\Cliente;
+use App\Models\Crm\Promocao;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Monitora\Cerca;
+use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\User;
@@ -209,6 +213,105 @@ class MobileTest extends TestCase
         $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/avaliar", [
             'cliente_id' => $cliente->id, 'rating' => 1,
         ])->assertStatus(422);
+    }
+
+    public function test_init_traz_produtos_e_condicoes(): void
+    {
+        CondicaoPagamento::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'À vista', 'num_parcelas' => 1, 'a_vista' => true, 'ativo' => true,
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/init')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.produtos')
+            ->assertJsonCount(1, 'data.condicoes')
+            ->assertJsonPath('data.condicoes.0.descricao', 'À vista');
+    }
+
+    public function test_cupom_valido_e_invalido(): void
+    {
+        Promocao::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Promo 10', 'codigo' => 'DEZ',
+            'inicio' => now()->subDay()->toDateString(), 'fim' => now()->addDay()->toDateString(),
+            'desconto_percentual' => 10, 'ativo' => true,
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/cupom?codigo=DEZ')
+            ->assertOk()->assertJsonPath('data.desconto_percentual', 10);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/cupom?codigo=NAOEXISTE')
+            ->assertStatus(422);
+    }
+
+    public function test_cupom_aplica_desconto_no_pedido(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        Promocao::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Promo 10', 'codigo' => 'DEZ',
+            'inicio' => now()->subDay()->toDateString(), 'fim' => now()->addDay()->toDateString(),
+            'desconto_percentual' => 10, 'ativo' => true,
+        ]);
+
+        // 2 x 100 = 200; cupom 10% → desconto 20, venda 180.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id, 'codigo_cupom' => 'DEZ',
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 2]],
+        ])->assertCreated()
+            ->assertJsonPath('data.valor_venda', 180)
+            ->assertJsonPath('data.valor_desconto', 20);
+    }
+
+    public function test_setor_de_entrega_resolvido_por_geofence(): void
+    {
+        // Setor alvo coberto por uma cerca poligonal; e um setor "padrão" (id menor).
+        $padrao = $this->setor; // já criado no setUp (id menor)
+        $alvo = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+
+        $cerca = Cerca::query()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'descricao' => 'Zona', 'setor_id' => $alvo->id, 'ativo' => true,
+        ]);
+        $cerca->pontos()->createMany([
+            ['latitude' => -25.0, 'longitude' => -51.0, 'ordem' => 0],
+            ['latitude' => -25.0, 'longitude' => -51.1, 'ordem' => 1],
+            ['latitude' => -25.1, 'longitude' => -51.1, 'ordem' => 2],
+            ['latitude' => -25.1, 'longitude' => -51.0, 'ordem' => 3],
+        ]);
+
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'latitude' => -25.05, 'longitude' => -51.05, // dentro da cerca
+        ]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->json('data.id');
+
+        $pedido = Pedido::find($pedidoId);
+        $this->assertSame($alvo->id, $pedido->setor_id, 'O pedido deveria cair no setor da cerca, não no padrão.');
+        $this->assertNotSame($padrao->id, $pedido->setor_id);
+    }
+
+    public function test_push_ao_cliente_na_mudanca_de_status(): void
+    {
+        $clienteUser = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $clienteUser->id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $entregue = PedidoSituacao::factory()->efeito(EfeitoPedido::CONCLUIDO)->create(['grupo_id' => $this->empresa->grupo_id]);
+
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/admin/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id, 'setor_id' => $this->setor->id,
+            'entregador_user_id' => $this->user->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->json('data.id');
+
+        // Sem FCM key (CI), o push é no-op mas o endpoint deve concluir com sucesso.
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/entregador/pedidos/{$pedidoId}/status", [
+            'pedidosituacao_id' => $entregue->id,
+        ])->assertOk()->assertJsonPath('data.situacao_id', $entregue->id);
     }
 
     public function test_endpoints_exigem_autenticacao(): void

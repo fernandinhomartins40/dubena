@@ -554,7 +554,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('devices', [AppAuthController::class, 'registrarDevice']);
 
         // Cliente
+        Route::get('init', [AppClienteController::class, 'init']);
         Route::get('produtos', [AppClienteController::class, 'produtos']);
+        Route::get('cupom', [AppClienteController::class, 'cupom']);
         Route::get('pedidos', [AppClienteController::class, 'historico']);
         Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
         Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');

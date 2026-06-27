@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Pedido\PedidoService;
 use App\Http\Controllers\Controller;
 use App\Models\Pedido\Pedido;
@@ -14,9 +15,10 @@ use Illuminate\Http\Request;
  */
 class AppEntregadorController extends Controller
 {
-    public function __construct(private PedidoService $pedidos)
-    {
-    }
+    public function __construct(
+        private PedidoService $pedidos,
+        private PedidoMobileService $pedidoMobile,
+    ) {}
 
     /** GET /app/v1/entregador/pedidos — pedidos do entregador autenticado. */
     public function pedidos(Request $request): JsonResponse
@@ -57,6 +59,9 @@ class AppEntregadorController extends Controller
             ->findOrFail($id);
 
         $atualizado = $this->pedidos->mudarSituacao($pedido, $d['pedidosituacao_id'], $user->id);
+
+        // Notifica o cliente (push) sobre a nova situação (F5).
+        $this->pedidoMobile->notificarStatus($atualizado->load(['cliente', 'situacao']));
 
         return response()->json(['data' => ['id' => $atualizado->id, 'situacao_id' => $atualizado->pedidosituacao_id]]);
     }

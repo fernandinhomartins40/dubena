@@ -12,7 +12,17 @@ class Promocao extends Model
 
     protected $table = 'promocoes';
 
-    protected $fillable = ['grupo_id', 'descricao', 'inicio', 'fim', 'desconto_percentual', 'ativo'];
+    protected $fillable = ['grupo_id', 'descricao', 'codigo', 'inicio', 'fim', 'desconto_percentual', 'ativo'];
+
+    /** Promoção válida hoje = ativa e dentro da janela inicio..fim. */
+    public function scopeVigente($query)
+    {
+        $hoje = now()->toDateString();
+
+        return $query->where('ativo', true)
+            ->whereDate('inicio', '<=', $hoje)
+            ->whereDate('fim', '>=', $hoje);
+    }
 
     protected function casts(): array
     {

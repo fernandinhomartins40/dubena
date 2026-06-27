@@ -93,6 +93,17 @@ class MonitoraService
     }
 
     /**
+     * Setor (de entrega) cuja cerca contém o ponto — base do roteamento por geofence
+     * do app (F5). Retorna o setor_id da 1ª cerca ativa com setor que cobre o ponto,
+     * ou null se nenhuma cobrir. Reusa o mesmo geofencing das cercas (1 algoritmo).
+     */
+    public function setorPorPonto(int $empresaId, float $lat, float $lng): ?int
+    {
+        return $this->cercasNoPonto($empresaId, $lat, $lng)
+            ->firstWhere(fn (Cerca $c) => $c->setor_id !== null)?->setor_id;
+    }
+
+    /**
      * Ponto-em-polígono por ray-casting (par/ímpar). O polígono é uma lista de
      * vértices [lat, lng]; trata o fechamento implícito (último→primeiro). Coordenadas
      * planas são suficientes para cercas urbanas (a curvatura é desprezível na escala).

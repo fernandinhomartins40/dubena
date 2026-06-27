@@ -25,7 +25,7 @@ class Cliente extends Model
     protected $table = 'clientes';
 
     protected $fillable = [
-        'empresa_id', 'grupo_id',
+        'empresa_id', 'grupo_id', 'user_id',
         'nome', 'fantasia', 'tipopessoa_id', 'segmento_id', 'sexo', 'datanascimento', 'observacoes',
         'cpf', 'rg', 'cnpj', 'inscricao_estadual', 'indicador_ie', 'suframa',
         'cliente', 'fornecedor', 'transportador', 'simples', 'nfemite', 'gasdopovo', 'ativo',

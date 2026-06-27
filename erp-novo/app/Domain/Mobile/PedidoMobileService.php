@@ -2,13 +2,16 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Monitora\MonitoraService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
+use App\Models\Crm\Promocao;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoAvaliacao;
 use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -24,7 +27,34 @@ use Illuminate\Validation\ValidationException;
  */
 class PedidoMobileService
 {
-    public function __construct(private PedidoService $pedidos) {}
+    public function __construct(
+        private PedidoService $pedidos,
+        private CatalogoMobileService $catalogo,
+        private MonitoraService $geofence,
+        private PushService $push,
+    ) {}
+
+    /**
+     * Notifica o cliente (push) sobre a situação do pedido, mirando os devices do
+     * usuário ligado ao cliente (F5). No-op se o cliente não tem usuário vinculado
+     * ou se não há credencial FCM (dev/CI). @return int devices alcançados
+     */
+    public function notificarStatus(Pedido $pedido): int
+    {
+        $userId = $pedido->cliente?->user_id;
+        if (! $userId) {
+            return 0;
+        }
+
+        $efeito = $pedido->situacao?->efeito;
+        [$titulo, $corpo] = match (true) {
+            $efeito === EfeitoPedido::CONCLUIDO => ['Pedido entregue', 'Seu pedido foi entregue. Conte-nos como foi!'],
+            $efeito === EfeitoPedido::CANCELADO => ['Pedido cancelado', 'Seu pedido foi cancelado.'],
+            default => ['Pedido atualizado', 'Seu pedido foi atualizado: '.($pedido->situacao?->descricao ?? '')],
+        };
+
+        return $this->push->paraUsuario($userId, $titulo, $corpo, ['pedido_id' => (string) $pedido->id, 'acao' => 'orderUpdated']);
+    }
 
     /**
      * Encontra o cliente mais próximo de uma coordenada na empresa (raio em km).
@@ -42,9 +72,23 @@ class PedidoMobileService
             ->first()[0] ?? null;
     }
 
-    /** Setor de entrega: o primeiro ativo da empresa (placeholder p/ regra por região). */
-    public function setorDeEntrega(int $empresaId): ?Setor
+    /**
+     * Setor de entrega. Quando há coordenada, resolve por GEOFENCE (cerca poligonal
+     * com setor que contém o ponto — F5); cai para o 1º setor ativo se nenhuma cerca
+     * cobrir o ponto ou se não houver coordenada.
+     */
+    public function setorDeEntrega(int $empresaId, ?float $lat = null, ?float $lng = null): ?Setor
     {
+        if ($lat !== null && $lng !== null) {
+            $setorId = $this->geofence->setorPorPonto($empresaId, $lat, $lng);
+            if ($setorId !== null) {
+                $setor = Setor::query()->where('empresa_id', $empresaId)->where('ativo', true)->find($setorId);
+                if ($setor) {
+                    return $setor;
+                }
+            }
+        }
+
         return Setor::query()->where('empresa_id', $empresaId)->where('ativo', true)->orderBy('id')->first();
     }
 
@@ -63,7 +107,11 @@ class PedidoMobileService
             throw ValidationException::withMessages(['cliente' => 'Cliente não localizado (id ou geolocalização).']);
         }
 
-        $setor = $this->setorDeEntrega($empresaId);
+        // Coordenada de entrega: a do payload ou a do cliente (para o geofence F5).
+        $lat = isset($payload['lat']) ? (float) $payload['lat'] : ($cliente->latitude !== null ? (float) $cliente->latitude : null);
+        $lng = isset($payload['lng']) ? (float) $payload['lng'] : ($cliente->longitude !== null ? (float) $cliente->longitude : null);
+
+        $setor = $this->setorDeEntrega($empresaId, $lat, $lng);
         if (! $setor) {
             throw ValidationException::withMessages(['setor' => 'Nenhum setor de entrega ativo.']);
         }
@@ -73,6 +121,11 @@ class PedidoMobileService
             throw ValidationException::withMessages(['pedido' => 'Você já tem um pedido em andamento.']);
         }
 
+        $itens = $this->aplicarCupomNosItens(
+            $payload['itens'] ?? [],
+            ! empty($payload['codigo_cupom']) ? $this->catalogo->validarCupom($grupoId, (string) $payload['codigo_cupom']) : null,
+        );
+
         return $this->pedidos->criar([
             'empresa_id' => $empresaId,
             'grupo_id' => $grupoId,
@@ -81,7 +134,35 @@ class PedidoMobileService
             'setor_id' => $setor->id,
             'datahora' => now(),
             'observacao' => $payload['observacao'] ?? null,
-        ], $payload['itens'] ?? []);
+        ], $itens);
+    }
+
+    /**
+     * Distribui o desconto percentual do cupom em cada item (campo `desconto`), que o
+     * PedidoService usa para compor valor_total/valor_desconto. Sem cupom, retorna os
+     * itens inalterados. O preço unitário é resolvido pelo PedidoService quando ausente.
+     *
+     * @param  list<array<string,mixed>>  $itens
+     * @return list<array<string,mixed>>
+     */
+    private function aplicarCupomNosItens(array $itens, ?Promocao $cupom): array
+    {
+        if ($cupom === null) {
+            return $itens;
+        }
+
+        $pct = (float) ($cupom->desconto_percentual ?? 0);
+        if ($pct <= 0) {
+            return $itens;
+        }
+
+        return array_map(function (array $item) use ($pct) {
+            $preco = (float) ($item['preco_unitario'] ?? Produto::query()->whereKey($item['produto_id'])->value('preco_venda') ?? 0);
+            $qtd = (float) ($item['quantidade'] ?? 0);
+            $item['desconto'] = round($preco * $qtd * $pct / 100, 2);
+
+            return $item;
+        }, $itens);
     }
 
     /** Existe pedido em situação de efeito PENDENTE para o cliente? */
