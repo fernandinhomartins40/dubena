@@ -46,11 +46,15 @@ class RbacSeeder extends Seeder
         // Administrador: tudo.
         $this->role($grupoId, 'Administrador', $todas->values()->all());
 
-        // Gerente: tudo, exceto exclusões e administração de empresa/grupo.
+        // Gerente: tudo, exceto exclusões, administração de empresa/grupo e a
+        // Central de Acessos (usuarios/papeis) — administração de acesso é privilégio
+        // do Administrador (default-deny + menor privilégio).
         $gerente = $todas->reject(function ($id, string $chave) {
             return str_ends_with($chave, '.delete')
                 || str_starts_with($chave, 'empresa.')
-                || str_starts_with($chave, 'grupo.');
+                || str_starts_with($chave, 'grupo.')
+                || str_starts_with($chave, 'usuario.')
+                || str_starts_with($chave, 'papel.');
         });
         $this->role($grupoId, 'Gerente', $gerente->values()->all());
 

@@ -65,6 +65,7 @@ const SatelitesPage = lazyNamed(() => import('@/features/satelites/SatelitesPage
 const EmpresasListPage = lazyNamed(() => import('@/features/empresas/EmpresasListPage'), 'EmpresasListPage')
 const EmpresaFormPage = lazyNamed(() => import('@/features/empresas/EmpresaFormPage'), 'EmpresaFormPage')
 const ConfiguracoesPage = lazyNamed(() => import('@/features/configuracoes/ConfiguracoesPage'), 'ConfiguracoesPage')
+const AcessosPage = lazyNamed(() => import('@/features/acessos/AcessosPage'), 'AcessosPage')
 
 const Splash = () => <div className="h-full grid place-items-center text-muted-foreground">Carregando…</div>
 
@@ -145,6 +146,7 @@ export function AppRoutes() {
       <Route path="/empresas/novo" element={p(<EmpresaFormPage />)} />
       <Route path="/empresas/:id" element={p(<EmpresaFormPage />)} />
       <Route path="/configuracoes" element={p(<ConfiguracoesPage />)} />
+      <Route path="/acessos" element={p(<AcessosPage />)} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -46,6 +46,9 @@ final class PermissaoCatalogo
         'empresa' => ['view', 'create', 'edit', 'delete'],
         'grupo' => ['view', 'create', 'edit', 'delete'],
         'relatorio' => ['view'],
+        // Central de Acessos (A2) — administração de usuários e papéis.
+        'usuario' => ['view', 'create', 'edit', 'delete', 'reset'],
+        'papel' => ['view', 'create', 'edit', 'delete'],
     ];
 
     /**
@@ -61,6 +64,7 @@ final class PermissaoCatalogo
         'config' => 'Configurar',
         'preco' => 'Gerir preços',
         'emitir' => 'Emitir',
+        'reset' => 'Resetar senha',
     ];
 
     /**

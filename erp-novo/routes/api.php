@@ -14,7 +14,6 @@ use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConfigGlobalController;
 use App\Http\Controllers\Api\Admin\ConvenioController;
 use App\Http\Controllers\Api\Admin\CrmController;
-use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\EmpresaConfigController;
 use App\Http\Controllers\Api\Admin\EmpresaController;
 use App\Http\Controllers\Api\Admin\EstoqueController;
@@ -25,10 +24,12 @@ use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
+use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NfEntradaController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PagamentoController;
+use App\Http\Controllers\Api\Admin\PapelController;
 use App\Http\Controllers\Api\Admin\PedidoController;
 use App\Http\Controllers\Api\Admin\PixController;
 use App\Http\Controllers\Api\Admin\ProdutoConfigController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SateliteStatusController;
 use App\Http\Controllers\Api\Admin\SetorController;
+use App\Http\Controllers\Api\Admin\UsuarioController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
@@ -110,6 +112,21 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('grupos', [GrupoController::class, 'store']);
         Route::put('grupos/{id}', [GrupoController::class, 'update'])->whereNumber('id');
         Route::delete('grupos/{id}', [GrupoController::class, 'destroy'])->whereNumber('id');
+
+        // ── Central de Acessos (A2) — papéis e usuários ──
+        // Perfis/papéis do grupo + catálogo de permissões para a UI de marcação.
+        Route::get('papeis/catalogo', [PapelController::class, 'catalogo']);
+        Route::get('papeis', [PapelController::class, 'index']);
+        Route::post('papeis', [PapelController::class, 'store']);
+        Route::put('papeis/{id}', [PapelController::class, 'update'])->whereNumber('id');
+        Route::delete('papeis/{id}', [PapelController::class, 'destroy'])->whereNumber('id');
+
+        // Usuários da empresa ativa + atribuição de papéis + reset de senha.
+        Route::get('usuarios', [UsuarioController::class, 'index']);
+        Route::post('usuarios', [UsuarioController::class, 'store']);
+        Route::put('usuarios/{id}', [UsuarioController::class, 'update'])->whereNumber('id');
+        Route::post('usuarios/{id}/resetar-senha', [UsuarioController::class, 'resetarSenha'])->whereNumber('id');
+        Route::delete('usuarios/{id}', [UsuarioController::class, 'destroy'])->whereNumber('id');
 
         // Regiões de atendimento.
         Route::get('regioes', [RegiaoController::class, 'index']);

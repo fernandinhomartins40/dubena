@@ -6,7 +6,7 @@ import {
   UserCog, Truck, Flame, FileBarChart, ShoppingCart,
   MessageSquareHeart, Tag, Gift, Target, ListChecks,
   Receipt, ArrowLeftRight, FolderArchive, Building,
-  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings,
+  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -59,6 +59,7 @@ const NAV: NavItem[] = [
   { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', group: 'RH & Frota' },
 
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
+  { label: 'Acessos', to: '/acessos', icon: <ShieldCheck size={18} />, permission: 'usuario.view', group: 'Administração' },
   { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração' },
 ]
 

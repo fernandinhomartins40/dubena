@@ -446,7 +446,7 @@ models (escopados); rotas/controllers da Central de Acessos; eventos de seguran�
 |---|---|---|---|
 | ~~**A0 — Saneamento**~~ ✅ | Corrigir drift catálogo↔menu↔controllers; teste de contrato reforçado. | Baixo | — |
 | ~~**A1 — Enforcement central**~~ ✅ | Gates por chave do catálogo (`AuthServiceProvider`) delegando a `temPermissao()`; trait `AutorizaPorPermissao` (ponto único nos 38 controllers); middleware de rota `permissao:`. Sem mudança funcional. | Baixo | A0 |
-| **A2 — Central de Acessos (RBAC)** | API + UI de usuários, papéis, atribuição por empresa. Substitui seeder/código. | Médio | A1 |
+| ~~**A2 — Central de Acessos (RBAC)**~~ ✅ | API + UI de usuários e perfis (papéis) com atribuição por empresa, reset de senha e marcação de permissões do catálogo. Anti-escalonamento + isolamento por tenant. Substitui seeder/código. (Unidades/deptos/cargos ficam na A3; sessões/2FA na A5.) | Médio | A1 |
 | **A3 — Hierarquia** | `unidades/departamentos/setores/cargos` + escopo em `role_user` + UI. | Médio | A2 |
 | **A4 — ABAC** | `permission_conditions` + `PolicyEvaluator` (limite/ownership/horário). | Médio-alto | A1, A3 |
 | **A5 — Segurança avançada** | 2FA, política de senha, lockout, sessões ativas, `login_logs`. | Médio | A2 |
