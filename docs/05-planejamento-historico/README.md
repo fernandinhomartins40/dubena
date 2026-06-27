@@ -28,3 +28,7 @@ Portanto, uma auditoria futura deve:
 | [PLANO_CONCLUSAO_REESCRITA.md](PLANO_CONCLUSAO_REESCRITA.md) | Plano de conclusão da reescrita (status de execução das fases C). |
 | [PLANO_REESCRITA_BACKEND.md](PLANO_REESCRITA_BACKEND.md) | Plano de reescrita greenfield do backend. |
 | [PLANO_SEEDS.md](PLANO_SEEDS.md) | Plano de seeds para popular a homologação. |
+| [AUDITORIA_PARIDADE_MODERNIZACAO.md](AUDITORIA_PARIDADE_MODERNIZACAO.md) | Auditoria forense de paridade legado × backend × SPA (linha-a-linha, ~103k LOC). |
+| [PLANO_MESTRE_CONCLUSAO_MODERNIZACAO.md](PLANO_MESTRE_CONCLUSAO_MODERNIZACAO.md) | Backlog executável derivado da auditoria de paridade (fases concluídas ✅). |
+| [AUDITORIA_FRONTEND.md](AUDITORIA_FRONTEND.md) | Diagnóstico do frontend que originou a F17 (reorganização concluída). |
+| [F02_CLASSIFICACAO_MULTITENANCY.md](F02_CLASSIFICACAO_MULTITENANCY.md) | Classificação tenancy dos 107 models (base de `BelongsToTenant`/RLS). |

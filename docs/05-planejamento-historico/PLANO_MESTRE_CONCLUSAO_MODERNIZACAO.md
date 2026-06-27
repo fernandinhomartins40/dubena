@@ -1,7 +1,7 @@
 # PLANO MESTRE DE CONCLUSÃO DA MODERNIZAÇÃO
 ## ERP-NOVO + SPA → substituição integral do CTRL-WEB
 
-> **Base única deste plano:** os achados de `docs/AUDITORIA_PARIDADE_MODERNIZACAO.md`
+> **Base única deste plano:** os achados de `AUDITORIA_PARIDADE_MODERNIZACAO.md` (mesma pasta)
 > (auditoria forense linha-a-linha, ~103k LOC). Este documento **não refaz a auditoria,
 > não gera novo inventário nem novas estimativas de aderência** — apenas converte cada achado
 > em backlog executável. Cada fase cita o achado de origem entre `〔…〕`.
@@ -394,7 +394,7 @@ F15 Performance/Observabilidade: transversal, contínua
 > - **Rastreabilidade automática** (`F14RastreabilidadeTest`, 3 casos): prova que TODO
 >   achado 🔴/🟡/⚠️ da auditoria tem rota/comando/driver — **guard de regressão no CI**
 >   (rota de paridade removida = teste quebra). 23 rotas + 4 comandos + 5 drivers reais.
-> - **Runbook de homologação** `docs/F14_RUNBOOK_HOMOLOGACAO.md`: roteiros UAT por módulo
+> - **Runbook de homologação** `docs/06-runbooks/F14_RUNBOOK_HOMOLOGACAO.md`: roteiros UAT por módulo
 >   (cadastros, venda→estoque→financeiro, fiscal, compras, caixa/cheque, cobrança,
 >   satélites, RH/frota, CRM, monitora/mobile, relatórios, auditoria/segurança) com o
 >   comparativo esperado vs legado e critérios de aceite.
@@ -442,7 +442,7 @@ F15 Performance/Observabilidade: transversal, contínua
 >   certificado A1 por empresa (se fiscal real), conta de cobrança por empresa. `--strict`
 >   trata WARN como bloqueio. Testado (`GoliveCheckTest`, 4 casos).
 > - **`cutover:check`** (já existia) — portão de integridade dos dados migrados.
-> - **Runbook completo** em `docs/F16_RUNBOOK_GOLIVE.md`: pré-condições, config `.env` de
+> - **Runbook completo** em `docs/06-runbooks/F16_RUNBOOK_GOLIVE.md`: pré-condições, config `.env` de
 >   produção, portões automáticos, janela de cutover passo-a-passo, smoke test, pós-go-live,
 >   **plano de rollback** (RPO/RTO) e critérios de aceite.
 > - Suíte **290 passed / 0 falhas**.
@@ -483,7 +483,7 @@ Os demais correm em paralelo conforme capacidade da equipe.
 # FASE 17 — Reorganização do Frontend (UX/estrutura)
 
 **Objetivo:** organização estrutural e consistência de padrões na SPA — o que o plano de
-paridade (foco backend/integrações) não cobriu. Baseada em `docs/AUDITORIA_FRONTEND.md`.
+paridade (foco backend/integrações) não cobriu. Baseada em `AUDITORIA_FRONTEND.md` (mesma pasta).
 **Achados 〔auditoria frontend〕:** `satelites/` grab-bag; config duplicada (cadastros×hub);
 sem code-splitting; diálogo inconsistente (15 Dialog cru × 13 FormDialog); loading/erro
 ad-hoc; telas-monólito; boilerplate de formulário. Estilo e data layer já estão ✅.
