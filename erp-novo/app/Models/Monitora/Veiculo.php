@@ -5,6 +5,7 @@ namespace App\Models\Monitora;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -18,11 +19,22 @@ class Veiculo extends Model
 
     protected $table = 'monitora_veiculos';
 
-    protected $fillable = ['empresa_id', 'grupo_id', 'placa', 'descricao', 'imei', 'ativo'];
+    protected $fillable = [
+        'empresa_id', 'grupo_id', 'placa', 'descricao', 'tipo_id',
+        'motorista', 'km_atual', 'imei', 'deviceid', 'ativo',
+    ];
 
     protected function casts(): array
     {
-        return ['ativo' => 'boolean'];
+        return [
+            'km_atual' => 'integer',
+            'ativo' => 'boolean',
+        ];
+    }
+
+    public function tipo(): BelongsTo
+    {
+        return $this->belongsTo(VeiculoTipo::class, 'tipo_id');
     }
 
     public function posicoes(): HasMany

@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Monitora\Cerca;
 use App\Models\Monitora\UltimaPosicao;
 use App\Models\Monitora\Veiculo;
+use App\Models\Monitora\VeiculoTipo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,21 +31,95 @@ class MonitoraController extends Controller
     {
         $this->autorizar($request, 'monitora.view');
 
-        return response()->json(['data' => Veiculo::query()->with('ultimaPosicao')->orderBy('placa')->get()]);
+        return response()->json(['data' => Veiculo::query()->with(['ultimaPosicao', 'tipo'])->orderBy('placa')->get()]);
     }
 
     public function criarVeiculo(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.edit');
-        $d = $request->validate([
-            'placa' => 'required|string|max:10',
-            'descricao' => 'nullable|string|max:255',
-            'imei' => 'nullable|string|max:30',
-        ]);
+        $d = $this->validarVeiculo($request);
         $d['empresa_id'] = $request->user()->empresa_id;
         $d['grupo_id'] = $request->user()->grupo_id;
 
-        return response()->json(['data' => Veiculo::create($d)], 201);
+        return response()->json(['data' => Veiculo::create($d)->load('tipo')], 201);
+    }
+
+    /** PUT /monitora/veiculos/{id} — atualiza dados do veículo (tipo/motorista/km/etc.). */
+    public function atualizarVeiculo(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        $veiculo = Veiculo::query()->findOrFail($id);
+        $veiculo->update($this->validarVeiculo($request));
+
+        return response()->json(['data' => $veiculo->load('tipo')]);
+    }
+
+    /** @return array<string, mixed> */
+    private function validarVeiculo(Request $request): array
+    {
+        return $request->validate([
+            'placa' => 'required|string|max:10',
+            'descricao' => 'nullable|string|max:255',
+            'tipo_id' => 'nullable|integer|exists:monitora_veiculo_tipos,id',
+            'motorista' => 'nullable|string|max:255',
+            'km_atual' => 'nullable|integer|min:0',
+            'imei' => 'nullable|string|max:30',
+            'deviceid' => 'nullable|string|max:50',
+            'ativo' => 'boolean',
+        ]);
+    }
+
+    /** GET /monitora/tipos — tipos de veículo do grupo. */
+    public function tipos(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+
+        return response()->json(['data' => VeiculoTipo::query()->orderBy('descricao')->get()]);
+    }
+
+    /** POST /monitora/tipos — cria tipo de veículo (ícone + velocidade máxima). */
+    public function criarTipo(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        $d = $request->validate([
+            'descricao' => 'required|string|max:255',
+            'icone' => 'nullable|string|max:255',
+            'velocidade_maxima' => 'nullable|integer|min:0|max:300',
+            'ativo' => 'boolean',
+        ]);
+        $d['grupo_id'] = $request->user()->grupo_id;
+
+        return response()->json(['data' => VeiculoTipo::create($d)], 201);
+    }
+
+    /** GET /monitora/veiculos/{id}/historico?de&ate — histórico de posições (replay). */
+    public function historico(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+        $veiculo = Veiculo::query()->findOrFail($id);
+
+        $d = $request->validate([
+            'de' => 'nullable|date',
+            'ate' => 'nullable|date|after_or_equal:de',
+            'limite' => 'nullable|integer|min:1|max:5000',
+        ]);
+
+        $posicoes = $veiculo->posicoes()
+            ->when($d['de'] ?? null, fn ($q, $de) => $q->where('registrado_em', '>=', $de))
+            ->when($d['ate'] ?? null, fn ($q, $ate) => $q->where('registrado_em', '<=', $ate))
+            ->orderBy('registrado_em')
+            ->limit((int) ($d['limite'] ?? 1000))
+            ->get(['latitude', 'longitude', 'velocidade', 'direcao', 'ignicao', 'registrado_em'])
+            ->map(fn ($p) => [
+                'latitude' => (float) $p->latitude,
+                'longitude' => (float) $p->longitude,
+                'velocidade' => (float) $p->velocidade,
+                'direcao' => $p->direcao,
+                'ignicao' => (bool) $p->ignicao,
+                'registrado_em' => $p->registrado_em?->toIso8601String(),
+            ]);
+
+        return response()->json(['data' => $posicoes]);
     }
 
     /** POST /monitora/veiculos/{id}/posicoes — ingestão de posição (rastreador/app). */

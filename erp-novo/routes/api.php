@@ -414,7 +414,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Monitora (GPS) — N11 (módulo isolado) ──
         Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);
         Route::post('monitora/veiculos', [MonitoraController::class, 'criarVeiculo']);
+        Route::put('monitora/veiculos/{id}', [MonitoraController::class, 'atualizarVeiculo'])->whereNumber('id');
         Route::post('monitora/veiculos/{id}/posicoes', [MonitoraController::class, 'ingerirPosicao'])->whereNumber('id');
+        Route::get('monitora/veiculos/{id}/historico', [MonitoraController::class, 'historico'])->whereNumber('id');
+        Route::get('monitora/tipos', [MonitoraController::class, 'tipos']);
+        Route::post('monitora/tipos', [MonitoraController::class, 'criarTipo']);
         Route::get('monitora/ultimas-posicoes', [MonitoraController::class, 'ultimasPosicoes']);
         Route::get('monitora/cercas', [MonitoraController::class, 'cercas']);
         Route::post('monitora/cercas', [MonitoraController::class, 'criarCerca']);

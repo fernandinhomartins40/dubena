@@ -11,6 +11,34 @@ export interface UltimaPosicao {
 export const useUltimasPosicoes = () =>
   useQuery<UltimaPosicao[]>({ queryKey: ['monitora-posicoes'], queryFn: async () => (await api.get('/monitora/ultimas-posicoes')).data.data, refetchInterval: 30000 })
 
+// ---- Veículos + tipos (F1) ----
+export interface VeiculoTipo { id: number; descricao: string; icone: string | null; velocidade_maxima: number | null; ativo: boolean }
+export interface Veiculo {
+  id: number; placa: string; descricao: string | null; tipo_id: number | null
+  motorista: string | null; km_atual: number | null; imei: string | null; deviceid: string | null; ativo: boolean
+  tipo?: VeiculoTipo | null
+}
+export const useVeiculos = () =>
+  useQuery<Veiculo[]>({ queryKey: ['monitora-veiculos'], queryFn: async () => (await api.get('/monitora/veiculos')).data.data })
+export const useTipos = () =>
+  useQuery<VeiculoTipo[]>({ queryKey: ['monitora-tipos'], queryFn: async () => (await api.get('/monitora/tipos')).data.data })
+
+export function useSalvarVeiculo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<Veiculo> & { placa: string }) =>
+      (id ? api.put(`/monitora/veiculos/${id}`, data) : api.post('/monitora/veiculos', data)).then((r) => (r as any).data.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['monitora-veiculos'] }); qc.invalidateQueries({ queryKey: ['monitora-posicoes'] }) },
+  })
+}
+export function useCriarTipo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { descricao: string; icone?: string | null; velocidade_maxima?: number | null }) => (await api.post('/monitora/tipos', data)).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['monitora-tipos'] }),
+  })
+}
+
 // ---- Cercas (geofencing poligonal) ----
 export interface CercaPonto { latitude: number | string; longitude: number | string; ordem?: number }
 export interface Cerca {
