@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Api\Admin\AssinaturaController;
 use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
@@ -133,6 +134,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Config global do grupo (F01): RT/CSRT, SMTP, SAT, Google Maps.
         Route::get('config-global', [ConfigGlobalController::class, 'show']);
         Route::put('config-global', [ConfigGlobalController::class, 'update']);
+
+        // Assinatura/plano da empresa ativa (P2) — leitura. Gestão é do SuperAdmin (P4).
+        Route::get('assinatura', [AssinaturaController::class, 'show']);
 
         // Grupos (redes) — C1.
         Route::get('grupos', [GrupoController::class, 'index']);

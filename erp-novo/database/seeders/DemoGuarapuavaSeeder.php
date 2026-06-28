@@ -4,9 +4,9 @@ namespace Database\Seeders;
 
 use App\Domain\Caixa\CaixaService;
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Financeiro\FinanceiroService;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Satelite\ComodatoService;
-use App\Domain\Satelite\ConvenioFechamentoService;
 use App\Domain\Satelite\ValeGasService;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Apoio\Banco;
@@ -23,6 +23,13 @@ use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteDependente;
 use App\Models\Cliente\ClientePreco;
 use App\Models\Cliente\ClienteTelefone;
+use App\Models\Crm\Checklist;
+use App\Models\Crm\ChecklistPergunta;
+use App\Models\Crm\MetaVenda;
+use App\Models\Crm\PosVenda;
+use App\Models\Crm\Promocao;
+use App\Models\Crm\Sorteio;
+use App\Models\Crm\SorteioNumero;
 use App\Models\Empresa;
 use App\Models\Estado;
 use App\Models\Estoque\EstoqueSaldo;
@@ -32,7 +39,6 @@ use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Financeiro\PlanoConta;
 use App\Models\Fiscal\MalhaFiscal;
-use App\Models\Monitora\Cerca;
 use App\Models\Fiscal\OperacaoFiscal;
 use App\Models\Frota\TipoCombustivel;
 use App\Models\Frota\Veiculo;
@@ -47,13 +53,8 @@ use App\Models\Geografico\Rua;
 use App\Models\Gestao\Documento;
 use App\Models\Gestao\EmpresaBem;
 use App\Models\Gestao\Mcmm;
-use App\Models\Crm\Checklist;
-use App\Models\Crm\ChecklistPergunta;
-use App\Models\Crm\MetaVenda;
-use App\Models\Crm\PosVenda;
-use App\Models\Crm\Promocao;
-use App\Models\Crm\Sorteio;
-use App\Models\Crm\SorteioNumero;
+use App\Models\Monitora\Cerca;
+use App\Models\Pagamento\GasDoPovoBeneficio;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoOperacao;
 use App\Models\Pedido\PedidoSituacao;
@@ -64,10 +65,7 @@ use App\Models\Rh\Colaborador;
 use App\Models\Rh\ColaboradorExame;
 use App\Models\Rh\ColaboradorFamilia;
 use App\Models\Rh\ColaboradorTurno;
-use App\Models\Pagamento\GasDoPovoBeneficio;
-use App\Models\Satelite\Comodato;
 use App\Models\Satelite\Convenio;
-use App\Models\Satelite\ValeGas;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -86,15 +84,18 @@ use Illuminate\Support\Carbon;
 class DemoGuarapuavaSeeder extends Seeder
 {
     private Empresa $empresa;
+
     private int $grupoId;
+
     /** @var array<string, mixed> */
     private array $geo;
 
     public function run(): void
     {
-        // Base idempotente (admin/empresa + RBAC) — sempre garantida.
+        // Base idempotente (admin/empresa + RBAC + planos SaaS) — sempre garantida.
         $this->call(DeployAdminSeeder::class);
         $this->call(RbacSeeder::class);
+        $this->call(PlanosSeeder::class);
 
         $this->empresa = Empresa::query()->orderBy('id')->firstOrFail();
         $this->grupoId = (int) $this->empresa->grupo_id;
@@ -539,11 +540,14 @@ class DemoGuarapuavaSeeder extends Seeder
             ->whereHas('financeiro', fn ($q) => $q->where('pagarreceber', 'R')->where('cancelado', false))
             ->where('baixado', false)->limit(80)->get()
             ->each(function ($parcela) use ($svc, $conta) {
-                try { $svc->baixarParcela($conta->id, $parcela->id); } catch (\Throwable) { /* ignora colisão idempotente */ }
+                try {
+                    $svc->baixarParcela($conta->id, $parcela->id);
+                } catch (\Throwable) { /* ignora colisão idempotente */
+                }
             });
 
         // Contas a pagar avulsas (compra de mercadoria a fornecedores).
-        $fin = app(\App\Domain\Financeiro\FinanceiroService::class);
+        $fin = app(FinanceiroService::class);
         $fornecedores = array_values(array_filter($clientes, fn ($c) => $c->fornecedor));
         $planoPagar = PlanoConta::query()->where('descricao', 'Compra de Mercadorias')->value('id');
         $centro = CentroCusto::query()->where('descricao', 'Matriz')->value('id');
@@ -704,6 +708,7 @@ class DemoGuarapuavaSeeder extends Seeder
     private function slug(string $s): string
     {
         $s = strtolower(preg_replace('/[^a-zA-Z]/', '', iconv('UTF-8', 'ASCII//TRANSLIT', $s) ?: $s));
+
         return substr($s, 0, 12);
     }
 
@@ -739,6 +744,7 @@ class DemoGuarapuavaSeeder extends Seeder
     private function placa(): string
     {
         $l = fn () => chr(mt_rand(65, 90));
+
         return $l().$l().$l().mt_rand(0, 9).$l().mt_rand(0, 9).mt_rand(0, 9);
     }
 

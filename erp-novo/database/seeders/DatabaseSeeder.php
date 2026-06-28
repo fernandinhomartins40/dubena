@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 DeployAdminSeeder::class,
                 RbacSeeder::class,
+                PlanosSeeder::class,
             ]);
 
             return;

@@ -20,6 +20,7 @@ class DeploySeeder extends Seeder
         $this->call([
             DeployAdminSeeder::class, // grupo/empresa/admin base
             RbacSeeder::class,        // catálogo de permissões + papéis (chaves novas entram aqui)
+            PlanosSeeder::class,      // catálogo de planos SaaS + recursos (P2)
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domain\Saas\LicencaService;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -175,6 +176,10 @@ class User extends Authenticatable
             'support' => (bool) $this->support,
             'roles' => $this->papeisEfetivos($empresaId)->pluck('nome')->values()->all(),
             'permissions' => $this->permissoesEfetivas($empresaId),
+            // Recursos (feature-flags) efetivos da empresa ativa (P2). A SPA/app
+            // escondem features sem licença. RBAC (permissions) e licença (features)
+            // são camadas independentes; o front cruza as duas.
+            'features' => app(LicencaService::class)->recursosEfetivos($empresaId ?? $this->empresa_id),
         ];
     }
 }
