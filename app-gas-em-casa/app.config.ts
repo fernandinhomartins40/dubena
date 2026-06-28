@@ -20,6 +20,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     const apiUrl = process.env.API_URL ?? ""
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY ?? ""
     const debug = process.env.APP_DEBUG === "true"
+    // F1: empresa (tenant) que este build do app atende. O login do cliente envia
+    // este empresa_id ao ERP-NOVO para resolver o cliente pelo telefone verificado.
+    const empresaId = process.env.EMPRESA_ID ? Number(process.env.EMPRESA_ID) : null
 
     return {
         ...(config as ExpoConfig),
@@ -43,6 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             apiUrl,
             googleMapsApiKey,
             debug,
+            empresaId,
         },
     }
 }

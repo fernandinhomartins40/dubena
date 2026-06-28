@@ -64,8 +64,11 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 // Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
 
-// Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador.
+// Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador (e-mail+senha).
 Route::post('/app/v1/login', [AppAuthController::class, 'login']);
+
+// Login do CLIENTE pelo app (PÚBLICO) — F1. Phone-auth do Firebase + empresa_id.
+Route::post('/app/v1/cliente/login', [AppAuthController::class, 'loginCliente']);
 
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
 Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {

@@ -9,9 +9,12 @@ use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
+use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Drivers\EredeDriver;
+use App\Domain\Mobile\Drivers\FakeFirebaseVerifier;
 use App\Domain\Mobile\Drivers\FakePagamentoDriver;
+use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
@@ -55,6 +58,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PagamentoDriver::class, fn () => config('services.pagamento.driver') === 'erede'
             ? $this->app->make(EredeDriver::class)
             : $this->app->make(FakePagamentoDriver::class));
+
+        // Verificador do Firebase (F1 — GATE phone-auth). FIREBASE_DRIVER=kreait ativa o
+        // real (kreait/firebase-php + service account); qualquer outro valor mantém o Fake.
+        $this->app->bind(FirebaseVerifier::class, fn () => config('services.firebase.driver') === 'kreait'
+            ? $this->app->make(KreaitFirebaseVerifier::class)
+            : $this->app->make(FakeFirebaseVerifier::class));
 
         // Driver SGCasa (N11/F12 — GATE sync GPS). MONITORA_DRIVER=sgcasa ativa o real
         // (API SGCasa); senão Fake. Singleton p/ permitir stub em teste.

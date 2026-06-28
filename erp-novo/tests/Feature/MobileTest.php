@@ -6,6 +6,7 @@ use App\Domain\Estoque\EstoqueService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteTelefone;
 use App\Models\Crm\Promocao;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
@@ -62,6 +63,71 @@ class MobileTest extends TestCase
     public function test_login_invalido_422(): void
     {
         $this->postJson('/api/app/v1/login', ['email' => 'app@teste.com', 'password' => 'errada'])->assertStatus(422);
+    }
+
+    public function test_login_cliente_por_telefone_firebase_emite_token_e_vincula_user(): void
+    {
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'nome' => 'Maria App', 'user_id' => null, 'ativo' => true,
+        ]);
+        ClienteTelefone::factory()->create(['cliente_id' => $cliente->id, 'telefone' => '(42) 99888-7766']);
+
+        $resp = $this->postJson('/api/app/v1/cliente/login', [
+            'firebase_id_token' => 'fake:+5542998887766',
+            'empresa_id' => $this->empresa->id,
+            'device_id' => 'cli-dev-1', 'push_token' => 'fcm-cli', 'plataforma' => 'ios',
+        ])->assertOk()->assertJsonStructure(['token', 'user' => ['id', 'name', 'empresa_id']]);
+
+        $this->assertNotEmpty($resp->json('token'));
+
+        // O cliente passou a ter um user vinculado, na empresa certa.
+        $cliente->refresh();
+        $this->assertNotNull($cliente->user_id);
+        $this->assertDatabaseHas('users', ['id' => $cliente->user_id, 'empresa_id' => $this->empresa->id]);
+        $this->assertDatabaseHas('app_devices', ['user_id' => $cliente->user_id, 'device_id' => 'cli-dev-1']);
+    }
+
+    public function test_login_cliente_reusa_o_mesmo_user_em_logins_repetidos(): void
+    {
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => null,
+        ]);
+        ClienteTelefone::factory()->create(['cliente_id' => $cliente->id, 'telefone' => '42 99000-1122']);
+
+        $primeiro = $this->postJson('/api/app/v1/cliente/login', [
+            'firebase_id_token' => 'fake:+5542990001122', 'empresa_id' => $this->empresa->id,
+        ])->assertOk();
+        $cliente->refresh();
+        $userId = $cliente->user_id;
+
+        $this->postJson('/api/app/v1/cliente/login', [
+            'firebase_id_token' => 'fake:+5542990001122', 'empresa_id' => $this->empresa->id,
+        ])->assertOk();
+        $cliente->refresh();
+
+        $this->assertEquals($userId, $cliente->user_id);
+    }
+
+    public function test_login_cliente_telefone_de_outra_empresa_falha(): void
+    {
+        $outra = Empresa::factory()->create();
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id, 'user_id' => null,
+        ]);
+        ClienteTelefone::factory()->create(['cliente_id' => $cliente->id, 'telefone' => '42 91234-5678']);
+
+        // Telefone existe, mas em OUTRA empresa → não autentica na empresa pedida.
+        $this->postJson('/api/app/v1/cliente/login', [
+            'firebase_id_token' => 'fake:+5542912345678', 'empresa_id' => $this->empresa->id,
+        ])->assertStatus(422);
+    }
+
+    public function test_login_cliente_token_invalido_401(): void
+    {
+        $this->postJson('/api/app/v1/cliente/login', [
+            'firebase_id_token' => 'token-que-nao-comeca-com-fake', 'empresa_id' => $this->empresa->id,
+        ])->assertStatus(401);
     }
 
     public function test_catalogo_de_produtos_da_empresa(): void

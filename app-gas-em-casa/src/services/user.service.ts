@@ -22,6 +22,7 @@ interface Token {
 /** Payload de login (F1). O app envia o ID token do Firebase (telefone verificado). */
 export interface AppLoginPayload {
     firebase_id_token: string
+    empresa_id: number
     device_id?: string
     push_token?: string
     plataforma?: "ios" | "android"
@@ -42,12 +43,12 @@ const naoImplementado = (nome: string): Promise<never> =>
     })
 
 /**
- * F1: login real do cliente. Envia o ID token do Firebase (já feito o SMS) e recebe
- * o token Sanctum do usuário. O ERP-NOVO valida o token via Firebase Admin.
- * TODO(F1): habilitar quando o endpoint aceitar `firebase_id_token` (hoje exige email/senha).
+ * F1: login real do cliente. Envia o ID token do Firebase (já feito o SMS) + a empresa
+ * e recebe o token Sanctum do usuário. O ERP-NOVO valida o token via Firebase Admin,
+ * resolve o cliente pelo telefone na empresa e cria/vincula o usuário.
  */
 const Login = (payload: AppLoginPayload): Promise<AppLoginResponse> => {
-    return Http.PrepareRequest("app/v1/login", "POST", payload, false)
+    return Http.PrepareRequest("app/v1/cliente/login", "POST", payload, false)
 }
 
 /** Termos/políticas — host externo (site institucional), sem Bearer do ERP. */

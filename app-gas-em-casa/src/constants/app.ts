@@ -103,6 +103,7 @@ type AppExtra = {
     apiUrl?: string
     googleMapsApiKey?: string
     debug?: boolean
+    empresaId?: number | null
 }
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra
@@ -121,4 +122,6 @@ export const APP = {
     api_url: extra.apiUrl ?? "",
     /** Chave do Google Maps/Geocode. */
     gap_key: extra.googleMapsApiKey ?? "",
+    /** Empresa (tenant) atendida por este build — enviada no login do cliente (F1). */
+    empresa_id: extra.empresaId ?? null,
 }

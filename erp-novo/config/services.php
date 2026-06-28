@@ -55,6 +55,16 @@ return [
         'server_key' => env('FCM_SERVER_KEY'),
     ],
 
+    // Firebase Auth (F1 — GATE). Verifica o ID token do telefone (phone-auth do app).
+    // 'kreait' ativa o verificador real (precisa do JSON de service account); qualquer
+    // outro valor mantém o Fake (CI/homolog). project_id valida a audience do token.
+    'firebase' => [
+        'driver' => env('FIREBASE_DRIVER', 'fake'),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        // Caminho do arquivo de credenciais (service account JSON) — só no servidor.
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+    ],
+
     // Driver fiscal (N9/C7b — GATE). 'nfephp' ativa o driver SEFAZ real.
     // Lido via config() (não env() direto) p/ funcionar com config:cache em prod.
     'fiscal' => [
