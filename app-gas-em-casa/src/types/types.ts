@@ -224,3 +224,80 @@ export interface TimelineStep {
     completed: boolean
     isCurrent: boolean
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * F3 — Tipos alinhados ao ERP-NOVO (app/v1). O preço NÃO mora mais no cliente:
+ * o catálogo traz preços apenas para EXIBIÇÃO; o total vem sempre da cotação.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Item do catálogo (GET app/v1/produtos / init.produtos). */
+export interface CatalogItem {
+    id: number
+    descricao: string
+    preco: number
+    preco_gasdopovo: number | null
+}
+
+/** Condição de pagamento (init.condicoes). */
+export interface CondicaoPagamento {
+    id: number
+    descricao: string
+    num_parcelas: number
+    a_vista: boolean
+}
+
+/** Pacote de abertura (GET app/v1/init). */
+export interface InitData {
+    produtos: CatalogItem[]
+    condicoes: CondicaoPagamento[]
+}
+
+/** Carrinho local: só id → quantidade. Total/desconto vêm do servidor. */
+export interface CartLines {
+    [produtoId: number]: number
+}
+
+/** Item retornado pela cotação (preço resolvido no servidor). */
+export interface CotacaoItem {
+    produto_id: number
+    descricao: string
+    quantidade: number
+    preco_unitario: number
+    total: number
+}
+
+/** Cupom aplicado, conforme a cotação. */
+export interface CotacaoCupom {
+    codigo: string
+    descricao: string
+    desconto_percentual: number
+}
+
+/** Resposta de POST app/v1/carrinho/cotacao — a AUTORIDADE de preço. */
+export interface Cotacao {
+    itens: CotacaoItem[]
+    subtotal: number
+    desconto: number
+    total: number
+    cupom: CotacaoCupom | null
+    indisponiveis: number[]
+}
+
+/** Config do app por empresa (GET app/v1/config). */
+export interface AppConfig {
+    gaspovo_ativo: boolean
+    video: { url: string; titulo?: string } | null
+    tempo_entrega_min: number | null
+}
+
+/** Endereço (inline) do cliente (GET/PUT app/v1/perfil/endereco). */
+export interface ClienteEndereco {
+    endereco: string | null
+    numero: string | null
+    complemento: string | null
+    ponto_referencia: string | null
+    cep: string | null
+    uf: string | null
+    latitude: number | null
+    longitude: number | null
+}

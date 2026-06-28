@@ -560,6 +560,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('init', [AppClienteController::class, 'init']);
         Route::get('produtos', [AppClienteController::class, 'produtos']);
         Route::get('cupom', [AppClienteController::class, 'cupom']);
+        Route::post('carrinho/cotacao', [AppClienteController::class, 'cotar']); // F3 — preço server-side
+        Route::get('config', [AppClienteController::class, 'config']);           // F3 — config do app
+        Route::get('perfil/endereco', [AppClienteController::class, 'obterEndereco']);   // F3
+        Route::put('perfil/endereco', [AppClienteController::class, 'atualizarEndereco']); // F3
         Route::get('pedidos', [AppClienteController::class, 'historico']);
         Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
         Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');

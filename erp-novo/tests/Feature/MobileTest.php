@@ -384,4 +384,85 @@ class MobileTest extends TestCase
     {
         $this->getJson('/api/app/v1/produtos')->assertStatus(401);
     }
+
+    public function test_cotacao_calcula_total_no_servidor(): void
+    {
+        // 2 x 100 = 200, sem cupom.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/carrinho/cotacao', [
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 2]],
+        ])->assertOk()
+            ->assertJsonPath('data.subtotal', 200)
+            ->assertJsonPath('data.desconto', 0)
+            ->assertJsonPath('data.total', 200)
+            ->assertJsonPath('data.itens.0.preco_unitario', 100);
+    }
+
+    public function test_cotacao_aplica_cupom_e_lista_indisponiveis(): void
+    {
+        Promocao::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Promo 10', 'codigo' => 'DEZ',
+            'inicio' => now()->subDay()->toDateString(), 'fim' => now()->addDay()->toDateString(),
+            'desconto_percentual' => 10, 'ativo' => true,
+        ]);
+
+        // 1 x 100 = 100; cupom 10% → desconto 10, total 90. Produto 999 inexistente.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/carrinho/cotacao', [
+            'itens' => [
+                ['produto_id' => $this->produto->id, 'quantidade' => 1],
+                ['produto_id' => 999999, 'quantidade' => 1],
+            ],
+            'codigo_cupom' => 'DEZ',
+        ])->assertOk()
+            ->assertJsonPath('data.subtotal', 100)
+            ->assertJsonPath('data.desconto', 10)
+            ->assertJsonPath('data.total', 90)
+            ->assertJsonPath('data.indisponiveis', [999999]);
+    }
+
+    public function test_cotacao_nao_aceita_preco_do_cliente(): void
+    {
+        // Cliente tenta forçar preço 1; o servidor ignora e usa o preço do catálogo (100).
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/carrinho/cotacao', [
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1, 'preco_unitario' => 1]],
+        ])->assertOk()
+            ->assertJsonPath('data.total', 100);
+    }
+
+    public function test_config_do_app_da_empresa(): void
+    {
+        \App\Models\EmpresaConfig::query()->create([
+            'empresa_id' => $this->empresa->id,
+            'tempoentrega' => 45,
+            'dados' => ['app' => ['gaspovo_ativo' => true, 'video' => ['url' => 'https://x/v.mp4', 'titulo' => 'Abertura']]],
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/config')
+            ->assertOk()
+            ->assertJsonPath('data.gaspovo_ativo', true)
+            ->assertJsonPath('data.tempo_entrega_min', 45)
+            ->assertJsonPath('data.video.titulo', 'Abertura');
+    }
+
+    public function test_endereco_do_cliente_resolvido_pelo_token(): void
+    {
+        // Cliente vinculado ao usuário do token (modelo F1).
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'user_id' => $this->user->id, 'endereco' => 'Rua A', 'numero' => '100',
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/perfil/endereco')
+            ->assertOk()
+            ->assertJsonPath('data.endereco', 'Rua A')
+            ->assertJsonPath('data.numero', '100');
+
+        $this->actingAs($this->user, 'sanctum')->putJson('/api/app/v1/perfil/endereco', [
+            'endereco' => 'Rua Nova', 'numero' => '200', 'cep' => '85000-000', 'uf' => 'PR',
+            'latitude' => -25.4, 'longitude' => -51.4,
+        ])->assertOk()->assertJsonPath('data.endereco', 'Rua Nova');
+
+        $cliente->refresh();
+        $this->assertEquals('Rua Nova', $cliente->endereco);
+        $this->assertEquals('200', $cliente->numero);
+    }
 }

@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Mobile\CatalogoMobileService;
+use App\Domain\Mobile\CotacaoMobileService;
 use App\Domain\Mobile\PagamentoOnlineService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\EmpresaConfig;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * API do app do CLIENTE — N10. Catálogo, criar pedido (matching geoloc) e pagar.
- * Tenant resolvido pelo middleware (token → empresa do usuário).
+ * API do app do CLIENTE — N10/F3. Catálogo, cotação (preço server-side), criar pedido
+ * (matching geoloc), pagar, perfil/endereço e config. Tenant resolvido pelo middleware.
  */
 class AppClienteController extends Controller
 {
@@ -21,7 +23,86 @@ class AppClienteController extends Controller
         private PedidoMobileService $pedidoMobile,
         private PagamentoOnlineService $pagamento,
         private CatalogoMobileService $catalogo,
+        private CotacaoMobileService $cotacao,
     ) {}
+
+    /**
+     * POST /app/v1/carrinho/cotacao — preço do carrinho calculado no SERVIDOR (F3).
+     * O app envia só itens (produto_id+quantidade) + condição/cupom/gp; recebe
+     * subtotal, desconto e total. Nenhum preço é aceito do cliente.
+     */
+    public function cotar(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'itens' => 'required|array|min:1',
+            'itens.*.produto_id' => 'required|integer',
+            'itens.*.quantidade' => 'required|numeric|gt:0',
+            'codigo_cupom' => 'nullable|string|max:40',
+            'gasdopovo' => 'boolean',
+        ]);
+
+        $user = $request->user();
+
+        return response()->json(['data' => $this->cotacao->cotar($user->empresa_id, $user->grupo_id, $d)]);
+    }
+
+    /** GET /app/v1/config — config do app por empresa (vídeo de abertura, Gás do Povo). */
+    public function config(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $cfg = EmpresaConfig::query()->where('empresa_id', $user->empresa_id)->first();
+        $dados = (array) ($cfg?->dados ?? []);
+        $app = (array) ($dados['app'] ?? []);
+
+        return response()->json(['data' => [
+            'gaspovo_ativo' => (bool) ($app['gaspovo_ativo'] ?? false),
+            'video' => $app['video'] ?? null, // { url, titulo } ou null
+            'tempo_entrega_min' => $cfg?->tempoentrega,
+        ]]);
+    }
+
+    /** GET /app/v1/perfil/endereco — endereço (inline) do cliente do token. */
+    public function obterEndereco(Request $request): JsonResponse
+    {
+        $cliente = $this->clienteDoUsuario($request);
+
+        return response()->json(['data' => $this->serializarEndereco($cliente)]);
+    }
+
+    /** PUT /app/v1/perfil/endereco — atualiza o endereço (inline) do cliente do token. */
+    public function atualizarEndereco(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'endereco' => 'required|string|max:255',
+            'numero' => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:120',
+            'ponto_referencia' => 'nullable|string|max:160',
+            'cep' => 'nullable|string|max:12',
+            'uf' => 'nullable|string|max:2',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+
+        $cliente = $this->clienteDoUsuario($request);
+        $cliente->fill($d)->save();
+
+        return response()->json(['data' => $this->serializarEndereco($cliente->refresh())]);
+    }
+
+    /** @return array<string,mixed> */
+    private function serializarEndereco(Cliente $c): array
+    {
+        return [
+            'endereco' => $c->endereco,
+            'numero' => $c->numero,
+            'complemento' => $c->complemento,
+            'ponto_referencia' => $c->ponto_referencia,
+            'cep' => $c->cep,
+            'uf' => $c->uf,
+            'latitude' => $c->latitude !== null ? (float) $c->latitude : null,
+            'longitude' => $c->longitude !== null ? (float) $c->longitude : null,
+        ];
+    }
 
     /** GET /app/v1/produtos — catálogo da empresa (só ativos com preço). */
     public function produtos(Request $request): JsonResponse
@@ -157,19 +238,30 @@ class AppClienteController extends Controller
     }
 
     /**
-     * Resolve o cliente do app a partir do cliente_id informado, sempre escopado pela
-     * empresa do token (impede acessar pedidos de outra empresa). O vínculo
-     * usuário-app ↔ cliente ainda não existe no schema; até lá o app envia o cliente_id
-     * (mesmo modelo do criarPedido). O escopo por empresa garante o isolamento.
+     * Resolve o cliente do app. Após a F1 (auth real), o caminho seguro é DERIVAR o
+     * cliente do token (cliente.user_id) — sem aceitar cliente_id do cliente, fechando
+     * o IDOR. Mantém fallback por cliente_id (escopado pela empresa do token) só para
+     * compat durante a transição de clientes ainda não vinculados a um usuário.
      */
     private function clienteDoUsuario(Request $request): Cliente
     {
-        $clienteId = (int) $request->query('cliente_id', (string) $request->input('cliente_id', 0));
-        if ($clienteId <= 0) {
-            abort(422, 'Informe o cliente_id.');
+        $user = $request->user();
+
+        $cliente = Cliente::query()
+            ->where('empresa_id', $user->empresa_id)
+            ->where('user_id', $user->id)
+            ->first();
+        if ($cliente) {
+            return $cliente;
         }
 
-        $cliente = Cliente::query()->where('empresa_id', $request->user()->empresa_id)->find($clienteId);
+        // Fallback (transição): cliente_id informado, ainda escopado pela empresa.
+        $clienteId = (int) $request->query('cliente_id', (string) $request->input('cliente_id', 0));
+        if ($clienteId <= 0) {
+            abort(422, 'Cliente do app não vinculado. Refaça o login.');
+        }
+
+        $cliente = Cliente::query()->where('empresa_id', $user->empresa_id)->find($clienteId);
         if (! $cliente) {
             abort(404, 'Cliente não localizado.');
         }
