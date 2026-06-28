@@ -562,6 +562,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
     // ── App mobile (cliente + entregador) — N10 ──
     Route::prefix('app/v1')->group(function () {
         Route::post('logout', [AppAuthController::class, 'logout']);
+        Route::post('token/refresh', [AppAuthController::class, 'refresh']); // P1 — rotação de token do app
         Route::post('devices', [AppAuthController::class, 'registrarDevice']);
 
         // Cliente

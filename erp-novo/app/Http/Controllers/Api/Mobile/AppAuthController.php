@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Mobile\ClienteAuthService;
 use App\Domain\Mobile\Exceptions\FirebaseTokenInvalido;
+use App\Domain\Seguranca\LoginSeguranca;
+use App\Domain\Seguranca\Totp;
 use App\Http\Controllers\Controller;
 use App\Models\Mobile\AppDevice;
 use App\Models\User;
@@ -19,9 +21,19 @@ use Illuminate\Validation\ValidationException;
  * Dois caminhos de login:
  *  - login()        → e-mail/senha (colaborador/entregador);
  *  - loginCliente() → phone-auth do Firebase (cliente do app), via ClienteAuthService.
+ *
+ * Hardening (P1): o login por e-mail/senha tem PARIDADE de segurança com o web
+ * (AuthController) — trilha em login_logs, LOCKOUT por falhas recentes (e-mail/IP)
+ * e 2FA (TOTP). O login do CLIENTE (Firebase) já tem 2º fator no SMS; aqui só
+ * registramos a trilha. Tokens de app emitidos com expiração (config sanctum).
  */
 class AppAuthController extends Controller
 {
+    public function __construct(
+        private LoginSeguranca $seguranca,
+        private Totp $totp,
+    ) {}
+
     /**
      * POST /app/v1/cliente/login — login do CLIENTE pelo app (F1).
      * Recebe o ID token do Firebase (telefone verificado por SMS) + a empresa, resolve
@@ -61,17 +73,43 @@ class AppAuthController extends Controller
         $d = $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
+            'otp' => 'nullable|string',
             'device_id' => 'nullable|string|max:120',
             'push_token' => 'nullable|string|max:255',
             'plataforma' => 'nullable|string|max:12',
             'app_versao' => 'nullable|string|max:20',
         ]);
 
-        $user = User::query()->where('email', $d['email'])->where('ativo', true)->first();
+        $email = (string) $d['email'];
+
+        // Lockout: barra antes de validar credenciais (paridade com o web).
+        if ($this->seguranca->bloqueado($email, $request->ip())) {
+            $this->seguranca->registrar($request, $email, false, 'lockout');
+
+            return response()->json(['message' => 'Muitas tentativas. Tente novamente em alguns minutos.'], 429);
+        }
+
+        $user = User::query()->where('email', $email)->where('ativo', true)->first();
         if (! $user || ! Hash::check($d['password'], $user->password)) {
+            $this->seguranca->registrar($request, $email, false, 'credenciais', $user?->id, $user?->empresa_id);
             throw ValidationException::withMessages(['email' => 'Credenciais inválidas.']);
         }
 
+        // 2FA (TOTP): se habilitado, exige OTP válido (ou recovery code).
+        $twofa = $user->twoFactor;
+        if ($twofa && $twofa->habilitado) {
+            $otp = (string) ($d['otp'] ?? '');
+            if ($otp === '' || ! $this->verificar2fa($user, $otp)) {
+                $this->seguranca->registrar($request, $email, false, '2fa', $user->id, $user->empresa_id);
+
+                return response()->json([
+                    'message' => 'Código de verificação necessário.',
+                    'two_factor_required' => true,
+                ], 423);
+            }
+        }
+
+        $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
         $this->registrarDeviceDoLogin($user, $d);
 
         $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'))->plainTextToken;
@@ -80,6 +118,30 @@ class AppAuthController extends Controller
             'token' => $token,
             'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
         ]);
+    }
+
+    /** Verifica OTP TOTP ou consome um recovery code (uso único) — espelha AuthController. */
+    private function verificar2fa(User $user, string $otp): bool
+    {
+        $twofa = $user->twoFactor;
+        if ($twofa === null) {
+            return false;
+        }
+
+        if ($this->totp->verificar($twofa->secret, $otp)) {
+            return true;
+        }
+
+        $codes = $twofa->recovery_codes ?? [];
+        $idx = array_search(strtoupper(trim($otp)), array_map('strtoupper', $codes), true);
+        if ($idx !== false) {
+            unset($codes[$idx]);
+            $twofa->update(['recovery_codes' => array_values($codes)]);
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -146,6 +208,29 @@ class AppAuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logout efetuado.']);
+    }
+
+    /**
+     * POST /app/v1/token/refresh — reemite o token do app (rotação) e revoga o atual.
+     * Como os tokens passam a expirar (P1), o app troca o token vigente por um novo
+     * sem refazer o login. O device é resolvido pelo nome do token atual.
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $atual = $user->currentAccessToken();
+        $nome = $atual->name ?? 'app-mobile';
+
+        // Emite o novo ANTES de revogar o atual (não deixa o app sem token se algo falhar).
+        $token = $user->createToken($nome)->plainTextToken;
+        if (method_exists($atual, 'delete')) {
+            $atual->delete();
+        }
+
+        return response()->json([
+            'token' => $token,
+            'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
+        ]);
     }
 
     /** Atualiza só o push token do device (renovação FCM). */
