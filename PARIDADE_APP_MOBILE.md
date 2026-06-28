@@ -41,8 +41,8 @@ Legenda: ✅ pronto · 🟡 parcial · ❌ falta · ⛔ não se aplica (plumbing
 | `reseller/isGpAllowed` | Gás do Povo permitido | `GET app/v1/config` | ✅ | F3 |
 | `product/get` (`getToOrder`) | Produtos | `GET app/v1/produtos` | ✅ | F2/F3 |
 | `v2/order/root` / `app/init` | Abertura (produtos+pagamento) | `GET app/v1/init` | ✅ | F3 |
-| `payment/get` | **Formas de pagamento com preço por forma** | `init.condicoes` (sem preço/forma) | 🟡 modelo difere | **F3c (decisão)** |
-| `price/get` | Preços por forma de pagamento | `POST app/v1/carrinho/cotacao` | 🟡 | F3 |
+| `payment/get` | **Formas de pagamento com preço por forma** | `init.condicoes` + `produto_condicao_precos` | ✅ | **F3c** |
+| `price/get` | Preços por forma de pagamento | `POST app/v1/carrinho/cotacao` (por `condicao_id`) | ✅ | F3c |
 | `coupons/verify`, `coupons/get`, `payment/coupon` | Cupom | `GET app/v1/cupom` + cotação | ✅ | F3 |
 | `holiday/*` | Feriados (afeta agendamento) | — | ❌ | F3b |
 | `polygons/*` | Polígonos de entrega | geofence (admin/F0 satélites) | 🟡 | F3b |

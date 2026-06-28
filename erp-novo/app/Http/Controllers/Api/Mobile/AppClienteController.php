@@ -37,6 +37,7 @@ class AppClienteController extends Controller
             'itens' => 'required|array|min:1',
             'itens.*.produto_id' => 'required|integer',
             'itens.*.quantidade' => 'required|numeric|gt:0',
+            'condicao_id' => 'nullable|integer|exists:condicaopagamentos,id',
             'codigo_cupom' => 'nullable|string|max:40',
             'gasdopovo' => 'boolean',
         ]);
@@ -140,11 +141,14 @@ class AppClienteController extends Controller
             'lat' => 'required_without:cliente_id|numeric',
             'lng' => 'required_without:cliente_id|numeric',
             'pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id',
+            'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
+            'gasdopovo' => 'boolean',
             'observacao' => 'nullable|string',
             'codigo_cupom' => 'nullable|string|max:40',
             'itens' => 'required|array|min:1',
             'itens.*.produto_id' => 'required|integer|exists:produtos,id',
             'itens.*.quantidade' => 'required|numeric|gt:0',
+            // Nota: preco_unitario do cliente é IGNORADO de propósito (anti-fraude F3c).
         ]);
 
         $user = $request->user();

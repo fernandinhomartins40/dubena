@@ -443,6 +443,51 @@ class MobileTest extends TestCase
             ->assertJsonPath('data.video.titulo', 'Abertura');
     }
 
+    public function test_cotacao_usa_preco_por_condicao_de_pagamento(): void
+    {
+        $condicao = CondicaoPagamento::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Crédito', 'num_parcelas' => 1, 'a_vista' => false, 'ativo' => true,
+        ]);
+        // Produto custa 100 à vista, mas 120 nesta condição (crédito).
+        \App\Models\Produto\ProdutoCondicaoPreco::query()->create([
+            'empresa_id' => $this->empresa->id, 'produto_id' => $this->produto->id,
+            'condicaopagamento_id' => $condicao->id, 'gasdopovo' => false, 'valor' => 120,
+        ]);
+
+        // Sem condição → preço base 100.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/carrinho/cotacao', [
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->assertOk()->assertJsonPath('data.total', 100)
+            ->assertJsonPath('data.itens.0.preco_unitario', 100);
+
+        // Com a condição → preço 120.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/carrinho/cotacao', [
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+            'condicao_id' => $condicao->id,
+        ])->assertOk()->assertJsonPath('data.total', 120)
+            ->assertJsonPath('data.itens.0.preco_unitario', 120);
+    }
+
+    public function test_pedido_usa_preco_por_condicao_e_ignora_preco_do_cliente(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $condicao = CondicaoPagamento::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Crédito', 'num_parcelas' => 1, 'a_vista' => false, 'ativo' => true,
+        ]);
+        \App\Models\Produto\ProdutoCondicaoPreco::query()->create([
+            'empresa_id' => $this->empresa->id, 'produto_id' => $this->produto->id,
+            'condicaopagamento_id' => $condicao->id, 'gasdopovo' => false, 'valor' => 120,
+        ]);
+
+        // Cliente tenta forçar preço 1; servidor usa 120 (preço da condição) × 2 = 240.
+        $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'condicaopagamento_id' => $condicao->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 2, 'preco_unitario' => 1]],
+        ])->assertCreated()->assertJsonPath('data.valor_venda', 240);
+    }
+
     public function test_endereco_do_cliente_resolvido_pelo_token(): void
     {
         // Cliente vinculado ao usuário do token (modelo F1).

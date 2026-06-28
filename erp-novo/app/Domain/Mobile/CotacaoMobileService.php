@@ -3,6 +3,7 @@
 namespace App\Domain\Mobile;
 
 use App\Models\Produto\Produto;
+use App\Models\Produto\ProdutoCondicaoPreco;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -23,7 +24,7 @@ class CotacaoMobileService
     /**
      * Calcula a cotação do carrinho.
      *
-     * @param  array{itens: list<array{produto_id:int, quantidade:float}>, codigo_cupom?:?string, gasdopovo?:bool}  $payload
+     * @param  array{itens: list<array{produto_id:int, quantidade:float}>, condicao_id?:?int, codigo_cupom?:?string, gasdopovo?:bool}  $payload
      * @return array{
      *   itens: list<array<string,mixed>>,
      *   subtotal: float, desconto: float, total: float,
@@ -33,6 +34,7 @@ class CotacaoMobileService
     public function cotar(int $empresaId, int $grupoId, array $payload): array
     {
         $gasdopovo = (bool) ($payload['gasdopovo'] ?? false);
+        $condicaoId = isset($payload['condicao_id']) ? (int) $payload['condicao_id'] : null;
         $linhas = $payload['itens'] ?? [];
         if (empty($linhas)) {
             throw ValidationException::withMessages(['itens' => 'Carrinho vazio.']);
@@ -47,6 +49,10 @@ class CotacaoMobileService
             ->get(['id', 'descricao', 'preco_venda', 'preco_gasdopovo'])
             ->keyBy('id');
 
+        // Preços por condição de pagamento (F3c). Mapa [produto_id => valor] para a
+        // condição/gp selecionada; vazio se nenhuma condição foi informada.
+        $precosPorCondicao = $this->precosPorCondicao($empresaId, $ids, $condicaoId, $gasdopovo);
+
         $itens = [];
         $indisponiveis = [];
         $subtotal = 0.0;
@@ -56,8 +62,8 @@ class CotacaoMobileService
             $qtd = (float) $linha['quantidade'];
             $produto = $produtos->get($pid);
 
-            // Produto inexistente/inativo, ou sem preço Gás do Povo quando exigido.
-            $precoUnit = $this->precoUnitario($produto, $gasdopovo);
+            // Preço da condição (se houver) tem prioridade sobre o preço base do produto.
+            $precoUnit = $precosPorCondicao[$pid] ?? $this->precoUnitario($produto, $gasdopovo);
             if ($produto === null || $precoUnit === null || $qtd <= 0) {
                 $indisponiveis[] = $pid;
 
@@ -106,6 +112,30 @@ class CotacaoMobileService
             'cupom' => $cupomInfo,
             'indisponiveis' => array_values(array_unique($indisponiveis)),
         ];
+    }
+
+    /**
+     * Preços por condição de pagamento (F3c). Retorna [produto_id => valor] para a
+     * condição/gp selecionada. Vazio quando não há condição informada — aí a cotação
+     * usa o preço base do produto (compatível com quem não cadastrou preço por condição).
+     *
+     * @param  list<int>  $produtoIds
+     * @return array<int,float>
+     */
+    private function precosPorCondicao(int $empresaId, array $produtoIds, ?int $condicaoId, bool $gasdopovo): array
+    {
+        if ($condicaoId === null || empty($produtoIds)) {
+            return [];
+        }
+
+        return ProdutoCondicaoPreco::query()
+            ->where('empresa_id', $empresaId)
+            ->where('condicaopagamento_id', $condicaoId)
+            ->where('gasdopovo', $gasdopovo)
+            ->whereIn('produto_id', $produtoIds)
+            ->get(['produto_id', 'valor'])
+            ->mapWithKeys(fn ($p) => [(int) $p->produto_id => (float) $p->valor])
+            ->all();
     }
 
     /** Preço unitário aplicável: Gás do Povo (se pedido e disponível) ou preço de venda. */

@@ -6,12 +6,10 @@ use App\Domain\Monitora\MonitoraService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
-use App\Models\Crm\Promocao;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoAvaliacao;
 use App\Models\Pedido\PedidoSituacao;
-use App\Models\Produto\Produto;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -30,6 +28,7 @@ class PedidoMobileService
     public function __construct(
         private PedidoService $pedidos,
         private CatalogoMobileService $catalogo,
+        private CotacaoMobileService $cotacao,
         private MonitoraService $geofence,
         private PushService $push,
     ) {}
@@ -121,16 +120,27 @@ class PedidoMobileService
             throw ValidationException::withMessages(['pedido' => 'Você já tem um pedido em andamento.']);
         }
 
-        $itens = $this->aplicarCupomNosItens(
-            $payload['itens'] ?? [],
-            ! empty($payload['codigo_cupom']) ? $this->catalogo->validarCupom($grupoId, (string) $payload['codigo_cupom']) : null,
-        );
+        // PREÇO SERVER-SIDE (F3c): a mesma cotação usada no checkout precifica o pedido,
+        // por condição de pagamento + cupom. O cliente NUNCA define preço/desconto —
+        // ignoramos qualquer preco_unitario que venha do payload (anti-fraude).
+        $cotacao = $this->cotacao->cotar($empresaId, $grupoId, [
+            'itens' => array_map(fn ($i) => [
+                'produto_id' => (int) $i['produto_id'],
+                'quantidade' => (float) $i['quantidade'],
+            ], $payload['itens'] ?? []),
+            'condicao_id' => $payload['condicaopagamento_id'] ?? ($payload['condicao_id'] ?? null),
+            'codigo_cupom' => $payload['codigo_cupom'] ?? null,
+            'gasdopovo' => (bool) ($payload['gasdopovo'] ?? false),
+        ]);
+
+        $itens = $this->itensDaCotacao($cotacao);
 
         return $this->pedidos->criar([
             'empresa_id' => $empresaId,
             'grupo_id' => $grupoId,
             'cliente_id' => $cliente->id,
             'pedidosituacao_id' => (int) $payload['pedidosituacao_id'],
+            'condicaopagamento_id' => $payload['condicaopagamento_id'] ?? ($payload['condicao_id'] ?? null),
             'setor_id' => $setor->id,
             'datahora' => now(),
             'observacao' => $payload['observacao'] ?? null,
@@ -138,31 +148,30 @@ class PedidoMobileService
     }
 
     /**
-     * Distribui o desconto percentual do cupom em cada item (campo `desconto`), que o
-     * PedidoService usa para compor valor_total/valor_desconto. Sem cupom, retorna os
-     * itens inalterados. O preço unitário é resolvido pelo PedidoService quando ausente.
+     * Converte os itens precificados pela cotação no formato do PedidoService, com
+     * preço unitário e desconto rateado pelo cupom (proporcional ao total do item).
+     * O preço vem 100% do servidor — o PedidoService usa esses valores como verdade.
      *
-     * @param  list<array<string,mixed>>  $itens
+     * @param  array{itens: list<array<string,mixed>>, subtotal: float, desconto: float}  $cotacao
      * @return list<array<string,mixed>>
      */
-    private function aplicarCupomNosItens(array $itens, ?Promocao $cupom): array
+    private function itensDaCotacao(array $cotacao): array
     {
-        if ($cupom === null) {
-            return $itens;
-        }
+        $subtotal = (float) ($cotacao['subtotal'] ?? 0);
+        $descontoTotal = (float) ($cotacao['desconto'] ?? 0);
 
-        $pct = (float) ($cupom->desconto_percentual ?? 0);
-        if ($pct <= 0) {
-            return $itens;
-        }
+        return array_map(function (array $item) use ($subtotal, $descontoTotal) {
+            $totalItem = (float) $item['total'];
+            // Rateia o desconto do cupom proporcionalmente ao peso do item no subtotal.
+            $desconto = $subtotal > 0 ? round($descontoTotal * $totalItem / $subtotal, 2) : 0.0;
 
-        return array_map(function (array $item) use ($pct) {
-            $preco = (float) ($item['preco_unitario'] ?? Produto::query()->whereKey($item['produto_id'])->value('preco_venda') ?? 0);
-            $qtd = (float) ($item['quantidade'] ?? 0);
-            $item['desconto'] = round($preco * $qtd * $pct / 100, 2);
-
-            return $item;
-        }, $itens);
+            return [
+                'produto_id' => (int) $item['produto_id'],
+                'quantidade' => (float) $item['quantidade'],
+                'preco_unitario' => (float) $item['preco_unitario'],
+                'desconto' => $desconto,
+            ];
+        }, $cotacao['itens'] ?? []);
     }
 
     /** Existe pedido em situação de efeito PENDENTE para o cliente? */
