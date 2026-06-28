@@ -50,8 +50,12 @@ return [
         'webhook_secret' => env('PIX_WEBHOOK_SECRET'),
     ],
 
-    // Push FCM (N10 — gate). Segredo só no .env.
+    // Push FCM (N10 — gate). 'v1' ativa o transporte real (FCM HTTP v1 via service
+    // account do Firebase); qualquer outro valor mantém o Fake (CI/homolog). O v1
+    // usa as credenciais do bloco 'firebase' (FIREBASE_CREDENTIALS/PROJECT_ID).
+    // server_key é o legacy (depreciado pelo Google), mantido só para migração.
     'fcm' => [
+        'driver' => env('FCM_DRIVER', 'fake'),
         'server_key' => env('FCM_SERVER_KEY'),
     ],
 

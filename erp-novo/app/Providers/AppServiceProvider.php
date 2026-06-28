@@ -11,14 +11,20 @@ use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
+use App\Domain\Mobile\Contracts\PushTransport;
 use App\Domain\Mobile\Drivers\EredeDriver;
 use App\Domain\Mobile\Drivers\FakeFirebaseVerifier;
 use App\Domain\Mobile\Drivers\FakePagamentoDriver;
+use App\Domain\Mobile\Drivers\FakePushTransport;
+use App\Domain\Mobile\Drivers\FcmV1Transport;
 use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Tenant\TenantContext;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -65,6 +71,12 @@ class AppServiceProvider extends ServiceProvider
             ? $this->app->make(KreaitFirebaseVerifier::class)
             : $this->app->make(FakeFirebaseVerifier::class));
 
+        // Transporte de push (N10/P0 — GATE FCM). FCM_DRIVER=v1 ativa o FCM HTTP v1
+        // (service account); qualquer outro valor mantém o Fake (CI/homolog).
+        $this->app->bind(PushTransport::class, fn () => config('services.fcm.driver') === 'v1'
+            ? $this->app->make(FcmV1Transport::class)
+            : $this->app->make(FakePushTransport::class));
+
         // Driver SGCasa (N11/F12 — GATE sync GPS). MONITORA_DRIVER=sgcasa ativa o real
         // (API SGCasa); senão Fake. Singleton p/ permitir stub em teste.
         $this->app->singleton(SgcasaDriver::class, fn () => config('services.monitora.driver') === 'sgcasa'
@@ -80,10 +92,10 @@ class AppServiceProvider extends ServiceProvider
         // Rate-limit da API (F13): por usuário autenticado (ou IP, se anônimo).
         // 120 req/min cobre o uso normal da SPA e barra abuso/loop. O webhook PIX e
         // o login têm limites próprios mais estreitos.
-        \Illuminate\Support\Facades\RateLimiter::for('api', fn (\Illuminate\Http\Request $r) => \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+        RateLimiter::for('api', fn (Request $r) => Limit::perMinute(120)
             ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
 
-        \Illuminate\Support\Facades\RateLimiter::for('login', fn (\Illuminate\Http\Request $r) => \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+        RateLimiter::for('login', fn (Request $r) => Limit::perMinute(10)
             ->by('login:'.$r->ip()));
     }
 }

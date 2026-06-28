@@ -2,17 +2,25 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Mobile\Jobs\EnviarPushJob;
 use App\Models\Mobile\AppDevice;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 /**
- * PushService (N10) — envio de push via FCM, isolado. Sem credencial (dev/CI),
- * apenas registra a intenção; em produção envia via HTTP ao FCM.
+ * PushService (N10) — orquestra o envio de push, isolado.
+ *
+ * P0 (modernização): o envio passa a ser ASSÍNCRONO (despacha EnviarPushJob na
+ * fila) e usa o FCM HTTP v1 no transporte (FcmV1Transport), no lugar do endpoint
+ * legacy `fcm/send` (depreciado pelo Google). Este serviço resolve os tokens-alvo
+ * e enfileira a entrega; o transporte real (OAuth2/service account) roda no job,
+ * fora do request.
+ *
+ * Mantém a assinatura pública (`paraUsuario`/`enviar` → int) por compatibilidade:
+ * o retorno é a quantidade de tokens ENFILEIRADOS (não a confirmação do FCM, que
+ * ocorre no job). Sem tokens, retorna 0 e nada é enfileirado.
  */
 class PushService
 {
-    /** Envia push a todos os devices ativos de um usuário. @return int devices alcançados */
+    /** Enfileira push para todos os devices ativos de um usuário. @return int tokens enfileirados */
     public function paraUsuario(int $userId, string $titulo, string $corpo, array $dados = []): int
     {
         $tokens = AppDevice::query()
@@ -22,32 +30,20 @@ class PushService
         return $this->enviar($tokens, $titulo, $corpo, $dados);
     }
 
-    /** @param list<string> $tokens */
+    /**
+     * Enfileira o envio para uma lista de tokens.
+     *
+     * @param  list<string>  $tokens
+     * @return int tokens enfileirados
+     */
     public function enviar(array $tokens, string $titulo, string $corpo, array $dados = []): int
     {
+        $tokens = array_values(array_filter($tokens));
         if (empty($tokens)) {
             return 0;
         }
 
-        $serverKey = config('services.fcm.server_key');
-        if (empty($serverKey)) {
-            // Sem credencial (dev/homolog/CI) — não envia, só loga.
-            Log::info('Push suprimido (sem FCM server key)', ['tokens' => count($tokens), 'titulo' => $titulo]);
-
-            return 0;
-        }
-
-        try {
-            Http::withToken($serverKey)->post('https://fcm.googleapis.com/fcm/send', [
-                'registration_ids' => $tokens,
-                'notification' => ['title' => $titulo, 'body' => $corpo],
-                'data' => $dados,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('Falha ao enviar push', ['erro' => $e->getMessage()]);
-
-            return 0;
-        }
+        EnviarPushJob::dispatch($tokens, $titulo, $corpo, $dados);
 
         return count($tokens);
     }
