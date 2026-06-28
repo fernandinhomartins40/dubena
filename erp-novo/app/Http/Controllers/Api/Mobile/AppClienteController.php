@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Cliente\ClienteService;
 use App\Domain\Cobranca\PixService;
 use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\CotacaoMobileService;
@@ -108,6 +109,52 @@ class AppClienteController extends Controller
             'latitude' => $c->latitude !== null ? (float) $c->latitude : null,
             'longitude' => $c->longitude !== null ? (float) $c->longitude : null,
         ];
+    }
+
+    // ── Perfil do cliente (F3b) ───────────────────────────────────────────────
+
+    /** GET /app/v1/perfil — dados do cliente do token. */
+    public function perfil(Request $request): JsonResponse
+    {
+        $c = $this->clienteDoUsuario($request);
+        $c->load('telefones:id,cliente_id,telefone');
+
+        return response()->json(['data' => [
+            'id' => $c->id,
+            'nome' => $c->nome,
+            'cpf' => $c->cpf,
+            'email' => $c->email,
+            'datanascimento' => $c->datanascimento?->toDateString(),
+            'gasdopovo' => (bool) $c->gasdopovo,
+            'telefones' => $c->telefones->pluck('telefone'),
+        ]]);
+    }
+
+    /** PUT /app/v1/perfil — atualiza dados do cliente do token. */
+    public function atualizarPerfil(Request $request, ClienteService $clientes): JsonResponse
+    {
+        $d = $request->validate([
+            'nome' => 'sometimes|string|max:160',
+            'cpf' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:160',
+            'datanascimento' => 'nullable|date',
+        ]);
+
+        $cliente = $clientes->atualizar($this->clienteDoUsuario($request), $d);
+
+        return response()->json(['data' => ['id' => $cliente->id, 'nome' => $cliente->nome]]);
+    }
+
+    /** DELETE /app/v1/perfil — exclui a conta do cliente (e revoga os tokens). */
+    public function excluirConta(Request $request, ClienteService $clientes): JsonResponse
+    {
+        $cliente = $this->clienteDoUsuario($request);
+        $user = $request->user();
+
+        $clientes->excluir($cliente);
+        $user->tokens()->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
     }
 
     // ── Múltiplos endereços de entrega (F3b) ──────────────────────────────────

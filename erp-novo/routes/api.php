@@ -70,6 +70,9 @@ Route::post('/app/v1/login', [AppAuthController::class, 'login']);
 // Login do CLIENTE pelo app (PÚBLICO) — F1. Phone-auth do Firebase + empresa_id.
 Route::post('/app/v1/cliente/login', [AppAuthController::class, 'loginCliente']);
 
+// Cadastro do CLIENTE pelo app (PÚBLICO) — F3b. Firebase + dados → cria cliente + token.
+Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCliente']);
+
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
 Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -562,6 +565,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('cupom', [AppClienteController::class, 'cupom']);
         Route::post('carrinho/cotacao', [AppClienteController::class, 'cotar']); // F3 — preço server-side
         Route::get('config', [AppClienteController::class, 'config']);           // F3 — config do app
+        Route::get('perfil', [AppClienteController::class, 'perfil']);                    // F3b
+        Route::put('perfil', [AppClienteController::class, 'atualizarPerfil']);            // F3b
+        Route::delete('perfil', [AppClienteController::class, 'excluirConta']);            // F3b
         Route::get('perfil/endereco', [AppClienteController::class, 'obterEndereco']);   // F3
         Route::put('perfil/endereco', [AppClienteController::class, 'atualizarEndereco']); // F3
         // Múltiplos endereços de entrega (F3b)

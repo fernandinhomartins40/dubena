@@ -548,6 +548,50 @@ class MobileTest extends TestCase
             ->assertOk()->assertJsonPath('data.pago', false);
     }
 
+    public function test_cadastro_de_cliente_cria_vincula_e_emite_token(): void
+    {
+        // Telefone novo (sem cliente). Cadastro cria cliente + user + token.
+        $resp = $this->postJson('/api/app/v1/cliente/cadastro', [
+            'firebase_id_token' => 'fake:+5542988880000',
+            'empresa_id' => $this->empresa->id,
+            'nome' => 'João Novo', 'email' => 'joao@ex.com',
+        ])->assertCreated()->assertJsonStructure(['token', 'user' => ['id', 'name', 'empresa_id']]);
+
+        $this->assertNotEmpty($resp->json('token'));
+        $this->assertDatabaseHas('clientes', ['empresa_id' => $this->empresa->id, 'nome' => 'João Novo']);
+        $this->assertDatabaseHas('clientetelefones', ['telefone' => '5542988880000']);
+    }
+
+    public function test_cadastro_recusa_telefone_ja_existente(): void
+    {
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        ClienteTelefone::factory()->create(['cliente_id' => $cliente->id, 'telefone' => '(42) 98888-1111']);
+
+        $this->postJson('/api/app/v1/cliente/cadastro', [
+            'firebase_id_token' => 'fake:+5542988881111',
+            'empresa_id' => $this->empresa->id, 'nome' => 'Duplicado',
+        ])->assertStatus(422);
+    }
+
+    public function test_perfil_get_update_delete(): void
+    {
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'user_id' => $this->user->id, 'nome' => 'Maria', 'email' => 'maria@ex.com',
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/perfil')
+            ->assertOk()->assertJsonPath('data.nome', 'Maria');
+
+        $this->actingAs($this->user, 'sanctum')->putJson('/api/app/v1/perfil', ['nome' => 'Maria Silva'])
+            ->assertOk()->assertJsonPath('data.nome', 'Maria Silva');
+        $this->assertDatabaseHas('clientes', ['id' => $cliente->id, 'nome' => 'Maria Silva']);
+
+        $this->actingAs($this->user, 'sanctum')->deleteJson('/api/app/v1/perfil')
+            ->assertOk()->assertJsonPath('data.excluido', true);
+        $this->assertDatabaseMissing('clientes', ['id' => $cliente->id]);
+    }
+
     public function test_multiplos_enderecos_com_favorito_unico(): void
     {
         $cliente = Cliente::factory()->create([

@@ -2,8 +2,10 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Cliente\ClienteService;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Models\Cliente\Cliente;
+use App\Models\Empresa;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,7 +25,10 @@ use Illuminate\Validation\ValidationException;
  */
 class ClienteAuthService
 {
-    public function __construct(private FirebaseVerifier $firebase) {}
+    public function __construct(
+        private FirebaseVerifier $firebase,
+        private ClienteService $clientes,
+    ) {}
 
     /**
      * Autentica o cliente e devolve o User (criando/vinculando se necessário).
@@ -47,6 +52,51 @@ class ClienteAuthService
         }
 
         return $this->garantirUsuario($cliente, $verificado['uid']);
+    }
+
+    /**
+     * Cadastra um cliente do app (fluxo newuser) — F3b. Verifica o token do Firebase,
+     * impede duplicidade pelo telefone na empresa, cria o cliente com o telefone
+     * verificado e o vincula a um usuário. Retorna o User para emitir o token Sanctum.
+     *
+     * @param  array{firebase_id_token:string, empresa_id:int, nome:string, cpf?:?string, email?:?string, datanascimento?:?string}  $dados
+     */
+    public function cadastrar(array $dados): User
+    {
+        $verificado = $this->firebase->verify($dados['firebase_id_token']);
+        $telefone = $verificado['phone'] ?? null;
+        if (! $telefone) {
+            throw ValidationException::withMessages(['telefone' => 'Token sem telefone verificado.']);
+        }
+
+        $empresaId = (int) $dados['empresa_id'];
+
+        // Já existe cliente com esse telefone? Então é login, não cadastro.
+        if ($this->clientePorTelefone($empresaId, $telefone)) {
+            throw ValidationException::withMessages(['telefone' => 'Já existe um cliente com este telefone. Faça login.']);
+        }
+
+        $grupoId = (int) Empresa::query()->whereKey($empresaId)->value('grupo_id');
+
+        $cliente = $this->clientes->criar([
+            'empresa_id' => $empresaId,
+            'grupo_id' => $grupoId,
+            'nome' => $dados['nome'],
+            'cpf' => $dados['cpf'] ?? null,
+            'email' => $dados['email'] ?? null,
+            'datanascimento' => $dados['datanascimento'] ?? null,
+            'cliente' => true,
+            'ativo' => true,
+            'telefones' => [['telefone' => $this->formatarTelefone($telefone)]],
+        ]);
+
+        return $this->garantirUsuario($cliente, $verificado['uid']);
+    }
+
+    /** Normaliza o E.164 do Firebase para um formato de armazenamento simples. */
+    private function formatarTelefone(string $e164): string
+    {
+        return $this->somenteDigitos($e164);
     }
 
     /**

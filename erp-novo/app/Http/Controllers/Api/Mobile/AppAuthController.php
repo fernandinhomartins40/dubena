@@ -106,6 +106,41 @@ class AppAuthController extends Controller
         );
     }
 
+    /**
+     * POST /app/v1/cliente/cadastro — cadastro do CLIENTE pelo app (F3b, fluxo newuser).
+     * Verifica o ID token do Firebase, cria o cliente com o telefone verificado, vincula
+     * o usuário e já emite o token Sanctum (mesma resposta do login).
+     */
+    public function cadastrarCliente(Request $request, ClienteAuthService $auth): JsonResponse
+    {
+        $d = $request->validate([
+            'firebase_id_token' => 'required|string',
+            'empresa_id' => 'required|integer|exists:empresas,id',
+            'nome' => 'required|string|max:160',
+            'cpf' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:160',
+            'datanascimento' => 'nullable|date',
+            'device_id' => 'nullable|string|max:120',
+            'push_token' => 'nullable|string|max:255',
+            'plataforma' => 'nullable|string|max:12',
+            'app_versao' => 'nullable|string|max:20',
+        ]);
+
+        try {
+            $user = $auth->cadastrar($d);
+        } catch (FirebaseTokenInvalido $e) {
+            return response()->json(['message' => $e->getMessage()], 401);
+        }
+
+        $this->registrarDeviceDoLogin($user, $d);
+        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'))->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
+        ], 201);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
