@@ -19,22 +19,38 @@ import { CardBrandSvgIcon } from "../atoms/PaymentIcon"
 import Input from "../atoms/Input"
 import Button from "../atoms/Button"
 import Toast from "react-native-toast-message"
-import useFlashStore from "@/store/flashStore"
 import { getBrandByCardNumber } from "@/helpers/utils"
 import useBottomSheetBackHandler from "@/hooks/useBottomSheetBackHandler"
 import useDebounce from "@/hooks/useDebounce"
+import { CardInfoPayload } from "@/types/types"
 
 type Ref = BottomSheetModal
 
 interface OnlinePaymentProps {}
 
+/**
+ * Captura de cartão (LEGADO/F5). Componente preservado para a F5 (cartão tokenizado).
+ * Atualmente ÓRFÃO — não está plugado em nenhum fluxo (a captura passará a usar o SDK
+ * de tokenização do adquirente). Mantém estado LOCAL (não no flashStore) até a F5
+ * reescrever a UX. Não trafegar PAN/CVV: o SDK devolve só o token (ver PLANO F5).
+ */
 const OnlinePayment = forwardRef<Ref, OnlinePaymentProps>((props, ref) => {
     const defaultBrand = SupportedBrands[0]
     const snapPoints = useMemo(() => ["50%", "90%"], [])
     const { handleSheetPositionChange } = useBottomSheetBackHandler(
         ref as React.RefObject<BottomSheetModal>,
     )
-    const { payment, cardInfo, setCardInfo } = useFlashStore()
+    // Estado local (F5 reescreve para tokenização). `payment` legado não existe mais.
+    const payment = null as { descricao: string } | null
+    const [cardInfo, setCardInfo] = useState<CardInfoPayload>({
+        brand: "mastercard",
+        type: OnlinePaymentTypes.Credit,
+        holder_name: "",
+        expiration_month: "",
+        expiration_year: "",
+        card_number: "",
+        card_cvv: "",
+    })
     const [type, setType] = useState<OnlinePaymentTypes>()
     const [open, setOpen] = useState(false)
     const [brand, setBrand] = useState(defaultBrand)

@@ -130,16 +130,31 @@ const Address = () => {
 
     useEffect(() => {
         if (address) {
-            let toLoc = {
+            const lat = address.latitude ?? defaultLocation.latitude
+            const lng = address.longitude ?? defaultLocation.longitude
+            const toLoc: Region = {
                 latitudeDelta,
                 longitudeDelta,
-                latitude: address.latitude,
-                longitude: address.longitude,
+                latitude: lat,
+                longitude: lng,
             }
 
             setLocation(toLoc)
 
-            setAddressObj((prev) => ({ ...prev, ...address }))
+            // Mapeia o endereço (ClienteEnderecoApi) para o formato do form (GMapsAddress).
+            const mapped: GMapsAddress = {
+                uf: address.uf ?? "",
+                siglaPais: "BR",
+                pais: "Brasil",
+                cep: address.cep ?? "",
+                cidade: address.cidade ?? "",
+                bairro: address.bairro ?? "",
+                numero: address.numero ?? "",
+                rua: address.endereco ?? "",
+                latitude: lat,
+                longitude: lng,
+            }
+            setAddressObj((prev) => ({ ...(prev as GMapsAddress), ...mapped }))
 
             mapRef.current?.animateToRegion(toLoc, 2000)
         }

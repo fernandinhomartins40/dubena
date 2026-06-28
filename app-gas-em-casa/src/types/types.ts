@@ -289,6 +289,7 @@ export interface Cotacao {
 /** Config do app por empresa (GET app/v1/config). */
 export interface AppConfig {
     gaspovo_ativo: boolean
+    frete_gaspovo: number | null
     video: { url: string; titulo?: string } | null
     tempo_entrega_min: number | null
 }
