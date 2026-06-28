@@ -2,13 +2,10 @@ import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/sty
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
 import Entypo from "@expo/vector-icons/Entypo"
 import { useQuery } from "@tanstack/react-query"
-import useAppStore from "@/store/appStore"
 import OrderService from "@/services/order.service"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
-import { Order } from "@/types/order"
-import { CartProduct } from "@/types/types"
+import { CartLines, HistoryItem } from "@/types/types"
 import OrderItems from "@/components/molecules/OrderItems"
-import { GasImgUri } from "@/constants/images"
 import { FlatList } from "react-native-gesture-handler"
 import Button from "@/components/atoms/Button"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -20,17 +17,15 @@ import { useRouter } from "expo-router"
 import Input from "@/components/atoms/Input"
 
 const PedidosScreen = () => {
-    const { user } = useAppStore()
     const router = useRouter()
     const { evaluateOrderId, setEvaluateOrderId, setRebuyOrder } = useFlashStore()
     const {
         data: history,
         isLoading,
         isRefetching,
-    } = useQuery({
+    } = useQuery<HistoryItem[]>({
         queryKey: ["order-history"],
-        queryFn: () => OrderService.GetHistory(user?.id),
-        enabled: !!user,
+        queryFn: () => OrderService.GetHistory(),
     })
     const [orderId, setOrderId] = useState<number | null>(null)
     const [searchText, setSearchText] = useState("")
@@ -43,129 +38,77 @@ const PedidosScreen = () => {
 
     const onCloseModal = useCallback(() => {
         setOrderId(null)
-
         setEvaluateOrderId(null)
     }, [])
 
-    const rebuy = (order: Order) => {
-        if (!order.produtos) return null
+    const formatDate = (iso: string | null) =>
+        iso ? new Date(iso).toLocaleDateString("pt-BR") : ""
 
-        const prods: CartProduct[] = order.produtos.map((prod) => {
-            return {
-                id: prod.produto_id,
-                quantity: prod.quantidade,
-            } as CartProduct
-        })
-
-        setRebuyOrder(prods)
-
+    const rebuy = (order: HistoryItem) => {
+        const lines: CartLines = {}
+        for (const item of order.itens) lines[item.produto_id] = item.quantidade
+        setRebuyOrder(lines)
         router.replace("/(auth)/(tabs)/home")
     }
 
-    const filteredHistory = useMemo(() => {
+    const filteredHistory = useMemo<HistoryItem[]>(() => {
         if (!history) return []
-
         const search = searchText.trim().toLowerCase()
-
         if (!search) return history
 
         return history.filter((hist) => {
-            const erpId = String(hist.erp_id ?? "").toLowerCase()
-            const status = String(hist.status ?? "").toLowerCase()
-            const date = String(hist.data ?? "").toLowerCase()
-
-            return erpId.includes(search) || status.includes(search) || date.includes(search)
+            const id = String(hist.id).toLowerCase()
+            const status = String(hist.situacao ?? "").toLowerCase()
+            const date = formatDate(hist.datahora).toLowerCase()
+            return id.includes(search) || status.includes(search) || date.includes(search)
         })
     }, [history, searchText])
 
-    const renderProducts = (hist: Order) => {
-        if (!hist.produtos) return null
+    const renderProducts = (hist: HistoryItem) => (
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 2 }}>
+            <OrderItems products={hist.itens} totalPrice={String(hist.valor_venda)} />
+        </View>
+    )
 
-        const prods: CartProduct[] = hist.produtos.map((prod) => {
-            return {
-                id: prod.produto_id,
-                descricao: prod.descricao,
-                avaliable: 1,
-                quantity: prod.quantidade,
-                total: prod.precovendatotal,
-                unitPrice: prod.precovendaunitario,
-                base64Img: GasImgUri,
-            } as CartProduct
-        })
-        let frete = 0
-
-        if (!!hist.gasdopovo && hist.valorfrete) {
-            frete = parseFloat(String(hist.valorfrete))
-        }
+    const renderItems = ({ item: hist }: { item: HistoryItem }) => {
+        const cancelado = hist.efeito === "CANCELADO"
+        const concluido = hist.efeito === "CONCLUIDO"
 
         return (
-            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 2 }}>
-                <OrderItems
-                    products={prods}
-                    totalPrice={hist.total}
-                    isGasPovo={!!hist.gasdopovo}
-                    deliveryTax={frete}
-                />
-
-                <View>
-                    {hist.avaliado ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                            <Feather name="star" size={20} color={colors.primary} />
-
-                            <Text style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-                                {hist.rating}/5
-                            </Text>
-                        </View>
-                    ) : null}
+            <View style={styles.box}>
+                <View style={styles.orderHeader}>
+                    <Text style={styles.orderMeta}>
+                        Pedido #{hist.id} - {hist.situacao ?? ""} - {formatDate(hist.datahora)}
+                    </Text>
                 </View>
+
+                <View style={{ flex: 1, justifyContent: "flex-end" }}>{renderProducts(hist)}</View>
+
+                {concluido && (
+                    <View style={styles.evaluateContainer}>
+                        <View style={{ width: 130 }}>
+                            <Button
+                                type="clear"
+                                title="avaliar"
+                                onPress={() => setOrderId(hist.id)}
+                                textStyle={{ color: colors.primary, fontSize: fontSize.sm }}
+                            />
+                        </View>
+                    </View>
+                )}
             </View>
         )
     }
 
-    const renderItems = ({ item: hist }: { item: Order }) => (
-        <View style={styles.box}>
-            <View style={styles.orderHeader}>
-                {hist.cancelado != 1 && hist.erp_id > 0 ? (
-                    <View style={styles.drawNumberBadge}>
-                        <Text style={styles.drawNumberLabel}>Número da Sorte</Text>
-                        <Text style={styles.drawNumberValue}>Nº {hist.erp_id}</Text>
-                    </View>
-                ) : (
-                    ""
-                )}
-
-                <Text style={styles.orderMeta}>
-                    Pedido {hist.status} - {hist.data}
-                </Text>
-            </View>
-
-            <View style={{ flex: 1, justifyContent: "flex-end" }}>{renderProducts(hist)}</View>
-
-            {!hist.avaliado && !hist.cancelado && (
-                <View style={styles.evaluateContainer}>
-                    <View style={{ width: 130 }}>
-                        <Button
-                            type="clear"
-                            title="avaliar"
-                            onPress={() => setOrderId(hist.id)}
-                            textStyle={{ color: colors.primary, fontSize: fontSize.sm }}
-                        />
-                    </View>
-                </View>
-            )}
-        </View>
-    )
-
     const renderLastOrder = () => {
         if (!history) return null
 
-        const order = history.find((it) => it.entregue == 1)
-        const firstProduct = order?.produtos?.[0]
+        const order = history.find((it) => it.efeito === "CONCLUIDO")
+        const firstProduct = order?.itens?.[0]
 
         if (!order || !firstProduct) return null
 
-        const extraItems =
-            order.produtos && order.produtos.length > 1 ? order.produtos.length - 1 : 0
+        const extraItems = order.itens.length > 1 ? order.itens.length - 1 : 0
 
         return (
             <View style={styles.lastOrderBox}>
@@ -184,7 +127,12 @@ const PedidosScreen = () => {
                                 : ""}
                         </Text>
 
-                        <Text style={styles.lastOrderTotal}>{order.total}</Text>
+                        <Text style={styles.lastOrderTotal}>
+                            {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                            }).format(order.valor_venda)}
+                        </Text>
                     </View>
                 </View>
 

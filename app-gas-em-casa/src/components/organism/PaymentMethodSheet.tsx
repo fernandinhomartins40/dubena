@@ -1,35 +1,34 @@
 import { colors, fontStyle } from "@/styles/theme"
-import { Payment, PaymentTypes } from "@/types/types"
-import BottomSheet, {
+import { CondicaoPagamento } from "@/types/types"
+import {
     BottomSheetModal,
     BottomSheetScrollView,
-    BottomSheetView,
     TouchableOpacity,
     useBottomSheetModal,
 } from "@gorhom/bottom-sheet"
-import { forwardRef, useCallback, useMemo, useRef } from "react"
+import { forwardRef, useMemo } from "react"
 import { StyleSheet, Text, View } from "react-native"
-import PaymentIcon from "../atoms/PaymentIcon"
+import Feather from "@expo/vector-icons/Feather"
 import useBottomSheetBackHandler from "@/hooks/useBottomSheetBackHandler"
 
 interface PaymentMethodSheetProps {
     selectedId?: number
-    methods?: Payment[]
-    setPayment: (payment: Payment) => void
+    condicoes?: CondicaoPagamento[]
+    setCondicao: (condicao: CondicaoPagamento) => void
 }
 
 type Ref = BottomSheetModal
 
 const PaymentMethodSheet = forwardRef<Ref, PaymentMethodSheetProps>(
-    ({ methods, selectedId, setPayment }, ref) => {
+    ({ condicoes, selectedId, setCondicao }, ref) => {
         const snapPoints = useMemo(() => ["50%", "90%"], [])
         const { handleSheetPositionChange } = useBottomSheetBackHandler(
             ref as React.RefObject<BottomSheetModal>,
         )
         const { dismiss } = useBottomSheetModal()
 
-        const handleOnPress = (method: Payment) => {
-            setPayment(method)
+        const handleOnPress = (condicao: CondicaoPagamento) => {
+            setCondicao(condicao)
             dismiss()
         }
 
@@ -49,21 +48,22 @@ const PaymentMethodSheet = forwardRef<Ref, PaymentMethodSheetProps>(
                             </Text>
                         </View>
 
-                        {methods?.map((method, idx) => (
+                        {condicoes?.map((condicao, idx) => (
                             <TouchableOpacity
-                                key={`method_${idx}`}
-                                onPress={() => handleOnPress(method)}
+                                key={`condicao_${idx}`}
+                                onPress={() => handleOnPress(condicao)}
                             >
                                 <View
                                     style={[
                                         styles.button,
-                                        method.id == selectedId && styles.selected,
+                                        condicao.id == selectedId && styles.selected,
                                     ]}
                                 >
-                                    <PaymentIcon
-                                        type={method.tipo}
+                                    <Feather
+                                        name="credit-card"
+                                        size={22}
                                         color={
-                                            method.id == selectedId
+                                            condicao.id == selectedId
                                                 ? colors.primary
                                                 : colors.textMuted
                                         }
@@ -71,36 +71,15 @@ const PaymentMethodSheet = forwardRef<Ref, PaymentMethodSheetProps>(
 
                                     <View style={{ flexDirection: "column" }}>
                                         <Text style={{ fontSize: 16, ...fontStyle.regular }}>
-                                            {method.descricao}
+                                            {condicao.descricao}
                                         </Text>
-
-                                        {[
-                                            PaymentTypes.DebitDelivery,
-                                            PaymentTypes.CreditDelivery,
-                                        ].includes(method.tipo) ? (
-                                            <Text
-                                                style={{
-                                                    color: colors.textMuted,
-                                                    ...fontStyle.regular,
-                                                }}
-                                            >
-                                                Pagamento na Entrega
-                                            </Text>
-                                        ) : (
-                                            ""
-                                        )}
-                                        {[PaymentTypes.Online].includes(method.tipo) ? (
-                                            <Text
-                                                style={{
-                                                    color: colors.textMuted,
-                                                    ...fontStyle.regular,
-                                                }}
-                                            >
-                                                Pagamento Online
-                                            </Text>
-                                        ) : (
-                                            ""
-                                        )}
+                                        <Text
+                                            style={{ color: colors.textMuted, ...fontStyle.regular }}
+                                        >
+                                            {condicao.a_vista
+                                                ? "À vista"
+                                                : `${condicao.num_parcelas}x`}
+                                        </Text>
                                     </View>
                                 </View>
                             </TouchableOpacity>

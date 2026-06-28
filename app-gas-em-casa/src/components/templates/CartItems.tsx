@@ -2,33 +2,32 @@ import { View, Text, StyleSheet, Pressable, Alert } from "react-native"
 import React from "react"
 import useFlashStore from "@/store/flashStore"
 import { colors, fontStyle } from "@/styles/theme"
-import { CartProduct } from "@/types/types"
+import { CotacaoItem } from "@/types/types"
 import EvilIcons from "@expo/vector-icons/EvilIcons"
 
 type CartItemsProps = {
-    orderProds?: CartProduct[] | null | undefined
+    /** Itens vindos de uma cotação/pedido específico (ex.: histórico); senão usa o carrinho. */
+    orderProds?: CotacaoItem[] | null | undefined
     isGasPovo?: boolean
     deliveryTax?: number | null
 }
 
 const CartItems = ({ orderProds, isGasPovo = false, deliveryTax = null }: CartItemsProps) => {
-    const { cart } = useFlashStore()
-    const { products } = cart
+    const { cart, catalog } = useFlashStore()
 
-    const renderItems = (prod: CartProduct, idx: number) => {
-        return (
-            <View key={`cart_prod_${idx}`} style={styles.container}>
-                <View style={styles.qtyBox}>
-                    <Text style={{ color: colors.primary, fontSize: 14, ...fontStyle.regular }}>
-                        {parseInt(String(prod.quantity))}
-                    </Text>
-                </View>
-                <Text style={{ color: colors.textMuted, ...fontStyle.regular }}>
-                    {prod.descricao}
+    const descricaoDe = (id: number) =>
+        catalog.find((p) => p.id === id)?.descricao ?? `Produto #${id}`
+
+    const renderLine = (key: string, quantity: number, descricao: string) => (
+        <View key={`cart_prod_${key}`} style={styles.container}>
+            <View style={styles.qtyBox}>
+                <Text style={{ color: colors.primary, fontSize: 14, ...fontStyle.regular }}>
+                    {quantity}
                 </Text>
             </View>
-        )
-    }
+            <Text style={{ color: colors.textMuted, ...fontStyle.regular }}>{descricao}</Text>
+        </View>
+    )
 
     const renderEntrega = () => {
         if (!deliveryTax) return null
@@ -50,17 +49,12 @@ const CartItems = ({ orderProds, isGasPovo = false, deliveryTax = null }: CartIt
         )
     }
 
-    if (!orderProds) {
+    if (orderProds) {
         return (
             <>
-                {Object.keys(products).map((idx: any) => {
-                    const prod = products[idx]
-
-                    if (!prod) return null
-
-                    return renderItems(prod, idx)
-                })}
-
+                {orderProds.map((prod, idx) =>
+                    renderLine(String(idx), prod.quantidade, prod.descricao),
+                )}
                 {isGasPovo ? renderEntrega() : null}
             </>
         )
@@ -68,8 +62,7 @@ const CartItems = ({ orderProds, isGasPovo = false, deliveryTax = null }: CartIt
 
     return (
         <>
-            {orderProds.map((prod, idx) => renderItems(prod, idx))}
-
+            {Object.entries(cart).map(([id, qty]) => renderLine(id, qty, descricaoDe(Number(id))))}
             {isGasPovo ? renderEntrega() : null}
         </>
     )

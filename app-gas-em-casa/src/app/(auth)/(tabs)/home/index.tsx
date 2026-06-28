@@ -1,169 +1,137 @@
-import React from "react"
+import React, { useEffect, useMemo, useRef } from "react"
 import Button from "@/components/atoms/Button"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
 import Header from "@/components/molecules/Header"
-import OnlinePayment from "@/components/organism/OnlinePayment"
 import OrderConfirm from "@/components/organism/OrderConfirm"
 import PaymentMethod from "@/components/organism/PaymentMethod"
 import PaymentMethodSheet from "@/components/organism/PaymentMethodSheet"
 import ProductList from "@/components/organism/ProductList"
 import CartItems from "@/components/templates/CartItems"
 import ErrorView from "@/components/templates/ErrorView"
-import { PaymentTypes } from "@/constants/app"
 import { BackgroundImgUri } from "@/constants/images"
 import OrderService from "@/services/order.service"
 import useFlashStore from "@/store/flashStore"
 import { colors, defaultStyles, fontSize, fontStyle } from "@/styles/theme"
-import { Payment } from "@/types/types"
+import { CondicaoPagamento } from "@/types/types"
 import { BottomSheetModal } from "@gorhom/bottom-sheet"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useRef } from "react"
 import { Alert, ImageBackground, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import * as NavigationBar from "expo-navigation-bar"
-import useAppStore from "@/store/appStore"
 import ImageBanner from "@/components/atoms/ImageBanner"
-import TestNotificationButton from "@/components/atoms/TestNotification"
-import { useRouter } from "expo-router"
 
 const HomeScreen = () => {
-    const { user } = useAppStore()
-    const { store, cart, payment, rebuyOrder, setPayment, addToCart, setRebuyOrder, clearCart } =
-        useFlashStore()
-    const { top, bottom } = useSafeAreaInsets()
-    const router = useRouter()
     const {
-        data: root,
-        isLoading,
-        isError,
-    } = useQuery({
-        queryKey: ["root"],
-        queryFn: () => OrderService.GetInitial(store?.revenda_id, user?.id),
-        enabled: !!(store && store?.revenda_id),
-    })
+        catalog,
+        condicoes,
+        condicao,
+        cart,
+        cotacao,
+        cupom,
+        gasdopovo,
+        rebuyOrder,
+        setCatalog,
+        setCondicoes,
+        setCondicao,
+        setCotacao,
+        addToCart,
+        setRebuyOrder,
+        clearCart,
+        qtyTotal,
+        cartItensPayload,
+    } = useFlashStore()
+    const { top, bottom } = useSafeAreaInsets()
     const formatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
     const paymentMethodRef = useRef<BottomSheetModal>(null)
-    const onlinePaymentRef = useRef<BottomSheetModal>(null)
     const confirmRef = useRef<BottomSheetModal>(null)
 
     if (Platform.OS === "android") NavigationBar.setButtonStyleAsync("dark")
 
+    // Abertura do app: catálogo + condições de pagamento (preço só p/ exibição).
+    const {
+        data: init,
+        isLoading,
+        isError,
+    } = useQuery({
+        queryKey: ["init", gasdopovo],
+        queryFn: () => OrderService.GetInit(gasdopovo),
+    })
+
     useEffect(() => {
-        if (!root) return
-        let lastItem = root.product.find((item) => item.descricao.includes("13"))
+        if (!init) return
+        setCatalog(init.produtos)
+        setCondicoes(init.condicoes)
+        if (!condicao && init.condicoes.length > 0) setCondicao(init.condicoes[0])
+    }, [init])
 
-        setPayment(root.payment[0])
-
-        if (typeof lastItem !== "undefined" && !(lastItem.id in cart.products)) {
-            addToCart(lastItem)
-        }
-    }, [root])
-
+    // Recompra: repopula o carrinho a partir de um pedido anterior.
     useEffect(() => {
-        if (!root || !rebuyOrder) return
-
+        if (!init || !rebuyOrder) return
         clearCart()
-
-        let products = root.product
-        for (const rebProd of rebuyOrder) {
-            const prod = products.find((it) => it.id == rebProd.id)
-
-            if (!rebProd.quantity || !prod) break
-
-            for (let i = 0; i < rebProd.quantity; i++) {
-                addToCart(prod)
-            }
+        for (const [id, qty] of Object.entries(rebuyOrder)) {
+            for (let i = 0; i < qty; i++) addToCart(Number(id))
         }
-
         setRebuyOrder(null)
-
         paymentMethodRef.current?.present()
-    }, [root, rebuyOrder])
+    }, [init, rebuyOrder])
 
-    const handleOnPress = () => {
-        paymentMethodRef?.current?.present()
-    }
+    // COTAÇÃO server-side: total/desconto vêm sempre do servidor (F3).
+    const itens = cartItensPayload()
+    const { data: cotacaoData } = useQuery({
+        queryKey: ["cotacao", cart, condicao?.id, cupom, gasdopovo],
+        queryFn: () =>
+            OrderService.Cotar({
+                itens,
+                condicao_id: condicao?.id ?? null,
+                codigo_cupom: cupom,
+                gasdopovo,
+            }),
+        enabled: itens.length > 0,
+    })
 
-    const handleOnlineInfo = () => {
-        onlinePaymentRef?.current?.present()
-    }
+    useEffect(() => {
+        setCotacao(cotacaoData ?? null)
+    }, [cotacaoData])
 
-    const handleOnSetPayment = (pay: Payment) => {
-        setPayment(pay)
-
-        if (pay.tipo === PaymentTypes.Online) {
-            onlinePaymentRef?.current?.present()
-        }
-    }
+    const total = cotacao?.total ?? 0
+    const hasItems = qtyTotal() > 0
 
     const handleConfirm = () => {
-        if (user?.gasdopovo && !store?.gaspovoativado) {
-            Alert.alert(
-                "Atenção",
-                'O Programa Gás do Povo não está disponível no momento. Por favor, desative a opção "Gás do Povo" para continuar comprando.',
-            )
-            router.navigate("/(auth)/(tabs)/perfil?disable=1")
+        if (!condicao) {
+            Alert.alert("Atenção", "Selecione uma forma de pagamento.")
             return
         }
-
         confirmRef.current?.present()
     }
 
-    const loadingState = () => <LoaderSimple />
+    const handleSetCondicao = (c: CondicaoPagamento) => setCondicao(c)
 
-    const renderProductList = () => {
-        return (
-            <View style={{ maxHeight: 300 }}>
-                <ProductList products={root?.product} />
-            </View>
-        )
+    if (isError) {
+        return <ErrorView message={"Houve um erro desconhecido, por favor contate a revenda."} />
     }
 
     const renderProducts = () => (
         <>
             <View style={{ paddingTop: 8 }}>
-                <Text
-                    style={[
-                        {
-                            textAlign: "center",
-                            fontSize: fontSize.base,
-                        },
-                        fontStyle.semiBold,
-                    ]}
-                >
+                <Text style={[{ textAlign: "center", fontSize: fontSize.base }, fontStyle.semiBold]}>
                     Novo Pedido
                 </Text>
             </View>
 
-            {renderProductList()}
+            <View style={{ maxHeight: 300 }}>
+                <ProductList products={catalog} />
+            </View>
 
-            <View
-                style={{
-                    flexDirection: "column",
-                    justifyContent: "space-evenly",
-                    gap: 30,
-                }}
-            >
-                <View
-                    style={{
-                        display: "flex",
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        paddingHorizontal: 25,
-                    }}
-                >
+            <View style={{ flexDirection: "column", justifyContent: "space-evenly", gap: 30 }}>
+                <View style={styles.totalRow}>
                     <View>
                         <Text style={[styles.textTitles, fontStyle.regular]}>
                             Total: {"\n"}
                             <Text
-                                style={{
-                                    fontSize: 26,
-                                    color: colors.primary,
-                                    ...fontStyle.semiBold,
-                                }}
+                                style={{ fontSize: 26, color: colors.primary, ...fontStyle.semiBold }}
                             >
-                                {formatter.format(cart.total)}
+                                {formatter.format(total)}
                             </Text>
                         </Text>
                     </View>
@@ -175,24 +143,21 @@ const HomeScreen = () => {
                     </View>
                 </View>
 
-                {root?.payment && (
+                {condicoes.length > 0 && (
                     <View style={{ alignItems: "center" }}>
-                        <PaymentMethod payment={payment} onPress={handleOnPress} />
+                        <PaymentMethod
+                            condicao={condicao}
+                            onPress={() => paymentMethodRef.current?.present()}
+                        />
                     </View>
                 )}
 
                 <View style={{ paddingHorizontal: 25 }}>
-                    <Button title="Confirmar" disabled={cart.total <= 0} onPress={handleConfirm} />
-
-                    {/* <TestNotificationButton /> */}
+                    <Button title="Confirmar" disabled={!hasItems} onPress={handleConfirm} />
                 </View>
             </View>
         </>
     )
-
-    if (isError) {
-        return <ErrorView message={"Houve um erro desconhecido, por favor contate a revenda."} />
-    }
 
     return (
         <View style={defaultStyles.container}>
@@ -202,21 +167,14 @@ const HomeScreen = () => {
                 source={{ uri: BackgroundImgUri }}
                 style={[defaultStyles.image, { paddingTop: top }]}
             >
-                <View
-                    style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                    }}
-                >
+                <View style={{ flex: 1, flexDirection: "column" }}>
                     <Header />
-
-                    <View style={[styles.container]}>
+                    <View style={styles.container}>
                         <ScrollView
                             contentContainerStyle={{ paddingBottom: 70 + bottom }}
                             showsVerticalScrollIndicator={false}
                         >
-                            {!isLoading ? renderProducts() : loadingState()}
+                            {!isLoading ? renderProducts() : <LoaderSimple />}
                         </ScrollView>
                     </View>
                 </View>
@@ -224,18 +182,12 @@ const HomeScreen = () => {
 
             <PaymentMethodSheet
                 ref={paymentMethodRef}
-                methods={root?.payment}
-                selectedId={payment?.id}
-                setPayment={handleOnSetPayment}
+                condicoes={condicoes}
+                selectedId={condicao?.id}
+                setCondicao={handleSetCondicao}
             />
 
-            <OnlinePayment ref={onlinePaymentRef} />
-
-            <OrderConfirm
-                ref={confirmRef}
-                onPressPayment={handleOnPress}
-                showOnlinePayment={handleOnlineInfo}
-            />
+            <OrderConfirm ref={confirmRef} onPressPayment={() => paymentMethodRef.current?.present()} />
 
             <ImageBanner />
         </View>
@@ -243,11 +195,7 @@ const HomeScreen = () => {
 }
 
 const styles = StyleSheet.create({
-    flexColumn: {
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-evenly",
-    },
+    flexColumn: { display: "flex", flexDirection: "column", justifyContent: "space-evenly" },
     container: {
         flex: 1,
         backgroundColor: colors.white,
@@ -257,10 +205,13 @@ const styles = StyleSheet.create({
         justifyContent: "flex-start",
         overflow: "hidden",
     },
-    textTitles: {
-        fontSize: 16,
-        color: colors.textMuted,
+    totalRow: {
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingHorizontal: 25,
     },
+    textTitles: { fontSize: 16, color: colors.textMuted },
 })
 
 export default HomeScreen

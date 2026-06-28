@@ -135,11 +135,17 @@ class PedidoMobileService
 
         $itens = $this->itensDaCotacao($cotacao);
 
+        // Situação inicial: a informada, ou a 1ª PENDENTE do grupo (o app não precisa
+        // conhecer ids de situação — o servidor resolve o estado inicial do pedido).
+        $situacaoId = ! empty($payload['pedidosituacao_id'])
+            ? (int) $payload['pedidosituacao_id']
+            : $this->situacaoPendenteId($grupoId);
+
         return $this->pedidos->criar([
             'empresa_id' => $empresaId,
             'grupo_id' => $grupoId,
             'cliente_id' => $cliente->id,
-            'pedidosituacao_id' => (int) $payload['pedidosituacao_id'],
+            'pedidosituacao_id' => $situacaoId,
             'condicaopagamento_id' => $payload['condicaopagamento_id'] ?? ($payload['condicao_id'] ?? null),
             'setor_id' => $setor->id,
             'datahora' => now(),
@@ -172,6 +178,22 @@ class PedidoMobileService
                 'desconto' => $desconto,
             ];
         }, $cotacao['itens'] ?? []);
+    }
+
+    /** 1ª situação ativa de efeito PENDENTE do grupo (estado inicial de um pedido novo). */
+    private function situacaoPendenteId(int $grupoId): int
+    {
+        $situacao = PedidoSituacao::query()
+            ->where('grupo_id', $grupoId)
+            ->where('efeito', EfeitoPedido::PENDENTE->value)
+            ->where('ativo', true)
+            ->orderBy('id')->first();
+
+        if (! $situacao) {
+            throw ValidationException::withMessages(['situacao' => 'Nenhuma situação inicial (pendente) configurada.']);
+        }
+
+        return $situacao->id;
     }
 
     /** Existe pedido em situação de efeito PENDENTE para o cliente? */
@@ -253,7 +275,11 @@ class PedidoMobileService
         return Pedido::query()
             ->where('empresa_id', $empresaId)
             ->where('cliente_id', $clienteId)
-            ->with(['situacao:id,descricao,efeito', 'itens:id,pedido_id,produto_id,quantidade,preco_unitario'])
+            ->with([
+                'situacao:id,descricao,efeito',
+                'itens:id,pedido_id,produto_id,quantidade,preco_unitario',
+                'itens.produto:id,descricao',
+            ])
             ->orderByDesc('datahora')
             ->limit($limite)->get()
             ->map(fn (Pedido $p) => [
@@ -264,8 +290,10 @@ class PedidoMobileService
                 'valor_venda' => (float) $p->valor_venda,
                 'itens' => $p->itens->map(fn ($i) => [
                     'produto_id' => $i->produto_id,
+                    'descricao' => $i->produto?->descricao,
                     'quantidade' => (float) $i->quantidade,
                     'preco_unitario' => (float) $i->preco_unitario,
+                    'total' => round((float) $i->quantidade * (float) $i->preco_unitario, 2),
                 ]),
             ])->all();
     }

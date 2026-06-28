@@ -319,7 +319,7 @@ class AppClienteController extends Controller
             'cliente_id' => 'nullable|integer|exists:clientes,id',
             'lat' => 'required_without:cliente_id|numeric',
             'lng' => 'required_without:cliente_id|numeric',
-            'pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id',
+            'pedidosituacao_id' => 'nullable|integer|exists:pedidosituacoes,id',
             'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
             'gasdopovo' => 'boolean',
             'observacao' => 'nullable|string',
@@ -416,7 +416,11 @@ class AppClienteController extends Controller
         $pedido = Pedido::query()
             ->where('empresa_id', $request->user()->empresa_id)
             ->where('cliente_id', $cliente->id)
-            ->with('situacao:id,descricao,efeito')
+            ->with([
+                'situacao:id,descricao,efeito',
+                'itens:id,pedido_id,produto_id,quantidade,preco_unitario',
+                'itens.produto:id,descricao',
+            ])
             ->findOrFail($id);
 
         return response()->json(['data' => [
@@ -425,6 +429,13 @@ class AppClienteController extends Controller
             'efeito' => $pedido->situacao?->efeito?->value,
             'valor_venda' => (float) $pedido->valor_venda,
             'datahora' => $pedido->datahora?->toIso8601String(),
+            'itens' => $pedido->itens->map(fn ($i) => [
+                'produto_id' => $i->produto_id,
+                'descricao' => $i->produto?->descricao,
+                'quantidade' => (float) $i->quantidade,
+                'preco_unitario' => (float) $i->preco_unitario,
+                'total' => round((float) $i->quantidade * (float) $i->preco_unitario, 2),
+            ]),
         ]]);
     }
 

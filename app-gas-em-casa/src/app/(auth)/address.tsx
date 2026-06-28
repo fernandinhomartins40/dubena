@@ -117,14 +117,16 @@ const Address = () => {
         enabled: false,
     })
     const {
-        data: address,
+        data: addressList,
         refetch: refetchAddress,
         isLoading: isFetchingAddress,
     } = useQuery({
-        queryKey: ["addressById", address_id],
-        queryFn: () => AddressService.GetById(Number(address_id) || 0),
+        queryKey: ["addresses"],
+        queryFn: () => AddressService.GetAll(),
         enabled: !!address_id,
     })
+    // Edição: encontra o endereço pelo id na lista (não há GET por id no app/v1).
+    const address = addressList?.find((a) => a.id === Number(address_id)) ?? null
 
     useEffect(() => {
         if (address) {

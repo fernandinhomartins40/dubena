@@ -88,25 +88,17 @@ export interface OrderProduct {
     updated_at?: string
 }
 
-export interface OrderPix {
-    cliente_id: number
-    condicaopagamento_id: number
-    created_at: string
-    datahoraprevisao: string
-    desconto_cupons: number
-    endereco_id: number
-    erp_id: number
-    id: number
-    items: OrderProduct[]
-    pedidosituacao_id: number
-    pix: Pix
-    updated_at: string
-    user_id: number
+/** Cobrança PIX do pedido (F4 — ERP-NOVO app/v1). */
+export interface Pix {
+    txid: string
+    copia_e_cola: string
+    qrcode: string | null
+    valor: number
+    expira_em: string | null
+    situacao: string
 }
 
-export interface Pix {
-    emv: string
-    imagem_base64: string
-    pix_link: string
-    pixcopiaecola: string
+export interface OrderPix {
+    id: number // id do pedido
+    pix: Pix
 }

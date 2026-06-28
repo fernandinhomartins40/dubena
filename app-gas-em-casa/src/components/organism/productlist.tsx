@@ -1,11 +1,11 @@
-import { Product } from "@/types/types"
+import { CatalogItem } from "@/types/types"
 import { Animated, Dimensions, FlatList } from "react-native"
 import { useEffect, useRef, useState } from "react"
 import { PER_WIDTH } from "@/constants/app"
 import ProductListItem from "../molecules/ProductListItem"
 
 interface ProductListProps {
-    products: Product[] | undefined
+    products: CatalogItem[] | undefined
 }
 
 const { width } = Dimensions.get("window")
@@ -45,7 +45,7 @@ const ProductList = ({ products }: ProductListProps) => {
             data={products}
             keyExtractor={(product) => String(product.id)}
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item: product, index }: { item: Product; index: number }) => (
+            renderItem={({ item: product, index }: { item: CatalogItem; index: number }) => (
                 <ProductListItem
                     scrollX={scrollX}
                     index={index}

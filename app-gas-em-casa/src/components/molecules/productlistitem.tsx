@@ -1,16 +1,16 @@
 import { fontSize, fontStyle } from "@/styles/theme"
-import { Product } from "@/types/types"
+import { CatalogItem } from "@/types/types"
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native"
 import FastImage from "react-native-fast-image"
 import Feather from "@expo/vector-icons/Feather"
 import { PER_WIDTH } from "@/constants/app"
+import { GasImgUri } from "@/constants/images"
 import useFlashStore from "@/store/flashStore"
 import IconButton from "../atoms/IconButton"
-import useAppStore from "@/store/appStore"
 
 interface ProductListItem {
     index: number
-    product: Product
+    product: CatalogItem
     productsLength: number
     scrollX: Animated.Value
 }
@@ -20,10 +20,8 @@ const { width } = Dimensions.get("window")
 const AnimatedFastImage = Animated.createAnimatedComponent(FastImage)
 
 const ProductListItem = ({ product, index, productsLength, scrollX }: ProductListItem) => {
-    const { user } = useAppStore()
-    const { cart, addToCart, removeFromCart } = useFlashStore()
-    const { products } = cart
-    const cartProduct = products[product.id]
+    const { cart, gasdopovo, addToCart, removeFromCart } = useFlashStore()
+    const quantity = cart[product.id] ?? 0
     const inputRange = [
         (index - 1) * (width * PER_WIDTH),
         index * (width * PER_WIDTH),
@@ -45,8 +43,8 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
         extrapolate: "clamp",
     })
 
-    const shouldDisable =
-        user?.gasdopovo && cartProduct?.quantity && cartProduct.quantity >= 1 ? true : false
+    // Gás do Povo: limita a 1 unidade por pedido.
+    const shouldDisable = gasdopovo && quantity >= 1
 
     return (
         <Animated.View
@@ -60,7 +58,7 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
             <View style={styles.card}>
                 <View>
                     <AnimatedFastImage
-                        source={{ uri: product.base64Img }}
+                        source={{ uri: GasImgUri }}
                         style={[styles.image, { opacity: blur }]}
                     />
                 </View>
@@ -68,17 +66,17 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
                     <Text style={[styles.title, fontStyle.semiBold]}>{product.descricao}</Text>
                 </View>
                 <Animated.View style={[styles.cartControls, { opacity: blur }]}>
-                    <IconButton width={46} height={46} onPress={() => removeFromCart(product)}>
+                    <IconButton width={46} height={46} onPress={() => removeFromCart(product.id)}>
                         <Feather name="minus" size={18} color="black" />
                     </IconButton>
 
-                    <Text style={{ fontSize: 20 }}>{cartProduct ? cartProduct.quantity : 0}</Text>
+                    <Text style={{ fontSize: 20 }}>{quantity}</Text>
 
                     <IconButton
                         disabled={shouldDisable}
                         width={46}
                         height={46}
-                        onPress={() => addToCart(product)}
+                        onPress={() => addToCart(product.id)}
                     >
                         <Feather name="plus" size={18} color="black" />
                     </IconButton>

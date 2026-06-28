@@ -6,24 +6,27 @@ export interface Policy {
     isHeader: boolean
 }
 
+/**
+ * Usuário autenticado (F1). Após o login real, guardamos a identidade do token
+ * (`id`, `name`, `empresa_id`). Os demais campos (perfil do cliente) são OPCIONAIS e
+ * vêm de GET app/v1/perfil quando necessários — não são mais parte do token.
+ */
 export interface User {
     id: number
-    nome: string
-    primeironome: string
-    telefone: string
-    ativo: boolean
-    conveniado: boolean
-    datanascimento: string
-    email: string
-    acessadonovodispositivo: boolean
-    appbuildnumber: string
-    enderecopadrao_id: number
-    created_at: string
-    updated_at: string
+    name?: string
+    empresa_id?: number
+    // Campos de perfil (opcionais; preenchidos via PerfilCliente quando exibidos).
+    nome?: string
+    primeironome?: string
+    telefone?: string
+    ativo?: boolean
+    conveniado?: boolean
+    datanascimento?: string
+    email?: string
+    enderecopadrao_id?: number
     cpf?: string
     sexo?: string
     gasdopovo?: boolean
-    telefoneantigo?: string
     user_id?: number
 }
 
@@ -300,4 +303,42 @@ export interface ClienteEndereco {
     uf: string | null
     latitude: number | null
     longitude: number | null
+}
+
+/** Endereço de entrega (múltiplos) — GET/POST/PUT app/v1/enderecos. */
+export interface ClienteEnderecoApi {
+    id: number
+    titulo: string | null
+    endereco: string
+    numero: string | null
+    complemento: string | null
+    ponto_referencia: string | null
+    bairro: string | null
+    cidade: string | null
+    cep: string | null
+    uf: string | null
+    latitude: number | null
+    longitude: number | null
+    favorito: boolean
+}
+
+/** Item do histórico de pedidos (GET app/v1/pedidos). */
+export interface HistoryItem {
+    id: number
+    datahora: string | null
+    situacao: string | null
+    efeito: "PENDENTE" | "CONCLUIDO" | "CANCELADO" | string | null
+    valor_venda: number
+    itens: CotacaoItem[]
+}
+
+/** Perfil do cliente (GET app/v1/perfil). */
+export interface PerfilCliente {
+    id: number
+    nome: string
+    cpf: string | null
+    email: string | null
+    datanascimento: string | null
+    gasdopovo: boolean
+    telefones: string[]
 }

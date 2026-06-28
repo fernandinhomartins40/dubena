@@ -2,120 +2,66 @@ import Loader from "@/components/templates/Loader"
 import useForegroundNotifications from "@/hooks/useForegroundNotifications"
 import OrderService from "@/services/order.service"
 import StoreService from "@/services/store.service"
-import useAppStore from "@/store/appStore"
 import useFlashStore from "@/store/flashStore"
 import { useQuery } from "@tanstack/react-query"
-import { Href, usePathname, useRouter } from "expo-router"
+import { useRouter } from "expo-router"
 import { Stack } from "expo-router/stack"
 import { useEffect } from "react"
+import { HistoryItem } from "@/types/types"
 
-// TODO Refazer o component OrderItems para não receber o valor total
+/**
+ * Layout autenticado (F3). Carrega a config do app e o histórico; se houver um pedido
+ * em andamento (efeito PENDENTE), retoma o acompanhamento. Sem o conceito de "store"
+ * do legado — a empresa vem do token.
+ */
 export default function Layout() {
-    const { user } = useAppStore()
-    const { store, setStore, setPendingOrder, setEvaluateOrderId, setPixOrder } = useFlashStore()
     const router = useRouter()
-    const name = usePathname()
-    const {
-        data: stores,
-        isLoading,
-        isRefetching,
-        error,
-    } = useQuery({
-        queryKey: ["store"],
-        queryFn: () => StoreService.GetOpenStore(user?.enderecopadrao_id),
-        enabled: store === null && !!user?.enderecopadrao_id,
-        retry: 1,
-    })
-    const { data: order, isLoading: isLoadingOrder } = useQuery({
-        queryKey: ["latest-order"],
-        queryFn: () => OrderService.GetLatestOrder(user?.id),
-        enabled: !!user,
-        retry: 1,
-    })
+    const { setPendingOrder, setEvaluateOrderId, setAppConfig } = useFlashStore()
 
     useForegroundNotifications()
 
-    useEffect(() => {
-        if (!user?.enderecopadrao_id && name != "/address") {
-            router.replace("/(auth)/address")
-        }
-    }, [])
+    const { data: appConfig } = useQuery({
+        queryKey: ["app-config"],
+        queryFn: () => StoreService.GetConfig(),
+        retry: 1,
+    })
+
+    const { data: history, isLoading } = useQuery<HistoryItem[]>({
+        queryKey: ["order-history"],
+        queryFn: () => OrderService.GetHistory(),
+        retry: 1,
+    })
 
     useEffect(() => {
-        if (typeof stores === "object" && "msg" in stores && user?.enderecopadrao_id) {
-            router.push(
-                "/(auth)/error?error=Erro desconhecido, por favor contate a revenda" as Href,
-            )
-
-            return
-        }
-
-        if (stores && stores.length > 0) {
-            setStore(stores[0])
-        }
-    }, [stores])
+        if (appConfig) setAppConfig(appConfig)
+    }, [appConfig])
 
     useEffect(() => {
-        if (!error) return
+        if (!history) return
 
-        if ("msg" in error && String(error.msg).includes("Endereço não foi encontrado")) {
-            router.replace("/(auth)/address")
-            return
-        }
-
-        router.push(`/(auth)/error?error=${error.message}` as Href)
-    }, [error])
-
-    useEffect(() => {
-        if (!order) return
-
-        if (order.cancelado) return
-
-        let isPending = order.pendente || order.ementrega
-
-        if (isPending && !("pix" in order)) {
-            setPendingOrder(order)
-
+        // Pedido em andamento → retoma o acompanhamento.
+        const pendente = history.find((o) => o.efeito === "PENDENTE")
+        if (pendente) {
+            setPendingOrder({ id: pendente.id } as any)
             router.replace("/(auth)/track")
-
             return
         }
 
-        if (isPending && "pix" in order) {
-            setPixOrder(order as any)
-
-            router.replace("/(auth)/pix")
-
-            return
-        }
-
-        if (!order.avaliado && !order.ignorado) {
-            setEvaluateOrderId(order.id)
-
+        // Último pedido concluído ainda não avaliado → abre avaliação.
+        const aAvaliar = history.find((o) => o.efeito === "CONCLUIDO")
+        if (aAvaliar) {
+            setEvaluateOrderId(aAvaliar.id)
             router.replace("/(auth)/(tabs)/pedidos")
         }
-    }, [order])
+    }, [history])
 
-    if (isLoading || isLoadingOrder || isRefetching) return <Loader />
-
-    if (error) {
-        return (
-            <Stack initialRouteName="error">
-                <Stack.Screen name="error" options={{ headerShown: false }} />
-
-                <Stack.Screen name="address" options={{ headerShown: false }} />
-            </Stack>
-        )
-    }
+    if (isLoading) return <Loader />
 
     return (
         <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-
             <Stack.Screen name="address" options={{ headerShown: false }} />
-
             <Stack.Screen name="track" options={{ headerShown: false }} />
-
             <Stack.Screen name="pix" options={{ headerShown: false }} />
         </Stack>
     )

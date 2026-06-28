@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react"
 import { BottomSheetModal } from "@gorhom/bottom-sheet"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import UserService from "@/services/user.service"
+import AddressService from "@/services/address.service"
 import useAppStore from "@/store/appStore"
 import AddressSheet from "@/components/organism/AddressSheet"
 import UserSheet from "@/components/organism/UserSheet"
@@ -22,11 +23,11 @@ const PerfilScreen = () => {
     const param = useLocalSearchParams()
     const { data: addresses, isLoading } = useQuery({
         queryKey: ["addresses"],
-        queryFn: () => UserService.GetAllAddress(user?.id || 0),
+        queryFn: () => AddressService.GetAll(),
         enabled: !!user,
     })
     const { mutate, isPending } = useMutation({
-        mutationFn: UserService.Delete,
+        mutationFn: () => UserService.DeleteAccount(),
         onSuccess: () => {
             resetStorage()
 
@@ -63,7 +64,7 @@ const PerfilScreen = () => {
                 {
                     text: "Sim",
                     onPress: () => {
-                        mutate({ client_id: user?.id })
+                        mutate()
                     },
                 },
             ],
@@ -300,13 +301,9 @@ const PerfilScreen = () => {
                 </View>
             </View>
 
-            <AddressSheet
-                ref={addressesSheetRef}
-                addressId={user?.enderecopadrao_id}
-                addresses={addresses}
-            />
+            <AddressSheet ref={addressesSheetRef} addresses={addresses} />
 
-            {user ? <UserSheet ref={formRef} user={user} /> : ""}
+            {user ? <UserSheet ref={formRef} /> : ""}
 
             <LoaderOverlay isLoading={isPending} />
         </View>

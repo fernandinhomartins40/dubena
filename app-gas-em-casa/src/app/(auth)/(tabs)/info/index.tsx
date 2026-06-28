@@ -1,28 +1,29 @@
-import useFlashStore from "@/store/flashStore"
 import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps"
 import IconButton from "@/components/atoms/IconButton"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useQuery } from "@tanstack/react-query"
+import StoreService from "@/services/store.service"
 
 const InfoScreen = () => {
-    const { store } = useFlashStore()
     const { bottom } = useSafeAreaInsets()
+    const { data: store } = useQuery({
+        queryKey: ["reseller"],
+        queryFn: () => StoreService.GetReseller(),
+    })
 
     const handleOnMapPress = () => {
-        if (!store) return null
+        if (!store?.latitude || !store?.longitude) return
 
-        if (!store.latitude || !store.longitude) return null
-
-        // const url = `https://www.google.com/maps?q=${store.latitude},${store.longitude}`
         const scheme = Platform.select({
             ios: `maps://0,0?ll=${store.latitude},${store.longitude}`,
             android: `geo:${store.latitude},${store.longitude}?q=${store.latitude},${store.longitude}`,
         })
 
         if (scheme) {
-            Linking.openURL(scheme).catch((_err) =>
+            Linking.openURL(scheme).catch(() =>
                 Alert.alert("Oops..", "Não foi possível abrir o mapa."),
             )
         }
@@ -30,22 +31,15 @@ const InfoScreen = () => {
 
     const goToWhatsApp = () => {
         if (!store?.whatsapp) return
-
         Linking.openURL(`whatsapp://send?phone=${store.whatsapp}`)
     }
 
     const renderStore = () => {
         if (!store) {
             return (
-                <View
-                    style={{
-                        flexDirection: "column",
-                        paddingTop: 30,
-                        paddingHorizontal: screenPadding.horizontal,
-                    }}
-                >
+                <View style={{ flexDirection: "column", paddingTop: 30 }}>
                     <Text style={{ fontSize: fontSize.base, ...fontStyle.semiBold }}>
-                        Revenda encontra-se fechada no momento.
+                        Carregando informações da revenda...
                     </Text>
                 </View>
             )
@@ -61,69 +55,39 @@ const InfoScreen = () => {
             >
                 <View>
                     <Text style={{ fontSize: fontSize.base, ...fontStyle.semiBold }}>
-                        {store.revenda_nome}
+                        {store.nome}
                     </Text>
                 </View>
 
-                <View style={styles.infoRow}>
-                    <View style={styles.iconRow}>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome6 name="phone" size={18} color={colors.primary} />
+                {store.telefone ? (
+                    <View style={styles.infoRow}>
+                        <View style={styles.iconRow}>
+                            <View style={styles.iconContainer}>
+                                <FontAwesome6 name="phone" size={18} color={colors.primary} />
+                            </View>
+                            <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
+                                {store.telefone}
+                            </Text>
                         </View>
-
-                        <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                            {store.telefone}
-                        </Text>
                     </View>
+                ) : null}
 
-                    <View style={styles.iconRow}>
+                {store.tempo_entrega_min ? (
+                    <View style={styles.infoRow}>
                         <View style={styles.iconContainer}>
                             <FontAwesome6 name="clock" size={18} color={colors.primary} />
                         </View>
-
                         <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                            {store.delivery_res}
+                            Tempo médio de entrega: {store.tempo_entrega_min} min
                         </Text>
                     </View>
-                </View>
-
-                <View style={styles.infoRow}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome6 name="calendar" size={18} color={colors.primary} />
-                    </View>
-
-                    <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                        Segunda à Sábado | {store.horariofuncionamento}
-                    </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome6 name="calendar" size={18} color={colors.primary} />
-                    </View>
-
-                    <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                        Domingos e Feriados | {store.horariodom}
-                    </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                    <View style={styles.iconContainer}>
-                        <FontAwesome6 name="location-dot" size={18} color={colors.primary} />
-                    </View>
-
-                    <Text selectable style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                        {store.enderecocompleto}
-                    </Text>
-                </View>
+                ) : null}
             </View>
         )
     }
 
     const renderMap = () => {
-        if (!store) return null
-
-        if (!store.latitude || !store.longitude) return null
+        if (!store?.latitude || !store?.longitude) return null
 
         return (
             <View
@@ -142,10 +106,7 @@ const InfoScreen = () => {
                     zoomEnabled={false}
                 >
                     <Marker
-                        coordinate={{
-                            latitude: store.latitude,
-                            longitude: store.longitude,
-                        }}
+                        coordinate={{ latitude: store.latitude, longitude: store.longitude }}
                         title="Aqui está a revenda!"
                         description="Clique para abrir no mapa"
                         onPress={handleOnMapPress}

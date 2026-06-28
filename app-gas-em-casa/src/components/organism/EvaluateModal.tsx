@@ -18,14 +18,15 @@ interface Props {
 }
 
 const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
-    const { data: products } = useQuery({
-        queryKey: ["order-items-eval"],
-        queryFn: () => OrderService.GetItems(orderId),
+    const { data: order } = useQuery({
+        queryKey: ["order-eval", orderId],
+        queryFn: () => OrderService.Track(orderId!),
         enabled: !!orderId,
     })
     const queryClient = useQueryClient()
     const { mutate, isPending } = useMutation({
-        mutationFn: OrderService.Evaluate,
+        mutationFn: (payload: { rating?: number; mensagem?: string; ignorado?: boolean }) =>
+            OrderService.Evaluate(orderId!, payload),
         onSuccess: () => {
             closeModal()
         },
@@ -36,50 +37,31 @@ const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
             await queryClient.invalidateQueries({ queryKey: ["order-history"] })
         },
     })
-    const formatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-    const [rating, setRating] = useState<any>(0)
+    const [rating, setRating] = useState<number>(0)
     const [msg, setMsg] = useState("")
 
     const evaluateOrder = (ignore: boolean = false) => {
-        let payload = {
-            pedido_id: orderId,
-            mensagem: " ",
-            ignored: ignore,
-            rating: "",
-        }
+        if (!orderId) return
 
         if (!ignore) {
-            if (msg.length > 250) {
-                Alert.alert("Seu comentário é muito grande, tente novamente.")
+            if (msg.length > 140) {
+                Alert.alert("Seu comentário é muito grande (máx. 140), tente novamente.")
                 return
             }
-
             if (!rating) {
                 Alert.alert("Informe sua avaliação.")
                 return
             }
-
-            payload = {
-                ...payload,
-                rating,
-                mensagem: msg,
-            }
+            mutate({ rating, mensagem: msg })
+            return
         }
 
-        mutate({ payload })
+        mutate({ ignorado: true })
     }
 
     const renderProducts = () => {
-        if (!products) return null
-
-        const total = products.reduce((prev, item) => {
-            let parsed = parseFloat(String(item.total))
-            return prev + (isNaN(parsed) ? 0 : parsed)
-        }, 0)
-
-        const totalPrice = formatter.format(total)
-
-        return <OrderItems products={products} totalPrice={totalPrice} />
+        if (!order?.itens) return null
+        return <OrderItems products={order.itens} totalPrice={String(order.valor_venda ?? "")} />
     }
 
     return (

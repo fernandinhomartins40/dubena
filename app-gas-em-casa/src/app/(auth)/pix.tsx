@@ -18,35 +18,27 @@ const Pix = () => {
     const { pixOrder, setPixOrder, clearCart } = useFlashStore()
     const router = useRouter()
     const queryClient = useQueryClient()
-    const { data: isPaid, isRefetching } = useQuery({
-        queryKey: ["is-pix-paid"],
-        queryFn: () => OrderService.IsPixPaid(pixOrder?.id),
+    const { data: status } = useQuery({
+        queryKey: ["pix-status", pixOrder?.id],
+        queryFn: () => OrderService.PixStatus(pixOrder!.id),
         enabled: !!pixOrder,
-        refetchInterval: 30 * 1_000,
+        refetchInterval: 15 * 1_000,
     })
-    useRefetchOnAppFocus("is-pix-paid")
+    useRefetchOnAppFocus("pix-status")
 
     useEffect(() => {
-        if (!isPaid) return
-
-        if (isPaid?.pago) {
+        if (status?.pago) {
             setPixOrder(null)
-
             clearCart()
-
-            queryClient.invalidateQueries({
-                queryKey: ["latest-order"],
-                refetchType: "all",
-            })
-
-            router.replace("/(auth)/(tabs)/home")
+            queryClient.invalidateQueries({ queryKey: ["order-history"], refetchType: "all" })
+            router.replace("/(auth)/track")
         }
-    }, [isPaid])
+    }, [status])
 
     const handleClick = () => {
         if (pixOrder === null) return
 
-        Clipboard.setString(pixOrder.pix.pixcopiaecola)
+        Clipboard.setString(pixOrder.pix.copia_e_cola)
 
         Toast.show({
             type: "success",
@@ -79,10 +71,12 @@ const Pix = () => {
                 <View
                     style={{ justifyContent: "center", alignItems: "center", marginVertical: 15 }}
                 >
-                    <FastImage
-                        source={{ uri: `data:image/png;base64,${pixOrder.pix.imagem_base64}` }}
-                        style={{ width: 250, height: 250 }}
-                    />
+                    {pixOrder.pix.qrcode ? (
+                        <FastImage
+                            source={{ uri: `data:image/png;base64,${pixOrder.pix.qrcode}` }}
+                            style={{ width: 250, height: 250 }}
+                        />
+                    ) : null}
                 </View>
 
                 <View style={{ marginVertical: 15 }}>
@@ -95,7 +89,7 @@ const Pix = () => {
                     <Input
                         disabled
                         noDisabledStyle
-                        value={pixOrder.pix.pixcopiaecola}
+                        value={pixOrder.pix.copia_e_cola}
                         inputSufix={
                             <IconButton
                                 width={45}

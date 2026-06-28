@@ -1,6 +1,6 @@
 import React from "react"
 import { colors, defaultStyles, fontSize, fontStyle } from "@/styles/theme"
-import { Address } from "@/types/types"
+import { ClienteEnderecoApi } from "@/types/types"
 import { BottomSheetModal, BottomSheetScrollView, useBottomSheetModal } from "@gorhom/bottom-sheet"
 import { forwardRef, useMemo } from "react"
 import { Alert, StyleSheet, Text, View } from "react-native"
@@ -12,35 +12,28 @@ import AntDesign from "@expo/vector-icons/AntDesign"
 import { useRouter } from "expo-router"
 import Toast from "react-native-toast-message"
 import AddressService from "@/services/address.service"
-import useAppStore from "@/store/appStore"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import LoaderOverlay from "../atoms/LoaderOverlay"
 import useBottomSheetBackHandler from "@/hooks/useBottomSheetBackHandler"
-import useFlashStore from "@/store/flashStore"
 
 interface AddressSheetProps {
-    addresses?: Address[]
-    addressId?: number
+    addresses?: ClienteEnderecoApi[]
 }
 
 type Ref = BottomSheetModal
 
-const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses, addressId }, ref) => {
+const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses }, ref) => {
     const snapPoints = useMemo(() => ["50%", "90%"], [])
     const { handleSheetPositionChange } = useBottomSheetBackHandler(
         ref as React.RefObject<BottomSheetModal>,
     )
-    const { user, setNewAddress } = useAppStore()
-    const { setStore } = useFlashStore()
     const router = useRouter()
     const { dismiss } = useBottomSheetModal()
     const queryClient = useQueryClient()
     const { mutate: mutateFavourite, isPending } = useMutation({
         mutationFn: AddressService.MakeFavorite,
-        onSuccess: (_dt, vars) => {
-            setNewAddress(vars.address_id || 0)
-            setStore(null)
-            queryClient.invalidateQueries({ queryKey: ["store"] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["addresses"] })
             dismiss()
         },
     })
@@ -60,69 +53,63 @@ const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses, addressId 
         router.push("/(auth)/address")
     }
 
-    const handleDelete = async (address_id: number | undefined) => {
-        if (address_id === addressId) {
+    const handleDelete = async (id: number, favorito: boolean) => {
+        if (favorito) {
             Toast.show({
                 type: "error",
                 text1: "Oops",
-                text1Style: {
-                    fontSize: 18,
-                },
+                text1Style: { fontSize: 18 },
                 text2: "O Endereço Favorito não pode ser apagado.",
-                text2Style: {
-                    fontSize: 16,
-                },
+                text2Style: { fontSize: 16 },
             })
-
             return
         }
-
-        deleteAddress({ address_id: address_id })
+        deleteAddress({ id })
     }
 
-    const handleOnLongPress = (address_id: number | undefined) =>
+    const handleOnLongPress = (address: ClienteEnderecoApi) =>
         Alert.alert("Pera aí..", "O que deseja fazer com este endereço?", [
-            {
-                text: "Não quero fazer nada",
-                onPress: () => console.log("nothing Pressed"),
-                style: "cancel",
-            },
+            { text: "Não quero fazer nada", style: "cancel" },
             {
                 text: "Excluir",
-                onPress: () => handleDelete(address_id),
+                onPress: () => handleDelete(address.id, address.favorito),
                 style: "destructive",
             },
             {
                 text: "Editar",
                 onPress: () => {
                     dismiss()
-                    router.push(`/(auth)/address?address_id=${address_id}`)
+                    router.push(`/(auth)/address?address_id=${address.id}`)
                 },
             },
         ])
 
-    const handleMakeFavorite = async (address_id: number | undefined) => {
-        if (address_id === addressId) return
-
-        mutateFavourite({ address_id: address_id, client_id: user?.id })
+    const handleMakeFavorite = async (address: ClienteEnderecoApi) => {
+        if (address.favorito) return
+        mutateFavourite({ id: address.id })
     }
 
-    const renderAddresses = (address: Address, idx: number, selected: boolean = false) => (
+    const renderAddresses = (address: ClienteEnderecoApi, idx: number) => (
         <AnimatedPressable
             key={`address_${idx}`}
-            onPress={() => handleMakeFavorite(address.id)}
-            onLongPress={() => handleOnLongPress(address.id)}
+            onPress={() => handleMakeFavorite(address)}
+            onLongPress={() => handleOnLongPress(address)}
             style={{
-                opacity: isDeletionPending && address.id === delVariables.address_id ? 0.5 : 1,
+                opacity: isDeletionPending && address.id === delVariables?.id ? 0.5 : 1,
             }}
         >
-            <View style={[styles.addressItem, selected && styles.selected]}>
+            <View style={[styles.addressItem, address.favorito && styles.selected]}>
                 <View>
-                    <AddressTypeIcon type={address.titulo} color={colors.textMuted} size={24} />
+                    <AddressTypeIcon
+                        type={address.titulo ?? "Outro"}
+                        color={colors.textMuted}
+                        size={24}
+                    />
                 </View>
                 <View style={{ flexDirection: "column", justifyContent: "flex-start" }}>
                     <Text style={{ fontSize: 14, ...fontStyle.regular }}>
-                        {address.rua}, {address.numero}
+                        {address.endereco}
+                        {address.numero ? `, ${address.numero}` : ""}
                     </Text>
                     <Text style={[styles.listSubtitle, fontStyle.regular]}>{address.bairro}</Text>
                     <Text style={[styles.listSubtitle, fontStyle.regular]}>
@@ -157,9 +144,7 @@ const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses, addressId 
                         </Text>
                     </View>
                     <ScrollView style={[defaultStyles.container, { flexDirection: "column" }]}>
-                        {addresses?.map((address, idx) =>
-                            renderAddresses(address, idx, address.id == addressId),
-                        )}
+                        {addresses?.map((address, idx) => renderAddresses(address, idx))}
 
                         <View style={{ marginHorizontal: 14, marginTop: 10 }}>
                             <Button

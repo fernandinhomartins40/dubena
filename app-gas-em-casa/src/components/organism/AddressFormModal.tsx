@@ -17,12 +17,10 @@ import IosBackButton from "../atoms/IosBackButton"
 import AddressTypeIcon from "../atoms/AddressTypeIcon"
 import Input from "../atoms/Input"
 import Button from "../atoms/Button"
-import useAppStore from "@/store/appStore"
 import AddressService from "@/services/address.service"
 import { useRouter } from "expo-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { TextInput } from "react-native-gesture-handler"
-import useFlashStore from "@/store/flashStore"
 
 const { width } = Dimensions.get("window")
 interface Props {
@@ -33,8 +31,6 @@ interface Props {
 
 const AddressFormModal = ({ open, address, closeModal }: Props) => {
     const baseTypes = [AddressType.Home, AddressType.Workplace, AddressType.Default]
-    const { user, setNewAddress } = useAppStore()
-    const { setStore } = useFlashStore()
     const router = useRouter()
     const [type, setType] = useState(AddressType.Default)
     const [state, setState] = useState("")
@@ -51,25 +47,17 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
     const referenceRef = useRef<TextInput>(null)
     const complementRef = useRef<TextInput>(null)
     const queryClient = useQueryClient()
+    const onSaved = () => {
+        queryClient.invalidateQueries({ queryKey: ["addresses"] })
+        router.replace("/(auth)/(tabs)/home")
+    }
     const { mutate: updateAddress, isPending: isUpdating } = useMutation({
         mutationFn: AddressService.Update,
-        onSuccess: (data) => {
-            setNewAddress(data.id)
-            setStore(null)
-            queryClient.removeQueries({ queryKey: ["store"] })
-            queryClient.invalidateQueries({ queryKey: ["store"] })
-            router.replace("/(auth)/(tabs)/home")
-        },
+        onSuccess: onSaved,
     })
     const { mutate: insertAddress, isPending: isInserting } = useMutation({
         mutationFn: AddressService.Store,
-        onSuccess: (data) => {
-            setNewAddress(data.id)
-            setStore(null)
-            queryClient.removeQueries({ queryKey: ["store"] })
-            queryClient.invalidateQueries({ queryKey: ["store"] })
-            router.replace("/(auth)/(tabs)/home")
-        },
+        onSuccess: onSaved,
     })
     const isSmaller = Platform.select({ ios: width <= 375, default: width <= 360 })
 
@@ -125,27 +113,25 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
     const storeAddress = async () => {
         if (!isValidated()) return
 
-        let address_id = address && "id" in address ? address.id : null
-        let payload = {
-            id: address_id,
-            cliente_id: user?.id,
+        const address_id = address && "id" in address ? (address as any).id : null
+        const data = {
             titulo: type,
             uf: state,
             cidade: city,
             bairro: district,
-            rua: street,
+            endereco: street,
             numero: number,
             cep: zip,
-            pontoreferencia: reference,
+            ponto_referencia: reference,
             complemento: complement,
             latitude: address?.latitude,
             longitude: address?.longitude,
         }
 
         if (address_id) {
-            updateAddress({ data: payload })
+            updateAddress({ id: address_id, data })
         } else {
-            insertAddress({ data: payload })
+            insertAddress({ data })
         }
     }
 

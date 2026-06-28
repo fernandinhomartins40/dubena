@@ -1,5 +1,6 @@
 import { capitalizeFirstLetter, truncateText } from "@/helpers/utils"
 import UserService from "@/services/user.service"
+import AddressService from "@/services/address.service"
 import useAppStore from "@/store/appStore"
 import { colors, fontSize, fontStyle } from "@/styles/theme"
 import { BottomSheetModal } from "@gorhom/bottom-sheet"
@@ -12,27 +13,28 @@ import { Pressable } from "react-native-gesture-handler"
 const Header = () => {
     const { user } = useAppStore()
     const addressesSheetRef = useRef<BottomSheetModal>(null)
+    const { data: perfil } = useQuery({
+        queryKey: ["perfil"],
+        queryFn: () => UserService.GetPerfil(),
+        enabled: !!user,
+    })
     const {
-        data: address,
+        data: addresses,
         isLoading,
         isRefetching,
     } = useQuery({
-        queryKey: ["address"],
-        queryFn: () => UserService.GetAddress(user?.id || 0),
-        enabled: !!user,
-    })
-    const { data: addresses } = useQuery({
         queryKey: ["addresses"],
-        queryFn: () => UserService.GetAllAddress(user?.id || 0),
+        queryFn: () => AddressService.GetAll(),
         enabled: !!user,
     })
+
+    const favorito = addresses?.find((a) => a.favorito) ?? addresses?.[0]
 
     const handleAddressClick = () => addressesSheetRef.current?.present()
 
     const renderName = () => {
-        let name = truncateText(user?.primeironome || "", 14)
-
-        return capitalizeFirstLetter(name)
+        const primeiro = perfil?.nome?.split(" ")?.[0] ?? user?.name ?? ""
+        return capitalizeFirstLetter(truncateText(primeiro, 14))
     }
 
     if (!user) return null
@@ -42,7 +44,11 @@ const Header = () => {
             <View>
                 <Text style={[styles.baseText, fontStyle.regular]}>
                     Olá, {"\n"}
-                    <Text style={[fontStyle.bold, {width: 50, overflow: "hidden"}]} ellipsizeMode="tail" numberOfLines={1}>
+                    <Text
+                        style={[fontStyle.bold, { width: 50, overflow: "hidden" }]}
+                        ellipsizeMode="tail"
+                        numberOfLines={1}
+                    >
                         {renderName()}
                     </Text>
                 </Text>
@@ -55,7 +61,8 @@ const Header = () => {
                         >
                             <Text style={fontStyle.bold}>ENTREGAR EM</Text> {"\n"}
                             <Text>
-                                {truncateText(address?.rua ?? "", 20, "..")}, {address?.numero}
+                                {truncateText(favorito?.endereco ?? "Adicionar endereço", 20, "..")}
+                                {favorito?.numero ? `, ${favorito.numero}` : ""}
                             </Text>
                         </Text>
                     </Pressable>
@@ -64,11 +71,7 @@ const Header = () => {
                 )}
             </View>
 
-            <AddressSheet
-                ref={addressesSheetRef}
-                addressId={user?.enderecopadrao_id}
-                addresses={addresses}
-            />
+            <AddressSheet ref={addressesSheetRef} addresses={addresses} />
         </View>
     )
 }

@@ -1,25 +1,11 @@
 import Http from "@/helpers/http"
-import { Address, Policy, User } from "@/types/types"
+import { PerfilCliente, Policy } from "@/types/types"
 
 /**
- * UserService (F2 → ERP-NOVO).
- *
- * O modelo de identidade muda radicalmente:
- *  - ACABA o token-mestre via `getToken?app_key=` (qualquer app gerava token).
- *  - O login real por usuário é POST app/v1/login (F1), que devolve token Sanctum.
- *  - O `cliente_id` deixa de ser confiável vindo do cliente; o servidor o deriva do token.
- *
- * Nesta fase as assinaturas são preservadas para não quebrar telas; os métodos de
- * identidade do legado ficam marcados para a F1, e o registro de push já vai ao app/v1.
+ * UserService (F1/F3b → ERP-NOVO). Login/cadastro reais por usuário (Firebase →
+ * Sanctum), perfil do cliente e device de push. Fim do token-mestre/app_key.
  */
 
-interface Token {
-    token_type: string
-    access_token: string
-    client_id: string
-}
-
-/** Payload de login (F1). O app envia o ID token do Firebase (telefone verificado). */
 export interface AppLoginPayload {
     firebase_id_token: string
     empresa_id: number
@@ -29,74 +15,60 @@ export interface AppLoginPayload {
     app_versao?: string
 }
 
-/** Resposta de login do ERP-NOVO. */
+export interface AppCadastroPayload extends AppLoginPayload {
+    nome: string
+    cpf?: string | null
+    email?: string | null
+    datanascimento?: string | null
+}
+
 export interface AppLoginResponse {
     token: string
     user: { id: number; name: string; empresa_id: number }
 }
 
-const naoImplementado = (nome: string): Promise<never> =>
-    Promise.reject({
-        status: 501,
-        message: `"${nome}" será migrado na F1 (auth real) / F3 (cadastros) do ERP-NOVO.`,
-        errors: {},
-    })
+/** F1: login do cliente (Firebase ID token + empresa) → token Sanctum. */
+const Login = (payload: AppLoginPayload): Promise<AppLoginResponse> =>
+    Http.PrepareRequest("app/v1/cliente/login", "POST", payload, false)
 
-/**
- * F1: login real do cliente. Envia o ID token do Firebase (já feito o SMS) + a empresa
- * e recebe o token Sanctum do usuário. O ERP-NOVO valida o token via Firebase Admin,
- * resolve o cliente pelo telefone na empresa e cria/vincula o usuário.
- */
-const Login = (payload: AppLoginPayload): Promise<AppLoginResponse> => {
-    return Http.PrepareRequest("app/v1/cliente/login", "POST", payload, false)
-}
+/** F3b: cadastro do cliente (newuser) → cria cliente + token. */
+const Cadastro = (payload: AppCadastroPayload): Promise<AppLoginResponse> =>
+    Http.PrepareRequest("app/v1/cliente/cadastro", "POST", payload, false)
 
-/** Termos/políticas — host externo (site institucional), sem Bearer do ERP. */
-const GetPolicies = (): Promise<Policy[]> => {
-    return Http.SendRequest("https://www.gasemcasa.com.br/termos.php?type=json", "GET")
-}
+/** F3b: perfil do cliente do token. */
+const GetPerfil = (): Promise<PerfilCliente> => Http.PrepareRequest("app/v1/perfil", "GET")
 
-/** @deprecated F1: substituído por Login(). Mantido só para compat de import. */
-const GetToken = (): Promise<Token> => naoImplementado("getToken (token-mestre)")
+/** F3b: atualiza o perfil do cliente. */
+const UpdatePerfil = (data: {
+    nome?: string
+    cpf?: string | null
+    email?: string | null
+    datanascimento?: string | null
+}): Promise<{ id: number; nome: string }> => Http.PrepareRequest("app/v1/perfil", "PUT", data)
 
-/** @deprecated F1: identidade vem do token; não se busca cliente por nome+telefone. */
-const GetClient = (_args: { fullName: string; phone: string }): Promise<User> =>
-    naoImplementado("client/get por telefone")
+/** F3b: exclui a conta do cliente. */
+const DeleteAccount = (): Promise<{ excluido: boolean }> =>
+    Http.PrepareRequest("app/v1/perfil", "DELETE")
 
-/** F6/perfil: dados do usuário do token. TODO(F1): usar GET /me ou app/v1/perfil. */
-const GetById = (_client_id?: number): Promise<User> => naoImplementado("client/getById")
-
-/** F1: registra/atualiza o device para push no ERP-NOVO. */
-const StoreFcmToken = ({ token }: { client_id: number; token: string }) => {
-    return Http.PrepareRequest("app/v1/devices", "POST", {
+/** F1: registra/atualiza o device de push (FCM). */
+const StoreFcmToken = ({ token }: { token: string }) =>
+    Http.PrepareRequest("app/v1/devices", "POST", {
         push_token: token,
         device_id: token.slice(0, 64),
     })
-}
 
-const GetAddress = (_client_id: number): Promise<Address> => naoImplementado("address/getStandard")
-
-const GetAllAddress = (_client_id: number): Promise<Address[]> =>
-    naoImplementado("address/getAll")
-
-const Store = (_args: any): Promise<User> => naoImplementado("client/create")
-
-const Update = (_args: any): Promise<User> => naoImplementado("client/update")
-
-const Delete = (_args: any): Promise<any> => naoImplementado("client/delete")
+/** Termos/políticas — host externo (site institucional). */
+const GetPolicies = (): Promise<Policy[]> =>
+    Http.SendRequest("https://www.gasemcasa.com.br/termos.php?type=json", "GET")
 
 const UserService = {
     Login,
-    GetPolicies,
-    GetToken,
-    GetClient,
-    GetById,
+    Cadastro,
+    GetPerfil,
+    UpdatePerfil,
+    DeleteAccount,
     StoreFcmToken,
-    GetAddress,
-    GetAllAddress,
-    Store,
-    Update,
-    Delete,
+    GetPolicies,
 }
 
 export default UserService

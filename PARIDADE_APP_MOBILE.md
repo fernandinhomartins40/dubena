@@ -97,5 +97,13 @@ Legenda: ✅ pronto · 🟡 parcial · ❌ falta · ⛔ não se aplica (plumbing
 
 **Decisão necessária (afeta o core do ERP, não só o app):** criar tabela `produto_condicao_precos` (produto_id × condicao_id → valor, escopo empresa) e fazer a **cotação e a criação do pedido** precificarem pela condição selecionada; e **remover o override `preco_unitario`** do caminho do app (anti-fraude). Isso é a F3c — requer migration + ajuste no `CotacaoMobileService`, `PedidoService`/`PedidoMobileService` e testes.
 
+### APP RELIGADO AO app/v1 (reshape concluído)
+Todas as telas do app foram religadas ao ERP-NOVO (catálogo/carrinho/cotação/checkout/
+PIX/histórico/acompanhar/perfil/múltiplos endereços/reseller/info). Carrinho agora é
+`id→qtd`; preço/desconto 100% server-side (cotação). `pedidosituacao_id` virou opcional
+(servidor resolve a PENDENTE inicial). Vídeo de abertura desativado (precisa endpoint
+público — F7). **Pendente:** validar com `yarn install && npx tsc --noEmit` (sem
+node_modules no ambiente de dev); F5 (cartão tokenizado) é a última peça.
+
 ### CHECKPOINT (commitado)
 Servidor F3 (núcleo): `CotacaoMobileService` (preço server-side, hoje por `preco_venda`/`preco_gasdopovo`), `GET app/v1/config`, `GET/PUT app/v1/perfil/endereco`, `clienteDoUsuario` derivando do token (fecha IDOR). 31 testes mobile verdes. **Pendente para paridade total:** F3b (cadastros/múltiplos endereços), F3c (preço por condição), F4 (PIX), F5 (cartão).

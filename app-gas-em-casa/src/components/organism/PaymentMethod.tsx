@@ -1,16 +1,15 @@
-import { Payment } from "@/types/types"
+import { CondicaoPagamento } from "@/types/types"
 import { StyleSheet, Text, View } from "react-native"
 import { colors, fontStyle } from "@/styles/theme"
 import Feather from "@expo/vector-icons/Feather"
-import PaymentIcon from "../atoms/PaymentIcon"
 import { Pressable, PressableProps } from "react-native-gesture-handler"
 
 interface PaymentMethodProps extends PressableProps {
-    payment?: Payment | null | undefined
+    condicao?: CondicaoPagamento | null | undefined
 }
 
-const PaymentMethod = ({ payment, onPress }: PaymentMethodProps) => {
-    if (!payment) return
+const PaymentMethod = ({ condicao, onPress }: PaymentMethodProps) => {
+    if (!condicao) return null
 
     return (
         <View
@@ -42,10 +41,10 @@ const PaymentMethod = ({ payment, onPress }: PaymentMethodProps) => {
                             Forma de Pagamento
                         </Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <PaymentIcon type={payment.tipo} color={colors.primary} />
+                            <Feather name="credit-card" size={20} color={colors.primary} />
 
                             <Text style={{ fontSize: 16, ...fontStyle.regular }}>
-                                {payment.descricao}
+                                {condicao.descricao}
                             </Text>
                         </View>
                     </View>

@@ -1,83 +1,63 @@
 import { INTERNAL_BUILD_NUMBER } from "@/constants/app"
-import { User, UserFormSchema } from "@/types/types"
+import { UserFormSchema } from "@/types/types"
 import { BottomSheetModal, BottomSheetScrollView, useBottomSheetModal } from "@gorhom/bottom-sheet"
 import React, { forwardRef, useMemo } from "react"
 import { Alert, StyleSheet, Text, View } from "react-native"
 import UserForm from "../templates/UserForm"
 import { screenPadding } from "@/styles/theme"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import UserService from "@/services/user.service"
-import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging"
-import useAppStore from "@/store/appStore"
 import useBottomSheetBackHandler from "@/hooks/useBottomSheetBackHandler"
-import { getApp } from "@react-native-firebase/app"
 import useFlashStore from "@/store/flashStore"
-
-interface Props {
-    user: User
-}
 
 type Ref = BottomSheetModal
 
-const app = getApp()
-
-const UserSheet = forwardRef<Ref, Props>(({ user }, ref) => {
+/**
+ * Edição de dados pessoais (F3b). Carrega o perfil do cliente (GET app/v1/perfil) e
+ * atualiza via PUT app/v1/perfil. Gás do Povo permitido vem da config do app.
+ */
+const UserSheet = forwardRef<Ref, {}>((_props, ref) => {
     const snapPoints = useMemo(() => ["50%", "90%"], [])
     const { handleSheetPositionChange } = useBottomSheetBackHandler(
         ref as React.RefObject<BottomSheetModal>,
     )
-    const { setUser } = useAppStore()
-    const { store } = useFlashStore()
+    const { appConfig } = useFlashStore()
     const { dismiss } = useBottomSheetModal()
     const queryClient = useQueryClient()
+    const { data: perfil } = useQuery({
+        queryKey: ["perfil"],
+        queryFn: () => UserService.GetPerfil(),
+    })
     const { mutate, isPending } = useMutation({
-        mutationFn: UserService.Update,
-        onSuccess: (data) => {
-            setUser(data)
-
-            queryClient.invalidateQueries({ queryKey: ["root"] })
-
+        mutationFn: UserService.UpdatePerfil,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["perfil"] })
             dismiss()
         },
-        onError: (err) => {
-            console.error(err)
-
-            if ("message" in err) {
-                Alert.alert(String(err.message))
-            } else {
-                Alert.alert("Ocorreu um erro desconhecido ao tentar atualizar seu cadastro..")
-            }
+        onError: (err: any) => {
+            Alert.alert(err?.message ?? "Erro ao atualizar seu cadastro.")
         },
     })
 
-    const standardizeDate = (userDate: string): string => {
-        let brkDate = userDate.split("-")
-        return brkDate[2] + "/" + brkDate[1] + "/" + brkDate[0]
-    }
-
     const form: UserFormSchema = {
-        id: user.id,
-        nome: user.nome || "",
-        telefone: user.telefone || "",
-        conveniado: !!user.conveniado || false,
-        gasdopovo: !!user.gasdopovo || false,
-        cpf: user.cpf || "",
-        datanascimento: user?.datanascimento ? standardizeDate(user.datanascimento) : "",
+        id: perfil?.id,
+        nome: perfil?.nome || "",
+        telefone: perfil?.telefones?.[0] || "",
+        conveniado: false,
+        gasdopovo: !!perfil?.gasdopovo,
+        cpf: perfil?.cpf || "",
+        datanascimento: perfil?.datanascimento ?? "",
         internal_build_number: INTERNAL_BUILD_NUMBER,
         pushregistration_id: "",
-        sexo: user.sexo || "",
+        sexo: "",
     }
 
     const onSave = async (payload: any) => {
-        const messaging = getMessaging(app)
-
-        await requestPermission(messaging)
-
-        const fcmtoken = await getToken(messaging)
-
-        payload.pushregistration_id = fcmtoken
-
-        mutate({ data: payload })
+        mutate({
+            nome: payload.nome,
+            cpf: payload.cpf,
+            datanascimento: payload.datanascimento,
+        })
     }
 
     return (
@@ -99,7 +79,7 @@ const UserSheet = forwardRef<Ref, Props>(({ user }, ref) => {
                         isSubmitting={isPending}
                         onSave={onSave}
                         user={form}
-                        isGpAllowed={!!store?.gaspovoativado}
+                        isGpAllowed={!!appConfig?.gaspovo_ativo}
                     />
                 </View>
             </BottomSheetScrollView>

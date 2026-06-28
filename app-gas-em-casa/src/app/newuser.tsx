@@ -1,65 +1,51 @@
-import { INTERNAL_BUILD_NUMBER } from "@/constants/app"
+import { APP, INTERNAL_BUILD_NUMBER } from "@/constants/app"
 import UserService from "@/services/user.service"
 import useAppStore from "@/store/appStore"
 import { defaultStyles, fontSize, screenPadding } from "@/styles/theme"
 import { UserFormSchema } from "@/types/types"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import React from "react"
 import { Alert, Platform, StyleSheet, Text, View } from "react-native"
 import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging"
+import { getAuth } from "@react-native-firebase/auth"
 import Toast from "react-native-toast-message"
 import { useRouter } from "expo-router"
 import UserForm from "@/components/templates/UserForm"
 import { getApp } from "@react-native-firebase/app"
-import StoreService from "@/services/store.service"
-import LoaderSimple from "@/components/atoms/LoaderSimple"
 
 const app = getApp()
 
+/**
+ * Cadastro de novo cliente (F3b). Reusa o login Firebase já feito (SMS): pega um ID
+ * token fresco do usuário atual e chama POST app/v1/cliente/cadastro, que cria o
+ * cliente + vincula o usuário e devolve o token Sanctum.
+ */
 const NewUser = () => {
-    const { loginData, setUser } = useAppStore()
+    const { loginData, setToken, setUser } = useAppStore()
     const router = useRouter()
-    const { data: gasDoPovo, isLoading } = useQuery({
-        queryKey: ["get-isgpenabled"],
-        queryFn: StoreService.GetIsGasPovoAllowed,
-    })
+    const isDebug = APP.debug
+
     const { mutate, isPending } = useMutation({
-        mutationFn: UserService.Store,
+        mutationFn: UserService.Cadastro,
         onSuccess: (data) => {
-            if ("status" in data && data.status == "NOK") {
-                let msg: any =
-                    "msg" in data ? data.msg : "Erro desconhecido por favor, contate a revenda."
+            setToken(data.token)
+            setUser(data.user as any)
 
-                Alert.alert("Oops..", msg)
+            Toast.show({
+                type: "success",
+                text1: "Sucesso",
+                text1Style: { fontSize: 18 },
+                text2: `Seja bem-vindo!`,
+                text2Style: { fontSize: 16 },
+            })
 
-                return
-            }
-
-            if (data.id) {
-                let name = data.primeironome.toLowerCase()
-                name = name.charAt(0).toUpperCase() + name.slice(1)
-
-                Toast.show({
-                    type: "success",
-                    text1: "Sucesso",
-                    text1Style: {
-                        fontSize: 18,
-                    },
-                    text2: `Seja bem-vindo ${name}`,
-                    text2Style: {
-                        fontSize: 16,
-                    },
-                })
-
-                setUser(data)
-
-                router.replace("/(auth)/(tabs)/home")
-            }
+            router.replace("/(auth)/(tabs)/home")
         },
-        onError: (err) => {
-            console.error(err)
+        onError: (err: any) => {
+            Alert.alert("Oops..", err?.message ?? "Não foi possível concluir o cadastro.")
         },
     })
+
     const form: UserFormSchema = {
         nome: loginData.name,
         telefone: loginData.phone,
@@ -74,15 +60,34 @@ const NewUser = () => {
 
     const handleOnSave = async (payload: any) => {
         try {
-            const messaging = getMessaging(app)
+            if (!APP.empresa_id) {
+                Alert.alert("Configuração", "EMPRESA_ID não configurada para este build.")
+                return
+            }
 
-            await requestPermission(messaging)
+            const idToken: string = isDebug
+                ? `fake:+55${loginData.phone.replace(/\D/g, "")}`
+                : ((await getAuth(app).currentUser?.getIdToken()) ?? "")
 
-            const fcmtoken = await getToken(messaging)
+            let pushToken: string | undefined
+            try {
+                const messaging = getMessaging(app)
+                await requestPermission(messaging)
+                pushToken = await getToken(messaging)
+            } catch {
+                pushToken = undefined
+            }
 
-            payload.pushregistration_id = fcmtoken
-
-            mutate({ data: payload })
+            mutate({
+                firebase_id_token: idToken,
+                empresa_id: APP.empresa_id,
+                nome: payload.nome,
+                cpf: payload.cpf || null,
+                datanascimento: payload.datanascimento || null,
+                push_token: pushToken,
+                device_id: pushToken?.slice(0, 64),
+                plataforma: Platform.OS === "ios" ? "ios" : "android",
+            })
         } catch (err) {
             console.error(err)
         }
@@ -97,16 +102,12 @@ const NewUser = () => {
                     </Text>
                 </View>
 
-                {isLoading || !gasDoPovo ? (
-                    <LoaderSimple />
-                ) : (
-                    <UserForm
-                        user={form}
-                        onSave={handleOnSave}
-                        isSubmitting={isPending}
-                        isGpAllowed={gasDoPovo.isAllowed}
-                    />
-                )}
+                <UserForm
+                    user={form}
+                    onSave={handleOnSave}
+                    isSubmitting={isPending}
+                    isGpAllowed={false}
+                />
             </View>
         </View>
     )
