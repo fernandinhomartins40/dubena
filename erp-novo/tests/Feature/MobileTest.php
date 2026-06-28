@@ -488,6 +488,66 @@ class MobileTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.valor_venda', 240);
     }
 
+    public function test_pix_do_pedido_gera_cobranca_e_confirma_via_webhook(): void
+    {
+        // Cliente do app vinculado ao usuário do token (resolve sem cliente_id).
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'user_id' => $this->user->id,
+        ]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+
+        // Cria pedido 1 x 100 = 100.
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->assertCreated()->json('data.id');
+
+        // Gera a cobrança PIX do pedido.
+        $pix = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/app/v1/pedidos/{$pedidoId}/pix")
+            ->assertCreated()
+            ->assertJsonPath('data.valor', 100)
+            ->assertJsonPath('data.situacao', 'ATIVA');
+        $txid = $pix->json('data.txid');
+        $this->assertNotEmpty($txid);
+
+        // Idempotência: chamar de novo devolve a MESMA cobrança (mesmo txid).
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pix")
+            ->assertCreated()->assertJsonPath('data.txid', $txid);
+
+        // Antes do pagamento, status não-pago.
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}/pix/status")
+            ->assertOk()->assertJsonPath('data.pago', false);
+
+        // Webhook do PSP confirma o pagamento (valor bate).
+        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 100, 'e2eid' => 'E123'])
+            ->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
+
+        // Agora o status do pedido aparece pago.
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}/pix/status")
+            ->assertOk()->assertJsonPath('data.pago', true);
+    }
+
+    public function test_pix_webhook_rejeita_valor_divergente(): void
+    {
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id,
+        ]);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
+        ])->json('data.id');
+        $txid = $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pix")->json('data.txid');
+
+        // Valor pago (50) difere do cobrado (100) → rejeitado (anti-fraude S3).
+        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 50])->assertStatus(422);
+
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}/pix/status")
+            ->assertOk()->assertJsonPath('data.pago', false);
+    }
+
     public function test_endereco_do_cliente_resolvido_pelo_token(): void
     {
         // Cliente vinculado ao usuário do token (modelo F1).

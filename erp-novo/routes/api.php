@@ -568,6 +568,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
         Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');
         Route::post('pedidos/{id}/pagar', [AppClienteController::class, 'pagar'])->whereNumber('id');
+        Route::post('pedidos/{id}/pix', [AppClienteController::class, 'gerarPix'])->whereNumber('id'); // F4
+        Route::get('pedidos/{id}/pix/status', [AppClienteController::class, 'statusPix'])->whereNumber('id'); // F4
         Route::post('pedidos/{id}/cancelar', [AppClienteController::class, 'cancelar'])->whereNumber('id');
         Route::post('pedidos/{id}/avaliar', [AppClienteController::class, 'avaliar'])->whereNumber('id');
 

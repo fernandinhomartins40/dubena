@@ -4,6 +4,7 @@ namespace App\Domain\Cobranca;
 
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Models\Pedido\Pedido;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -35,6 +36,44 @@ class PixService
             'expira_em' => now()->addSeconds($expiraSegundos),
             'situacao' => SituacaoPix::ATIVA->value,
         ]);
+    }
+
+    /**
+     * Cria (ou reaproveita) a cobrança PIX de um PEDIDO do app — F4. Idempotente:
+     * se já existe uma cobrança ATIVA e não vencida para o pedido, devolve-a (evita
+     * gerar QR duplicado a cada reabertura da tela). O webhook (processarWebhook)
+     * confirma o pagamento e baixa por txid, igual ao fluxo da parcela.
+     */
+    public function criarCobrancaPedido(Pedido $pedido, int $expiraSegundos = 300): PixCobranca
+    {
+        $ativa = PixCobranca::query()
+            ->where('pedido_id', $pedido->id)
+            ->where('situacao', SituacaoPix::ATIVA->value)
+            ->where(fn ($q) => $q->whereNull('expira_em')->orWhere('expira_em', '>', now()))
+            ->latest('id')->first();
+        if ($ativa) {
+            return $ativa;
+        }
+
+        $txid = $this->gerarTxid();
+        $valor = (float) $pedido->valor_venda;
+
+        return PixCobranca::create([
+            'empresa_id' => $pedido->empresa_id,
+            'pedido_id' => $pedido->id,
+            'cliente_id' => $pedido->cliente_id,
+            'txid' => $txid,
+            'valor' => $valor,
+            'copia_e_cola' => $this->montarBrCode($txid, $valor),
+            'expira_em' => now()->addSeconds($expiraSegundos),
+            'situacao' => SituacaoPix::ATIVA->value,
+        ]);
+    }
+
+    /** Status atual da cobrança PIX de um pedido (para o app fazer polling). */
+    public function statusDoPedido(Pedido $pedido): ?PixCobranca
+    {
+        return PixCobranca::query()->where('pedido_id', $pedido->id)->latest('id')->first();
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Cobranca\PixService;
 use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\CotacaoMobileService;
 use App\Domain\Mobile\PagamentoOnlineService;
@@ -24,6 +25,7 @@ class AppClienteController extends Controller
         private PagamentoOnlineService $pagamento,
         private CatalogoMobileService $catalogo,
         private CotacaoMobileService $cotacao,
+        private PixService $pix,
     ) {}
 
     /**
@@ -175,6 +177,48 @@ class AppClienteController extends Controller
         return response()->json([
             'data' => ['situacao' => $pagamento->situacao->value, 'tid' => $pagamento->tid, 'mensagem' => $pagamento->mensagem],
         ], $pagamento->situacao->aprovado() ? 201 : 402);
+    }
+
+    /**
+     * POST /app/v1/pedidos/{id}/pix — gera (ou reaproveita) a cobrança PIX do pedido (F4).
+     * Devolve copia-e-cola/QR e expiração; o app faz polling em /pix/status.
+     */
+    public function gerarPix(Request $request, int $id): JsonResponse
+    {
+        $cliente = $this->clienteDoUsuario($request);
+        $pedido = Pedido::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('cliente_id', $cliente->id)
+            ->findOrFail($id);
+
+        $cobranca = $this->pix->criarCobrancaPedido($pedido);
+
+        return response()->json(['data' => [
+            'txid' => $cobranca->txid,
+            'copia_e_cola' => $cobranca->copia_e_cola,
+            'qrcode' => $cobranca->qrcode,
+            'valor' => (float) $cobranca->valor,
+            'expira_em' => $cobranca->expira_em?->toIso8601String(),
+            'situacao' => $cobranca->situacao->value,
+        ]], 201);
+    }
+
+    /** GET /app/v1/pedidos/{id}/pix/status — status da cobrança PIX (polling). */
+    public function statusPix(Request $request, int $id): JsonResponse
+    {
+        $cliente = $this->clienteDoUsuario($request);
+        $pedido = Pedido::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('cliente_id', $cliente->id)
+            ->findOrFail($id);
+
+        $cobranca = $this->pix->statusDoPedido($pedido);
+
+        return response()->json(['data' => [
+            'situacao' => $cobranca?->situacao->value,
+            'pago' => $cobranca?->situacao->value === 'CONCLUIDA',
+            'pago_em' => $cobranca?->pago_em?->toIso8601String(),
+        ]]);
     }
 
     /** GET /app/v1/pedidos — histórico do cliente autenticado. */

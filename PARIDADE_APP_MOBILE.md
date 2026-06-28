@@ -63,12 +63,12 @@ Legenda: ✅ pronto · 🟡 parcial · ❌ falta · ⛔ não se aplica (plumbing
 |---|---|---|---|---|
 | `order/create` c/ `pagamento:cardInfo` | Cobrança no cartão | `POST app/v1/pedidos/{id}/pagar` (token) | 🟡 falta tokenização no app + fluxo | **F5** |
 
-## 7. PIX — **F4**
+## 7. PIX — **F4** ✅
 | Legado | Capacidade | ERP-NOVO | Status | Fase |
 |---|---|---|---|---|
-| `order/create` (PIX) → `pix` inline | Gerar cobrança PIX + QR/copia-cola | — (infra PIX existe no admin, acoplada a parcela) | ❌ | **F4** |
-| `order/ispaid/{id}` | Status do PIX | — | ❌ | **F4** |
-| `order/pixpaid`, `order/expired` | Webhook/expiração | `PixWebhookController`, `PixExpirar` (admin) | 🟡 reusar p/ pedido | **F4** |
+| `order/create` (PIX) → `pix` inline | Gerar cobrança PIX + QR/copia-cola | `POST app/v1/pedidos/{id}/pix` (PixService.criarCobrancaPedido) | ✅ | **F4** |
+| `order/ispaid/{id}` | Status do PIX | `GET app/v1/pedidos/{id}/pix/status` | ✅ | **F4** |
+| `order/pixpaid`, `order/expired` | Webhook/expiração | `/pix/webhook` (reusado, valida valor) + `PixExpirar` | ✅ | **F4** |
 
 ## 8. Notificações / outros
 | Legado | Capacidade | ERP-NOVO | Status | Fase |
