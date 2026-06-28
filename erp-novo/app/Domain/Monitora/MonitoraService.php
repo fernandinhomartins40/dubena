@@ -130,8 +130,8 @@ class MonitoraService
         return $dentro;
     }
 
-    /** Distância Haversine em METROS. */
-    private function distanciaMetros(float $lat1, float $lng1, float $lat2, float $lng2): float
+    /** Distância Haversine em METROS. Público para reuso (ex.: descoberta do marketplace). */
+    public function distanciaMetros(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $r = 6371000.0;
         $dLat = deg2rad($lat2 - $lat1);

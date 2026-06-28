@@ -26,6 +26,7 @@ class Empresa extends Model
         'cnpj', 'inscricao_estadual', 'inscricao_municipal',
         'cep', 'uf', 'cidade', 'bairro', 'endereco', 'numero', 'complemento',
         'telefone1', 'telefone2', 'latitude', 'longitude', 'matriz', 'ativo',
+        'app_marketplace_ativo', 'raio_entrega_km',
     ];
 
     protected function casts(): array
@@ -35,6 +36,8 @@ class Empresa extends Model
             'longitude' => 'decimal:7',
             'matriz' => 'boolean',
             'ativo' => 'boolean',
+            'app_marketplace_ativo' => 'boolean',
+            'raio_entrega_km' => 'decimal:2',
         ];
     }
 

@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
+use App\Http\Controllers\Api\Mobile\MarketplaceController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
 use Illuminate\Http\Request;
@@ -72,6 +73,10 @@ Route::post('/app/v1/cliente/login', [AppAuthController::class, 'loginCliente'])
 
 // Cadastro do CLIENTE pelo app (PÚBLICO) — F3b. Firebase + dados → cria cliente + token.
 Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCliente']);
+
+// Marketplace (PÚBLICO) — MP1. Descoberta de empresas por geolocalização (rate-limited).
+Route::post('/app/v1/marketplace/empresas', [MarketplaceController::class, 'empresas'])
+    ->middleware('throttle:60,1');
 
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
 Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
