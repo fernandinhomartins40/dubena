@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Domain\Cobranca\PixService;
 use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\CotacaoMobileService;
+use App\Domain\Mobile\EnderecoMobileService;
 use App\Domain\Mobile\PagamentoOnlineService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteEndereco;
 use App\Models\EmpresaConfig;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +28,7 @@ class AppClienteController extends Controller
         private CatalogoMobileService $catalogo,
         private CotacaoMobileService $cotacao,
         private PixService $pix,
+        private EnderecoMobileService $enderecos,
     ) {}
 
     /**
@@ -105,6 +108,77 @@ class AppClienteController extends Controller
             'latitude' => $c->latitude !== null ? (float) $c->latitude : null,
             'longitude' => $c->longitude !== null ? (float) $c->longitude : null,
         ];
+    }
+
+    // ── Múltiplos endereços de entrega (F3b) ──────────────────────────────────
+
+    /** GET /app/v1/enderecos — lista os endereços do cliente do token. */
+    public function listarEnderecos(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->enderecos->listar($this->clienteDoUsuario($request))]);
+    }
+
+    /** POST /app/v1/enderecos — cria um endereço de entrega. */
+    public function criarEndereco(Request $request): JsonResponse
+    {
+        $d = $this->validarEndereco($request);
+        $endereco = $this->enderecos->criar($this->clienteDoUsuario($request), $d);
+
+        return response()->json(['data' => $this->enderecos->serializar($endereco)], 201);
+    }
+
+    /** PUT /app/v1/enderecos/{id} — edita um endereço do cliente. */
+    public function editarEndereco(Request $request, int $id): JsonResponse
+    {
+        $endereco = $this->enderecoDoCliente($request, $id);
+        $d = $this->validarEndereco($request);
+
+        return response()->json(['data' => $this->enderecos->serializar($this->enderecos->atualizar($endereco, $d))]);
+    }
+
+    /** PUT /app/v1/enderecos/{id}/favorito — marca como endereço padrão. */
+    public function favoritarEndereco(Request $request, int $id): JsonResponse
+    {
+        $endereco = $this->enderecoDoCliente($request, $id);
+
+        return response()->json(['data' => $this->enderecos->serializar($this->enderecos->favoritar($endereco))]);
+    }
+
+    /** DELETE /app/v1/enderecos/{id} — exclui um endereço do cliente. */
+    public function excluirEndereco(Request $request, int $id): JsonResponse
+    {
+        $this->enderecos->excluir($this->enderecoDoCliente($request, $id));
+
+        return response()->json(['data' => ['id' => $id]]);
+    }
+
+    /** @return array<string,mixed> */
+    private function validarEndereco(Request $request): array
+    {
+        return $request->validate([
+            'titulo' => 'nullable|string|max:100',
+            'endereco' => 'required|string|max:255',
+            'numero' => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:120',
+            'ponto_referencia' => 'nullable|string|max:160',
+            'bairro' => 'nullable|string|max:120',
+            'cidade' => 'nullable|string|max:120',
+            'cep' => 'nullable|string|max:12',
+            'uf' => 'nullable|string|max:2',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'favorito' => 'boolean',
+        ]);
+    }
+
+    /** Resolve o endereço garantindo que pertence ao cliente do token (anti-IDOR). */
+    private function enderecoDoCliente(Request $request, int $id): ClienteEndereco
+    {
+        $cliente = $this->clienteDoUsuario($request);
+
+        return ClienteEndereco::query()
+            ->where('cliente_id', $cliente->id)
+            ->findOr($id, fn () => abort(404, 'Endereço não localizado.'));
     }
 
     /** GET /app/v1/produtos — catálogo da empresa (só ativos com preço). */

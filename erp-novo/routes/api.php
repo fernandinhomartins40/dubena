@@ -564,6 +564,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('config', [AppClienteController::class, 'config']);           // F3 — config do app
         Route::get('perfil/endereco', [AppClienteController::class, 'obterEndereco']);   // F3
         Route::put('perfil/endereco', [AppClienteController::class, 'atualizarEndereco']); // F3
+        // Múltiplos endereços de entrega (F3b)
+        Route::get('enderecos', [AppClienteController::class, 'listarEnderecos']);
+        Route::post('enderecos', [AppClienteController::class, 'criarEndereco']);
+        Route::put('enderecos/{id}', [AppClienteController::class, 'editarEndereco'])->whereNumber('id');
+        Route::put('enderecos/{id}/favorito', [AppClienteController::class, 'favoritarEndereco'])->whereNumber('id');
+        Route::delete('enderecos/{id}', [AppClienteController::class, 'excluirEndereco'])->whereNumber('id');
         Route::get('pedidos', [AppClienteController::class, 'historico']);
         Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
         Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');

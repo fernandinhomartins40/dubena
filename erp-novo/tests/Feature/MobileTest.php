@@ -548,6 +548,50 @@ class MobileTest extends TestCase
             ->assertOk()->assertJsonPath('data.pago', false);
     }
 
+    public function test_multiplos_enderecos_com_favorito_unico(): void
+    {
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id,
+        ]);
+
+        // 1º endereço vira favorito automaticamente.
+        $e1 = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/enderecos', [
+            'titulo' => 'Casa', 'endereco' => 'Rua A', 'numero' => '10',
+        ])->assertCreated()->assertJsonPath('data.favorito', true)->json('data.id');
+
+        // 2º endereço marcado favorito → desmarca o 1º.
+        $e2 = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/enderecos', [
+            'titulo' => 'Trabalho', 'endereco' => 'Rua B', 'numero' => '20', 'favorito' => true,
+        ])->assertCreated()->assertJsonPath('data.favorito', true)->json('data.id');
+
+        $lista = $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/enderecos')
+            ->assertOk()->assertJsonCount(2, 'data')->json('data');
+        $favoritos = array_filter($lista, fn ($e) => $e['favorito'] === true);
+        $this->assertCount(1, $favoritos);
+        $this->assertEquals($e2, array_values($favoritos)[0]['id']);
+
+        // Excluir o favorito promove o restante.
+        $this->actingAs($this->user, 'sanctum')->deleteJson("/api/app/v1/enderecos/{$e2}")->assertOk();
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/enderecos')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.favorito', true)
+            ->assertJsonPath('data.0.id', $e1);
+    }
+
+    public function test_endereco_de_outro_cliente_nao_e_acessivel(): void
+    {
+        $meu = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id,
+        ]);
+        $outro = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $enderecoAlheio = \App\Models\Cliente\ClienteEndereco::query()->create([
+            'empresa_id' => $this->empresa->id, 'cliente_id' => $outro->id, 'endereco' => 'Rua X',
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')
+            ->putJson("/api/app/v1/enderecos/{$enderecoAlheio->id}/favorito")
+            ->assertStatus(404);
+    }
+
     public function test_endereco_do_cliente_resolvido_pelo_token(): void
     {
         // Cliente vinculado ao usuário do token (modelo F1).
