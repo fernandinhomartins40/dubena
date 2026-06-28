@@ -16,36 +16,36 @@ Legenda: ✅ pronto · 🟡 parcial · ❌ falta · ⛔ não se aplica (plumbing
 | `logout` | Logout | `POST app/v1/logout` | ✅ | N10 |
 | `testToken*` | Diagnóstico | — | ⛔ | — |
 
-## 2. Cliente / perfil
+## 2. Cliente / perfil ✅
 | Legado | Capacidade | ERP-NOVO | Status | Fase |
 |---|---|---|---|---|
-| `client/get`, `v2/client/getById` | Dados do cliente | derivar do token | 🟡 (falta `GET app/v1/perfil`) | F3b |
-| `client/create` | Cadastro de cliente pelo app | — | ❌ | F3b |
-| `client/update` | Editar cliente | — | ❌ | F3b |
-| `client/updatePhone` | Trocar telefone | — | ❌ | F3b |
-| `client/delete` | Excluir conta | — | ❌ | F3b |
+| `client/get`, `v2/client/getById` | Dados do cliente | `GET app/v1/perfil` (token) | ✅ | F3b |
+| `client/create` | Cadastro de cliente pelo app | `POST app/v1/cliente/cadastro` | ✅ | F3b |
+| `client/update` | Editar cliente | `PUT app/v1/perfil` | ✅ | F3b |
+| `client/updatePhone` | Trocar telefone | (telefone vem do Firebase verificado) | 🟡 | F3b |
+| `client/delete` | Excluir conta | `DELETE app/v1/perfil` | ✅ | F3b |
 
-## 3. Endereços
+## 3. Endereços ✅
 | Legado | Capacidade | ERP-NOVO | Status | Fase |
 |---|---|---|---|---|
-| `address/getStandard` | Endereço padrão | `GET app/v1/perfil/endereco` | 🟡 (inline único) | F3 |
-| `address/getAll` | **Múltiplos** endereços | — | ❌ | F3b (precisa tabela) |
-| `address/create/update/delete` | CRUD endereço | `PUT app/v1/perfil/endereco` (1 só) | 🟡 | F3b |
-| `address/makeFavorite` | Favoritar endereço | — | ❌ | F3b |
+| `address/getStandard` | Endereço padrão | `GET app/v1/perfil/endereco` + favorito em `enderecos` | ✅ | F3/F3b |
+| `address/getAll` | **Múltiplos** endereços | `GET app/v1/enderecos` | ✅ | F3b |
+| `address/create/update/delete` | CRUD endereço | `POST/PUT/DELETE app/v1/enderecos` | ✅ | F3b |
+| `address/makeFavorite` | Favoritar endereço | `PUT app/v1/enderecos/{id}/favorito` | ✅ | F3b |
 | `getAddressFromLatLng` | Geocode reverso | (app usa Google direto) | ✅ | — |
 
-## 4. Revenda / catálogo / preço
+## 4. Revenda / catálogo / preço ✅
 | Legado | Capacidade | ERP-NOVO | Status | Fase |
 |---|---|---|---|---|
-| `reseller/get` | Dados da revenda | empresa do token | 🟡 | F3b |
+| `reseller/get` | Dados da revenda | `GET app/v1/reseller` | ✅ | F3b |
 | `reseller/isGpAllowed` | Gás do Povo permitido | `GET app/v1/config` | ✅ | F3 |
 | `product/get` (`getToOrder`) | Produtos | `GET app/v1/produtos` | ✅ | F2/F3 |
 | `v2/order/root` / `app/init` | Abertura (produtos+pagamento) | `GET app/v1/init` | ✅ | F3 |
 | `payment/get` | **Formas de pagamento com preço por forma** | `init.condicoes` + `produto_condicao_precos` | ✅ | **F3c** |
 | `price/get` | Preços por forma de pagamento | `POST app/v1/carrinho/cotacao` (por `condicao_id`) | ✅ | F3c |
 | `coupons/verify`, `coupons/get`, `payment/coupon` | Cupom | `GET app/v1/cupom` + cotação | ✅ | F3 |
-| `holiday/*` | Feriados (afeta agendamento) | — | ❌ | F3b |
-| `polygons/*` | Polígonos de entrega | geofence (admin/F0 satélites) | 🟡 | F3b |
+| `holiday/*` | Feriados (afeta agendamento) | `GET app/v1/feriados` | ✅ | F3b |
+| `polygons/*` | Polígonos de entrega | `GET app/v1/poligonos` (cercas) | ✅ | F3b |
 
 ## 5. Pedido
 | Legado | Capacidade | ERP-NOVO | Status | Fase |

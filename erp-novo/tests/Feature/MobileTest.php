@@ -548,6 +548,44 @@ class MobileTest extends TestCase
             ->assertOk()->assertJsonPath('data.pago', false);
     }
 
+    public function test_reseller_info_da_empresa_do_token(): void
+    {
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/reseller')
+            ->assertOk()
+            ->assertJsonPath('data.id', $this->empresa->id)
+            ->assertJsonStructure(['data' => ['id', 'nome', 'telefone', 'latitude', 'longitude']]);
+    }
+
+    public function test_feriados_do_grupo(): void
+    {
+        \App\Models\Apoio\Feriado::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Natal',
+            'data' => '2026-12-25', 'recorrente' => true, 'ativo' => true,
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/feriados')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.descricao', 'Natal');
+    }
+
+    public function test_poligonos_de_entrega_da_empresa(): void
+    {
+        $cerca = Cerca::query()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'descricao' => 'Centro', 'setor_id' => $this->setor->id, 'ativo' => true,
+        ]);
+        $cerca->pontos()->createMany([
+            ['latitude' => -25.0, 'longitude' => -51.0, 'ordem' => 0],
+            ['latitude' => -25.0, 'longitude' => -51.1, 'ordem' => 1],
+            ['latitude' => -25.1, 'longitude' => -51.1, 'ordem' => 2],
+        ]);
+
+        $this->actingAs($this->user, 'sanctum')->getJson('/api/app/v1/poligonos')
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.descricao', 'Centro')
+            ->assertJsonCount(3, 'data.0.pontos');
+    }
+
     public function test_cadastro_de_cliente_cria_vincula_e_emite_token(): void
     {
         // Telefone novo (sem cliente). Cadastro cria cliente + user + token.

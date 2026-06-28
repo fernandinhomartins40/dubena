@@ -63,9 +63,65 @@ class AppClienteController extends Controller
 
         return response()->json(['data' => [
             'gaspovo_ativo' => (bool) ($app['gaspovo_ativo'] ?? false),
+            'frete_gaspovo' => isset($app['frete_gaspovo']) ? (float) $app['frete_gaspovo'] : null,
             'video' => $app['video'] ?? null, // { url, titulo } ou null
             'tempo_entrega_min' => $cfg?->tempoentrega,
         ]]);
+    }
+
+    /** GET /app/v1/reseller — dados da revenda (empresa do token) exibidos no app (F3b). */
+    public function reseller(Request $request): JsonResponse
+    {
+        $empresa = \App\Models\Empresa::query()->findOrFail($request->user()->empresa_id);
+        $cfg = EmpresaConfig::query()->where('empresa_id', $empresa->id)->first();
+
+        return response()->json(['data' => [
+            'id' => $empresa->id,
+            'nome' => $empresa->nome_fantasia ?: $empresa->razao_social,
+            'telefone' => $empresa->telefone1,
+            'whatsapp' => $empresa->telefone2,
+            'latitude' => $empresa->latitude !== null ? (float) $empresa->latitude : null,
+            'longitude' => $empresa->longitude !== null ? (float) $empresa->longitude : null,
+            'tempo_entrega_min' => $cfg?->tempoentrega,
+        ]]);
+    }
+
+    /** GET /app/v1/feriados — feriados do grupo (afetam agendamento) — F3b. */
+    public function feriados(Request $request): JsonResponse
+    {
+        $feriados = \App\Models\Apoio\Feriado::query()
+            ->where('grupo_id', $request->user()->grupo_id)
+            ->where('ativo', true)
+            ->orderBy('data')
+            ->get(['descricao', 'data', 'recorrente'])
+            ->map(fn ($f) => [
+                'descricao' => $f->descricao,
+                'data' => $f->data?->toDateString(),
+                'recorrente' => (bool) $f->recorrente,
+            ]);
+
+        return response()->json(['data' => $feriados]);
+    }
+
+    /** GET /app/v1/poligonos — cercas/polígonos de entrega da empresa (F3b). */
+    public function poligonos(Request $request): JsonResponse
+    {
+        $cercas = \App\Models\Monitora\Cerca::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('ativo', true)
+            ->with('pontos:id,cerca_id,latitude,longitude,ordem')
+            ->get(['id', 'descricao', 'setor_id'])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'descricao' => $c->descricao,
+                'setor_id' => $c->setor_id,
+                'pontos' => $c->pontos->sortBy('ordem')->values()->map(fn ($p) => [
+                    'lat' => (float) $p->latitude,
+                    'lng' => (float) $p->longitude,
+                ]),
+            ]);
+
+        return response()->json(['data' => $cercas]);
     }
 
     /** GET /app/v1/perfil/endereco — endereço (inline) do cliente do token. */

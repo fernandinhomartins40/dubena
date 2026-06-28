@@ -565,6 +565,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('cupom', [AppClienteController::class, 'cupom']);
         Route::post('carrinho/cotacao', [AppClienteController::class, 'cotar']); // F3 — preço server-side
         Route::get('config', [AppClienteController::class, 'config']);           // F3 — config do app
+        Route::get('reseller', [AppClienteController::class, 'reseller']);        // F3b — dados da revenda
+        Route::get('feriados', [AppClienteController::class, 'feriados']);        // F3b — feriados (agendamento)
+        Route::get('poligonos', [AppClienteController::class, 'poligonos']);      // F3b — polígonos de entrega
         Route::get('perfil', [AppClienteController::class, 'perfil']);                    // F3b
         Route::put('perfil', [AppClienteController::class, 'atualizarPerfil']);            // F3b
         Route::delete('perfil', [AppClienteController::class, 'excluirConta']);            // F3b
