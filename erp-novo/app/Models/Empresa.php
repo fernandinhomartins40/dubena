@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Shared\Auditavel;
+use App\Models\Saas\CidadePlataforma;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -54,5 +55,16 @@ class Empresa extends Model
     public function config(): HasOne
     {
         return $this->hasOne(EmpresaConfig::class);
+    }
+
+    /** Cidades da plataforma em que a empresa atua (P3 — descoberta/relatório). */
+    public function cidadesPlataforma(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            CidadePlataforma::class,
+            'empresa_cidade',
+            'empresa_id',
+            'cidade_plataforma_id',
+        );
     }
 }

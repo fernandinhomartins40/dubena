@@ -3,8 +3,9 @@
 namespace App\Domain\Mobile;
 
 use App\Domain\Monitora\MonitoraService;
-use App\Models\EmpresaConfig;
+use App\Domain\Saas\CidadeService;
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
 use App\Models\Monitora\Cerca;
 use Illuminate\Support\Collection;
 
@@ -22,7 +23,10 @@ use Illuminate\Support\Collection;
  */
 class MarketplaceService
 {
-    public function __construct(private MonitoraService $monitora) {}
+    public function __construct(
+        private MonitoraService $monitora,
+        private CidadeService $cidades,
+    ) {}
 
     /**
      * Empresas (aderidas ao marketplace) que atendem o ponto, ordenadas pela distância
@@ -50,8 +54,13 @@ class MarketplaceService
             ->whereIn('empresa_id', $empresas->pluck('id'))
             ->pluck('tempoentrega', 'empresa_id');
 
+        // Cidade da plataforma resolvida pelo PONTO do cliente (P3): a mesma para
+        // todas as empresas (é a cidade do endereço, não da empresa). Resolvida uma vez.
+        $cidade = $this->cidades->resolverPorPonto($lat, $lng);
+        $cidadePayload = $cidade ? ['id' => $cidade->id, 'nome' => $cidade->nome, 'uf' => $cidade->uf] : null;
+
         return $empresas
-            ->map(function (Empresa $e) use ($lat, $lng, $cercasPorEmpresa, $tempoPorEmpresa) {
+            ->map(function (Empresa $e) use ($lat, $lng, $cercasPorEmpresa, $tempoPorEmpresa, $cidadePayload) {
                 $cercas = $cercasPorEmpresa->get($e->id);
                 $atende = $this->atende($e, $lat, $lng, $cercas);
                 if (! $atende) {
@@ -70,6 +79,7 @@ class MarketplaceService
                     'longitude' => $e->longitude !== null ? (float) $e->longitude : null,
                     'distancia_km' => $distancia,
                     'tempo_entrega_min' => $tempoPorEmpresa->get($e->id),
+                    'cidade' => $cidadePayload,
                 ];
             })
             ->filter()
@@ -81,7 +91,7 @@ class MarketplaceService
      * A empresa atende o ponto? Geofence tem prioridade; sem cerca, cai para o raio
      * da matriz. Sem cerca e sem raio/coordenada → não atende (precisa configurar).
      *
-     * @param  \Illuminate\Support\Collection<int,Cerca>|null  $cercas
+     * @param  Collection<int,Cerca>|null  $cercas
      */
     private function atende(Empresa $e, float $lat, float $lng, $cercas): bool
     {

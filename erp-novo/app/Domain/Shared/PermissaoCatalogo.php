@@ -45,6 +45,8 @@ final class PermissaoCatalogo
         'gasdopovo' => ['view', 'create', 'edit'],
         'empresa' => ['view', 'create', 'edit', 'delete'],
         'grupo' => ['view', 'create', 'edit', 'delete'],
+        // Cidades da plataforma (P3) — catálogo + vínculo empresa↔cidade.
+        'cidade' => ['view', 'create', 'edit', 'delete'],
         'relatorio' => ['view'],
         // Central de Acessos (A2) — administração de usuários e papéis.
         'usuario' => ['view', 'create', 'edit', 'delete', 'reset'],

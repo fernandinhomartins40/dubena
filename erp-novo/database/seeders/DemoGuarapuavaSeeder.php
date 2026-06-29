@@ -92,10 +92,11 @@ class DemoGuarapuavaSeeder extends Seeder
 
     public function run(): void
     {
-        // Base idempotente (admin/empresa + RBAC + planos SaaS) — sempre garantida.
+        // Base idempotente (admin/empresa + RBAC + planos + cidades) — sempre garantida.
         $this->call(DeployAdminSeeder::class);
         $this->call(RbacSeeder::class);
         $this->call(PlanosSeeder::class);
+        $this->call(CidadesPlataformaSeeder::class);
 
         $this->empresa = Empresa::query()->orderBy('id')->firstOrFail();
         $this->grupoId = (int) $this->empresa->grupo_id;

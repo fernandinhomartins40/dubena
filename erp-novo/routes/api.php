@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
 use App\Http\Controllers\Api\Admin\ChequeController;
+use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
@@ -79,6 +80,10 @@ Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCli
 Route::post('/app/v1/marketplace/empresas', [MarketplaceController::class, 'empresas'])
     ->middleware('throttle:60,1');
 
+// Cidades atendidas pela plataforma (PÚBLICO) — P3. Catálogo de descoberta (rate-limited).
+Route::get('/app/v1/marketplace/cidades', [MarketplaceController::class, 'cidades'])
+    ->middleware('throttle:60,1');
+
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
 Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -137,6 +142,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
 
         // Assinatura/plano da empresa ativa (P2) — leitura. Gestão é do SuperAdmin (P4).
         Route::get('assinatura', [AssinaturaController::class, 'show']);
+
+        // Cidades da plataforma (P3) — catálogo + vínculo empresa↔cidade.
+        Route::get('cidades', [CidadeController::class, 'index']);
+        Route::post('cidades', [CidadeController::class, 'store']);
+        Route::put('cidades/{id}', [CidadeController::class, 'update'])->whereNumber('id');
+        Route::delete('cidades/{id}', [CidadeController::class, 'destroy'])->whereNumber('id');
+        Route::get('empresas/{id}/cidades', [CidadeController::class, 'cidadesDaEmpresa'])->whereNumber('id');
+        Route::put('empresas/{id}/cidades', [CidadeController::class, 'definirCidadesDaEmpresa'])->whereNumber('id');
 
         // Grupos (redes) — C1.
         Route::get('grupos', [GrupoController::class, 'index']);
