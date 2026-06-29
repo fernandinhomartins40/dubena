@@ -618,6 +618,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Entregador
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
         Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
+        // Ping de posição (P6) — throttle alto (envio frequente do GPS).
+        Route::post('entregador/posicao', [AppEntregadorController::class, 'posicao'])->middleware('throttle:120,1');
     });
 });
 

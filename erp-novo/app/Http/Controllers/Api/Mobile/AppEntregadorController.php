@@ -3,21 +3,24 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Mobile\PedidoMobileService;
+use App\Domain\Mobile\RastreamentoService;
 use App\Domain\Pedido\PedidoService;
 use App\Http\Controllers\Controller;
 use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * API do app do ENTREGADOR — N10. Sincroniza pedidos a entregar e atualiza o
- * status (com geolocalização). Auth real do colaborador (token Sanctum).
+ * API do app do ENTREGADOR — N10/P6. Sincroniza pedidos a entregar, atualiza o
+ * status e transmite a POSIÇÃO em tempo real. Auth real do colaborador (Sanctum).
  */
 class AppEntregadorController extends Controller
 {
     public function __construct(
         private PedidoService $pedidos,
         private PedidoMobileService $pedidoMobile,
+        private RastreamentoService $rastreamento,
     ) {}
 
     /** GET /app/v1/entregador/pedidos — pedidos do entregador autenticado. */
@@ -58,11 +61,40 @@ class AppEntregadorController extends Controller
             ->where('entregador_user_id', $user->id)
             ->findOrFail($id);
 
+        // Segurança (fix da auditoria §6): a situação destino tem de ser do MESMO
+        // grupo do pedido. O `exists` da validação não garante isso — sem este
+        // check, o entregador poderia mover seu pedido para uma situação de outra
+        // rede (id válido, grupo errado).
+        $situacaoOk = PedidoSituacao::query()
+            ->where('id', $d['pedidosituacao_id'])
+            ->where('grupo_id', $pedido->grupo_id)
+            ->exists();
+        abort_unless($situacaoOk, 422, 'Situação inválida para este pedido.');
+
         $atualizado = $this->pedidos->mudarSituacao($pedido, $d['pedidosituacao_id'], $user->id);
 
         // Notifica o cliente (push) sobre a nova situação (F5).
         $this->pedidoMobile->notificarStatus($atualizado->load(['cliente', 'situacao']));
 
         return response()->json(['data' => ['id' => $atualizado->id, 'situacao_id' => $atualizado->pedidosituacao_id]]);
+    }
+
+    /**
+     * POST /app/v1/entregador/posicao — ping de geolocalização (P6). Persiste o
+     * snapshot e publica a posição nos pedidos ATIVOS do entregador (tempo real).
+     */
+    public function posicao(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'velocidade' => 'nullable|numeric|min:0',
+            'direcao' => 'nullable|integer|min:0|max:359',
+        ]);
+
+        $user = $request->user();
+        $notificados = $this->rastreamento->registrarPing($user->empresa_id, $user->id, $d);
+
+        return response()->json(['data' => ['pedidos_notificados' => $notificados]]);
     }
 }

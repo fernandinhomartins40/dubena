@@ -23,9 +23,13 @@ Broadcast::channel('empresa.{empresaId}.pedidos', function ($user, int $empresaI
     return method_exists($user, 'podeAcessarEmpresa') && $user->podeAcessarEmpresa($empresaId);
 }, ['guards' => ['sanctum']]);
 
-// Canal do pedido: o CLIENTE dono (ou o entregador/colaborador da empresa) escuta
-// a evolução de um pedido específico. Valida posse dentro do tenant.
-Broadcast::channel('pedido.{pedidoId}', function ($user, int $pedidoId) {
+/**
+ * Autoriza um usuário num canal de pedido: precisa ser do MESMO tenant e ser parte
+ * do pedido (cliente dono via cliente.user_id, ou entregador/atendente). Closure
+ * compartilhada pelos canais pedido.{id} e pedido.{id}.entregador (sem função
+ * global, para o arquivo poder ser carregado mais de uma vez sem redeclarar).
+ */
+$autorizaPedido = function ($user, int $pedidoId): bool {
     // Pedido é tenant-scoped; sem tenant resolvido no broadcasting auth, filtramos
     // explicitamente pela empresa do usuário (defense-in-depth).
     $pedido = Pedido::withoutTenant()
@@ -37,10 +41,18 @@ Broadcast::channel('pedido.{pedidoId}', function ($user, int $pedidoId) {
         return false;
     }
 
-    // Cliente dono do pedido (via cliente.user_id) OU entregador/atendente do pedido.
     $clienteUserId = Cliente::withoutTenant()->where('id', $pedido->cliente_id)->value('user_id');
 
     return (int) $clienteUserId === (int) $user->id
         || (int) $pedido->entregador_user_id === (int) $user->id
         || (int) $pedido->atendente_user_id === (int) $user->id;
-}, ['guards' => ['sanctum']]);
+};
+
+// Canal do pedido: o CLIENTE dono (ou o entregador/colaborador da empresa) escuta
+// a evolução de um pedido específico.
+Broadcast::channel('pedido.{pedidoId}', fn ($user, int $pedidoId) => $autorizaPedido($user, $pedidoId), ['guards' => ['sanctum']]);
+
+// Canal da POSIÇÃO do entregador de um pedido (P6): mesma regra de posse — o cliente
+// dono acompanha o entregador no mapa, em tempo real, só do SEU pedido. Sem isso,
+// qualquer autenticado poderia rastrear entregadores alheios.
+Broadcast::channel('pedido.{pedidoId}.entregador', fn ($user, int $pedidoId) => $autorizaPedido($user, $pedidoId), ['guards' => ['sanctum']]);

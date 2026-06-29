@@ -12,8 +12,8 @@
 
 ## STATUS DA EXECUÇÃO
 
-> **✅ Concluídas e na `main`:** P0 (push assíncrono FCM v1 + jobs tenant-aware), P1 (hardening de auth dos apps), P2 (camada SaaS), P3 (Cidade geolocalização-first), P4 (Painel SuperAdmin), P5 (tempo real — broadcasting de pedido/PIX em canais privados por tenant). Suíte verde a cada fase. **Decisão registrada:** Cidade = geolocalização-first (opção A).
-> **▶️ Próximas:** P6 (rastreamento entregador), P7 (app entregador), P8 (app consumidor ao vivo), P9 (escala).
+> **✅ Concluídas e na `main`:** P0 (push assíncrono FCM v1 + jobs tenant-aware), P1 (hardening de auth dos apps), P2 (camada SaaS), P3 (Cidade geolocalização-first), P4 (Painel SuperAdmin), P5 (tempo real — broadcasting de pedido/PIX), P6 (rastreamento do entregador em tempo real + fix de segurança da situação por grupo). Suíte verde a cada fase. **Decisão registrada:** Cidade = geolocalização-first (opção A).
+> **▶️ Próximas:** P7 (app entregador — novo app Expo), P8 (app consumidor ao vivo), P9 (escala). As fases P7/P8 são majoritariamente **front-end mobile** (Expo/React Native); o backend que as serve já está pronto (P5/P6).
 
 ## VISÃO GERAL
 
