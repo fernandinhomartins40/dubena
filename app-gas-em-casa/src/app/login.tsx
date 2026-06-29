@@ -15,8 +15,8 @@ import {
 } from "react-native"
 import useAppStore from "@/store/appStore"
 import FastImage from "react-native-fast-image"
-import Input from "@/components/atoms/Input"
-import Button from "@/components/atoms/Button"
+import Input from "@/components/atoms/input"
+import Button from "@/components/atoms/button"
 import * as NavigationBar from "expo-navigation-bar"
 
 const Login = () => {

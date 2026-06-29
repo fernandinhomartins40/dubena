@@ -1,5 +1,5 @@
-import Button from "@/components/atoms/Button"
-import Input from "@/components/atoms/Input"
+import Button from "@/components/atoms/button"
+import Input from "@/components/atoms/input"
 import { validateBirthDate, validateCpf } from "@/helpers/utils"
 import { colors, fontSize } from "@/styles/theme"
 import { UserFormSchema } from "@/types/types"

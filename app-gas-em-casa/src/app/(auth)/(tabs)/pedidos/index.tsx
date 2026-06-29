@@ -7,14 +7,14 @@ import LoaderSimple from "@/components/atoms/LoaderSimple"
 import { CartLines, HistoryItem } from "@/types/types"
 import OrderItems from "@/components/molecules/OrderItems"
 import { FlatList } from "react-native-gesture-handler"
-import Button from "@/components/atoms/Button"
+import Button from "@/components/atoms/button"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import useFlashStore from "@/store/flashStore"
 import EvaluateModal from "@/components/organism/EvaluateModal"
 import Feather from "@expo/vector-icons/Feather"
 import { Fontisto } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
-import Input from "@/components/atoms/Input"
+import Input from "@/components/atoms/input"
 
 const PedidosScreen = () => {
     const router = useRouter()

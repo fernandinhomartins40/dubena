@@ -2,7 +2,7 @@ import { useEffect } from "react"
 import useAppStore from "@/store/appStore"
 import { Href, useRouter } from "expo-router"
 import { SplashScreen } from "expo-router"
-import Loader from "@/components/templates/Loader"
+import Loader from "@/components/templates/loader"
 
 /**
  * Boot do app (F3). Roteia conforme sessão/permissões. O vídeo de abertura do legado

@@ -1,4 +1,4 @@
-import Loader from "@/components/templates/Loader"
+import Loader from "@/components/templates/loader"
 import { useRouter } from "expo-router"
 import { useEffect } from "react"
 

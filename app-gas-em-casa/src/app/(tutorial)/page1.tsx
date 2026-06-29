@@ -1,4 +1,4 @@
-import Button from "@/components/atoms/Button"
+import Button from "@/components/atoms/button"
 import { CozinhaImgUri } from "@/constants/images"
 import { colors, defaultStyles, fontSize, screenPadding, utilsStyles } from "@/styles/theme"
 import { Href, useRouter } from "expo-router"

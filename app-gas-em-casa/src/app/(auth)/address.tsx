@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Location from "expo-location"
 import { APP, DEFAULT_LOCATION } from "@/constants/app"
 import IosBackButton from "@/components/atoms/IosBackButton"
-import Button from "@/components/atoms/Button"
+import Button from "@/components/atoms/button"
 import {
     GooglePlaceData,
     GooglePlaceDetail,
@@ -28,7 +28,7 @@ import { Address as AddressType, GMapsAddress } from "@/types/types"
 import { useQuery } from "@tanstack/react-query"
 import AddressService from "@/services/address.service"
 import MaterialIcons from "@expo/vector-icons/MaterialIcons"
-import IconButton from "@/components/atoms/IconButton"
+import IconButton from "@/components/atoms/iconbutton"
 import Ionicons from "@expo/vector-icons/Ionicons"
 import AddressFormModal from "@/components/organism/AddressFormModal"
 import useDebounce from "@/hooks/useDebounce"

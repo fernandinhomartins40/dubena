@@ -2,7 +2,7 @@ import { CatalogItem } from "@/types/types"
 import { Animated, Dimensions, FlatList } from "react-native"
 import { useEffect, useRef, useState } from "react"
 import { PER_WIDTH } from "@/constants/app"
-import ProductListItem from "../molecules/ProductListItem"
+import ProductListItem from "../molecules/productlistitem"
 
 interface ProductListProps {
     products: CatalogItem[] | undefined

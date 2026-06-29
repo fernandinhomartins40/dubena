@@ -2,7 +2,7 @@ import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/sty
 import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps"
-import IconButton from "@/components/atoms/IconButton"
+import IconButton from "@/components/atoms/iconbutton"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery } from "@tanstack/react-query"
 import StoreService from "@/services/store.service"

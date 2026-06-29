@@ -1,4 +1,4 @@
-import Loader from "@/components/templates/Loader"
+import Loader from "@/components/templates/loader"
 import useForegroundNotifications from "@/hooks/useForegroundNotifications"
 import OrderService from "@/services/order.service"
 import StoreService from "@/services/store.service"

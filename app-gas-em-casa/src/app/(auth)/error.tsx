@@ -1,6 +1,6 @@
 import React from "react"
 import { useGlobalSearchParams } from "expo-router"
-import ErrorView from "@/components/templates/ErrorView"
+import ErrorView from "@/components/templates/errorview"
 
 const Error = () => {
     const { error } = useGlobalSearchParams()

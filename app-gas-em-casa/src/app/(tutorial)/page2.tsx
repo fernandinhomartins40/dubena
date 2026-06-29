@@ -4,7 +4,7 @@ import { defaultStyles, fontSize, screenPadding, utilsStyles } from "@/styles/th
 import { SenhoraUri } from "@/constants/images"
 import { LinearGradient } from "expo-linear-gradient"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
-import Button from "@/components/atoms/Button"
+import Button from "@/components/atoms/button"
 import { Href, useRouter } from "expo-router"
 
 import * as Location from "expo-location"

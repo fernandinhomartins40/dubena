@@ -1,5 +1,5 @@
 import React from "react"
-import Button from "@/components/atoms/Button"
+import Button from "@/components/atoms/button"
 import UserService from "@/services/user.service"
 import { defaultStyles, screenPadding } from "@/styles/theme"
 import { useQuery } from "@tanstack/react-query"
