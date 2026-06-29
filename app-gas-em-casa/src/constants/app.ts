@@ -98,12 +98,20 @@ export const DEFAULT_LOCATION = { latitude: -25.3862077, longitude: -51.4867962 
  * Em dev, se a env não estiver configurada, falhamos cedo e de forma clara em vez
  * de silenciosamente cair em uma URL errada.
  */
+type ReverbExtra = {
+    key?: string
+    host?: string
+    port?: number
+    scheme?: string
+}
+
 type AppExtra = {
     appEnv?: string
     apiUrl?: string
     googleMapsApiKey?: string
     debug?: boolean
     empresaId?: number | null
+    reverb?: ReverbExtra
 }
 
 const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra
@@ -124,4 +132,11 @@ export const APP = {
     gap_key: extra.googleMapsApiKey ?? "",
     /** Empresa (tenant) atendida por este build — enviada no login do cliente (F1). */
     empresa_id: extra.empresaId ?? null,
+    /** P8: tempo real (Reverb/Pusher). Vazio = sem WebSocket (cai p/ polling). */
+    reverb: {
+        key: extra.reverb?.key ?? "",
+        host: extra.reverb?.host ?? "",
+        port: extra.reverb?.port ?? 443,
+        scheme: extra.reverb?.scheme ?? "https",
+    },
 }

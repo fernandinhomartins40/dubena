@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
 import Timeline from "@/components/molecules/Timeline"
 import useFlashStore from "@/store/flashStore"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -10,6 +11,7 @@ import { useRouter } from "expo-router"
 import OrderItems from "@/components/molecules/OrderItems"
 import { StatusBar } from "expo-status-bar"
 import * as NavigationBar from "expo-navigation-bar"
+import { useAcompanharPedido } from "@/hooks/useAcompanharPedido"
 
 const TrackScreen = () => {
     const { pendingOrder, setPendingOrder, clearCart } = useFlashStore()
@@ -19,6 +21,8 @@ const TrackScreen = () => {
         queryKey: ["order-track", pendingOrder?.id],
         queryFn: () => OrderService.Track(pendingOrder!.id),
         enabled: !!pendingOrder,
+        // P8: com tempo real, o polling vira só uma rede de segurança (intervalo
+        // maior). Sem Reverb, mantém os 30s de antes.
         refetchInterval: 30 * 1000,
     })
 
@@ -30,6 +34,15 @@ const TrackScreen = () => {
     // O ERP-NOVO expõe `efeito` (PENDENTE/CONCLUIDO/CANCELADO) + `situacao` (texto).
     // "Em atendimento" é inferido por uma situação intermediária (não pendente/concluído).
     const emAtendimento = !!order && !concluido && !cancelado && efeito !== "PENDENTE"
+
+    // P8 — tempo real: assina o canal do pedido. Ao receber mudança de status,
+    // invalida a query (reflete na hora). A posição do entregador alimenta o mapa.
+    const aoMudarStatus = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ["order-track", pendingOrder?.id] })
+    }, [queryClient, pendingOrder?.id])
+
+    const { posicao, aoVivo } = useAcompanharPedido(pendingOrder?.id ?? null, aoMudarStatus)
+    const mostrarMapa = emAtendimento && !!posicao
 
     const tracklines = useMemo<TimelineStep[]>(
         () => [
@@ -129,6 +142,31 @@ const TrackScreen = () => {
                     {renderOrderItems()}
                 </View>
 
+                {mostrarMapa && (
+                    <View style={[styles.box, { padding: 0, overflow: "hidden" }]}>
+                        <MapView
+                            style={styles.map}
+                            provider={PROVIDER_GOOGLE}
+                            region={{
+                                latitude: posicao!.lat,
+                                longitude: posicao!.lng,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            }}
+                            pointerEvents="none"
+                        >
+                            <Marker
+                                coordinate={{ latitude: posicao!.lat, longitude: posicao!.lng }}
+                                title="Entregador"
+                                description="Posição em tempo real"
+                            />
+                        </MapView>
+                        <Text style={styles.mapLabel}>
+                            {aoVivo ? "● Entregador a caminho — ao vivo" : "Entregador a caminho"}
+                        </Text>
+                    </View>
+                )}
+
                 <View
                     style={[
                         {
@@ -153,6 +191,16 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         boxShadow: "0px 4px 40px 0px #39253D29",
         marginHorizontal: 8,
+    },
+    map: {
+        height: 220,
+        width: "100%",
+    },
+    mapLabel: {
+        ...fontStyle.semiBold,
+        fontSize: fontSize.sm,
+        color: colors.primary,
+        padding: 12,
     },
 })
 

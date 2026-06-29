@@ -24,6 +24,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // este empresa_id ao ERP-NOVO para resolver o cliente pelo telefone verificado.
     const empresaId = process.env.EMPRESA_ID ? Number(process.env.EMPRESA_ID) : null
 
+    // P8: tempo real (Laravel Reverb / protocolo Pusher). Opcional — sem isto, o
+    // acompanhamento do pedido cai para polling. Ver src/helpers/realtime.ts.
+    const reverb = {
+        key: process.env.REVERB_APP_KEY ?? "",
+        host: process.env.REVERB_HOST ?? "",
+        port: process.env.REVERB_PORT ? Number(process.env.REVERB_PORT) : 443,
+        scheme: process.env.REVERB_SCHEME ?? "https",
+    }
+
     return {
         ...(config as ExpoConfig),
         ios: {
@@ -47,6 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             googleMapsApiKey,
             debug,
             empresaId,
+            reverb,
         },
     }
 }
