@@ -1,0 +1,20 @@
+# Expo / RN
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+android/
+ios/
+
+# Segredos
+.env
+*.keystore
+google-services.json
+GoogleService-Info.plist
+
+# Misc
+*.log
+.DS_Store
