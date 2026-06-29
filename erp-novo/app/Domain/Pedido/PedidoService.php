@@ -4,6 +4,7 @@ namespace App\Domain\Pedido;
 
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Pedido\Events\PedidoStatusAtualizado;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -29,8 +30,7 @@ class PedidoService
     public function __construct(
         private EstoqueService $estoque,
         private FinanceiroService $financeiro,
-    ) {
-    }
+    ) {}
 
     /** @param array<string, mixed> $dados @param list<array<string,mixed>> $itens */
     public function criar(array $dados, array $itens): Pedido
@@ -79,7 +79,7 @@ class PedidoService
      */
     public function mudarSituacao(Pedido $pedido, int $novaSituacaoId, ?int $userId = null): Pedido
     {
-        return DB::transaction(function () use ($pedido, $novaSituacaoId, $userId) {
+        $atualizado = DB::transaction(function () use ($pedido, $novaSituacaoId, $userId) {
             $anterior = $pedido->situacao; // efeito atual
             $nova = $this->situacao($novaSituacaoId);
 
@@ -92,6 +92,12 @@ class PedidoService
 
             return $pedido->refresh();
         });
+
+        // Tempo real (P5): notifica o canal da empresa e do pedido APÓS o commit
+        // (não emite em caso de rollback). Em dev/CI (broadcast=null/log) é no-op.
+        PedidoStatusAtualizado::dispatch($atualizado->load('situacao'));
+
+        return $atualizado;
     }
 
     public function excluir(Pedido $pedido): void

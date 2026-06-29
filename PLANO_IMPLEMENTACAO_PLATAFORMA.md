@@ -12,8 +12,8 @@
 
 ## STATUS DA EXECUÇÃO
 
-> **✅ Concluídas e na `main`:** P0 (push assíncrono FCM v1 + jobs tenant-aware), P1 (hardening de auth dos apps), P2 (camada SaaS), P3 (Cidade geolocalização-first), P4 (Painel SuperAdmin). Suíte verde a cada fase. **Decisão registrada:** Cidade = geolocalização-first (opção A).
-> **▶️ Próximas:** P5 (tempo real Reverb), P6 (rastreamento entregador), P7 (app entregador), P8 (app consumidor ao vivo), P9 (escala).
+> **✅ Concluídas e na `main`:** P0 (push assíncrono FCM v1 + jobs tenant-aware), P1 (hardening de auth dos apps), P2 (camada SaaS), P3 (Cidade geolocalização-first), P4 (Painel SuperAdmin), P5 (tempo real — broadcasting de pedido/PIX em canais privados por tenant). Suíte verde a cada fase. **Decisão registrada:** Cidade = geolocalização-first (opção A).
+> **▶️ Próximas:** P6 (rastreamento entregador), P7 (app entregador), P8 (app consumidor ao vivo), P9 (escala).
 
 ## VISÃO GERAL
 

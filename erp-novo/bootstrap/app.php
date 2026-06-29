@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // P5 — Broadcasting: rota /broadcasting/auth autenticada pelo guard 'sanctum'
+    // (apps Bearer + SPA cookie). Carrega routes/channels.php (autorização de canais).
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         // Sanctum stateful: requisições da SPA (mesmo domínio, cookie) são tratadas
         // como sessão; apps/integrações continuam usando token Bearer. Os dois

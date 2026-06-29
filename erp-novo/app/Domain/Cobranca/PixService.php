@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cobranca;
 
+use App\Domain\Cobranca\Events\PixConfirmado;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Pedido\Pedido;
@@ -89,7 +90,10 @@ class PixService
             throw ValidationException::withMessages(['txid' => 'Payload sem txid.']);
         }
 
-        return DB::transaction(function () use ($payload, $txid) {
+        // confirmadaAgora: true só na transição real ATIVA→CONCLUIDA (não em reentrega).
+        $confirmadaAgora = false;
+
+        $cobranca = DB::transaction(function () use ($payload, $txid, &$confirmadaAgora) {
             $cobranca = PixCobranca::withoutTenant()->where('txid', $txid)->lockForUpdate()->first();
             if (! $cobranca) {
                 throw ValidationException::withMessages(['txid' => 'Cobrança não encontrada.']);
@@ -127,8 +131,18 @@ class PixService
                 ]);
             }
 
+            $confirmadaAgora = true;
+
             return $cobranca->refresh();
         });
+
+        // Tempo real (P5): notifica o pagamento confirmado APÓS o commit, só na
+        // transição real (não em webhook reentregue). Em dev/CI é no-op.
+        if ($confirmadaAgora) {
+            PixConfirmado::dispatch($cobranca);
+        }
+
+        return $cobranca;
     }
 
     /**
