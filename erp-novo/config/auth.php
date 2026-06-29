@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Saas\PlatformAdmin;
 use App\Models\User;
 
 return [
@@ -42,6 +43,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Guard do SuperAdmin (P4) — token Sanctum sobre platform_admins. Separado
+        // do guard de tenant: usa-se via `auth:platform` nas rotas /superadmin/*.
+        'platform' => [
+            'driver' => 'sanctum',
+            'provider' => 'platform_admins',
+        ],
     ],
 
     /*
@@ -67,10 +75,11 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // Provider do SuperAdmin (P4) — identidade da plataforma, fora dos tenants.
+        'platform_admins' => [
+            'driver' => 'eloquent',
+            'model' => PlatformAdmin::class,
+        ],
     ],
 
     /*

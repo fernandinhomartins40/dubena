@@ -53,6 +53,10 @@ use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\Mobile\MarketplaceController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
+use App\Http\Controllers\Api\SuperAdmin\AuthController as SuperAdminAuthController;
+use App\Http\Controllers\Api\SuperAdmin\EmpresaController as SuperAdminEmpresaController;
+use App\Http\Controllers\Api\SuperAdmin\PainelController as SuperAdminPainelController;
+use App\Http\Controllers\Api\SuperAdmin\PlanoController as SuperAdminPlanoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -614,5 +618,46 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Entregador
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
         Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
+    });
+});
+
+/*
+| ── SuperAdmin (P4) — administração CROSS-TENANT da plataforma ──
+| Guard 'platform' (token Sanctum sobre platform_admins), SEPARADO do tenant.
+| O SuperAdmin não resolve tenant (não usa o middleware 'tenant'): opera sobre
+| todas as empresas via SuperAdminService, com TODA ação auditada. É a única
+| superfície que cruza o sigilo entre empresas — por isso fica isolada aqui.
+*/
+Route::prefix('superadmin')->group(function () {
+    Route::post('login', [SuperAdminAuthController::class, 'login'])->middleware('throttle:login');
+
+    Route::middleware(['auth:platform', 'throttle:api'])->group(function () {
+        Route::post('logout', [SuperAdminAuthController::class, 'logout']);
+        Route::get('me', [SuperAdminAuthController::class, 'me']);
+
+        // Dashboard + auditoria cross-tenant.
+        Route::get('dashboard', [SuperAdminPainelController::class, 'dashboard']);
+        Route::get('auditoria', [SuperAdminPainelController::class, 'auditoria']);
+
+        // Empresas (cross-tenant) — suspender/reativar, assinatura, overrides.
+        Route::get('empresas', [SuperAdminEmpresaController::class, 'index']);
+        Route::post('empresas/{id}/suspender', [SuperAdminEmpresaController::class, 'suspender'])->whereNumber('id');
+        Route::post('empresas/{id}/reativar', [SuperAdminEmpresaController::class, 'reativar'])->whereNumber('id');
+        Route::put('empresas/{id}/assinatura', [SuperAdminEmpresaController::class, 'definirAssinatura'])->whereNumber('id');
+        Route::put('empresas/{id}/assinatura/status', [SuperAdminEmpresaController::class, 'alterarStatus'])->whereNumber('id');
+        Route::get('empresas/{id}/recursos', [SuperAdminEmpresaController::class, 'recursos'])->whereNumber('id');
+        Route::put('empresas/{id}/override', [SuperAdminEmpresaController::class, 'override'])->whereNumber('id');
+        Route::delete('empresas/{id}/override/{chave}', [SuperAdminEmpresaController::class, 'removerOverride'])->whereNumber('id');
+
+        // Planos (catálogo global).
+        Route::get('planos', [SuperAdminPlanoController::class, 'index']);
+        Route::post('planos', [SuperAdminPlanoController::class, 'store']);
+        Route::put('planos/{id}', [SuperAdminPlanoController::class, 'update'])->whereNumber('id');
+
+        // Cidades da plataforma (catálogo global).
+        Route::get('cidades', [SuperAdminPainelController::class, 'cidades']);
+        Route::post('cidades', [SuperAdminPainelController::class, 'cidadeStore']);
+        Route::put('cidades/{id}', [SuperAdminPainelController::class, 'cidadeUpdate'])->whereNumber('id');
+        Route::delete('cidades/{id}', [SuperAdminPainelController::class, 'cidadeDestroy'])->whereNumber('id');
     });
 });

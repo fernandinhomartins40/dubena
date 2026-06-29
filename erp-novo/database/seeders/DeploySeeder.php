@@ -22,6 +22,7 @@ class DeploySeeder extends Seeder
             RbacSeeder::class,        // catálogo de permissões + papéis (chaves novas entram aqui)
             PlanosSeeder::class,      // catálogo de planos SaaS + recursos (P2)
             CidadesPlataformaSeeder::class, // catálogo de cidades da plataforma (P3)
+            SuperAdminSeeder::class,  // operador da plataforma / SuperAdmin (P4)
         ]);
     }
 }

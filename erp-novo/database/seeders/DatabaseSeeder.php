@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
                 RbacSeeder::class,
                 PlanosSeeder::class,
                 CidadesPlataformaSeeder::class,
+                SuperAdminSeeder::class,
             ]);
 
             return;
