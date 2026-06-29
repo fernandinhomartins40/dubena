@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Mobile\EntregaService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Mobile\RastreamentoService;
 use App\Domain\Pedido\PedidoService;
@@ -12,8 +13,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * API do app do ENTREGADOR — N10/P6. Sincroniza pedidos a entregar, atualiza o
- * status e transmite a POSIÇÃO em tempo real. Auth real do colaborador (Sanctum).
+ * API do app do ENTREGADOR — N10/P6/P7. Sincroniza pedidos, atualiza status,
+ * transmite a POSIÇÃO em tempo real e fecha o ciclo da entrega (aceite/recusa,
+ * ocorrência, comprovação com foto/assinatura, conclusão). Auth real (Sanctum).
  */
 class AppEntregadorController extends Controller
 {
@@ -21,7 +23,19 @@ class AppEntregadorController extends Controller
         private PedidoService $pedidos,
         private PedidoMobileService $pedidoMobile,
         private RastreamentoService $rastreamento,
+        private EntregaService $entrega,
     ) {}
+
+    /** Resolve um pedido do entregador autenticado (anti-IDOR: empresa + entregador). */
+    private function pedidoDoEntregador(Request $request, int $id): Pedido
+    {
+        $user = $request->user();
+
+        return Pedido::query()
+            ->where('empresa_id', $user->empresa_id)
+            ->where('entregador_user_id', $user->id)
+            ->findOrFail($id);
+    }
 
     /** GET /app/v1/entregador/pedidos — pedidos do entregador autenticado. */
     public function pedidos(Request $request): JsonResponse
@@ -96,5 +110,64 @@ class AppEntregadorController extends Controller
         $notificados = $this->rastreamento->registrarPing($user->empresa_id, $user->id, $d);
 
         return response()->json(['data' => ['pedidos_notificados' => $notificados]]);
+    }
+
+    // ── Ciclo da entrega (P7) ──
+
+    /** POST /app/v1/entregador/pedidos/{id}/aceitar — aceite da corrida. */
+    public function aceitar(Request $request, int $id): JsonResponse
+    {
+        $pedido = $this->entrega->aceitar($this->pedidoDoEntregador($request, $id));
+
+        return response()->json(['data' => ['id' => $pedido->id]]);
+    }
+
+    /** POST /app/v1/entregador/pedidos/{id}/recusar — recusa (gera ocorrência, desvincula). */
+    public function recusar(Request $request, int $id): JsonResponse
+    {
+        $d = $request->validate(['motivo' => 'nullable|string|max:255']);
+        $pedido = $this->pedidoDoEntregador($request, $id);
+        $ocorrencia = $this->entrega->recusar($pedido, $request->user()->id, $d['motivo'] ?? null);
+
+        return response()->json(['data' => ['ocorrencia_id' => $ocorrencia->id]], 201);
+    }
+
+    /** POST /app/v1/entregador/pedidos/{id}/ocorrencia — registra imprevisto (+ foto). */
+    public function ocorrencia(Request $request, int $id): JsonResponse
+    {
+        $d = $request->validate([
+            'tipo' => 'required|string|max:40',
+            'descricao' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'foto' => 'nullable|image|max:8192',
+        ]);
+
+        $pedido = $this->pedidoDoEntregador($request, $id);
+        $ocorrencia = $this->entrega->registrarOcorrencia($pedido, $request->user()->id, $d, $request->file('foto'));
+
+        return response()->json(['data' => ['id' => $ocorrencia->id, 'tipo' => $ocorrencia->tipo]], 201);
+    }
+
+    /** POST /app/v1/entregador/pedidos/{id}/concluir — comprovação + conclui a entrega. */
+    public function concluir(Request $request, int $id): JsonResponse
+    {
+        $d = $request->validate([
+            'recebido_por' => 'nullable|string|max:160',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'foto' => 'nullable|image|max:8192',
+            'assinatura' => 'nullable|image|max:4096',
+        ]);
+
+        $pedido = $this->pedidoDoEntregador($request, $id);
+        $comprovacao = $this->entrega->concluir(
+            $pedido, $request->user()->id, $d, $request->file('foto'), $request->file('assinatura'),
+        );
+
+        // Notifica o cliente (push) que o pedido foi entregue.
+        $this->pedidoMobile->notificarStatus($pedido->fresh()->load(['cliente', 'situacao']));
+
+        return response()->json(['data' => ['comprovacao_id' => $comprovacao->id, 'concluido' => true]], 201);
     }
 }
