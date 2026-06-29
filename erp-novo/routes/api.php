@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\Admin\UsuarioController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
@@ -64,6 +65,9 @@ use Illuminate\Support\Facades\Route;
 | Rotas da API (JSON). Toda a SPA e os apps consomem por aqui.
 | Contrato: JSON uniforme, número cru, sem View/Redirect.
 */
+
+// Readiness (PÚBLICO) — P9. Checa banco p/ o LB/monitor; throttle anti-abuso.
+Route::get('/health', HealthController::class)->middleware('throttle:60,1');
 
 // Autenticação (pública) — rate-limit estreito anti-brute-force (F13).
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');

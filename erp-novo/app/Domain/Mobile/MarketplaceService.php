@@ -34,11 +34,38 @@ class MarketplaceService
      *
      * @return Collection<int, array<string,mixed>>
      */
+    /**
+     * Raio máximo (km) considerado no pré-filtro por bounding-box (P9). Empresas
+     * cujo ponto fica fora desta caixa só entram se tiverem GEOFENCE (cerca), que
+     * não é limitada por raio. Cobre com folga raios de entrega realistas.
+     */
+    private const BBOX_RAIO_MAX_KM = 60.0;
+
     public function empresasNoPonto(float $lat, float $lng): Collection
     {
+        // P9 — pré-filtro no banco: recorta as candidatas por bounding-box antes do
+        // cálculo de Haversine em PHP. Empresas COM cerca entram sempre (a cerca não
+        // é limitada por raio); empresas SEM cerca só entram se caírem na caixa.
+        // O passo de precisão (atende()) continua idêntico — isto só reduz o N.
+        [$latMin, $latMax, $lngMin, $lngMax] = $this->boundingBox($lat, $lng, self::BBOX_RAIO_MAX_KM);
+
         $empresas = Empresa::query()
             ->where('ativo', true)
             ->where('app_marketplace_ativo', true)
+            ->where(function ($q) use ($latMin, $latMax, $lngMin, $lngMax) {
+                // Dentro da caixa (raio-fallback)…
+                $q->where(function ($b) use ($latMin, $latMax, $lngMin, $lngMax) {
+                    $b->whereBetween('latitude', [$latMin, $latMax])
+                        ->whereBetween('longitude', [$lngMin, $lngMax]);
+                })
+                    // …ou tem cerca ativa (geofence não é limitada por raio).
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('monitora_cercas')
+                            ->whereColumn('monitora_cercas.empresa_id', 'empresas.id')
+                            ->where('monitora_cercas.ativo', true);
+                    });
+            })
             ->get();
 
         // Cercas ativas por empresa (cross-tenant), carregadas de uma vez.
@@ -106,5 +133,21 @@ class MarketplaceService
         }
 
         return false;
+    }
+
+    /**
+     * Bounding-box (lat/lng) ao redor de um ponto para um raio em km (P9).
+     * Aproximação suficiente para PRÉ-FILTRO (a precisão fica no Haversine):
+     * 1° de latitude ≈ 111 km; longitude é corrigida pelo cosseno da latitude.
+     *
+     * @return array{0:float,1:float,2:float,3:float} [latMin, latMax, lngMin, lngMax]
+     */
+    private function boundingBox(float $lat, float $lng, float $raioKm): array
+    {
+        $dLat = $raioKm / 111.0;
+        $cos = max(cos(deg2rad($lat)), 0.01); // evita divisão por ~0 perto dos polos
+        $dLng = $raioKm / (111.0 * $cos);
+
+        return [$lat - $dLat, $lat + $dLat, $lng - $dLng, $lng + $dLng];
     }
 }

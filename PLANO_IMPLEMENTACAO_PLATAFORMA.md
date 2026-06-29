@@ -13,7 +13,8 @@
 ## STATUS DA EXECUÇÃO
 
 > **✅ Concluídas e na `main`:** P0 (push assíncrono FCM v1 + jobs tenant-aware), P1 (hardening de auth dos apps), P2 (camada SaaS), P3 (Cidade geolocalização-first), P4 (Painel SuperAdmin), P5 (tempo real — broadcasting de pedido/PIX), P6 (rastreamento do entregador em tempo real + fix de segurança da situação por grupo), P7 (ciclo da entrega — **backend** aceite/recusa/ocorrência/comprovação + **app Expo do entregador** em `app-entregador/`), P8 (app consumidor ao vivo — Echo/Reverb no `app-gas-em-casa`: mapa do entregador em tempo real + status por push, com fallback automático para polling). Suíte verde a cada fase. **Decisão registrada:** Cidade = geolocalização-first (opção A).
-> **▶️ Próximas:** P9 (escala — PostGIS/particionamento/observabilidade; depende da infra de produção, incl. servidor Reverb).
+> **✅ P9 (escala — camada de código):** pré-filtro espacial por bounding-box no marketplace + índices, rate-limit por tenant (`api-tenant`) e readiness `GET /api/health`. Testado (`EscalaP9Test`), suíte verde (514 passed).
+> **⏳ Restante de P9 (ops/infra, fora do código):** PostGIS, particionamento, Redis distribuído, servidor Reverb, teste de carga e pen-test cross-tenant — dependem do provisionamento de produção. **Roadmap do plano concluído no que é implementável em código.**
 
 ## VISÃO GERAL
 
@@ -460,6 +461,25 @@ P5, P6.
 ---
 
 ## FASE P9 — ESCALA + OBSERVABILIDADE
+
+> **Status:** camada de **código** entregue (commit P9). O que depende de
+> **infra de produção** fica como tarefa de ops (marcado abaixo).
+>
+> **✅ Feito (código, testado — `EscalaP9Test`):**
+> - **Pré-filtro espacial portável** no `MarketplaceService`: bounding-box em SQL
+>   recorta as candidatas antes do Haversine em PHP (empresas com geofence entram
+>   sempre via `orWhereExists`). Comportamento idêntico, N menor.
+> - **Índices** (`2026_06_29_000100_p9_indices_escala`): `empresas(latitude,longitude)`
+>   p/ o bbox e `empresa_cidade(cidade_plataforma_id)` p/ descoberta multi-cidade.
+> - **Rate-limit por tenant** (`api-tenant`): teto generoso por empresa, além do
+>   teto por usuário — um tenant não afoga outro.
+> - **Readiness** `GET /api/health`: checa o banco p/ o LB/monitor (200/503),
+>   sem vazar segredos; complementa o `/up` (liveness).
+>
+> **⏳ Ops / infra (fora do código):** extensão **PostGIS** na VPS (substitui o
+> bbox+Haversine por `geography`+GiST quando o volume exigir); **particionamento**
+> de `pedidos`/`posições`/`logs`; **Redis** distribuído (cache/filas/Echo);
+> **servidor Reverb**; **teste de carga** e **pen-test** cross-tenant/broadcasting.
 
 ### Objetivo
 Preparar para centenas de cidades / milhares de empresas / alto volume simultâneo.

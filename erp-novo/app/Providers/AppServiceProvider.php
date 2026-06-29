@@ -97,5 +97,18 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(10)
             ->by('login:'.$r->ip()));
+
+        // P9 — teto por TENANT (além do teto por usuário). Protege um tenant de ser
+        // afogado por outro num ambiente multi-empresa de alto volume: as requisições
+        // de uma mesma empresa compartilham um balde generoso. A chave vem do
+        // empresa_id do usuário autenticado (independe da ordem de middleware); sem
+        // usuário/tenant, cai para o IP.
+        RateLimiter::for('api-tenant', function (Request $r) {
+            $empresaId = $r->user()?->empresa_id;
+
+            return $empresaId
+                ? Limit::perMinute(1200)->by('t:'.$empresaId)
+                : Limit::perMinute(120)->by('ip:'.$r->ip());
+        });
     }
 }
