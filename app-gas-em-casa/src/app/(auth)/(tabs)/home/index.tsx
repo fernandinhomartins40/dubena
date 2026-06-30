@@ -166,7 +166,7 @@ const HomeScreen = () => {
                 </Text>
             </View>
 
-            <View style={{ maxHeight: 300 }}>
+            <View style={{ maxHeight: 340 }}>
                 <ProductList products={catalog} />
             </View>
 

@@ -1,4 +1,4 @@
-import { fontSize, fontStyle } from "@/styles/theme"
+import { colors, fontSize, fontStyle } from "@/styles/theme"
 import { CatalogItem } from "@/types/types"
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native"
 import FastImage from "react-native-fast-image"
@@ -7,6 +7,8 @@ import { PER_WIDTH } from "@/constants/app"
 import { GasImgUri } from "@/constants/images"
 import useFlashStore from "@/store/flashStore"
 import IconButton from "../atoms/IconButton"
+
+const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
 
 interface ProductListItem {
     index: number
@@ -45,6 +47,8 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
 
     // Gás do Povo: limita a 1 unidade por pedido.
     const shouldDisable = gasdopovo && quantity >= 1
+    const selecionado = quantity > 0
+    const preco = gasdopovo && product.preco_gasdopovo != null ? product.preco_gasdopovo : product.preco
 
     return (
         <Animated.View
@@ -55,30 +59,35 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
                 },
             ]}
         >
-            <View style={styles.card}>
-                <View>
-                    <AnimatedFastImage
-                        source={{ uri: GasImgUri }}
-                        style={[styles.image, { opacity: blur }]}
-                    />
-                </View>
-                <View>
-                    <Text style={[styles.title, fontStyle.semiBold]}>{product.descricao}</Text>
-                </View>
+            <View style={[styles.card, selecionado && styles.cardSelected]}>
+                {selecionado && (
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{quantity}</Text>
+                    </View>
+                )}
+
+                <AnimatedFastImage source={{ uri: GasImgUri }} style={[styles.image, { opacity: blur }]} />
+
+                <Text style={[styles.title, fontStyle.semiBold]} numberOfLines={2}>
+                    {product.descricao}
+                </Text>
+
+                {preco ? <Text style={styles.price}>{brl(preco)}</Text> : null}
+
                 <Animated.View style={[styles.cartControls, { opacity: blur }]}>
-                    <IconButton width={46} height={46} onPress={() => removeFromCart(product.id)}>
-                        <Feather name="minus" size={18} color="black" />
+                    <IconButton width={44} height={44} onPress={() => removeFromCart(product.id)}>
+                        <Feather name="minus" size={18} color={colors.graphite} />
                     </IconButton>
 
-                    <Text style={{ fontSize: 20 }}>{quantity}</Text>
+                    <Text style={styles.qty}>{quantity}</Text>
 
                     <IconButton
                         disabled={shouldDisable}
-                        width={46}
-                        height={46}
+                        width={44}
+                        height={44}
                         onPress={() => addToCart(product.id)}
                     >
-                        <Feather name="plus" size={18} color="black" />
+                        <Feather name="plus" size={18} color={colors.graphite} />
                     </IconButton>
                 </Animated.View>
             </View>
@@ -91,34 +100,73 @@ const styles = StyleSheet.create({
         width: width * PER_WIDTH,
     },
     image: {
-        width: 100,
-        height: 120,
+        width: 96,
+        height: 116,
     },
     title: {
         fontSize: fontSize.sm,
+        textAlign: "center",
+        color: colors.text,
+    },
+    price: {
+        fontSize: fontSize.md,
+        color: colors.primary,
+        ...fontStyle.bold,
+    },
+    qty: {
+        fontSize: 20,
+        minWidth: 24,
+        textAlign: "center",
+        color: colors.text,
+        ...fontStyle.semiBold,
     },
     card: {
-        display: "flex",
         justifyContent: "center",
         flexDirection: "column",
         alignItems: "center",
         gap: 8,
-        borderRadius: 16,
+        borderRadius: 18,
         marginVertical: 10,
-        paddingVertical: 20,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: "#E1E1E1",
+        marginHorizontal: 6,
+        paddingVertical: 18,
+        paddingHorizontal: 10,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    cardSelected: {
+        borderColor: colors.primary,
+        borderWidth: 2,
+        backgroundColor: colors.primaryMuted,
+    },
+    badge: {
+        position: "absolute",
+        top: 10,
+        right: 12,
+        minWidth: 24,
+        height: 24,
+        paddingHorizontal: 6,
+        borderRadius: 999,
+        backgroundColor: colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2,
+    },
+    badgeText: {
+        color: colors.white,
+        fontSize: fontSize.xs,
+        ...fontStyle.bold,
     },
     cartControls: {
-        display: "flex",
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: "#E8E8E8",
+        borderWidth: 1,
+        borderColor: colors.border,
         borderRadius: 28,
         paddingVertical: 5,
         paddingHorizontal: 8,
+        backgroundColor: colors.surface,
     },
 })
 
