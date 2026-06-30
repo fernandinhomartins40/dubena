@@ -1,5 +1,5 @@
 import { StyleSheet, View } from "react-native"
-import Button, { ButtonProps } from "./Button"
+import Button, { ButtonProps } from "./button"
 import { colors } from "@/styles/theme"
 import React from "react"
 

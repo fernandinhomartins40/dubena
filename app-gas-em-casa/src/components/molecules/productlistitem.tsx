@@ -6,7 +6,7 @@ import Feather from "@expo/vector-icons/Feather"
 import { PER_WIDTH } from "@/constants/app"
 import { GasImgUri } from "@/constants/images"
 import useFlashStore from "@/store/flashStore"
-import IconButton from "../atoms/IconButton"
+import IconButton from "../atoms/iconbutton"
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
 

@@ -1,7 +1,7 @@
 import { BackgroundImgUri } from "@/constants/images"
 import { colors, defaultStyles, screenPadding } from "@/styles/theme"
 import { ImageBackground, StyleSheet, Text, View } from "react-native"
-import Header from "../molecules/Header"
+import Header from "../molecules/header"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface ErrorViewProps {
