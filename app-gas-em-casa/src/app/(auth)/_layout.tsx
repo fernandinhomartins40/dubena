@@ -16,7 +16,7 @@ import { HistoryItem } from "@/types/types"
  */
 export default function Layout() {
     const router = useRouter()
-    const { setPendingOrder, setEvaluateOrderId, setAppConfig } = useFlashStore()
+    const { setPendingOrder, setAppConfig } = useFlashStore()
 
     useForegroundNotifications()
 
@@ -39,7 +39,7 @@ export default function Layout() {
     useEffect(() => {
         if (!history) return
 
-        // Pedido em andamento → retoma o acompanhamento.
+        // Pedido em andamento → retoma o acompanhamento (fluxo legítimo).
         const pendente = history.find((o) => o.efeito === "PENDENTE")
         if (pendente) {
             setPendingOrder({ id: pendente.id } as any)
@@ -47,12 +47,11 @@ export default function Layout() {
             return
         }
 
-        // Último pedido concluído ainda não avaliado → abre avaliação.
-        const aAvaliar = history.find((o) => o.efeito === "CONCLUIDO")
-        if (aAvaliar) {
-            setEvaluateOrderId(aAvaliar.id)
-            router.replace("/(auth)/(tabs)/pedidos")
-        }
+        // IMPORTANTE (UX): NÃO forçar avaliação no boot. Antes, abrir o app com um
+        // pedido concluído não avaliado redirecionava para Pedidos e abria um modal
+        // que EXIGIA nota — usuários leigos travavam aí e não voltavam a comprar.
+        // A avaliação agora é OPCIONAL e oferecida de forma discreta na aba Pedidos
+        // (card "Avalie seu último pedido" com "Agora não"). O app abre na Home.
     }, [history])
 
     if (isLoading) return <Loader />

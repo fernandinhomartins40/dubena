@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import useFlashStore from "@/store/flashStore"
 import EvaluateModal from "@/components/organism/EvaluateModal"
 import Feather from "@expo/vector-icons/Feather"
-import { Fontisto } from "@expo/vector-icons"
+import { AntDesign, Fontisto } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
 import Input from "@/components/atoms/input"
 
@@ -29,6 +29,8 @@ const PedidosScreen = () => {
     })
     const [orderId, setOrderId] = useState<number | null>(null)
     const [searchText, setSearchText] = useState("")
+    // Avaliação OPCIONAL: o banner some quando o usuário avalia ou toca "agora não".
+    const [avaliacaoDispensada, setAvaliacaoDispensada] = useState(false)
 
     useEffect(() => {
         if (evaluateOrderId) {
@@ -39,7 +41,8 @@ const PedidosScreen = () => {
     const onCloseModal = useCallback(() => {
         setOrderId(null)
         setEvaluateOrderId(null)
-    }, [])
+        setAvaliacaoDispensada(true)
+    }, [setEvaluateOrderId])
 
     const formatDate = (iso: string | null) =>
         iso ? new Date(iso).toLocaleDateString("pt-BR") : ""
@@ -148,11 +151,42 @@ const PedidosScreen = () => {
         )
     }
 
+    // Candidato a avaliação: 1º pedido concluído (mais recente). Banner opcional.
+    const avaliavel = useMemo(
+        () => (history ?? []).find((o) => o.efeito === "CONCLUIDO") ?? null,
+        [history],
+    )
+
+    const renderAvaliacaoBanner = () => {
+        if (avaliacaoDispensada || !avaliavel || orderId) return null
+        return (
+            <View style={styles.evalBanner}>
+                <View style={styles.evalIcon}>
+                    <AntDesign name="star" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.evalTitle}>Avalie seu último pedido</Text>
+                    <Text style={styles.evalSub} numberOfLines={1}>
+                        Leva 5 segundos e ajuda a melhorar.
+                    </Text>
+                </View>
+                <Pressable onPress={() => setOrderId(avaliavel.id)} style={styles.evalCta} hitSlop={6}>
+                    <Text style={styles.evalCtaText}>Avaliar</Text>
+                </Pressable>
+                <Pressable onPress={() => setAvaliacaoDispensada(true)} hitSlop={10} style={{ paddingLeft: 4 }}>
+                    <Feather name="x" size={18} color={colors.textMuted} />
+                </Pressable>
+            </View>
+        )
+    }
+
     const renderListHeader = () => (
         <>
             <View>
                 <Text style={[styles.title, fontStyle.semiBold]}>Seus Pedidos</Text>
             </View>
+
+            {renderAvaliacaoBanner()}
 
             <View>{isLoading || isRefetching ? <LoaderSimple /> : renderLastOrder()}</View>
 
@@ -364,6 +398,49 @@ const styles = StyleSheet.create({
     },
     repeatButtonText: {
         fontSize: fontSize.xs,
+    },
+    evalBanner: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        marginTop: 14,
+        marginHorizontal: screenPadding.horizontal,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        backgroundColor: colors.primaryMuted,
+        borderWidth: 1,
+        borderColor: "#FFD9C2",
+    },
+    evalIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        backgroundColor: colors.white,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    evalTitle: {
+        fontSize: fontSize.sm,
+        color: colors.text,
+        ...fontStyle.semiBold,
+    },
+    evalSub: {
+        fontSize: fontSize.xs,
+        color: colors.textMuted,
+        marginTop: 1,
+        ...fontStyle.regular,
+    },
+    evalCta: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 999,
+    },
+    evalCtaText: {
+        color: colors.white,
+        fontSize: fontSize.xs,
+        ...fontStyle.semiBold,
     },
 })
 

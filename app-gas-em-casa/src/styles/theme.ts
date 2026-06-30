@@ -1,30 +1,71 @@
 import { Platform, StatusBar, StyleSheet } from "react-native"
 
+/**
+ * Identidade visual — Supergasbras (laranja + lime sobre grafite).
+ * As CHAVES são preservadas (primary/secondary/primaryMuted/…) para que todas as
+ * telas existentes adotem a nova marca só trocando os valores. `primary` agora é
+ * o laranja da marca; `secondary` é o lime de destaque.
+ */
 export const colors = {
-    errorColor: "red",
-    primary: "#9747FF",
-    secondary: "#e7eb13",
-    background: "#FFF",
-    text: "#000",
-    textMuted: "#9ca3af",
-    icon: "#000",
+    errorColor: "#DC2626",
+    primary: "#FF6200", // laranja Supergasbras
+    primaryDark: "#E04E00",
+    secondary: "#DBFB3B", // lime de destaque
+    background: "#F6F7F9",
+    surface: "#FFFFFF",
+    text: "#1A1A1A",
+    graphite: "#2B2B2B",
+    textMuted: "#6B7280",
+    border: "#E6E8EB",
+    icon: "#2B2B2B",
     maximumTrackTintColor: "rgba(255,255,255,0.4)",
     minimumTrackTintColor: "rgba(255,255,255,0.6)",
     softGrey: "#919191",
     white: "#FFF",
-    primaryMuted: "#F7ECFA",
-    disabled: "#f1f1f1",
+    primaryMuted: "#FFF1E8", // tint do laranja (era roxo claro)
+    success: "#16A34A",
+    successMuted: "#E7F6EC",
+    warning: "#D97706",
+    disabled: "#F1F1F1",
 }
 
 export const fontSize = {
     xs: 12,
     sm: 16,
+    md: 18,
     base: 20,
     lg: 24,
+    xl: 30,
+    xxl: 36,
+}
+
+export const radius = {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    pill: 999,
+}
+
+export const spacing = {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+}
+
+/** Sombra suave padrão dos cards (usar via {...shadow.card}). */
+export const shadow = {
+    card: {
+        boxShadow: "0px 6px 24px 0px rgba(27, 25, 31, 0.08)",
+        elevation: 3,
+    },
 }
 
 export const screenPadding = {
-    horizontal: 14,
+    horizontal: 16,
 }
 
 export const settingPadding = {
