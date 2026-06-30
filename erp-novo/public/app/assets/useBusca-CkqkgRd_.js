@@ -1,0 +1,1 @@
+import{r as t}from"./index-DxVHLBJL.js";function f(s=""){const[e,o]=t.useState(s),[c,u]=t.useState(s),[r,a]=t.useState(1);function n(){a(1),u(e)}return{busca:e,setBusca:o,q:c,setQ:u,page:r,setPage:a,submit:n}}export{f as u};
