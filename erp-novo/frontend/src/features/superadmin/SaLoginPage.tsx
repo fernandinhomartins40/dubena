@@ -4,6 +4,11 @@ import { ShieldCheck } from 'lucide-react'
 import { Button, Input, Field, toast } from '@/components/ui'
 import { useSaAuth } from './auth'
 
+/** Credencial de teste (atalho de preenchimento rápido). */
+const LOGIN_TESTE = { email: 'superadmin@gasemcasa.com', senha: 'superadmin123' }
+// Mostra o atalho fora de produção (em prod o painel real não traz seed de teste).
+const MOSTRAR_TESTE = !import.meta.env.PROD || import.meta.env.VITE_APP_ENV !== 'prod'
+
 /**
  * Login do SuperAdmin (P4). Isolado do login do tenant. Suporta 2FA: o backend
  * responde 423 (two_factor_required) → revelamos o campo de código.
@@ -17,11 +22,10 @@ export function SaLoginPage() {
   const [precisa2fa, setPrecisa2fa] = useState(false)
   const [carregando, setCarregando] = useState(false)
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function entrar(emailArg: string, senhaArg: string, otpArg?: string) {
     setCarregando(true)
     try {
-      await login(email.trim(), senha, precisa2fa ? otp.trim() : undefined)
+      await login(emailArg.trim(), senhaArg, otpArg?.trim() || undefined)
       navigate('/superadmin', { replace: true })
     } catch (err: any) {
       if (err?.response?.status === 423) {
@@ -33,6 +37,17 @@ export function SaLoginPage() {
     } finally {
       setCarregando(false)
     }
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    await entrar(email, senha, precisa2fa ? otp : undefined)
+  }
+
+  function preencherTeste() {
+    setEmail(LOGIN_TESTE.email)
+    setSenha(LOGIN_TESTE.senha)
+    entrar(LOGIN_TESTE.email, LOGIN_TESTE.senha)
   }
 
   return (
@@ -61,6 +76,20 @@ export function SaLoginPage() {
           <Button type="submit" className="w-full" disabled={carregando}>
             {carregando ? 'Entrando…' : 'Entrar'}
           </Button>
+
+          {MOSTRAR_TESTE && (
+            <div className="border-t border-border pt-3">
+              <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Modo teste
+              </p>
+              <Button type="button" variant="outline" className="w-full" onClick={preencherTeste} disabled={carregando}>
+                Preencher login de teste
+              </Button>
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {LOGIN_TESTE.email} · {LOGIN_TESTE.senha}
+              </p>
+            </div>
+          )}
         </form>
       </div>
     </div>

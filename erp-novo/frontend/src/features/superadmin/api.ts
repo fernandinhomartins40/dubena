@@ -23,10 +23,26 @@ export function getSaToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
 
+/**
+ * O backend usa `statefulApi()` do Sanctum: como o painel roda no MESMO domínio
+ * da SPA, o navegador anexa os cookies de sessão/XSRF automaticamente e o Sanctum
+ * trata a requisição como stateful → exige CSRF (senão 419). Por isso o cliente
+ * envia credenciais + reflete o XSRF-TOKEN no header (igual ao lib/api.ts do tenant).
+ * O guard real continua sendo o Bearer token da plataforma.
+ */
 export const saApi = axios.create({
   baseURL: `${PREFIX}/api/superadmin`,
+  withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: 'XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
   headers: { Accept: 'application/json' },
 })
+
+/** Garante o cookie CSRF (Sanctum) antes de um POST stateful (login/escrita). */
+export async function ensureSaCsrf(): Promise<void> {
+  await axios.get(`${PREFIX}/sanctum/csrf-cookie`, { withCredentials: true })
+}
 
 saApi.interceptors.request.use((config) => {
   const token = getSaToken()
@@ -110,6 +126,8 @@ export interface SaAuditoria {
 
 /** Login da plataforma. 423 = 2FA exigido (tratado na tela). */
 export async function saLogin(email: string, password: string, otp?: string): Promise<SaAdmin> {
+  // Garante o cookie CSRF antes do POST (Sanctum stateful no mesmo domínio).
+  try { await ensureSaCsrf() } catch { /* sem cookie → tenta mesmo assim (Bearer) */ }
   const { data } = await saApi.post('/login', { email, password, ...(otp ? { otp } : {}) })
   setSaToken(data.token)
   return data.admin
