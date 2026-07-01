@@ -9,7 +9,6 @@ import UserService from "@/services/user.service"
 import AddressService from "@/services/address.service"
 import useAppStore from "@/store/appStore"
 import AddressSheet from "@/components/organism/AddressSheet"
-import UserSheet from "@/components/organism/UserSheet"
 import SettingRow from "@/components/molecules/SettingRow"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import LoaderOverlay from "@/components/atoms/LoaderOverlay"
@@ -18,7 +17,6 @@ import { capitalizeFirstLetter } from "@/helpers/utils"
 
 const PerfilScreen = () => {
     const addressesSheetRef = useRef<BottomSheetModal>(null)
-    const formRef = useRef<BottomSheetModal>(null)
     const { user } = useAppStore()
     const router = useRouter()
     const param = useLocalSearchParams()
@@ -43,7 +41,7 @@ const PerfilScreen = () => {
     })
 
     useEffect(() => {
-        if (param?.disable == "1") formRef.current?.present()
+        if (param?.disable == "1") router.push("/(auth)/perfil-dados")
         setTimeout(() => router.setParams({ disable: "0" }), 200)
     }, [param])
 
@@ -99,7 +97,7 @@ const PerfilScreen = () => {
                         icon={User}
                         title="Dados pessoais"
                         subtitle="Informações da sua conta"
-                        onPress={() => formRef.current?.present()}
+                        onPress={() => router.push("/(auth)/perfil-dados")}
                     />
                     <SettingRow
                         icon={LogOut}
@@ -118,7 +116,6 @@ const PerfilScreen = () => {
             </ScrollView>
 
             <AddressSheet ref={addressesSheetRef} addresses={addresses} />
-            {user ? <UserSheet ref={formRef} /> : null}
             <LoaderOverlay isLoading={isPending} />
         </View>
     )

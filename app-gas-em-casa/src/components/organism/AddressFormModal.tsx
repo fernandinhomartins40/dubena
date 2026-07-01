@@ -5,15 +5,14 @@ import {
     Modal,
     ScrollView,
     StyleSheet,
-    TouchableOpacity,
-    Alert,
+    Pressable,
     KeyboardAvoidingView,
     Platform,
-    Dimensions,
 } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Address, AddressType, GMapsAddress } from "@/types/types"
-import { colors, fontSize } from "@/styles/theme"
-import IosBackButton from "../atoms/IosBackButton"
+import { colors, fontSize, fontStyle, radius } from "@/styles/theme"
+import { ChevronLeft } from "lucide-react-native"
 import AddressTypeIcon from "../atoms/AddressTypeIcon"
 import Input from "../atoms/input"
 import Button from "../atoms/button"
@@ -21,17 +20,23 @@ import AddressService from "@/services/address.service"
 import { useRouter } from "expo-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { TextInput } from "react-native-gesture-handler"
+import Toast from "react-native-toast-message"
 
-const { width } = Dimensions.get("window")
 interface Props {
     address: Address | GMapsAddress | null
     open: boolean
     closeModal: () => void
 }
 
+/**
+ * Formulário de endereço (etapa 2 do fluxo de endereço, após escolher o ponto no
+ * mapa). Modal em tela cheia com header próprio, identidade nova e validação inline
+ * (toast, sem Alert nativo). Espaçamento pelos tokens do tema.
+ */
 const AddressFormModal = ({ open, address, closeModal }: Props) => {
     const baseTypes = [AddressType.Home, AddressType.Workplace, AddressType.Default]
     const router = useRouter()
+    const { top } = useSafeAreaInsets()
     const [type, setType] = useState(AddressType.Default)
     const [state, setState] = useState("")
     const [city, setCity] = useState("")
@@ -47,8 +52,10 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
     const referenceRef = useRef<TextInput>(null)
     const complementRef = useRef<TextInput>(null)
     const queryClient = useQueryClient()
+
     const onSaved = () => {
         queryClient.invalidateQueries({ queryKey: ["addresses"] })
+        Toast.show({ type: "success", text1: "Endereço salvo." })
         router.replace("/(auth)/(tabs)/home")
     }
     const { mutate: updateAddress, isPending: isUpdating } = useMutation({
@@ -59,7 +66,6 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
         mutationFn: AddressService.Store,
         onSuccess: onSaved,
     })
-    const isSmaller = Platform.select({ ios: width <= 375, default: width <= 360 })
 
     useEffect(() => {
         if (address) {
@@ -69,50 +75,28 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
             setStreet(address?.rua)
             setNumber(String(address?.numero))
             setZip(address?.cep)
-
             if ("complemento" in address) setComplement(address.complemento)
-
             if ("pontoreferencia" in address) setReference(address.pontoreferencia)
         }
     }, [address])
 
     const isValidated = () => {
-        if (!street) {
-            Alert.alert("Oops..", "Informe a rua.")
+        const faltando =
+            (!street && "a rua") ||
+            (!district && "o bairro") ||
+            (!state && "o estado") ||
+            (!city && "a cidade") ||
+            (!number && "o número") ||
+            (!zip && "o CEP")
+        if (faltando) {
+            Toast.show({ type: "error", text1: `Informe ${faltando}.` })
             return false
         }
-
-        if (!district) {
-            Alert.alert("Oops..", "Informe o Bairro.")
-            return false
-        }
-
-        if (!state) {
-            Alert.alert("Oops..", "Informe o Estado.")
-            return false
-        }
-
-        if (!city) {
-            Alert.alert("Oops..", "Informe a Cidade.")
-            return false
-        }
-
-        if (!number) {
-            Alert.alert("Oops..", "Informe o número.")
-            return false
-        }
-
-        if (!zip) {
-            Alert.alert("Oops..", "Informe o CEP.")
-            return false
-        }
-
         return true
     }
 
     const storeAddress = async () => {
         if (!isValidated()) return
-
         const address_id = address && "id" in address ? (address as any).id : null
         const data = {
             titulo: type,
@@ -127,156 +111,138 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
             latitude: address?.latitude,
             longitude: address?.longitude,
         }
-
-        if (address_id) {
-            updateAddress({ id: address_id, data })
-        } else {
-            insertAddress({ data })
-        }
+        if (address_id) updateAddress({ id: address_id, data })
+        else insertAddress({ data })
     }
 
     const renderTypesButton = (addressType: AddressType, idx: number) => {
-        let isSelected = type == addressType
-        let selectedStyle = isSelected ? styles.selected : {}
-
+        const isSelected = type === addressType
         return (
-            <TouchableOpacity
+            <Pressable
                 key={`basetype_${idx}`}
                 onPress={() => setType(addressType)}
-                activeOpacity={0.9}
+                style={[styles.typeButton, isSelected && styles.typeSelected]}
             >
-                <View style={[styles.typeButton, selectedStyle]}>
-                    <AddressTypeIcon
-                        type={addressType}
-                        color={isSelected ? colors.primary : colors.textMuted}
-                        size={20}
-                    />
-                    <Text style={{ fontSize: 14, textAlign: "center" }}>{addressType}</Text>
-                </View>
-            </TouchableOpacity>
+                <AddressTypeIcon
+                    type={addressType}
+                    color={isSelected ? colors.primary : colors.textMuted}
+                    size={22}
+                />
+                <Text style={[styles.typeLabel, isSelected && { color: colors.primary }]}>
+                    {addressType}
+                </Text>
+            </Pressable>
         )
     }
 
     return (
-        <Modal visible={open} animationType="fade" onRequestClose={closeModal}>
-            <View
-                style={[styles.flexColumn, { marginTop: Platform.select({ ios: 35, default: 0 }) }]}
-            >
-                <IosBackButton />
+        <Modal visible={open} animationType="slide" onRequestClose={closeModal}>
+            <View style={[styles.screen, { paddingTop: top }]}>
+                <View style={styles.header}>
+                    <Pressable onPress={closeModal} hitSlop={12} style={styles.backBtn}>
+                        <ChevronLeft size={24} color={colors.text} />
+                    </Pressable>
+                    <Text style={styles.headerTitle}>Confirmar endereço</Text>
+                    <View style={{ width: 40 }} />
+                </View>
 
-                <View style={[styles.flexColumn, { marginBottom: 20 }]}>
-                    <View style={{ paddingTop: 8 }}>
-                        <Text style={styles.title}>Novo Endereço</Text>
-                    </View>
-
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === "ios" ? "padding" : "height"}
-                        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 20}
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+                >
+                    <ScrollView
+                        contentContainerStyle={styles.body}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
                     >
-                        <ScrollView
-                            contentContainerStyle={[
-                                styles.flexColumn,
-                                { paddingHorizontal: 14, marginBottom: 30 },
-                                { paddingBottom: isSmaller ? 165 : 16 },
-                            ]}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 6,
-                                }}
-                            >
-                                {baseTypes.map((type, idx) => renderTypesButton(type, idx))}
+                        <Text style={styles.sectionLabel}>Tipo de endereço</Text>
+                        <View style={styles.typeRow}>
+                            {baseTypes.map((t, idx) => renderTypesButton(t, idx))}
+                        </View>
+
+                        <View style={styles.grid2}>
+                            <View style={{ flex: 1 }}>
+                                <Input disabled label="UF" value={state} onChangeText={() => {}} />
                             </View>
+                            <View style={{ flex: 2 }}>
+                                <Input disabled label="Cidade" value={city} onChangeText={() => {}} />
+                            </View>
+                        </View>
 
-                            <Input
-                                disabled
-                                label="UF"
-                                value={state}
-                                onChangeText={(text: string) => console.log(text)}
-                            />
-
-                            <Input
-                                disabled
-                                label="Cidade"
-                                value={city}
-                                onChangeText={(text: string) => console.log(text)}
-                            />
-
-                            <Input
-                                disabled={address?.bairro !== ""}
-                                label="Bairro"
-                                value={district}
-                                onChangeText={(text: string) => setDistrict(text)}
-                                onSubmitEditing={() => streetRef.current?.focus()}
-                                returnKeyType="next"
-                                submitBehavior="submit"
-                            />
-
-                            <Input
-                                ref={streetRef}
-                                disabled={address?.rua !== ""}
-                                label="Rua"
-                                value={street}
-                                onChangeText={(text: string) => setStreet(text)}
-                                onSubmitEditing={() => numberRef.current?.focus()}
-                                returnKeyType="next"
-                                submitBehavior="submit"
-                            />
-
-                            <Input
-                                ref={numberRef}
-                                label="Número"
-                                value={number}
-                                onChangeText={(text: string) => setNumber(text)}
-                                onSubmitEditing={() => zipRef.current?.focus()}
-                                returnKeyType="next"
-                                submitBehavior="submit"
-                            />
-
-                            <Input
-                                ref={zipRef}
-                                label="CEP"
-                                value={zip}
-                                onChangeText={(text: string) => setZip(text)}
-                                onSubmitEditing={() => referenceRef.current?.focus()}
-                                returnKeyType="next"
-                                submitBehavior="submit"
-                            />
-
-                            <Input
-                                ref={referenceRef}
-                                label="Ponto de Referência"
-                                value={reference}
-                                onChangeText={(text: string) => setReference(text)}
-                                onSubmitEditing={() => complementRef.current?.focus()}
-                                returnKeyType="next"
-                                submitBehavior="submit"
-                            />
-
-                            <Input
-                                ref={complementRef}
-                                label="Complemento"
-                                value={complement}
-                                onChangeText={(text: string) => setComplement(text)}
-                                onSubmitEditing={storeAddress}
-                                returnKeyType="done"
-                                submitBehavior="submit"
-                            />
-
-                            <View style={{ paddingTop: 10 }}>
-                                <Button
-                                    disabled={isInserting || isUpdating}
-                                    title="Salvar Endereço"
-                                    onPress={storeAddress}
-                                    textStyle={{ fontSize: 18 }}
+                        <Input
+                            disabled={address?.bairro !== ""}
+                            label="Bairro"
+                            value={district}
+                            onChangeText={setDistrict}
+                            onSubmitEditing={() => streetRef.current?.focus()}
+                            returnKeyType="next"
+                            submitBehavior="submit"
+                        />
+                        <Input
+                            ref={streetRef}
+                            disabled={address?.rua !== ""}
+                            label="Rua"
+                            value={street}
+                            onChangeText={setStreet}
+                            onSubmitEditing={() => numberRef.current?.focus()}
+                            returnKeyType="next"
+                            submitBehavior="submit"
+                        />
+                        <View style={styles.grid2}>
+                            <View style={{ flex: 1 }}>
+                                <Input
+                                    ref={numberRef}
+                                    label="Número"
+                                    value={number}
+                                    onChangeText={setNumber}
+                                    keyboardType="number-pad"
+                                    onSubmitEditing={() => zipRef.current?.focus()}
+                                    returnKeyType="next"
+                                    submitBehavior="submit"
                                 />
                             </View>
-                        </ScrollView>
-                    </KeyboardAvoidingView>
+                            <View style={{ flex: 1 }}>
+                                <Input
+                                    ref={zipRef}
+                                    label="CEP"
+                                    value={zip}
+                                    onChangeText={setZip}
+                                    keyboardType="number-pad"
+                                    onSubmitEditing={() => referenceRef.current?.focus()}
+                                    returnKeyType="next"
+                                    submitBehavior="submit"
+                                />
+                            </View>
+                        </View>
+                        <Input
+                            ref={referenceRef}
+                            label="Ponto de referência"
+                            value={reference}
+                            onChangeText={setReference}
+                            onSubmitEditing={() => complementRef.current?.focus()}
+                            returnKeyType="next"
+                            submitBehavior="submit"
+                        />
+                        <Input
+                            ref={complementRef}
+                            label="Complemento"
+                            value={complement}
+                            onChangeText={setComplement}
+                            onSubmitEditing={storeAddress}
+                            returnKeyType="done"
+                            submitBehavior="submit"
+                        />
+                    </ScrollView>
+                </KeyboardAvoidingView>
+
+                <View style={[styles.footer, { paddingBottom: 16 }]}>
+                    <Button
+                        disabled={isInserting || isUpdating}
+                        title="Salvar endereço"
+                        uppercase={false}
+                        onPress={storeAddress}
+                    />
                 </View>
             </View>
         </Modal>
@@ -284,28 +250,39 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
 }
 
 const styles = StyleSheet.create({
-    title: {
-        textAlign: "center",
-        fontSize: fontSize.base,
-        fontWeight: "600",
+    screen: { flex: 1, backgroundColor: colors.background },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
     },
-    flexColumn: {
-        display: "flex",
-        flexDirection: "column",
-    },
+    backBtn: { width: 40, height: 40, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+    headerTitle: { fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
+    body: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
+    sectionLabel: { fontSize: fontSize.sm, color: colors.text, ...fontStyle.semiBold, marginTop: 4 },
+    typeRow: { flexDirection: "row", gap: 10 },
     typeButton: {
-        height: 80,
-        width: 100,
-        flexDirection: "column",
+        flex: 1,
+        height: 78,
         alignItems: "center",
         justifyContent: "center",
-        borderColor: colors.textMuted,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderRadius: 14,
-        paddingVertical: 10,
+        gap: 6,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        borderRadius: radius.lg,
+        backgroundColor: colors.surface,
     },
-    selected: {
-        borderColor: colors.primary,
+    typeSelected: { borderColor: colors.primary, backgroundColor: colors.primaryMuted },
+    typeLabel: { fontSize: 13, color: colors.text, ...fontStyle.medium },
+    grid2: { flexDirection: "row", gap: 10 },
+    footer: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        backgroundColor: colors.surface,
     },
 })
 

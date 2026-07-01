@@ -60,6 +60,7 @@ export default function Layout() {
         <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="carrinho" options={{ headerShown: false }} />
+            <Stack.Screen name="perfil-dados" options={{ headerShown: false }} />
             <Stack.Screen name="address" options={{ headerShown: false }} />
             <Stack.Screen name="track" options={{ headerShown: false }} />
             <Stack.Screen name="pix" options={{ headerShown: false }} />
