@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react"
 import Button from "@/components/atoms/button"
-import { BackgroundImgUri, LogoWhiteImgUri } from "@/constants/images"
+import { LogoWhiteImgUri } from "@/constants/images"
 import useAppStore from "@/store/appStore"
 import { colors, defaultStyles, fontSize, screenPadding } from "@/styles/theme"
 import {
-    ImageBackground,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
     Text,
     View,
 } from "react-native"
+import BrandGradient from "@/components/atoms/BrandGradient"
 import FastImage from "react-native-fast-image"
 import useTimer from "@/hooks/useTimer"
 import UserService from "@/services/user.service"
@@ -181,7 +181,7 @@ const Sms = () => {
 
     return (
         <View style={defaultStyles.container}>
-            <ImageBackground source={{ uri: BackgroundImgUri }} style={defaultStyles.image}>
+            <BrandGradient>
                 <View style={styles.container}>
                     <FastImage
                         source={{ uri: LogoWhiteImgUri, priority: FastImage.priority.normal }}
@@ -242,7 +242,7 @@ const Sms = () => {
                         </View>
                     </KeyboardAvoidingView>
                 </View>
-            </ImageBackground>
+            </BrandGradient>
         </View>
     )
 }

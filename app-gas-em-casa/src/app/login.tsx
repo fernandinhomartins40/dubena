@@ -1,11 +1,10 @@
 import { useCallback, useRef, useState } from "react"
-import { BackgroundImgUri, LogoWhiteImgUri } from "@/constants/images"
+import { LogoWhiteImgUri } from "@/constants/images"
 import { removeAlphaNumericCharacter } from "@/helpers/utils"
 import { defaultStyles, screenPadding } from "@/styles/theme"
 import { useRouter } from "expo-router"
 import {
     Alert,
-    ImageBackground,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -17,6 +16,7 @@ import useAppStore from "@/store/appStore"
 import FastImage from "react-native-fast-image"
 import Input from "@/components/atoms/input"
 import Button from "@/components/atoms/button"
+import BrandGradient from "@/components/atoms/BrandGradient"
 import * as NavigationBar from "expo-navigation-bar"
 
 const Login = () => {
@@ -77,7 +77,7 @@ const Login = () => {
 
     return (
         <View style={defaultStyles.container}>
-            <ImageBackground source={{ uri: BackgroundImgUri }} style={defaultStyles.image}>
+            <BrandGradient>
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -123,7 +123,7 @@ const Login = () => {
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
-            </ImageBackground>
+            </BrandGradient>
         </View>
     )
 }
