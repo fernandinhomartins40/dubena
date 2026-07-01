@@ -1,175 +1,163 @@
-import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
-import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
+import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps"
-import IconButton from "@/components/atoms/iconbutton"
+import { Phone, Clock, MapPin, MessageCircle, Store } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery } from "@tanstack/react-query"
 import StoreService from "@/services/store.service"
 
 const InfoScreen = () => {
-    const { bottom } = useSafeAreaInsets()
+    const { top, bottom } = useSafeAreaInsets()
     const { data: store } = useQuery({
         queryKey: ["reseller"],
         queryFn: () => StoreService.GetReseller(),
     })
 
-    const handleOnMapPress = () => {
+    const abrirMapa = () => {
         if (!store?.latitude || !store?.longitude) return
-
         const scheme = Platform.select({
             ios: `maps://0,0?ll=${store.latitude},${store.longitude}`,
             android: `geo:${store.latitude},${store.longitude}?q=${store.latitude},${store.longitude}`,
         })
-
-        if (scheme) {
-            Linking.openURL(scheme).catch(() =>
-                Alert.alert("Oops..", "Não foi possível abrir o mapa."),
-            )
-        }
+        if (scheme) Linking.openURL(scheme).catch(() => Alert.alert("Ops..", "Não foi possível abrir o mapa."))
     }
 
-    const goToWhatsApp = () => {
+    const abrirWhatsApp = () => {
         if (!store?.whatsapp) return
-        Linking.openURL(`whatsapp://send?phone=${store.whatsapp}`)
-    }
-
-    const renderStore = () => {
-        if (!store) {
-            return (
-                <View style={{ flexDirection: "column", paddingTop: 30 }}>
-                    <Text style={{ fontSize: fontSize.base, ...fontStyle.semiBold }}>
-                        Carregando informações da revenda...
-                    </Text>
-                </View>
-            )
-        }
-
-        return (
-            <View
-                style={{
-                    flexDirection: "column",
-                    paddingTop: 30,
-                    paddingHorizontal: screenPadding.horizontal,
-                }}
-            >
-                <View>
-                    <Text style={{ fontSize: fontSize.base, ...fontStyle.semiBold }}>
-                        {store.nome}
-                    </Text>
-                </View>
-
-                {store.telefone ? (
-                    <View style={styles.infoRow}>
-                        <View style={styles.iconRow}>
-                            <View style={styles.iconContainer}>
-                                <FontAwesome6 name="phone" size={18} color={colors.primary} />
-                            </View>
-                            <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                                {store.telefone}
-                            </Text>
-                        </View>
-                    </View>
-                ) : null}
-
-                {store.tempo_entrega_min ? (
-                    <View style={styles.infoRow}>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome6 name="clock" size={18} color={colors.primary} />
-                        </View>
-                        <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                            Tempo médio de entrega: {store.tempo_entrega_min} min
-                        </Text>
-                    </View>
-                ) : null}
-            </View>
+        Linking.openURL(`whatsapp://send?phone=${store.whatsapp}`).catch(() =>
+            Alert.alert("Ops..", "Instale o WhatsApp para falar com a revenda."),
         )
     }
 
-    const renderMap = () => {
-        if (!store?.latitude || !store?.longitude) return null
-
-        return (
-            <View
-                style={{ height: 250, width: "100%", paddingHorizontal: screenPadding.horizontal }}
-            >
-                <MapView
-                    style={{ flex: 1 }}
-                    initialRegion={{
-                        latitude: store.latitude,
-                        longitude: store.longitude,
-                        latitudeDelta: 0.0222,
-                        longitudeDelta: 0.0221,
-                    }}
-                    provider={Platform.OS === "ios" ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
-                    scrollEnabled={false}
-                    zoomEnabled={false}
-                >
-                    <Marker
-                        coordinate={{ latitude: store.latitude, longitude: store.longitude }}
-                        title="Aqui está a revenda!"
-                        description="Clique para abrir no mapa"
-                        onPress={handleOnMapPress}
-                    />
-                </MapView>
-            </View>
-        )
+    const ligar = () => {
+        if (!store?.telefone) return
+        Linking.openURL(`tel:${store.telefone}`)
     }
 
     return (
-        <View style={defaultStyles.container}>
+        <View style={styles.screen}>
             <ScrollView
-                contentContainerStyle={[styles.container, { paddingBottom: 70 + bottom }]}
+                contentContainerStyle={{ paddingTop: top + 16, paddingBottom: 90 + bottom }}
                 showsVerticalScrollIndicator={false}
             >
-                <View>
-                    <Text style={[styles.title, fontStyle.semiBold]}>Sobre a Distribuidora</Text>
+                <Text style={styles.pageTitle}>Ajuda & Revenda</Text>
+
+                {/* Card da revenda */}
+                <View style={styles.card}>
+                    <View style={styles.storeHeader}>
+                        <View style={styles.storeIcon}>
+                            <Store size={22} color={colors.primary} strokeWidth={2} />
+                        </View>
+                        <Text style={styles.storeName} numberOfLines={2}>
+                            {store?.nome ?? "Carregando revenda…"}
+                        </Text>
+                    </View>
+
+                    {store?.telefone ? (
+                        <Pressable style={styles.infoRow} onPress={ligar}>
+                            <Phone size={18} color={colors.primary} strokeWidth={2} />
+                            <Text style={styles.infoText}>{store.telefone}</Text>
+                        </Pressable>
+                    ) : null}
+
+                    {store?.tempo_entrega_min ? (
+                        <View style={styles.infoRow}>
+                            <Clock size={18} color={colors.primary} strokeWidth={2} />
+                            <Text style={styles.infoText}>
+                                Entrega em ~{store.tempo_entrega_min} min
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
 
-                {renderStore()}
+                {/* Mapa */}
+                {store?.latitude && store?.longitude ? (
+                    <Pressable style={styles.mapCard} onPress={abrirMapa}>
+                        <MapView
+                            style={styles.map}
+                            initialRegion={{
+                                latitude: store.latitude,
+                                longitude: store.longitude,
+                                latitudeDelta: 0.0222,
+                                longitudeDelta: 0.0221,
+                            }}
+                            provider={Platform.OS === "ios" ? PROVIDER_DEFAULT : PROVIDER_GOOGLE}
+                            scrollEnabled={false}
+                            zoomEnabled={false}
+                            pointerEvents="none"
+                        >
+                            <Marker coordinate={{ latitude: store.latitude, longitude: store.longitude }} />
+                        </MapView>
+                        <View style={styles.mapHint}>
+                            <MapPin size={16} color={colors.primary} strokeWidth={2} />
+                            <Text style={styles.mapHintText}>Toque para abrir a rota</Text>
+                        </View>
+                    </Pressable>
+                ) : null}
 
-                {renderMap()}
-
+                {/* WhatsApp — CTA de ajuda */}
                 {store?.whatsapp ? (
-                    <View style={{ marginTop: 15 }}>
-                        <IconButton width={70} height={70} onPress={goToWhatsApp}>
-                            <FontAwesome6 name="whatsapp" size={40} color="green" />
-                        </IconButton>
-                    </View>
-                ) : (
-                    ""
-                )}
+                    <Pressable style={styles.whatsBtn} onPress={abrirWhatsApp}>
+                        <MessageCircle size={22} color={colors.white} strokeWidth={2.2} />
+                        <Text style={styles.whatsText}>Falar no WhatsApp</Text>
+                    </Pressable>
+                ) : null}
             </ScrollView>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flexDirection: "column",
-        paddingTop: Platform.select({ ios: 50, default: 34 }),
-        paddingHorizontal: screenPadding.horizontal,
+    screen: { flex: 1, backgroundColor: colors.background },
+    pageTitle: { fontSize: fontSize.xl, color: colors.text, ...fontStyle.bold, paddingHorizontal: 16 },
+    card: {
+        marginHorizontal: 16,
+        marginTop: 16,
+        padding: 16,
+        borderRadius: radius.lg,
+        backgroundColor: colors.surface,
+        ...shadow.card,
     },
-    title: {
-        fontSize: fontSize.lg,
-        textAlign: "center",
-    },
-    iconContainer: {
-        height: 28,
-        padding: 4,
+    storeHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 6 },
+    storeIcon: {
+        width: 42,
+        height: 42,
+        borderRadius: radius.md,
         backgroundColor: colors.primaryMuted,
-        borderRadius: 6,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    iconRow: {
+    storeName: { flex: 1, fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
+    infoRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+    infoText: { fontSize: fontSize.sm, color: colors.text, ...fontStyle.regular },
+    mapCard: {
+        marginHorizontal: 16,
+        marginTop: 16,
+        borderRadius: radius.lg,
+        overflow: "hidden",
+        backgroundColor: colors.surface,
+        ...shadow.card,
+    },
+    map: { height: 200, width: "100%" },
+    mapHint: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 2,
+        gap: 6,
+        padding: 12,
     },
-    infoRow: {
-        paddingVertical: 10,
+    mapHintText: { fontSize: 13, color: colors.textMuted, ...fontStyle.medium },
+    whatsBtn: {
         flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
         gap: 10,
+        marginHorizontal: 16,
+        marginTop: 18,
+        paddingVertical: 15,
+        borderRadius: radius.lg,
+        backgroundColor: "#25D366",
     },
+    whatsText: { fontSize: fontSize.sm, color: colors.white, ...fontStyle.bold },
 })
 
 export default InfoScreen

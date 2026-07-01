@@ -1,12 +1,11 @@
-import { BackgroundImgUri } from "@/constants/images"
 import { colors, defaultStyles, fontSize, fontStyle } from "@/styles/theme"
-import { useGlobalSearchParams } from "expo-router"
+import { useGlobalSearchParams, useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
     ActivityIndicator,
     Alert,
-    ImageBackground,
     Platform,
+    Pressable,
     StyleSheet,
     Text,
     View,
@@ -14,8 +13,8 @@ import {
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from "react-native-maps"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Location from "expo-location"
+import { ChevronLeft } from "lucide-react-native"
 import { APP, DEFAULT_LOCATION } from "@/constants/app"
-import IosBackButton from "@/components/atoms/IosBackButton"
 import Button from "@/components/atoms/button"
 import {
     GooglePlaceData,
@@ -87,6 +86,7 @@ const MAX_TRIES = 3
 const Address = () => {
     const { address_id } = useGlobalSearchParams()
     const { top } = useSafeAreaInsets()
+    const router = useRouter()
     const mapRef = useRef<any>(null)
     const [isLocLoading, setIsLocLoading] = useState(false)
     const [isManual, setIsManual] = useState(true)
@@ -367,21 +367,19 @@ const Address = () => {
     }
 
     return (
-        <View style={defaultStyles.container}>
-            <ImageBackground
-                source={{ uri: BackgroundImgUri }}
-                style={[defaultStyles.image, { paddingTop: top }]}
-            >
-                <View style={styles.flexColumn}>
-                    <IosBackButton />
+        <View style={[defaultStyles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.flexColumn, { paddingTop: top }]}>
+                <View style={styles.header}>
+                    <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+                        <ChevronLeft size={24} color={colors.text} />
+                    </Pressable>
+                    <Text style={styles.headerTitle}>Novo endereço</Text>
+                    <View style={{ width: 40 }} />
+                </View>
 
-                    <View style={[styles.flexColumn, styles.container]}>
-                        <View style={{ paddingTop: 10 }}>
-                            <Text style={[styles.title, fontStyle.semiBold, { paddingBottom: 10 }]}>
-                                Novo Endereço
-                            </Text>
-
-                            <View style={styles.mapContainer}>
+                <View style={[styles.flexColumn, styles.container]}>
+                    <View style={{ paddingTop: 4 }}>
+                        <View style={styles.mapContainer}>
                                 <View style={{ position: "absolute", width: "100%" }}>
                                     {renderPlacesSearch()}
                                 </View>
@@ -468,7 +466,6 @@ const Address = () => {
                         </View>
                     </View>
                 </View>
-            </ImageBackground>
 
             <AddressFormModal address={addressObj} open={open} closeModal={() => setOpen(false)} />
 
@@ -478,21 +475,34 @@ const Address = () => {
 }
 
 const styles = StyleSheet.create({
-    title: {
-        textAlign: "center",
-        fontSize: fontSize.base,
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    headerTitle: {
+        fontSize: fontSize.md,
+        color: colors.text,
+        ...fontStyle.bold,
     },
     flexColumn: {
         display: "flex",
         flexDirection: "column",
     },
     container: {
-        backgroundColor: colors.white,
-        height: "100%",
-        marginTop: 30,
-        borderRadius: 30,
+        backgroundColor: colors.background,
+        flex: 1,
         justifyContent: "flex-start",
-        padding: 14,
+        paddingHorizontal: 14,
     },
     mapContainer: {
         height: "80%",

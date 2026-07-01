@@ -1,19 +1,20 @@
-import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
-import { Alert, Platform, StyleSheet, Text, View } from "react-native"
-import { Pressable } from "react-native-gesture-handler"
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
-import AntDesign from "@expo/vector-icons/AntDesign"
+import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native"
+import { MapPin, User, LogOut, Trash2 } from "lucide-react-native"
 import { useEffect, useRef } from "react"
 import { BottomSheetModal } from "@gorhom/bottom-sheet"
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import UserService from "@/services/user.service"
 import AddressService from "@/services/address.service"
 import useAppStore from "@/store/appStore"
 import AddressSheet from "@/components/organism/AddressSheet"
 import UserSheet from "@/components/organism/UserSheet"
+import SettingRow from "@/components/molecules/SettingRow"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import LoaderOverlay from "@/components/atoms/LoaderOverlay"
 import resetStorage from "@/helpers/utils"
+import { capitalizeFirstLetter } from "@/helpers/utils"
 
 const PerfilScreen = () => {
     const addressesSheetRef = useRef<BottomSheetModal>(null)
@@ -21,7 +22,14 @@ const PerfilScreen = () => {
     const { user } = useAppStore()
     const router = useRouter()
     const param = useLocalSearchParams()
-    const { data: addresses, isLoading } = useQuery({
+    const { top } = useSafeAreaInsets()
+
+    const { data: perfil } = useQuery({
+        queryKey: ["perfil"],
+        queryFn: () => UserService.GetPerfil(),
+        enabled: !!user,
+    })
+    const { data: addresses } = useQuery({
         queryKey: ["addresses"],
         queryFn: () => AddressService.GetAll(),
         enabled: !!user,
@@ -30,28 +38,17 @@ const PerfilScreen = () => {
         mutationFn: () => UserService.DeleteAccount(),
         onSuccess: () => {
             resetStorage()
-
             router.replace("/login")
         },
     })
 
     useEffect(() => {
-        if (param?.disable == "1") {
-            handleFormClick()
-        }
-
-        setTimeout(() => {
-            router.setParams({ disable: "0" })
-        }, 200)
+        if (param?.disable == "1") formRef.current?.present()
+        setTimeout(() => router.setParams({ disable: "0" }), 200)
     }, [param])
-
-    const handleAddressClick = () => addressesSheetRef.current?.present()
-
-    const handleFormClick = () => formRef.current?.present()
 
     const handleLogout = () => {
         resetStorage()
-
         router.replace("/login")
     }
 
@@ -61,264 +58,106 @@ const PerfilScreen = () => {
             "Deseja realmente excluir sua conta? Esta ação não poderá ser desfeita.",
             [
                 { text: "Não", style: "cancel" },
-                {
-                    text: "Sim",
-                    onPress: () => {
-                        mutate()
-                    },
-                },
+                { text: "Sim, excluir", style: "destructive", onPress: () => mutate() },
             ],
-            { cancelable: false },
+            { cancelable: true },
         )
     }
 
+    const nome = perfil?.nome ?? user?.name ?? "Você"
+    const inicial = (nome?.trim?.()?.[0] ?? "U").toUpperCase()
+
     return (
-        <View style={defaultStyles.container}>
-            <View style={styles.container}>
-                <View>
-                    <Text style={[styles.title, { fontWeight: 600 }]}>Seu Perfil</Text>
+        <View style={styles.screen}>
+            <ScrollView contentContainerStyle={{ paddingTop: top + 16, paddingBottom: 100 }}>
+                <Text style={styles.pageTitle}>Perfil</Text>
+
+                {/* Card do usuário */}
+                <View style={styles.userCard}>
+                    <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{inicial}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.userName} numberOfLines={1}>
+                            {capitalizeFirstLetter(nome)}
+                        </Text>
+                        {perfil?.telefone ? (
+                            <Text style={styles.userPhone}>{perfil.telefone}</Text>
+                        ) : null}
+                    </View>
                 </View>
 
-                <View style={{ marginTop: 30 }}>
-                    <Pressable
-                        disabled={isLoading}
-                        onPress={handleAddressClick}
-                        style={({ pressed }) => [
-                            {
-                                opacity: pressed ? 0.8 : 1.0,
-                            },
-                        ]}
-                    >
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                padding: 10,
-                                borderColor: colors.primaryMuted,
-                                borderWidth: StyleSheet.hairlineWidth,
-                                borderRadius: 10,
-                            }}
-                        >
-                            <View style={{ width: "10%" }}>
-                                <MaterialCommunityIcons
-                                    name="map-marker-radius-outline"
-                                    size={28}
-                                    color={colors.primary}
-                                />
-                            </View>
-
-                            <View
-                                style={{
-                                    width: "75%",
-                                    flexDirection: "column",
-                                    alignItems: "flex-start",
-                                    justifyContent: "flex-start",
-                                }}
-                            >
-                                <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                                    Endereços
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 13,
-                                        color: colors.textMuted,
-                                        ...fontStyle.regular,
-                                    }}
-                                >
-                                    Gerencie seus endereços de entrega!
-                                </Text>
-                            </View>
-
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="right" size={24} color={colors.primary} />
-                            </View>
-                        </View>
-                    </Pressable>
-                </View>
-
-                <View style={{ marginTop: 30 }}>
-                    <Pressable
-                        onPress={handleFormClick}
-                        style={({ pressed }) => [
-                            {
-                                opacity: pressed ? 0.8 : 1.0,
-                            },
-                        ]}
-                    >
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                padding: 10,
-                                borderColor: colors.primaryMuted,
-                                borderWidth: StyleSheet.hairlineWidth,
-                                borderRadius: 10,
-                            }}
-                        >
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="user" size={28} color={colors.primary} />
-                            </View>
-
-                            <View
-                                style={{
-                                    width: "75%",
-                                    flexDirection: "column",
-                                    alignItems: "flex-start",
-                                    justifyContent: "flex-start",
-                                }}
-                            >
-                                <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                                    Dados Pessoais
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 13,
-                                        color: colors.textMuted,
-                                        ...fontStyle.regular,
-                                    }}
-                                >
-                                    Informações da Conta
-                                </Text>
-                            </View>
-
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="right" size={24} color={colors.primary} />
-                            </View>
-                        </View>
-                    </Pressable>
-                </View>
-
-                <View style={{ marginTop: 30 }}>
-                    <Pressable
+                {/* Ações */}
+                <View style={styles.group}>
+                    <SettingRow
+                        icon={MapPin}
+                        title="Endereços"
+                        subtitle="Gerencie seus endereços de entrega"
+                        onPress={() => addressesSheetRef.current?.present()}
+                    />
+                    <SettingRow
+                        icon={User}
+                        title="Dados pessoais"
+                        subtitle="Informações da sua conta"
+                        onPress={() => formRef.current?.present()}
+                    />
+                    <SettingRow
+                        icon={LogOut}
+                        title="Sair"
+                        subtitle="Encerrar a sessão neste aparelho"
                         onPress={handleLogout}
-                        style={({ pressed }) => [
-                            {
-                                opacity: pressed ? 0.8 : 1.0,
-                            },
-                        ]}
-                    >
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                padding: 10,
-                                borderColor: colors.primaryMuted,
-                                borderWidth: StyleSheet.hairlineWidth,
-                                borderRadius: 10,
-                            }}
-                        >
-                            <View style={{ width: "10%" }}>
-                                <MaterialCommunityIcons
-                                    name="logout"
-                                    size={28}
-                                    color={colors.primary}
-                                />
-                            </View>
-
-                            <View
-                                style={{
-                                    width: "75%",
-                                    flexDirection: "column",
-                                    alignItems: "flex-start",
-                                    justifyContent: "flex-start",
-                                }}
-                            >
-                                <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                                    Logout
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 13,
-                                        color: colors.textMuted,
-                                        ...fontStyle.regular,
-                                    }}
-                                >
-                                    Sair da conta atual
-                                </Text>
-                            </View>
-
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="right" size={24} color={colors.primary} />
-                            </View>
-                        </View>
-                    </Pressable>
-                </View>
-
-                <View style={{ marginTop: 30 }}>
-                    <Pressable
+                    />
+                    <SettingRow
+                        icon={Trash2}
+                        title="Excluir conta"
+                        subtitle="Remover permanentemente sua conta"
                         onPress={deleteUser}
-                        style={({ pressed }) => [
-                            {
-                                opacity: pressed ? 0.8 : 1.0,
-                            },
-                        ]}
-                    >
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                padding: 10,
-                                borderColor: colors.primaryMuted,
-                                borderWidth: StyleSheet.hairlineWidth,
-                                borderRadius: 10,
-                            }}
-                        >
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="deleteuser" size={28} color="red" />
-                            </View>
-
-                            <View
-                                style={{
-                                    width: "75%",
-                                    flexDirection: "column",
-                                    alignItems: "flex-start",
-                                    justifyContent: "flex-start",
-                                }}
-                            >
-                                <Text style={{ fontSize: fontSize.sm, ...fontStyle.regular }}>
-                                    Excluir Conta
-                                </Text>
-                                <Text
-                                    style={{
-                                        fontSize: 13,
-                                        color: colors.textMuted,
-                                        ...fontStyle.regular,
-                                    }}
-                                >
-                                    Excluir minha conta
-                                </Text>
-                            </View>
-
-                            <View style={{ width: "10%" }}>
-                                <AntDesign name="right" size={24} color={colors.primary} />
-                            </View>
-                        </View>
-                    </Pressable>
+                        danger
+                    />
                 </View>
-            </View>
+            </ScrollView>
 
             <AddressSheet ref={addressesSheetRef} addresses={addresses} />
-
-            {user ? <UserSheet ref={formRef} /> : ""}
-
+            {user ? <UserSheet ref={formRef} /> : null}
             <LoaderOverlay isLoading={isPending} />
         </View>
     )
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flexDirection: "column",
-        paddingTop: Platform.select({ ios: 50, default: 34 }),
-        paddingHorizontal: screenPadding.horizontal,
+    screen: { flex: 1, backgroundColor: colors.background },
+    pageTitle: {
+        fontSize: fontSize.xl,
+        color: colors.text,
+        ...fontStyle.bold,
+        paddingHorizontal: 16,
     },
-    title: {
-        fontSize: fontSize.lg,
-        textAlign: "center",
+    userCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 14,
+        marginHorizontal: 16,
+        marginTop: 16,
+        padding: 16,
+        borderRadius: radius.lg,
+        backgroundColor: colors.surface,
+        ...shadow.card,
+    },
+    avatar: {
+        width: 56,
+        height: 56,
+        borderRadius: radius.pill,
+        backgroundColor: colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    avatarText: { fontSize: fontSize.lg, color: colors.white, ...fontStyle.bold },
+    userName: { fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
+    userPhone: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: 2, ...fontStyle.regular },
+    group: {
+        marginTop: 20,
+        marginHorizontal: 16,
+        gap: 10,
     },
 })
 
