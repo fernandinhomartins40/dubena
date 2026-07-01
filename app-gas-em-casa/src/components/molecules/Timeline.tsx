@@ -59,11 +59,10 @@ const TimelineItem = ({ track, idx, length }: ItemProps) => {
     }, [track.completed, track.isCurrent])
 
     return (
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
             <View
                 style={{
                     flexDirection: "column",
-                    justifyContent: "center",
                     alignItems: "center",
                 }}
             >
@@ -80,24 +79,21 @@ const TimelineItem = ({ track, idx, length }: ItemProps) => {
                     }}
                 ></Animated.View>
             </View>
-            <View style={{ flexDirection: "column", width: "90%" }}>
-                <View>
-                    <Text style={{ fontSize: 18, color: textColor, ...fontStyle.medium }}>
-                        {track.title}
-                    </Text>
-                </View>
-                <View>
-                    <Text
-                        style={{
-                            fontSize: 14,
-                            color: colors.textMuted,
-                            flexWrap: "wrap",
-                            ...fontStyle.regular,
-                        }}
-                    >
-                        {track.description}
-                    </Text>
-                </View>
+            <View style={styles.textCol}>
+                <Text style={{ fontSize: fontSize.sm, color: textColor, ...fontStyle.semiBold }}>
+                    {track.title}
+                </Text>
+                <Text
+                    style={{
+                        fontSize: 13,
+                        color: colors.textMuted,
+                        marginTop: 2,
+                        lineHeight: 18,
+                        ...fontStyle.regular,
+                    }}
+                >
+                    {track.description}
+                </Text>
             </View>
         </View>
     )
@@ -166,12 +162,17 @@ const BulletPoint = ({ track, idx, bulletScale }: BulletProps) => {
 
 const styles = StyleSheet.create({
     bulletPoint: {
-        height: 25,
-        width: 25,
-        borderRadius: 30,
+        height: 26,
+        width: 26,
+        borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
         zIndex: 2,
+    },
+    textCol: {
+        flex: 1,
+        paddingTop: 2,
+        paddingBottom: 8,
     },
 })
 
