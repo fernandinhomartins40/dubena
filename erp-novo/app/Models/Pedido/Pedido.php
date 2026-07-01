@@ -5,6 +5,8 @@ namespace App\Models\Pedido;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
 use App\Models\Estoque\Setor;
+use App\Models\Monitora\Veiculo;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +49,16 @@ class Pedido extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function entregador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'entregador_user_id');
+    }
+
+    public function veiculo(): BelongsTo
+    {
+        return $this->belongsTo(Veiculo::class, 'veiculo_id');
     }
 
     public function situacao(): BelongsTo

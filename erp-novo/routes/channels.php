@@ -23,6 +23,13 @@ Broadcast::channel('empresa.{empresaId}.pedidos', function ($user, int $empresaI
     return method_exists($user, 'podeAcessarEmpresa') && $user->podeAcessarEmpresa($empresaId);
 }, ['guards' => ['sanctum']]);
 
+// Canal da CENTRAL DE LOGÍSTICA (L2): o painel operacional escuta a fila de
+// distribuição (novo pedido, atribuição, posição agregada). Mesma barreira de
+// tenant do canal de pedidos — só quem pertence à empresa entra.
+Broadcast::channel('empresa.{empresaId}.central', function ($user, int $empresaId) {
+    return method_exists($user, 'podeAcessarEmpresa') && $user->podeAcessarEmpresa($empresaId);
+}, ['guards' => ['sanctum']]);
+
 /**
  * Autoriza um usuário num canal de pedido: precisa ser do MESMO tenant e ser parte
  * do pedido (cliente dono via cliente.user_id, ou entregador/atendente). Closure

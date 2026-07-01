@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
+use App\Http\Controllers\Api\Admin\CentralController;
 use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
@@ -462,6 +463,17 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::put('monitora/cercas/{id}', [MonitoraController::class, 'atualizarCerca'])->whereNumber('id');
         Route::delete('monitora/cercas/{id}', [MonitoraController::class, 'excluirCerca'])->whereNumber('id');
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
+
+        // ── Central de Logística (L1/L3) — fila, distribuição, bloqueio ──
+        Route::get('central/fila', [CentralController::class, 'fila']);
+        Route::get('central/entregadores', [CentralController::class, 'entregadores']);
+        Route::get('central/pedidos/{id}/sugestoes', [CentralController::class, 'sugestoes'])->whereNumber('id');
+        Route::post('central/pedidos/{id}/atribuir', [CentralController::class, 'atribuir'])->whereNumber('id');
+        Route::post('central/pedidos/{id}/redistribuir', [CentralController::class, 'redistribuir'])->whereNumber('id');
+        Route::post('central/pedidos/{id}/priorizar', [CentralController::class, 'priorizar'])->whereNumber('id');
+        Route::post('central/pedidos/{id}/reagendar', [CentralController::class, 'reagendar'])->whereNumber('id');
+        Route::post('central/entregadores/{id}/bloquear', [CentralController::class, 'bloquear'])->whereNumber('id');
+        Route::delete('central/entregadores/{id}/bloquear', [CentralController::class, 'desbloquear'])->whereNumber('id');
 
         // ── Relatórios (Query Services) — N12 ──
         // ── CRM / satélites (C10) ──

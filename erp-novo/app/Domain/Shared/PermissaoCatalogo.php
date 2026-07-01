@@ -30,6 +30,8 @@ final class PermissaoCatalogo
         'valegas' => ['view', 'edit'],
         'comodato' => ['view', 'edit'],
         'monitora' => ['view', 'edit'],
+        // Central de Logística (L1) — fila, atribuição, redistribuição, bloqueio.
+        'logistica' => ['view', 'distribuir', 'config'],
         'colaborador' => ['view', 'create', 'edit', 'delete'],
         'veiculo' => ['view', 'create', 'edit', 'delete'],
         'posvenda' => ['view', 'create', 'edit', 'delete'],
@@ -107,6 +109,7 @@ final class PermissaoCatalogo
         'baixar' => 'Baixar (financeiro)',
         'fechar' => 'Fechar',
         'estornar' => 'Estornar',
+        'distribuir' => 'Distribuir entregas',
     ];
 
     /**
