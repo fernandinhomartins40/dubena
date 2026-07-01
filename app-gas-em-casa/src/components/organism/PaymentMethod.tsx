@@ -14,7 +14,7 @@ const PaymentMethod = ({ condicao, onPress }: PaymentMethodProps) => {
     return (
         <View
             style={{
-                width: 360,
+                width: "100%",
                 borderColor: colors.primary,
                 borderWidth: StyleSheet.hairlineWidth,
                 padding: 14,

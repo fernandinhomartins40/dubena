@@ -59,6 +59,7 @@ export default function Layout() {
     return (
         <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="carrinho" options={{ headerShown: false }} />
             <Stack.Screen name="address" options={{ headerShown: false }} />
             <Stack.Screen name="track" options={{ headerShown: false }} />
             <Stack.Screen name="pix" options={{ headerShown: false }} />

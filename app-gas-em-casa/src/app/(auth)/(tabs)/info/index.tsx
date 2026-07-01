@@ -1,10 +1,16 @@
 import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps"
-import { Phone, Clock, MapPin, MessageCircle, Store } from "lucide-react-native"
+import { Phone, Clock, MapPin, MessageCircle, Store, ShieldCheck, Truck, HelpCircle } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQuery } from "@tanstack/react-query"
 import StoreService from "@/services/store.service"
+
+const FAQ = [
+    { icon: Truck, q: "Quanto tempo demora a entrega?", a: "O prazo varia conforme a demanda; o app mostra o tempo estimado e você acompanha o entregador no mapa." },
+    { icon: ShieldCheck, q: "Os botijões são seguros?", a: "Sim. Trabalhamos apenas com botijões lacrados e revenda autorizada." },
+    { icon: HelpCircle, q: "Como pago o pedido?", a: "Você escolhe a forma de pagamento no carrinho (PIX ou na entrega, conforme a revenda)." },
+]
 
 const InfoScreen = () => {
     const { top, bottom } = useSafeAreaInsets()
@@ -42,33 +48,35 @@ const InfoScreen = () => {
             >
                 <Text style={styles.pageTitle}>Ajuda & Revenda</Text>
 
-                {/* Card da revenda */}
-                <View style={styles.card}>
-                    <View style={styles.storeHeader}>
-                        <View style={styles.storeIcon}>
-                            <Store size={22} color={colors.primary} strokeWidth={2} />
-                        </View>
-                        <Text style={styles.storeName} numberOfLines={2}>
-                            {store?.nome ?? "Carregando revenda…"}
-                        </Text>
-                    </View>
-
-                    {store?.telefone ? (
-                        <Pressable style={styles.infoRow} onPress={ligar}>
-                            <Phone size={18} color={colors.primary} strokeWidth={2} />
-                            <Text style={styles.infoText}>{store.telefone}</Text>
-                        </Pressable>
-                    ) : null}
-
-                    {store?.tempo_entrega_min ? (
-                        <View style={styles.infoRow}>
-                            <Clock size={18} color={colors.primary} strokeWidth={2} />
-                            <Text style={styles.infoText}>
-                                Entrega em ~{store.tempo_entrega_min} min
+                {/* Card da revenda — só aparece se houver algum dado real */}
+                {store?.nome || store?.telefone || store?.tempo_entrega_min ? (
+                    <View style={styles.card}>
+                        <View style={styles.storeHeader}>
+                            <View style={styles.storeIcon}>
+                                <Store size={22} color={colors.primary} strokeWidth={2} />
+                            </View>
+                            <Text style={styles.storeName} numberOfLines={2}>
+                                {store?.nome ?? "Sua revenda"}
                             </Text>
                         </View>
-                    ) : null}
-                </View>
+
+                        {store?.telefone ? (
+                            <Pressable style={styles.infoRow} onPress={ligar}>
+                                <Phone size={18} color={colors.primary} strokeWidth={2} />
+                                <Text style={styles.infoText}>{store.telefone}</Text>
+                            </Pressable>
+                        ) : null}
+
+                        {store?.tempo_entrega_min ? (
+                            <View style={styles.infoRow}>
+                                <Clock size={18} color={colors.primary} strokeWidth={2} />
+                                <Text style={styles.infoText}>
+                                    Entrega em ~{store.tempo_entrega_min} min
+                                </Text>
+                            </View>
+                        ) : null}
+                    </View>
+                ) : null}
 
                 {/* Mapa */}
                 {store?.latitude && store?.longitude ? (
@@ -102,6 +110,20 @@ const InfoScreen = () => {
                         <Text style={styles.whatsText}>Falar no WhatsApp</Text>
                     </Pressable>
                 ) : null}
+
+                {/* Dúvidas frequentes — sempre presente (a tela nunca fica vazia) */}
+                <Text style={styles.sectionTitle}>Dúvidas frequentes</Text>
+                {FAQ.map(({ icon: Icon, q, a }) => (
+                    <View key={q} style={styles.faqCard}>
+                        <View style={styles.faqHead}>
+                            <View style={styles.faqIcon}>
+                                <Icon size={18} color={colors.primary} strokeWidth={2} />
+                            </View>
+                            <Text style={styles.faqQ}>{q}</Text>
+                        </View>
+                        <Text style={styles.faqA}>{a}</Text>
+                    </View>
+                ))}
             </ScrollView>
         </View>
     )
@@ -158,6 +180,34 @@ const styles = StyleSheet.create({
         backgroundColor: "#25D366",
     },
     whatsText: { fontSize: fontSize.sm, color: colors.white, ...fontStyle.bold },
+    sectionTitle: {
+        fontSize: fontSize.md,
+        color: colors.text,
+        ...fontStyle.bold,
+        marginHorizontal: 16,
+        marginTop: 24,
+        marginBottom: 4,
+    },
+    faqCard: {
+        marginHorizontal: 16,
+        marginTop: 10,
+        padding: 14,
+        borderRadius: radius.lg,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    faqHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 },
+    faqIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: radius.sm,
+        backgroundColor: colors.primaryMuted,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    faqQ: { flex: 1, fontSize: fontSize.sm, color: colors.text, ...fontStyle.semiBold },
+    faqA: { fontSize: 13, color: colors.textMuted, lineHeight: 19, ...fontStyle.regular },
 })
 
 export default InfoScreen

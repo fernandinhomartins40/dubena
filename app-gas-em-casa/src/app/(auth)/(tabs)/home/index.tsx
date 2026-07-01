@@ -1,25 +1,19 @@
-import React, { useEffect, useMemo, useRef } from "react"
+import React, { useEffect, useMemo } from "react"
 import Button from "@/components/atoms/button"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
 import HomeHeader from "@/components/molecules/HomeHeader"
-import OrderConfirm from "@/components/organism/OrderConfirm"
-import PaymentMethod from "@/components/organism/PaymentMethod"
-import PaymentMethodSheet from "@/components/organism/PaymentMethodSheet"
 import ProductList from "@/components/organism/productlist"
-import CartItems from "@/components/templates/CartItems"
 import ErrorView from "@/components/templates/errorview"
 import OrderService from "@/services/order.service"
 import useFlashStore from "@/store/flashStore"
 import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
-import { CartLines, CondicaoPagamento, HistoryItem } from "@/types/types"
-import { BottomSheetModal } from "@gorhom/bottom-sheet"
+import { CartLines, HistoryItem } from "@/types/types"
 import { useQuery } from "@tanstack/react-query"
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import * as NavigationBar from "expo-navigation-bar"
 import { useRouter } from "expo-router"
-import Toast from "react-native-toast-message"
 import {
     RotateCcw,
     ClipboardList,
@@ -29,6 +23,7 @@ import {
     ShieldCheck,
     Clock,
     Flame,
+    ShoppingCart,
 } from "lucide-react-native"
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
@@ -36,7 +31,6 @@ const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" 
 const HomeScreen = () => {
     const {
         catalog,
-        condicoes,
         condicao,
         cotacao,
         cupom,
@@ -54,8 +48,6 @@ const HomeScreen = () => {
     } = useFlashStore()
     const { top, bottom } = useSafeAreaInsets()
     const router = useRouter()
-    const paymentMethodRef = useRef<BottomSheetModal>(null)
-    const confirmRef = useRef<BottomSheetModal>(null)
 
     if (Platform.OS === "android") NavigationBar.setButtonStyleAsync("dark")
 
@@ -80,7 +72,7 @@ const HomeScreen = () => {
         if (!condicao && init.condicoes.length > 0) setCondicao(init.condicoes[0])
     }, [init])
 
-    // Recompra: repopula o carrinho a partir de um pedido anterior.
+    // Recompra: repopula o carrinho a partir de um pedido anterior e vai ao carrinho.
     useEffect(() => {
         if (!init || !rebuyOrder) return
         clearCart()
@@ -88,7 +80,7 @@ const HomeScreen = () => {
             for (let i = 0; i < qty; i++) addToCart(Number(id))
         }
         setRebuyOrder(null)
-        paymentMethodRef.current?.present()
+        router.push("/(auth)/carrinho")
     }, [init, rebuyOrder])
 
     const itens = cartItensPayload()
@@ -113,16 +105,7 @@ const HomeScreen = () => {
         setRebuyOrder(lines)
     }
 
-    const handleConfirm = () => {
-        if (!condicao) {
-            Toast.show({ type: "info", text1: "Selecione uma forma de pagamento." })
-            paymentMethodRef.current?.present()
-            return
-        }
-        confirmRef.current?.present()
-    }
-
-    const handleSetCondicao = (c: CondicaoPagamento) => setCondicao(c)
+    const irParaCarrinho = () => router.push("/(auth)/carrinho")
 
     if (isError) {
         return <ErrorView message="Houve um erro desconhecido, por favor contate a revenda." />
@@ -197,31 +180,6 @@ const HomeScreen = () => {
                     {isLoading ? <LoaderSimple /> : <ProductList products={catalog} />}
                 </View>
 
-                {/* Resumo do carrinho + pagamento */}
-                {hasItems && (
-                    <View style={styles.summary}>
-                        <View style={styles.summaryRow}>
-                            <View>
-                                <Text style={styles.summaryLabel}>Total</Text>
-                                <Text style={styles.summaryTotal}>{brl.format(total)}</Text>
-                            </View>
-                            <View style={{ flex: 1, alignItems: "flex-end" }}>
-                                <Text style={styles.summaryLabel}>Itens</Text>
-                                <CartItems />
-                            </View>
-                        </View>
-
-                        {condicoes.length > 0 && (
-                            <View style={{ marginTop: 12 }}>
-                                <PaymentMethod
-                                    condicao={condicao}
-                                    onPress={() => paymentMethodRef.current?.present()}
-                                />
-                            </View>
-                        )}
-                    </View>
-                )}
-
                 {/* Bloco informativo */}
                 <View style={styles.infoBlock}>
                     <View style={styles.infoRow}>
@@ -235,26 +193,24 @@ const HomeScreen = () => {
                 </View>
             </ScrollView>
 
-            {/* Barra fixa de confirmação — acima da tab bar (62 + safe area) */}
+            {/* Barra fixa: ir para o carrinho — acima da tab bar (62 + safe area) */}
             {hasItems && (
                 <View style={[styles.checkoutBar, { bottom: 62 + bottom }]}>
-                    <View>
-                        <Text style={styles.checkoutLabel}>{qtyTotal()} item(ns)</Text>
+                    <View style={styles.cartBadge}>
+                        <ShoppingCart size={20} color={colors.white} strokeWidth={2.2} />
+                        <View style={styles.cartCount}>
+                            <Text style={styles.cartCountText}>{qtyTotal()}</Text>
+                        </View>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.checkoutLabel}>Total</Text>
                         <Text style={styles.checkoutTotal}>{brl.format(total)}</Text>
                     </View>
-                    <View style={{ flex: 1, maxWidth: 200 }}>
-                        <Button title="Confirmar pedido" onPress={handleConfirm} uppercase={false} />
+                    <View style={{ maxWidth: 170, flex: 1 }}>
+                        <Button title="Ver carrinho" onPress={irParaCarrinho} uppercase={false} />
                     </View>
                 </View>
             )}
-
-            <PaymentMethodSheet
-                ref={paymentMethodRef}
-                condicoes={condicoes}
-                selectedId={condicao?.id}
-                setCondicao={handleSetCondicao}
-            />
-            <OrderConfirm ref={confirmRef} onPressPayment={() => paymentMethodRef.current?.present()} />
         </View>
     )
 }
@@ -328,18 +284,6 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: fontSize.base, color: colors.text, ...fontStyle.bold },
     productArea: { minHeight: 300 },
 
-    summary: {
-        marginHorizontal: 16,
-        marginTop: 8,
-        padding: 16,
-        borderRadius: radius.lg,
-        backgroundColor: colors.surface,
-        ...shadow.card,
-    },
-    summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-    summaryLabel: { fontSize: fontSize.xs, color: colors.textMuted, ...fontStyle.regular },
-    summaryTotal: { fontSize: 26, color: colors.primary, ...fontStyle.bold },
-
     infoBlock: {
         marginHorizontal: 16,
         marginTop: 20,
@@ -369,6 +313,27 @@ const styles = StyleSheet.create({
     },
     checkoutLabel: { fontSize: fontSize.xs, color: colors.textMuted, ...fontStyle.regular },
     checkoutTotal: { fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
+    cartBadge: {
+        width: 44,
+        height: 44,
+        borderRadius: radius.md,
+        backgroundColor: colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    cartCount: {
+        position: "absolute",
+        top: -4,
+        right: -4,
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: 4,
+        borderRadius: 999,
+        backgroundColor: colors.secondary,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    cartCountText: { fontSize: 11, color: colors.graphite, ...fontStyle.bold },
 })
 
 export default HomeScreen
