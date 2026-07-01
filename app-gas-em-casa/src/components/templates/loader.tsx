@@ -1,19 +1,11 @@
-import { BackgroundImgUri } from "@/constants/images"
-import { colors, defaultStyles } from "@/styles/theme"
-import { ActivityIndicator, ImageBackground, View } from "react-native"
+import { colors } from "@/styles/theme"
+import { ActivityIndicator, View } from "react-native"
 
+/** Loader de tela cheia — fundo claro da marca nova (sem a imagem roxa antiga). */
 const Loader = () => {
     return (
-        <View style={defaultStyles.container}>
-            <ImageBackground
-                source={{ uri: BackgroundImgUri }}
-                style={[
-                    defaultStyles.image,
-                    { display: "flex", justifyContent: "center", alignItems: "center" },
-                ]}
-            >
-                <ActivityIndicator size="large" color={colors.primary} />
-            </ImageBackground>
+        <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+            <ActivityIndicator size="large" color={colors.primary} />
         </View>
     )
 }

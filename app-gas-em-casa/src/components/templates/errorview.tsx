@@ -1,49 +1,57 @@
-import { BackgroundImgUri } from "@/constants/images"
-import { colors, defaultStyles, screenPadding } from "@/styles/theme"
-import { ImageBackground, StyleSheet, Text, View } from "react-native"
-import Header from "../molecules/header"
+import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
+import { StyleSheet, Text, View } from "react-native"
+import { AlertTriangle } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface ErrorViewProps {
     message: string | string[]
 }
 
+/** Tela de erro — fundo claro da marca nova, card centralizado (sem imagem roxa). */
 const ErrorView = ({ message }: ErrorViewProps) => {
     const { top } = useSafeAreaInsets()
 
     return (
-        <View style={defaultStyles.container}>
-            <ImageBackground
-                source={{ uri: BackgroundImgUri }}
-                style={[defaultStyles.image, { paddingTop: top }]}
-            >
-                <View style={{ display: "flex", flexDirection: "column" }}>
-                    <Header />
-
-                    <View style={[styles.flexColumn, styles.container]}>
-                        <View style={defaultStyles.panel}>
-                            <Text style={{ fontSize: 22 }}>Oops!</Text>
-                            <Text style={{ fontSize: 16 }}>{message}</Text>
-                        </View>
-                    </View>
+        <View style={[styles.screen, { paddingTop: top }]}>
+            <View style={styles.card}>
+                <View style={styles.icon}>
+                    <AlertTriangle size={28} color={colors.warning} strokeWidth={2} />
                 </View>
-            </ImageBackground>
+                <Text style={styles.title}>Ops!</Text>
+                <Text style={styles.message}>{message}</Text>
+            </View>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
-    flexColumn: {
-        display: "flex",
-        flexDirection: "column",
+    screen: {
+        flex: 1,
+        backgroundColor: colors.background,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 24,
     },
-    container: {
-        backgroundColor: colors.white,
-        height: "100%",
-        marginTop: 30,
-        borderRadius: 30,
-        justifyContent: "flex-start",
+    card: {
+        width: "100%",
+        alignItems: "center",
+        backgroundColor: colors.surface,
+        borderRadius: radius.xl,
+        padding: 28,
+        gap: 8,
+        ...shadow.card,
     },
+    icon: {
+        width: 56,
+        height: 56,
+        borderRadius: radius.lg,
+        backgroundColor: "#FEF3E2",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 6,
+    },
+    title: { fontSize: fontSize.lg, color: colors.text, ...fontStyle.bold },
+    message: { fontSize: fontSize.sm, color: colors.textMuted, textAlign: "center", ...fontStyle.regular },
 })
 
 export default ErrorView
