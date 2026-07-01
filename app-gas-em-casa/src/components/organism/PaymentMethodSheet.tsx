@@ -8,7 +8,7 @@ import {
 } from "@gorhom/bottom-sheet"
 import { forwardRef, useMemo } from "react"
 import { StyleSheet, Text, View } from "react-native"
-import Feather from "@expo/vector-icons/Feather"
+import { CreditCard } from "lucide-react-native"
 import useBottomSheetBackHandler from "@/hooks/useBottomSheetBackHandler"
 
 interface PaymentMethodSheetProps {
@@ -59,9 +59,9 @@ const PaymentMethodSheet = forwardRef<Ref, PaymentMethodSheetProps>(
                                         condicao.id == selectedId && styles.selected,
                                     ]}
                                 >
-                                    <Feather
-                                        name="credit-card"
+                                    <CreditCard
                                         size={22}
+                                        strokeWidth={2}
                                         color={
                                             condicao.id == selectedId
                                                 ? colors.primary

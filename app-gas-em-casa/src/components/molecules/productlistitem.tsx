@@ -2,7 +2,7 @@ import { colors, fontSize, fontStyle } from "@/styles/theme"
 import { CatalogItem } from "@/types/types"
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native"
 import FastImage from "react-native-fast-image"
-import Feather from "@expo/vector-icons/Feather"
+import { Minus, Plus } from "lucide-react-native"
 import { PER_WIDTH } from "@/constants/app"
 import { GasImgUri } from "@/constants/images"
 import useFlashStore from "@/store/flashStore"
@@ -76,7 +76,7 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
 
                 <Animated.View style={[styles.cartControls, { opacity: blur }]}>
                     <IconButton width={44} height={44} onPress={() => removeFromCart(product.id)}>
-                        <Feather name="minus" size={18} color={colors.graphite} />
+                        <Minus size={18} color={colors.graphite} strokeWidth={2.4} />
                     </IconButton>
 
                     <Text style={styles.qty}>{quantity}</Text>
@@ -87,7 +87,7 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
                         height={44}
                         onPress={() => addToCart(product.id)}
                     >
-                        <Feather name="plus" size={18} color={colors.graphite} />
+                        <Plus size={18} color={colors.graphite} strokeWidth={2.4} />
                     </IconButton>
                 </Animated.View>
             </View>

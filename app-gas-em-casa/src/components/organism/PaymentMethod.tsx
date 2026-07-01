@@ -1,7 +1,7 @@
 import { CondicaoPagamento } from "@/types/types"
 import { StyleSheet, Text, View } from "react-native"
 import { colors, fontStyle } from "@/styles/theme"
-import Feather from "@expo/vector-icons/Feather"
+import { CreditCard, Pencil } from "lucide-react-native"
 import { Pressable, PressableProps } from "react-native-gesture-handler"
 
 interface PaymentMethodProps extends PressableProps {
@@ -41,7 +41,7 @@ const PaymentMethod = ({ condicao, onPress }: PaymentMethodProps) => {
                             Forma de Pagamento
                         </Text>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Feather name="credit-card" size={20} color={colors.primary} />
+                            <CreditCard size={20} color={colors.primary} strokeWidth={2} />
 
                             <Text style={{ fontSize: 16, ...fontStyle.regular }}>
                                 {condicao.descricao}
@@ -60,7 +60,7 @@ const PaymentMethod = ({ condicao, onPress }: PaymentMethodProps) => {
                                 alignItems: "center",
                             }}
                         >
-                            <Feather name="edit-3" size={24} color="black" />
+                            <Pencil size={20} color={colors.primary} strokeWidth={2} />
                         </View>
 
                         <Text

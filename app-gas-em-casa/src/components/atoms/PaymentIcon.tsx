@@ -1,7 +1,4 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome"
-import AntDesign from "@expo/vector-icons/AntDesign"
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
+import { Banknote, CreditCard, Barcode, QrCode, WalletCards } from "lucide-react-native"
 import { CardBrands } from "@/types/types"
 import { Image } from "react-native"
 import {
@@ -27,17 +24,17 @@ interface CardBrandSvgIconProps {
 const PaymentIcon = ({ type, color, size = 24 }: PaymentIconProps) => {
     switch (type) {
         case 0:
-            return <FontAwesome name="money" size={size} color={color} />
+            return <Banknote size={size} color={color} strokeWidth={2} />
         case 1:
         case 2:
         case 6:
-            return <AntDesign name="creditcard" size={size} color={color} />
+            return <CreditCard size={size} color={color} strokeWidth={2} />
         case 3:
-            return <MaterialCommunityIcons name="card-multiple-outline" size={size} color={color} />
+            return <WalletCards size={size} color={color} strokeWidth={2} />
         case 4:
-            return <MaterialCommunityIcons name="barcode" size={size} color={color} />
+            return <Barcode size={size} color={color} strokeWidth={2} />
         case 7:
-            return <FontAwesome6 name="pix" size={size} color={color} />
+            return <QrCode size={size} color={color} strokeWidth={2} />
         default:
             return null
     }
@@ -56,7 +53,7 @@ export const CardBrandSvgIcon = ({ brand, width, height }: CardBrandSvgIconProps
         case "visa":
             return <Image source={{ uri: VisaImgUri }} width={width} height={height} />
         default:
-            return <AntDesign name="creditcard" size={24} color="black" />
+            return <CreditCard size={24} color="black" strokeWidth={2} />
     }
 }
 

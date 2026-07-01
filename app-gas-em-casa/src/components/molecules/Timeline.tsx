@@ -1,6 +1,6 @@
 import { colors, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { Animated, StyleSheet, Text, View } from "react-native"
-import FontAwesome from "@expo/vector-icons/FontAwesome"
+import { Check } from "lucide-react-native"
 import { TimelineStep } from "@/types/types"
 import { useEffect } from "react"
 
@@ -120,7 +120,7 @@ const BulletPoint = ({ track, idx, bulletScale }: BulletProps) => {
                     },
                 ]}
             >
-                <FontAwesome name="check" size={16} color="white" />
+                <Check size={15} color="white" strokeWidth={3} />
             </View>
         )
     }

@@ -26,9 +26,8 @@ import { createPlacesAutocompleteSessionToken, delay, formatFromGMaps } from "@/
 import { Address as AddressType, GMapsAddress } from "@/types/types"
 import { useQuery } from "@tanstack/react-query"
 import AddressService from "@/services/address.service"
-import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+import { LocateFixed, ArrowRight } from "lucide-react-native"
 import IconButton from "@/components/atoms/iconbutton"
-import Ionicons from "@expo/vector-icons/Ionicons"
 import AddressFormModal from "@/components/organism/AddressFormModal"
 import useDebounce from "@/hooks/useDebounce"
 import LoaderOverlay from "@/components/atoms/LoaderOverlay"
@@ -415,7 +414,7 @@ const Address = () => {
 
                                 <View style={styles.bottomRight}>
                                     <IconButton width={70} height={70} onPress={goToUser}>
-                                        <MaterialIcons name="my-location" size={40} color="black" />
+                                        <LocateFixed size={34} color={colors.primary} strokeWidth={2} />
                                     </IconButton>
                                 </View>
                             </View>
@@ -449,11 +448,7 @@ const Address = () => {
                                                 >
                                                     Avançar
                                                 </Text>
-                                                <Ionicons
-                                                    name="arrow-forward-circle-outline"
-                                                    size={20}
-                                                    color={colors.white}
-                                                />
+                                                <ArrowRight size={18} color={colors.white} strokeWidth={2.4} />
                                             </View>
                                         }
                                         onPress={handleOnPressFinished}

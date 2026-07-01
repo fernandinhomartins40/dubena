@@ -7,7 +7,7 @@ import React, { useEffect } from "react"
 import { Platform, StyleSheet, Text, View } from "react-native"
 import FastImage from "react-native-fast-image"
 import Toast from "react-native-toast-message"
-import Feather from "@expo/vector-icons/Feather"
+import { Copy } from "lucide-react-native"
 import IconButton from "@/components/atoms/iconbutton"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import OrderService from "@/services/order.service"
@@ -97,7 +97,7 @@ const Pix = () => {
                                 style={{ padding: 10 }}
                                 onPress={handleClick}
                             >
-                                <Feather name="copy" size={16} color={colors.primary} />
+                                <Copy size={16} color={colors.primary} strokeWidth={2} />
                             </IconButton>
                         }
                     />

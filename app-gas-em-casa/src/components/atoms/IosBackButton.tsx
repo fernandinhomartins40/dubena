@@ -1,5 +1,6 @@
 import { Platform, Pressable, StyleSheet, View } from "react-native"
-import MaterialIcons from "@expo/vector-icons/MaterialIcons"
+import { ChevronLeft } from "lucide-react-native"
+import { colors } from "@/styles/theme"
 import { useRouter } from "expo-router"
 
 type Props = {
@@ -23,7 +24,7 @@ const IosBackButton = ({ onPress }: Props) => {
     return (
         <Pressable onPress={handleBack}>
             <View style={styles.container}>
-                <MaterialIcons name="arrow-back-ios-new" size={24} color="black" />
+                <ChevronLeft size={24} color={colors.text} />
             </View>
         </Pressable>
     )

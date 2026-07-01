@@ -3,7 +3,7 @@ import React from "react"
 import useFlashStore from "@/store/flashStore"
 import { colors, fontStyle } from "@/styles/theme"
 import { CotacaoItem } from "@/types/types"
-import EvilIcons from "@expo/vector-icons/EvilIcons"
+import { HelpCircle } from "lucide-react-native"
 
 type CartItemsProps = {
     /** Itens vindos de uma cotação/pedido específico (ex.: histórico); senão usa o carrinho. */
@@ -43,7 +43,7 @@ const CartItems = ({ orderProds, isGasPovo = false, deliveryTax = null }: CartIt
                     <Text style={{ color: colors.textMuted, ...fontStyle.regular }}>
                         Taxa de Entrega
                     </Text>
-                    <EvilIcons name="question" size={16} color={colors.textMuted} />
+                    <HelpCircle size={14} color={colors.textMuted} strokeWidth={2} />
                 </View>
             </Pressable>
         )

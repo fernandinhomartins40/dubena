@@ -1,7 +1,5 @@
 import { AddressType } from "@/types/types"
-import Ionicons from "@expo/vector-icons/Ionicons"
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"
-import Foundation from "@expo/vector-icons/Foundation"
+import { Home, Building2, MapPin } from "lucide-react-native"
 
 interface AddressTypeIconProps {
     type: string
@@ -12,11 +10,11 @@ interface AddressTypeIconProps {
 const AddressTypeIcon = ({ type, size, color }: AddressTypeIconProps) => {
     switch (type) {
         case AddressType.Home:
-            return <Ionicons name="home" size={size} color={color} />
+            return <Home size={size} color={color} strokeWidth={2} />
         case AddressType.Workplace:
-            return <MaterialCommunityIcons name="office-building" size={size} color={color} />
+            return <Building2 size={size} color={color} strokeWidth={2} />
         default:
-            return <Foundation name="marker" size={size} color={color} />
+            return <MapPin size={size} color={color} strokeWidth={2} />
     }
 }
 

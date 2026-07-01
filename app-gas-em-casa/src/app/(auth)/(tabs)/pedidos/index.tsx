@@ -1,6 +1,6 @@
 import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native"
-import Entypo from "@expo/vector-icons/Entypo"
+import { Zap, Star, X, History, Search } from "lucide-react-native"
 import { useQuery } from "@tanstack/react-query"
 import OrderService from "@/services/order.service"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
@@ -12,8 +12,6 @@ import Button from "@/components/atoms/button"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import useFlashStore from "@/store/flashStore"
 import EvaluateModal from "@/components/organism/EvaluateModal"
-import Feather from "@expo/vector-icons/Feather"
-import { AntDesign, Fontisto } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
 import Input from "@/components/atoms/input"
 
@@ -148,7 +146,7 @@ const PedidosScreen = () => {
             <View style={styles.lastOrderBox}>
                 <View style={styles.lastOrderInfo}>
                     <View style={styles.icon}>
-                        <Fontisto name="flash" size={18} color={colors.primary} />
+                        <Zap size={18} color={colors.primary} strokeWidth={2} />
                     </View>
 
                     <View style={styles.lastOrderText}>
@@ -193,7 +191,7 @@ const PedidosScreen = () => {
         return (
             <View style={styles.evalBanner}>
                 <View style={styles.evalIcon}>
-                    <AntDesign name="star" size={18} color={colors.primary} />
+                    <Star size={18} color={colors.primary} fill={colors.primary} strokeWidth={0} />
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.evalTitle}>Avalie seu último pedido</Text>
@@ -205,7 +203,7 @@ const PedidosScreen = () => {
                     <Text style={styles.evalCtaText}>Avaliar</Text>
                 </Pressable>
                 <Pressable onPress={() => setAvaliacaoDispensada(true)} hitSlop={10} style={{ paddingLeft: 4 }}>
-                    <Feather name="x" size={18} color={colors.textMuted} />
+                    <X size={18} color={colors.textMuted} strokeWidth={2} />
                 </Pressable>
             </View>
         )
@@ -223,7 +221,7 @@ const PedidosScreen = () => {
 
             <View style={styles.subTitleContainer}>
                 <View style={styles.icon}>
-                    <Entypo name="back-in-time" size={20} color={colors.primary} />
+                    <History size={20} color={colors.primary} strokeWidth={2} />
                 </View>
 
                 <Text style={styles.subTitle}>Histórico de Pedidos</Text>
@@ -241,10 +239,10 @@ const PedidosScreen = () => {
                     inputSufix={
                         searchText ? (
                             <Pressable onPress={() => setSearchText("")} hitSlop={10}>
-                                <Feather name="x" size={20} color={colors.textMuted} />
+                                <X size={20} color={colors.textMuted} strokeWidth={2} />
                             </Pressable>
                         ) : (
-                            <Feather name="search" size={20} color={colors.textMuted} />
+                            <Search size={20} color={colors.textMuted} strokeWidth={2} />
                         )
                     }
                 />

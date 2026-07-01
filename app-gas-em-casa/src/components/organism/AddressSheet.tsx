@@ -8,7 +8,7 @@ import AddressTypeIcon from "../atoms/AddressTypeIcon"
 import AnimatedPressable from "../atoms/AnimatedPressable"
 import { ScrollView } from "react-native-gesture-handler"
 import Button from "../atoms/button"
-import AntDesign from "@expo/vector-icons/AntDesign"
+import { PlusCircle } from "lucide-react-native"
 import { useRouter } from "expo-router"
 import Toast from "react-native-toast-message"
 import AddressService from "@/services/address.service"
@@ -168,7 +168,7 @@ const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses }, ref) => 
                                             </Text>
                                         </View>
                                         <View>
-                                            <AntDesign name="pluscircleo" size={24} color="white" />
+                                            <PlusCircle size={22} color="white" strokeWidth={2} />
                                         </View>
                                     </View>
                                 }

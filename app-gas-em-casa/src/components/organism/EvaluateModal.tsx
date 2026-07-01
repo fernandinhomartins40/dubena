@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { colors, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { AirbnbRating } from "react-native-ratings"
-import AntDesign from "@expo/vector-icons/AntDesign"
+import { X } from "lucide-react-native"
 
 interface Props {
     orderId: number | null
@@ -61,7 +61,7 @@ const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
                 <View style={styles.header}>
                     <Text style={styles.title}>Como foi sua entrega?</Text>
                     <Pressable onPress={pular} hitSlop={12} style={styles.closeBtn}>
-                        <AntDesign name="close" size={22} color={colors.textMuted} />
+                        <X size={22} color={colors.textMuted} strokeWidth={2} />
                     </Pressable>
                 </View>
 
