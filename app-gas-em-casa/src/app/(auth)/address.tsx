@@ -367,18 +367,16 @@ const Address = () => {
     }
 
     return (
-        <View style={[defaultStyles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.flexColumn, { paddingTop: top }]}>
-                <View style={styles.header}>
-                    <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-                        <ChevronLeft size={24} color={colors.text} />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>Novo endereço</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <View style={[defaultStyles.container, { backgroundColor: colors.background, paddingTop: top }]}>
+            <View style={styles.header}>
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+                    <ChevronLeft size={24} color={colors.text} />
+                </Pressable>
+                <Text style={styles.headerTitle}>Novo endereço</Text>
+                <View style={{ width: 40 }} />
+            </View>
 
-                <View style={[styles.flexColumn, styles.container]}>
-                    <View style={{ paddingTop: 4 }}>
+            <View style={styles.container}>
                         <View style={styles.mapContainer}>
                                 <View style={{ position: "absolute", width: "100%" }}>
                                     {renderPlacesSearch()}
@@ -423,7 +421,7 @@ const Address = () => {
                             </View>
 
                             <View style={styles.confirmButtonsContainer}>
-                                <View>
+                                <View style={{ flex: 1 }}>
                                     <Button
                                         uppercase={false}
                                         title={isManual ? "Selecionar Manualmente" : "Cancelar"}
@@ -431,7 +429,7 @@ const Address = () => {
                                         textStyle={{ fontSize: 14 }}
                                     />
                                 </View>
-                                <View>
+                                <View style={{ flex: 1 }}>
                                     <Button
                                         uppercase={false}
                                         title={
@@ -464,8 +462,6 @@ const Address = () => {
                                 </View>
                             </View>
                         </View>
-                    </View>
-                </View>
 
             <AddressFormModal address={addressObj} open={open} closeModal={() => setOpen(false)} />
 
@@ -503,16 +499,16 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "flex-start",
         paddingHorizontal: 14,
+        paddingBottom: 14,
     },
     mapContainer: {
-        height: "80%",
+        flex: 1,
         overflow: "hidden",
         borderRadius: 14,
+        marginTop: 4,
     },
     map: {
-        width: "100%",
-        height: "100%",
-        zIndex: -1,
+        ...StyleSheet.absoluteFillObject,
     },
     bottomRight: {
         position: "absolute",
@@ -520,10 +516,11 @@ const styles = StyleSheet.create({
         right: 10,
     },
     confirmButtonsContainer: {
-        flex: 1,
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        gap: 10,
+        marginTop: 12,
     },
     loaderClass: {
         ...StyleSheet.absoluteFillObject,
