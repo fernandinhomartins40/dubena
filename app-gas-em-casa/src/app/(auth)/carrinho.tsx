@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
     ActivityIndicator,
     Platform,
@@ -46,6 +46,7 @@ export default function Carrinho() {
         addToCart,
         removeFromCart,
         setCondicao,
+        setCondicoes,
         setCupom,
         cartItensPayload,
         qtyTotal,
@@ -54,6 +55,21 @@ export default function Carrinho() {
     } = useFlashStore()
 
     const [cupomInput, setCupomInput] = useState(cupom ?? "")
+
+    // Robustez: se o usuário chegar ao carrinho sem a Home ter carregado as formas
+    // de pagamento (ex.: recompra direta), buscamos o init aqui e populamos o store.
+    const { data: init } = useQuery({
+        queryKey: ["init", gasdopovo],
+        queryFn: () => OrderService.GetInit(gasdopovo),
+        enabled: condicoes.length === 0,
+    })
+    useEffect(() => {
+        if (!init) return
+        if (init.condicoes?.length) {
+            setCondicoes(init.condicoes)
+            if (!condicao) setCondicao(init.condicoes[0])
+        }
+    }, [init])
 
     const produtoDe = (id: number) => catalog.find((p) => p.id === id)
     const linhas = useMemo(() => Object.entries(cart).map(([id, qty]) => ({ id: Number(id), qty })), [cart])
