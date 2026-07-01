@@ -2,6 +2,7 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Cliente\GeocodificarClienteJob;
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
@@ -109,6 +110,14 @@ class PedidoMobileService
         // Coordenada de entrega: a do payload ou a do cliente (para o geofence F5).
         $lat = isset($payload['lat']) ? (float) $payload['lat'] : ($cliente->latitude !== null ? (float) $cliente->latitude : null);
         $lng = isset($payload['lng']) ? (float) $payload['lng'] : ($cliente->longitude !== null ? (float) $cliente->longitude : null);
+
+        // L0 — GEOCODIFICAÇÃO GARANTIDA: a distribuição inteligente (L3) depende de
+        // lat/lng do cliente. Se o cliente ainda não foi geocodificado, enfileira o
+        // job agora (assíncrono, não bloqueia). Até resolver, a distribuição por
+        // proximidade cai no fallback (região/setor), sem travar o pedido.
+        if ($cliente->latitude === null || $cliente->longitude === null) {
+            GeocodificarClienteJob::dispatch($cliente->id);
+        }
 
         $setor = $this->setorDeEntrega($empresaId, $lat, $lng);
         if (! $setor) {
