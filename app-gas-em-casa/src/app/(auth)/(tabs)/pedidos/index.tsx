@@ -5,8 +5,9 @@ import { useQuery } from "@tanstack/react-query"
 import OrderService from "@/services/order.service"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
 import { CartLines, HistoryItem } from "@/types/types"
-import OrderItems from "@/components/molecules/OrderItems"
 import { FlatList } from "react-native-gesture-handler"
+import FastImage from "react-native-fast-image"
+import { GasImgUri } from "@/constants/images"
 import Button from "@/components/atoms/button"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import useFlashStore from "@/store/flashStore"
@@ -67,38 +68,68 @@ const PedidosScreen = () => {
         })
     }, [history, searchText])
 
-    const renderProducts = (hist: HistoryItem) => (
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 2 }}>
-            <OrderItems products={hist.itens} totalPrice={String(hist.valor_venda)} />
-        </View>
-    )
+    const moeda = (v: number) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
+
+    const statusBadge = (efeito: string | null, situacao: string | null) => {
+        const map: Record<string, { bg: string; fg: string }> = {
+            CONCLUIDO: { bg: colors.successMuted, fg: colors.success },
+            CANCELADO: { bg: "#FDECEC", fg: colors.errorColor },
+            PENDENTE: { bg: colors.primaryMuted, fg: colors.primary },
+        }
+        const s = map[efeito ?? ""] ?? { bg: "#EFEFEF", fg: colors.textMuted }
+        return (
+            <View style={[styles.badge, { backgroundColor: s.bg }]}>
+                <Text style={[styles.badgeText, { color: s.fg }]}>{situacao ?? efeito ?? "—"}</Text>
+            </View>
+        )
+    }
 
     const renderItems = ({ item: hist }: { item: HistoryItem }) => {
-        const cancelado = hist.efeito === "CANCELADO"
         const concluido = hist.efeito === "CONCLUIDO"
 
         return (
-            <View style={styles.box}>
-                <View style={styles.orderHeader}>
-                    <Text style={styles.orderMeta}>
-                        Pedido #{hist.id} - {hist.situacao ?? ""} - {formatDate(hist.datahora)}
-                    </Text>
+            <View style={styles.card}>
+                {/* Cabeçalho: #pedido + data | status */}
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.orderId}>Pedido #{hist.id}</Text>
+                        <Text style={styles.orderDate}>{formatDate(hist.datahora)}</Text>
+                    </View>
+                    {statusBadge(hist.efeito ?? null, hist.situacao ?? null)}
                 </View>
 
-                <View style={{ flex: 1, justifyContent: "flex-end" }}>{renderProducts(hist)}</View>
-
-                {concluido && (
-                    <View style={styles.evaluateContainer}>
-                        <View style={{ width: 130 }}>
-                            <Button
-                                type="clear"
-                                title="avaliar"
-                                onPress={() => setOrderId(hist.id)}
-                                textStyle={{ color: colors.primary, fontSize: fontSize.sm }}
-                            />
-                        </View>
+                {/* Corpo: thumbnail + lista de itens */}
+                <View style={styles.cardBody}>
+                    <View style={styles.thumb}>
+                        <FastImage source={{ uri: GasImgUri }} style={styles.thumbImg} resizeMode="contain" />
                     </View>
-                )}
+                    <View style={{ flex: 1, gap: 6 }}>
+                        {hist.itens.map((it, idx) => (
+                            <View key={idx} style={styles.itemRow}>
+                                <View style={styles.qtyBadge}>
+                                    <Text style={styles.qtyText}>{it.quantidade}</Text>
+                                </View>
+                                <Text style={styles.itemName} numberOfLines={1}>
+                                    {it.descricao}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Rodapé: total | avaliar */}
+                <View style={styles.cardFooter}>
+                    <View>
+                        <Text style={styles.totalLabel}>Total</Text>
+                        <Text style={styles.totalValue}>{moeda(hist.valor_venda)}</Text>
+                    </View>
+                    {concluido && (
+                        <Pressable style={styles.evalBtn} onPress={() => setOrderId(hist.id)}>
+                            <Text style={styles.evalBtnText}>Avaliar</Text>
+                        </Pressable>
+                    )}
+                </View>
             </View>
         )
     }
@@ -293,49 +324,73 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         marginRight: 4,
     },
-    box: {
-        flexDirection: "column",
-        padding: 10,
-        marginVertical: 5,
-        borderRadius: 16,
-        boxShadow: "0px 4px 40px 0px #39253D29",
+    card: {
         marginHorizontal: screenPadding.horizontal,
-        backgroundColor: colors.white,
+        marginVertical: 6,
+        padding: 14,
+        borderRadius: 16,
+        backgroundColor: colors.surface,
+        boxShadow: "0px 6px 24px 0px rgba(27, 25, 31, 0.08)",
+        elevation: 3,
     },
-    orderHeader: {
+    cardHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
         gap: 8,
-        marginBottom: 10,
     },
-    drawNumberBadge: {
-        alignSelf: "flex-start",
-        maxWidth: "100%",
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        backgroundColor: colors.primaryMuted,
-        borderRadius: 10,
-    },
-    drawNumberLabel: {
-        color: colors.primary,
-        fontSize: fontSize.xs,
-        ...fontStyle.semiBold,
-    },
-    drawNumberValue: {
-        color: colors.text,
-        fontSize: fontSize.base,
-        ...fontStyle.bold,
-        flexWrap: "wrap",
-    },
-    orderMeta: {
-        color: colors.textMuted,
-        fontSize: fontSize.sm,
-        ...fontStyle.regular,
-        flexWrap: "wrap",
-    },
-    evaluateContainer: {
-        justifyContent: "center",
+    orderId: { fontSize: fontSize.sm, color: colors.text, ...fontStyle.bold },
+    orderDate: { fontSize: 13, color: colors.textMuted, marginTop: 1, ...fontStyle.regular },
+    badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+    badgeText: { fontSize: fontSize.xs, ...fontStyle.semiBold },
+    cardBody: {
+        flexDirection: "row",
         alignItems: "center",
-        paddingTop: 8,
+        gap: 12,
+        marginTop: 12,
     },
+    thumb: {
+        width: 64,
+        height: 64,
+        borderRadius: 12,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    thumbImg: { width: 46, height: 46 },
+    itemRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    qtyBadge: {
+        minWidth: 22,
+        height: 22,
+        paddingHorizontal: 5,
+        borderRadius: 6,
+        backgroundColor: colors.primaryMuted,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    qtyText: { fontSize: fontSize.xs, color: colors.primary, ...fontStyle.bold },
+    itemName: { flex: 1, fontSize: fontSize.sm, color: colors.text, ...fontStyle.regular },
+    cardFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginTop: 14,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    totalLabel: { fontSize: fontSize.xs, color: colors.textMuted, ...fontStyle.regular },
+    totalValue: { fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
+    evalBtn: {
+        paddingHorizontal: 18,
+        paddingVertical: 9,
+        borderRadius: 999,
+        borderWidth: 1.5,
+        borderColor: colors.primary,
+    },
+    evalBtnText: { fontSize: fontSize.sm, color: colors.primary, ...fontStyle.semiBold },
     emptyText: {
         color: colors.textMuted,
         fontSize: fontSize.sm,
