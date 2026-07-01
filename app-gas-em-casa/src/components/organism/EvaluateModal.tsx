@@ -2,7 +2,7 @@ import React, { useState } from "react"
 import OrderService from "@/services/order.service"
 import Input from "../atoms/input"
 import Button from "../atoms/button"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { colors, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { AirbnbRating } from "react-native-ratings"
@@ -16,38 +16,39 @@ interface Props {
 
 const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
     const queryClient = useQueryClient()
-    const { mutate, isPending } = useMutation({
-        mutationFn: (payload: { rating?: number; mensagem?: string; ignorado?: boolean }) =>
-            OrderService.Evaluate(orderId!, payload),
-        onSuccess: () => {
-            closeModal()
-        },
-        onError: (err) => {
-            console.error(err)
-        },
-        onSettled: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["order-history"] })
-        },
-    })
     const [rating, setRating] = useState<number>(0)
     const [msg, setMsg] = useState("")
+    const [enviando, setEnviando] = useState(false)
 
-    // Avaliação NUNCA bloqueia: pular só fecha (registra "ignorado" para não insistir).
-    // Enviar exige a nota, mas sem Alert nativo — o botão fica desabilitado até ter
-    // estrela, e a mensagem é truncada em 140 em vez de barrar.
-    const podeEnviar = rating > 0 && !isPending
+    /**
+     * REGRA (UX crítico): a avaliação é OPCIONAL e NUNCA pode travar o app.
+     * Fechar é SEMPRE local e imediato — não depende de resposta do backend.
+     * A chamada de avaliação é best-effort (fire-and-forget): dispara em background
+     * e o resultado não segura a UI. Se o backend falhar, o modal já fechou.
+     */
+    const registrarBestEffort = (payload: { rating?: number; mensagem?: string; ignorado?: boolean }) => {
+        if (!orderId) return
+        OrderService.Evaluate(orderId, payload)
+            .catch(() => {})
+            .finally(() => {
+                queryClient.invalidateQueries({ queryKey: ["order-history"] })
+            })
+    }
 
+    const podeEnviar = rating > 0
+
+    // Pular / X / backdrop / botão voltar: fecha JÁ; registra "ignorado" em background.
     const pular = () => {
-        if (!orderId) {
-            closeModal()
-            return
-        }
-        mutate({ ignorado: true })
+        registrarBestEffort({ ignorado: true })
+        closeModal()
     }
 
     const enviar = () => {
-        if (!orderId || !rating) return
-        mutate({ rating, mensagem: msg.slice(0, 140) })
+        if (!rating) return
+        setEnviando(true)
+        registrarBestEffort({ rating, mensagem: msg.slice(0, 140) })
+        // Fecha imediatamente — o envio segue em background.
+        closeModal()
     }
 
     return (
@@ -96,9 +97,9 @@ const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
                         uppercase={false}
                         title="Enviar avaliação"
                         onPress={enviar}
-                        disabled={!podeEnviar}
+                        disabled={!podeEnviar || enviando}
                     />
-                    <Button type="clear" uppercase={false} title="Agora não" onPress={pular} disabled={isPending} />
+                    <Button type="clear" uppercase={false} title="Agora não" onPress={pular} />
                 </View>
             </View>
         </Modal>
