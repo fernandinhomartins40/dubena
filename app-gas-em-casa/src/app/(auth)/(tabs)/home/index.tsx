@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo } from "react"
-import Button from "@/components/atoms/button"
 import LoaderSimple from "@/components/atoms/LoaderSimple"
 import HomeHeader from "@/components/molecules/HomeHeader"
 import ProductList from "@/components/organism/productlist"
@@ -193,23 +192,25 @@ const HomeScreen = () => {
                 </View>
             </ScrollView>
 
-            {/* Barra fixa: ir para o carrinho — acima da tab bar (62 + safe area) */}
+            {/* Barra fixa e compacta: ir para o carrinho — logo acima da tab bar. */}
             {hasItems && (
-                <View style={[styles.checkoutBar, { bottom: 62 + bottom }]}>
+                <Pressable style={[styles.checkoutBar, { bottom: 66 + bottom }]} onPress={irParaCarrinho}>
                     <View style={styles.cartBadge}>
-                        <ShoppingCart size={20} color={colors.white} strokeWidth={2.2} />
+                        <ShoppingCart size={18} color={colors.white} strokeWidth={2.2} />
                         <View style={styles.cartCount}>
                             <Text style={styles.cartCountText}>{qtyTotal()}</Text>
                         </View>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.checkoutLabel}>Total</Text>
-                        <Text style={styles.checkoutTotal}>{brl.format(total)}</Text>
+                        <Text style={styles.checkoutLabel}>{qtyTotal()} item(ns) · Total</Text>
+                        <Text style={styles.checkoutTotal} numberOfLines={1}>
+                            {brl.format(total)}
+                        </Text>
                     </View>
-                    <View style={{ maxWidth: 170, flex: 1 }}>
-                        <Button title="Ver carrinho" onPress={irParaCarrinho} uppercase={false} />
-                    </View>
-                </View>
+                    <Text style={styles.checkoutCta} numberOfLines={1}>
+                        Ver carrinho
+                    </Text>
+                </Pressable>
             )}
         </View>
     )
@@ -301,30 +302,40 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 12,
         right: 12,
+        height: 60,
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
         gap: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingLeft: 10,
+        paddingRight: 8,
         borderRadius: radius.lg,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.primary,
         ...shadow.card,
     },
-    checkoutLabel: { fontSize: fontSize.xs, color: colors.textMuted, ...fontStyle.regular },
-    checkoutTotal: { fontSize: fontSize.md, color: colors.text, ...fontStyle.bold },
-    cartBadge: {
-        width: 44,
-        height: 44,
+    checkoutLabel: { fontSize: 11, color: "rgba(255,255,255,0.85)", ...fontStyle.regular },
+    checkoutTotal: { fontSize: fontSize.md, color: colors.white, ...fontStyle.bold },
+    checkoutCta: {
+        fontSize: fontSize.sm,
+        color: colors.primary,
+        backgroundColor: colors.white,
+        ...fontStyle.bold,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         borderRadius: radius.md,
-        backgroundColor: colors.primary,
+        overflow: "hidden",
+    },
+    cartBadge: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.md,
+        backgroundColor: "rgba(255,255,255,0.18)",
         alignItems: "center",
         justifyContent: "center",
     },
     cartCount: {
         position: "absolute",
-        top: -4,
-        right: -4,
+        top: -5,
+        right: -5,
         minWidth: 18,
         height: 18,
         paddingHorizontal: 4,
