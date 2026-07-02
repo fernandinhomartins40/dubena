@@ -40,6 +40,26 @@ class AppEntregadorController extends Controller
         return response()->json(['data' => $this->roteirizador->rotaDoEntregador($user->empresa_id, $user->id)]);
     }
 
+    /**
+     * POST /app/v1/entregador/rota/iniciar — L6: move as entregas pendentes para
+     * "Saiu para entrega" (o cliente vê o pedido em rota e o push é disparado).
+     * Exige jornada ativa.
+     */
+    public function iniciarRota(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $this->jornadas->exigirJornadaAtiva($user->id);
+
+        $resultado = $this->entrega->iniciarRota($user->empresa_id, $user->id);
+
+        // Push aos clientes ("saiu para entrega") — assíncrono via fila.
+        foreach ($resultado['pedidos'] as $pedido) {
+            $this->pedidoMobile->notificarStatus($pedido->load(['cliente', 'situacao']));
+        }
+
+        return response()->json(['data' => ['iniciados' => $resultado['iniciados']]]);
+    }
+
     // ── Jornada (L4) ──
 
     /** GET /app/v1/entregador/veiculos — veículos ativos da empresa (seleção no início da jornada). */

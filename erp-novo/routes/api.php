@@ -653,6 +653,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('entregador/jornada/encerrar', [AppEntregadorController::class, 'encerrarJornada']);
         Route::get('entregador/dashboard', [AppEntregadorController::class, 'dashboard']);
         Route::get('entregador/rota', [AppEntregadorController::class, 'rota']);
+        Route::post('entregador/rota/iniciar', [AppEntregadorController::class, 'iniciarRota']);
 
         // Entregador
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);

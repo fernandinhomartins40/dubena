@@ -39,8 +39,21 @@ return Application::configure(basePath: dirname(__DIR__))
             'permissao' => Permissao::class,
             'recurso' => Recurso::class,
         ]);
+
+        // API pura: convidado NUNCA é redirecionado para uma rota 'login' (que não
+        // existe aqui). Sem isto, request sem Accept: application/json num endpoint
+        // autenticado estoura Route [login] not defined (500) em vez de 401.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // API é JSON SEMPRE: sem isto, um cliente que não manda Accept:
+        // application/json num endpoint autenticado faz o handler tentar
+        // redirect()->route('login') — rota que não existe numa API pura —
+        // e o 401 vira um 500 confuso (Route [login] not defined).
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request, Throwable $e) => $request->is('api/*') || $request->expectsJson(),
+        );
+
         // Tenant não resolvido → 409 (conflito de contexto), JSON uniforme.
         $exceptions->render(function (TenantNotResolvedException $e, Request $request) {
             if ($request->expectsJson()) {

@@ -110,6 +110,63 @@ class EntregaService
         });
     }
 
+    /**
+     * Inicia a ROTA (L6): move as entregas PENDENTES do entregador para a situação
+     * "Saiu para entrega" do grupo (criada se o grupo ainda não tem uma situação de
+     * deslocamento). Reusa a máquina de estados — tempo real/central notificados.
+     *
+     * @return array{iniciados:int, pedidos:\Illuminate\Support\Collection<int,Pedido>}
+     */
+    public function iniciarRota(int $empresaId, int $entregadorUserId): array
+    {
+        $pedidos = Pedido::query()
+            ->where('empresa_id', $empresaId)
+            ->where('entregador_user_id', $entregadorUserId)
+            ->whereHas('situacao', fn ($q) => $q->where('efeito', EfeitoPedido::PENDENTE->value))
+            ->with('situacao')
+            ->get();
+
+        $movidos = collect();
+        foreach ($pedidos->groupBy('grupo_id') as $grupoId => $doGrupo) {
+            $alvo = $this->situacaoSaiuParaEntrega((int) $grupoId);
+            foreach ($doGrupo as $pedido) {
+                if ((int) $pedido->pedidosituacao_id === (int) $alvo->id) {
+                    continue; // já está em rota — idempotente
+                }
+                $movidos->push($this->pedidos->mudarSituacao($pedido, $alvo->id, $entregadorUserId));
+            }
+        }
+
+        return ['iniciados' => $movidos->count(), 'pedidos' => $movidos];
+    }
+
+    /**
+     * Situação de DESLOCAMENTO do grupo (efeito PENDENTE, descrição indicando rota).
+     * Não existindo, cria "Saiu para entrega" — o plano L0 previa a situação
+     * intermediária por grupo, sem hard-code de id.
+     */
+    private function situacaoSaiuParaEntrega(int $grupoId): PedidoSituacao
+    {
+        $alvo = PedidoSituacao::query()
+            ->where('grupo_id', $grupoId)
+            ->where('efeito', EfeitoPedido::PENDENTE->value)
+            ->where('ativo', true)
+            ->where(function ($q) {
+                foreach (['%saiu%', '%rota%', '%caminho%'] as $termo) {
+                    $q->orWhereRaw('LOWER(descricao) LIKE ?', [$termo]);
+                }
+            })
+            ->orderBy('id')->first();
+
+        return $alvo ?? PedidoSituacao::create([
+            'grupo_id' => $grupoId,
+            'descricao' => 'Saiu para entrega',
+            'efeito' => EfeitoPedido::PENDENTE->value,
+            'cor' => '#2563EB',
+            'ativo' => true,
+        ]);
+    }
+
     /** Guarda um upload no disco privado, em pasta por tenant/pedido. */
     private function guardar(Pedido $pedido, UploadedFile $arquivo, string $pasta): string
     {

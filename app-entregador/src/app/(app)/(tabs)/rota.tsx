@@ -2,24 +2,42 @@ import { Botao, Cartao } from "@/components/ui"
 import { COLORS, DEFAULT_LOCATION } from "@/constants/app"
 import JornadaService from "@/services/jornada.service"
 import { Parada } from "@/types/types"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { router } from "expo-router"
 import { Clock, MapPin, Navigation } from "lucide-react-native"
 import { ActivityIndicator, Linking, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import Toast from "react-native-toast-message"
 
 /**
  * Rota do dia (L6/F10) — a SEQUÊNCIA otimizada que o ERP calcula (o entregador não
- * escolhe aleatoriamente). Mapa com paradas numeradas + lista ordenada com ETA +
- * "Navegar" (deep link para o Google Maps/Apple Maps) na próxima parada.
+ * escolhe aleatoriamente). "INICIAR ROTA" move as entregas para "Saiu para
+ * entrega" (o cliente é avisado e passa a acompanhar). Mapa com paradas numeradas
+ * + lista ordenada com ETA + "Navegar" (deep link Google/Apple Maps).
  * Vive nas TABS: título de página próprio, sem header do Stack.
  */
 export default function RotaScreen() {
     const { top } = useSafeAreaInsets()
+    const qc = useQueryClient()
     const { data, isLoading, refetch, isRefetching } = useQuery({
         queryKey: ["entregador", "rota"],
         queryFn: JornadaService.Rota,
         refetchInterval: 30000,
+    })
+
+    const iniciar = useMutation({
+        mutationFn: JornadaService.IniciarRota,
+        onSuccess: (r) => {
+            qc.invalidateQueries({ queryKey: ["entregador"] })
+            Toast.show({
+                type: r.iniciados > 0 ? "success" : "info",
+                text1: r.iniciados > 0
+                    ? `Rota iniciada — ${r.iniciados} entrega(s) a caminho.`
+                    : "A rota já estava iniciada.",
+            })
+        },
+        onError: (e: any) => Toast.show({ type: "error", text1: e?.message ?? "Erro ao iniciar a rota." }),
     })
 
     const paradas = data?.paradas ?? []
@@ -63,6 +81,12 @@ export default function RotaScreen() {
             showsVerticalScrollIndicator={false}
         >
             <Text style={s.tituloPagina}>Rota do dia</Text>
+
+            <Botao
+                titulo="Iniciar rota"
+                onPress={() => iniciar.mutate()}
+                carregando={iniciar.isPending}
+            />
             <MapView style={s.mapa} provider={PROVIDER_GOOGLE} initialRegion={regiao} pointerEvents="none">
                 {comGeo.map((p) => (
                     <Marker key={p.pedido_id} coordinate={{ latitude: p.lat!, longitude: p.lng! }} title={`${p.sequencia}. ${p.cliente ?? "Cliente"}`} description={p.endereco}>
@@ -92,11 +116,18 @@ export default function RotaScreen() {
                             </Text>
                         </View>
                     </View>
-                    {p.lat != null && p.lng != null && (
-                        <View style={{ marginTop: 10 }}>
+                    <View style={{ marginTop: 10, gap: 8 }}>
+                        {p.lat != null && p.lng != null && (
                             <Botao titulo={i === 0 ? "Navegar até a próxima" : "Navegar"} variante={i === 0 ? "primario" : "secundario"} onPress={() => navegar(p)} />
-                        </View>
-                    )}
+                        )}
+                        {i === 0 && (
+                            <Botao
+                                titulo="Detalhes / concluir entrega"
+                                variante="secundario"
+                                onPress={() => router.push(`/(app)/pedido/${p.pedido_id}`)}
+                            />
+                        )}
+                    </View>
                 </Cartao>
             ))}
         </ScrollView>

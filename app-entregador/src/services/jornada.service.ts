@@ -35,6 +35,13 @@ const obterDashboard = (): Promise<Dashboard> =>
 const obterRota = (): Promise<Rota> =>
     Http.PrepareRequest("app/v1/entregador/rota", "GET")
 
-const JornadaService = { Veiculos, Atual, Iniciar, Encerrar, Dashboard: obterDashboard, Rota: obterRota }
+/** Inicia a rota: move as entregas para "Saiu para entrega" (cliente é avisado). */
+const iniciarRota = (): Promise<{ iniciados: number }> =>
+    Http.PrepareRequest("app/v1/entregador/rota/iniciar", "POST")
+
+const JornadaService = {
+    Veiculos, Atual, Iniciar, Encerrar,
+    Dashboard: obterDashboard, Rota: obterRota, IniciarRota: iniciarRota,
+}
 
 export default JornadaService
