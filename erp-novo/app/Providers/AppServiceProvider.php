@@ -9,6 +9,9 @@ use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
+use App\Domain\Logistica\Contracts\MatrizDistancia;
+use App\Domain\Logistica\Drivers\GoogleMatrizDriver;
+use App\Domain\Logistica\Drivers\HaversineDriver;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Contracts\PushTransport;
@@ -64,6 +67,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PagamentoDriver::class, fn () => config('services.pagamento.driver') === 'erede'
             ? $this->app->make(EredeDriver::class)
             : $this->app->make(FakePagamentoDriver::class));
+
+        // Matriz de distância/tempo da roteirização (L5 — GATE Google). Haversine
+        // (grátis, default). Com GOOGLE_MAPS_KEY setada, usa o Google Distance
+        // Matrix (trânsito real, cache + fallback). Liga sem tocar no Roteirizador.
+        $this->app->bind(MatrizDistancia::class, function () {
+            $key = config('services.geocoding.key');
+
+            return $key
+                ? new GoogleMatrizDriver((string) $key, $this->app->make(HaversineDriver::class))
+                : $this->app->make(HaversineDriver::class);
+        });
 
         // Verificador do Firebase (F1 — GATE phone-auth). FIREBASE_DRIVER=kreait ativa o
         // real (kreait/firebase-php + service account); qualquer outro valor mantém o Fake.

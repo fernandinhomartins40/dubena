@@ -29,7 +29,16 @@ class AppEntregadorController extends Controller
         private RastreamentoService $rastreamento,
         private EntregaService $entrega,
         private JornadaService $jornadas,
+        private \App\Domain\Logistica\RoteirizadorService $roteirizador,
     ) {}
+
+    /** GET /app/v1/entregador/rota — rota otimizada das entregas ativas (L5). */
+    public function rota(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json(['data' => $this->roteirizador->rotaDoEntregador($user->empresa_id, $user->id)]);
+    }
 
     // ── Jornada (L4) ──
 
