@@ -1,0 +1,6 @@
+import{c as s,a as t,j as e,B as c}from"./index-hOBTjdBs.js";/**
+ * @license lucide-react v0.451.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const r=s("ShieldX",[["path",{d:"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z",key:"oel41y"}],["path",{d:"m14.5 9.5-5 5",key:"17q4r4"}],["path",{d:"m9.5 9.5 5 5",key:"18nt4w"}]]);function o(){const a=t();return e.jsx("div",{className:"grid min-h-[60vh] place-items-center",children:e.jsxs("div",{className:"max-w-md text-center",children:[e.jsx("div",{className:"mx-auto mb-4 grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive",children:e.jsx(r,{size:28})}),e.jsx("h1",{className:"text-xl font-bold text-foreground",children:"Sem acesso"}),e.jsx("p",{className:"mt-2 text-sm text-muted-foreground",children:"Você não tem permissão para acessar esta área. Se acredita que isso é um engano, fale com o administrador da sua empresa."}),e.jsx(c,{className:"mt-5",onClick:()=>a("/"),children:"Voltar ao início"})]})})}export{o as SemAcessoPage};
