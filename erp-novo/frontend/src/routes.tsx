@@ -29,6 +29,7 @@ const GeograficoPage = lazyNamed(() => import('@/features/geografico/GeograficoP
 
 // Operações
 const PedidosPage = lazyNamed(() => import('@/features/pedidos/PedidosPage'), 'PedidosPage')
+const CentralPage = lazyNamed(() => import('@/features/central/CentralPage'), 'CentralPage')
 const EstoquePage = lazyNamed(() => import('@/features/estoque/EstoquePage'), 'EstoquePage')
 const FiscalPage = lazyNamed(() => import('@/features/fiscal/FiscalPage'), 'FiscalPage')
 const CupomPage = lazyNamed(() => import('@/features/gestao/CupomPage'), 'CupomPage')
@@ -130,6 +131,7 @@ export function AppRoutes() {
 
       {/* Operações */}
       <Route path="/pedidos" element={p(<PedidosPage />, 'pedido.view')} />
+      <Route path="/central" element={p(<CentralPage />, 'logistica.view')} />
       <Route path="/estoque" element={p(<EstoquePage />, 'estoque.view')} />
       <Route path="/fiscal" element={p(<FiscalPage />, 'fiscal.view')} />
       <Route path="/cupons-fiscais" element={p(<CupomPage />, 'cupomfiscal.view')} />
