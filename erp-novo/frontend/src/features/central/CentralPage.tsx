@@ -182,6 +182,7 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [modo, setModo] = useState<'sugerir' | 'auto'>('sugerir')
   const [raio, setRaio] = useState('')
   const [teto, setTeto] = useState('')
+  const [ociosidade, setOciosidade] = useState('30')
 
   // Hidrata os campos quando o dialog abre e a config chega.
   useEffect(() => {
@@ -189,6 +190,7 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
       setModo(config.data.modo)
       setRaio(config.data.raio_maximo_km ? String(config.data.raio_maximo_km) : '')
       setTeto(config.data.teto_carga ? String(config.data.teto_carga) : '')
+      setOciosidade(String(config.data.ociosidade_min ?? 30))
     }
   }, [open, config.data])
 
@@ -197,6 +199,7 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
       modo,
       raio_maximo_km: raio ? Number(raio) : null,
       teto_carga: teto ? Number(teto) : null,
+      ociosidade_min: ociosidade ? Number(ociosidade) : 30,
     }, {
       onSuccess: () => { toast.success('Configuração salva.'); onClose() },
       onError: () => toast.error('Não foi possível salvar.'),
@@ -217,11 +220,12 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
               </SelectContent>
             </Select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Field label="Raio máximo (km)"><Input value={raio} onChange={(e) => setRaio(e.target.value)} inputMode="numeric" placeholder="sem limite" /></Field>
             <Field label="Teto de carga"><Input value={teto} onChange={(e) => setTeto(e.target.value)} inputMode="numeric" placeholder="sem teto" /></Field>
+            <Field label="Ociosidade (min)"><Input value={ociosidade} onChange={(e) => setOciosidade(e.target.value)} inputMode="numeric" /></Field>
           </div>
-          <p className="text-xs text-muted-foreground">No modo automático, o ERP atribui o entregador mais próximo e menos carregado assim que o pedido entra na fila (respeitando raio e teto).</p>
+          <p className="text-xs text-muted-foreground">No modo automático, o ERP atribui o entregador mais próximo e menos carregado assim que o pedido entra na fila (respeitando raio e teto). "Ociosidade" é o tempo sem entregas para o motor de missões de campo agir.</p>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>

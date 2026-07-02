@@ -1,28 +1,24 @@
 import { POSICAO_INTERVALO_MS } from "@/constants/app"
+import { iniciarBackground, pararBackground } from "@/helpers/backgroundLocation"
 import EntregaService from "@/services/entrega.service"
 import useAppStore from "@/store/appStore"
 import * as Location from "expo-location"
 import { useEffect, useRef, useState } from "react"
 
 /**
- * useRastreamento (P6) — enquanto o entregador estiver "em serviço", obtém a
- * posição do GPS e a envia ao ERP-NOVO em intervalos regulares. O servidor
- * publica o ping nos pedidos ATIVOS (tempo real para o cliente acompanhar).
+ * useRastreamento (P6/F11) — enquanto o entregador estiver em jornada
+ * (`emServico`, sincronizado pelo useJornada), envia a posição ao ERP-NOVO.
  *
- * A permissão é pedida sob demanda; se negada, o hook fica inerte (sem crashar).
+ * F11: tenta o modo BACKGROUND primeiro (expo-task-manager + foreground service —
+ * o app no bolso continua rastreando). Se a permissão "sempre" for negada, cai
+ * para o loop em foreground (comportamento anterior). Nada crasha se negado.
  */
 export function useRastreamento() {
     const emServico = useAppStore((s) => s.emServico)
     const [permitido, setPermitido] = useState<boolean | null>(null)
+    const [modo, setModo] = useState<"background" | "foreground" | null>(null)
     const [ultima, setUltima] = useState<Location.LocationObjectCoords | null>(null)
     const timer = useRef<ReturnType<typeof setInterval> | null>(null)
-
-    const pedirPermissao = async (): Promise<boolean> => {
-        const { status } = await Location.requestForegroundPermissionsAsync()
-        const ok = status === "granted"
-        setPermitido(ok)
-        return ok
-    }
 
     const enviarUmaVez = async () => {
         try {
@@ -44,10 +40,36 @@ export function useRastreamento() {
     useEffect(() => {
         let ativo = true
 
+        const pararForeground = () => {
+            if (timer.current) {
+                clearInterval(timer.current)
+                timer.current = null
+            }
+        }
+
         const iniciar = async () => {
-            if (!emServico) return
-            const ok = permitido ?? (await pedirPermissao())
+            if (!emServico) {
+                pararForeground()
+                await pararBackground()
+                return
+            }
+
+            // 1º: background (o SO acorda a task mesmo com o app fechado).
+            const bgOk = await iniciarBackground(POSICAO_INTERVALO_MS).catch(() => false)
+            if (!ativo) return
+            if (bgOk) {
+                setPermitido(true)
+                setModo("background")
+                pararForeground() // a task cuida de tudo
+                return
+            }
+
+            // 2º: fallback foreground (permissão "sempre" negada).
+            const fg = await Location.requestForegroundPermissionsAsync()
+            const ok = fg.status === "granted"
+            setPermitido(ok)
             if (!ok || !ativo) return
+            setModo("foreground")
 
             await enviarUmaVez()
             timer.current = setInterval(enviarUmaVez, POSICAO_INTERVALO_MS)
@@ -57,13 +79,10 @@ export function useRastreamento() {
 
         return () => {
             ativo = false
-            if (timer.current) {
-                clearInterval(timer.current)
-                timer.current = null
-            }
+            pararForeground()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [emServico])
 
-    return { permitido, ultima, pedirPermissao }
+    return { permitido, modo, ultima }
 }

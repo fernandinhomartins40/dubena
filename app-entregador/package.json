@@ -29,6 +29,7 @@
     "expo-secure-store": "~14.2.4",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
+    "expo-task-manager": "~13.1.6",
     "laravel-echo": "^1.16.1",
     "lucide-react-native": "^0.460.0",
     "pusher-js": "^8.4.0-rc2",

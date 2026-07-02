@@ -1,4 +1,7 @@
 import { COLORS } from "@/constants/app"
+// Registra a TASK de rastreamento em background no bundle (F11) — precisa rodar
+// no escopo de módulo, antes do app montar (exigência do expo-task-manager).
+import "@/helpers/backgroundLocation"
 import useAppStore from "@/store/appStore"
 import { initSecureStorage } from "@/store/storage"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"

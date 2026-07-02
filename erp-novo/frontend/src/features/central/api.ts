@@ -48,6 +48,8 @@ export interface LogisticaConfig {
   peso_carga: number
   raio_maximo_km: number | null
   teto_carga: number | null
+  /** Minutos sem entrega para o motor de MISSÕES agir (L7). */
+  ociosidade_min: number
 }
 
 const POLL = 8000 // 8s — "quase ao vivo" sem WebSocket

@@ -668,7 +668,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Entregador — missões de campo (L7/L8)
         Route::get('entregador/missao', [AppMissaoController::class, 'atual']);
         Route::post('entregador/missao/iniciar', [AppMissaoController::class, 'iniciar']);
-        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita']);
+        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita'])->middleware('throttle:30,1');
         Route::post('entregador/missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:120,1');
         Route::get('entregador/missao/proxima-casa', [AppMissaoController::class, 'proximaCasa']);
         Route::post('entregador/missao/adiar', [AppMissaoController::class, 'adiar']);
