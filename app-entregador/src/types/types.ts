@@ -31,3 +31,29 @@ export interface ComprovacaoPayload {
     latitude?: number | null
     longitude?: number | null
 }
+
+// ── Jornada (L4) ──
+
+export interface VeiculoOpcao {
+    id: number
+    placa: string
+    descricao: string | null
+    km_atual: number | null
+}
+
+export interface Jornada {
+    id: number
+    status: "ativa" | "encerrada"
+    iniciada_em: string | null
+    encerrada_em: string | null
+    km_inicial: number | null
+    km_final: number | null
+    veiculo: { id: number; placa: string; descricao: string | null } | null
+}
+
+export interface Dashboard {
+    em_servico: boolean
+    jornada: Jornada | null
+    pendentes: number
+    concluidos_hoje: number
+}
