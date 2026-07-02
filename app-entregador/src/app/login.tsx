@@ -4,6 +4,7 @@ import { HttpError } from "@/helpers/http"
 import AuthService from "@/services/auth.service"
 import useAppStore from "@/store/appStore"
 import { router } from "expo-router"
+import { Bike } from "lucide-react-native"
 import { useState } from "react"
 import {
     KeyboardAvoidingView,
@@ -86,7 +87,11 @@ export default function Login() {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={s.logo}>
-                    <Text style={s.logoTexto}>Entregador</Text>
+                    <View style={s.logoIcone}>
+                        <Bike size={34} color={COLORS.white} strokeWidth={2.2} />
+                    </View>
+                    <Text style={s.logoTexto}>Gás em Casa</Text>
+                    <Text style={s.logoSub}>Entregador</Text>
                 </View>
                 <Text style={s.subtitulo}>Acesse com seu e-mail e senha de colaborador.</Text>
 
@@ -141,8 +146,25 @@ export default function Login() {
 
 const s = StyleSheet.create({
     container: { paddingHorizontal: 24, paddingBottom: 40 },
-    logo: { alignItems: "center", marginBottom: 8 },
-    logoTexto: { fontSize: 30, fontWeight: "800", color: COLORS.primary },
+    logo: { alignItems: "center", marginBottom: 8, gap: 6 },
+    logoIcone: {
+        width: 72,
+        height: 72,
+        borderRadius: 999,
+        backgroundColor: COLORS.primary,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 4,
+    },
+    logoTexto: { fontSize: 30, fontWeight: "800", color: COLORS.graphite },
+    logoSub: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: COLORS.primary,
+        textTransform: "uppercase",
+        letterSpacing: 2,
+        marginTop: -4,
+    },
     subtitulo: {
         textAlign: "center",
         color: COLORS.muted,

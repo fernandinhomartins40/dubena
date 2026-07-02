@@ -1,4 +1,5 @@
 import { COLORS } from "@/constants/app"
+import { fontSize, radius, shadow, spacing } from "@/styles/theme"
 import React from "react"
 import {
     ActivityIndicator,
@@ -83,36 +84,37 @@ export function Etiqueta({ texto }: { texto: string }) {
 const s = StyleSheet.create({
     botao: {
         height: 52,
-        borderRadius: 12,
+        borderRadius: radius.md,
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: 20,
     },
-    botaoTexto: { fontSize: 16, fontWeight: "700" },
-    label: { fontSize: 13, fontWeight: "600", color: COLORS.muted, marginBottom: 6 },
+    botaoTexto: { fontSize: fontSize.base, fontWeight: "700" },
+    label: { fontSize: fontSize.sm, fontWeight: "600", color: COLORS.muted, marginBottom: 6 },
     input: {
         height: 50,
         borderWidth: 1,
         borderColor: COLORS.border,
-        borderRadius: 12,
+        borderRadius: radius.md,
         paddingHorizontal: 14,
-        fontSize: 16,
+        fontSize: fontSize.base,
         color: COLORS.text,
         backgroundColor: COLORS.card,
     },
     cartao: {
         backgroundColor: COLORS.card,
-        borderRadius: 14,
-        padding: 16,
+        borderRadius: radius.lg,
+        padding: spacing.lg,
         borderWidth: 1,
         borderColor: COLORS.border,
+        ...shadow.card,
     },
     etiqueta: {
         alignSelf: "flex-start",
         backgroundColor: COLORS.accent,
         paddingHorizontal: 10,
         paddingVertical: 4,
-        borderRadius: 999,
+        borderRadius: radius.pill,
     },
-    etiquetaTexto: { fontSize: 12, fontWeight: "700", color: COLORS.graphite },
+    etiquetaTexto: { fontSize: fontSize.xs, fontWeight: "700", color: COLORS.graphite },
 })
