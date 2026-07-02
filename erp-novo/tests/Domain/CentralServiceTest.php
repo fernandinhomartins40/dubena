@@ -49,7 +49,13 @@ class CentralServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Event::fake(); // não dispara push/broadcast reais nos testes
+        // Fake SELETIVO (broadcasts): Event::fake() global mataria os model events
+        // do Eloquent (creating da BelongsToTenant -> empresa_id ficaria null).
+        Event::fake([
+            \App\Domain\Logistica\Events\PedidoEntrouNaFila::class,
+            \App\Domain\Logistica\Events\PedidoAtribuido::class,
+            \App\Domain\Pedido\Events\PedidoStatusAtualizado::class,
+        ]);
 
         $this->central = app(CentralService::class);
         $this->pedidos = app(PedidoService::class);

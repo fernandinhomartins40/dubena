@@ -34,3 +34,7 @@ Schedule::command('notify:inconsistencias')->weeklyOn(1, '03:00')->withoutOverla
 // Atualização da tabela IBPT (Lei 12.741) — dia 1 de cada mês 05:00 (gate: só roda
 // efetivamente se IBPT_CSV_URL estiver configurada). Espelha o ibpt:update do legado. F09.
 Schedule::command('ibpt:atualizar')->monthlyOn(1, '05:00')->withoutOverlapping();
+
+// Missões de campo (L7) — a cada 10 min atribui missões aos entregadores ociosos
+// (em jornada, sem entregas há mais de `ociosidade_min` da config da empresa).
+Schedule::command('logistica:gerar-missoes')->everyTenMinutes()->withoutOverlapping();

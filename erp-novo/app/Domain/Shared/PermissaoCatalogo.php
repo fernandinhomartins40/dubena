@@ -32,6 +32,8 @@ final class PermissaoCatalogo
         'monitora' => ['view', 'edit'],
         // Central de Logística (L1) — fila, atribuição, redistribuição, bloqueio.
         'logistica' => ['view', 'distribuir', 'config'],
+        // Missões de campo (L7/L9) — molde, execução e auditoria.
+        'missao' => ['view', 'create', 'edit', 'aprovar'],
         'colaborador' => ['view', 'create', 'edit', 'delete'],
         'veiculo' => ['view', 'create', 'edit', 'delete'],
         'posvenda' => ['view', 'create', 'edit', 'delete'],

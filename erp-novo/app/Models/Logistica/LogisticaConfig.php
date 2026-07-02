@@ -16,6 +16,7 @@ class LogisticaConfig extends Model
 
     protected $fillable = [
         'empresa_id', 'modo', 'peso_distancia', 'peso_carga', 'raio_maximo_km', 'teto_carga',
+        'ociosidade_min',
     ];
 
     protected function casts(): array
@@ -25,6 +26,7 @@ class LogisticaConfig extends Model
             'peso_carga' => 'float',
             'raio_maximo_km' => 'integer',
             'teto_carga' => 'integer',
+            'ociosidade_min' => 'integer',
         ];
     }
 

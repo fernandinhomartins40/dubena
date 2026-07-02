@@ -41,7 +41,7 @@ class JornadaServiceTest extends TestCase
         return Veiculo::create(array_merge([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
-            'placa' => 'ABC'.fake()->numberBetween(1000, 9999),
+            'placa' => 'ABC'.fake()->unique()->numberBetween(1000, 9999),
             'km_atual' => 1000,
             'ativo' => true,
         ], $attr));

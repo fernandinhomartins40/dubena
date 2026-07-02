@@ -177,6 +177,7 @@ class CentralController extends Controller
             'peso_carga' => 'nullable|numeric|min:0|max:1',
             'raio_maximo_km' => 'nullable|integer|min:1',
             'teto_carga' => 'nullable|integer|min:1',
+            'ociosidade_min' => 'nullable|integer|min:1|max:480',
         ]);
 
         $empresaId = (int) $request->user()->empresa_id;

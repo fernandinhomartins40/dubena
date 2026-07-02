@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
+use App\Http\Controllers\Api\Admin\MissaoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
 use App\Http\Controllers\Api\Admin\NfEntradaController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
@@ -52,6 +53,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
+use App\Http\Controllers\Api\Mobile\AppMissaoController;
 use App\Http\Controllers\Api\Mobile\MarketplaceController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
@@ -477,6 +479,17 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('central/config', [CentralController::class, 'config']);
         Route::put('central/config', [CentralController::class, 'salvarConfig']);
 
+        // ── Missões de campo (L7/L9) — moldes + auditoria ──
+        Route::get('missoes', [MissaoController::class, 'index']);
+        Route::post('missoes', [MissaoController::class, 'store']);
+        Route::put('missoes/{id}', [MissaoController::class, 'update'])->whereNumber('id');
+        Route::post('missoes/{id}/atribuir', [MissaoController::class, 'atribuir'])->whereNumber('id');
+        Route::get('missoes/atribuicoes', [MissaoController::class, 'atribuicoes']);
+        Route::get('missoes/atribuicoes/{id}', [MissaoController::class, 'detalhe'])->whereNumber('id');
+        Route::post('missoes/atribuicoes/{id}/auditar', [MissaoController::class, 'auditar'])->whereNumber('id');
+        Route::post('missoes/atribuicoes/{id}/adiamento', [MissaoController::class, 'decidirAdiamento'])->whereNumber('id');
+        Route::get('missoes/evidencias/{id}', [MissaoController::class, 'evidencia'])->whereNumber('id');
+
         // ── Relatórios (Query Services) — N12 ──
         // ── CRM / satélites (C10) ──
         Route::get('pos-vendas', [CrmController::class, 'posVendaIndex']);
@@ -651,6 +664,19 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('entregador/pedidos/{id}/recusar', [AppEntregadorController::class, 'recusar'])->whereNumber('id');
         Route::post('entregador/pedidos/{id}/ocorrencia', [AppEntregadorController::class, 'ocorrencia'])->whereNumber('id');
         Route::post('entregador/pedidos/{id}/concluir', [AppEntregadorController::class, 'concluir'])->whereNumber('id');
+
+        // Entregador — missões de campo (L7/L8)
+        Route::get('entregador/missao', [AppMissaoController::class, 'atual']);
+        Route::post('entregador/missao/iniciar', [AppMissaoController::class, 'iniciar']);
+        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita']);
+        Route::post('entregador/missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:120,1');
+        Route::get('entregador/missao/proxima-casa', [AppMissaoController::class, 'proximaCasa']);
+        Route::post('entregador/missao/adiar', [AppMissaoController::class, 'adiar']);
+        Route::post('entregador/missao/concluir', [AppMissaoController::class, 'concluir']);
+        Route::get('entregador/missao/produtos', [AppMissaoController::class, 'produtos']);
+        Route::post('entregador/missao/venda', [AppMissaoController::class, 'venderGas']);
+        Route::post('entregador/missao/vale-gas', [AppMissaoController::class, 'venderValeGas']);
+        Route::post('entregador/missao/clientes', [AppMissaoController::class, 'cadastrarCliente']);
     });
 });
 

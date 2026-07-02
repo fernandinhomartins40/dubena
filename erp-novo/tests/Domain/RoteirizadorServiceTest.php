@@ -44,7 +44,13 @@ class RoteirizadorServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Event::fake();
+        // Fake SELETIVO (broadcasts): Event::fake() global mataria os model events
+        // do Eloquent (creating da BelongsToTenant -> empresa_id ficaria null).
+        Event::fake([
+            \App\Domain\Logistica\Events\PedidoEntrouNaFila::class,
+            \App\Domain\Logistica\Events\PedidoAtribuido::class,
+            \App\Domain\Pedido\Events\PedidoStatusAtualizado::class,
+        ]);
         // Driver Haversine explícito (não depende de env/Google no teste).
         $this->svc = new RoteirizadorService(new HaversineDriver);
 

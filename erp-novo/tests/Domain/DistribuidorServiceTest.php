@@ -49,7 +49,13 @@ class DistribuidorServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Event::fake();
+        // Fake SELETIVO (broadcasts): Event::fake() global mataria os model events
+        // do Eloquent (creating da BelongsToTenant -> empresa_id ficaria null).
+        Event::fake([
+            \App\Domain\Logistica\Events\PedidoEntrouNaFila::class,
+            \App\Domain\Logistica\Events\PedidoAtribuido::class,
+            \App\Domain\Pedido\Events\PedidoStatusAtualizado::class,
+        ]);
         $this->dist = app(DistribuidorService::class);
         $this->jornadas = app(JornadaService::class);
         $this->central = app(CentralService::class);
@@ -68,7 +74,7 @@ class DistribuidorServiceTest extends TestCase
         $u = User::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
         $veiculo = Veiculo::create([
             'empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId,
-            'placa' => 'AAA'.fake()->numberBetween(1000, 9999), 'ativo' => true,
+            'placa' => 'AAA'.fake()->unique()->numberBetween(1000, 9999), 'ativo' => true,
         ]);
         $this->jornadas->iniciar($u, $veiculo->id);
         EntregadorPosicao::create([
