@@ -3,6 +3,7 @@
 namespace App\Domain\Logistica;
 
 use App\Domain\Logistica\Contracts\MatrizDistancia;
+use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Mobile\EntregadorPosicao;
 use App\Models\Pedido\Pedido;
@@ -20,7 +21,10 @@ use App\Models\Pedido\Pedido;
  */
 class RoteirizadorService
 {
-    public function __construct(private MatrizDistancia $matriz) {}
+    public function __construct(
+        private MatrizDistancia $matriz,
+        private TracadorRota $tracador,
+    ) {}
 
     /**
      * Rota atual do entregador (sequência + distância total + ETA).
@@ -61,21 +65,30 @@ class RoteirizadorService
         foreach ($ordenados as $p) {
             $lat = (float) $p->cliente->latitude;
             $lng = (float) $p->cliente->longitude;
-            $trecho = ($curLat !== null && $curLng !== null)
-                ? $this->matriz->entre($curLat, $curLng, $lat, $lng)
-                : ['distancia_km' => 0.0, 'duracao_min' => 0.0];
+
+            // Traçado REAL do trecho (Routes API): polyline + distância/tempo pelas
+            // ruas. Sem key/na falha: métricas da matriz (Haversine) e sem polyline
+            // (o app liga as paradas com linha reta).
+            $tracado = ($curLat !== null && $curLng !== null)
+                ? $this->tracador->tracar($curLat, $curLng, $lat, $lng)
+                : null;
+
+            $trecho = $tracado
+                ?? (($curLat !== null && $curLng !== null)
+                    ? $this->matriz->entre($curLat, $curLng, $lat, $lng)
+                    : ['distancia_km' => 0.0, 'duracao_min' => 0.0]);
 
             $distTotal += $trecho['distancia_km'];
             $durTotal += $trecho['duracao_min'];
 
-            $paradas[] = $this->parada($p, $seq++, $trecho, round($durTotal, 1));
+            $paradas[] = $this->parada($p, $seq++, $trecho, round($durTotal, 1), $tracado['polyline'] ?? null);
             $curLat = $lat;
             $curLng = $lng;
         }
 
         // Paradas sem coordenada entram ao final, sem métricas de trecho.
         foreach ($semGeo as $p) {
-            $paradas[] = $this->parada($p, $seq++, ['distancia_km' => null, 'duracao_min' => null], null);
+            $paradas[] = $this->parada($p, $seq++, ['distancia_km' => null, 'duracao_min' => null], null, null);
         }
 
         return [
@@ -128,7 +141,7 @@ class RoteirizadorService
      * @param  array{distancia_km: float|null, duracao_min: float|null}  $trecho
      * @return array<string,mixed>
      */
-    private function parada(Pedido $p, int $seq, array $trecho, ?float $etaMin): array
+    private function parada(Pedido $p, int $seq, array $trecho, ?float $etaMin, ?string $polyline): array
     {
         return [
             'sequencia' => $seq,
@@ -140,6 +153,8 @@ class RoteirizadorService
             'distancia_trecho_km' => $trecho['distancia_km'],
             'duracao_trecho_min' => $trecho['duracao_min'],
             'eta_min' => $etaMin,
+            // Traçado do trecho pelas ruas (Routes API) — null sem key (app usa reta).
+            'polyline' => $polyline,
         ];
     }
 }

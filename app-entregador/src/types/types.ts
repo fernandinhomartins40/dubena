@@ -70,6 +70,8 @@ export interface Parada {
     distancia_trecho_km: number | null
     duracao_trecho_min: number | null
     eta_min: number | null
+    /** Traçado do trecho pelas ruas (encodada; Routes API). Null = usar reta. */
+    polyline: string | null
 }
 
 export interface Rota {

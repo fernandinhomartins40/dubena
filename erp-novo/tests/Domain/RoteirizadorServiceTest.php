@@ -4,7 +4,9 @@ namespace Tests\Domain;
 
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Logistica\Contracts\MatrizDistancia;
+use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Logistica\Drivers\HaversineDriver;
+use App\Domain\Logistica\Drivers\SemTracado;
 use App\Domain\Logistica\RoteirizadorService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
@@ -51,8 +53,8 @@ class RoteirizadorServiceTest extends TestCase
             \App\Domain\Logistica\Events\PedidoAtribuido::class,
             \App\Domain\Pedido\Events\PedidoStatusAtualizado::class,
         ]);
-        // Driver Haversine explícito (não depende de env/Google no teste).
-        $this->svc = new RoteirizadorService(new HaversineDriver);
+        // Drivers explícitos (não depende de env/Google no teste).
+        $this->svc = new RoteirizadorService(new HaversineDriver, new SemTracado);
 
         $this->setor = Setor::factory()->create();
         $this->empresaId = $this->setor->empresa_id;
@@ -118,8 +120,42 @@ class RoteirizadorServiceTest extends TestCase
 
     public function test_driver_e_resolvido_por_env_haversine_por_padrao(): void
     {
-        // Sem GOOGLE_MAPS_KEY, o container entrega o Haversine.
+        // Sem GOOGLE_MAPS_KEY, o container entrega o Haversine e o SemTracado.
         config()->set('services.geocoding.key', null);
         $this->assertInstanceOf(HaversineDriver::class, app(MatrizDistancia::class));
+        $this->assertInstanceOf(SemTracado::class, app(TracadorRota::class));
+    }
+
+    public function test_paradas_incluem_polyline_quando_tracador_disponivel(): void
+    {
+        // Fake da Routes API: devolve polyline e métricas reais por trecho.
+        $fake = new class implements TracadorRota
+        {
+            public function tracar(float $a, float $b, float $c, float $d): ?array
+            {
+                return ['polyline' => 'abc123_encoded', 'distancia_km' => 2.5, 'duracao_min' => 7.0];
+            }
+        };
+        $svc = new RoteirizadorService(new HaversineDriver, $fake);
+
+        $this->posicionar(-25.390, -51.460);
+        $this->pedidoEm(-25.392, -51.462);
+
+        $rota = $svc->rotaDoEntregador($this->empresaId, $this->entregador->id);
+
+        $this->assertSame('abc123_encoded', $rota['paradas'][0]['polyline']);
+        $this->assertSame(2.5, $rota['paradas'][0]['distancia_trecho_km']);
+        $this->assertSame(7.0, $rota['paradas'][0]['duracao_trecho_min']);
+    }
+
+    public function test_sem_tracador_polyline_e_null(): void
+    {
+        $this->posicionar(-25.390, -51.460);
+        $this->pedidoEm(-25.392, -51.462);
+
+        $rota = $this->svc->rotaDoEntregador($this->empresaId, $this->entregador->id);
+
+        $this->assertNull($rota['paradas'][0]['polyline']);
+        $this->assertGreaterThan(0, $rota['paradas'][0]['distancia_trecho_km']); // Haversine segue valendo
     }
 }

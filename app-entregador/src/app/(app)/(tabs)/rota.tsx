@@ -1,20 +1,22 @@
 import { Botao, Cartao } from "@/components/ui"
 import { COLORS, DEFAULT_LOCATION } from "@/constants/app"
+import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
-import { Parada } from "@/types/types"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { router } from "expo-router"
 import { Clock, MapPin, Navigation } from "lucide-react-native"
-import { ActivityIndicator, Linking, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
+import { useMemo } from "react"
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
 
 /**
  * Rota do dia (L6/F10) — a SEQUÊNCIA otimizada que o ERP calcula (o entregador não
  * escolhe aleatoriamente). "INICIAR ROTA" move as entregas para "Saiu para
- * entrega" (o cliente é avisado e passa a acompanhar). Mapa com paradas numeradas
- * + lista ordenada com ETA + "Navegar" (deep link Google/Apple Maps).
+ * entrega" (o cliente é avisado e passa a acompanhar). Mapa com o TRAÇADO da rota
+ * + paradas numeradas + lista com ETA. "Navegar" abre a NAVEGAÇÃO INTERNA
+ * (estilo app de mobilidade) — nunca sai para o Google Maps.
  * Vive nas TABS: título de página próprio, sem header do Stack.
  */
 export default function RotaScreen() {
@@ -51,14 +53,16 @@ export default function RotaScreen() {
         longitudeDelta: 0.04,
     }
 
-    const navegar = (p: Parada) => {
-        if (p.lat == null || p.lng == null) return
-        const ll = `${p.lat},${p.lng}`
-        const url = Platform.select({ ios: `http://maps.apple.com/?daddr=${ll}`, default: `google.navigation:q=${ll}` })
-        Linking.openURL(url!).catch(() =>
-            Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${ll}`),
-        )
-    }
+    // Traçado no minimapa: polylines reais (Routes API) ou reta entre paradas.
+    const trechos = useMemo(() => {
+        const reais = comGeo.filter((p) => p.polyline).map((p) => decodePolyline(p.polyline!))
+        if (reais.length > 0) return reais
+        const pontos = comGeo.map((p) => ({ latitude: p.lat!, longitude: p.lng! }))
+        return pontos.length >= 2 ? [pontos] : []
+    }, [comGeo])
+
+    /** Navegação INTERNA (tela cheia, posição ao vivo) — não sai do app. */
+    const navegar = () => router.push("/(app)/navegacao")
 
     if (isLoading) {
         return <View style={s.center}><ActivityIndicator color={COLORS.primary} /></View>
@@ -88,6 +92,9 @@ export default function RotaScreen() {
                 carregando={iniciar.isPending}
             />
             <MapView style={s.mapa} provider={PROVIDER_GOOGLE} initialRegion={regiao} pointerEvents="none">
+                {trechos.map((coords, i) => (
+                    <Polyline key={i} coordinates={coords} strokeWidth={4} strokeColor={COLORS.primary} />
+                ))}
                 {comGeo.map((p) => (
                     <Marker key={p.pedido_id} coordinate={{ latitude: p.lat!, longitude: p.lng! }} title={`${p.sequencia}. ${p.cliente ?? "Cliente"}`} description={p.endereco}>
                         <View style={s.pin}><Text style={s.pinTexto}>{p.sequencia}</Text></View>
@@ -116,18 +123,18 @@ export default function RotaScreen() {
                             </Text>
                         </View>
                     </View>
-                    <View style={{ marginTop: 10, gap: 8 }}>
-                        {p.lat != null && p.lng != null && (
-                            <Botao titulo={i === 0 ? "Navegar até a próxima" : "Navegar"} variante={i === 0 ? "primario" : "secundario"} onPress={() => navegar(p)} />
-                        )}
-                        {i === 0 && (
+                    {i === 0 && (
+                        <View style={{ marginTop: 10, gap: 8 }}>
+                            {p.lat != null && p.lng != null && (
+                                <Botao titulo="Navegar (no app)" onPress={navegar} />
+                            )}
                             <Botao
                                 titulo="Detalhes / concluir entrega"
                                 variante="secundario"
                                 onPress={() => router.push(`/(app)/pedido/${p.pedido_id}`)}
                             />
-                        )}
-                    </View>
+                        </View>
+                    )}
                 </Cartao>
             ))}
         </ScrollView>

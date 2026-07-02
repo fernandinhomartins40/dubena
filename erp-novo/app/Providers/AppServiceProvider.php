@@ -10,8 +10,11 @@ use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
 use App\Domain\Logistica\Contracts\MatrizDistancia;
+use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Logistica\Drivers\GoogleMatrizDriver;
+use App\Domain\Logistica\Drivers\GoogleRoutesDriver;
 use App\Domain\Logistica\Drivers\HaversineDriver;
+use App\Domain\Logistica\Drivers\SemTracado;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Contracts\PushTransport;
@@ -69,14 +72,25 @@ class AppServiceProvider extends ServiceProvider
             : $this->app->make(FakePagamentoDriver::class));
 
         // Matriz de distância/tempo da roteirização (L5 — GATE Google). Haversine
-        // (grátis, default). Com GOOGLE_MAPS_KEY setada, usa o Google Distance
-        // Matrix (trânsito real, cache + fallback). Liga sem tocar no Roteirizador.
+        // (grátis, default). Com GOOGLE_MAPS_KEY setada, usa a Google ROUTES API
+        // (trânsito real, cache + fallback). Liga sem tocar no Roteirizador.
         $this->app->bind(MatrizDistancia::class, function () {
             $key = config('services.geocoding.key');
 
             return $key
-                ? new GoogleMatrizDriver((string) $key, $this->app->make(HaversineDriver::class))
+                ? new GoogleMatrizDriver(new GoogleRoutesDriver((string) $key), $this->app->make(HaversineDriver::class))
                 : $this->app->make(HaversineDriver::class);
+        });
+
+        // Traçado da rota pelas ruas (L6 — GATE Google Routes). Sem key, SemTracado
+        // (o app do entregador liga as paradas com linha reta e melhora sozinho
+        // quando a Routes API for habilitada no projeto GCP).
+        $this->app->bind(TracadorRota::class, function () {
+            $key = config('services.geocoding.key');
+
+            return $key
+                ? new GoogleRoutesDriver((string) $key)
+                : new SemTracado;
         });
 
         // Verificador do Firebase (F1 — GATE phone-auth). FIREBASE_DRIVER=kreait ativa o

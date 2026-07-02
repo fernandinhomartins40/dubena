@@ -27,6 +27,7 @@ export default function AppLayout() {
         >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="iniciar-jornada" options={{ title: "Iniciar jornada" }} />
+            <Stack.Screen name="navegacao" options={{ headerShown: false }} />
             <Stack.Screen name="pedido/[id]/index" options={{ title: "Entrega" }} />
             <Stack.Screen name="pedido/[id]/ocorrencia" options={{ title: "Registrar ocorrência" }} />
             <Stack.Screen name="pedido/[id]/concluir" options={{ title: "Comprovar entrega" }} />
