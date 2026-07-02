@@ -474,6 +474,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('central/pedidos/{id}/reagendar', [CentralController::class, 'reagendar'])->whereNumber('id');
         Route::post('central/entregadores/{id}/bloquear', [CentralController::class, 'bloquear'])->whereNumber('id');
         Route::delete('central/entregadores/{id}/bloquear', [CentralController::class, 'desbloquear'])->whereNumber('id');
+        Route::get('central/config', [CentralController::class, 'config']);
+        Route::put('central/config', [CentralController::class, 'salvarConfig']);
 
         // ── Relatórios (Query Services) — N12 ──
         // ── CRM / satélites (C10) ──

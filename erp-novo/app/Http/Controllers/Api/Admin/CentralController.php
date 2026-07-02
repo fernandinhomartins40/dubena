@@ -6,6 +6,7 @@ use App\Domain\Logistica\CentralService;
 use App\Domain\Logistica\DistribuidorService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Logistica\LogisticaConfig;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -154,6 +155,34 @@ class CentralController extends Controller
         $this->central->desbloquearEntregador((int) $request->user()->empresa_id, $id);
 
         return response()->json(['message' => 'Entregador desbloqueado.']);
+    }
+
+    /** GET /central/config — configuração da distribuição (modo/pesos). */
+    public function config(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'logistica.view');
+        $empresaId = (int) $request->user()->empresa_id;
+        $config = LogisticaConfig::query()->firstOrCreate(['empresa_id' => $empresaId]);
+
+        return response()->json(['data' => $config]);
+    }
+
+    /** PUT /central/config — atualiza modo/pesos/limites. */
+    public function salvarConfig(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'logistica.config');
+        $d = $request->validate([
+            'modo' => 'required|in:sugerir,auto',
+            'peso_distancia' => 'nullable|numeric|min:0|max:1',
+            'peso_carga' => 'nullable|numeric|min:0|max:1',
+            'raio_maximo_km' => 'nullable|integer|min:1',
+            'teto_carga' => 'nullable|integer|min:1',
+        ]);
+
+        $empresaId = (int) $request->user()->empresa_id;
+        $config = LogisticaConfig::query()->updateOrCreate(['empresa_id' => $empresaId], $d);
+
+        return response()->json(['data' => $config]);
     }
 
     /** Resolve o pedido tenant-scoped (anti-IDOR: global scope + empresa). */

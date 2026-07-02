@@ -4,6 +4,8 @@ namespace App\Domain\Pedido;
 
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Logistica\Events\PedidoEntrouNaFila;
+use App\Domain\Logistica\Jobs\AtribuirPedidoJob;
 use App\Domain\Pedido\Events\PedidoStatusAtualizado;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
@@ -35,7 +37,7 @@ class PedidoService
     /** @param array<string, mixed> $dados @param list<array<string,mixed>> $itens */
     public function criar(array $dados, array $itens): Pedido
     {
-        return DB::transaction(function () use ($dados, $itens) {
+        $pedido = DB::transaction(function () use ($dados, $itens) {
             $situacao = $this->situacao((int) $dados['pedidosituacao_id']);
 
             $pedido = Pedido::create(array_merge($dados, [
@@ -50,8 +52,18 @@ class PedidoService
             // Se já nasce CONCLUIDO, aplica o efeito (baixa estoque).
             $this->aplicarEfeito($pedido, $situacao, null, $dados['user_id'] ?? null);
 
-            return $pedido->refresh()->load('itens');
+            return $pedido->refresh()->load(['itens', 'situacao', 'cliente']);
         });
+
+        // L2/L3 — se o pedido nasce PENDENTE, entra na FILA de distribuição:
+        // avisa a Central (tempo real) e dispara a auto-atribuição (só age em modo
+        // `auto`; em `sugerir`, é no-op). Fora da transação (após commit).
+        if ($pedido->situacao?->efeito === EfeitoPedido::PENDENTE && $pedido->entregador_user_id === null) {
+            PedidoEntrouNaFila::dispatch($pedido);
+            AtribuirPedidoJob::dispatch($pedido->id, (int) $pedido->empresa_id, (int) $pedido->grupo_id);
+        }
+
+        return $pedido;
     }
 
     /** @param array<string, mixed> $dados @param list<array<string,mixed>>|null $itens */

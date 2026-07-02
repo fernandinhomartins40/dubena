@@ -3,9 +3,9 @@
 namespace App\Domain\Logistica;
 
 use App\Models\Logistica\Jornada;
+use App\Models\Logistica\LogisticaConfig;
 use App\Models\Mobile\EntregadorPosicao;
 use App\Models\Pedido\Pedido;
-use Illuminate\Support\Collection;
 
 /**
  * DistribuidorService (L3) — sugere o MELHOR entregador para um pedido, ranqueando
@@ -41,6 +41,13 @@ class DistribuidorService
         $lat = $pedido->cliente?->latitude !== null ? (float) $pedido->cliente->latitude : null;
         $lng = $pedido->cliente?->longitude !== null ? (float) $pedido->cliente->longitude : null;
 
+        // Config por empresa (pesos/raio/teto). Sem config, usa os defaults.
+        $config = LogisticaConfig::query()->where('empresa_id', $empresaId)->first();
+        $pesoDist = $config?->peso_distancia ?? self::PESO_DISTANCIA;
+        $pesoCarga = $config?->peso_carga ?? self::PESO_CARGA;
+        $raioMax = $config?->raio_maximo_km;
+        $tetoCarga = $config?->teto_carga;
+
         $bloqueados = $this->central->entregadoresBloqueados($empresaId);
         $carga = $this->central->cargaPorEntregador($empresaId);
 
@@ -62,7 +69,7 @@ class DistribuidorService
 
         $maxCarga = max(1, (int) (collect($carga)->max() ?? 0));
 
-        $ranked = $jornadas->map(function (Jornada $j) use ($lat, $lng, $posicoes, $carga, $maxCarga) {
+        $ranked = $jornadas->map(function (Jornada $j) use ($lat, $lng, $posicoes, $carga, $maxCarga, $pesoDist, $pesoCarga, $raioMax, $tetoCarga) {
             $uid = (int) $j->entregador_user_id;
             $pos = $posicoes->get($uid);
 
@@ -75,7 +82,7 @@ class DistribuidorService
             // Score 0..1 (maior = melhor). Sem geo, distância vira neutra (0.5).
             $scoreDist = $distanciaKm === null ? 0.5 : 1 / (1 + $distanciaKm); // decai com a distância
             $scoreCarga = 1 - ($cargaAtual / $maxCarga);
-            $score = self::PESO_DISTANCIA * $scoreDist + self::PESO_CARGA * $scoreCarga;
+            $score = $pesoDist * $scoreDist + $pesoCarga * $scoreCarga;
 
             return [
                 'entregador_user_id' => $uid,
@@ -84,16 +91,25 @@ class DistribuidorService
                 'distancia_km' => $distanciaKm !== null ? round($distanciaKm, 2) : null,
                 'carga' => $cargaAtual,
                 'score' => round($score, 4),
+                // Fora do raio/teto → inelegível para auto-atribuição (mas ainda listado).
+                'elegivel' => ($raioMax === null || $distanciaKm === null || $distanciaKm <= $raioMax)
+                    && ($tetoCarga === null || $cargaAtual < $tetoCarga),
             ];
         });
 
         return $ranked->sortByDesc('score')->values()->all();
     }
 
-    /** O melhor candidato (ou null). Base do modo `auto` (L3 completo). */
+    /** O melhor candidato ELEGÍVEL (ou null). Base do modo `auto`. */
     public function melhorEntregador(Pedido $pedido): ?array
     {
-        return $this->ranquear($pedido)[0] ?? null;
+        foreach ($this->ranquear($pedido) as $cand) {
+            if ($cand['elegivel'] ?? true) {
+                return $cand;
+            }
+        }
+
+        return null;
     }
 
     /** Haversine em km. */
