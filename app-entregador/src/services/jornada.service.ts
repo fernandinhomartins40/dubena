@@ -27,14 +27,14 @@ const Iniciar = (payload: {
 const Encerrar = (kmFinal?: number | null): Promise<Jornada> =>
     Http.PrepareRequest("app/v1/entregador/jornada/encerrar", "POST", { km_final: kmFinal ?? null })
 
-/** Resumo do dia. */
-const Dashboard = (): Promise<Dashboard> =>
+/** Resumo do dia. (nome difere do TIPO Dashboard — Babel rejeita colisão de binding) */
+const obterDashboard = (): Promise<Dashboard> =>
     Http.PrepareRequest("app/v1/entregador/dashboard", "GET")
 
 /** Rota otimizada das entregas ativas (L5/L6). */
-const Rota = (): Promise<Rota> =>
+const obterRota = (): Promise<Rota> =>
     Http.PrepareRequest("app/v1/entregador/rota", "GET")
 
-const JornadaService = { Veiculos, Atual, Iniciar, Encerrar, Dashboard, Rota }
+const JornadaService = { Veiculos, Atual, Iniciar, Encerrar, Dashboard: obterDashboard, Rota: obterRota }
 
 export default JornadaService
