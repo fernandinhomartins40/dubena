@@ -97,6 +97,9 @@ export default function Pedidos() {
                     {ativa && (dashboard.data?.pendentes ?? 0) > 0 ? (
                         <Botao titulo="Ver rota do dia" variante="secundario" onPress={() => router.push("/(app)/rota")} />
                     ) : null}
+                    {ativa ? (
+                        <Botao titulo="Missão de campo" variante="secundario" onPress={() => router.push("/(app)/missao")} />
+                    ) : null}
                     <Abas atual={aba} onChange={setAba} />
                 </View>
             }

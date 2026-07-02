@@ -78,3 +78,44 @@ export interface Rota {
     duracao_total_min: number
     proximo: Parada | null
 }
+
+// ── Missões (L7/L8) ──
+
+export type StatusVisita = "visitada" | "ausente" | "interessado" | "venda" | "frustrada"
+
+export interface MissaoAtiva {
+    id: number
+    status: "atribuida" | "em_andamento" | "concluida" | "adiada" | "cancelada"
+    iniciada_em: string | null
+    missao: {
+        id: number
+        tipo: string
+        titulo: string
+        descricao: string | null
+        meta_visitas: number | null
+        exige_foto: boolean
+    }
+    metricas: {
+        visitas_total: number
+        vendas: number
+        interessados: number
+        distancia_km: number
+        duracao_min: number | null
+        pontos_trilha: number
+    }
+}
+
+export interface ProximaCasa {
+    cliente_id: number
+    nome: string
+    endereco: string
+    lat: number
+    lng: number
+    distancia_m: number
+}
+
+export interface ProdutoVenda {
+    id: number
+    descricao: string
+    preco: number
+}
