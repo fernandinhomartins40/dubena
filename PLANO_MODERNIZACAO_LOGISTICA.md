@@ -1,5 +1,21 @@
 # PLANO DE MODERNIZAÇÃO DA LOGÍSTICA — Roadmap Oficial
 
+> **STATUS (2026-07-02): TODAS AS FASES DE CÓDIGO (F0–F11) IMPLEMENTADAS, TESTADAS
+> E COMMITADAS NA MAIN.** O que resta é exclusivamente **provisionamento de infra**
+> (não é código):
+>
+> | Pendência de infra | Como ligar |
+> |---|---|
+> | Reverb (WebSocket) | Subir `php artisan reverb:start` na VPS (supervisor), preencher `REVERB_*`, `BROADCAST_CONNECTION=reverb`. O código dos dois lados já cai para polling sem ele. |
+> | Google Maps (Distance Matrix) | Setar `GOOGLE_MAPS_KEY` no `.env` — o driver troca de Haversine para Google automaticamente (binding por env). |
+> | Worker de fila | Garantir `queue:work` supervisionado (AtribuirPedidoJob/push). |
+> | Cron | `php artisan schedule:run` a cada minuto (o `logistica:gerar-missoes` roda a cada 10 min). |
+> | APK novo dos apps | Gerar quando o usuário solicitar (regra do projeto). |
+>
+> Commits por fase: F0 `e6d2d5c` · F1 `5c24ff3` · F2+F3 `f338ce9` · SPA Central
+> `c0166ca` · F4 `1a1b0f8`+`2746f78` · F5 `04ea8c4` · F6 `3f39656` · F7/F8 backend
+> `8fbfb08` · F7/F8 app `7ba1db3` · F9 `d8d8e83` · F10 `782cec9` · F11 `8edccb0`.
+
 > Backlog de execução para transformar o ecossistema de entregas em uma plataforma
 > logística inteligente, auditável e integrada, com experiência de nível Uber/99/iFood,
 > **adaptada a uma distribuidora de gás com frota própria e entregadores colaboradores**
