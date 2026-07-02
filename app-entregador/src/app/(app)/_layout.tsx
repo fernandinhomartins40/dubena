@@ -25,6 +25,7 @@ export default function AppLayout() {
         >
             <Stack.Screen name="pedidos" options={{ title: "Minhas entregas" }} />
             <Stack.Screen name="inicio" options={{ title: "Iniciar jornada" }} />
+            <Stack.Screen name="rota" options={{ title: "Rota do dia" }} />
             <Stack.Screen name="pedido/[id]/index" options={{ title: "Entrega" }} />
             <Stack.Screen name="pedido/[id]/ocorrencia" options={{ title: "Registrar ocorrência" }} />
             <Stack.Screen name="pedido/[id]/concluir" options={{ title: "Comprovar entrega" }} />

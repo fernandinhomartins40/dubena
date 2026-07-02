@@ -157,13 +157,21 @@ const TrackScreen = () => {
                         >
                             <Marker
                                 coordinate={{ latitude: posicao!.lat, longitude: posicao!.lng }}
-                                title="Entregador"
+                                title={(order as any)?.entregador?.nome ?? "Entregador"}
                                 description="Posição em tempo real"
                             />
                         </MapView>
-                        <Text style={styles.mapLabel}>
-                            {aoVivo ? "● Entregador a caminho — ao vivo" : "Entregador a caminho"}
-                        </Text>
+                        <View style={{ padding: 12, gap: 2 }}>
+                            <Text style={styles.mapLabel}>
+                                {aoVivo ? "● A caminho — ao vivo" : "A caminho"}
+                            </Text>
+                            {(order as any)?.entregador?.nome ? (
+                                <Text style={styles.entregadorInfo}>
+                                    {(order as any).entregador.nome}
+                                    {(order as any).entregador.veiculo ? ` · ${(order as any).entregador.veiculo}` : ""}
+                                </Text>
+                            ) : null}
+                        </View>
                     </View>
                 )}
 
@@ -200,7 +208,11 @@ const styles = StyleSheet.create({
         ...fontStyle.semiBold,
         fontSize: fontSize.sm,
         color: colors.primary,
-        padding: 12,
+    },
+    entregadorInfo: {
+        ...fontStyle.regular,
+        fontSize: fontSize.sm,
+        color: colors.textMuted,
     },
 })
 

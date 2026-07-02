@@ -94,6 +94,9 @@ export default function Pedidos() {
                         pendentes={dashboard.data?.pendentes ?? 0}
                         concluidos={dashboard.data?.concluidos_hoje ?? 0}
                     />
+                    {ativa && (dashboard.data?.pendentes ?? 0) > 0 ? (
+                        <Botao titulo="Ver rota do dia" variante="secundario" onPress={() => router.push("/(app)/rota")} />
+                    ) : null}
                     <Abas atual={aba} onChange={setAba} />
                 </View>
             }

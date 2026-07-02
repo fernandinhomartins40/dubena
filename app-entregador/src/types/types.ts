@@ -57,3 +57,24 @@ export interface Dashboard {
     pendentes: number
     concluidos_hoje: number
 }
+
+// ── Roteirização (L5/L6) ──
+
+export interface Parada {
+    sequencia: number
+    pedido_id: number
+    cliente: string | null
+    endereco: string
+    lat: number | null
+    lng: number | null
+    distancia_trecho_km: number | null
+    duracao_trecho_min: number | null
+    eta_min: number | null
+}
+
+export interface Rota {
+    paradas: Parada[]
+    distancia_total_km: number
+    duracao_total_min: number
+    proximo: Parada | null
+}

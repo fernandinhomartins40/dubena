@@ -1,5 +1,5 @@
 import Http from "@/helpers/http"
-import { Dashboard, Jornada, VeiculoOpcao } from "@/types/types"
+import { Dashboard, Jornada, Rota, VeiculoOpcao } from "@/types/types"
 
 /**
  * JornadaService (L4) — turno do entregador contra `app/v1/entregador/*`. A jornada
@@ -31,6 +31,10 @@ const Encerrar = (kmFinal?: number | null): Promise<Jornada> =>
 const Dashboard = (): Promise<Dashboard> =>
     Http.PrepareRequest("app/v1/entregador/dashboard", "GET")
 
-const JornadaService = { Veiculos, Atual, Iniciar, Encerrar, Dashboard }
+/** Rota otimizada das entregas ativas (L5/L6). */
+const Rota = (): Promise<Rota> =>
+    Http.PrepareRequest("app/v1/entregador/rota", "GET")
+
+const JornadaService = { Veiculos, Atual, Iniciar, Encerrar, Dashboard, Rota }
 
 export default JornadaService

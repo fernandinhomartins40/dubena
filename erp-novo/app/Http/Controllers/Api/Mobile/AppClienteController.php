@@ -420,6 +420,8 @@ class AppClienteController extends Controller
                 'situacao:id,descricao,efeito',
                 'itens:id,pedido_id,produto_id,quantidade,preco_unitario',
                 'itens.produto:id,descricao',
+                'entregador:id,name',
+                'veiculo:id,placa,descricao',
             ])
             ->findOrFail($id);
 
@@ -429,6 +431,12 @@ class AppClienteController extends Controller
             'efeito' => $pedido->situacao?->efeito?->value,
             'valor_venda' => (float) $pedido->valor_venda,
             'datahora' => $pedido->datahora?->toIso8601String(),
+            // L6 — quem está trazendo (só nome + veículo; sem dados sensíveis).
+            // A posição em tempo real vem pelo canal pedido.{id}.entregador (P6).
+            'entregador' => $pedido->entregador ? [
+                'nome' => $pedido->entregador->name,
+                'veiculo' => $pedido->veiculo ? trim(($pedido->veiculo->descricao ?? '').' '.($pedido->veiculo->placa ?? '')) : null,
+            ] : null,
             'itens' => $pedido->itens->map(fn ($i) => [
                 'produto_id' => $i->produto_id,
                 'descricao' => $i->produto?->descricao,
