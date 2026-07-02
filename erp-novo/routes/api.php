@@ -633,6 +633,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('pedidos/{id}/cancelar', [AppClienteController::class, 'cancelar'])->whereNumber('id');
         Route::post('pedidos/{id}/avaliar', [AppClienteController::class, 'avaliar'])->whereNumber('id');
 
+        // Entregador — jornada (L4)
+        Route::get('entregador/veiculos', [AppEntregadorController::class, 'veiculos']);
+        Route::get('entregador/jornada', [AppEntregadorController::class, 'jornadaAtual']);
+        Route::post('entregador/jornada/iniciar', [AppEntregadorController::class, 'iniciarJornada']);
+        Route::post('entregador/jornada/encerrar', [AppEntregadorController::class, 'encerrarJornada']);
+        Route::get('entregador/dashboard', [AppEntregadorController::class, 'dashboard']);
+
         // Entregador
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
         Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');

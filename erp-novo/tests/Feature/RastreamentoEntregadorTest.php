@@ -44,6 +44,9 @@ class RastreamentoEntregadorTest extends TestCase
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10);
+
+        // L4: o ping de posição agora exige jornada ativa — abre uma para o entregador.
+        app(\App\Domain\Logistica\JornadaService::class)->iniciar($this->entregador, null);
     }
 
     private function pedido(PedidoSituacao $situacao): Pedido

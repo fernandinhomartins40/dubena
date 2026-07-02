@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Logistica\JornadaService;
 use App\Domain\Mobile\EntregaService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Mobile\RastreamentoService;
+use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Http\Controllers\Controller;
+use App\Models\Logistica\Jornada;
+use App\Models\Monitora\Veiculo;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +28,98 @@ class AppEntregadorController extends Controller
         private PedidoMobileService $pedidoMobile,
         private RastreamentoService $rastreamento,
         private EntregaService $entrega,
+        private JornadaService $jornadas,
     ) {}
+
+    // ── Jornada (L4) ──
+
+    /** GET /app/v1/entregador/veiculos — veículos ativos da empresa (seleção no início da jornada). */
+    public function veiculos(Request $request): JsonResponse
+    {
+        $veiculos = Veiculo::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('ativo', true)
+            ->orderBy('placa')
+            ->get(['id', 'placa', 'descricao', 'km_atual'])
+            ->map(fn (Veiculo $v) => [
+                'id' => $v->id, 'placa' => $v->placa, 'descricao' => $v->descricao, 'km_atual' => $v->km_atual,
+            ]);
+
+        return response()->json(['data' => $veiculos]);
+    }
+
+    /** GET /app/v1/entregador/jornada — jornada ativa (ou null). */
+    public function jornadaAtual(Request $request): JsonResponse
+    {
+        $jornada = $this->jornadas->jornadaAtiva($request->user()->id);
+
+        return response()->json(['data' => $this->serializarJornada($jornada)]);
+    }
+
+    /** POST /app/v1/entregador/jornada/iniciar — abre a jornada com veículo + checklist. */
+    public function iniciarJornada(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'veiculo_id' => 'nullable|integer|exists:monitora_veiculos,id',
+            'km_inicial' => 'nullable|integer|min:0',
+            'checklist' => 'nullable|array',
+        ]);
+
+        $jornada = $this->jornadas->iniciar($request->user(), $d['veiculo_id'] ?? null, $d['checklist'] ?? null, $d['km_inicial'] ?? null);
+
+        return response()->json(['data' => $this->serializarJornada($jornada)], 201);
+    }
+
+    /** POST /app/v1/entregador/jornada/encerrar — fecha a jornada (km final opcional). */
+    public function encerrarJornada(Request $request): JsonResponse
+    {
+        $d = $request->validate(['km_final' => 'nullable|integer|min:0']);
+        $jornada = $this->jornadas->exigirJornadaAtiva($request->user()->id);
+        $encerrada = $this->jornadas->encerrar($jornada, $d['km_final'] ?? null);
+
+        return response()->json(['data' => $this->serializarJornada($encerrada)]);
+    }
+
+    /** GET /app/v1/entregador/dashboard — resumo do dia. */
+    public function dashboard(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $hoje = now()->startOfDay();
+
+        $base = Pedido::query()->where('empresa_id', $user->empresa_id)->where('entregador_user_id', $user->id);
+
+        $pendentes = (clone $base)->whereHas('situacao', fn ($q) => $q->where('efeito', EfeitoPedido::PENDENTE->value))->count();
+        $concluidosHoje = (clone $base)
+            ->whereHas('situacao', fn ($q) => $q->where('efeito', EfeitoPedido::CONCLUIDO->value))
+            ->where('datahora_acao', '>=', $hoje)->count();
+
+        $jornada = $this->jornadas->jornadaAtiva($user->id);
+
+        return response()->json(['data' => [
+            'em_servico' => $jornada !== null,
+            'jornada' => $this->serializarJornada($jornada),
+            'pendentes' => $pendentes,
+            'concluidos_hoje' => $concluidosHoje,
+        ]]);
+    }
+
+    private function serializarJornada(?Jornada $j): ?array
+    {
+        if ($j === null) {
+            return null;
+        }
+        $j->loadMissing('veiculo:id,placa,descricao');
+
+        return [
+            'id' => $j->id,
+            'status' => $j->status,
+            'iniciada_em' => $j->iniciada_em?->toIso8601String(),
+            'encerrada_em' => $j->encerrada_em?->toIso8601String(),
+            'km_inicial' => $j->km_inicial,
+            'km_final' => $j->km_final,
+            'veiculo' => $j->veiculo ? ['id' => $j->veiculo->id, 'placa' => $j->veiculo->placa, 'descricao' => $j->veiculo->descricao] : null,
+        ];
+    }
 
     /** Resolve um pedido do entregador autenticado (anti-IDOR: empresa + entregador). */
     private function pedidoDoEntregador(Request $request, int $id): Pedido
@@ -107,6 +202,11 @@ class AppEntregadorController extends Controller
         ]);
 
         $user = $request->user();
+
+        // L4 — a posição só conta durante a JORNADA (evita GPS "fantasma" fora do
+        // expediente; a Central só vê quem está de fato em serviço).
+        $this->jornadas->exigirJornadaAtiva($user->id);
+
         $notificados = $this->rastreamento->registrarPing($user->empresa_id, $user->id, $d);
 
         return response()->json(['data' => ['pedidos_notificados' => $notificados]]);
