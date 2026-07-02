@@ -71,7 +71,7 @@ export default function Concluir() {
             )
             Toast.show({ type: "success", text1: "Entrega concluída!" })
             qc.invalidateQueries({ queryKey: ["entregador", "pedidos"] })
-            router.replace("/(app)/pedidos")
+            router.replace("/(app)/(tabs)/entregas")
         } catch (e) {
             Toast.show({ type: "error", text1: (e as HttpError).message })
         } finally {

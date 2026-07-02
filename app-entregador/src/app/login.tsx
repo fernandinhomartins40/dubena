@@ -62,7 +62,7 @@ export default function Login() {
             })
             setToken(resp.token)
             setUser(resp.user)
-            router.replace("/(app)/pedidos")
+            router.replace("/(app)/(tabs)/inicio")
         } catch (e) {
             const err = e as HttpError
             // 423 = 2FA exigido (ver AppAuthController). Revela o campo de código.

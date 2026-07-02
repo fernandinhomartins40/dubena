@@ -6,13 +6,16 @@ import { useQuery } from "@tanstack/react-query"
 import { Clock, MapPin, Navigation } from "lucide-react-native"
 import { ActivityIndicator, Linking, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 /**
- * Rota do dia (L6) — a SEQUÊNCIA otimizada que o ERP calcula (o entregador não
+ * Rota do dia (L6/F10) — a SEQUÊNCIA otimizada que o ERP calcula (o entregador não
  * escolhe aleatoriamente). Mapa com paradas numeradas + lista ordenada com ETA +
  * "Navegar" (deep link para o Google Maps/Apple Maps) na próxima parada.
+ * Vive nas TABS: título de página próprio, sem header do Stack.
  */
 export default function RotaScreen() {
+    const { top } = useSafeAreaInsets()
     const { data, isLoading, refetch, isRefetching } = useQuery({
         queryKey: ["entregador", "rota"],
         queryFn: JornadaService.Rota,
@@ -44,14 +47,22 @@ export default function RotaScreen() {
     }
 
     if (paradas.length === 0) {
-        return <View style={s.center}><Text style={{ color: COLORS.muted }}>Nenhuma entrega na rota agora.</Text></View>
+        return (
+            <View style={s.center}>
+                <Navigation size={32} color={COLORS.muted} />
+                <Text style={{ color: COLORS.muted, marginTop: 8 }}>Nenhuma entrega na rota agora.</Text>
+            </View>
+        )
     }
 
     return (
         <ScrollView
-            contentContainerStyle={{ padding: 16, gap: 12 }}
+            style={{ backgroundColor: COLORS.bg }}
+            contentContainerStyle={{ paddingTop: top + 16, paddingHorizontal: 16, paddingBottom: 28, gap: 12 }}
             refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            showsVerticalScrollIndicator={false}
         >
+            <Text style={s.tituloPagina}>Rota do dia</Text>
             <MapView style={s.mapa} provider={PROVIDER_GOOGLE} initialRegion={regiao} pointerEvents="none">
                 {comGeo.map((p) => (
                     <Marker key={p.pedido_id} coordinate={{ latitude: p.lat!, longitude: p.lng! }} title={`${p.sequencia}. ${p.cliente ?? "Cliente"}`} description={p.endereco}>
@@ -103,7 +114,8 @@ function Resumo({ icone, valor, label }: { icone: React.ReactNode; valor: string
 }
 
 const s = StyleSheet.create({
-    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: COLORS.bg },
+    tituloPagina: { fontSize: 22, fontWeight: "800", color: COLORS.text },
     mapa: { height: 240, borderRadius: 14, overflow: "hidden" },
     pin: { backgroundColor: COLORS.primary, width: 26, height: 26, borderRadius: 999, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: COLORS.white },
     pinTexto: { color: COLORS.white, fontWeight: "800", fontSize: 12 },

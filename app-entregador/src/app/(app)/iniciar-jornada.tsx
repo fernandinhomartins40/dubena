@@ -39,7 +39,7 @@ export default function InicioJornada() {
             }),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["entregador"] })
-            router.replace("/(app)/pedidos")
+            router.replace("/(app)/(tabs)/inicio")
         },
     })
 

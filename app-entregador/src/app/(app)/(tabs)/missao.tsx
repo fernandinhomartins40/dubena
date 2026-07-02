@@ -11,6 +11,7 @@ import {
     ActivityIndicator, Alert, Linking, Platform, RefreshControl,
     ScrollView, StyleSheet, Text, View,
 } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
 
 const TIPO_LABEL: Record<string, string> = {
@@ -28,6 +29,7 @@ const TIPO_LABEL: Record<string, string> = {
  * lote enquanto a missão está em andamento.
  */
 export default function MissaoScreen() {
+    const { top } = useSafeAreaInsets()
     const qc = useQueryClient()
     const [sugestao, setSugestao] = useState<Awaited<ReturnType<typeof MissaoService.ProximaCasaSugestao>>>(null)
     const [buscando, setBuscando] = useState(false)
@@ -123,9 +125,12 @@ export default function MissaoScreen() {
 
     return (
         <ScrollView
-            contentContainerStyle={{ padding: 16, gap: 12 }}
+            style={{ backgroundColor: COLORS.bg }}
+            contentContainerStyle={{ paddingTop: top + 16, paddingHorizontal: 16, paddingBottom: 28, gap: 12 }}
             refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            showsVerticalScrollIndicator={false}
         >
+            <Text style={s.tituloPagina}>Missão de campo</Text>
             <Cartao style={{ gap: 8 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <Etiqueta texto={TIPO_LABEL[missao.missao.tipo] ?? missao.missao.tipo} />
@@ -187,7 +192,8 @@ function Stat({ icone, valor, label }: { icone: React.ReactNode; valor: number |
 }
 
 const s = StyleSheet.create({
-    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8 },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 8, backgroundColor: COLORS.bg },
+    tituloPagina: { fontSize: 22, fontWeight: "800", color: COLORS.text },
     vazioTitulo: { fontSize: 17, fontWeight: "700", color: COLORS.text },
     vazioSub: { fontSize: 14, color: COLORS.muted, textAlign: "center", lineHeight: 20 },
     status: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
