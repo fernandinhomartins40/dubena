@@ -33,14 +33,18 @@ const TrackScreen = () => {
     const efeito = order?.efeito as string | undefined
     const concluido = efeito === "CONCLUIDO"
     const cancelado = efeito === "CANCELADO"
-    // O ERP-NOVO expõe `efeito` (PENDENTE/CONCLUIDO/CANCELADO) + `situacao` (texto).
-    // "Em atendimento" é inferido por uma situação intermediária (não pendente/concluído).
-    const emAtendimento = !!order && !concluido && !cancelado && efeito !== "PENDENTE"
+    const aberto = !!order && !concluido && !cancelado
+    // BUG FIX: "em rota" NÃO pode ser inferido por efeito ≠ PENDENTE — na máquina
+    // de estados, "Saiu para entrega" CONTINUA com efeito PENDENTE (só muda ao
+    // concluir), então o mapa nunca aparecia. O deslocamento é detectado pelo
+    // TEXTO da situação (saiu/rota/caminho — mesma heurística do app entregador).
+    const emRota = aberto && /saiu|rota|caminho|atend/i.test((order?.situacao as string) ?? "")
 
     // P8 — tempo real: assina o canal do pedido. Ao receber mudança de status,
     // invalida a query (reflete na hora). A posição do entregador alimenta o mapa.
     const aoMudarStatus = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ["order-track", pendingOrder?.id] })
+        queryClient.invalidateQueries({ queryKey: ["rota-entregador", pendingOrder?.id] })
     }, [queryClient, pendingOrder?.id])
 
     const { posicao, aoVivo } = useAcompanharPedido(pendingOrder?.id ?? null, aoMudarStatus)
@@ -48,10 +52,12 @@ const TrackScreen = () => {
     // L6 — rota do entregador pelas ruas + ETA. A POSIÇÃO vem dos pings do app do
     // entregador (zero custo Google); o TRAÇADO usa o cache persistente do backend
     // (1 chamada por célula de ~100 m — o polling de 10s não gera custo extra).
+    // Ativa para QUALQUER pedido aberto: se o entregador já tem posição, o mapa
+    // entra mesmo antes de a situação virar "saiu para entrega".
     const { data: rota } = useQuery({
         queryKey: ["rota-entregador", pendingOrder?.id],
         queryFn: () => OrderService.RotaEntregador(pendingOrder!.id),
-        enabled: !!pendingOrder && emAtendimento,
+        enabled: !!pendingOrder && aberto,
         refetchInterval: 10000,
     })
 
@@ -66,7 +72,7 @@ const TrackScreen = () => {
         () => (rota?.polyline ? decodePolyline(rota.polyline) : []),
         [rota?.polyline],
     )
-    const mostrarMapa = emAtendimento && !!posEntregador
+    const mostrarMapa = aberto && !!posEntregador
 
     const tracklines = useMemo<TimelineStep[]>(
         () => [
@@ -80,14 +86,14 @@ const TrackScreen = () => {
                 title: "Pedido Recebido pela Revenda",
                 description:
                     "Seu pedido foi recebido pela revenda, em alguns minutos sairá para entrega",
-                completed: emAtendimento || concluido,
-                isCurrent: efeito === "PENDENTE",
+                completed: emRota || concluido,
+                isCurrent: aberto && !emRota,
             },
             {
-                title: "Em Atendimento",
-                description: "Seu pedido está a caminho, aguarde a chegada do entregador",
+                title: "Saiu para entrega",
+                description: "Seu pedido está a caminho — acompanhe o entregador no mapa",
                 completed: concluido,
-                isCurrent: emAtendimento,
+                isCurrent: emRota,
             },
             {
                 title: "Entregue",
@@ -96,7 +102,7 @@ const TrackScreen = () => {
                 isCurrent: false,
             },
         ],
-        [order],
+        [order, emRota, aberto, concluido],
     )
 
     useEffect(() => {
