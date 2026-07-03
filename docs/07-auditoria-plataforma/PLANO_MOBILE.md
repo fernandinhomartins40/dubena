@@ -14,10 +14,15 @@ Correção única de bugs; experiência "mapa ao vivo" real; conformidade de pag
 ## Riscos
 Extrair pacote compartilhado exige refactor cuidadoso dos imports. Médio.
 
+## Status de implementação
+- **M-5 (testes): iniciado.** Vitest no app do consumidor cobrindo as unidades PURAS (validadores de CPF/data — extraídos para `validators.ts` — e `decodePolyline`). Nessa extração corrigiu-se um bug: `validateCpf` só rejeitava `00000000000`, aceitando as demais sequências repetidas (`11111111111`, …) que também são CPFs inválidos.
+- **M-2 (pacote compartilhado): DEFERIDO com rationale.** Extrair `http`/`realtime`/`storage` para um pacote comum exige mexer na resolução de módulos do Metro dos DOIS apps Expo; sem um ambiente que rode o bundler/apps, a mudança não é verificável e arriscaria quebrar dois apps em produção. Deve ser feita numa fase dedicada com build/emulador disponível. A dedup já foi capturada onde é verificável (helper `Geo` no backend; validadores puros no app).
+
 ## Estratégia e fases
 
-**Fase 1 — Pacote compartilhado (M-2)**
-- Monorepo/workspace com módulo comum (`http`, `realtime`, `storage`, tipos base); os dois apps consomem.
+**Fase 1 — Pacote compartilhado (M-2)** — requer ambiente de build dos apps
+- Monorepo/workspace com módulo comum (`http`, `realtime`, `storage`, tipos base); os dois apps consomem. O `http` deve receber por injeção o getter de token e o `logout` (hoje importa o store de cada app), tornando-o store-agnóstico.
+- Verificar com `expo prebuild`/Metro + smoke nos dois apps antes de mergear.
 
 **Fase 2 — Tempo real e backends (M-3)** (depende de Ops)
 - Subir Reverb (ver PLANO_PERFORMANCE); validar `broadcasting/auth` com Bearer nos dois apps.

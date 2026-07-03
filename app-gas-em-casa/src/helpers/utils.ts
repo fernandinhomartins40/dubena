@@ -4,6 +4,9 @@ import storage from "@/store/storage"
 import { GMapsAddress, GMapsResult } from "@/types/types"
 import { AddressComponent, Geometry } from "react-native-google-places-autocomplete"
 import * as FileSystem from "expo-file-system"
+// Validadores puros vivem em validators.ts (testáveis sem RN — M-5); re-exportados
+// aqui para os imports existentes de utils.ts continuarem valendo.
+export { validateCpf, validateBirthDate } from "./validators"
 
 const VIDEOMETA_PATH = FileSystem.cacheDirectory + "startupvideo-meta.json"
 
@@ -132,89 +135,6 @@ export const formatAddress = (
         latitude: lat,
         longitude: lng,
     }
-}
-
-export const validateBirthDate = (date: string): { isValid: boolean; message: string } => {
-    if (date === "" || date === null) {
-        return { isValid: true, message: "" }
-    }
-
-    let message = "padrão aceito é dd/MM/AAAA"
-    let isValid = !!date && date.length === 10
-
-    if (isValid) {
-        try {
-            let valYear = new Date().getFullYear() - 3
-            let dateS = date.split("/")
-            let day = parseInt(dateS[0])
-            let month = parseInt(dateS[1])
-            let year = parseInt(dateS[2])
-
-            if (year > valYear || year < 1900) {
-                message = "ano inválido"
-                isValid = false
-            } else if (month === 0 || month > 12) {
-                message = "mês inválido"
-                isValid = false
-            } else {
-                let maxDay = 30
-                switch (month) {
-                    case 1:
-                    case 3:
-                    case 5:
-                    case 7:
-                    case 8:
-                    case 10:
-                    case 12:
-                        maxDay = 31
-                        break
-                    case 2:
-                        maxDay = year % 4 === 0 ? 29 : 28
-                }
-                if (maxDay < day || day === 0 || isNaN(day)) {
-                    message = "dia inválido"
-                    isValid = false
-                }
-            }
-        } catch (e) {
-            console.warn(e)
-            isValid = false
-        }
-    }
-
-    return { isValid, message }
-}
-
-export const validateCpf = (cpf: string) => {
-    let sum = 0
-    let rest = 0
-    let strCpf = cpf.replace(/\./g, "").replace(/\-/g, "")
-
-    if (strCpf == "00000000000") return false
-
-    for (let i = 1; i <= 9; i++) {
-        sum += parseInt(strCpf.substring(i - 1, i)) * (11 - i)
-    }
-
-    rest = (sum * 10) % 11
-
-    if (rest == 10 || rest == 11) rest = 0
-
-    if (rest != parseInt(strCpf.substring(9, 10))) return false
-
-    sum = 0
-
-    for (let i = 1; i <= 10; i++) {
-        sum += parseInt(strCpf.substring(i - 1, i)) * (12 - i)
-    }
-
-    rest = (sum * 10) % 11
-
-    if (rest == 10 || rest == 11) rest = 0
-
-    if (rest != parseInt(strCpf.substring(10, 11))) return false
-
-    return true
 }
 
 export function delay(timeInMilliseconds: number) {

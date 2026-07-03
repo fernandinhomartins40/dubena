@@ -24,8 +24,16 @@ Os achados **P1 e parte dos P2 já foram implementados** (commits na `main`). Re
 | API-5 (`?per_page`) | ✅ Feito | Paginação parametrizável com teto em pedidos. |
 | Q-2 (dedupe 2FA) | ✅ Feito | `VerificadorDoisFatores` — ponto único (web + app). |
 | FE-1 (ErrorBoundary) | ✅ Feito | Boundary por rota na SPA (sem mais "tela branca"). |
+| PF-1/B-2 (geoloc O(N)) | ✅ Feito | Bounding box indexado no SQL + refino Haversine; `proximaCasa` por anéis expansíveis; índice lat/lng + trigram (PF-4). |
+| Q-4 (Haversine duplicado) | ✅ Feito | `Domain/Shared/Geo` — ponto único (6 services) + `GeoTest`. |
+| DB-6 (FK financeiro) | ✅ Feito | `pedidos.financeiro_id → financeiros` (nullOnDelete). |
+| S-7 (bypass support) | ✅ Feito | Login de `support` vai para `security_events`. |
+| S-8 (CORS) | ✅ Feito | `config/cors.php` explícito (origens restritas, sem `*`). |
+| FE-3 (testes SPA) | ✅ Feito | Vitest + job de CI `frontend` (RBAC, formatadores, `Can`, `ErrorBoundary`) — 16 testes. |
+| M-5 (testes app) | 🟡 Parcial | Vitest no app do consumidor (validadores puros + polyline, 11 testes); corrigido bug de `validateCpf`. |
+| DB-5 (pix índices) | ✅ Já existia | `txid` unique + `pedido_id` indexado desde a migration de cobrança. |
 
-Pendências (não implementadas ainda): S-1 requer o segredo real do PSP no `.env`; PostGIS (PF-1) e a migração de infra dos apps para monorepo (M-2/Q-1) são de maior porte e ficam para uma fase dedicada; FE-3/M-5 (testes de front/mobile) idem.
+Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1/2/3** (envelope uniforme, canonizar aliases, OpenAPI vivo) exige coordenação com a SPA/apps e é melhor tratado como iniciativa própria.
 
 ## Documentos
 
