@@ -103,6 +103,11 @@ class RoteirizadorService
      * Ordena por vizinho-mais-próximo a partir de (lat,lng). Se não houver ponto de
      * partida, devolve na ordem recebida.
      *
+     * PERFORMANCE: a comparação é O(N²) — usa SEMPRE Haversine local (zero rede).
+     * Chamar a Google aqui derrubava o endpoint (com 15 entregas eram ~120 chamadas
+     * HTTP por request → 22s+ e timeout no app). A Google entra só no traçado final
+     * dos trechos escolhidos (N chamadas, com cache), em rotaDoEntregador().
+     *
      * @param  list<Pedido>  $pedidos
      * @return list<Pedido>
      */
@@ -121,7 +126,7 @@ class RoteirizadorService
             $melhorIdx = 0;
             $melhorDist = PHP_FLOAT_MAX;
             foreach ($restantes as $i => $p) {
-                $d = $this->matriz->entre($curLat, $curLng, (float) $p->cliente->latitude, (float) $p->cliente->longitude)['distancia_km'];
+                $d = $this->haversineKm($curLat, $curLng, (float) $p->cliente->latitude, (float) $p->cliente->longitude);
                 if ($d < $melhorDist) {
                     $melhorDist = $d;
                     $melhorIdx = $i;
@@ -135,6 +140,17 @@ class RoteirizadorService
         }
 
         return $ordem;
+    }
+
+    /** Haversine local (km) — comparação de proximidade sem custo de rede. */
+    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $r = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /**
