@@ -72,9 +72,21 @@ jobs:
         run: |
           # IDEMPOTENTE: o volume app_vendor persiste entre deploys; instala/atualiza
           # sempre (garante vendor presente mesmo se um deploy anterior falhou).
-          docker compose -f docker-compose.homolog.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
-            composer install --no-interaction --prefer-dist --no-progress --no-dev \
-            --no-scripts --optimize-autoloader
+          # RETRY 3x: logo após o --force-recreate a rede/DNS do container pode não
+          # estar pronta e o composer falha DEIXANDO O VENDOR VAZIO (2 deploys
+          # seguidos quebraram assim, com recuperação manual). Rodar manualmente
+          # minutos depois sempre funcionou — é flakiness de pós-recreate.
+          ok=0
+          for tent in 1 2 3; do
+            if docker compose -f docker-compose.homolog.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
+              composer install --no-interaction --prefer-dist --no-progress --no-dev \
+              --no-scripts --optimize-autoloader; then
+              ok=1; break
+            fi
+            echo "composer install falhou (tentativa $tent) — aguardando para tentar de novo…" >&2
+            sleep 15
+          done
+          [ "$ok" = "1" ] || { echo "composer install falhou nas 3 tentativas" >&2; exit 1; }
           # Garante o autoload (falha explícita se o vendor não populou — evita 500 silencioso).
           docker compose -f docker-compose.homolog.yml exec -T app test -f vendor/autoload.php
 
