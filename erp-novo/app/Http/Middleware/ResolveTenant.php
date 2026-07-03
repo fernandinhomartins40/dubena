@@ -51,6 +51,19 @@ class ResolveTenant
     }
 
     /**
+     * Limpa as variáveis de RLS ao FIM da requisição. As GUCs são de sessão
+     * (persistem na conexão), então numa conexão reutilizada (pooling, ou a conexão
+     * única dos testes) o tenant de uma requisição vazaria para a próxima operação
+     * na mesma conexão. Zerar aqui garante que, fora de uma requisição resolvida,
+     * a RLS "não filtra" (comportamento de CLI/ETL) em vez de aplicar um tenant
+     * obsoleto. NO-OP fora do pgsql.
+     */
+    public function terminate(Request $request, Response $response): void
+    {
+        $this->limparRlsTenant();
+    }
+
+    /**
      * Define `app.empresa_id` e `app.grupo_id` na sessão do Postgres para alimentar
      * as policies de RLS. É a 2ª barreira: mesmo uma query crua só vê linhas do
      * tenant ativo — empresa (tabelas operacionais) e grupo (cadastros de apoio
@@ -66,5 +79,15 @@ class ResolveTenant
             'app.empresa_id', (string) $empresaId,
             'app.grupo_id', (string) $grupoId,
         ]);
+    }
+
+    /** Zera as GUCs de tenant (fim de requisição). NO-OP fora do pgsql. */
+    private function limparRlsTenant(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::statement("SELECT set_config('app.empresa_id', '', false), set_config('app.grupo_id', '', false)");
     }
 }

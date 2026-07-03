@@ -46,6 +46,80 @@ services:
     networks:
       - erpnovo
 
+  # Worker de FILA (PF-5 da auditoria) — processa os jobs assíncronos: auto-
+  # atribuição de pedido (AtribuirPedidoJob), push (EnviarPushJob), geocodificação
+  # (GeocodificarClienteJob), alertas. Sem este container os jobs ficam parados na
+  # fila e as features nunca disparam. Reusa a MESMA imagem da app; só troca o
+  # comando. --max-time recicla o processo (evita memory leak em runs longos).
+  queue:
+    image: erpnovo-app:homolog
+    container_name: erpnovo-queue
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan queue:work --sleep=1 --tries=3 --max-time=3600
+    volumes:
+      - .:/var/www
+      - app_storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+      - app_bootstrap_cache:/var/www/bootstrap/cache
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - db
+      - redis
+    networks:
+      - erpnovo
+
+  # SCHEDULER (PF-6) — dispara os 11 comandos agendados (expirar PIX, gerar missões,
+  # notificar vencidos, sync GPS…). `schedule:work` é um loop que executa o
+  # schedule:run a cada minuto no próprio processo (sem precisar de crontab no host).
+  scheduler:
+    image: erpnovo-app:homolog
+    container_name: erpnovo-scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan schedule:work
+    volumes:
+      - .:/var/www
+      - app_storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+      - app_bootstrap_cache:/var/www/bootstrap/cache
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - db
+      - redis
+    networks:
+      - erpnovo
+
+  # REVERB (PF-8) — servidor WebSocket nativo do Laravel (tempo real: posição do
+  # entregador, status do pedido, PIX confirmado). Sem ele BROADCAST_CONNECTION cai
+  # para `log` e os apps ficam só no polling. Exposto ao Nginx do host, que faz o
+  # proxy/TLS de wss:// para 127.0.0.1:3121. Requer BROADCAST_CONNECTION=reverb +
+  # REVERB_* no .env.
+  reverb:
+    image: erpnovo-app:homolog
+    container_name: erpnovo-reverb
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "127.0.0.1:3121:8080"
+    volumes:
+      - .:/var/www
+      - app_storage:/var/www/storage
+      - app_vendor:/var/www/vendor
+      - app_bootstrap_cache:/var/www/bootstrap/cache
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - redis
+    networks:
+      - erpnovo
+
   db:
     image: postgres:15-alpine
     container_name: erpnovo-db

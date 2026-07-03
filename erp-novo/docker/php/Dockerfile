@@ -20,6 +20,7 @@ RUN set -eux; \
         libicu-dev \
         libonig-dev \
         libxml2-dev \
+        libsodium-dev \
         libpq-dev; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" \
@@ -33,6 +34,7 @@ RUN set -eux; \
         pcntl \
         exif \
         soap \
+        sodium \
         opcache; \
     pecl install redis; \
     docker-php-ext-enable redis; \

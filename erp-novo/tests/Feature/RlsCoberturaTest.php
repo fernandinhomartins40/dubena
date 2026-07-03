@@ -33,6 +33,8 @@ class RlsCoberturaTest extends TestCase
     private array $allowlist = [
         'grupos', 'users', 'role_user', 'permission_role',
         'empresa_user', 'empresa_configs', 'roles',
+        // Auditoria: recebem empresa_id NULL por design (ver migration 000300).
+        'audit_logs', 'login_logs', 'platform_audit_logs',
     ];
 
     protected function setUp(): void

@@ -38,6 +38,7 @@ class GoliveCheck extends Command
         $this->verificarApp();
         $this->verificarBanco();
         $this->verificarTenantRls();
+        $this->verificarInfraAssincrona();
         $this->verificarGatesFiscalCobranca();
         $this->verificarConfigPorEmpresa();
 
@@ -97,9 +98,71 @@ class GoliveCheck extends Command
             } catch (\Throwable $e) {
                 $this->item('RLS verificável', false, $e->getMessage(), aviso: true);
             }
+
+            $this->verificarRoleRuntime();
         } else {
             $this->item('RLS (pgsql)', true, 'não-pgsql: RLS é no-op (ok p/ dev/CI)', aviso: true);
         }
+    }
+
+    /**
+     * MT-1/MT-2 (auditoria) — a RLS só protege se o RUNTIME conectar com uma role
+     * SEM superuser/BYPASSRLS: conectado como owner/superuser, o PostgreSQL ignora
+     * TODAS as policies silenciosamente e a 2ª barreira deixa de existir. Aqui isso
+     * vira FAIL (bloqueia o go-live). A ausência da role `erp_app` também é FAIL —
+     * sinal de que RLS_APP_DB_PASSWORD não foi definido e a migration da role foi
+     * NO-OP (o furo silencioso apontado como MT-2).
+     */
+    private function verificarRoleRuntime(): void
+    {
+        try {
+            $atual = DB::selectOne(
+                'SELECT current_user AS usuario, rolsuper, rolbypassrls
+                 FROM pg_roles WHERE rolname = current_user',
+            );
+            $restrita = $atual !== null && ! $atual->rolsuper && ! $atual->rolbypassrls;
+            $this->item(
+                'Role de runtime restrita (current_user='.($atual->usuario ?? '?').')',
+                $restrita,
+                'a conexão da app tem SUPERUSER/BYPASSRLS — o PostgreSQL IGNORA a RLS; conecte com a role restrita (DB_USERNAME=erp_app)',
+            );
+
+            // Runtime já restrito = invariante satisfeito (o nome da role não
+            // importa). A existência da erp_app só é cobrada quando o runtime está
+            // ERRADO — aí a ausência dela indica a causa raiz (MT-2): a migration
+            // rls_role_app_sem_bypass foi NO-OP por falta de RLS_APP_DB_PASSWORD.
+            if (! $restrita) {
+                $temRole = DB::selectOne("SELECT 1 AS x FROM pg_roles WHERE rolname = 'erp_app'") !== null;
+                $this->item('Role erp_app existe', $temRole,
+                    'role não criada — defina RLS_APP_DB_PASSWORD e reexecute a migration rls_role_app_sem_bypass');
+            }
+        } catch (\Throwable $e) {
+            $this->item('Role de runtime verificável', false, $e->getMessage(), aviso: true);
+        }
+    }
+
+    /**
+     * PF-5/6/8 (auditoria) — a infra assíncrona/tempo-real precisa estar ligada,
+     * senão jobs (auto-atribuição, push, geocodificação), agendamentos (expirar
+     * PIX, gerar missões) e broadcast (mapa ao vivo) ficam inertes. Em produção,
+     * fila/broadcast em modo dev (database/log) é WARN — o compose já sobe worker,
+     * scheduler e Reverb, mas o .env precisa apontar para eles.
+     */
+    private function verificarInfraAssincrona(): void
+    {
+        $queue = (string) config('queue.default');
+        $this->item("Fila (QUEUE_CONNECTION={$queue})", $queue !== 'sync',
+            'fila em modo `sync` — jobs rodam inline no request (nunca em background); suba o worker (container queue) e aponte QUEUE_CONNECTION para database/redis',
+            aviso: true);
+
+        $broadcast = (string) config('broadcasting.default');
+        $this->item("Broadcast (BROADCAST_CONNECTION={$broadcast})", $broadcast === 'reverb',
+            'broadcast em modo `'.$broadcast.'` — sem Reverb os apps caem para polling (sem mapa ao vivo)', aviso: true);
+
+        $cache = (string) config('cache.default');
+        $this->item("Cache (CACHE_STORE={$cache})",
+            in_array($cache, ['redis', 'memcached'], true),
+            'cache em `'.$cache.'` — para produção prefira redis (concorrência)', aviso: true);
     }
 
     private function verificarGatesFiscalCobranca(): void

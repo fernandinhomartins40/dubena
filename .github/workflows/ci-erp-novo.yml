@@ -1,7 +1,10 @@
 name: CI erp-novo (backend reescrito)
 
-# Suíte do backend NOVO (greenfield, plano de reescrita N0+).
-# Roda em sqlite :memory: (definido no phpunit.xml) — não precisa de serviço de DB.
+# Dois jobs:
+#  - test:          sqlite :memory: (rápido, feedback imediato — phpunit.xml).
+#  - test-postgres: PostgreSQL com role NÃO-superuser (Q-6 da auditoria) — é o
+#    único jeito de exercer RLS de verdade (no sqlite ela é no-op) e a busca
+#    `ilike`. O RlsCoberturaTest só valida cobertura de policy aqui.
 on:
   pull_request:
     branches: [main]
@@ -10,6 +13,7 @@ on:
       - '.github/workflows/ci-erp-novo.yml'
   push:
     branches:
+      - main      # fluxo atual: commit por fase direto na main (Q-6: main também testa)
       - 'n*-**'   # branches de fase (n0-fundacao, n1-..., etc.)
       - 'ci-**'
     paths:
@@ -62,3 +66,75 @@ jobs:
 
       - name: Suíte de testes (PHPUnit)
         run: php artisan test
+
+  # Q-6 (auditoria): a mesma suíte contra PostgreSQL, conectando com uma role
+  # NOSUPERUSER/NOBYPASSRLS (como a erp_app de produção) — assim a RLS é exercida
+  # de verdade (superuser a ignora) e o RlsCoberturaTest vira o guardião contra
+  # tabela nova sem policy. O seed também roda aqui (gotcha sqlite×PG de varchar).
+  test-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: erp-novo
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: erp_teste
+      DB_USERNAME: erp_test
+      DB_PASSWORD: erp_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, pgsql, mbstring, bcmath, intl
+          coverage: none
+
+      - name: Cache de dependências Composer
+        uses: actions/cache@v4
+        with:
+          path: erp-novo/vendor
+          key: composer-${{ hashFiles('erp-novo/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instala dependências
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Cria role restrita + banco (dono = erp_test, sem superuser)
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -c \
+            "CREATE ROLE erp_test LOGIN PASSWORD 'erp_test' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -c \
+            "CREATE DATABASE erp_teste OWNER erp_test;"
+
+      - name: Prepara ambiente de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Suíte de testes em PostgreSQL (role restrita)
+        run: php artisan test
+
+      - name: Seed completo em PostgreSQL (gotcha varchar sqlite×PG)
+        run: php artisan migrate:fresh --seed --force

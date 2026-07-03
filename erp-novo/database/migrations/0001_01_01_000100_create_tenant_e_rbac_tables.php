@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -50,12 +51,22 @@ return new class extends Migration
         });
 
         // Papel do usuário POR empresa (permissão pode variar por empresa do grupo).
+        // PK própria (id) em vez de PK composta: `empresa_id` é NULLABLE (papel
+        // GLOBAL, lido por wherePivotNull em User::temPermissao) e coluna de
+        // PRIMARY KEY não aceita NULL no PostgreSQL — com a PK composta, atribuir
+        // um papel global falhava com not-null violation (achado DB-1 da auditoria).
         Schema::create('role_user', function (Blueprint $table) {
+            $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
             $table->foreignId('empresa_id')->nullable()->constrained('empresas')->cascadeOnDelete();
-            $table->primary(['user_id', 'role_id', 'empresa_id'], 'role_user_pk');
         });
+
+        // Unicidade em DUAS parciais (num unique comum, NULL não colide com NULL):
+        // uma para a atribuição por empresa, outra para a global. pgsql e sqlite
+        // suportam índice parcial com a mesma sintaxe.
+        DB::statement('CREATE UNIQUE INDEX role_user_empresa_unique ON role_user (user_id, role_id, empresa_id) WHERE empresa_id IS NOT NULL');
+        DB::statement('CREATE UNIQUE INDEX role_user_global_unique ON role_user (user_id, role_id) WHERE empresa_id IS NULL');
     }
 
     public function down(): void

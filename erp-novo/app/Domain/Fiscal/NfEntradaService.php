@@ -64,8 +64,18 @@ class NfEntradaService
             ]);
 
             foreach ($this->itensDoXml($inf) as $it) {
+                // Casamento do item do XML com o produto: por descrição sempre, e por
+                // id SÓ quando o código do fornecedor é numérico. Antes comparava
+                // `id = cProd` direto — no Postgres (id bigint) um código alfanumérico
+                // como "X1" estourava "invalid input syntax for bigint" (Q-6).
+                $codigo = (string) ($it['codigo'] ?? '');
                 $produto = Produto::query()->where('grupo_id', $grupoId)
-                    ->where(fn ($q) => $q->where('id', $it['codigo'])->orWhere('descricao', $it['descricao']))
+                    ->where(function ($q) use ($codigo, $it) {
+                        $q->where('descricao', $it['descricao']);
+                        if (ctype_digit($codigo)) {
+                            $q->orWhere('id', (int) $codigo);
+                        }
+                    })
                     ->first();
 
                 $nota->itens()->create([

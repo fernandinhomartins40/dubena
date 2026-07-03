@@ -144,6 +144,16 @@ jobs:
           docker compose -f docker-compose.homolog.yml exec -T app \
             sh -c 'chown -R www-data:www-data storage bootstrap/cache'
 
+      - name: Portão de prontidão (golive:check — informativo em homolog)
+        run: |
+          # Não bloqueia a homologação (gates fiscais/cobrança ficam em Fake aqui),
+          # mas imprime o estado da RLS/role restrita (MT-1/2), da infra assíncrona
+          # (worker/scheduler/Reverb — PF-5/6/8) e dos certificados. Serve de
+          # checklist visível a cada deploy. Em produção plena, use --strict e trate
+          # a saída ≠0 como bloqueio.
+          docker compose -f docker-compose.homolog.yml exec -T app \
+            php artisan golive:check || true
+
       - name: Health check (landing / + API /novo/up + SPA /novo/app, porta 3120)
         run: |
           # API sob /novo (o nginx do container faz strip → /up) com retry.

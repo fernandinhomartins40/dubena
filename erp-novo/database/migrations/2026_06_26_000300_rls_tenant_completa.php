@@ -45,6 +45,15 @@ return new class extends Migration
         'empresa_user',    // pivot de multi-empresa (define o que o user PODE acessar)
         'empresa_configs', // resolvido por empresa_id explícito no controller; pivot 1:1
         'roles',           // papéis podem ser globais (grupo_id nulo) — filtro no app
+        // Tabelas de AUDITORIA: recebem linhas com empresa_id NULL por design (a
+        // auditoria da PRÓPRIA Empresa — que não tem empresa_id — via Auditavel; a
+        // trilha de login PRÉ-tenant; e a auditoria cross-tenant da plataforma). Com
+        // RLS FORCE + tenant ativo, a WITH CHECK rejeitava o INSERT de empresa_id
+        // NULL (500 ao criar Empresa). São append-only, filtradas por empresa no app
+        // (AuditoriaController). [Q-6 da auditoria: só aparece sob role restrita.]
+        'audit_logs',
+        'login_logs',
+        'platform_audit_logs',
     ];
 
     public function up(): void
@@ -113,15 +122,20 @@ return new class extends Migration
         DB::statement("ALTER TABLE {$tabela} ENABLE ROW LEVEL SECURITY");
         DB::statement("ALTER TABLE {$tabela} FORCE ROW LEVEL SECURITY");
         DB::statement("DROP POLICY IF EXISTS tenant_isolation ON {$tabela}");
+        // Cast NULL-safe: `nullif(...,'')::int`. Sem o nullif ANTES do ::int, uma
+        // GUC vazia ('') — que o fim-de-requisição seta para "sem tenant" — estoura
+        // "invalid input syntax for integer" mesmo com o guard, pois o planner do
+        // Postgres avalia o ramo direito do OR. Com nullif, '' vira NULL e o cast
+        // é seguro (NULL::int = NULL).
         DB::statement(
             "CREATE POLICY tenant_isolation ON {$tabela}
              USING (
                  nullif(current_setting('{$var}', true), '') IS NULL
-                 OR {$coluna} = current_setting('{$var}', true)::int
+                 OR {$coluna} = nullif(current_setting('{$var}', true), '')::int
              )
              WITH CHECK (
                  nullif(current_setting('{$var}', true), '') IS NULL
-                 OR {$coluna} = current_setting('{$var}', true)::int
+                 OR {$coluna} = nullif(current_setting('{$var}', true), '')::int
              )"
         );
     }
