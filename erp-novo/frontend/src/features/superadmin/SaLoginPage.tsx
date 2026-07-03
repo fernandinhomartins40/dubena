@@ -51,17 +51,49 @@ export function SaLoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="grid size-12 place-items-center rounded-xl bg-primary/12 text-primary">
-            <ShieldCheck size={26} strokeWidth={2.2} />
+    <div className="grid min-h-screen lg:grid-cols-2 bg-background">
+      {/* Painel de marca — mesma linguagem do ERP (sidebar grafite + acento laranja) */}
+      <div className="hidden lg:flex flex-col justify-between bg-sidebar p-10 text-sidebar-foreground">
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-10 place-items-center rounded-lg bg-sidebar-accent text-white shadow-md shadow-black/30">
+            <ShieldCheck size={22} strokeWidth={2.2} />
           </div>
-          <h1 className="text-xl font-bold">SuperAdmin</h1>
-          <p className="text-sm text-muted-foreground">Administração da plataforma</p>
+          <div className="leading-tight">
+            <span className="text-lg font-bold tracking-wide text-white">Dubena</span>
+            <p className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">SuperAdmin</p>
+          </div>
         </div>
+        <div className="max-w-md space-y-3">
+          <h2 className="text-3xl font-bold leading-tight text-white">
+            Administração da <span className="text-sidebar-accent">plataforma</span>
+          </h2>
+          <p className="text-sm leading-relaxed text-sidebar-foreground/70">
+            Gestão cross-tenant de empresas, planos, recursos e cidades — com toda
+            ação registrada em trilha de auditoria imutável.
+          </p>
+        </div>
+        <p className="text-xs text-sidebar-foreground/40">
+          Acesso restrito · guard isolado da operação dos tenants
+        </p>
+      </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-6">
+      {/* Formulário */}
+      <div className="grid place-items-center px-4 py-10">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 flex flex-col items-center gap-2 lg:hidden">
+            <div className="grid size-12 place-items-center rounded-xl bg-primary/12 text-primary">
+              <ShieldCheck size={26} strokeWidth={2.2} />
+            </div>
+            <h1 className="text-xl font-bold">SuperAdmin</h1>
+            <p className="text-sm text-muted-foreground">Administração da plataforma</p>
+          </div>
+
+          <div className="mb-6 hidden lg:block">
+            <h1 className="text-2xl font-bold">Entrar</h1>
+            <p className="text-sm text-muted-foreground">Use sua credencial de administrador da plataforma.</p>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
           <Field label="E-mail" required>
             <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} disabled={carregando} />
           </Field>
@@ -90,7 +122,8 @@ export function SaLoginPage() {
               </p>
             </div>
           )}
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   )

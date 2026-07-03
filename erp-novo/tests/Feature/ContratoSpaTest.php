@@ -22,18 +22,26 @@ class ContratoSpaTest extends TestCase
     /** Prefixo da API admin no backend (a SPA monta baseURL .../api/admin). */
     private const PREFIXO_ADMIN = 'api/admin/';
 
+    /** Prefixo da API do SuperAdmin (features/superadmin usa saApi → /api/superadmin). */
+    private const PREFIXO_SUPERADMIN = 'api/superadmin/';
+
     public function test_todo_endpoint_da_spa_tem_rota_no_backend(): void
     {
         $endpointsSpa = $this->endpointsDaSpa();
         $this->assertNotEmpty($endpointsSpa, 'Não foi possível extrair endpoints da SPA.');
 
-        $rotas = $this->rotasAdminNormalizadas();
+        // Cada grupo de features compara com o prefixo do SEU client HTTP:
+        // features/superadmin → api/superadmin; o resto → api/admin. (Sem isso o
+        // teste flagava os endpoints do SuperAdmin como "sem rota" — falso positivo.)
+        $rotasPorGrupo = [
+            'admin' => $this->rotasNormalizadas(self::PREFIXO_ADMIN),
+            'superadmin' => $this->rotasNormalizadas(self::PREFIXO_SUPERADMIN),
+        ];
 
         $faltantes = [];
-        foreach ($endpointsSpa as $ep) {
-            [$metodo, $path] = $ep;
-            if (! $this->casaComAlgumaRota($metodo, $path, $rotas)) {
-                $faltantes[] = strtoupper($metodo).' '.$path;
+        foreach ($endpointsSpa as [$metodo, $path, $grupo]) {
+            if (! $this->casaComAlgumaRota($metodo, $path, $rotasPorGrupo[$grupo])) {
+                $faltantes[] = strtoupper($metodo)." {$grupo}:{$path}";
             }
         }
 
@@ -118,7 +126,9 @@ class ContratoSpaTest extends TestCase
                     $metodo = strtoupper($match[1]);
                     $path = $this->normalizarPath($match[2]);
                     if ($path !== null) {
-                        $endpoints[] = [$metodo, $path];
+                        // features/superadmin usa o client saApi (baseURL /api/superadmin).
+                        $grupo = str_contains(str_replace('\\', '/', $arquivo), '/superadmin/') ? 'superadmin' : 'admin';
+                        $endpoints[] = [$metodo, $path, $grupo];
                     }
                 }
             }
@@ -168,21 +178,21 @@ class ContratoSpaTest extends TestCase
     }
 
     /**
-     * Rotas admin do backend, normalizadas no mesmo formato "METODO prefixo/path"
-     * com parâmetros uniformizados para {p}.
+     * Rotas do backend sob um prefixo, normalizadas em "METODO path" com
+     * parâmetros uniformizados para {p}.
      *
      * @return list<string>
      */
-    private function rotasAdminNormalizadas(): array
+    private function rotasNormalizadas(string $prefixo): array
     {
         $rotas = [];
         /** @var RoutingRoute $route */
         foreach (Route::getRoutes() as $route) {
             $uri = $route->uri();
-            if (! str_starts_with($uri, self::PREFIXO_ADMIN)) {
+            if (! str_starts_with($uri, $prefixo)) {
                 continue;
             }
-            $path = substr($uri, strlen(self::PREFIXO_ADMIN));
+            $path = substr($uri, strlen($prefixo));
             $path = preg_replace('/\{[^}]+\}/', '{p}', $path) ?? $path;
 
             foreach ($route->methods() as $metodo) {

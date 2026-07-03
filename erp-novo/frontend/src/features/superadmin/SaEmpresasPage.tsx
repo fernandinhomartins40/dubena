@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Building2, CreditCard, SlidersHorizontal, Ban, CheckCircle2 } from 'lucide-react'
+import { Building2, CreditCard, SlidersHorizontal, Ban, CheckCircle2, AlertTriangle } from 'lucide-react'
 import {
   Button, Badge, type Column, Field, Switch, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  ResourceList, FormDialog, SearchBar, AsyncState, toast,
+  ResourceList, FormDialog, ConfirmDialog, SearchBar, AsyncState, StatCard, toast,
 } from '@/components/ui'
 import {
   useSaEmpresas, useSaEmpresaAcoes, useSaPlanos, useSaRecursos, useSaOverride,
@@ -27,6 +27,11 @@ export function SaEmpresasPage() {
 
   const [assinaturaDe, setAssinaturaDe] = useState<SaEmpresa | null>(null)
   const [recursosDe, setRecursosDe] = useState<SaEmpresa | null>(null)
+  const [suspenderDe, setSuspenderDe] = useState<SaEmpresa | null>(null)
+
+  const todas = data ?? []
+  const ativas = todas.filter((e) => e.ativo).length
+  const inadimplentes = todas.filter((e) => e.status_assinatura === 'inadimplente').length
 
   const columns: Column<SaEmpresa>[] = [
     {
@@ -48,7 +53,7 @@ export function SaEmpresasPage() {
           <Button variant="ghost" size="icon" aria-label="Assinatura" onClick={() => setAssinaturaDe(v)}><CreditCard size={15} /></Button>
           <Button variant="ghost" size="icon" aria-label="Recursos" onClick={() => setRecursosDe(v)}><SlidersHorizontal size={15} /></Button>
           {v.ativo ? (
-            <Button variant="ghost" size="icon" aria-label="Suspender" onClick={() => { if (confirm(`Suspender ${v.razao_social}? O acesso da empresa será bloqueado.`)) acoes.suspender.mutate(v.id) }}><Ban size={15} /></Button>
+            <Button variant="ghost" size="icon" aria-label="Suspender" onClick={() => setSuspenderDe(v)}><Ban size={15} /></Button>
           ) : (
             <Button variant="ghost" size="icon" aria-label="Reativar" onClick={() => acoes.reativar.mutate(v.id)}><CheckCircle2 size={15} /></Button>
           )}
@@ -59,6 +64,12 @@ export function SaEmpresasPage() {
 
   return (
     <>
+      <div className="mb-4 grid grid-cols-3 gap-4">
+        <StatCard titulo="Total" valor={todas.length} icon={Building2} accent="primary" />
+        <StatCard titulo="Ativas" valor={ativas} icon={CheckCircle2} accent="success" />
+        <StatCard titulo="Inadimplentes" valor={inadimplentes} icon={AlertTriangle} accent="destructive" />
+      </div>
+
       <ResourceList
         title="Empresas"
         subtitle="Todas as empresas da plataforma (acesso cross-tenant, auditado)"
@@ -78,6 +89,20 @@ export function SaEmpresasPage() {
       {recursosDe && (
         <RecursosDialog empresa={recursosDe} onClose={() => setRecursosDe(null)} />
       )}
+      <ConfirmDialog
+        open={suspenderDe !== null}
+        onOpenChange={(v) => !v && setSuspenderDe(null)}
+        title={`Suspender ${suspenderDe?.nome_fantasia || suspenderDe?.razao_social}?`}
+        description="O acesso de todos os usuários desta empresa será bloqueado imediatamente. A ação é auditada e pode ser revertida com Reativar."
+        confirmLabel="Suspender empresa"
+        loading={acoes.suspender.isPending}
+        onConfirm={async () => {
+          if (!suspenderDe) return
+          await acoes.suspender.mutateAsync(suspenderDe.id)
+          toast.success('Empresa suspensa.')
+          setSuspenderDe(null)
+        }}
+      />
     </>
   )
 }
