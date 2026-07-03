@@ -15,6 +15,7 @@ use App\Domain\Logistica\Drivers\GoogleMatrizDriver;
 use App\Domain\Logistica\Drivers\GoogleRoutesDriver;
 use App\Domain\Logistica\Drivers\HaversineDriver;
 use App\Domain\Logistica\Drivers\SemTracado;
+use App\Domain\Logistica\Drivers\TracadorRotaCacheado;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Contracts\PushTransport;
@@ -82,15 +83,16 @@ class AppServiceProvider extends ServiceProvider
                 : $this->app->make(HaversineDriver::class);
         });
 
-        // Traçado da rota pelas ruas (L6 — GATE Google Routes). Sem key, SemTracado
-        // (o app do entregador liga as paradas com linha reta e melhora sozinho
-        // quando a Routes API for habilitada no projeto GCP).
+        // Traçado da rota pelas ruas (L6 — GATE Google Routes) com CACHE
+        // PERSISTENTE (rotas_cache): 1 chamada Google por par de células (~100 m),
+        // salva para sempre — trajetos recorrentes da praça custam zero. Sem key,
+        // o cache ainda serve trajetos já aprendidos; o resto sai em linha reta.
         $this->app->bind(TracadorRota::class, function () {
             $key = config('services.geocoding.key');
 
-            return $key
-                ? new GoogleRoutesDriver((string) $key)
-                : new SemTracado;
+            return new TracadorRotaCacheado(
+                $key ? new GoogleRoutesDriver((string) $key) : new SemTracado,
+            );
         });
 
         // Verificador do Firebase (F1 — GATE phone-auth). FIREBASE_DRIVER=kreait ativa o

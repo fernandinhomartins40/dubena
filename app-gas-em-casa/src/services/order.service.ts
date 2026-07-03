@@ -34,6 +34,18 @@ const GetHistory = (): Promise<any[]> => Http.PrepareRequest(`app/v1/pedidos`, "
 const Track = (orderId: number): Promise<any> =>
     Http.PrepareRequest(`app/v1/pedidos/${orderId}`, "GET")
 
+/** Rota do entregador AO VIVO (L6): posição + traçado pelas ruas + ETA. */
+export interface RotaEntregadorData {
+    entregador: { nome: string | null; veiculo: string | null } | null
+    posicao: { lat: number; lng: number; atualizado_em: string | null } | null
+    destino: { lat: number; lng: number } | null
+    polyline: string | null
+    distancia_km: number | null
+    duracao_min: number | null
+}
+const RotaEntregador = (orderId: number): Promise<RotaEntregadorData> =>
+    Http.PrepareRequest(`app/v1/pedidos/${orderId}/rota-entregador`, "GET")
+
 const Evaluate = (
     orderId: number,
     payload: { rating?: number; mensagem?: string; ignorado?: boolean },
@@ -67,6 +79,7 @@ const OrderService = {
     CreateOrder,
     GetHistory,
     Track,
+    RotaEntregador,
     Evaluate,
     Cancel,
     GerarPix,

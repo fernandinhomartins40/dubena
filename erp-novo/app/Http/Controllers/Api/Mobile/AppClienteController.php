@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Cliente\ClienteService;
 use App\Domain\Cobranca\PixService;
+use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\CotacaoMobileService;
 use App\Domain\Mobile\EnderecoMobileService;
@@ -444,6 +445,62 @@ class AppClienteController extends Controller
                 'preco_unitario' => (float) $i->preco_unitario,
                 'total' => round((float) $i->quantidade * (float) $i->preco_unitario, 2),
             ]),
+        ]]);
+    }
+
+    /**
+     * GET /app/v1/pedidos/{id}/rota-entregador — L6: acompanhamento estilo app de
+     * mobilidade. Posição AO VIVO do entregador (vem dos pings do app dele — zero
+     * custo Google) + TRAÇADO pelas ruas até o cliente (Routes API com cache
+     * persistente por célula: enquanto o entregador não anda ~100 m, nenhuma
+     * chamada nova). ETA/distância reais.
+     */
+    public function rotaEntregador(Request $request, int $id): JsonResponse
+    {
+        $cliente = $this->clienteDoUsuario($request);
+        $pedido = Pedido::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('cliente_id', $cliente->id)
+            ->with(['entregador:id,name', 'veiculo:id,placa,descricao'])
+            ->findOrFail($id);
+
+        $vazio = [
+            'entregador' => null, 'posicao' => null, 'destino' => null,
+            'polyline' => null, 'distancia_km' => null, 'duracao_min' => null,
+        ];
+
+        if (! $pedido->entregador_user_id) {
+            return response()->json(['data' => $vazio]);
+        }
+
+        $pos = \App\Models\Mobile\EntregadorPosicao::query()
+            ->where('entregador_user_id', $pedido->entregador_user_id)
+            ->first();
+
+        $destLat = $cliente->latitude !== null ? (float) $cliente->latitude : null;
+        $destLng = $cliente->longitude !== null ? (float) $cliente->longitude : null;
+
+        $tracado = null;
+        if ($pos && $destLat !== null && $destLng !== null) {
+            $tracado = app(TracadorRota::class)->tracar(
+                (float) $pos->latitude, (float) $pos->longitude, $destLat, $destLng,
+            );
+        }
+
+        return response()->json(['data' => [
+            'entregador' => [
+                'nome' => $pedido->entregador?->name,
+                'veiculo' => $pedido->veiculo ? trim(($pedido->veiculo->descricao ?? '').' '.($pedido->veiculo->placa ?? '')) : null,
+            ],
+            'posicao' => $pos ? [
+                'lat' => (float) $pos->latitude,
+                'lng' => (float) $pos->longitude,
+                'atualizado_em' => $pos->atualizado_em?->toIso8601String(),
+            ] : null,
+            'destino' => $destLat !== null ? ['lat' => $destLat, 'lng' => $destLng] : null,
+            'polyline' => $tracado['polyline'] ?? null,
+            'distancia_km' => $tracado['distancia_km'] ?? null,
+            'duracao_min' => $tracado['duracao_min'] ?? null,
         ]]);
     }
 

@@ -120,10 +120,12 @@ class RoteirizadorServiceTest extends TestCase
 
     public function test_driver_e_resolvido_por_env_haversine_por_padrao(): void
     {
-        // Sem GOOGLE_MAPS_KEY, o container entrega o Haversine e o SemTracado.
+        // Sem GOOGLE_MAPS_KEY, o container entrega o Haversine; o traçado vem
+        // SEMPRE envolvido no cache persistente (que ainda serve trajetos
+        // aprendidos mesmo sem key).
         config()->set('services.geocoding.key', null);
         $this->assertInstanceOf(HaversineDriver::class, app(MatrizDistancia::class));
-        $this->assertInstanceOf(SemTracado::class, app(TracadorRota::class));
+        $this->assertInstanceOf(\App\Domain\Logistica\Drivers\TracadorRotaCacheado::class, app(TracadorRota::class));
     }
 
     public function test_paradas_incluem_polyline_quando_tracador_disponivel(): void
