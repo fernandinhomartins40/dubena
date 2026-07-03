@@ -2,6 +2,7 @@
 
 namespace App\Domain\Logistica;
 
+use App\Domain\Shared\Geo;
 use App\Models\Logistica\Jornada;
 use App\Models\Logistica\LogisticaConfig;
 use App\Models\Mobile\EntregadorPosicao;
@@ -74,7 +75,7 @@ class DistribuidorService
             $pos = $posicoes->get($uid);
 
             $distanciaKm = ($lat !== null && $lng !== null && $pos)
-                ? $this->haversineKm($lat, $lng, (float) $pos->latitude, (float) $pos->longitude)
+                ? Geo::km($lat, $lng, (float) $pos->latitude, (float) $pos->longitude)
                 : null;
 
             $cargaAtual = (int) ($carga[$uid] ?? 0);
@@ -110,16 +111,5 @@ class DistribuidorService
         }
 
         return null;
-    }
-
-    /** Haversine em km. */
-    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $r = 6371.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

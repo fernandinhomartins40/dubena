@@ -2,6 +2,7 @@
 
 namespace App\Domain\Missao;
 
+use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
 use App\Models\Missao\Missao;
 use App\Models\Missao\MissaoAtribuicao;
@@ -138,17 +139,35 @@ class MissaoService
             ->whereNotNull('cliente_id')
             ->pluck('cliente_id');
 
-        $candidato = Cliente::query()
-            ->where('empresa_id', $atribuicao->empresa_id)
-            ->whereNotNull('latitude')->whereNotNull('longitude')
-            ->whereNotIn('id', $visitados)
-            ->get(['id', 'nome', 'endereco', 'numero', 'latitude', 'longitude'])
-            ->map(fn (Cliente $c) => [
-                'cliente' => $c,
-                'dist' => $this->distanciaM($lat, $lng, (float) $c->latitude, (float) $c->longitude),
-            ])
-            ->sortBy('dist')
-            ->first();
+        // PF-1: BUSCA EM ANÉIS EXPANSÍVEIS. Antes carregava TODOS os clientes da
+        // empresa (O(N)). Agora tenta caixas de raio crescente (500m → 2km → 10km),
+        // indexadas por lat/lng, e só cai no full scan se nenhum anel achar alguém
+        // (praça esparsa). O resultado é o mesmo (o cliente não-visitado mais próximo).
+        $candidato = null;
+        foreach ([500.0, 2000.0, 10000.0, null] as $raioM) {
+            $q = Cliente::query()
+                ->where('empresa_id', $atribuicao->empresa_id)
+                ->whereNotNull('latitude')->whereNotNull('longitude')
+                ->whereNotIn('id', $visitados);
+
+            if ($raioM !== null) {
+                $box = Geo::boundingBox($lat, $raioM);
+                $q->whereBetween('latitude', [$lat - $box['lat_delta'], $lat + $box['lat_delta']])
+                    ->whereBetween('longitude', [$lng - $box['lng_delta'], $lng + $box['lng_delta']]);
+            }
+
+            $candidato = $q->get(['id', 'nome', 'endereco', 'numero', 'latitude', 'longitude'])
+                ->map(fn (Cliente $c) => [
+                    'cliente' => $c,
+                    'dist' => $this->distanciaM($lat, $lng, (float) $c->latitude, (float) $c->longitude),
+                ])
+                ->sortBy('dist')
+                ->first();
+
+            if ($candidato) {
+                break;
+            }
+        }
 
         if (! $candidato) {
             return null;
@@ -230,11 +249,6 @@ class MissaoService
 
     private function distanciaM(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $r = 6371000.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::metros($lat1, $lng1, $lat2, $lng2);
     }
 }

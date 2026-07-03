@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\LoginSeguranca;
 use App\Domain\Seguranca\VerificadorDoisFatores;
 use App\Http\Controllers\Controller;
@@ -27,6 +28,7 @@ class AuthController extends Controller
     public function __construct(
         private LoginSeguranca $seguranca,
         private VerificadorDoisFatores $doisFatores,
+        private AuditoriaSeguranca $auditoria,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -78,6 +80,13 @@ class AuthController extends Controller
         }
 
         $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
+
+        // S-7: o usuário `support` ignora TODA verificação de permissão (Gate::before).
+        // Logar cada gate seria ruído; logamos o LOGIN de suporte — evento raro e
+        // acionável — para haver trilha de quando o bypass total entrou em uso.
+        if ($user->support) {
+            $this->auditoria->registrar('login.suporte', $email, ['user_id' => $user->id]);
+        }
 
         // Token Bearer para apps/integrações (a SPA pode ignorar e usar o cookie).
         $token = $user->createToken('spa')->plainTextToken;

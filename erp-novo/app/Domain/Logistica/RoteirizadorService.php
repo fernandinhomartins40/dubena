@@ -5,6 +5,7 @@ namespace App\Domain\Logistica;
 use App\Domain\Logistica\Contracts\MatrizDistancia;
 use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Shared\Geo;
 use App\Models\Mobile\EntregadorPosicao;
 use App\Models\Pedido\Pedido;
 
@@ -126,7 +127,7 @@ class RoteirizadorService
             $melhorIdx = 0;
             $melhorDist = PHP_FLOAT_MAX;
             foreach ($restantes as $i => $p) {
-                $d = $this->haversineKm($curLat, $curLng, (float) $p->cliente->latitude, (float) $p->cliente->longitude);
+                $d = Geo::km($curLat, $curLng, (float) $p->cliente->latitude, (float) $p->cliente->longitude);
                 if ($d < $melhorDist) {
                     $melhorDist = $d;
                     $melhorIdx = $i;
@@ -140,17 +141,6 @@ class RoteirizadorService
         }
 
         return $ordem;
-    }
-
-    /** Haversine local (km) — comparação de proximidade sem custo de rede. */
-    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $r = 6371.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /**

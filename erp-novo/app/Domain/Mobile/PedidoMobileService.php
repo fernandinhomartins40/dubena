@@ -6,6 +6,7 @@ use App\Domain\Cliente\GeocodificarClienteJob;
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
+use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
@@ -58,15 +59,24 @@ class PedidoMobileService
 
     /**
      * Encontra o cliente mais próximo de uma coordenada na empresa (raio em km).
-     * Usa a fórmula de Haversine simplificada (sem PostGIS) — suficiente p/ matching.
+     *
+     * PF-1 (auditoria): antes carregava TODOS os clientes da empresa e filtrava em
+     * PHP (O(N) por pedido — inviável num tenant com dezenas de milhares). Agora um
+     * BOUNDING BOX no SQL (lat/lng BETWEEN …, indexado) traz só os candidatos dentro
+     * do quadrado do raio; o Haversine refina em PHP sobre esse conjunto pequeno.
+     * Portável (sqlite e Postgres, sem PostGIS).
      */
     public function clientePorGeoloc(int $empresaId, float $lat, float $lng, float $raioKm = 0.15): ?Cliente
     {
+        $box = Geo::boundingBox($lat, $raioKm * 1000);
+
         return Cliente::query()
             ->where('empresa_id', $empresaId)
             ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [$lat - $box['lat_delta'], $lat + $box['lat_delta']])
+            ->whereBetween('longitude', [$lng - $box['lng_delta'], $lng + $box['lng_delta']])
             ->get()
-            ->map(fn (Cliente $c) => [$c, $this->distanciaKm($lat, $lng, (float) $c->latitude, (float) $c->longitude)])
+            ->map(fn (Cliente $c) => [$c, Geo::km($lat, $lng, (float) $c->latitude, (float) $c->longitude)])
             ->filter(fn ($par) => $par[1] <= $raioKm)
             ->sortBy(fn ($par) => $par[1])
             ->first()[0] ?? null;
@@ -305,16 +315,5 @@ class PedidoMobileService
                     'total' => round((float) $i->quantidade * (float) $i->preco_unitario, 2),
                 ]),
             ])->all();
-    }
-
-    /** Distância Haversine em km. */
-    private function distanciaKm(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $r = 6371.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }
