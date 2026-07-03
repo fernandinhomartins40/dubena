@@ -98,7 +98,10 @@ class EmpresaConfigController extends Controller
         $empresa = $this->empresaDoGrupo($request, $empresaId);
 
         $request->validate([
-            'certificado' => 'required|file|max:10240', // até 10 MB
+            // Só PKCS#12 (.pfx/.p12): filtro barato de extensão (S-3). A prova real
+            // do conteúdo é o openssl_pkcs12_read do CertificadoService, que rejeita
+            // qualquer coisa que não abra como certificado com a senha dada.
+            'certificado' => 'required|file|max:10240|mimes:pfx,p12,x-pkcs12', // até 10 MB
             'senha' => 'required|string',
         ]);
 

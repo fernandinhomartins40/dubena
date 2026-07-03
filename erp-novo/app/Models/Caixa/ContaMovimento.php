@@ -2,6 +2,7 @@
 
 namespace App\Models\Caixa;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,9 +14,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Escopado por empresa (F00.5): tem coluna `empresa_id`, então o global scope de
  * tenant evita estornar/ler movimento de OUTRA empresa por id (IDOR apontado na
  * auditoria). Operações internas que precisam ignorar o escopo usam withoutTenant().
+ *
+ * Auditável (S-4): cada movimento de caixa entra em audit_logs (quem/quando/IP +
+ * valores) — o dinheiro é o dado mais sensível e precisa de trilha completa.
  */
 class ContaMovimento extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
     use HasFactory;
 

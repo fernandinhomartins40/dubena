@@ -36,12 +36,25 @@ class PedidoController extends Controller
 
         $pedidos = Pedido::query()
             ->with(['cliente:id,nome', 'situacao:id,descricao,efeito'])
+            // tem_nf resolvido em 1 query (não 1 exists por linha na serialização) — PF-2.
+            ->withExists('notasVivas as tem_nf')
             ->when($request->query('situacao_id'), fn (Builder $b, $s) => $b->where('pedidosituacao_id', $s))
             ->when($q !== '', fn (Builder $b) => $b->whereHas('cliente', fn ($w) => $w->where('nome', 'ilike', '%'.$q.'%')))
             ->orderByDesc('datahora')
-            ->paginate(20);
+            ->paginate($this->perPage($request));
 
         return PedidoResource::collection($pedidos)->response();
+    }
+
+    /**
+     * Tamanho de página parametrizável (?per_page) com teto — API-5. Default 20,
+     * máximo 100 (evita listas gigantes num único request). Valor inválido → default.
+     */
+    private function perPage(Request $request): int
+    {
+        $pp = (int) $request->query('per_page', 20);
+
+        return $pp >= 1 && $pp <= 100 ? $pp : 20;
     }
 
     public function show(Request $request, int $id): PedidoResource
@@ -195,18 +208,30 @@ class PedidoController extends Controller
 
         $situacoes = PedidoSituacao::query()->where('ativo', true)->orderBy('ordem')->get();
 
-        $colunas = $situacoes->map(function (PedidoSituacao $s) {
+        // Totais REAIS por coluna numa ÚNICA query agregada (antes contava/somava
+        // só os 50 carregados por coluna → total incorreto + N queries) — PF-2.
+        $agregados = Pedido::query()
+            ->selectRaw('pedidosituacao_id, count(*) as total, coalesce(sum(valor_venda), 0) as valor')
+            ->groupBy('pedidosituacao_id')
+            ->get()
+            ->keyBy('pedidosituacao_id');
+
+        $colunas = $situacoes->map(function (PedidoSituacao $s) use ($agregados) {
+            // Só os cards visíveis (limit 50) são materializados; os totais vêm dos
+            // agregados acima.
             $pedidos = Pedido::query()->with('cliente:id,nome')
                 ->where('pedidosituacao_id', $s->id)
                 ->orderByDesc('datahora')->limit(50)->get();
+
+            $agg = $agregados->get($s->id);
 
             return [
                 'situacao_id' => $s->id,
                 'descricao' => $s->descricao,
                 'efeito' => $s->efeito->value,
                 'cor' => $s->cor,
-                'total' => $pedidos->count(),
-                'valor' => round((float) $pedidos->sum('valor_venda'), 2),
+                'total' => (int) ($agg->total ?? 0),
+                'valor' => round((float) ($agg->valor ?? 0), 2),
                 'pedidos' => $pedidos->map(fn (Pedido $p) => [
                     'id' => $p->id,
                     'valor_venda' => (float) $p->valor_venda,

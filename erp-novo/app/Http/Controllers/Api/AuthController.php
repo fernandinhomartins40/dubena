@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Seguranca\LoginSeguranca;
-use App\Domain\Seguranca\Totp;
+use App\Domain\Seguranca\VerificadorDoisFatores;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
@@ -26,7 +26,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private LoginSeguranca $seguranca,
-        private Totp $totp,
+        private VerificadorDoisFatores $doisFatores,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -61,7 +61,7 @@ class AuthController extends Controller
         $twofa = $user->twoFactor;
         if ($twofa && $twofa->habilitado) {
             $otp = (string) ($request->input('otp', ''));
-            if ($otp === '' || ! $this->verificar2fa($user, $otp)) {
+            if ($otp === '' || ! $this->doisFatores->verificar($twofa, $otp)) {
                 Auth::logout();
                 $this->seguranca->registrar($request, $email, false, '2fa', $user->id, $user->empresa_id);
 
@@ -104,30 +104,5 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Sessão encerrada.']);
-    }
-
-    /** Verifica OTP TOTP ou consome um recovery code (uso único). */
-    private function verificar2fa(User $user, string $otp): bool
-    {
-        $twofa = $user->twoFactor;
-        if ($twofa === null) {
-            return false;
-        }
-
-        if ($this->totp->verificar($twofa->secret, $otp)) {
-            return true;
-        }
-
-        // Recovery code (one-time): se bater, consome e segue.
-        $codes = $twofa->recovery_codes ?? [];
-        $idx = array_search(strtoupper(trim($otp)), array_map('strtoupper', $codes), true);
-        if ($idx !== false) {
-            unset($codes[$idx]);
-            $twofa->update(['recovery_codes' => array_values($codes)]);
-
-            return true;
-        }
-
-        return false;
     }
 }

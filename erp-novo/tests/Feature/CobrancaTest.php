@@ -89,6 +89,53 @@ class CobrancaTest extends TestCase
             ->assertStatus(401);
     }
 
+    // ── S-1 (auditoria): assinatura HMAC do corpo cru ──────────────────────────
+
+    public function test_webhook_hmac_valido_confirma(): void
+    {
+        config()->set('services.pix.webhook_hmac_secret', 'hmac-super-secreto');
+        [, $empresa] = $this->suporte();
+        $parcela = $this->parcela($empresa, 75);
+        $cobranca = app(PixService::class)->criarCobranca($parcela);
+
+        $payload = ['txid' => $cobranca->txid, 'valor' => 75.00];
+        $corpo = json_encode($payload);
+        $assinatura = hash_hmac('sha256', $corpo, 'hmac-super-secreto');
+
+        $this->call('POST', '/api/pix/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_WEBHOOK_SIGNATURE' => $assinatura,
+        ], $corpo)->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
+
+        $this->assertTrue($parcela->refresh()->baixado);
+    }
+
+    public function test_webhook_hmac_invalido_401(): void
+    {
+        config()->set('services.pix.webhook_hmac_secret', 'hmac-super-secreto');
+        [, $empresa] = $this->suporte();
+        $cobranca = app(PixService::class)->criarCobranca($this->parcela($empresa, 75));
+
+        $corpo = json_encode(['txid' => $cobranca->txid, 'valor' => 75.00]);
+
+        $this->call('POST', '/api/pix/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_WEBHOOK_SIGNATURE' => 'assinatura-forjada',
+        ], $corpo)->assertStatus(401);
+    }
+
+    public function test_webhook_hmac_desligado_e_noop(): void
+    {
+        // Sem PIX_WEBHOOK_HMAC_SECRET, o corpo sem assinatura passa (camada 1 só).
+        [, $empresa] = $this->suporte();
+        $cobranca = app(PixService::class)->criarCobranca($this->parcela($empresa, 75));
+
+        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 75.00])
+            ->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
+    }
+
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();

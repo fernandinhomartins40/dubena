@@ -2,13 +2,19 @@
 
 namespace App\Models\Financeiro;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Parcela de um título financeiro. Auditável (S-4): baixa/estorno/reparcelamento
+ * mexem em valor_efetivado/baixado — entram em audit_logs com quem/quando/IP.
+ */
 class FinanceiroParcela extends Model
 {
+    use Auditavel;
     use BelongsToTenant;
 
     /** @var array<string,string> FK => tabela do pai (herança de empresa_id na criação sem tenant ativo). */

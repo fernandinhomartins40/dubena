@@ -6,6 +6,27 @@
 ## Como foi feita
 Leitura do código (393 PHP em `app/`, 74 migrations, 167 TS/TSX na SPA, ~115 nos apps), execução da suíte backend (**568 testes / 1859 assertions verdes**, sqlite in-memory) e inspeção do deploy (compose/CI). Cada conclusão tem evidência (arquivo/classe/método).
 
+## Status de implementação (atualizado após a auditoria)
+
+Os achados **P1 e parte dos P2 já foram implementados** (commits na `main`). Resumo:
+
+| Achado | Status | O que foi feito |
+|---|---|---|
+| Q-6 (testar em Postgres) | ✅ Feito | Suíte roda em PG com role NÃO-superuser + job de CI `test-postgres`. Revelou e corrigiu bugs latentes abaixo. Suíte: **573 verdes em sqlite E em Postgres**. |
+| DB-1 (PK role_user nullable) | ✅ Feito | PK própria (`id`) + índices únicos parciais; migration de conversão p/ bancos existentes; teste `PapelGlobalTest`. |
+| MT-1/MT-2 (RLS/role restrita) | ✅ Feito | `golive:check` FALHA se runtime é SUPERUSER/BYPASSRLS; policy RLS cast-safe; `ResolveTenant::terminate` limpa GUCs; tabelas de auditoria na allowlist; recobertura de tabelas novas. |
+| PF-5/6/8 (worker/cron/Reverb) | ✅ Feito | Containers `queue`, `scheduler`, `reverb` no compose; `laravel/reverb` instalado; `ext-sodium` no Dockerfile; `golive:check` cobre fila/broadcast/cache. |
+| S-1 (webhook PIX HMAC) | ✅ Feito | Assinatura HMAC-SHA256 sobre o corpo cru (flag `PIX_WEBHOOK_HMAC_SECRET`) + testes. |
+| S-2 (download por tenant) | ✅ Feito | Evidência de missão passa a usar o tenant ativo (global scope), corrigindo multi-empresa. |
+| S-3 (MIME de upload) | ✅ Feito (parcial) | Certificado restrito a `pfx/p12`; fotos já usavam `image`. |
+| S-4 (auditoria financeira) | ✅ Feito | `Auditavel` em `ContaMovimento` e `FinanceiroParcela`. |
+| PF-2 (Kanban N+1) | ✅ Feito | `withExists('notasVivas')` + agregado por query (totais reais, não só os 50). |
+| API-5 (`?per_page`) | ✅ Feito | Paginação parametrizável com teto em pedidos. |
+| Q-2 (dedupe 2FA) | ✅ Feito | `VerificadorDoisFatores` — ponto único (web + app). |
+| FE-1 (ErrorBoundary) | ✅ Feito | Boundary por rota na SPA (sem mais "tela branca"). |
+
+Pendências (não implementadas ainda): S-1 requer o segredo real do PSP no `.env`; PostGIS (PF-1) e a migração de infra dos apps para monorepo (M-2/Q-1) são de maior porte e ficam para uma fase dedicada; FE-3/M-5 (testes de front/mobile) idem.
+
 ## Documentos
 
 | Área | Auditoria | Plano |

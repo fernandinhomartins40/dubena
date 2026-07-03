@@ -146,9 +146,12 @@ class MissaoController extends Controller
     public function evidencia(Request $request, int $id): Response
     {
         $this->autorizar($request, 'missao.view');
-        $ev = \App\Models\Missao\MissaoEvidencia::query()
-            ->where('empresa_id', $request->user()->empresa_id)
-            ->findOrFail($id);
+
+        // MissaoEvidencia é BelongsToTenant: o global scope já filtra pela empresa
+        // ATIVA (respeitando a troca de empresa via X-Empresa-Id), e a RLS é a 2ª
+        // barreira. Antes filtrava por $request->user()->empresa_id (a empresa-casa
+        // do usuário), o que servia arquivo errado a usuários multi-empresa — S-2.
+        $ev = \App\Models\Missao\MissaoEvidencia::query()->findOrFail($id);
 
         abort_unless(Storage::disk('local')->exists($ev->foto_path), 404);
 

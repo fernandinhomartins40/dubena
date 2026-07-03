@@ -43,11 +43,16 @@ return [
     ],
 
     // PIX (N7 — gate bancário, Itaú). Segredos só no .env.
+    // webhook_secret       = segredo compartilhado no header X-Webhook-Token (autentica o chamador);
+    // webhook_hmac_secret  = segredo do HMAC-SHA256 sobre o corpo cru (integridade/origem — S-1);
+    // webhook_signature_header = nome do header onde o PSP envia a assinatura hex.
     'pix' => [
         'enabled' => env('PIX_ENABLED', false),
         'psp' => env('PIX_PSP', 'itau'),
         'ambiente' => env('PIX_AMBIENTE', 'homologacao'),
         'webhook_secret' => env('PIX_WEBHOOK_SECRET'),
+        'webhook_hmac_secret' => env('PIX_WEBHOOK_HMAC_SECRET'),
+        'webhook_signature_header' => env('PIX_WEBHOOK_SIGNATURE_HEADER', 'X-Webhook-Signature'),
     ],
 
     // Push FCM (N10 — gate). 'v1' ativa o transporte real (FCM HTTP v1 via service

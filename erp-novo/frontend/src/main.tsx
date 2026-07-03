@@ -3,10 +3,12 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import { useLocation } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui'
 import { AuthProvider } from '@/lib/auth'
 import { AppRoutes } from '@/routes'
 import { SaRoutes } from '@/features/superadmin/SaRoutes'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -22,18 +24,23 @@ const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
  * ex.: /novo) — os dois mundos não compartilham sessão.
  */
 function Raiz() {
+  const location = useLocation()
   const path = window.location.pathname.replace(basename, '') || '/'
   const isSuperAdmin = path.startsWith('/superadmin')
 
   return (
     <TooltipProvider delayDuration={200}>
-      {isSuperAdmin ? (
-        <SaRoutes />
-      ) : (
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      )}
+      {/* ErrorBoundary (FE-1): um erro de render numa página não derruba a SPA.
+          resetKey = rota atual → ao navegar, o boundary se reseta e tenta a nova tela. */}
+      <ErrorBoundary resetKey={location.pathname}>
+        {isSuperAdmin ? (
+          <SaRoutes />
+        ) : (
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        )}
+      </ErrorBoundary>
       <Toaster richColors closeButton position="top-right" />
     </TooltipProvider>
   )

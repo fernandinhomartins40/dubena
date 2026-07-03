@@ -23,9 +23,14 @@ class PedidoResource extends JsonResource
             'efeito' => $this->whenLoaded('situacao', fn () => $this->situacao?->efeito?->value),
             // Concretizado (efeito CONCLUIDO) → habilita o faturamento na SPA (F03).
             'fechadoconcluido' => $this->whenLoaded('situacao', fn () => $this->situacao?->efeito?->concretiza() ? 1 : 0),
-            // Já tem documento fiscal vivo (não-cancelado) para este pedido?
-            'tem_nf' => \App\Models\Fiscal\NotaFiscal::query()
-                ->where('pedido_id', $this->id)->where('situacao', '!=', 'CANCELADA')->exists(),
+            // Já tem documento fiscal vivo (não-cancelado)? Prefere o `tem_nf` vindo
+            // do withExists('notasVivas') do controller (1 query p/ a lista toda);
+            // só cai no exists() por linha quando o atributo não foi pré-carregado
+            // (ex.: show de um pedido isolado). Fecha o N+1 do Kanban (PF-2).
+            'tem_nf' => $this->resource->getAttribute('tem_nf') !== null
+                ? (bool) $this->resource->getAttribute('tem_nf')
+                : \App\Models\Fiscal\NotaFiscal::query()
+                    ->where('pedido_id', $this->id)->where('situacao', '!=', 'CANCELADA')->exists(),
             'setor_id' => $this->setor_id,
             'datahora' => $this->datahora?->toIso8601String(),
             'datahora_acao' => $this->datahora_acao?->toIso8601String(),

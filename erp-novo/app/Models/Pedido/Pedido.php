@@ -85,4 +85,16 @@ class Pedido extends Model
     {
         return $this->hasMany(PedidoSituacaoHistorico::class);
     }
+
+    /**
+     * Notas fiscais VIVAS (não-canceladas) do pedido. Existe para o `withExists`
+     * do index/kanban resolver `tem_nf` em UMA query, em vez de um exists() por
+     * linha na serialização (N+1 apontado em PF-2). Não é tenant-scoped na relação
+     * porque o Pedido pai já é.
+     */
+    public function notasVivas(): HasMany
+    {
+        return $this->hasMany(\App\Models\Fiscal\NotaFiscal::class)
+            ->where('situacao', '!=', 'CANCELADA');
+    }
 }

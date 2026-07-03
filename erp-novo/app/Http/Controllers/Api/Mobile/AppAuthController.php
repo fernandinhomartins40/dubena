@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Domain\Mobile\ClienteAuthService;
 use App\Domain\Mobile\Exceptions\FirebaseTokenInvalido;
 use App\Domain\Seguranca\LoginSeguranca;
-use App\Domain\Seguranca\Totp;
+use App\Domain\Seguranca\VerificadorDoisFatores;
 use App\Http\Controllers\Controller;
 use App\Models\Mobile\AppDevice;
 use App\Models\User;
@@ -31,7 +31,7 @@ class AppAuthController extends Controller
 {
     public function __construct(
         private LoginSeguranca $seguranca,
-        private Totp $totp,
+        private VerificadorDoisFatores $doisFatores,
     ) {}
 
     /**
@@ -99,7 +99,7 @@ class AppAuthController extends Controller
         $twofa = $user->twoFactor;
         if ($twofa && $twofa->habilitado) {
             $otp = (string) ($d['otp'] ?? '');
-            if ($otp === '' || ! $this->verificar2fa($user, $otp)) {
+            if ($otp === '' || ! $this->doisFatores->verificar($twofa, $otp)) {
                 $this->seguranca->registrar($request, $email, false, '2fa', $user->id, $user->empresa_id);
 
                 return response()->json([
@@ -120,29 +120,6 @@ class AppAuthController extends Controller
         ]);
     }
 
-    /** Verifica OTP TOTP ou consome um recovery code (uso único) — espelha AuthController. */
-    private function verificar2fa(User $user, string $otp): bool
-    {
-        $twofa = $user->twoFactor;
-        if ($twofa === null) {
-            return false;
-        }
-
-        if ($this->totp->verificar($twofa->secret, $otp)) {
-            return true;
-        }
-
-        $codes = $twofa->recovery_codes ?? [];
-        $idx = array_search(strtoupper(trim($otp)), array_map('strtoupper', $codes), true);
-        if ($idx !== false) {
-            unset($codes[$idx]);
-            $twofa->update(['recovery_codes' => array_values($codes)]);
-
-            return true;
-        }
-
-        return false;
-    }
 
     /**
      * Registra/atualiza o device do usuário para push, a partir do payload de login.
