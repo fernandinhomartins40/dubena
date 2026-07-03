@@ -67,6 +67,36 @@ jobs:
       - name: Suíte de testes (PHPUnit)
         run: php artisan test
 
+  # FE-3 (auditoria): a SPA passa a ter testes (Vitest) + type-check no CI —
+  # antes o "lint" era só tsc. Cobre os formatadores, o RBAC do cliente (can/
+  # canField/normalizarMe) e componentes (Can, ErrorBoundary).
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: erp-novo/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: erp-novo/frontend/package-lock.json
+
+      - name: Instala dependências
+        run: npm ci
+
+      - name: Type-check (tsc)
+        run: npm run lint
+
+      - name: Testes (Vitest)
+        run: npm test
+
   # Q-6 (auditoria): a mesma suíte contra PostgreSQL, conectando com uma role
   # NOSUPERUSER/NOBYPASSRLS (como a erp_app de produção) — assim a RLS é exercida
   # de verdade (superuser a ignora) e o RlsCoberturaTest vira o guardião contra

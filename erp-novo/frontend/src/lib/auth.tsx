@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { apiPrefix, ensureCsrf, setToken, getToken } from './api'
+import { can as canFn, canField as canFieldFn } from './rbac'
 
 export interface AuthUser {
   id: number
@@ -37,7 +38,7 @@ function lerXsrf(): string | null {
 }
 
 /** Normaliza o /me do backend novo ({user,tenant}) para o shape da SPA. */
-function normalizarMe(data: any): AuthUser {
+export function normalizarMe(data: any): AuthUser {
   const u = data.user ?? data
   const t = data.tenant ?? {}
   return {
@@ -119,16 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: isLoading,
     login: async (email, password, manterConectado = true, otp) => { await loginMut.mutateAsync({ email, password, otp, manterConectado }) },
     logout: async () => { await logoutMut.mutateAsync() },
-    can: (permission) => {
-      if (!user) return false
-      if (user.is_support) return true
-      return user.permissions.includes(permission)
-    },
-    canField: (modulo, campo, acao) => {
-      if (!user) return false
-      if (user.is_support) return true
-      return user.permissions.includes(`${modulo}.campo.${campo}.${acao}`)
-    },
+    can: (permission) => canFn(user ?? null, permission),
+    canField: (modulo, campo, acao) => canFieldFn(user ?? null, modulo, campo, acao),
     refresh: async () => { await qc.invalidateQueries({ queryKey: ['me'] }) },
   }
 
