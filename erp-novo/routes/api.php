@@ -89,11 +89,11 @@ Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCli
 
 // Marketplace (PÚBLICO) — MP1. Descoberta de empresas por geolocalização (rate-limited).
 Route::post('/app/v1/marketplace/empresas', [MarketplaceController::class, 'empresas'])
-    ->middleware('throttle:60,1');
+    ->middleware('throttle:marketplace');
 
 // Cidades atendidas pela plataforma (PÚBLICO) — P3. Catálogo de descoberta (rate-limited).
 Route::get('/app/v1/marketplace/cidades', [MarketplaceController::class, 'cidades'])
-    ->middleware('throttle:60,1');
+    ->middleware('throttle:marketplace');
 
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
 Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
@@ -660,7 +660,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
         Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
         // Ping de posição (P6) — throttle alto (envio frequente do GPS).
-        Route::post('entregador/posicao', [AppEntregadorController::class, 'posicao'])->middleware('throttle:120,1');
+        Route::post('entregador/posicao', [AppEntregadorController::class, 'posicao'])->middleware('throttle:gps-ping');
         // Ciclo da entrega (P7): aceite/recusa, ocorrência, conclusão com comprovação.
         Route::post('entregador/pedidos/{id}/aceitar', [AppEntregadorController::class, 'aceitar'])->whereNumber('id');
         Route::post('entregador/pedidos/{id}/recusar', [AppEntregadorController::class, 'recusar'])->whereNumber('id');
@@ -670,8 +670,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Entregador — missões de campo (L7/L8)
         Route::get('entregador/missao', [AppMissaoController::class, 'atual']);
         Route::post('entregador/missao/iniciar', [AppMissaoController::class, 'iniciar']);
-        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita'])->middleware('throttle:30,1');
-        Route::post('entregador/missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:120,1');
+        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita'])->middleware('throttle:missao-visita');
+        Route::post('entregador/missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:gps-ping');
         Route::get('entregador/missao/proxima-casa', [AppMissaoController::class, 'proximaCasa']);
         Route::post('entregador/missao/adiar', [AppMissaoController::class, 'adiar']);
         Route::post('entregador/missao/concluir', [AppMissaoController::class, 'concluir']);

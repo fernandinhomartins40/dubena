@@ -26,6 +26,7 @@ import { createPlacesAutocompleteSessionToken, delay, formatFromGMaps } from "@/
 import { Address as AddressType, GMapsAddress } from "@/types/types"
 import { useQuery } from "@tanstack/react-query"
 import AddressService from "@/services/address.service"
+import StoreService from "@/services/store.service"
 import { LocateFixed, ArrowRight } from "lucide-react-native"
 import IconButton from "@/components/atoms/iconbutton"
 import AddressFormModal from "@/components/organism/AddressFormModal"
@@ -94,16 +95,36 @@ const Address = () => {
     const [open, setOpen] = useState(false)
     const latitudeDelta = 0.005
     const longitudeDelta = 0.005
+    // M-6: centro do mapa vem da REVENDA (empresa do token), não mais de uma
+    // constante fixa de Guarapuava — cada build/tenant abre o mapa na sua praça.
+    // Cai no DEFAULT_LOCATION só enquanto o reseller não carregou / sem coordenada.
+    const { data: reseller } = useQuery({
+        queryKey: ["reseller"],
+        queryFn: StoreService.GetReseller,
+        staleTime: 60 * 60 * 1000,
+    })
     const defaultLocation = useMemo(
         () => ({
-            latitude: DEFAULT_LOCATION.latitude,
-            longitude: DEFAULT_LOCATION.longitude,
+            latitude: reseller?.latitude ?? DEFAULT_LOCATION.latitude,
+            longitude: reseller?.longitude ?? DEFAULT_LOCATION.longitude,
             latitudeDelta,
             longitudeDelta,
         }),
-        [],
+        [reseller?.latitude, reseller?.longitude],
     )
     const [location, setLocation] = useState<Region>(defaultLocation)
+    // Se a revenda chegar DEPOIS do primeiro render e o usuário ainda não moveu o
+    // mapa (posição = constante fixa), recentraliza na praça da revenda (M-6).
+    const [mapaTocado, setMapaTocado] = useState(false)
+    useEffect(() => {
+        if (mapaTocado) return
+        if (reseller?.latitude == null || reseller?.longitude == null) return
+        setLocation((prev) =>
+            prev.latitude === DEFAULT_LOCATION.latitude && prev.longitude === DEFAULT_LOCATION.longitude
+                ? { ...prev, latitude: reseller.latitude!, longitude: reseller.longitude! }
+                : prev,
+        )
+    }, [reseller?.latitude, reseller?.longitude, mapaTocado])
     const debLocation = useDebounce(location, 500)
     const region = useDebounce(location, 5)
     const {
@@ -272,6 +293,9 @@ const Address = () => {
 
     const onMapChange = (region: Region) => {
         if (!isManual) return
+
+        // Usuário mexeu no mapa → não recentralizar mais na revenda (M-6).
+        if (!mapaTocado) setMapaTocado(true)
 
         setLocation({
             latitude: region.latitude,

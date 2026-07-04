@@ -140,5 +140,17 @@ class AppServiceProvider extends ServiceProvider
                 ? Limit::perMinute(1200)->by('t:'.$empresaId)
                 : Limit::perMinute(120)->by('ip:'.$r->ip());
         });
+
+        // API-7 (auditoria) — limiters NOMEADOS para os throttles antes inline nas
+        // rotas (throttle:60,1 / 120,1 / 30,1). Nomear centraliza o ajuste e deixa
+        // a rota legível (o número solto não dizia o porquê).
+        //  - marketplace: descoberta pública por geoloc (anônimo → por IP);
+        //  - gps-ping: envio frequente de posição do entregador (por usuário);
+        //  - missao-visita: registro de visita com evidência (por usuário).
+        RateLimiter::for('marketplace', fn (Request $r) => Limit::perMinute(60)->by('ip:'.$r->ip()));
+        RateLimiter::for('gps-ping', fn (Request $r) => Limit::perMinute(120)
+            ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
+        RateLimiter::for('missao-visita', fn (Request $r) => Limit::perMinute(30)
+            ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
     }
 }

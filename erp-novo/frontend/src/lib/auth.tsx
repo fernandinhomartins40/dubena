@@ -73,7 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    // FE-2: RBAC/permissões vivem no /me. Um staleTime de 5 min mantinha a UI
+    // liberada por até 5 min após uma revogação de papel. Reduzido para 60s e
+    // revalidando ao focar a janela — o backend segue sendo a autoridade (isto é
+    // só a rapidez com que a UX reflete a mudança). refresh() força na hora.
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   })
 
   const loginMut = useMutation({

@@ -123,9 +123,8 @@ jobs:
         run: |
           # A massa demo (200 clientes/500 pedidos) NÃO é idempotente por volume.
           # Roda quando há POUCOS clientes (<=50): cobre o 1º deploy e também o caso
-          # de só haver resíduo de seeds antigos (ex.: 6 do GuarapuavaMapaSeeder).
-          # Acima disso considera-se populado e pula. Mesmo limiar do guard interno
-          # do seeder (proteção dupla — nunca duplica os 200).
+          # de só haver resíduo de seeds antigos. Acima disso considera-se populado e
+          # pula. Mesmo limiar do guard interno do seeder (nunca duplica os 200).
           clientes=$(docker compose -f docker-compose.homolog.yml exec -T app \
             php artisan tinker --execute='echo \App\Models\Cliente\Cliente::withoutTenant()->count();' 2>/dev/null | tr -dc '0-9')
           clientes=${clientes:-0}

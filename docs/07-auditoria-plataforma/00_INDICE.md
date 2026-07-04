@@ -33,7 +33,18 @@ Os achados **P1 e parte dos P2 já foram implementados** (commits na `main`). Re
 | M-5 (testes app) | 🟡 Parcial | Vitest no app do consumidor (validadores puros + polyline, 11 testes); corrigido bug de `validateCpf`. |
 | DB-5 (pix índices) | ✅ Já existia | `txid` unique + `pedido_id` indexado desde a migration de cobrança. |
 
-Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1/2/3** (envelope uniforme, canonizar aliases, OpenAPI vivo) exige coordenação com a SPA/apps e é melhor tratado como iniciativa própria.
+### 3ª onda (P2/P3 restantes)
+
+| Achado | Status | O que foi feito |
+|---|---|---|
+| MT-3/DB-4 (empresa_id NOT NULL nas filhas) | ✅ Feito | Migration `..._000600` fixa NOT NULL nas 27 filhas backfilladas (pula com aviso se houver linha órfã — não aborta o deploy). Fecha o "empresa_id NULL visível a todos" na RLS. |
+| PF-3 (índice de relatório) | ✅ Feito | `financeiroparcelas(empresa_id, datahora_baixa)` para o DRE (os demais relatórios já tinham índice de data). |
+| M-6 (localização fixa no app) | ✅ Feito | O mapa de endereço centraliza na REVENDA (endpoint `reseller`), caindo no default só até carregar; recentra se o usuário não moveu. |
+| FE-2 (RBAC stale) | ✅ Feito | `staleTime` do `/me` de 5 min → 60s + `refetchOnWindowFocus` — revogação de papel reflete rápido na UX. |
+| API-7 (limiters ad-hoc) | ✅ Feito | Limiters NOMEADOS (`marketplace`, `gps-ping`, `missao-visita`) no lugar dos `throttle:60,1`/`120,1`/`30,1` inline. |
+| Q-8 (seeder obsoleto) | ✅ Feito | Removido `GuarapuavaMapaSeeder` (órfão, sem teste/referência). `HomologSeeder` mantido (tem teste). |
+
+Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1/2/3** (envelope uniforme, canonizar aliases, OpenAPI vivo) exige coordenação com a SPA/apps. **B-1 (sub-controllers mobile) / FE-4 (split de páginas)** são refactors cosméticos P3/P4 — mais churn que valor agora, adiados de propósito.
 
 ## Documentos
 
