@@ -2,6 +2,7 @@
 
 use App\Domain\Integracao\CredencialNaoConfiguradaException;
 use App\Domain\Tenant\TenantNotResolvedException;
+use App\Http\Middleware\AppRole;
 use App\Http\Middleware\Permissao;
 use App\Http\Middleware\Recurso;
 use App\Http\Middleware\ResolveTenant;
@@ -35,10 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // `recurso:chave` é o enforcement de LICENÇA/produto (P2) — 402 se a empresa
         // não tem o feature-flag no plano. Acesso (RBAC) e licença (SaaS) são camadas
         // independentes: o usuário precisa de ambos.
+        // `approle:cliente|entregador` separa os PAPÉIS dos tokens do app (F3 do
+        // plano de segurança multi-tenant): token de cliente não alcança rota de
+        // entregador e vice-versa. Staff stateful (SPA) não é afetado.
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'permissao' => Permissao::class,
             'recurso' => Recurso::class,
+            'approle' => AppRole::class,
         ]);
 
         // API pura: convidado NUNCA é redirecionado para uma rota 'login' (que não

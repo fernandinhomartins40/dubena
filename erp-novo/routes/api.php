@@ -616,75 +616,82 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
     });
 
     // ── App mobile (cliente + entregador) — N10 ──
+    // F3 (segurança): sub-grupos por PAPEL do token (`approle`) — token de cliente
+    // não alcança rota de entregador (frota/jornada/missões) e vice-versa. As
+    // comuns (logout/refresh/devices) valem para qualquer token de app.
     Route::prefix('app/v1')->group(function () {
         Route::post('logout', [AppAuthController::class, 'logout']);
         Route::post('token/refresh', [AppAuthController::class, 'refresh']); // P1 — rotação de token do app
         Route::post('devices', [AppAuthController::class, 'registrarDevice']);
 
-        // Cliente — LOJA (catálogo/config) — B-1: AppLojaController
-        Route::get('init', [AppLojaController::class, 'init']);
-        Route::get('produtos', [AppLojaController::class, 'produtos']);
-        Route::get('cupom', [AppLojaController::class, 'cupom']);
-        Route::post('carrinho/cotacao', [AppLojaController::class, 'cotar']); // F3 — preço server-side
-        Route::get('config', [AppLojaController::class, 'config']);           // F3 — config do app
-        Route::get('reseller', [AppLojaController::class, 'reseller']);        // F3b — dados da revenda
-        Route::get('feriados', [AppLojaController::class, 'feriados']);        // F3b — feriados (agendamento)
-        Route::get('poligonos', [AppLojaController::class, 'poligonos']);      // F3b — polígonos de entrega
-        // Cliente — PERFIL/ENDEREÇOS — B-1: AppPerfilController
-        Route::get('perfil', [AppPerfilController::class, 'perfil']);                    // F3b
-        Route::put('perfil', [AppPerfilController::class, 'atualizarPerfil']);            // F3b
-        Route::delete('perfil', [AppPerfilController::class, 'excluirConta']);            // F3b
-        Route::get('perfil/endereco', [AppPerfilController::class, 'obterEndereco']);   // F3
-        Route::put('perfil/endereco', [AppPerfilController::class, 'atualizarEndereco']); // F3
-        // Múltiplos endereços de entrega (F3b)
-        Route::get('enderecos', [AppPerfilController::class, 'listarEnderecos']);
-        Route::post('enderecos', [AppPerfilController::class, 'criarEndereco']);
-        Route::put('enderecos/{id}', [AppPerfilController::class, 'editarEndereco'])->whereNumber('id');
-        Route::put('enderecos/{id}/favorito', [AppPerfilController::class, 'favoritarEndereco'])->whereNumber('id');
-        Route::delete('enderecos/{id}', [AppPerfilController::class, 'excluirEndereco'])->whereNumber('id');
-        // Cliente — PEDIDO — B-1: AppPedidoController
-        Route::get('pedidos', [AppPedidoController::class, 'historico']);
-        Route::post('pedidos', [AppPedidoController::class, 'criarPedido']);
-        Route::get('pedidos/{id}', [AppPedidoController::class, 'acompanhar'])->whereNumber('id');
-        Route::get('pedidos/{id}/rota-entregador', [AppPedidoController::class, 'rotaEntregador'])->whereNumber('id');
-        Route::post('pedidos/{id}/pagar', [AppPedidoController::class, 'pagar'])->whereNumber('id');
-        Route::post('pedidos/{id}/pix', [AppPedidoController::class, 'gerarPix'])->whereNumber('id'); // F4
-        Route::get('pedidos/{id}/pix/status', [AppPedidoController::class, 'statusPix'])->whereNumber('id'); // F4
-        Route::post('pedidos/{id}/cancelar', [AppPedidoController::class, 'cancelar'])->whereNumber('id');
-        Route::post('pedidos/{id}/avaliar', [AppPedidoController::class, 'avaliar'])->whereNumber('id');
+        Route::middleware('approle:cliente')->group(function () {
+            // Cliente — LOJA (catálogo/config) — B-1: AppLojaController
+            Route::get('init', [AppLojaController::class, 'init']);
+            Route::get('produtos', [AppLojaController::class, 'produtos']);
+            Route::get('cupom', [AppLojaController::class, 'cupom']);
+            Route::post('carrinho/cotacao', [AppLojaController::class, 'cotar']); // F3 — preço server-side
+            Route::get('config', [AppLojaController::class, 'config']);           // F3 — config do app
+            Route::get('reseller', [AppLojaController::class, 'reseller']);        // F3b — dados da revenda
+            Route::get('feriados', [AppLojaController::class, 'feriados']);        // F3b — feriados (agendamento)
+            Route::get('poligonos', [AppLojaController::class, 'poligonos']);      // F3b — polígonos de entrega
+            // Cliente — PERFIL/ENDEREÇOS — B-1: AppPerfilController
+            Route::get('perfil', [AppPerfilController::class, 'perfil']);                    // F3b
+            Route::put('perfil', [AppPerfilController::class, 'atualizarPerfil']);            // F3b
+            Route::delete('perfil', [AppPerfilController::class, 'excluirConta']);            // F3b
+            Route::get('perfil/endereco', [AppPerfilController::class, 'obterEndereco']);   // F3
+            Route::put('perfil/endereco', [AppPerfilController::class, 'atualizarEndereco']); // F3
+            // Múltiplos endereços de entrega (F3b)
+            Route::get('enderecos', [AppPerfilController::class, 'listarEnderecos']);
+            Route::post('enderecos', [AppPerfilController::class, 'criarEndereco']);
+            Route::put('enderecos/{id}', [AppPerfilController::class, 'editarEndereco'])->whereNumber('id');
+            Route::put('enderecos/{id}/favorito', [AppPerfilController::class, 'favoritarEndereco'])->whereNumber('id');
+            Route::delete('enderecos/{id}', [AppPerfilController::class, 'excluirEndereco'])->whereNumber('id');
+            // Cliente — PEDIDO — B-1: AppPedidoController
+            Route::get('pedidos', [AppPedidoController::class, 'historico']);
+            Route::post('pedidos', [AppPedidoController::class, 'criarPedido']);
+            Route::get('pedidos/{id}', [AppPedidoController::class, 'acompanhar'])->whereNumber('id');
+            Route::get('pedidos/{id}/rota-entregador', [AppPedidoController::class, 'rotaEntregador'])->whereNumber('id');
+            Route::post('pedidos/{id}/pagar', [AppPedidoController::class, 'pagar'])->whereNumber('id');
+            Route::post('pedidos/{id}/pix', [AppPedidoController::class, 'gerarPix'])->whereNumber('id'); // F4
+            Route::get('pedidos/{id}/pix/status', [AppPedidoController::class, 'statusPix'])->whereNumber('id'); // F4
+            Route::post('pedidos/{id}/cancelar', [AppPedidoController::class, 'cancelar'])->whereNumber('id');
+            Route::post('pedidos/{id}/avaliar', [AppPedidoController::class, 'avaliar'])->whereNumber('id');
+        });
 
-        // Entregador — jornada (L4)
-        Route::get('entregador/veiculos', [AppEntregadorController::class, 'veiculos']);
-        Route::get('entregador/jornada', [AppEntregadorController::class, 'jornadaAtual']);
-        Route::post('entregador/jornada/iniciar', [AppEntregadorController::class, 'iniciarJornada']);
-        Route::post('entregador/jornada/encerrar', [AppEntregadorController::class, 'encerrarJornada']);
-        Route::get('entregador/dashboard', [AppEntregadorController::class, 'dashboard']);
-        Route::get('entregador/rota', [AppEntregadorController::class, 'rota']);
-        Route::post('entregador/rota/iniciar', [AppEntregadorController::class, 'iniciarRota']);
+        Route::middleware('approle:entregador')->prefix('entregador')->group(function () {
+            // Jornada (L4)
+            Route::get('veiculos', [AppEntregadorController::class, 'veiculos']);
+            Route::get('jornada', [AppEntregadorController::class, 'jornadaAtual']);
+            Route::post('jornada/iniciar', [AppEntregadorController::class, 'iniciarJornada']);
+            Route::post('jornada/encerrar', [AppEntregadorController::class, 'encerrarJornada']);
+            Route::get('dashboard', [AppEntregadorController::class, 'dashboard']);
+            Route::get('rota', [AppEntregadorController::class, 'rota']);
+            Route::post('rota/iniciar', [AppEntregadorController::class, 'iniciarRota']);
 
-        // Entregador
-        Route::get('entregador/pedidos', [AppEntregadorController::class, 'pedidos']);
-        Route::post('entregador/pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
-        // Ping de posição (P6) — throttle alto (envio frequente do GPS).
-        Route::post('entregador/posicao', [AppEntregadorController::class, 'posicao'])->middleware('throttle:gps-ping');
-        // Ciclo da entrega (P7): aceite/recusa, ocorrência, conclusão com comprovação.
-        Route::post('entregador/pedidos/{id}/aceitar', [AppEntregadorController::class, 'aceitar'])->whereNumber('id');
-        Route::post('entregador/pedidos/{id}/recusar', [AppEntregadorController::class, 'recusar'])->whereNumber('id');
-        Route::post('entregador/pedidos/{id}/ocorrencia', [AppEntregadorController::class, 'ocorrencia'])->whereNumber('id');
-        Route::post('entregador/pedidos/{id}/concluir', [AppEntregadorController::class, 'concluir'])->whereNumber('id');
+            // Entregas
+            Route::get('pedidos', [AppEntregadorController::class, 'pedidos']);
+            Route::post('pedidos/{id}/status', [AppEntregadorController::class, 'atualizarStatus'])->whereNumber('id');
+            // Ping de posição (P6) — throttle alto (envio frequente do GPS).
+            Route::post('posicao', [AppEntregadorController::class, 'posicao'])->middleware('throttle:gps-ping');
+            // Ciclo da entrega (P7): aceite/recusa, ocorrência, conclusão com comprovação.
+            Route::post('pedidos/{id}/aceitar', [AppEntregadorController::class, 'aceitar'])->whereNumber('id');
+            Route::post('pedidos/{id}/recusar', [AppEntregadorController::class, 'recusar'])->whereNumber('id');
+            Route::post('pedidos/{id}/ocorrencia', [AppEntregadorController::class, 'ocorrencia'])->whereNumber('id');
+            Route::post('pedidos/{id}/concluir', [AppEntregadorController::class, 'concluir'])->whereNumber('id');
 
-        // Entregador — missões de campo (L7/L8)
-        Route::get('entregador/missao', [AppMissaoController::class, 'atual']);
-        Route::post('entregador/missao/iniciar', [AppMissaoController::class, 'iniciar']);
-        Route::post('entregador/missao/visitas', [AppMissaoController::class, 'registrarVisita'])->middleware('throttle:missao-visita');
-        Route::post('entregador/missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:gps-ping');
-        Route::get('entregador/missao/proxima-casa', [AppMissaoController::class, 'proximaCasa']);
-        Route::post('entregador/missao/adiar', [AppMissaoController::class, 'adiar']);
-        Route::post('entregador/missao/concluir', [AppMissaoController::class, 'concluir']);
-        Route::get('entregador/missao/produtos', [AppMissaoController::class, 'produtos']);
-        Route::post('entregador/missao/venda', [AppMissaoController::class, 'venderGas']);
-        Route::post('entregador/missao/vale-gas', [AppMissaoController::class, 'venderValeGas']);
-        Route::post('entregador/missao/clientes', [AppMissaoController::class, 'cadastrarCliente']);
+            // Missões de campo (L7/L8)
+            Route::get('missao', [AppMissaoController::class, 'atual']);
+            Route::post('missao/iniciar', [AppMissaoController::class, 'iniciar']);
+            Route::post('missao/visitas', [AppMissaoController::class, 'registrarVisita'])->middleware('throttle:missao-visita');
+            Route::post('missao/trilha', [AppMissaoController::class, 'trilha'])->middleware('throttle:gps-ping');
+            Route::get('missao/proxima-casa', [AppMissaoController::class, 'proximaCasa']);
+            Route::post('missao/adiar', [AppMissaoController::class, 'adiar']);
+            Route::post('missao/concluir', [AppMissaoController::class, 'concluir']);
+            Route::get('missao/produtos', [AppMissaoController::class, 'produtos']);
+            Route::post('missao/venda', [AppMissaoController::class, 'venderGas']);
+            Route::post('missao/vale-gas', [AppMissaoController::class, 'venderValeGas']);
+            Route::post('missao/clientes', [AppMissaoController::class, 'cadastrarCliente']);
+        });
     });
 });
 

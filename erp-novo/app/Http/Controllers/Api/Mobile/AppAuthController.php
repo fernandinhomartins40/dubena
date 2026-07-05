@@ -60,7 +60,9 @@ class AppAuthController extends Controller
         }
 
         $this->registrarDeviceDoLogin($user, $d);
-        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'))->plainTextToken;
+        // F3 (segurança): ability de PAPEL no token — rotas de entregador exigem
+        // role:entregador (middleware approle), este token não as alcança.
+        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'), ['role:cliente'])->plainTextToken;
 
         return response()->json([
             'token' => $token,
@@ -112,7 +114,9 @@ class AppAuthController extends Controller
         $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
         $this->registrarDeviceDoLogin($user, $d);
 
-        $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'))->plainTextToken;
+        // F3 (segurança): este login por e-mail/senha atende o app do ENTREGADOR —
+        // o token recebe role:entregador e não alcança as rotas do app do cliente.
+        $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'), ['role:entregador'])->plainTextToken;
 
         return response()->json([
             'token' => $token,
@@ -172,7 +176,7 @@ class AppAuthController extends Controller
         }
 
         $this->registrarDeviceDoLogin($user, $d);
-        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'))->plainTextToken;
+        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'), ['role:cliente'])->plainTextToken;
 
         return response()->json([
             'token' => $token,
@@ -197,9 +201,11 @@ class AppAuthController extends Controller
         $user = $request->user();
         $atual = $user->currentAccessToken();
         $nome = $atual->name ?? 'app-mobile';
+        // F3: a rotação PRESERVA as abilities (papel) do token vigente.
+        $abilities = $atual->abilities ?? ['*'];
 
         // Emite o novo ANTES de revogar o atual (não deixa o app sem token se algo falhar).
-        $token = $user->createToken($nome)->plainTextToken;
+        $token = $user->createToken($nome, $abilities)->plainTextToken;
         if (method_exists($atual, 'delete')) {
             $atual->delete();
         }
