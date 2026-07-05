@@ -123,7 +123,8 @@ export function useDelInteracao(clienteId: number) {
   return useMutation({ mutationFn: async (subId: number) => (await api.delete(`/clientes/${clienteId}/interacoes/${subId}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['cli-interacoes', clienteId] }) })
 }
 export function useConvenio(clienteId: number) {
-  return useQuery({ queryKey: ['cli-convenio', clienteId], queryFn: async () => (await api.get(`/clientes/${clienteId}/convenio`)).data })
+  // Envelope uniforme {data} (API-1): o endpoint passou a envelopar em data.
+  return useQuery({ queryKey: ['cli-convenio', clienteId], queryFn: async () => (await api.get(`/clientes/${clienteId}/convenio`)).data.data })
 }
 export function useSalvarConvenio(clienteId: number) {
   const qc = useQueryClient()

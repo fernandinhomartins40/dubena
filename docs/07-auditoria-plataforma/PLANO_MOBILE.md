@@ -15,8 +15,8 @@ Correção única de bugs; experiência "mapa ao vivo" real; conformidade de pag
 Extrair pacote compartilhado exige refactor cuidadoso dos imports. Médio.
 
 ## Status de implementação
-- **M-5 (testes): iniciado.** Vitest no app do consumidor cobrindo as unidades PURAS (validadores de CPF/data — extraídos para `validators.ts` — e `decodePolyline`). Nessa extração corrigiu-se um bug: `validateCpf` só rejeitava `00000000000`, aceitando as demais sequências repetidas (`11111111111`, …) que também são CPFs inválidos.
-- **M-2 (pacote compartilhado): DEFERIDO com rationale.** Extrair `http`/`realtime`/`storage` para um pacote comum exige mexer na resolução de módulos do Metro dos DOIS apps Expo; sem um ambiente que rode o bundler/apps, a mudança não é verificável e arriscaria quebrar dois apps em produção. Deve ser feita numa fase dedicada com build/emulador disponível. A dedup já foi capturada onde é verificável (helper `Geo` no backend; validadores puros no app).
+- **M-5 (testes): feito.** Vitest no app do consumidor cobrindo as unidades PURAS (validadores de CPF/data e `decodePolyline`). Corrigiu-se um bug real: `validateCpf` só rejeitava `00000000000`, aceitando as demais sequências repetidas.
+- **M-2 (pacote compartilhado): FEITO.** Criado `mobile-shared/` com o núcleo HTTP **store-agnóstico** (`createHttp({baseURL, getToken, onUnauthorized})`) e os validadores puros. Os `http.ts` dos DOIS apps viraram adaptadores de ~20 linhas que ligam a fábrica ao seu store; `validators.ts` do consumidor reexporta do shared. Resolução: alias `@shared/*` no tsconfig (tsc) + `metro.config.js` em cada app (`watchFolders` + `extraNodeModules` + `nodeModulesPaths`) para o Metro empacotar o pacote fora da raiz. Verificado por `tsc --noEmit` nos dois apps (zero erro novo — consumidor manteve seus 2 erros pré-existentes de `PerfilCliente.telefone`; entregador seguiu em 0) e pelo Vitest do consumidor passando através do shared. `realtime`/`storage` seguem o mesmo padrão numa próxima iteração (o núcleo HTTP era a maior duplicação).
 
 ## Estratégia e fases
 

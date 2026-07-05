@@ -134,9 +134,10 @@ class ClienteTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson("/api/admin/clientes/{$cliente->id}/convenio")
             ->assertOk()
-            ->assertJsonPath('convenio', true)
-            ->assertJsonPath('convenio_limite', 500)
-            ->assertJsonCount(1, 'dependentes');
+            // Envelope uniforme {data} (API-1).
+            ->assertJsonPath('data.convenio', true)
+            ->assertJsonPath('data.convenio_limite', 500)
+            ->assertJsonCount(1, 'data.dependentes');
     }
 
     public function test_excluir_cliente_remove_subrelacoes(): void

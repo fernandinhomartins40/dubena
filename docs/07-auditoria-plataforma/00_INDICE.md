@@ -54,7 +54,10 @@ Os achados **P1 e parte dos P2 já foram implementados** (commits na `main`). Re
 | FE-4 (página 455L) | ✅ Feito | `PedidosPage` dividida em `KanbanView` / `ListaView` / `PedidoDialogs` + `shared` (shell de 24 linhas). |
 | FE-5 (build commitado) | ✅ Feito | Deploy builda a SPA do fonte (Docker node:20) e `public/app` saiu do versionamento (gitignore) — fim do "esquecer de rodar o build". |
 
-Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1** (envelope 100% uniforme): a maioria já responde `{data}`; padronizar TODAS as respostas exige migração coordenada da SPA e é acompanhado pelo drift-test.
+| M-2/Q-1 (infra duplicada dos apps) | ✅ Feito | `mobile-shared/` com núcleo HTTP store-agnóstico (`createHttp`) + validadores; os dois apps viraram adaptadores finos. tsc dos dois apps sem erro novo. |
+| API-1 (envelope) | ✅ Feito | Único outlier (`GET clientes/{id}/convenio` devolvia campos no topo) padronizado para `{data}` — backend + SPA + teste. Demais respostas já eram `{data,meta}`. |
+
+Pendências finais: **S-1** requer o segredo real do PSP no `.env` (código pronto). **M-3** (tempo real dos apps) e **PostGIS** dependem de infra/ops de produção (Reverb, extensão no PG da VPS). `realtime`/`storage` dos apps podem migrar ao `mobile-shared` numa próxima iteração (mesmo padrão do HTTP).
 
 ## Documentos
 

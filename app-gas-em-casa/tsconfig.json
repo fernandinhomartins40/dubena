@@ -21,6 +21,9 @@
             ],
             "@/assets/*": [
                 "./assets/*"
+            ],
+            "@shared/*": [
+                "../mobile-shared/src/*"
             ]
         }
     },

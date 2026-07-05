@@ -57,11 +57,14 @@ class ClienteSubrecursoController extends Controller
         $this->autorizar($request, 'cliente.view');
         $cliente = Cliente::query()->findOrFail($clienteId);
 
+        // Envelope uniforme {data} (API-1) — antes devolvia os campos no topo.
         return response()->json([
-            'convenio' => $cliente->convenio,
-            'convenio_ativo' => $cliente->convenio_ativo,
-            'convenio_limite' => $cliente->convenio_limite !== null ? (float) $cliente->convenio_limite : null,
-            'dependentes' => $cliente->dependentes()->get(),
+            'data' => [
+                'convenio' => $cliente->convenio,
+                'convenio_ativo' => $cliente->convenio_ativo,
+                'convenio_limite' => $cliente->convenio_limite !== null ? (float) $cliente->convenio_limite : null,
+                'dependentes' => $cliente->dependentes()->get(),
+            ],
         ]);
     }
 
