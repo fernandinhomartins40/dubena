@@ -58,18 +58,35 @@ class IntegracaoTenant
     }
 
     /**
-     * Credenciais do gateway de cartão da empresa (eRede: PV+token). Fallback env.
+     * Credenciais do gateway de cartão da empresa (eRede: PV+token).
+     *
+     * FAIL-CLOSED (FASE 2): em produção a credencial da PRÓPRIA empresa é
+     * obrigatória — herdar o env cobraria no credenciamento de outra entidade.
+     * O fallback env existe SÓ fora de produção (conta de teste de dev/homolog).
      *
      * @return array{gateway:string, pv:?string, token:?string, url:?string}
+     *
+     * @throws CredencialNaoConfiguradaException produção sem credencial da empresa
      */
     public function cartao(?int $empresaId = null): array
     {
         $c = $this->integracao('cartao', $empresaId) ?? [];
 
+        $pv = $c['pv'] ?? null;
+        $token = $this->decifra($c['token'] ?? null);
+
+        if ($pv === null || $pv === '' || $token === null) {
+            if (app()->isProduction()) {
+                throw CredencialNaoConfiguradaException::cartao($empresaId ?? $this->tenant->empresaId());
+            }
+            $pv = ($pv === null || $pv === '') ? config('services.erede.pv') : $pv;
+            $token ??= config('services.erede.token');
+        }
+
         return [
             'gateway' => (string) ($c['gateway'] ?? config('services.pagamento.driver', 'fake')),
-            'pv' => $c['pv'] ?? config('services.erede.pv'),
-            'token' => $this->decifra($c['token'] ?? null) ?? config('services.erede.token'),
+            'pv' => $pv,
+            'token' => $token,
             'url' => (string) ($c['url'] ?? config('services.erede.url')),
         ];
     }

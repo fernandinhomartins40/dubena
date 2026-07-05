@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Integracao\CredencialNaoConfiguradaException;
 use App\Domain\Tenant\TenantNotResolvedException;
 use App\Http\Middleware\Permissao;
 use App\Http\Middleware\Recurso;
@@ -58,6 +59,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TenantNotResolvedException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 409);
+            }
+        });
+
+        // FASE 2 — dinheiro fail-closed: empresa sem credencial própria em produção
+        // → 503 com mensagem neutra (detalhe fica no log; nada interno vaza ao app).
+        $exceptions->render(function (CredencialNaoConfiguradaException $e, Request $request) {
+            \Illuminate\Support\Facades\Log::warning('integracao: credencial ausente (fail-closed)', [
+                'servico' => $e->servico, 'empresa_id' => $e->empresaId,
+            ]);
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->mensagemUsuario], 503);
             }
         });
     })->create();

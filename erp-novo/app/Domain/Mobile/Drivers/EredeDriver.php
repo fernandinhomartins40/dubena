@@ -24,8 +24,13 @@ class EredeDriver implements PagamentoDriver
      */
     public function autorizar(array $dados): array
     {
+        // Credencial resolvida FORA do try: sem credencial da empresa (fail-closed
+        // da FASE 2) a exceção PROPAGA para virar 503 — não pode ser engolida e
+        // virar "recusado" com mensagem interna vazando ao app.
+        $client = $this->client();
+
         try {
-            $resp = $this->client()->post('/transactions', [
+            $resp = $client->post('/transactions', [
                 'amount' => (int) round($dados['valor'] * 100),
                 'installments' => max(1, (int) $dados['parcelas']),
                 'cardToken' => $dados['token'],
@@ -51,8 +56,10 @@ class EredeDriver implements PagamentoDriver
     /** @return array{cancelado:bool, mensagem:string} */
     public function estornar(string $tid): array
     {
+        $client = $this->client();
+
         try {
-            $resp = $this->client()->post("/transactions/{$tid}/refunds", []);
+            $resp = $client->post("/transactions/{$tid}/refunds", []);
             $j = $resp->json();
             $ok = $resp->successful() && in_array((string) ($j['returnCode'] ?? ''), ['00', '359', '360'], true);
 
