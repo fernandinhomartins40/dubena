@@ -44,7 +44,17 @@ Os achados **P1 e parte dos P2 já foram implementados** (commits na `main`). Re
 | API-7 (limiters ad-hoc) | ✅ Feito | Limiters NOMEADOS (`marketplace`, `gps-ping`, `missao-visita`) no lugar dos `throttle:60,1`/`120,1`/`30,1` inline. |
 | Q-8 (seeder obsoleto) | ✅ Feito | Removido `GuarapuavaMapaSeeder` (órfão, sem teste/referência). `HomologSeeder` mantido (tem teste). |
 
-Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1/2/3** (envelope uniforme, canonizar aliases, OpenAPI vivo) exige coordenação com a SPA/apps. **B-1 (sub-controllers mobile) / FE-4 (split de páginas)** são refactors cosméticos P3/P4 — mais churn que valor agora, adiados de propósito.
+### 4ª onda (P2/P3 restantes)
+
+| Achado | Status | O que foi feito |
+|---|---|---|
+| API-2 (aliases) | ✅ Feito (parcial) | Removidos os aliases de ESCRITA `cheques/recebidos` (SPA migrada p/ `/cheques`). Os "aliases" `cobranca/*` e `conciliacao-contabil` são mantidos: o `F14RastreabilidadeTest` os exige como contrato de paridade; `fiscal/nfe/transmitir` é único (não dup). |
+| API-3 (contrato vivo) | ✅ Feito | `database/api-manifest.json` (443 endpoints) + comando `api:manifest [--check]` + `ApiContratoDriftTest` — endpoint removido do contrato quebra o CI; novo pede regenerar. |
+| B-1 (controller mobile 572L) | ✅ Feito | `AppClienteController` dividido em `AppLojaController` / `AppPerfilController` / `AppPedidoController` + trait `ResolveClienteDoApp`; rotas/contrato idênticos (manifest íntegro). |
+| FE-4 (página 455L) | ✅ Feito | `PedidosPage` dividida em `KanbanView` / `ListaView` / `PedidoDialogs` + `shared` (shell de 24 linhas). |
+| FE-5 (build commitado) | ✅ Feito | Deploy builda a SPA do fonte (Docker node:20) e `public/app` saiu do versionamento (gitignore) — fim do "esquecer de rodar o build". |
+
+Pendências: **S-1** requer o segredo real do PSP no `.env`. **M-2/Q-1** (pacote compartilhado dos apps) exige ambiente de build Expo/Metro para ser verificável — deferido com rationale em [PLANO_MOBILE](PLANO_MOBILE.md). **API-1** (envelope 100% uniforme): a maioria já responde `{data}`; padronizar TODAS as respostas exige migração coordenada da SPA e é acompanhado pelo drift-test.
 
 ## Documentos
 

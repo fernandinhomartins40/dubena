@@ -84,16 +84,18 @@ export function useFecharCaixa() {
 // Cheques
 export const useChequesEmitidos = (q: string) => useQuery<any[]>({ queryKey: ['cheques-emitidos', q], queryFn: async () => (await api.get('/cheques/emitidos', { params: { q } })).data.data })
 export const useChequesRecebidos = (q: string) => useQuery<any[]>({ queryKey: ['cheques-recebidos', q], queryFn: async () => (await api.get('/cheques/recebidos', { params: { q } })).data.data })
+// Escrita usa a rota CANÔNICA /cheques (API-2): /cheques/recebidos é só a LISTAGEM
+// dos recebidos; os aliases de escrita foram removidos do backend.
 export function useSalvarChequeRecebido() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...d }: { id?: number } & Record<string, unknown>) => id ? (await api.put(`/cheques/recebidos/${id}`, d)).data : (await api.post('/cheques/recebidos', d)).data,
+    mutationFn: async ({ id, ...d }: { id?: number } & Record<string, unknown>) => id ? (await api.put(`/cheques/${id}`, d)).data : (await api.post('/cheques', { ...d, especie: 'R' })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }),
   })
 }
 export function useExcluirChequeRecebido() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/cheques/recebidos/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }) })
+  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/cheques/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['cheques-recebidos'] }) })
 }
 /** Transição de situação do cheque (depósito/compensação/devolução) — F07. */
 export function useMudarSituacaoCheque() {

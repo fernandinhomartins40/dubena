@@ -47,6 +47,15 @@ jobs:
           fi
           cp /opt/dubena-env/erp-novo-homolog.env .env
 
+      - name: Build da SPA a partir do fonte (FE-5 — não confia no public/app commitado)
+        working-directory: erp-novo/frontend
+        run: |
+          # A SPA passa a ser buildada NO DEPLOY, direto do fonte, em vez de
+          # depender do public/app versionado (que exigia lembrar de rodar o build
+          # a cada mudança de UI). Em Docker efêmero p/ não exigir Node no runner.
+          docker run --rm -v "$PWD/..":/app -w /app/frontend node:20-alpine \
+            sh -c "npm ci && npm run build"
+
       - name: Build e subida dos containers
         run: |
           docker compose -f docker-compose.homolog.yml build

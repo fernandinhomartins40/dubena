@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# SPA buildada no deploy (FE-5) — não versionar o artefato de build.
+/public/app

@@ -51,9 +51,11 @@ use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
-use App\Http\Controllers\Api\Mobile\AppClienteController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
+use App\Http\Controllers\Api\Mobile\AppLojaController;
 use App\Http\Controllers\Api\Mobile\AppMissaoController;
+use App\Http\Controllers\Api\Mobile\AppPedidoController;
+use App\Http\Controllers\Api\Mobile\AppPerfilController;
 use App\Http\Controllers\Api\Mobile\MarketplaceController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
@@ -371,10 +373,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('gasdopovo', [PagamentoController::class, 'gasRegistrar']);
         Route::post('gasdopovo/{id}/sacar', [PagamentoController::class, 'gasSacar'])->whereNumber('id');
 
-        // Aliases da SPA: cheques/recebidos (CRUD) → ChequeController.
-        Route::post('cheques/recebidos', [ChequeController::class, 'store']);
-        Route::put('cheques/recebidos/{id}', [ChequeController::class, 'update'])->whereNumber('id');
-        Route::delete('cheques/recebidos/{id}', [ChequeController::class, 'destroy'])->whereNumber('id');
+        // (API-2) Os aliases de ESCRITA cheques/recebidos foram removidos — a SPA
+        // usa a rota canônica /cheques (a especie 'R' é enviada no corpo).
+        // GET cheques/recebidos permanece: é a LISTAGEM dos recebidos, não um dup.
 
         // ── Boletos (CNAB) — N7 (gate) ──
         Route::get('boletos/resumo', [BoletoController::class, 'resumo']);
@@ -617,35 +618,37 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('token/refresh', [AppAuthController::class, 'refresh']); // P1 — rotação de token do app
         Route::post('devices', [AppAuthController::class, 'registrarDevice']);
 
-        // Cliente
-        Route::get('init', [AppClienteController::class, 'init']);
-        Route::get('produtos', [AppClienteController::class, 'produtos']);
-        Route::get('cupom', [AppClienteController::class, 'cupom']);
-        Route::post('carrinho/cotacao', [AppClienteController::class, 'cotar']); // F3 — preço server-side
-        Route::get('config', [AppClienteController::class, 'config']);           // F3 — config do app
-        Route::get('reseller', [AppClienteController::class, 'reseller']);        // F3b — dados da revenda
-        Route::get('feriados', [AppClienteController::class, 'feriados']);        // F3b — feriados (agendamento)
-        Route::get('poligonos', [AppClienteController::class, 'poligonos']);      // F3b — polígonos de entrega
-        Route::get('perfil', [AppClienteController::class, 'perfil']);                    // F3b
-        Route::put('perfil', [AppClienteController::class, 'atualizarPerfil']);            // F3b
-        Route::delete('perfil', [AppClienteController::class, 'excluirConta']);            // F3b
-        Route::get('perfil/endereco', [AppClienteController::class, 'obterEndereco']);   // F3
-        Route::put('perfil/endereco', [AppClienteController::class, 'atualizarEndereco']); // F3
+        // Cliente — LOJA (catálogo/config) — B-1: AppLojaController
+        Route::get('init', [AppLojaController::class, 'init']);
+        Route::get('produtos', [AppLojaController::class, 'produtos']);
+        Route::get('cupom', [AppLojaController::class, 'cupom']);
+        Route::post('carrinho/cotacao', [AppLojaController::class, 'cotar']); // F3 — preço server-side
+        Route::get('config', [AppLojaController::class, 'config']);           // F3 — config do app
+        Route::get('reseller', [AppLojaController::class, 'reseller']);        // F3b — dados da revenda
+        Route::get('feriados', [AppLojaController::class, 'feriados']);        // F3b — feriados (agendamento)
+        Route::get('poligonos', [AppLojaController::class, 'poligonos']);      // F3b — polígonos de entrega
+        // Cliente — PERFIL/ENDEREÇOS — B-1: AppPerfilController
+        Route::get('perfil', [AppPerfilController::class, 'perfil']);                    // F3b
+        Route::put('perfil', [AppPerfilController::class, 'atualizarPerfil']);            // F3b
+        Route::delete('perfil', [AppPerfilController::class, 'excluirConta']);            // F3b
+        Route::get('perfil/endereco', [AppPerfilController::class, 'obterEndereco']);   // F3
+        Route::put('perfil/endereco', [AppPerfilController::class, 'atualizarEndereco']); // F3
         // Múltiplos endereços de entrega (F3b)
-        Route::get('enderecos', [AppClienteController::class, 'listarEnderecos']);
-        Route::post('enderecos', [AppClienteController::class, 'criarEndereco']);
-        Route::put('enderecos/{id}', [AppClienteController::class, 'editarEndereco'])->whereNumber('id');
-        Route::put('enderecos/{id}/favorito', [AppClienteController::class, 'favoritarEndereco'])->whereNumber('id');
-        Route::delete('enderecos/{id}', [AppClienteController::class, 'excluirEndereco'])->whereNumber('id');
-        Route::get('pedidos', [AppClienteController::class, 'historico']);
-        Route::post('pedidos', [AppClienteController::class, 'criarPedido']);
-        Route::get('pedidos/{id}', [AppClienteController::class, 'acompanhar'])->whereNumber('id');
-        Route::get('pedidos/{id}/rota-entregador', [AppClienteController::class, 'rotaEntregador'])->whereNumber('id');
-        Route::post('pedidos/{id}/pagar', [AppClienteController::class, 'pagar'])->whereNumber('id');
-        Route::post('pedidos/{id}/pix', [AppClienteController::class, 'gerarPix'])->whereNumber('id'); // F4
-        Route::get('pedidos/{id}/pix/status', [AppClienteController::class, 'statusPix'])->whereNumber('id'); // F4
-        Route::post('pedidos/{id}/cancelar', [AppClienteController::class, 'cancelar'])->whereNumber('id');
-        Route::post('pedidos/{id}/avaliar', [AppClienteController::class, 'avaliar'])->whereNumber('id');
+        Route::get('enderecos', [AppPerfilController::class, 'listarEnderecos']);
+        Route::post('enderecos', [AppPerfilController::class, 'criarEndereco']);
+        Route::put('enderecos/{id}', [AppPerfilController::class, 'editarEndereco'])->whereNumber('id');
+        Route::put('enderecos/{id}/favorito', [AppPerfilController::class, 'favoritarEndereco'])->whereNumber('id');
+        Route::delete('enderecos/{id}', [AppPerfilController::class, 'excluirEndereco'])->whereNumber('id');
+        // Cliente — PEDIDO — B-1: AppPedidoController
+        Route::get('pedidos', [AppPedidoController::class, 'historico']);
+        Route::post('pedidos', [AppPedidoController::class, 'criarPedido']);
+        Route::get('pedidos/{id}', [AppPedidoController::class, 'acompanhar'])->whereNumber('id');
+        Route::get('pedidos/{id}/rota-entregador', [AppPedidoController::class, 'rotaEntregador'])->whereNumber('id');
+        Route::post('pedidos/{id}/pagar', [AppPedidoController::class, 'pagar'])->whereNumber('id');
+        Route::post('pedidos/{id}/pix', [AppPedidoController::class, 'gerarPix'])->whereNumber('id'); // F4
+        Route::get('pedidos/{id}/pix/status', [AppPedidoController::class, 'statusPix'])->whereNumber('id'); // F4
+        Route::post('pedidos/{id}/cancelar', [AppPedidoController::class, 'cancelar'])->whereNumber('id');
+        Route::post('pedidos/{id}/avaliar', [AppPedidoController::class, 'avaliar'])->whereNumber('id');
 
         // Entregador — jornada (L4)
         Route::get('entregador/veiculos', [AppEntregadorController::class, 'veiculos']);
