@@ -209,6 +209,25 @@ class GoliveCheck extends Command
             $this->item('Conta de cobrança por empresa (boleto real)', $semCobranca === 0,
                 "{$semCobranca} empresa(s) sem conta de cobrança", aviso: true);
         }
+
+        // Multi-tenant: se o PIX está habilitado, cada empresa precisa das PRÓPRIAS
+        // credenciais (dados['integracoes']['pix']). Sem isso, a empresa não cobra.
+        if (config('services.pix.enabled')) {
+            $semPix = EmpresaConfig::query()->get()->filter(
+                fn ($c) => empty($c->dados['integracoes']['pix']['client_secret'] ?? null)
+            )->count();
+            $this->item('Credencial PIX por empresa', $semPix === 0,
+                "{$semPix} empresa(s) sem PIX configurado — cada revenda cobra com o seu PSP", aviso: true);
+        }
+
+        // Cartão real (gateway) — credencial por empresa.
+        if (config('services.pagamento.driver') === 'erede') {
+            $semCartao = EmpresaConfig::query()->get()->filter(
+                fn ($c) => empty($c->dados['integracoes']['cartao']['token'] ?? null)
+            )->count();
+            $this->item('Credencial de cartão por empresa', $semCartao === 0,
+                "{$semCartao} empresa(s) sem gateway de cartão configurado", aviso: true);
+        }
     }
 
     /** Registra uma verificação. $aviso=true → WARN (não bloqueia) quando falha. */

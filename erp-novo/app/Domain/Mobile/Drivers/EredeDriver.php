@@ -64,10 +64,14 @@ class EredeDriver implements PagamentoDriver
 
     private function client(): \Illuminate\Http\Client\PendingRequest
     {
-        $url = rtrim((string) config('services.erede.url'), '/');
+        // Multi-tenant: PV/token vêm da EMPRESA ativa (IntegracaoTenant), não mais
+        // do env global — cada revenda cobra pelo SEU credenciamento eRede. Fallback
+        // env só para dev/homolog (uma conta de teste).
+        $cred = app(\App\Domain\Integracao\IntegracaoTenant::class)->cartao();
+        $url = rtrim((string) $cred['url'], '/');
 
         return Http::timeout(20)->acceptJson()
-            ->withBasicAuth((string) config('services.erede.pv'), (string) config('services.erede.token'))
+            ->withBasicAuth((string) $cred['pv'], (string) $cred['token'])
             ->baseUrl($url);
     }
 }

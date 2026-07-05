@@ -148,6 +148,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('empresas/{id}/certificado', [EmpresaConfigController::class, 'certificadoStatus'])->whereNumber('id');
         Route::post('empresas/{id}/certificado', [EmpresaConfigController::class, 'uploadCertificado'])->whereNumber('id');
         Route::put('empresas/{id}/nfce-token', [EmpresaConfigController::class, 'nfceToken'])->whereNumber('id');
+        // Integrações por empresa (multi-tenant) — PIX/cartão. Segredos write-only.
+        Route::get('empresas/{id}/integracoes', [EmpresaConfigController::class, 'integracoes'])->whereNumber('id');
+        Route::put('empresas/{id}/integracoes', [EmpresaConfigController::class, 'salvarIntegracoes'])->whereNumber('id');
 
         // Config global do grupo (F01): RT/CSRT, SMTP, SAT, Google Maps.
         Route::get('config-global', [ConfigGlobalController::class, 'show']);

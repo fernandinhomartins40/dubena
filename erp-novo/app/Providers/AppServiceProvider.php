@@ -73,10 +73,11 @@ class AppServiceProvider extends ServiceProvider
             : $this->app->make(FakePagamentoDriver::class));
 
         // Matriz de distância/tempo da roteirização (L5 — GATE Google). Haversine
-        // (grátis, default). Com GOOGLE_MAPS_KEY setada, usa a Google ROUTES API
-        // (trânsito real, cache + fallback). Liga sem tocar no Roteirizador.
+        // (grátis, default). A KEY vem do GRUPO ativo (config_globais.google_maps_key)
+        // com fallback env — cada rede usa a SUA chave Maps (multi-tenant). Liga sem
+        // tocar no Roteirizador.
         $this->app->bind(MatrizDistancia::class, function () {
-            $key = config('services.geocoding.key');
+            $key = $this->app->make(\App\Domain\Integracao\IntegracaoTenant::class)->googleMapsKey();
 
             return $key
                 ? new GoogleMatrizDriver(new GoogleRoutesDriver((string) $key), $this->app->make(HaversineDriver::class))
@@ -85,10 +86,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Traçado da rota pelas ruas (L6 — GATE Google Routes) com CACHE
         // PERSISTENTE (rotas_cache): 1 chamada Google por par de células (~100 m),
-        // salva para sempre — trajetos recorrentes da praça custam zero. Sem key,
-        // o cache ainda serve trajetos já aprendidos; o resto sai em linha reta.
+        // salva para sempre — trajetos recorrentes da praça custam zero. Key do
+        // GRUPO ativo (fallback env). Sem key, o cache ainda serve trajetos já
+        // aprendidos; o resto sai em linha reta.
         $this->app->bind(TracadorRota::class, function () {
-            $key = config('services.geocoding.key');
+            $key = $this->app->make(\App\Domain\Integracao\IntegracaoTenant::class)->googleMapsKey();
 
             return new TracadorRotaCacheado(
                 $key ? new GoogleRoutesDriver((string) $key) : new SemTracado,

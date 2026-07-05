@@ -8,6 +8,7 @@ import {
 } from '@/components/ui'
 import { ConfigTab } from './ConfigTab'
 import { CertificadoSection } from './CertificadoSection'
+import { IntegracoesSection } from './IntegracoesSection'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { useEmpresa, useSalvarEmpresa } from './api'
 
@@ -84,6 +85,7 @@ export function EmpresaFormPage() {
           <TabsTrigger value="contato">Contato</TabsTrigger>
           <TabsTrigger value="fiscal">Fiscal / NF-e</TabsTrigger>
           <TabsTrigger value="contador">Contador</TabsTrigger>
+          {editId && <TabsTrigger value="integracoes">Integrações</TabsTrigger>}
           {editId && <TabsTrigger value="config">Configurações</TabsTrigger>}
         </TabsList>
 
@@ -166,6 +168,16 @@ export function EmpresaFormPage() {
               : <p className="text-xs text-muted-foreground">Salve a empresa para enviar o certificado digital e os tokens NFC-e.</p>}
           </CardContent></Card>
         </TabsContent>
+
+        {editId && (
+          <TabsContent value="integracoes">
+            <Card><CardContent className="pt-6">
+              <p className="text-sm font-semibold">Integrações de pagamento (por empresa)</p>
+              <p className="text-xs text-muted-foreground">PIX e cartão com as credenciais desta revenda.</p>
+              <IntegracoesSection empresaId={editId} />
+            </CardContent></Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="contador">
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -3,28 +3,31 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Cobranca\PixService;
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Webhook PÚBLICO do PIX (o PSP chama de fora) — N7.
+ * Webhook PÚBLICO do PIX (o PSP chama de fora) — N7 / multi-tenant.
  *
  * Segurança em camadas (S-1 da auditoria):
  *   1) segredo compartilhado da URL/header (autentica o chamador) — sempre;
- *   2) ASSINATURA HMAC do PSP sobre o CORPO CRU — quando configurada, garante
- *      integridade/autenticidade (o segredo compartilhado sozinho não prova que o
- *      corpo não foi adulterado nem que veio do PSP);
+ *   2) ASSINATURA HMAC do PSP sobre o CORPO CRU — validada com o segredo DA EMPRESA
+ *      da cobrança (resolvida pelo txid), com fallback para o env da plataforma;
  *   3) o PixService valida estado/valor/idempotência antes de confirmar.
- * O HMAC só é exigido quando PIX_WEBHOOK_HMAC_SECRET está definido — então bancos
- * sem HMAC (ou o CI) seguem só na camada 1, e ligar o HMAC é uma flag de env.
+ *
+ * Multi-tenant: o webhook é público (sem tenant resolvido). Ele descobre a empresa
+ * pelo txid da cobrança e valida o HMAC DAQUELA empresa — um webhook não confirma,
+ * nem forja assinatura, para a cobrança de outra empresa.
  */
 class PixWebhookController extends Controller
 {
-    public function __construct(private PixService $service)
-    {
-    }
+    public function __construct(
+        private PixService $service,
+        private IntegracaoTenant $integracao,
+    ) {}
 
     public function handle(Request $request): JsonResponse
     {
@@ -34,8 +37,12 @@ class PixWebhookController extends Controller
             return response()->json(['message' => 'Não autorizado.'], 401);
         }
 
-        // 2) Assinatura HMAC-SHA256 sobre o corpo CRU (quando configurada).
-        if (! $this->hmacValido($request)) {
+        // Resolve a empresa DA COBRANÇA pelo txid (o corpo já foi lido cru p/ o HMAC).
+        $txid = (string) $request->input('txid', '');
+        $empresaId = $txid !== '' ? $this->service->empresaIdDoTxid($txid) : null;
+
+        // 2) Assinatura HMAC-SHA256 sobre o corpo CRU, com o segredo DA EMPRESA.
+        if (! $this->hmacValido($request, $empresaId)) {
             return response()->json(['message' => 'Assinatura inválida.'], 401);
         }
 
@@ -58,15 +65,19 @@ class PixWebhookController extends Controller
     /**
      * Verifica a assinatura HMAC-SHA256 do PSP sobre o CORPO CRU da requisição.
      *
-     * O PSP assina `HMAC_SHA256(corpo, segredo)` e envia o hex no header (default
-     * `X-Webhook-Signature`; o nome é configurável para casar com o PSP). Sem
-     * segredo configurado, a checagem é NO-OP (retorna true) — a camada 1 (segredo
-     * compartilhado) segue valendo. Assinar o corpo cru é o que impede replay
-     * adulterado e prova a origem, o que o segredo estático sozinho não faz.
+     * O segredo é o DA EMPRESA da cobrança (multi-tenant); se a empresa não tem HMAC
+     * próprio, cai no env da plataforma. Sem NENHUM segredo, a checagem é NO-OP — a
+     * camada 1 (segredo compartilhado) segue valendo. Assinar o corpo cru impede
+     * replay adulterado e prova a origem, o que o segredo estático sozinho não faz.
      */
-    private function hmacValido(Request $request): bool
+    private function hmacValido(Request $request, ?int $empresaId): bool
     {
-        $hmacSecret = config('services.pix.webhook_hmac_secret');
+        // Segredo da empresa da cobrança; fallback env da plataforma.
+        $hmacSecret = $empresaId !== null
+            ? ($this->integracao->pix($empresaId)['webhook_hmac_secret'] ?? null)
+            : null;
+        $hmacSecret ??= config('services.pix.webhook_hmac_secret');
+
         if (empty($hmacSecret)) {
             return true; // HMAC desligado (bancos sem HMAC / CI)
         }

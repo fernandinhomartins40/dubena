@@ -78,6 +78,18 @@ class PixService
     }
 
     /**
+     * empresa_id da cobrança de um txid — usado pelo WEBHOOK (público, sem tenant)
+     * para descobrir de QUAL empresa é a cobrança e então validar o HMAC DELA.
+     * withoutTenant: o webhook roda fora de um tenant resolvido.
+     */
+    public function empresaIdDoTxid(string $txid): ?int
+    {
+        $id = PixCobranca::withoutTenant()->where('txid', $txid)->value('empresa_id');
+
+        return $id !== null ? (int) $id : null;
+    }
+
+    /**
      * Processa a notificação de pagamento (webhook). SEGURO: valida estado, valor
      * e idempotência antes de confirmar e baixar a parcela.
      *

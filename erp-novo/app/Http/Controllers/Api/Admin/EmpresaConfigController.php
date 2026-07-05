@@ -180,6 +180,87 @@ class EmpresaConfigController extends Controller
         return response()->json(['message' => "E-mail de teste enviado para {$d['to']}."]);
     }
 
+    /**
+     * GET /empresas/{id}/integracoes — estado das integrações da empresa (PIX/cartão).
+     * WRITE-ONLY: nunca devolve segredo; só `configurado` + campos públicos (psp,
+     * client_id, chave, ambiente, gateway, pv) para a SPA exibir "•••• configurado".
+     */
+    public function integracoes(Request $request, int $empresaId): JsonResponse
+    {
+        $this->autorizar($request, 'empresa.edit');
+        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+        $int = ($config->dados['integracoes'] ?? []);
+
+        $pix = is_array($int['pix'] ?? null) ? $int['pix'] : [];
+        $cartao = is_array($int['cartao'] ?? null) ? $int['cartao'] : [];
+
+        return response()->json(['data' => [
+            'pix' => [
+                'psp' => $pix['psp'] ?? null,
+                'client_id' => $pix['client_id'] ?? null,
+                'chave' => $pix['chave'] ?? null,
+                'ambiente' => $pix['ambiente'] ?? 'homologacao',
+                'client_secret_configurado' => ! empty($pix['client_secret']),
+                'webhook_hmac_configurado' => ! empty($pix['webhook_hmac_secret']),
+            ],
+            'cartao' => [
+                'gateway' => $cartao['gateway'] ?? null,
+                'pv' => $cartao['pv'] ?? null,
+                'url' => $cartao['url'] ?? null,
+                'token_configurado' => ! empty($cartao['token']),
+            ],
+        ]]);
+    }
+
+    /**
+     * PUT /empresas/{id}/integracoes — salva credenciais de PIX/cartão da empresa.
+     * Segredos (client_secret, webhook_hmac_secret, token) são cifrados por-valor;
+     * campo vazio/ausente PRESERVA o segredo já salvo (não apaga ao reeditar sem
+     * reenviar). Escopo empresa (multi-tenant): cada revenda com o seu credenciamento.
+     */
+    public function salvarIntegracoes(Request $request, int $empresaId): JsonResponse
+    {
+        $this->autorizar($request, 'empresa.edit');
+        $empresa = $this->empresaDoGrupo($request, $empresaId);
+
+        $d = $request->validate([
+            'pix' => 'sometimes|array',
+            'pix.psp' => 'nullable|string|max:40',
+            'pix.client_id' => 'nullable|string|max:255',
+            'pix.client_secret' => 'nullable|string|max:512',
+            'pix.chave' => 'nullable|string|max:140',
+            'pix.ambiente' => 'nullable|in:producao,homologacao',
+            'pix.webhook_hmac_secret' => 'nullable|string|max:255',
+            'cartao' => 'sometimes|array',
+            'cartao.gateway' => 'nullable|string|max:40',
+            'cartao.pv' => 'nullable|string|max:80',
+            'cartao.token' => 'nullable|string|max:512',
+            'cartao.url' => 'nullable|url|max:255',
+        ]);
+
+        $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+        $dados = $config->dados ?? [];
+        $int = $dados['integracoes'] ?? [];
+
+        if (array_key_exists('pix', $d)) {
+            $int['pix'] = \App\Domain\Integracao\IntegracaoTenant::cifrarBloco(
+                $d['pix'], ['client_secret', 'webhook_hmac_secret'], is_array($int['pix'] ?? null) ? $int['pix'] : [],
+            );
+        }
+        if (array_key_exists('cartao', $d)) {
+            $int['cartao'] = \App\Domain\Integracao\IntegracaoTenant::cifrarBloco(
+                $d['cartao'], ['token'], is_array($int['cartao'] ?? null) ? $int['cartao'] : [],
+            );
+        }
+
+        $dados['integracoes'] = $int;
+        $config->dados = $dados;
+        $config->save();
+
+        return $this->integracoes($request, $empresaId);
+    }
+
     /** @return array<string, mixed> */
     private function serializar(EmpresaConfig $config): array
     {
@@ -190,7 +271,13 @@ class EmpresaConfigController extends Controller
         $base['tem_senhamestre'] = (bool) $config->senha_mestra;
         unset($base['email_password']); // segredo nunca volta
 
-        return array_merge($config->dados ?? [], $base);
+        // `integracoes` (PIX/cartão) guardam segredos cifrados — NUNCA voltam no
+        // achatado da config. A tela de integrações usa endpoints próprios que só
+        // devolvem "configurado: bool" + campos públicos.
+        $dados = $config->dados ?? [];
+        unset($dados['integracoes']);
+
+        return array_merge($dados, $base);
     }
 
     private function empresaDoGrupo(Request $request, int $empresaId): Empresa

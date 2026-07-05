@@ -107,6 +107,26 @@ export function useSalvarNfceToken(empresaId: number) {
   })
 }
 
+// ---- Integrações por empresa (PIX/cartão) — segredos write-only ----
+export interface IntegracoesStatus {
+  pix: { psp: string | null; client_id: string | null; chave: string | null; ambiente: string; client_secret_configurado: boolean; webhook_hmac_configurado: boolean }
+  cartao: { gateway: string | null; pv: string | null; url: string | null; token_configurado: boolean }
+}
+export function useIntegracoes(empresaId: number) {
+  return useQuery<IntegracoesStatus>({
+    queryKey: ['empresa-integracoes', empresaId],
+    queryFn: async () => (await api.get(`/empresas/${empresaId}/integracoes`)).data.data,
+    enabled: !!empresaId,
+  })
+}
+export function useSalvarIntegracoes(empresaId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: Record<string, unknown>) => (await api.put(`/empresas/${empresaId}/integracoes`, data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['empresa-integracoes', empresaId] }),
+  })
+}
+
 // ---- Grupos ----
 export interface GrupoItem { id: number; descricao: string; ativo: number }
 export function useGrupos() {
