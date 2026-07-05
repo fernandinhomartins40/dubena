@@ -7,16 +7,23 @@ use App\Domain\Integracao\IntegracaoTenant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Webhook PÚBLICO do PIX (o PSP chama de fora) — N7 / multi-tenant.
  *
- * Segurança em camadas (S-1 da auditoria):
+ * Segurança em camadas (S-1 da auditoria + fail-closed da FASE 1 do
+ * PLANO_SEGURANCA_MULTITENANT_APPS):
  *   1) segredo compartilhado da URL/header (autentica o chamador) — sempre;
  *   2) ASSINATURA HMAC do PSP sobre o CORPO CRU — validada com o segredo DA EMPRESA
- *      da cobrança (resolvida pelo txid), com fallback para o env da plataforma;
+ *      da cobrança (resolvida pelo txid); empresa com PIX próprio NÃO herda o env;
  *   3) o PixService valida estado/valor/idempotência antes de confirmar.
+ *
+ * FAIL-CLOSED em produção: sem NENHUM segredo verificável (nem camada 1, nem
+ * HMAC), o webhook REJEITA — senão qualquer um que conheça txid+valor da própria
+ * cobrança a confirmaria sem pagar. Em dev/homolog/CI o comportamento permissivo
+ * é mantido (bancos sem HMAC / suíte).
  *
  * Multi-tenant: o webhook é público (sem tenant resolvido). Ele descobre a empresa
  * pelo txid da cobrança e valida o HMAC DAQUELA empresa — um webhook não confirma,
@@ -32,8 +39,8 @@ class PixWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         // 1) Autenticação do chamador (segredo compartilhado, fora do código).
-        $segredo = config('services.pix.webhook_secret');
-        if ($segredo && ! hash_equals($segredo, (string) $request->header('X-Webhook-Token'))) {
+        $segredo = (string) config('services.pix.webhook_secret', '');
+        if ($segredo !== '' && ! hash_equals($segredo, (string) $request->header('X-Webhook-Token'))) {
             return response()->json(['message' => 'Não autorizado.'], 401);
         }
 
@@ -41,8 +48,16 @@ class PixWebhookController extends Controller
         $txid = (string) $request->input('txid', '');
         $empresaId = $txid !== '' ? $this->service->empresaIdDoTxid($txid) : null;
 
+        // Produção: txid desconhecido é rejeitado ANTES de qualquer validação —
+        // não há cobrança nossa, não há o que confirmar (e nada de cair no env).
+        if ($empresaId === null && app()->isProduction()) {
+            Log::warning('pix.webhook: txid desconhecido rejeitado', ['txid' => $txid, 'ip' => $request->ip()]);
+
+            return response()->json(['message' => 'Não autorizado.'], 401);
+        }
+
         // 2) Assinatura HMAC-SHA256 sobre o corpo CRU, com o segredo DA EMPRESA.
-        if (! $this->hmacValido($request, $empresaId)) {
+        if (! $this->hmacValido($request, $empresaId, $segredo !== '')) {
             return response()->json(['message' => 'Assinatura inválida.'], 401);
         }
 
@@ -65,21 +80,44 @@ class PixWebhookController extends Controller
     /**
      * Verifica a assinatura HMAC-SHA256 do PSP sobre o CORPO CRU da requisição.
      *
-     * O segredo é o DA EMPRESA da cobrança (multi-tenant); se a empresa não tem HMAC
-     * próprio, cai no env da plataforma. Sem NENHUM segredo, a checagem é NO-OP — a
-     * camada 1 (segredo compartilhado) segue valendo. Assinar o corpo cru impede
-     * replay adulterado e prova a origem, o que o segredo estático sozinho não faz.
+     * Resolução do segredo (fail-closed onde é dinheiro de verdade):
+     *  - empresa com HMAC próprio → usa o DELA (nunca o env);
+     *  - empresa SEM HMAC mas COM PIX próprio configurado, em produção → REJEITA
+     *    (herdaria um segredo que não é da empresa — o PSP dela não assina com ele);
+     *  - sem HMAC nenhum: em produção só passa se a camada 1 (segredo compartilhado)
+     *    autenticou o chamador; sem NENHUMA verificação → rejeita e loga. Fora de
+     *    produção mantém NO-OP (CI/homolog).
      */
-    private function hmacValido(Request $request, ?int $empresaId): bool
+    private function hmacValido(Request $request, ?int $empresaId, bool $chamadorAutenticado): bool
     {
-        // Segredo da empresa da cobrança; fallback env da plataforma.
-        $hmacSecret = $empresaId !== null
-            ? ($this->integracao->pix($empresaId)['webhook_hmac_secret'] ?? null)
-            : null;
-        $hmacSecret ??= config('services.pix.webhook_hmac_secret');
+        $credEmpresa = $empresaId !== null ? $this->integracao->pix($empresaId) : null;
+        $hmacSecret = $credEmpresa['webhook_hmac_secret'] ?? null;
+
+        if ($hmacSecret === null || $hmacSecret === '') {
+            // Empresa opera PIX próprio sem HMAC configurado → não herda o env em produção.
+            if (app()->isProduction() && $empresaId !== null && $this->integracao->pixConfigurado($empresaId)) {
+                Log::warning('pix.webhook: empresa com PIX próprio sem HMAC — rejeitado (fail-closed)', [
+                    'empresa_id' => $empresaId,
+                ]);
+
+                return false;
+            }
+
+            $hmacSecret = config('services.pix.webhook_hmac_secret');
+        }
 
         if (empty($hmacSecret)) {
-            return true; // HMAC desligado (bancos sem HMAC / CI)
+            // Nenhum HMAC disponível. Em produção, exige que ao menos a camada 1
+            // tenha autenticado o chamador; sem nenhuma verificação → fail-closed.
+            if (app()->isProduction() && ! $chamadorAutenticado) {
+                Log::error('pix.webhook: NENHUM segredo configurado em produção — webhook rejeitado (fail-closed)', [
+                    'empresa_id' => $empresaId,
+                ]);
+
+                return false;
+            }
+
+            return true; // dev/homolog/CI, ou chamador já autenticado pela camada 1
         }
 
         $header = (string) config('services.pix.webhook_signature_header', 'X-Webhook-Signature');
