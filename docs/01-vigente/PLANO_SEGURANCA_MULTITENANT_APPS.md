@@ -7,6 +7,24 @@
 >
 > **Execução: uma fase por vez, commit+push na main ao concluir cada fase.**
 
+## STATUS — TODAS AS FASES IMPLEMENTADAS (2026-07-06)
+
+| Fase | Commit | Testes |
+|---|---|---|
+| 1 Webhook fail-closed | `bdb1d13` | PixWebhookFailClosedTest |
+| 2 Credencial fail-closed | `a43b5a4` | IntegracaoFailClosedTest |
+| 3 Ability de papel | `31d8db2` | AppRoleTest |
+| 4 Escopo por cliente | `340f8ba` | AppPedidoEscopoClienteTest |
+| 5 Credencial em jobs | `a0db628` | IntegracaoForaDeRequestTest |
+| 6 PixDriver por empresa | `dfac0c3` | PixDriverTest |
+| 7 Marketplace no app + cobertura | `dc43e80` | AppPedidoCoberturaTest |
+| 8 Regressão multi-tenant | (este commit) | MultiTenantIsolamentoTest |
+
+Pendências que continuam DE FORA deste plano (dependem de terceiros):
+driver PIX real por PSP (homologação bancária — o contrato/gate `PIX_DRIVER`
+já existe e o binding EXPLODE com driver desconhecido) e restrição da Maps key
+embarcada no app por package/SHA-1 (console do Google).
+
 ---
 
 ## ⚠️ REGRA DE OURO — REANALISAR ANTES DE CADA FASE

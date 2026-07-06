@@ -53,3 +53,12 @@ vez de ler `config()` direto. Métodos:
 - As credenciais por empresa vivem em `empresa_configs`, que é **allowlisted na RLS** (resolvido por `empresa_id` explícito no controller/service) mas sempre lido pela empresa ATIVA do `TenantContext` — nunca por id vindo do cliente.
 - O webhook PIX é público, então resolve a empresa pelo `txid` (que é da cobrança, logo da empresa) e valida o HMAC **daquela empresa** — um webhook não confirma cobrança de outra.
 - `golive:check` passa a validar, quando o gate está em modo real, que **toda empresa** tem a credencial do nível exigido (fiscal, cobrança, PIX), não só que o env global existe.
+
+## 6. Fail-closed e apps (PLANO_SEGURANCA_MULTITENANT_APPS — implementado 2026-07-06)
+
+- **Produção é fail-closed para dinheiro**: `cartao()` sem credencial da empresa lança `CredencialNaoConfiguradaException` (→ 503 neutro), NUNCA herda env; webhook PIX sem segredo verificável rejeita (401); empresa com PIX próprio não herda o HMAC do env.
+- **PIX via `PixDriver`** (gate `PIX_DRIVER`, default fake): credencial resolvida por `pedido/parcela->empresa_id` explícito; driver desconhecido explode em vez de degradar para o fake.
+- **Tokens do app com papel** (`role:cliente`/`role:entregador` + middleware `approle`): cliente não alcança rotas de entregador e vice-versa; refresh preserva o papel.
+- **Fora de request** (job/cron): credencial sempre pelo id do RECURSO (ex.: `GeocodificarClienteJob` usa a key do grupo DO CLIENTE); `googleMapsKey()` loga warning ao cair no env sem grupo.
+- **App consumidor marketplace**: seleção de revenda por GPS; trocar de revenda invalida a sessão local (token é por empresa); cobertura REVALIDADA server-side na criação do pedido (`app_marketplace_ativo`).
+- Regressão em `MultiTenantIsolamentoTest` + testes por fase (ver o plano).
