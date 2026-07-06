@@ -33,9 +33,12 @@ const Sms = () => {
     const [confirm, setConfirm] = useState<any>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const router = useRouter()
-    const { loginData, setToken, setUser } = useAppStore()
+    const { loginData, setToken, setUser, empresaAtiva } = useAppStore()
     const resendButtonDisabled = timer > 0
     const isDebug = APP.debug
+    // F7: a empresa vem da revenda ESCOLHIDA no marketplace; o empresaId de build
+    // é só o default white-label.
+    const empresaId = empresaAtiva?.id ?? APP.empresa_id
 
     /**
      * F1: login real do cliente. Recebe o ID token do Firebase (telefone já verificado
@@ -91,8 +94,10 @@ const Sms = () => {
     /** Após verificar o SMS, pega o ID token do Firebase e faz o login no ERP-NOVO. */
     const finishLogin = async (firebaseUser: any) => {
         try {
-            if (!APP.empresa_id) {
-                throw new Error("EMPRESA_ID não configurada para este build.")
+            if (!empresaId) {
+                // Sem revenda escolhida e sem empresa de build → volta à seleção.
+                router.replace("/selecionar-revenda")
+                return
             }
 
             const idToken: string = isDebug
@@ -103,7 +108,7 @@ const Sms = () => {
 
             doLogin({
                 firebase_id_token: idToken,
-                empresa_id: APP.empresa_id,
+                empresa_id: empresaId,
                 push_token: pushToken,
                 device_id: pushToken?.slice(0, 64),
                 plataforma: Platform.OS === "ios" ? "ios" : "android",

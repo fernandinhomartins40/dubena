@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import { LogoWhiteImgUri } from "@/constants/images"
 import { removeAlphaNumericCharacter } from "@/helpers/utils"
-import { defaultStyles, screenPadding } from "@/styles/theme"
+import { colors, defaultStyles, screenPadding } from "@/styles/theme"
 import { useRouter } from "expo-router"
 import {
     Alert,
@@ -9,6 +9,7 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
+    Text,
     TextInput,
     View,
 } from "react-native"
@@ -20,7 +21,7 @@ import BrandGradient from "@/components/atoms/BrandGradient"
 import * as NavigationBar from "expo-navigation-bar"
 
 const Login = () => {
-    const { config, setLoginData, loginData } = useAppStore()
+    const { config, setLoginData, loginData, empresaAtiva } = useAppStore()
     const [name, setName] = useState(loginData.name ?? "")
     const phoneRef = useRef(loginData.phone ?? "")
     const phoneInputRef = useRef<TextInput>(null)
@@ -120,6 +121,19 @@ const Login = () => {
                             />
 
                             <Button title="entrar" onPress={loginUser} />
+
+                            {empresaAtiva && (
+                                <Text style={styles.revenda}>
+                                    Comprando de <Text style={styles.revendaNome}>{empresaAtiva.nome}</Text>
+                                    {"  ·  "}
+                                    <Text
+                                        style={styles.revendaTrocar}
+                                        onPress={() => router.navigate("/selecionar-revenda" as never)}
+                                    >
+                                        trocar
+                                    </Text>
+                                </Text>
+                            )}
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -137,8 +151,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: screenPadding.horizontal,
     },
     extraPanel: {
-        height: 290,
+        minHeight: 290,
         gap: 8,
+    },
+    revenda: {
+        textAlign: "center",
+        marginTop: 4,
+        fontSize: 14,
+        color: colors.textMuted,
+    },
+    revendaNome: {
+        fontWeight: "600",
+        color: colors.text,
+    },
+    revendaTrocar: {
+        color: colors.primary,
+        fontWeight: "600",
     },
 })
 

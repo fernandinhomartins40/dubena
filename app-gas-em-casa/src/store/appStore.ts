@@ -18,6 +18,14 @@ type NotificationIds = {
     id: string
 }
 
+/** Revenda escolhida no marketplace (F7). Persistida entre sessões. */
+export type EmpresaAtiva = {
+    id: number
+    nome: string
+    distancia_km?: number | null
+    tempo_entrega_min?: number | null
+}
+
 export interface AppStore {
     user?: User | null
     apiToken?: string
@@ -25,6 +33,8 @@ export interface AppStore {
     loginData: LoginData
     onlineTries: OnlinePaymentTries | null
     notificationsId: Array<NotificationIds> | null
+    empresaAtiva: EmpresaAtiva | null
+    setEmpresaAtiva: (empresa: EmpresaAtiva) => void
     setUser: (user: User) => void
     setNewAddress: (address_id: number) => void
     setConfig: (config: Config) => void
@@ -54,6 +64,25 @@ const useAppStore = create<AppStore>()(
                 phone: "",
             },
             notificationsId: null,
+            empresaAtiva: null,
+            // F7 (segurança): trocar de revenda INVALIDA a sessão local — o token
+            // Sanctum pertence a UMA empresa e nunca é reutilizado em outra.
+            setEmpresaAtiva: (empresa: EmpresaAtiva) =>
+                set((state) => {
+                    const trocou = state.empresaAtiva && state.empresaAtiva.id !== empresa.id
+
+                    return {
+                        empresaAtiva: empresa,
+                        ...(trocou
+                            ? {
+                                  user: null,
+                                  apiToken: "",
+                                  onlineTries: null,
+                                  config: { ...state.config, token: "" },
+                              }
+                            : {}),
+                    }
+                }),
             setUser: (user: any) => set(() => ({ user })),
             setNewAddress: (address_id: number) =>
                 set((state) => {

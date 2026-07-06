@@ -115,6 +115,27 @@ class MarketplaceService
     }
 
     /**
+     * A empresa atende o ponto? (F7 — usado pela VALIDAÇÃO DE PEDIDO, além da
+     * descoberta.) Escolher a loja no app é UX; a cobertura é revalidada aqui,
+     * server-side, na criação do pedido.
+     */
+    public function empresaAtendePonto(int $empresaId, float $lat, float $lng): bool
+    {
+        $empresa = Empresa::query()->find($empresaId);
+        if (! $empresa) {
+            return false;
+        }
+
+        $cercas = Cerca::withoutTenant()
+            ->where('ativo', true)
+            ->where('empresa_id', $empresaId)
+            ->with('pontos')
+            ->get();
+
+        return $this->atende($empresa, $lat, $lng, $cercas);
+    }
+
+    /**
      * A empresa atende o ponto? Geofence tem prioridade; sem cerca, cai para o raio
      * da matriz. Sem cerca e sem raio/coordenada → não atende (precisa configurar).
      *

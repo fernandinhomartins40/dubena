@@ -81,6 +81,8 @@ const RootNavigation = () => (
 
         <Stack.Screen name="login" options={{ headerShown: false }} />
 
+        <Stack.Screen name="selecionar-revenda" options={{ headerShown: false }} />
+
         <Stack.Screen name="(tutorial)" options={{ presentation: "modal", headerShown: false }} />
 
         <Stack.Screen name="policies" options={{ presentation: "modal", headerShown: false }} />

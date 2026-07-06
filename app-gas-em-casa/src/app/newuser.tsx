@@ -21,9 +21,11 @@ const app = getApp()
  * cliente + vincula o usuário e devolve o token Sanctum.
  */
 const NewUser = () => {
-    const { loginData, setToken, setUser } = useAppStore()
+    const { loginData, setToken, setUser, empresaAtiva } = useAppStore()
     const router = useRouter()
     const isDebug = APP.debug
+    // F7: empresa da revenda escolhida no marketplace; build white-label é o default.
+    const empresaId = empresaAtiva?.id ?? APP.empresa_id
 
     const { mutate, isPending } = useMutation({
         mutationFn: UserService.Cadastro,
@@ -60,8 +62,9 @@ const NewUser = () => {
 
     const handleOnSave = async (payload: any) => {
         try {
-            if (!APP.empresa_id) {
-                Alert.alert("Configuração", "EMPRESA_ID não configurada para este build.")
+            if (!empresaId) {
+                // Sem revenda escolhida e sem empresa de build → volta à seleção.
+                router.replace("/selecionar-revenda")
                 return
             }
 
@@ -80,7 +83,7 @@ const NewUser = () => {
 
             mutate({
                 firebase_id_token: idToken,
-                empresa_id: APP.empresa_id,
+                empresa_id: empresaId,
                 nome: payload.nome,
                 cpf: payload.cpf || null,
                 datanascimento: payload.datanascimento || null,

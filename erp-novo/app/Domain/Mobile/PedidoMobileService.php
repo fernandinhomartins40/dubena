@@ -33,6 +33,7 @@ class PedidoMobileService
         private CotacaoMobileService $cotacao,
         private MonitoraService $geofence,
         private PushService $push,
+        private MarketplaceService $marketplace,
     ) {}
 
     /**
@@ -129,6 +130,12 @@ class PedidoMobileService
             GeocodificarClienteJob::dispatch($cliente->id);
         }
 
+        // F7 (segurança): empresa MARKETPLACE revalida a COBERTURA server-side — a
+        // escolha da loja no app é UX, não segurança. Sem coordenada ainda (geocode
+        // pendente) não bloqueia; builds white-label (sem marketplace) mantêm o
+        // comportamento atual.
+        $this->validarCobertura($empresaId, $lat, $lng);
+
         $setor = $this->setorDeEntrega($empresaId, $lat, $lng);
         if (! $setor) {
             throw ValidationException::withMessages(['setor' => 'Nenhum setor de entrega ativo.']);
@@ -197,6 +204,30 @@ class PedidoMobileService
                 'desconto' => $desconto,
             ];
         }, $cotacao['itens'] ?? []);
+    }
+
+    /**
+     * F7 — pedido de empresa marketplace só nasce se ela ATENDE o ponto de entrega
+     * (cerca/raio, mesma regra da descoberta). Sem coordenada não bloqueia (geocode
+     * assíncrono); empresa fora do marketplace não é restringida aqui.
+     */
+    private function validarCobertura(int $empresaId, ?float $lat, ?float $lng): void
+    {
+        if ($lat === null || $lng === null) {
+            return;
+        }
+
+        $marketplaceAtivo = (bool) \App\Models\Empresa::query()
+            ->whereKey($empresaId)->value('app_marketplace_ativo');
+        if (! $marketplaceAtivo) {
+            return;
+        }
+
+        if (! $this->marketplace->empresaAtendePonto($empresaId, $lat, $lng)) {
+            throw ValidationException::withMessages([
+                'endereco' => 'Esta revenda não atende o endereço informado. Escolha outra revenda.',
+            ]);
+        }
     }
 
     /** 1ª situação ativa de efeito PENDENTE do grupo (estado inicial de um pedido novo). */
