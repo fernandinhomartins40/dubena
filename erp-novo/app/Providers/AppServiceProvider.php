@@ -76,6 +76,10 @@ class AppServiceProvider extends ServiceProvider
         // (grátis, default). A KEY vem do GRUPO ativo (config_globais.google_maps_key)
         // com fallback env — cada rede usa a SUA chave Maps (multi-tenant). Liga sem
         // tocar no Roteirizador.
+        // F5 (segurança): este binding lê o TenantContext AMBIENT no make() — só
+        // vale DENTRO de request (após o middleware tenant). Em job/cron, aplique o
+        // tenant ANTES de resolver (TenantAwareJob::aplicarTenant) ou chame
+        // IntegracaoTenant::googleMapsKey($grupoId) explícito (ex.: GeocodificarClienteJob).
         $this->app->bind(MatrizDistancia::class, function () {
             $key = $this->app->make(\App\Domain\Integracao\IntegracaoTenant::class)->googleMapsKey();
 

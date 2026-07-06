@@ -101,6 +101,10 @@ class IntegracaoTenant
     /**
      * Google Maps/Routes key do GRUPO ativo (config_globais) com fallback env.
      * Maps é por rede (não por revenda): uma chave por grupo é o comum.
+     *
+     * Fora de request (job/cron), passe o grupoId EXPLÍCITO do recurso — o
+     * TenantContext ambient está vazio lá e a resolução cairia no env da
+     * plataforma em silêncio (F5: logamos warning quando isso acontece).
      */
     public function googleMapsKey(?int $grupoId = null): ?string
     {
@@ -115,6 +119,13 @@ class IntegracaoTenant
         }
 
         $env = config('services.geocoding.key');
+
+        if ($grupoId === null && ! empty($env)) {
+            // Sem grupo resolvido (nem explícito, nem no contexto): consumo vai
+            // para a key da PLATAFORMA. Legítimo em dev/CLI; em produção indica
+            // chamada fora de request sem id explícito — fica visível no log.
+            \Illuminate\Support\Facades\Log::warning('integracao: googleMapsKey sem grupo resolvido — usando key da plataforma (env)');
+        }
 
         return ! empty($env) ? (string) $env : null;
     }

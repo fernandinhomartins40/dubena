@@ -36,7 +36,12 @@ class GeocodificarClienteJob implements ShouldQueue
             return;
         }
 
-        $apiKey = config('services.geocoding.key');
+        // F5 (segurança multi-tenant): a key vem do GRUPO DO CLIENTE, explícito —
+        // job roda fora de request (TenantContext vazio) e cair no env silencioso
+        // faria a rede consumir a quota da plataforma. Fallback env preservado
+        // (Maps não é dinheiro; dev/homolog sem key de grupo continua funcionando).
+        $apiKey = app(\App\Domain\Integracao\IntegracaoTenant::class)
+            ->googleMapsKey($cliente->grupo_id !== null ? (int) $cliente->grupo_id : null);
         if (empty($apiKey)) {
             return; // sem credencial (ex.: dev/homolog) — não geocodifica
         }
