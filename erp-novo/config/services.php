@@ -48,6 +48,9 @@ return [
     // webhook_signature_header = nome do header onde o PSP envia a assinatura hex.
     'pix' => [
         'enabled' => env('PIX_ENABLED', false),
+        // Gate do driver (F6): 'fake' = BR Code sintético (dev/CI); um PSP real
+        // ('itau', …) ativa o registro de verdade, com credencial POR EMPRESA.
+        'driver' => env('PIX_DRIVER', 'fake'),
         'psp' => env('PIX_PSP', 'itau'),
         'ambiente' => env('PIX_AMBIENTE', 'homologacao'),
         'webhook_secret' => env('PIX_WEBHOOK_SECRET'),

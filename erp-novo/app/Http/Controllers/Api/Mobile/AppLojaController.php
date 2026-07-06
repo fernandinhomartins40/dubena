@@ -50,11 +50,21 @@ class AppLojaController extends Controller
         $dados = (array) ($cfg?->dados ?? []);
         $app = (array) ($dados['app'] ?? []);
 
+        // F6: quais meios ONLINE a empresa suporta — SÓ booleanos (nunca credencial).
+        // Com driver fake (dev/CI) tudo fica disponível; com gate real, disponível =
+        // a empresa tem o próprio credenciamento (fail-closed coerente com F2).
+        $integracao = app(\App\Domain\Integracao\IntegracaoTenant::class);
+        $pixDisponivel = config('services.pix.driver', 'fake') === 'fake'
+            || $integracao->pixConfigurado($user->empresa_id);
+        $cartaoDisponivel = config('services.pagamento.driver', 'fake') !== 'erede'
+            || $integracao->cartaoConfigurado($user->empresa_id);
+
         return response()->json(['data' => [
             'gaspovo_ativo' => (bool) ($app['gaspovo_ativo'] ?? false),
             'frete_gaspovo' => isset($app['frete_gaspovo']) ? (float) $app['frete_gaspovo'] : null,
             'video' => $app['video'] ?? null, // { url, titulo } ou null
             'tempo_entrega_min' => $cfg?->tempoentrega,
+            'pagamentos_online' => ['pix' => $pixDisponivel, 'cartao' => $cartaoDisponivel],
         ]]);
     }
 

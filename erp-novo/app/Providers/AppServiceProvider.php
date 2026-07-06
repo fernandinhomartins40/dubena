@@ -72,6 +72,21 @@ class AppServiceProvider extends ServiceProvider
             ? $this->app->make(EredeDriver::class)
             : $this->app->make(FakePagamentoDriver::class));
 
+        // Driver PIX (F6 — GATE bancário). PIX_DRIVER seleciona o PSP real na
+        // homologação; default 'fake' (BR Code sintético, dev/CI). O PixService
+        // resolve a credencial pela EMPRESA DO RECURSO e é fail-closed com driver
+        // real sem credencial da empresa. Driver desconhecido = erro ALTO (jamais
+        // degradar silenciosamente para o fake achando que cobra de verdade).
+        $this->app->bind(\App\Domain\Cobranca\Contracts\PixDriver::class, function () {
+            $driver = (string) config('services.pix.driver', 'fake');
+
+            return match ($driver) {
+                'fake' => $this->app->make(\App\Domain\Cobranca\Drivers\FakePixDriver::class),
+                // PSPs reais entram aqui na homologação (ex.: 'itau' => ItauPixDriver).
+                default => throw new \RuntimeException("PIX_DRIVER '{$driver}' não implementado — recuse a subir assim em vez de fingir cobrança com o fake."),
+            };
+        });
+
         // Matriz de distância/tempo da roteirização (L5 — GATE Google). Haversine
         // (grátis, default). A KEY vem do GRUPO ativo (config_globais.google_maps_key)
         // com fallback env — cada rede usa a SUA chave Maps (multi-tenant). Liga sem

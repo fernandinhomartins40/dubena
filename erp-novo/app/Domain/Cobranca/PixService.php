@@ -2,7 +2,10 @@
 
 namespace App\Domain\Cobranca;
 
+use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Events\PixConfirmado;
+use App\Domain\Integracao\CredencialNaoConfiguradaException;
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Pedido\Pedido;
@@ -11,21 +14,30 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * PixService (N7 — GATE, Itaú). Cria cobrança imediata (txid + copia-e-cola) e
+ * PixService (N7 — GATE bancário). Cria cobrança imediata (txid + copia-e-cola) e
  * processa o WEBHOOK DE FORMA SEGURA — a correção S3 do plano:
  *   - confirma só cobrança ATIVA;
  *   - valida que o VALOR pago bate com o cobrado (binding);
  *   - idempotente (webhook reentregue não baixa em dobro).
- * A comunicação real com o PSP (registrar cobrança, validar assinatura HMAC do
- * webhook) fica isolada para o gate de homologação.
+ *
+ * F6 (multi-tenant): o registro no PSP é do PixDriver, com a credencial resolvida
+ * pela EMPRESA DO RECURSO (parcela/pedido) — id explícito, nunca o TenantContext
+ * ambient (cobrança pode nascer/renovar em job/cron). Driver real sem credencial
+ * da empresa = fail-closed (CredencialNaoConfiguradaException → 503 neutro).
  */
 class PixService
 {
+    public function __construct(
+        private PixDriver $driver,
+        private IntegracaoTenant $integracao,
+    ) {}
+
     /** Cria uma cobrança PIX imediata para uma parcela. */
     public function criarCobranca(FinanceiroParcela $parcela, int $expiraSegundos = 3600): PixCobranca
     {
         $financeiro = $parcela->financeiro;
         $txid = $this->gerarTxid();
+        $emissao = $this->emitirNoPsp((int) $financeiro->empresa_id, $txid, (float) $parcela->valor, $expiraSegundos);
 
         return PixCobranca::create([
             'empresa_id' => $financeiro->empresa_id,
@@ -33,7 +45,8 @@ class PixService
             'cliente_id' => $financeiro->cliente_id,
             'txid' => $txid,
             'valor' => $parcela->valor,
-            'copia_e_cola' => $this->montarBrCode($txid, (float) $parcela->valor),
+            'copia_e_cola' => $emissao['copia_e_cola'],
+            'qrcode' => $emissao['qrcode'] ?? null,
             'expira_em' => now()->addSeconds($expiraSegundos),
             'situacao' => SituacaoPix::ATIVA->value,
         ]);
@@ -58,6 +71,7 @@ class PixService
 
         $txid = $this->gerarTxid();
         $valor = (float) $pedido->valor_venda;
+        $emissao = $this->emitirNoPsp((int) $pedido->empresa_id, $txid, $valor, $expiraSegundos);
 
         return PixCobranca::create([
             'empresa_id' => $pedido->empresa_id,
@@ -65,10 +79,33 @@ class PixService
             'cliente_id' => $pedido->cliente_id,
             'txid' => $txid,
             'valor' => $valor,
-            'copia_e_cola' => $this->montarBrCode($txid, $valor),
+            'copia_e_cola' => $emissao['copia_e_cola'],
+            'qrcode' => $emissao['qrcode'] ?? null,
             'expira_em' => now()->addSeconds($expiraSegundos),
             'situacao' => SituacaoPix::ATIVA->value,
         ]);
+    }
+
+    /**
+     * Registra a cobrança no PSP via driver, com a credencial da EMPRESA DO
+     * RECURSO (id explícito — I1). Driver REAL exige a credencial da empresa
+     * (client_id+secret vivem só em empresa_configs; não há env para eles):
+     * ausente = fail-closed, em qualquer ambiente.
+     *
+     * @return array{copia_e_cola:string, qrcode:?string}
+     */
+    private function emitirNoPsp(int $empresaId, string $txid, float $valor, int $expiraSegundos): array
+    {
+        $credencial = $this->integracao->pix($empresaId) ?? [];
+
+        if ($this->driver->nome() !== 'fake' && ! $this->integracao->pixConfigurado($empresaId)) {
+            throw CredencialNaoConfiguradaException::pix($empresaId);
+        }
+
+        return $this->driver->criarCobranca(
+            ['txid' => $txid, 'valor' => $valor, 'expira_segundos' => $expiraSegundos],
+            $credencial,
+        );
     }
 
     /** Status atual da cobrança PIX de um pedido (para o app fazer polling). */
@@ -174,13 +211,5 @@ class PixService
     {
         // txid: 26-35 chars alfanuméricos (regra do BACEN).
         return Str::lower(Str::random(32));
-    }
-
-    private function montarBrCode(string $txid, float $valor): string
-    {
-        // Representação simplificada do payload EMV (BR Code). Em produção o PSP
-        // devolve o copia-e-cola assinado; aqui é determinístico para teste/exibição.
-        return sprintf('00020126%s52040000530398654%02d%.2f5802BR6009GASEMCASA62%02d%s6304',
-            strlen($txid) + 22, strlen(number_format($valor, 2, '.', '')) + 0, $valor, strlen($txid) + 4, $txid);
     }
 }
