@@ -146,6 +146,14 @@ jobs:
               php artisan db:seed --class='Database\Seeders\DemoGuarapuavaSeeder' --force
           fi
 
+      - name: Seed marketplace demo (F7) — idempotente, todo deploy
+        run: |
+          # Garante matriz + "Unidade Batel" aderidas ao marketplace (geoloc/raio/
+          # cerca + produtos da 2ª revenda). IDEMPOTENTE — roda mesmo em banco
+          # populado, onde a massa demo acima é pulada.
+          docker compose -f docker-compose.homolog.yml exec -T app \
+            php artisan db:seed --class='Database\Seeders\MarketplaceDemoSeeder' --force
+
       - name: Normalizar dono do storage (www-data) — após os artisan
         run: |
           # Os artisan acima rodam como ROOT (docker exec); o php-fpm é www-data.

@@ -107,6 +107,9 @@ class DemoGuarapuavaSeeder extends Seeder
         // assim é seguro rodar em qualquer deploy. Para recriar: migrate:fresh.
         if (Cliente::withoutTenant()->count() > 50) {
             $this->command?->info('DemoGuarapuavaSeeder: banco já populado — pulando massa demo (apenas admin/RBAC garantidos).');
+            // Marketplace demo é IDEMPOTENTE (F7) — garante matriz + Unidade Batel
+            // aderidas mesmo em banco já populado (ex.: homolog na VPS).
+            $this->call(MarketplaceDemoSeeder::class);
 
             return;
         }
@@ -151,8 +154,8 @@ class DemoGuarapuavaSeeder extends Seeder
         $this->command?->info('→ gestão: MCMM / documentos / bens');
         $this->gestao($produtos, $colaboradores);
 
-        $this->command?->info('→ marketplace: adesão + geolocalização + cerca de entrega');
-        $this->marketplace($setores);
+        $this->command?->info('→ marketplace: adesão + geolocalização + cerca + 2ª revenda (Batel)');
+        $this->call(MarketplaceDemoSeeder::class);
 
         $this->command?->info('✓ DemoGuarapuavaSeeder concluído — banco populado.');
     }
@@ -749,38 +752,4 @@ class DemoGuarapuavaSeeder extends Seeder
         return $l().$l().$l().mt_rand(0, 9).$l().mt_rand(0, 9).mt_rand(0, 9);
     }
 
-    /**
-     * MP1 — adere a empresa ao marketplace, posiciona a matriz no centro de Guarapuava
-     * e cria uma CERCA poligonal cobrindo a cidade (área de entrega). Assim a Matriz
-     * aparece na descoberta por geolocalização. Raio também definido como fallback.
-     *
-     * @param  array<string, Setor>  $setores
-     */
-    private function marketplace(array $setores): void
-    {
-        // Centro de Guarapuava (do guarapuava.php — bairro Centro).
-        $this->empresa->update([
-            'latitude' => -25.3935,
-            'longitude' => -51.4562,
-            'app_marketplace_ativo' => true,
-            'raio_entrega_km' => 15,
-            'telefone1' => $this->empresa->telefone1 ?: '(42) 3622-0000',
-        ]);
-
-        // Cerca poligonal cobrindo a malha urbana (bbox folgada de Guarapuava).
-        $setor = $setores['Loja'] ?? reset($setores) ?: null;
-        $cerca = Cerca::firstOrCreate(
-            ['empresa_id' => $this->empresa->id, 'descricao' => 'Área de entrega — Guarapuava'],
-            ['grupo_id' => $this->grupoId, 'setor_id' => $setor?->id, 'cor' => '#FF6200', 'ativo' => true],
-        );
-
-        if ($cerca->pontos()->count() === 0) {
-            $cerca->pontos()->createMany([
-                ['latitude' => -25.350, 'longitude' => -51.500, 'ordem' => 0],
-                ['latitude' => -25.350, 'longitude' => -51.410, 'ordem' => 1],
-                ['latitude' => -25.430, 'longitude' => -51.410, 'ordem' => 2],
-                ['latitude' => -25.430, 'longitude' => -51.500, 'ordem' => 3],
-            ]);
-        }
-    }
 }
