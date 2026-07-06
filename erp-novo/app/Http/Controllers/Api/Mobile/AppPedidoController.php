@@ -46,6 +46,18 @@ class AppPedidoController extends Controller
         ]);
 
         $user = $request->user();
+
+        // F4 (segurança): usuário do app COM cliente vinculado só cria pedido para
+        // SI MESMO — cliente_id do payload (e o matching por geoloc, que poderia
+        // casar o vizinho) valem apenas para o fluxo staff/transição sem vínculo.
+        $clienteDoToken = \App\Models\Cliente\Cliente::query()
+            ->where('empresa_id', $user->empresa_id)
+            ->where('user_id', $user->id)
+            ->value('id');
+        if ($clienteDoToken !== null) {
+            $d['cliente_id'] = $clienteDoToken;
+        }
+
         $pedido = $this->pedidoMobile->criarDoApp($user->empresa_id, $user->grupo_id, $d);
 
         return response()->json(['data' => [
@@ -63,7 +75,13 @@ class AppPedidoController extends Controller
             'parcelas' => 'nullable|integer|min:1|max:12',
         ]);
 
-        $pedido = Pedido::query()->where('empresa_id', $request->user()->empresa_id)->findOrFail($id);
+        // F4 (segurança): mesmo escopo anti-IDOR do gerarPix — o cliente só paga o
+        // PRÓPRIO pedido (antes, qualquer cliente da empresa disparava a cobrança).
+        $cliente = $this->clienteDoUsuario($request);
+        $pedido = Pedido::query()
+            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('cliente_id', $cliente->id)
+            ->findOrFail($id);
         $pagamento = $this->pagamento->cobrarPedido($pedido, ['token' => $d['token'], 'parcelas' => (int) ($d['parcelas'] ?? 1)]);
 
         return response()->json([

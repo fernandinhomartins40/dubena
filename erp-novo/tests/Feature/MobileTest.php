@@ -175,7 +175,7 @@ class MobileTest extends TestCase
         ])->json('data.id');
 
         $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pagar", [
-            'token' => 'tok-ok',
+            'token' => 'tok-ok', 'cliente_id' => $cliente->id,
         ])->assertCreated()->assertJsonPath('data.situacao', 'AUTORIZADO');
     }
 
@@ -189,7 +189,7 @@ class MobileTest extends TestCase
         ])->json('data.id');
 
         $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pagar", [
-            'token' => 'nego-tok',
+            'token' => 'nego-tok', 'cliente_id' => $cliente->id,
         ])->assertStatus(402)->assertJsonPath('data.situacao', 'NEGADO');
     }
 
