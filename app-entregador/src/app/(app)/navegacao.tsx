@@ -1,5 +1,5 @@
 import { Botao } from "@/components/ui"
-import { COLORS, DEFAULT_LOCATION } from "@/constants/app"
+import { BRASIL_VIEW, COLORS } from "@/constants/app"
 import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
 import { fontSize, radius, shadow } from "@/styles/theme"
@@ -82,12 +82,16 @@ export default function Navegacao() {
         )
     }, [posicao, seguir])
 
-    const regiao = {
-        latitude: proxima?.lat ?? posicao?.latitude ?? DEFAULT_LOCATION.latitude,
-        longitude: proxima?.lng ?? posicao?.longitude ?? DEFAULT_LOCATION.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-    }
+    // Âncora: próxima parada → posição do PRÓPRIO GPS → Brasil (viewport neutro).
+    const ancora =
+        proxima?.lat != null && proxima?.lng != null
+            ? { latitude: proxima.lat, longitude: proxima.lng }
+            : posicao
+              ? { latitude: posicao.latitude, longitude: posicao.longitude }
+              : null
+    const regiao = ancora
+        ? { ...ancora, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+        : BRASIL_VIEW
 
     return (
         <View style={{ flex: 1 }}>

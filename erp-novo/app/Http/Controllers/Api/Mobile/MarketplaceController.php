@@ -31,13 +31,19 @@ class MarketplaceController extends Controller
         return response()->json(['data' => $empresas]);
     }
 
-    /** GET /app/v1/marketplace/cidades — cidades ativas atendidas pela plataforma (P3). */
+    /**
+     * GET /app/v1/marketplace/cidades — cidades ativas atendidas pela plataforma (P3).
+     * Inclui o CENTRO (lat/lng) para o app ancorar a descoberta quando o usuário
+     * nega o GPS — a busca sem GPS é por cidade ESCOLHIDA, nunca por default fixo.
+     */
     public function cidades(CidadeService $cidades): JsonResponse
     {
         $data = $cidades->ativas()->map(fn ($c) => [
             'id' => $c->id,
             'nome' => $c->nome,
             'uf' => $c->uf,
+            'latitude' => $c->centro_lat !== null ? (float) $c->centro_lat : null,
+            'longitude' => $c->centro_lng !== null ? (float) $c->centro_lng : null,
         ]);
 
         return response()->json(['data' => $data]);

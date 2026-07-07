@@ -22,6 +22,9 @@ export interface CidadePlataforma {
     id: number
     nome: string
     uf: string
+    /** Centro da cidade — âncora da busca quando o usuário nega o GPS. */
+    latitude: number | null
+    longitude: number | null
 }
 
 /** Empresas que atendem o ponto (mais perto primeiro). */

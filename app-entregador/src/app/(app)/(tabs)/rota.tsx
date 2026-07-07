@@ -1,5 +1,5 @@
 import { Botao, Cartao } from "@/components/ui"
-import { COLORS, DEFAULT_LOCATION } from "@/constants/app"
+import { BRASIL_VIEW, COLORS } from "@/constants/app"
 import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -46,12 +46,16 @@ export default function RotaScreen() {
     const comGeo = paradas.filter((p) => p.lat != null && p.lng != null)
     const primeira = comGeo[0]
 
-    const regiao = {
-        latitude: primeira?.lat ?? DEFAULT_LOCATION.latitude,
-        longitude: primeira?.lng ?? DEFAULT_LOCATION.longitude,
-        latitudeDelta: 0.04,
-        longitudeDelta: 0.04,
-    }
+    // Sem parada geolocalizada ainda, o mapa mostra o Brasil (viewport neutro) —
+    // nada de cidade fixa; assim que houver parada, enquadra nela.
+    const regiao = primeira
+        ? {
+              latitude: primeira.lat!,
+              longitude: primeira.lng!,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+          }
+        : BRASIL_VIEW
 
     // Traçado no minimapa: polylines reais (Routes API) ou reta entre paradas.
     const trechos = useMemo(() => {

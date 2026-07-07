@@ -31,8 +31,17 @@ if (!extra.apiUrl) {
     )
 }
 
-/** Centro do mapa quando ainda não há GPS (Guarapuava/PR). */
-export const DEFAULT_LOCATION = { latitude: -25.3862077, longitude: -51.4867962 }
+/**
+ * Viewport NEUTRO (Brasil inteiro, bem afastado) para mapas que ainda não têm
+ * coordenada real (GPS/parada/pedido). É só enquadramento — nunca uma cidade
+ * fixa em código: a plataforma atende qualquer praça do país.
+ */
+export const BRASIL_VIEW = {
+    latitude: -14.235,
+    longitude: -51.9253,
+    latitudeDelta: 40,
+    longitudeDelta: 40,
+}
 
 /** Intervalo (ms) entre pings de posição enviados ao ERP-NOVO (P6). */
 export const POSICAO_INTERVALO_MS = 15000

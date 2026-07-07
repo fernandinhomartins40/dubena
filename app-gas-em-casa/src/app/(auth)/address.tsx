@@ -14,7 +14,12 @@ import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, Region } from "reac
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Location from "expo-location"
 import { ChevronLeft } from "lucide-react-native"
-import { APP, DEFAULT_LOCATION } from "@/constants/app"
+import { APP } from "@/constants/app"
+
+// Placeholder de VIEWPORT enquanto a revenda não carrega: Brasil inteiro, bem
+// afastado. É só o enquadramento inicial do mapa — nenhuma busca/endereço usa
+// isto; a âncora real é sempre a REVENDA do token (nada de cidade fixa em código).
+const BRASIL_VIEW = { latitude: -14.235, longitude: -51.9253, latitudeDelta: 40, longitudeDelta: 40 }
 import Button from "@/components/atoms/button"
 import {
     GooglePlaceData,
@@ -95,33 +100,41 @@ const Address = () => {
     const [open, setOpen] = useState(false)
     const latitudeDelta = 0.005
     const longitudeDelta = 0.005
-    // M-6: centro do mapa vem da REVENDA (empresa do token), não mais de uma
-    // constante fixa de Guarapuava — cada build/tenant abre o mapa na sua praça.
-    // Cai no DEFAULT_LOCATION só enquanto o reseller não carregou / sem coordenada.
+    // M-6/F7: centro do mapa vem da REVENDA (empresa ativa do token) — cada
+    // revenda abre o mapa na sua praça, em qualquer cidade do Brasil. Enquanto o
+    // reseller não carregou, o placeholder é o Brasil inteiro (viewport apenas).
     const { data: reseller } = useQuery({
         queryKey: ["reseller"],
         queryFn: StoreService.GetReseller,
         staleTime: 60 * 60 * 1000,
     })
     const defaultLocation = useMemo(
-        () => ({
-            latitude: reseller?.latitude ?? DEFAULT_LOCATION.latitude,
-            longitude: reseller?.longitude ?? DEFAULT_LOCATION.longitude,
-            latitudeDelta,
-            longitudeDelta,
-        }),
+        () =>
+            reseller?.latitude != null && reseller?.longitude != null
+                ? {
+                      latitude: reseller.latitude,
+                      longitude: reseller.longitude,
+                      latitudeDelta,
+                      longitudeDelta,
+                  }
+                : BRASIL_VIEW,
         [reseller?.latitude, reseller?.longitude],
     )
     const [location, setLocation] = useState<Region>(defaultLocation)
     // Se a revenda chegar DEPOIS do primeiro render e o usuário ainda não moveu o
-    // mapa (posição = constante fixa), recentraliza na praça da revenda (M-6).
+    // mapa (posição = placeholder), recentraliza na praça da revenda (M-6).
     const [mapaTocado, setMapaTocado] = useState(false)
     useEffect(() => {
         if (mapaTocado) return
         if (reseller?.latitude == null || reseller?.longitude == null) return
         setLocation((prev) =>
-            prev.latitude === DEFAULT_LOCATION.latitude && prev.longitude === DEFAULT_LOCATION.longitude
-                ? { ...prev, latitude: reseller.latitude!, longitude: reseller.longitude! }
+            prev.latitude === BRASIL_VIEW.latitude && prev.longitude === BRASIL_VIEW.longitude
+                ? {
+                      latitude: reseller.latitude!,
+                      longitude: reseller.longitude!,
+                      latitudeDelta,
+                      longitudeDelta,
+                  }
                 : prev,
         )
     }, [reseller?.latitude, reseller?.longitude, mapaTocado])
@@ -365,12 +378,16 @@ const Address = () => {
                 minLength={2}
                 styles={placesStyle}
                 query={{
-                    radius: 10000,
-                    strictbounds: true,
-                    location:
-                        String(DEFAULT_LOCATION.latitude) +
-                        ", " +
-                        String(DEFAULT_LOCATION.longitude),
+                    // Viés do autocomplete pela PRAÇA DA REVENDA (não uma cidade
+                    // fixa): cliente de qualquer cidade encontra o próprio endereço.
+                    // Sem coordenada da revenda, busca Brasil inteiro (sem strictbounds).
+                    ...(reseller?.latitude != null && reseller?.longitude != null
+                        ? {
+                              radius: 30000,
+                              strictbounds: true,
+                              location: `${reseller.latitude}, ${reseller.longitude}`,
+                          }
+                        : {}),
                     components: "country:BR",
                     key: APP.gap_key,
                     language: "pt",

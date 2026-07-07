@@ -86,7 +86,9 @@ export const SupportedBrands: Brands[] = [
     },
 ]
 
-export const DEFAULT_LOCATION = { latitude: -25.3862077, longitude: -51.4867962 }
+// (F7) NÃO existe mais "cidade default" em código: a descoberta de revendas usa o
+// GPS ou a CIDADE ESCOLHIDA pelo usuário (catálogo marketplace/cidades), e o mapa
+// de endereço ancora na REVENDA do token — a plataforma escala para qualquer praça.
 
 /**
  * Configuração de runtime (F0 — segurança).

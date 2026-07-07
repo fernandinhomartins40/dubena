@@ -1,5 +1,5 @@
 import { Botao, Cartao } from "@/components/ui"
-import { COLORS, DEFAULT_LOCATION } from "@/constants/app"
+import { BRASIL_VIEW, COLORS } from "@/constants/app"
 import { HttpError } from "@/helpers/http"
 import EntregaService from "@/services/entrega.service"
 import { PedidoEntrega } from "@/types/types"
@@ -32,12 +32,15 @@ export default function PedidoDetalhe() {
     const pedido = (data ?? []).find((p) => p.id === pedidoId)
 
     const temDestino = pedido?.lat != null && pedido?.lng != null
-    const regiao = {
-        latitude: pedido?.lat ?? DEFAULT_LOCATION.latitude,
-        longitude: pedido?.lng ?? DEFAULT_LOCATION.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-    }
+    // Sem destino geolocalizado, viewport neutro (Brasil) — nada de cidade fixa.
+    const regiao = temDestino
+        ? {
+              latitude: pedido!.lat!,
+              longitude: pedido!.lng!,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+          }
+        : BRASIL_VIEW
 
     const recarregar = () => qc.invalidateQueries({ queryKey: ["entregador", "pedidos"] })
 
