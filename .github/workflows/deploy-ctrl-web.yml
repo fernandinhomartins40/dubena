@@ -46,6 +46,26 @@ jobs:
           fi
           cp /opt/dubena-env/ctrl-web.env .env
 
+      - name: Restaurar .env do OUTRO app do monorepo (evita derrubá-lo)
+        working-directory: .
+        run: |
+          # MONOREPO + WORKSPACE COMPARTILHADO: este job e o do erp-novo usam o
+          # MESMO checkout. O actions/checkout roda `git clean -ffdx`, que apaga
+          # arquivos ignorados — inclusive o erp-novo/.env, que NÃO é restaurado
+          # por este workflow. O container do erp-novo segue rodando com o .env
+          # antigo, mas o próximo `docker compose up` dele falha (env_file
+          # obrigatório) e os volumes desanexam → 500. Foi exatamente assim que a
+          # produção do ctrl-web caiu: o deploy do erp-novo (07/jul) removeu o
+          # ctrl-web/.env e o ctrl-web só voltaria a rodar quando alguém tocasse
+          # em ctrl-web/** (o filtro de paths segurou por 5 semanas).
+          # Restaurar o .env do vizinho torna cada deploy inofensivo ao outro.
+          if [ -f /opt/dubena-env/erp-novo-homolog.env ]; then
+            cp /opt/dubena-env/erp-novo-homolog.env erp-novo/.env
+            echo "erp-novo/.env restaurado (preservado do git clean)."
+          else
+            echo "AVISO: /opt/dubena-env/erp-novo-homolog.env ausente — não restaurado." >&2
+          fi
+
       - name: Build e subida dos containers
         run: |
           docker compose -f docker-compose.prod.yml build
@@ -60,6 +80,25 @@ jobs:
             [ "$st" = "running" ] && break
             echo "aguardando ctrl-web-app ($st)..."; sleep 3
           done
+          [ "$st" = "running" ] || { echo "ctrl-web-app não subiu (status=$st)" >&2; exit 1; }
+
+      - name: Verificar que os volumes montaram de fato
+        run: |
+          # FALHA SILENCIOSA JÁ OCORRIDA: o container ficou "Up" por 5 semanas com
+          # os volumes app_vendor/app_storage DESANEXADOS. O `docker inspect`
+          # listava os 4 mounts, mas dentro do container só existiam 2 — sem
+          # vendor/ o PHP morria em "Class Illuminate\Foundation\Application not
+          # found", e sem storage/logs/ o Laravel nem conseguia registrar o erro.
+          # Nada no deploy detectava isso. Conferir /proc/mounts é a prova real.
+          for p in /var/www/storage /var/www/vendor /var/www/bootstrap/cache; do
+            if ! docker compose -f docker-compose.prod.yml exec -T app \
+                 grep -q " $p " /proc/mounts; then
+              echo "ERRO: volume não montado em $p — abortando." >&2
+              docker compose -f docker-compose.prod.yml exec -T app cat /proc/mounts >&2 || true
+              exit 1
+            fi
+            echo "mount OK: $p"
+          done
 
       - name: Instalar dependências (composer, do lock)
         run: |
@@ -68,9 +107,23 @@ jobs:
           # (kylekatarnls/update-helper) e abortaria o install no deploy.
           # COMPOSER_PROCESS_TIMEOUT=0: o install do Laravel 6 (pacotes grandes)
           # estoura o limite padrão de 300s no unzip — sem isso o deploy trava.
-          docker compose -f docker-compose.prod.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
-            composer install --no-interaction --prefer-dist --no-progress --no-dev \
-            --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8
+          # RETRY 3x: mesma flakiness já observada no deploy do erp-novo — logo
+          # após o --force-recreate a rede/DNS do container pode não estar pronta
+          # e o composer falha DEIXANDO O VENDOR VAZIO (500 em toda a aplicação).
+          ok=0
+          for tent in 1 2 3; do
+            if docker compose -f docker-compose.prod.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
+              composer install --no-interaction --prefer-dist --no-progress --no-dev \
+              --no-scripts --no-plugins --optimize-autoloader --ignore-platform-req=ext-oci8; then
+              ok=1; break
+            fi
+            echo "composer install falhou (tentativa $tent) — aguardando para tentar de novo…" >&2
+            sleep 15
+          done
+          [ "$ok" = "1" ] || { echo "composer install falhou nas 3 tentativas" >&2; exit 1; }
+          # Falha explícita se o vendor não populou — evita seguir para os artisan
+          # e só descobrir o problema como 500 silencioso em produção.
+          docker compose -f docker-compose.prod.yml exec -T app test -f vendor/autoload.php
 
       - name: Garantir estrutura de storage (volume sobe vazio)
         run: |
@@ -159,11 +212,26 @@ jobs:
 
       - name: Health check (porta interna 3110)
         run: |
-          sleep 5
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3110/login || echo 000)
+          # Retry: logo após o --force-recreate o php-fpm pode ainda não atender.
+          code=000
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3110/login || echo 000)
+            [ "$code" = "200" ] && break
+            echo "aguardando /login ($code)..."; sleep 3
+          done
           echo "HTTP /login: $code"
-          if [ "$code" -ge 500 ] || [ "$code" = "000" ]; then
-            echo "Health check falhou (HTTP $code)" >&2
+          # Exige 200 explicitamente. O check antigo só reprovava >=500, então um
+          # 302/404 (ex.: rota perdida, redirect para instalador) passava como OK.
+          if [ "$code" != "200" ]; then
+            echo "Health check falhou (HTTP $code — esperado 200)" >&2
             docker compose -f docker-compose.prod.yml logs --tail=40 app web >&2 || true
             exit 1
           fi
+          # Valida o CONTEÚDO, não só o status: um 200 servindo página de erro do
+          # Laravel ou index vazio ainda seria "sucesso" pelo código HTTP.
+          if ! curl -s http://127.0.0.1:3110/login | grep -q 'name="_token"'; then
+            echo "Health check falhou: /login respondeu 200 sem formulário de login." >&2
+            docker compose -f docker-compose.prod.yml logs --tail=40 app web >&2 || true
+            exit 1
+          fi
+          echo "OK: /login responde 200 com formulário e CSRF."

@@ -47,6 +47,23 @@ jobs:
           fi
           cp /opt/dubena-env/erp-novo-homolog.env .env
 
+      - name: Restaurar .env do OUTRO app do monorepo (evita derrubá-lo)
+        working-directory: .
+        run: |
+          # MONOREPO + WORKSPACE COMPARTILHADO: ver comentário equivalente em
+          # deploy-ctrl-web.yml. O `git clean -ffdx` do checkout apaga o
+          # ctrl-web/.env (ignorado), que este workflow não restaura. O container
+          # do ctrl-web continua no ar com a config antiga, mas o próximo
+          # `docker compose up` dele falha por env_file ausente e os volumes
+          # (vendor/storage) desanexam → 500 em todo o ERP. Restaurar o .env do
+          # vizinho mantém os dois deploys independentes.
+          if [ -f /opt/dubena-env/ctrl-web.env ]; then
+            cp /opt/dubena-env/ctrl-web.env ctrl-web/.env
+            echo "ctrl-web/.env restaurado (preservado do git clean)."
+          else
+            echo "AVISO: /opt/dubena-env/ctrl-web.env ausente — não restaurado." >&2
+          fi
+
       - name: Build da SPA a partir do fonte (FE-5 — não confia no public/app commitado)
         working-directory: erp-novo/frontend
         run: |
@@ -65,6 +82,23 @@ jobs:
             st=$(docker inspect -f '{{.State.Status}}' erpnovo-app 2>/dev/null || echo none)
             [ "$st" = "running" ] && break
             echo "aguardando erpnovo-app ($st)..."; sleep 3
+          done
+          [ "$st" = "running" ] || { echo "erpnovo-app não subiu (status=$st)" >&2; exit 1; }
+
+      - name: Verificar que os volumes montaram de fato
+        run: |
+          # Ver comentário equivalente em deploy-ctrl-web.yml: um container pode
+          # ficar "Up" com volumes desanexados (docker inspect mostra o mount,
+          # mas ele não existe dentro do container). Sem vendor/ o PHP nem
+          # inicializa e sem storage/logs/ o erro não é registrado em lugar algum.
+          for p in /var/www/storage /var/www/vendor; do
+            if ! docker compose -f docker-compose.homolog.yml exec -T app \
+                 grep -q " $p " /proc/mounts; then
+              echo "ERRO: volume não montado em $p — abortando." >&2
+              docker compose -f docker-compose.homolog.yml exec -T app cat /proc/mounts >&2 || true
+              exit 1
+            fi
+            echo "mount OK: $p"
           done
 
       - name: Aguardar o Postgres aceitar conexão
