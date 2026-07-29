@@ -1,7 +1,12 @@
 vendor/
 node_modules/
 public/storage/
-storage/
+# NÃO ignorar `storage/` inteiro: o deploy monta um volume Docker sobre
+# storage/ e o volume só monta se o diretório EXISTIR no checkout. Com a pasta
+# ignorada, o `git clean -ffdx` do actions/checkout a apagava e o volume não
+# montava — o container subia "Up" sem storage/ nem vendor/ e todo o ERP
+# respondia 500. Padrão do Laravel (e do erp-novo): versionar a árvore com
+# .gitignore internos que ignoram apenas o CONTEÚDO.
 .svn/
 nbproject/
 .vscode/

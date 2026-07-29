@@ -66,6 +66,22 @@ jobs:
             echo "AVISO: /opt/dubena-env/erp-novo-homolog.env ausente — não restaurado." >&2
           fi
 
+      - name: Criar mountpoints de vendor/ e storage/ (exigidos pelo bind)
+        run: |
+          # CAUSA RAIZ DA QUEDA DE 5 SEMANAS. O compose monta `.:/var/www` (bind
+          # do checkout) e, POR CIMA, os volumes nomeados em vendor/ e storage/.
+          # Para sobrepor um volume, o diretório precisa EXISTIR no bind — e o
+          # `git clean -ffdx` do actions/checkout apaga os dois, porque o
+          # .gitignore do ctrl-web ignora `vendor/` e `storage/` e o repo não
+          # rastreia nada dentro deles. Sem os diretórios, o Docker cria o
+          # container com os mounts declarados no `inspect` mas NÃO os monta de
+          # fato: dentro do container só aparecem /var/www e bootstrap/cache
+          # (este sobrevive por ter arquivos rastreados). Resultado: sem vendor/
+          # o PHP não inicializa (500) e sem storage/logs/ o erro não é logado.
+          # O erp-novo não sofre disso porque rastreia os .gitignore padrão do
+          # Laravel dentro de storage/, o que faz o checkout recriar a árvore.
+          mkdir -p vendor storage bootstrap/cache
+
       - name: Build e subida dos containers
         run: |
           docker compose -f docker-compose.prod.yml build

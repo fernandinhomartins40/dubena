@@ -73,6 +73,15 @@ jobs:
           docker run --rm -v "$PWD/..":/app -w /app/frontend node:20-alpine \
             sh -c "npm ci && npm run build"
 
+      - name: Criar mountpoints de vendor/ e storage/ (exigidos pelo bind)
+        run: |
+          # Ver comentário em deploy-ctrl-web.yml: o volume nomeado só monta se o
+          # diretório existir no bind do checkout. Aqui a árvore de storage/
+          # sobrevive ao `git clean` por acaso — o repo rastreia os .gitignore
+          # padrão do Laravel dentro dela —, mas vendor/ não é rastreado. Criar
+          # explicitamente remove a dependência desse efeito colateral.
+          mkdir -p vendor storage bootstrap/cache
+
       - name: Build e subida dos containers
         run: |
           docker compose -f docker-compose.homolog.yml build
