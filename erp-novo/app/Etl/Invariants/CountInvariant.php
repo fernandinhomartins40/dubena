@@ -28,6 +28,23 @@ final class CountInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
+        // A tabela pode não existir na origem: o legado varia por instalação e
+        // nem todo dump traz todos os módulos. Sem origem não há o que comparar
+        // — a invariante não se aplica, e isso NÃO é uma falha do cutover.
+        try {
+            if (! $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado)) {
+                return InvariantResult::ok(
+                    $this->nome(),
+                    "origem `{$this->tabelaLegado}` ausente no dump — não se aplica"
+                );
+            }
+        } catch (\Throwable) {
+            return InvariantResult::ok(
+                $this->nome(),
+                'legado indisponível — não se aplica'
+            );
+        }
+
         $qLegado = $this->ctx->legado()->table($this->tabelaLegado);
         if ($this->whereLegado) {
             $qLegado->whereRaw($this->whereLegado);

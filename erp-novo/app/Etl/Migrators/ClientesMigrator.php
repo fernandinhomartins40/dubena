@@ -7,7 +7,8 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Cliente\Cliente;
+use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
  * N2 — migra clientes + telefones do legado.
@@ -18,6 +19,8 @@ use App\Models\Cliente\Cliente;
  */
 final class ClientesMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -37,23 +40,97 @@ final class ClientesMigrator implements Migrator
         $clientes = $this->lerClientes($ctx);
         $telefones = $this->lerTelefones($ctx);
 
+        // FKs geográficas: o dump referencia cidades/bairros/ruas que podem não
+        // ter sobrevivido à carga do geográfico (descartados por falta de
+        // cidade). Como são nullable aqui, a referência inválida vira null em
+        // vez de derrubar a carga.
+        $clientes = $this->anularFksInvalidas($clientes, [
+            'cidade_id' => 'cidades',
+            'bairro_id' => 'bairros',
+            'rua_id' => 'ruas',
+            // Cadastros de apoio podem não ter vindo no dump (o legado guarda
+            // esses domínios em tabelas que nem sempre acompanham o export).
+            'tipopessoa_id' => 'tipopessoas',
+            'segmento_id' => 'segmentos',
+        ]);
+
+        // Idem para o cliente-convênio (auto-relação): o titular pode não estar
+        // na fatia migrada.
+        $idsClientes = array_flip(array_map(fn ($c) => (int) $c['id'], $clientes));
+        $convenioInvalido = 0;
+        foreach ($clientes as &$c) {
+            $ref = (int) ($c['convenio_id'] ?? 0);
+            if ($ref !== 0 && ! isset($idsClientes[$ref])) {
+                $c['convenio_id'] = null;
+                $convenioInvalido++;
+            }
+        }
+        unset($c);
+
+        // Telefone órfão não tem onde se prender (cliente_id é NOT NULL).
+        $antes = count($telefones);
+        $telefones = array_values(array_filter(
+            $telefones,
+            fn ($t) => isset($idsClientes[(int) $t['cliente_id']])
+        ));
+        $telefonesOrfaos = $antes - count($telefones);
+
+        // `empresa_id` é NOT NULL nas filhas (isolamento multi-tenant), e o
+        // legado não o traz no telefone: herda-se do cliente dono.
+        $empresaDoCliente = [];
+        foreach ($clientes as $c) {
+            $empresaDoCliente[(int) $c['id']] = (int) $c['empresa_id'];
+        }
+        foreach ($telefones as &$t) {
+            $t['empresa_id'] = $empresaDoCliente[(int) $t['cliente_id']] ?? null;
+        }
+        unset($t);
+
+        $telefones = $this->anularFksInvalidas($telefones, [
+            'telefonetipo_id' => 'telefonetipos',
+        ]);
+
         $gravados = 0;
         if (! $ctx->dryRun) {
-            foreach ($clientes as $c) {
-                Cliente::withoutTenant()->updateOrCreate(['id' => $c['id']], $c);
-                $gravados++;
+            // `convenio_id` é auto-referência: o titular pode estar num lote
+            // posterior, então a FK falharia no meio da carga. Grava-se sem ela
+            // e o vínculo é aplicado depois, com todas as linhas já presentes.
+            $vinculos = [];
+            foreach ($clientes as &$c) {
+                if (! empty($c['convenio_id'])) {
+                    $vinculos[(int) $c['id']] = (int) $c['convenio_id'];
+                    $c['convenio_id'] = null;
+                }
             }
-            foreach ($telefones as $t) {
-                \App\Models\Cliente\ClienteTelefone::updateOrCreate(['id' => $t['id']], $t);
-                $gravados++;
+            unset($c);
+
+            // ids preservados: pedidos e telefones referenciam o cliente por id.
+            $gravados += $this->gravarPreservandoId('clientes', $clientes);
+            $gravados += $this->gravarPreservandoId('clientetelefones', $telefones);
+
+            foreach (array_chunk($vinculos, 500, true) as $lote) {
+                foreach ($lote as $id => $titular) {
+                    DB::table('clientes')->where('id', $id)
+                        ->update(['convenio_id' => $titular]);
+                }
             }
+        }
+
+        $avisos = [];
+        if ($convenioInvalido) {
+            $avisos[] = "{$convenioInvalido} cliente(s) apontavam para um titular "
+                .'de convênio fora do dump — convenio_id nulo';
+        }
+        if ($telefonesOrfaos) {
+            $avisos[] = "{$telefonesOrfaos} telefone(s) sem cliente — descartados";
         }
 
         return new MigrationResult(
             migrator: $this->nome(),
-            lidos: count($clientes) + count($telefones),
+            lidos: count($clientes) + count($telefones) + $telefonesOrfaos,
             gravados: $ctx->dryRun ? 0 : $gravados,
-            pulados: 0,
+            pulados: $telefonesOrfaos,
+            avisos: $avisos,
         );
     }
 
@@ -94,9 +171,10 @@ final class ClientesMigrator implements Migrator
             'sexo' => $r->sexo ?? null,
             'datanascimento' => $r->datanascimento ?? null,
             'observacoes' => $r->observacoes ?? null,
-            'cpf' => $r->cpf ?? null,
+            // O legado guarda documento com máscara; o schema novo quer dígitos.
+            'cpf' => $this->soDigitos($r->cpf ?? null, 20),
             'rg' => $r->rg ?? null,
-            'cnpj' => $r->cnpj ?? null,
+            'cnpj' => $this->soDigitos($r->cnpj ?? null, 20),
             'inscricao_estadual' => $r->inscricao_estadual ?? null,
             'indicador_ie' => isset($r->indicador_ie) ? (int) $r->indicador_ie : null,
             'cliente' => (bool) ($r->cliente ?? true),
@@ -109,10 +187,17 @@ final class ClientesMigrator implements Migrator
             'numero' => $r->numero ?? null,
             'complemento' => $r->complemento ?? null,
             'ponto_referencia' => $r->ponto_referencia ?? null,
-            'cep' => $r->cep ?? null,
+            'cep' => $this->soDigitos($r->cep ?? null, 10),
             'uf' => $r->uf ?? null,
             'cidade_id' => $r->cidade_id ?? null,
             'bairro_id' => $r->bairro_id ?? null,
+            'rua_id' => $r->rua_id ?? null,
+            'ponto_referencia' => $r->ponto_referencia ?? null,
+            'suframa' => $r->suframa ?? null,
+            'gasdopovo' => (bool) ($r->gasdopovo ?? false),
+            'convenio_id' => $r->convenio_id ?? null,
+            'location_type' => $r->locationtype ?? null,
+            'data_ultima_compra' => $r->dataultimacompra ?? null,
             'email' => $r->email ?? null,
             'latitude' => isset($r->latitude) ? (float) $r->latitude : null,
             'longitude' => isset($r->longitude) ? (float) $r->longitude : null,
@@ -140,6 +225,14 @@ final class ClientesMigrator implements Migrator
             'telefone' => trim((string) $r->telefone),
             'whatsapp' => (bool) ($r->whatsapp ?? false),
         ])->all();
+    }
+
+    /** Remove máscara de documento/CEP e limita ao tamanho da coluna nova. */
+    private function soDigitos(mixed $v, int $max): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) ($v ?? ''));
+
+        return $d === '' ? null : substr($d, 0, $max);
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool

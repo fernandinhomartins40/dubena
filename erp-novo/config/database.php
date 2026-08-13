@@ -138,8 +138,48 @@ return [
             'charset' => env('LEGADO_DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
+            // O legado pode viver num schema separado do mesmo banco (é o caso
+            // do espelho do Oracle: schema `legado`), daí ser configurável.
+            'search_path' => env('LEGADO_DB_SCHEMA', 'public'),
             'sslmode' => env('LEGADO_DB_SSLMODE', 'prefer'),
+        ],
+
+        /*
+        | Conexão de LEITURA do banco do APP legado "Gás em Casa" (sgcm_api, MySQL).
+        | Usada APENAS pelo AppGasEmCasaMigrator, que traz o que só existe no app
+        | (endereços de entrega e avaliações de pedido). NUNCA escrever aqui.
+        | Configurada via APP_LEGADO_* no .env.
+        */
+        'app_legado' => [
+            'driver' => 'mysql',
+            'host' => env('APP_LEGADO_DB_HOST', '127.0.0.1'),
+            'port' => env('APP_LEGADO_DB_PORT', '3306'),
+            'database' => env('APP_LEGADO_DB_DATABASE', 'sgcm_api'),
+            'username' => env('APP_LEGADO_DB_USERNAME', 'root'),
+            'password' => env('APP_LEGADO_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+        ],
+
+        /*
+        | Conexão de LEITURA do banco do MONITORA legado (rastreamento, MySQL).
+        | Usada APENAS pelo MonitoraLegadoMigrator. NUNCA escrever aqui.
+        */
+        'monitora_legado' => [
+            'driver' => 'mysql',
+            'host' => env('MONITORA_LEGADO_DB_HOST', '127.0.0.1'),
+            'port' => env('MONITORA_LEGADO_DB_PORT', '3306'),
+            'database' => env('MONITORA_LEGADO_DB_DATABASE', 'monitora'),
+            'username' => env('MONITORA_LEGADO_DB_USERNAME', 'root'),
+            'password' => env('MONITORA_LEGADO_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
         ],
 
         'sqlsrv' => [

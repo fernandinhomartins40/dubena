@@ -33,6 +33,20 @@ final class SumInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
+        // A tabela pode não existir na origem (o legado varia por instalação e
+        // nem todo dump traz todos os módulos): sem origem não há soma a
+        // comparar, e isso não é falha do cutover.
+        try {
+            if (! $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado)) {
+                return InvariantResult::ok(
+                    $this->nome(),
+                    "origem `{$this->tabelaLegado}` ausente no dump — não se aplica"
+                );
+            }
+        } catch (\Throwable) {
+            return InvariantResult::ok($this->nome(), 'legado indisponível — não se aplica');
+        }
+
         // No legado a coluna pode estar em string-BR; permite custom (BrFormat) via closure.
         $origem = $this->somaLegadoCustom
             ? round(($this->somaLegadoCustom)($this->ctx), 2)

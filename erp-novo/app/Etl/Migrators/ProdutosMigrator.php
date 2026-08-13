@@ -6,7 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Produto\Produto;
+use App\Etl\Support\PreservaIdsDoLegado;
 
 /**
  * N3 — migra produtos do legado. Preços/pesos string-BR → decimal; flags → boolean.
@@ -15,6 +15,8 @@ use App\Models\Produto\Produto;
  */
 final class ProdutosMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -32,12 +34,17 @@ final class ProdutosMigrator implements Migrator
         $this->ctxAtual = $ctx;
         $produtos = $this->ler($ctx);
 
+        // Cadastros de apoio do produto podem não ter vindo no dump; a FK
+        // inválida vira null em vez de derrubar a carga.
+        $produtos = $this->anularFksInvalidas($produtos, [
+            'produtoclasse_id' => 'produtoclasses',
+            'unidademedida_id' => 'unidadesmedida',
+        ]);
+
         $gravados = 0;
         if (! $ctx->dryRun) {
-            foreach ($produtos as $p) {
-                Produto::withoutTenant()->updateOrCreate(['id' => $p['id']], $p);
-                $gravados++;
-            }
+            // ids preservados: os itens de pedido referenciam o produto por id.
+            $gravados += $this->gravarPreservandoId('produtos', $produtos);
         }
 
         return new MigrationResult(

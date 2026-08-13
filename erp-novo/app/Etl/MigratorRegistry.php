@@ -3,6 +3,7 @@
 namespace App\Etl;
 
 use App\Etl\Contracts\Migrator;
+use App\Etl\Migrators\AppGasEmCasaMigrator;
 use App\Etl\Migrators\CadastrosApoioMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
@@ -17,6 +18,7 @@ use App\Etl\Migrators\FrotaMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\GestaoMigrator;
 use App\Etl\Migrators\MobileMigrator;
+use App\Etl\Migrators\MonitoraLegadoMigrator;
 use App\Etl\Migrators\MonitoraMigrator;
 use App\Etl\Migrators\PagamentoMigrator;
 use App\Etl\Migrators\PedidosMigrator;
@@ -72,6 +74,13 @@ final class MigratorRegistry
 
             // N11 — monitora (GPS, módulo isolado)
             MonitoraMigrator::class,
+
+            // Monitora ORIGINAL (MySQL) — veículos/cercas/última posição.
+            MonitoraLegadoMigrator::class,
+
+            // App "Gás em Casa" (MySQL sgcm_api) — o que só existe no app
+            // (endereços de entrega, avaliações). Depende de clientes+pedidos.
+            AppGasEmCasaMigrator::class,
 
             // F15 — cauda longa (RH, frota, CRM, gestão, pagamentos)
             RhMigrator::class,

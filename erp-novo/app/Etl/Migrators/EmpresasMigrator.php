@@ -6,8 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Empresa;
-use App\Models\Grupo;
+use App\Etl\Support\PreservaIdsDoLegado;
 
 /**
  * N1 — migra grupos e empresas (a entidade-tenant) do legado.
@@ -18,6 +17,8 @@ use App\Models\Grupo;
  */
 final class EmpresasMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -39,14 +40,12 @@ final class EmpresasMigrator implements Migrator
 
         $gravados = 0;
         if (! $ctx->dryRun) {
-            foreach ($grupos as $g) {
-                Grupo::updateOrCreate(['id' => $g['id']], $g);
-                $gravados++;
-            }
-            foreach ($empresas as $e) {
-                Empresa::updateOrCreate(['id' => $e['id']], $e);
-                $gravados++;
-            }
+            // ids preservados: TODO o resto do dump (clientes, pedidos, ...)
+            // referencia a empresa pelo id do legado — que não é sequencial
+            // (2, 114..117, 134, 135). Deixar o auto-increment renumerar
+            // quebraria o vínculo de tenant de toda a carga.
+            $gravados += $this->gravarPreservandoId('grupos', $grupos);
+            $gravados += $this->gravarPreservandoId('empresas', $empresas);
         }
 
         return new MigrationResult(
@@ -101,10 +100,12 @@ final class EmpresasMigrator implements Migrator
             'razao_social' => trim((string) ($r->razaosocial ?? $r->razao_social ?? '')),
             'nome_fantasia' => $r->nomefantasia ?? $r->nome_fantasia ?? null,
             'nome_informal' => $r->nomeinformal ?? $r->nome_informal ?? null,
-            'cnpj' => $r->cnpj ?? null,
+            // O legado guarda com máscara ("04.190.715/0001-05", 18 chars);
+            // o schema novo é varchar(14) só com dígitos.
+            'cnpj' => $this->soDigitos($r->cnpj ?? null, 14),
             'inscricao_estadual' => $r->inscricaoestadual ?? null,
             'inscricao_municipal' => $r->inscricaomunicipal ?? null,
-            'cep' => $r->cep ?? null,
+            'cep' => $this->soDigitos($r->cep ?? null, 8),
             'uf' => $r->uf ?? null,
             'cidade' => $r->cidade ?? null,
             'bairro' => $r->bairro ?? null,
@@ -118,6 +119,17 @@ final class EmpresasMigrator implements Migrator
             'matriz' => (bool) ($r->matriz ?? false),
             'ativo' => (bool) ($r->ativo ?? true),
         ])->all();
+    }
+
+    /**
+     * Remove máscara de documento/CEP e limita ao tamanho da coluna nova.
+     * Devolve null quando não sobra dígito (campo vazio no legado).
+     */
+    private function soDigitos(mixed $v, int $max): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) ($v ?? ''));
+
+        return $d === '' ? null : substr($d, 0, $max);
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool
