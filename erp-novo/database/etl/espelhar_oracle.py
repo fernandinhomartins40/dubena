@@ -73,6 +73,14 @@ MAPA = {
     "COMODATOS": "comodatos",
     # Config da empresa (credenciais PIX/Maps)
     "EMPRESACONFIGS": "empresaconfigs",
+    # Complementos (tabelas recriadas na refatoracao)
+    "NFEMITIDAVOLUMES": "nfemitidavolumes",
+    "BOLETOHISTORICOS": "boletohistoricos",
+    "CONTATRANSFERENCIAS": "contatransferencias",
+    "ESTOQUESETORACERTOS": "estoquesetoracertos",
+    "VALEGASVENDAS": "valegasvendas",
+    "CONDICAOPAGAMENTOPARCELAS": "condicaopagamentoparcelas",
+    "PROMOTORVENDAS": "promotorvendas",
 }
 
 TIPOS = {
@@ -91,6 +99,18 @@ TIPOS = {
 }
 
 IGNORA = {"BLOB", "RAW", "BFILE", "LONG RAW", "ROWID", "UROWID", "XMLTYPE"}
+
+# Colunas que NAO sao migradas e cujo volume inviabiliza a extracao: cada nota
+# fiscal carrega varios XMLs completos em CLOB (o XML autorizado, o de retorno,
+# o de cancelamento...). Puxa-los multiplicaria por ~20 o tempo do espelho para
+# dado que o schema novo nem guarda. O XML original permanece no Oracle.
+IGNORA_COLUNAS = {
+    "XML", "XMLRETORNO", "XMLASSINADO", "XMLRETORNOCANCELAMENTO",
+    "XMLRETORNOCOMPLETO", "XMLRETORNOCOMPLETOPATH", "DPECXMLRETORNO",
+    "CANCELAMENTOEVEXMLRETORNO", "XMLRETORNOEVENTOCARTACORRECAO",
+    "EPECXML", "PRODUTOSJSON", "INFORMACAOCOMPLEMENTAR",
+    "INFORMACAOADICIONALFISCO",
+}
 
 
 def sqlplus(sql):
@@ -135,7 +155,7 @@ def colunas(tabela):
         if not nome or " " in nome:
             continue
         base = tipo.split("(")[0].strip()
-        if base in IGNORA:
+        if base in IGNORA or nome in IGNORA_COLUNAS:
             continue
         pg = "timestamp" if base.startswith("TIMESTAMP") else TIPOS.get(base)
         if pg:

@@ -8,6 +8,7 @@ use App\Etl\Migrators\CadastrosApoioMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\CobrancaMigrator;
+use App\Etl\Migrators\ComplementosMigrator;
 use App\Etl\Migrators\CrmMigrator;
 use App\Etl\Migrators\EmpresaConfigMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
@@ -83,6 +84,10 @@ final class MigratorRegistry
             // App "Gás em Casa" (MySQL sgcm_api) — o que só existe no app
             // (endereços de entrega, avaliações). Depende de clientes+pedidos.
             AppGasEmCasaMigrator::class,
+
+            // Complementos: funcionalidades que ficaram fora da reescrita
+            // (transferências, volumes de NF, histórico de boleto, ...).
+            ComplementosMigrator::class,
 
             // F15 — cauda longa (RH, frota, CRM, gestão, pagamentos)
             RhMigrator::class,
