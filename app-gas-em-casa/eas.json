@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "channel": "preview",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "homolog",
+        "API_URL": "https://gasemcasa.com/novo/api/",
+        "GOOGLE_MAPS_API_KEY": "AIzaSyDygo66KV3BCnznA_vVG4s63JXpk8Qd0d8",
+        "EMPRESA_ID": "1",
+        "APP_DEBUG": "true"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "prod"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
