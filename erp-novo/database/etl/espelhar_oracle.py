@@ -220,8 +220,13 @@ def espelha(pg, tabela_ora, destino):
     view = f"V_ETL_{tabela_ora}"[:30]
     # Cada linha do script tem de caber em 2499 chars (limite SP2-0027 do
     # sqlplus), entao a concatenacao vai quebrada em uma linha por coluna.
-    partes = [expr(n, b) for n, _t, b in cols]
-    corpo = f"\n||'{SEP}'||".join(partes)
+    # Uma coluna sozinha pode passar dos 2499 chars quando o nome e longo
+    # (TRANSLATE + NVL + TO_CHAR aninhados): quebrar so ENTRE colunas nao
+    # basta -- o sqlplus corta a linha no meio e o Oracle recebe um nome de
+    # coluna truncado (ORA-00904 "VALORU...). Quebrar TAMBEM dentro da
+    # expressao, nos operadores de concatenacao, mantem cada linha curta.
+    partes = [expr(n, b).replace("||", "||\n") for n, _t, b in cols]
+    corpo = f"\n||'{SEP}'||\n".join(partes)
     ddl = (f"CREATE OR REPLACE VIEW {view} AS SELECT ROWNUM rn,\n"
            f"{corpo}\nAS c FROM {tabela_ora};\nEXIT;\n")
     saida_ddl = sqlplus(ddl)
@@ -280,8 +285,11 @@ def espelha(pg, tabela_ora, destino):
             print(f"   ... {total}", end="\r", flush=True)
 
         ini += BLOCO
-        if esperado >= 0 and ini >= esperado:
-            break
+        # Para SO quando o bloco vem vazio. Usar `esperado` como limite era
+        # fragil: qualquer divergencia entre o COUNT e o que a view devolve
+        # (ou um bloco parcialmente descartado) encerrava a copia no meio e
+        # deixava linhas para tras sem erro alto -- foi o que aconteceu com
+        # financeiroparcelas (450 mil de 475 mil).
         if n == 0:
             break
 
@@ -290,8 +298,10 @@ def espelha(pg, tabela_ora, destino):
     if descartadas:
         print(f"   AVISO: {descartadas} linha(s) descartada(s) por formato")
     if esperado >= 0 and total != esperado:
-        print(f"   AVISO: origem={esperado} destino={total} "
-              f"(diferenca={esperado - total})")
+        # Divergencia aqui e FALHA, nao ruido: significa dado que ficou para
+        # tras. Marcado como ERRO para nao se perder no meio do log.
+        print(f"   ERRO: espelho INCOMPLETO — origem={esperado} destino={total} "
+              f"(faltam {esperado - total})")
     return total
 
 
