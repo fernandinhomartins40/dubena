@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Building2, Package, MapPin, ScrollText, LogOut, ShieldCheck,
-  Menu as MenuIcon, ChevronLeft, ChevronDown, Moon, Sun,
+  Menu as MenuIcon, ChevronLeft, ChevronDown, Moon, Sun, DatabaseZap,
 } from 'lucide-react'
 import {
   Button, Tooltip,
@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { label: 'Empresas', to: '/superadmin/empresas', icon: <Building2 size={18} />, group: 'Gestão' },
   { label: 'Planos', to: '/superadmin/planos', icon: <Package size={18} />, group: 'Gestão' },
   { label: 'Cidades', to: '/superadmin/cidades', icon: <MapPin size={18} />, group: 'Gestão' },
+  { label: 'Migração', to: '/superadmin/migracoes', icon: <DatabaseZap size={18} />, group: 'Gestão' },
   { label: 'Auditoria', to: '/superadmin/auditoria', icon: <ScrollText size={18} />, group: 'Segurança' },
 ]
 

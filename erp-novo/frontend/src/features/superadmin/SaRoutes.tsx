@@ -19,6 +19,7 @@ const SaEmpresasPage = lazyNamed(() => import('./SaEmpresasPage'), 'SaEmpresasPa
 const SaPlanosPage = lazyNamed(() => import('./SaPlanosPage'), 'SaPlanosPage')
 const SaCidadesPage = lazyNamed(() => import('./SaCidadesPage'), 'SaCidadesPage')
 const SaAuditoriaPage = lazyNamed(() => import('./SaAuditoriaPage'), 'SaAuditoriaPage')
+const SaMigracaoPage = lazyNamed(() => import('./SaMigracaoPage'), 'SaMigracaoPage')
 
 const Splash = () => <div className="grid min-h-screen place-items-center text-muted-foreground">Carregando…</div>
 
@@ -43,6 +44,7 @@ export function SaRoutes() {
         <Route path="/superadmin/empresas" element={p(<SaEmpresasPage />)} />
         <Route path="/superadmin/planos" element={p(<SaPlanosPage />)} />
         <Route path="/superadmin/cidades" element={p(<SaCidadesPage />)} />
+        <Route path="/superadmin/migracoes" element={p(<SaMigracaoPage />)} />
         <Route path="/superadmin/auditoria" element={p(<SaAuditoriaPage />)} />
         <Route path="*" element={<Navigate to="/superadmin" replace />} />
       </Routes>

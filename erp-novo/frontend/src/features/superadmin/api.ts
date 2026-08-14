@@ -234,3 +234,124 @@ export function useSaCidadeAcoes() {
 
 export const useSaAuditoria = () =>
   useQuery<SaAuditoria[]>({ queryKey: ['sa', 'auditoria'], queryFn: async () => (await saApi.get('/auditoria')).data.data })
+
+// ── Migração de sistemas antigos ──────────────────────────────────────────────
+
+export type SaMigracaoStatus =
+  | 'pendente' | 'diagnosticando' | 'aguardando_mapeamento'
+  | 'migrando' | 'concluida' | 'falhou'
+
+export interface SaMigracao {
+  id: number
+  descricao: string
+  origem_tipo: string
+  status: SaMigracaoStatus
+  progresso: number
+  etapa_atual: string | null
+  erro?: string | null
+  diagnostico?: SaDiagnostico | null
+  mapa_empresas?: SaMapaEmpresa[] | null
+  resultado?: Record<string, SaResultadoEtapa> | null
+  descartes_count?: number
+  iniciada_em: string | null
+  concluida_em: string | null
+  created_at: string
+}
+
+export interface SaEmpresaOrigem {
+  id_origem: number
+  nome: string
+  cnpj: string | null
+  tenant_sugerido: number | null
+  acao_sugerida: 'mapear' | 'criar'
+}
+
+export interface SaDiagnostico {
+  tabelas_encontradas: number
+  contagens: Record<string, number>
+  empresas: SaEmpresaOrigem[]
+  alertas: { tipo: string; mensagem: string }[]
+}
+
+export interface SaResultadoEtapa {
+  lidos: number
+  gravados: number
+  pulados: number
+  avisos?: string[]
+  erro?: string
+}
+
+export interface SaMapaEmpresa {
+  id_origem: number
+  acao: 'mapear' | 'criar' | 'ignorar'
+  empresa_id?: number | null
+}
+
+export const useSaMigracoes = () =>
+  useQuery<SaMigracao[]>({
+    queryKey: ['sa', 'migracoes'],
+    queryFn: async () => (await saApi.get('/migracoes')).data.data,
+    // Enquanto houver carga rodando, a lista se atualiza sozinha.
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((m) => m.status === 'migrando' || m.status === 'diagnosticando')
+        ? 3000
+        : false,
+  })
+
+export const useSaMigracao = (id: number | null) =>
+  useQuery<SaMigracao>({
+    queryKey: ['sa', 'migracao', id],
+    enabled: id != null,
+    queryFn: async () => (await saApi.get(`/migracoes/${id}`)).data.data,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status
+      return s === 'migrando' || s === 'diagnosticando' ? 2000 : false
+    },
+  })
+
+export function useSaMigracaoAcoes() {
+  const qc = useQueryClient()
+  const inval = (id?: number) => {
+    qc.invalidateQueries({ queryKey: ['sa', 'migracoes'] })
+    if (id != null) qc.invalidateQueries({ queryKey: ['sa', 'migracao', id] })
+  }
+
+  return {
+    criar: useMutation({
+      mutationFn: async (data: Record<string, unknown>) =>
+        (await saApi.post('/migracoes', data)).data.data as SaMigracao,
+      onSuccess: () => inval(),
+    }),
+    conectar: useMutation({
+      mutationFn: async (id: number) => (await saApi.post(`/migracoes/${id}/conectar`)).data.data,
+    }),
+    diagnosticar: useMutation({
+      mutationFn: async (id: number) =>
+        (await saApi.post(`/migracoes/${id}/diagnosticar`)).data.data as SaDiagnostico,
+      onSuccess: (_d, id) => inval(id),
+    }),
+    salvarMapa: useMutation({
+      mutationFn: async ({ id, mapa }: { id: number; mapa: SaMapaEmpresa[] }) =>
+        (await saApi.put(`/migracoes/${id}/mapeamento`, { mapa })).data.data,
+      onSuccess: (_d, v) => inval(v.id),
+    }),
+    simular: useMutation({
+      mutationFn: async (id: number) =>
+        (await saApi.post(`/migracoes/${id}/simular`)).data.data as Record<string, SaResultadoEtapa>,
+    }),
+    executar: useMutation({
+      mutationFn: async (id: number) => (await saApi.post(`/migracoes/${id}/executar`)).data,
+      onSuccess: (_d, id) => inval(id),
+    }),
+    validar: useMutation({
+      mutationFn: async (id: number) =>
+        (await saApi.get(`/migracoes/${id}/validar`)).data.data as {
+          migrador: string; invariante: string; ok: boolean; resumo: string
+        }[],
+    }),
+  }
+}
+
+/** URL do CSV de descartes (o que não entrou, com o dado de origem). */
+export const saDescartesCsvUrl = (id: number) =>
+  `${PREFIX}/api/superadmin/migracoes/${id}/descartes.csv`

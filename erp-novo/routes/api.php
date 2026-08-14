@@ -61,6 +61,7 @@ use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
 use App\Http\Controllers\Api\SuperAdmin\AuthController as SuperAdminAuthController;
 use App\Http\Controllers\Api\SuperAdmin\EmpresaController as SuperAdminEmpresaController;
+use App\Http\Controllers\Api\SuperAdmin\MigracaoController as SuperAdminMigracaoController;
 use App\Http\Controllers\Api\SuperAdmin\PainelController as SuperAdminPainelController;
 use App\Http\Controllers\Api\SuperAdmin\PlanoController as SuperAdminPlanoController;
 use Illuminate\Http\Request;
@@ -727,6 +728,20 @@ Route::prefix('superadmin')->group(function () {
         Route::get('planos', [SuperAdminPlanoController::class, 'index']);
         Route::post('planos', [SuperAdminPlanoController::class, 'store']);
         Route::put('planos/{id}', [SuperAdminPlanoController::class, 'update'])->whereNumber('id');
+
+        // Ferramenta de MIGRAÇÃO de sistemas antigos. Cross-tenant por natureza
+        // (lê o banco legado inteiro e pode criar empresas), daí ficar aqui.
+        Route::get('migracoes', [SuperAdminMigracaoController::class, 'index']);
+        Route::post('migracoes', [SuperAdminMigracaoController::class, 'store']);
+        Route::get('migracoes/{id}', [SuperAdminMigracaoController::class, 'show'])->whereNumber('id');
+        Route::post('migracoes/{id}/conectar', [SuperAdminMigracaoController::class, 'conectar'])->whereNumber('id');
+        Route::post('migracoes/{id}/diagnosticar', [SuperAdminMigracaoController::class, 'diagnosticar'])->whereNumber('id');
+        Route::put('migracoes/{id}/mapeamento', [SuperAdminMigracaoController::class, 'mapeamento'])->whereNumber('id');
+        Route::post('migracoes/{id}/simular', [SuperAdminMigracaoController::class, 'simular'])->whereNumber('id');
+        Route::post('migracoes/{id}/executar', [SuperAdminMigracaoController::class, 'executar'])->whereNumber('id');
+        Route::get('migracoes/{id}/validar', [SuperAdminMigracaoController::class, 'validar'])->whereNumber('id');
+        Route::get('migracoes/{id}/descartes', [SuperAdminMigracaoController::class, 'descartes'])->whereNumber('id');
+        Route::get('migracoes/{id}/descartes.csv', [SuperAdminMigracaoController::class, 'descartesCsv'])->whereNumber('id');
 
         // Cidades da plataforma (catálogo global).
         Route::get('cidades', [SuperAdminPainelController::class, 'cidades']);

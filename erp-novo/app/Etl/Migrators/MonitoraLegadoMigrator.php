@@ -53,15 +53,25 @@ final class MonitoraLegadoMigrator implements Migrator
                 ['conexão `monitora_legado` indisponível — nada a migrar']);
         }
 
-        $mapaEmpresa = $this->mapearEmpresas();
         $avisos = [];
+        $mapaEmpresa = $this->mapearEmpresas();
+
+        // Empresa que existe no Monitora e não no ERP (Central Gás, QTI,
+        // Dubena Particular) é CRIADA como tenant próprio. Descartar seus
+        // veículos perderia frota e histórico de GPS de operação real.
+        $criadas = $this->criarEmpresasFaltantes($mapaEmpresa, $ctx);
+        if ($criadas > 0) {
+            $avisos[] = "{$criadas} empresa(s) do Monitora sem correspondente no "
+                .'ERP foram criadas como tenant próprio';
+        }
+
         if ($mapaEmpresa === []) {
             return new MigrationResult($this->nome(), 0, 0, 0,
-                ['nenhuma empresa do Monitora casou com o ERP (comparação por nome)']);
+                ['nenhuma empresa do Monitora pôde ser mapeada nem criada']);
         }
 
         [$veiculos, $veiculosPulados] = $this->lerVeiculos($mapaEmpresa);
-        [$cercas, $cercasPuladas] = $this->lerCercas($mapaEmpresa);
+        [$cercas, $cercasPuladas, $cercasSemPoligono] = $this->lerCercas($mapaEmpresa);
 
         $gravados = 0;
         if (! $ctx->dryRun) {
@@ -85,8 +95,11 @@ final class MonitoraLegadoMigrator implements Migrator
                 .'correspondente no ERP — pulados';
         }
         if ($cercasPuladas) {
-            $avisos[] = "{$cercasPuladas} cerca(s) sem polígono ou de empresa "
-                .'não mapeada — puladas';
+            $avisos[] = "{$cercasPuladas} cerca(s) de empresa não mapeada — puladas";
+        }
+        if ($cercasSemPoligono) {
+            $avisos[] = "{$cercasSemPoligono} cerca(s) sem polígono no legado — "
+                .'migradas inativas, com área a definir';
         }
 
         return new MigrationResult(
@@ -136,6 +149,61 @@ final class MonitoraLegadoMigrator implements Migrator
         }
 
         return $mapa;
+    }
+
+    /**
+     * Cria como tenant as empresas que só existem no Monitora, e completa o
+     * mapa com elas. Preserva a frota e o histórico de GPS dessas operações.
+     *
+     * @param  array<int, array{empresa_id:int, grupo_id:int}>  $mapa
+     */
+    private function criarEmpresasFaltantes(array &$mapa, MigrationContext $ctx): int
+    {
+        $semEmpresa = [];
+        foreach ($this->fonte()->table('empresas')->get() as $e) {
+            if (! isset($mapa[(int) $e->id])) {
+                $semEmpresa[] = $e;
+            }
+        }
+        if ($semEmpresa === [] || $ctx->dryRun) {
+            return 0;
+        }
+
+        // Herdam o grupo da primeira empresa já existente (mesma rede Dubena).
+        $grupoId = (int) (DB::table('empresas')->min('grupo_id')
+            ?? DB::table('grupos')->min('id'));
+        $proximoId = (int) DB::table('empresas')->max('id');
+
+        $novas = [];
+        foreach ($semEmpresa as $e) {
+            $proximoId++;
+            $nome = trim((string) ($e->razao_social ?? $e->nome_fantasia ?? 'Empresa'));
+            $novas[] = [
+                'id' => $proximoId,
+                'grupo_id' => $grupoId,
+                'razao_social' => mb_substr($nome, 0, 255),
+                'nome_fantasia' => mb_substr((string) ($e->nome_fantasia ?? $nome), 0, 255),
+                'nome_informal' => mb_substr((string) ($e->nome_informal ?? $nome), 0, 255),
+                'cnpj' => $this->soDigitos($e->cnpj ?? null),
+                'latitude' => $e->latitude !== null ? round((float) $e->latitude, 7) : null,
+                'longitude' => $e->longitude !== null ? round((float) $e->longitude, 7) : null,
+                'matriz' => false,
+                'ativo' => (bool) ($e->ativo ?? true),
+            ];
+            $mapa[(int) $e->id] = ['empresa_id' => $proximoId, 'grupo_id' => $grupoId];
+        }
+
+        $this->gravarPreservandoId('empresas', $novas);
+
+        return count($novas);
+    }
+
+    /** CNPJ do legado vem com máscara; o schema novo é varchar(14). */
+    private function soDigitos(mixed $v): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) ($v ?? ''));
+
+        return $d === '' ? null : substr($d, 0, 14);
     }
 
     /** Caixa baixa, sem acento e sem sufixo societário, para casar nomes. */
@@ -196,11 +264,30 @@ final class MonitoraLegadoMigrator implements Migrator
 
         $out = [];
         $pulados = 0;
+        $semPoligono = 0;
         foreach ($this->fonte()->table('cercas')->get() as $c) {
             $emp = $mapaEmpresa[(int) $c->empresa_id] ?? null;
             $meus = $pontos[(int) $c->id] ?? [];
-            if ($emp === null || $meus === []) {
+            if ($emp === null) {
                 $pulados++;
+
+                continue;
+            }
+
+            // Cerca sem polígono no legado (cadastro iniciado e não concluído):
+            // migra com raio 0 no centro da empresa, preservando o cadastro em
+            // vez de apagá-lo. Fica visível para o usuário completar.
+            if ($meus === []) {
+                $semPoligono++;
+                $out[] = [
+                    'id' => (int) $c->id,
+                    'empresa_id' => $emp['empresa_id'],
+                    'descricao' => mb_substr((string) ($c->descricao ?? 'Cerca'), 0, 255),
+                    'centro_lat' => 0,
+                    'centro_lng' => 0,
+                    'raio_metros' => 0,
+                    'ativo' => false, // sem área definida, não deve valer como geofence
+                ];
 
                 continue;
             }
@@ -226,7 +313,7 @@ final class MonitoraLegadoMigrator implements Migrator
             ];
         }
 
-        return [$out, $pulados];
+        return [$out, $pulados, $semPoligono];
     }
 
     /**

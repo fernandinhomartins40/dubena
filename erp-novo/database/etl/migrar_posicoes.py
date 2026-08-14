@@ -29,17 +29,62 @@ LOTE = 100000
 
 
 def mapa_veiculos(pg, my):
-    """deviceid do rastreador -> id do veiculo no ERP novo.
+    """deviceid do rastreador -> (id do veiculo, empresa_id) no ERP novo.
 
     O MonitoraLegadoMigrator grava o `deviceid` do legado em
-    monitora_veiculos.imei, entao o vinculo e direto. Veiculos que aquele
-    migrator pulou (empresa sem correspondente no ERP) simplesmente nao estao
-    aqui, e suas posicoes serao descartadas com contagem.
+    monitora_veiculos.imei, entao o vinculo e direto.
     """
     pcur = pg.cursor()
     pcur.execute(
         "SELECT id, imei, empresa_id FROM monitora_veiculos WHERE imei IS NOT NULL")
     return {str(imei).strip(): (vid, emp) for vid, imei, emp in pcur.fetchall()}
+
+
+def criar_veiculos_orfaos(pg, my, mapa):
+    """Cria veiculo-marcador para device que emitiu posicao e nao tem cadastro.
+
+    Ha rastreadores em `positions` que nunca entraram em `veiculos` (1,1M de
+    posicoes num deles). Sem um veiculo a que prender, essas posicoes seriam
+    perdidas -- entao cria-se um cadastro identificado pelo proprio device,
+    inativo, para o usuario nomear depois.
+    """
+    cur = my.cursor()
+    cur.execute("SELECT DISTINCT deviceid FROM positions WHERE deviceid IS NOT NULL")
+    devices = {str(d[0]).strip() for d in cur.fetchall() if str(d[0]).strip()}
+    faltantes = sorted(devices - set(mapa))
+    if not faltantes:
+        return 0
+
+    pcur = pg.cursor()
+    # Herdam a empresa que ja concentra a frota migrada.
+    pcur.execute("""SELECT empresa_id, grupo_id FROM monitora_veiculos
+                    GROUP BY empresa_id, grupo_id ORDER BY COUNT(*) DESC LIMIT 1""")
+    linha = pcur.fetchone()
+    if linha is None:
+        return 0
+    empresa, grupo = linha
+
+    pcur.execute("SELECT COALESCE(MAX(id), 0) FROM monitora_veiculos")
+    proximo = pcur.fetchone()[0]
+
+    novos = []
+    for dev in faltantes:
+        proximo += 1
+        novos.append((proximo, empresa, grupo, f"SEM-CAD-{dev}"[:10], dev,
+                      f"Rastreador {dev} sem cadastro de veiculo no legado"))
+        mapa[dev] = (proximo, empresa)
+
+    pcur.executemany(
+        """INSERT INTO monitora_veiculos
+           (id, empresa_id, grupo_id, placa, imei, descricao, ativo,
+            created_at, updated_at)
+           VALUES (%s, %s, %s, %s, %s, %s, false, NOW(), NOW())""",
+        novos,
+    )
+    pcur.execute("""SELECT setval(pg_get_serial_sequence('monitora_veiculos','id'),
+                    COALESCE((SELECT MAX(id) FROM monitora_veiculos), 1))""")
+    pg.commit()
+    return len(novos)
 
 
 def main():
@@ -57,6 +102,10 @@ def main():
         print("Nenhum veiculo casado entre legado e ERP novo. "
               "Rode o MonitoraMigrator antes (etl:run monitora).")
         return 1
+    criados = criar_veiculos_orfaos(pg, my, mapa)
+    if criados:
+        print(f"{criados} veiculo(s)-marcador criado(s) para rastreador sem "
+              f"cadastro no legado.")
     print(f"{len(mapa)} device(s) casado(s) com veiculo do ERP novo.")
 
     onde = ""
