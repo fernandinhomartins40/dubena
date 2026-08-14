@@ -44,7 +44,10 @@ return new class extends Migration
         DB::statement(
             "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {$role}"
         );
-        DB::statement("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {$role}");
+        // UPDATE na sequence é exigido pelo `setval` que o ETL usa para
+        // ressincronizar o auto-increment depois de gravar com id preservado.
+        // Sem ele: "permission denied for sequence <tabela>_id_seq".
+        DB::statement("GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO {$role}");
 
         // Tabelas/sequences criadas daqui para a frente já nascem acessíveis.
         DB::statement(
@@ -53,7 +56,7 @@ return new class extends Migration
         );
         DB::statement(
             "ALTER DEFAULT PRIVILEGES IN SCHEMA public
-             GRANT USAGE, SELECT ON SEQUENCES TO {$role}"
+             GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {$role}"
         );
     }
 
