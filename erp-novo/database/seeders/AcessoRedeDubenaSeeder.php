@@ -53,10 +53,15 @@ class AcessoRedeDubenaSeeder extends Seeder
             support: false,
         );
 
+        // Vincula TODAS, inclusive a empresa padrão do usuário.
+        //
+        // `podeAcessarEmpresa` aceita a empresa padrão OU uma da pivot. Deixar a
+        // matriz de fora funcionava só enquanto ela era a padrão: ao trocar para
+        // outra filial, `users.empresa_id` muda, a matriz deixa de ser padrão,
+        // não está na pivot — e o dono fica preso na filial, com 403 ao tentar
+        // voltar.
         foreach ($filiais as $filial) {
-            if ($filial->id !== $matriz->id) {
-                $dono->empresas()->syncWithoutDetaching([$filial->id]);
-            }
+            $dono->empresas()->syncWithoutDetaching([$filial->id]);
         }
 
         // Papel do dono é GLOBAL na rede (`role_user.empresa_id` nulo): vale em

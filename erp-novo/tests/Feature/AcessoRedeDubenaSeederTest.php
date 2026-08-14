@@ -105,6 +105,43 @@ class AcessoRedeDubenaSeederTest extends TestCase
             ->assertJsonPath('data.0.nome', 'Cliente da Filial');
     }
 
+    public function test_dono_troca_de_filial_e_consegue_voltar_para_a_matriz(): void
+    {
+        // Regressão real: a empresa padrão do dono não entrava na pivot
+        // `empresa_user` (parecia redundante, já que `podeAcessarEmpresa`
+        // aceita a padrão). Ao ativar outra filial, `users.empresa_id` muda, a
+        // matriz deixa de ser a padrão e não está na pivot — o dono ficava
+        // PRESO na filial, com 403 ao tentar voltar.
+        $dono = User::where('email', 'dono@dubena.com.br')->firstOrFail();
+        $token = $dono->createToken('teste')->plainTextToken;
+
+        // Vai para a filial.
+        $this->withToken($token)
+            ->postJson("/api/admin/empresas/{$this->filial->id}/ativar")
+            ->assertOk();
+
+        // E consegue VOLTAR para a matriz.
+        $this->withToken($token)
+            ->postJson("/api/admin/empresas/{$this->matriz->id}/ativar")
+            ->assertOk();
+
+        $this->assertSame(
+            $this->matriz->id,
+            (int) $dono->fresh()->empresa_id,
+            'o dono precisa conseguir voltar para a matriz'
+        );
+    }
+
+    public function test_dono_esta_vinculado_a_todas_as_empresas_da_rede(): void
+    {
+        $dono = User::where('email', 'dono@dubena.com.br')->firstOrFail();
+        $vinculadas = $dono->empresas()->pluck('empresas.id')->all();
+
+        // Inclusive a padrão — é o que sustenta a ida e volta entre filiais.
+        $this->assertContains($this->matriz->id, $vinculadas);
+        $this->assertContains($this->filial->id, $vinculadas);
+    }
+
     public function test_seeder_e_idempotente(): void
     {
         $antes = User::count();
