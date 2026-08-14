@@ -203,13 +203,27 @@ final class CadastrosContabeisMigrator implements Migrator
 
         $linhas = [];
         $lidos = 0;
+        $pulados = 0;
+        // O destino tem UNIQUE (grupo_id, descricao) e o legado repete a mesma
+        // natureza de operação em ids diferentes. Fica a primeira.
+        $vistas = [];
 
         foreach ($ctx->legado()->table('nfoperacaos')->orderBy('id')->get() as $r) {
             $lidos++;
+            $grupo = (int) ($r->grupo_id ?? 0) ?: $grupoPadrao;
+            $descricao = mb_substr(trim((string) $r->descricao), 0, 255);
+            $chave = $grupo.'|'.mb_strtolower($descricao);
+            if (isset($vistas[$chave])) {
+                $pulados++;
+
+                continue;
+            }
+            $vistas[$chave] = true;
+
             $linhas[] = [
                 'id' => (int) $r->id,
-                'grupo_id' => (int) ($r->grupo_id ?? 0) ?: $grupoPadrao,
-                'descricao' => mb_substr(trim((string) $r->descricao), 0, 255),
+                'grupo_id' => $grupo,
+                'descricao' => $descricao,
                 'descricao_fiscal' => mb_substr((string) ($r->descricaofiscal ?? ''), 0, 255) ?: null,
                 'cfop' => mb_substr(preg_replace('/\D/', '', (string) ($r->cfop ?? '')), 0, 4) ?: null,
                 // No legado são strings ('1'/'0'/'S'), não boolean.
@@ -221,10 +235,10 @@ final class CadastrosContabeisMigrator implements Migrator
         }
 
         if ($linhas === [] || $ctx->dryRun) {
-            return [$lidos, 0, 0];
+            return [$lidos, 0, $pulados];
         }
 
-        return [$lidos, $this->gravarPreservandoId('operacoes_fiscais', $linhas), 0];
+        return [$lidos, $this->gravarPreservandoId('operacoes_fiscais', $linhas), $pulados];
     }
 
     /**
