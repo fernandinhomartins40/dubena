@@ -28,7 +28,10 @@ const fmtMoeda = (v: string | number | null | undefined) =>
 
 export function NfeTab() {
   const { busca, setBusca, q, submit } = useBusca()
-  const { data, isLoading } = useNfe(q)
+  const [pagina, setPagina] = useState(1)
+  const { data: resposta, isLoading, isFetching } = useNfe(q, pagina)
+  const data = resposta?.data
+  const meta = resposta?.meta
   const transmitir = useTransmitirNfe(); const cancelar = useCancelarNfe()
   const [cancelando, setCancelando] = useState<NfeRow | null>(null); const [justif, setJustif] = useState('')
 
@@ -101,8 +104,24 @@ export function NfeTab() {
         <AlertCircle size={18} className="shrink-0 mt-0.5" />
         <span>A transmissão e o cancelamento dependem do <strong>certificado digital</strong> (configurável em Empresas → Fiscal) e do ambiente SEFAZ. Valide em <strong>homologação</strong> antes de usar em produção.</span>
       </div>
-      <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar número ou chave de acesso…" />
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(n) => n.id} empty={<EmptyState icon={<FileText />} title="Nenhuma NF-e" description="Notas são geradas a partir de pedidos." />} />
+      <SearchBar
+        value={busca}
+        onChange={setBusca}
+        onSearch={() => { setPagina(1); submit() }}
+        placeholder="Buscar número ou chave de acesso…"
+      />
+      <DataTable
+        columns={columns}
+        rows={data}
+        loading={isLoading}
+        fetching={isFetching}
+        rowKey={(n) => n.id}
+        page={meta?.current_page}
+        lastPage={meta?.last_page}
+        onPageChange={setPagina}
+        pageInfo={meta ? `${meta.total.toLocaleString('pt-BR')} nota(s)` : undefined}
+        empty={<EmptyState icon={<FileText />} title="Nenhuma NF-e" description="Notas são geradas a partir de pedidos." />}
+      />
       <FormDialog open={!!cancelando} onOpenChange={(o) => !o && setCancelando(null)}
         title={`Cancelar NF-e ${cancelando?.serie ?? ''}/${cancelando?.numero ?? ''}`}
         confirmLabel="Cancelar NF-e" loading={cancelar.isPending} onConfirm={onCancelar}>

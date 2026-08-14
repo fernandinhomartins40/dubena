@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Cobranca\BoletoService;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
+use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Cobranca\Boleto;
 use App\Models\Cobranca\RemessaCnab;
@@ -20,6 +21,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class BoletoController extends Controller
 {
     use AutorizaPorPermissao;
+    use PaginaListagem;
 
     public function __construct(private BoletoService $service) {}
 
@@ -28,12 +30,14 @@ class BoletoController extends Controller
         $this->autorizar($request, 'financeiro.view');
         $q = trim((string) $request->query('q', ''));
 
-        $rows = Boleto::query()
+        $query = Boleto::query()
             ->when($request->query('status'), fn ($b, $s) => $b->where('situacao', $s))
             ->when($q !== '', fn ($b) => $b->where('nosso_numero', 'ilike', '%'.$q.'%'))
-            ->orderByDesc('vencimento')->limit(200)->get();
+            ->orderByDesc('vencimento');
 
-        return response()->json(['data' => $rows]);
+        $this->filtrarPeriodo($request, $query, 'vencimento');
+
+        return $this->paginar($request, $query);
     }
 
     public function resumo(Request $request): JsonResponse

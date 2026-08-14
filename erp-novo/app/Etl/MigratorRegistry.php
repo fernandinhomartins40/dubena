@@ -5,6 +5,7 @@ namespace App\Etl;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Migrators\AppGasEmCasaMigrator;
 use App\Etl\Migrators\CadastrosApoioMigrator;
+use App\Etl\Migrators\CadastrosContabeisMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\CobrancaMigrator;
@@ -45,6 +46,9 @@ final class MigratorRegistry
             EmpresasMigrator::class,
             EmpresaConfigMigrator::class,
             CadastrosApoioMigrator::class,
+            // Plano de contas, centros de custo e operacoes fiscais — dao
+            // significado ao financeiro (DRE) e ao fiscal.
+            CadastrosContabeisMigrator::class,
 
             // N2 — geográfico + clientes
             GeograficoMigrator::class,

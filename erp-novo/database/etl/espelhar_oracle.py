@@ -84,6 +84,10 @@ MAPA = {
     "CONTAMOVIMENTOESTORNOS": "contamovimentoestornos",
     "VENDAATIVAS": "vendaativas",
     "VENDAATIVACLIENTES": "vendaativaclientes",
+    # Cadastros contabeis/fiscais (dao significado ao financeiro e ao fiscal)
+    "PLANOCONTAS": "planocontas",
+    "CENTROCUSTOS": "centrocustos",
+    "FINANCEIRORATEIOS": "financeirorateios",
 }
 
 TIPOS = {

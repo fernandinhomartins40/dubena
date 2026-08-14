@@ -55,7 +55,26 @@ export interface NfeRow {
   emitida_em: string | null
   cliente?: { id: number; nome: string } | null
 }
-export const useNfe = (q: string) => useQuery<NfeRow[]>({ queryKey: ['fiscal-nfe', q], queryFn: async () => (await api.get('/fiscal/nfe', { params: { q } })).data.data })
+export interface PaginaNfe {
+  data: NfeRow[]
+  meta: { current_page: number; last_page: number; per_page: number; total: number }
+}
+
+/**
+ * Notas fiscais — PAGINADO.
+ *
+ * A listagem tinha teto fixo de 200 no backend, sem informar o total: com 241
+ * mil notas migradas, a tela mostrava as mais recentes e parecia truncada sem
+ * explicação. Agora vem `meta.total` e o usuário navega/filtra por período.
+ */
+export const useNfe = (q: string, page = 1, filtros?: { inicio?: string; fim?: string; situacao?: string }) =>
+  useQuery<PaginaNfe>({
+    queryKey: ['fiscal-nfe', q, page, filtros?.inicio, filtros?.fim, filtros?.situacao],
+    queryFn: async () => (await api.get('/fiscal/nfe', {
+      params: { q, page, ...filtros },
+    })).data,
+    placeholderData: (anterior) => anterior,   // evita piscar ao trocar de página
+  })
 export function useTransmitirNfe() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: async (id: number) => (await api.post(`/fiscal/nfe/${id}/transmitir`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['fiscal-nfe'] }) })

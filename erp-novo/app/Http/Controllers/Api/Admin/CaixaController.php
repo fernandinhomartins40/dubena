@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\CaixaService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
+use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Caixa\Conta;
 use App\Models\Caixa\ContaMovimento;
@@ -18,6 +19,7 @@ use Illuminate\Http\Request;
 class CaixaController extends Controller
 {
     use AutorizaPorPermissao;
+    use PaginaListagem;
 
     public function __construct(private CaixaService $service) {}
 
@@ -61,9 +63,11 @@ class CaixaController extends Controller
         $this->autorizar($request, 'caixa.view');
         Conta::query()->findOrFail($contaId); // valida escopo
 
-        $movs = ContaMovimento::query()->where('conta_id', $contaId)->orderByDesc('datahora')->limit(200)->get();
+        $query = ContaMovimento::query()->where('conta_id', $contaId)->orderByDesc('datahora');
 
-        return response()->json(['data' => $movs]);
+        $this->filtrarPeriodo($request, $query, 'datahora');
+
+        return $this->paginar($request, $query);
     }
 
     public function abrir(Request $request, int $contaId): JsonResponse

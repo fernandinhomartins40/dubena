@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Satelite\SituacaoValeGas;
 use App\Domain\Satelite\ValeGasService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
+use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\ValeGas;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ use Illuminate\Http\Request;
 class ValeGasController extends Controller
 {
     use AutorizaPorPermissao;
+    use PaginaListagem;
 
     public function __construct(private ValeGasService $service) {}
 
@@ -24,11 +26,12 @@ class ValeGasController extends Controller
         $this->autorizar($request, 'valegas.view');
         $q = trim((string) $request->query('q', ''));
 
-        $rows = ValeGas::query()
+        $query = ValeGas::query()
             ->when($q !== '', fn ($b) => $b->where('codigo', 'ilike', '%'.$q.'%'))
-            ->orderByDesc('id')->limit(200)->get();
+            ->when($request->query('situacao'), fn ($b, $s) => $b->where('situacao', $s))
+            ->orderByDesc('id');
 
-        return response()->json(['data' => $rows]);
+        return $this->paginar($request, $query);
     }
 
     public function situacoes(): JsonResponse

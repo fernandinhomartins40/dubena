@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Etl\Migrators\CadastrosContabeisMigrator;
 use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\CobrancaMigrator;
+use App\Etl\Migrators\ComplementosMigrator;
 use App\Etl\Migrators\EmpresaConfigMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
 use App\Etl\Migrators\FinanceiroMigrator;
@@ -38,6 +40,8 @@ class MigradoresModulosTest extends TestCase
             'cobranca' => ['cobranca', CobrancaMigrator::class],
             'satelites' => ['satelites', SatelitesMigrator::class],
             'empresa-config' => ['empresa-config', EmpresaConfigMigrator::class],
+            'complementos' => ['complementos', ComplementosMigrator::class],
+            'cadastros-contabeis' => ['cadastros-contabeis', CadastrosContabeisMigrator::class],
         ];
     }
 

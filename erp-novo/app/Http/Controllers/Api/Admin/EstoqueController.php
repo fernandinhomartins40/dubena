@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Estoque\EstoqueService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
+use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
@@ -20,6 +21,7 @@ use Illuminate\Http\Request;
 class EstoqueController extends Controller
 {
     use AutorizaPorPermissao;
+    use PaginaListagem;
 
     public function __construct(private EstoqueService $service) {}
 
@@ -99,12 +101,15 @@ class EstoqueController extends Controller
     {
         $this->autorizar($request, 'estoque.view');
 
-        $rows = EstoqueHistorico::query()
+        $query = EstoqueHistorico::query()
             ->when($request->query('setor_id'), fn ($q, $s) => $q->where('setor_id', $s))
             ->when($request->query('produto_id'), fn ($q, $p) => $q->where('produto_id', $p))
-            ->latest()->limit(200)->get();
+            ->when($request->query('tipo'), fn ($q, $t) => $q->where('tipo', $t))
+            ->latest();
 
-        return response()->json(['data' => $rows]);
+        $this->filtrarPeriodo($request, $query, 'created_at');
+
+        return $this->paginar($request, $query);
     }
 
     public function entrada(Request $request): JsonResponse

@@ -8,6 +8,7 @@ use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\SpedContribuicoesService;
 use App\Domain\Fiscal\SpedFiscalService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
+use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
@@ -22,6 +23,7 @@ use Illuminate\Http\Request;
 class NotaFiscalController extends Controller
 {
     use AutorizaPorPermissao;
+    use PaginaListagem;
 
     public function __construct(private FiscalService $service) {}
 
@@ -29,12 +31,25 @@ class NotaFiscalController extends Controller
     {
         $this->autorizar($request, 'fiscal.view');
 
-        $rows = NotaFiscal::query()->with('cliente:id,nome')
+        $busca = trim((string) $request->query('q', ''));
+
+        $query = NotaFiscal::query()->with('cliente:id,nome')
             ->when($request->query('situacao'), fn ($b, $s) => $b->where('situacao', $s))
             ->when($request->query('modelo'), fn ($b, $m) => $b->where('modelo', $m))
-            ->orderByDesc('id')->limit(200)->get();
+            // A busca da tela é por número ou chave de acesso. `LOWER(..) LIKE`
+            // em vez de `ilike`: o ilike é exclusivo do Postgres e a suíte roda
+            // em sqlite — com ilike a busca passava no deploy e quebrava no teste.
+            ->when($busca !== '', fn ($b) => $b->where(function ($w) use ($busca) {
+                $w->whereRaw('LOWER(chave) LIKE ?', ['%'.mb_strtolower($busca).'%']);
+                if (ctype_digit($busca)) {
+                    $w->orWhere('numero', (int) $busca);
+                }
+            }))
+            ->orderByDesc('id');
 
-        return response()->json(['data' => $rows]);
+        $this->filtrarPeriodo($request, $query, 'emitida_em');
+
+        return $this->paginar($request, $query);
     }
 
     public function show(Request $request, int $id): JsonResponse
