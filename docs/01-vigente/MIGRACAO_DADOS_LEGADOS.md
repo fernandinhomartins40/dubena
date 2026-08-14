@@ -39,30 +39,47 @@ própria (1=Distribuidora Dubena, 2=Central Gás, 3=Dubena Particular, 4=QTI) qu
 
 ## 2. Resultado da carga
 
-| Migrador | Lidos | Gravados | Pulados |
-|---|---|---|---|
-| empresas | 8 | 8 | 0 |
-| geografico | 3.073 | 3.073 | 0 |
-| clientes | 92.592 | 92.592 | 0 |
-| produtos | 26 | 26 | 0 |
-| pedidos | 806.980 | 806.980 | 0 |
-| monitora-legado | 50 | 59 | 13 |
-| app-gasemcasa | 44.911 | 34.562 | 10.349 |
-| posições GPS | 16.113.791 | 14.090.443 | 2.023.348 |
+| Entidade no destino | Registros |
+|---|---|
+| `monitora_posicoes` | 16.113.791 |
+| `pedidoitens` | 406.883 |
+| `pedidos` | 401.273 |
+| `clientetelefones` | 68.571 |
+| `clientes` | 66.557 |
+| `cliente_enderecos` | 31.878 |
+| `pedido_avaliacoes` | 21.905 |
+| `monitora_veiculos` | 37 |
+| `empresas` | 10 |
+
+**Nenhum registro descartado.** A primeira execução deixava ~2,05 milhões de
+linhas de fora; cada caso foi tratado (ver 2.1).
 
 Integridade verificada no destino: **zero órfãos** em pedido→cliente,
 item→pedido, item→produto, telefone→cliente, endereço→cliente, avaliação→pedido;
 e `pedidoitens.empresa_id` sempre igual ao `pedidos.empresa_id` (isolamento
 multi-tenant íntegro).
 
-### Os descartes são legítimos e explicados
+### 2.1 Como cada descarte foi eliminado
 
-- **10.145 endereços do app sem cliente no ERP**: dos 20.632 usuários do app,
-  apenas **9.993** têm `API_ID` no ERP. ~10,6 mil pessoas baixaram o app e nunca
-  viraram cliente do ERP. É um dado de negócio, não erro de migração.
-- **9 veículos + 4 cercas**: pertencem a Central Gás/QTI/Dubena Particular,
-  empresas que existem no monitora mas não no ERP.
-- **2.023.348 posições**: de rastreadores desses mesmos veículos.
+A primeira execução descartava ~2,05 milhões de linhas. Todas eram dados reais;
+nenhuma tinha razão para sumir. O que passou a ser feito:
+
+| Antes descartado | Qtd | Tratamento |
+|---|---|---|
+| Usuários do app sem `API_ID` | 11.104 | criados como cliente (com telefones), com o id de origem na observação |
+| Endereços desses usuários | 10.145 | acompanham os clientes criados |
+| Pedidos do app após o corte do dump ERP | 1.203 | migrados com seus itens |
+| Avaliações presas a esses pedidos | 204 → 0 | idem |
+| Veículos de Central Gás/QTI/Particular | 9 | as 3 empresas viraram tenant próprio |
+| Cercas dessas empresas | 4 | idem |
+| Cercas sem polígono | 4 | migradas inativas, área a definir |
+| Posições de rastreador sem veículo | ~1,12 M | veículo-marcador inativo por device |
+| Posições dos veículos não migrados | ~0,9 M | resolvidas com as empresas criadas |
+
+Dois achados de negócio que sobreviveram (não são defeito, são o retrato do
+legado): ~10,6 mil pessoas baixaram o app e nunca viraram cliente do ERP; e
+5 rastreadores emitiam posição sem nunca terem sido cadastrados como veículo —
+um deles com 1 milhão de posições.
 
 Anomalia de dado (do legado, não da migração): 38 posições datadas de 2010–2011,
 de rastreador com relógio dessincronizado. O resto cobre 2019→2026.
@@ -161,7 +178,32 @@ o `COPY`.
 
 ---
 
-## 5. A ferramenta de migração no painel
+## 5. A ferramenta no painel (implementada)
+
+`SuperAdmin → Migração` (`/superadmin/migracoes`). Assistente de 5 passos:
+
+1. **Nova migração** — tipo de origem (ERP PostgreSQL, app MySQL, Monitora
+   MySQL) + credenciais. Ficam **cifradas** (`encrypted:array`) e nunca voltam
+   pela API: são segredo do banco de um terceiro.
+2. **Conectar** — testa o acesso e lista as tabelas encontradas.
+3. **Diagnosticar** — conta as entidades e levanta alertas **sem gravar nada**.
+4. **Mapear empresas** — o único passo que exige humano. Cada empresa da origem
+   recebe uma sugestão (casada por CNPJ, depois por nome normalizado) e três
+   opções: usar empresa existente, criar nova, ignorar. O padrão para quem não
+   tem correspondente é **criar** — nunca descartar.
+5. **Migrar e conferir** — a carga vai para a fila (`ExecutarMigracaoJob`,
+   timeout 6h), com progresso por etapa na tela. No fim: tabela de
+   lidos/migrados/não-migrados, botão para conferir contagens (invariantes
+   origem×destino) e download CSV do que não entrou.
+
+Há também **Simular**, que roda o ETL em `--dry-run` e mostra o que aconteceria.
+
+Peças: `MigracaoService`, `ExecutarMigracaoJob`, `MigracaoController`,
+tabelas `migracoes` e `migracao_descartes`, tela `SaMigracaoPage.tsx`.
+Testes em `tests/Feature/MigracaoFerramentaTest.php` (9 casos), incluindo a
+garantia de que a senha do banco de origem não vaza nem na API nem no banco.
+
+## 5b. Princípios de desenho (o que a migração real ensinou)
 
 O objetivo é o revendedor migrar sozinho. O que a experiência acima ensina:
 
@@ -202,13 +244,16 @@ O objetivo é o revendedor migrar sozinho. O que a experiência acima ensina:
 - `php artisan etl:run --dry-run --check` — simulação e portão de validação.
 - Migradores de empresas, geográfico, clientes, produtos, pedidos, monitora e app.
 
-### 5.4 O que falta para o painel
+### 5.4 O que ainda falta
 
-- UI do assistente (5 passos acima) + `MigracaoJob` em fila.
-- Tela de mapeamento de empresa→tenant (hoje é por nome, no código).
-- Upload/conexão dos dumps pela interface.
-- Persistir o relatório de migração (hoje sai no terminal).
-- Os migradores de financeiro, estoque, caixa, fiscal e cobrança ainda estão no
+- **Migradores de financeiro, estoque, caixa, fiscal e cobrança**: continuam no
   esqueleto otimista — foram escritos antes de existir um dump real e assumem
-  nomes/colunas que não conferem. Precisam do mesmo tratamento que empresas,
-  clientes e pedidos receberam aqui.
+  nomes/colunas que não conferem com o Oracle. Precisam do mesmo trabalho de
+  conferência que empresas, clientes e pedidos receberam. É a maior pendência.
+- **Origem por arquivo**: hoje a ferramenta conecta num banco de pé. Aceitar o
+  upload de um `.sql`/`.dmp` exigiria restaurá-lo no servidor primeiro.
+- **Origem Oracle direta**: o `espelhar_oracle.py` faz a ponte fora do painel,
+  porque o PHP do container não tem driver Oracle. Para o revendedor com ERP
+  Oracle, esse passo ainda é operado por nós.
+- **Reprocessar descartes pela tela**: os registros já ficam em
+  `migracao_descartes` com o dado original; falta o botão que os reenvia.
