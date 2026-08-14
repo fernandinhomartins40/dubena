@@ -2,6 +2,7 @@
 
 namespace App\Etl\Migrators;
 
+use App\Domain\Cobranca\SituacaoBoleto;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
@@ -110,17 +111,27 @@ final class CobrancaMigrator implements Migrator
         return [new CountInvariant($ctx, 'boletos', 'boletos')];
     }
 
-    /** Estado do boleto a partir das flags do legado e da baixa da parcela. */
+    /**
+     * Estado do boleto a partir das flags do legado e da baixa da parcela.
+     *
+     * Usa o enum `SituacaoBoleto` como fonte da verdade — gravar uma string
+     * solta aqui produz um erro TARDIO e obscuro: a carga passa, e o 500
+     * ("X is not a valid backing value for enum") só aparece quando alguém
+     * abre a tela. Foi o que aconteceu com "PAGO" (o correto é LIQUIDADO).
+     */
     private function situacao(object $r, bool $baixado): string
     {
         if ($this->booleano($r->cancelado ?? null)) {
-            return 'CANCELADO';
+            return SituacaoBoleto::CANCELADO->value;
         }
         if ($baixado) {
-            return 'PAGO';
+            return SituacaoBoleto::LIQUIDADO->value;
+        }
+        if ($this->booleano($r->gerouremessa ?? null)) {
+            return SituacaoBoleto::REGISTRADO->value;
         }
 
-        return 'PENDENTE';
+        return SituacaoBoleto::PENDENTE->value;
     }
 
     /**
