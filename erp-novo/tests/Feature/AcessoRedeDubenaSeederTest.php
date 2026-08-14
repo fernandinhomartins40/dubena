@@ -70,19 +70,20 @@ class AcessoRedeDubenaSeederTest extends TestCase
         $this->assertTrue($dono->temPermissao('cliente.view', $this->filial->id));
     }
 
-    public function test_dono_alterna_de_filial_e_ve_os_dados_de_cada_uma(): void
+    public function test_dono_ve_a_rede_inteira_e_filtra_por_filial(): void
     {
         $dono = User::where('email', 'dono@dubena.com.br')->firstOrFail();
         $token = $dono->createToken('teste')->plainTextToken;
 
+        // A REDE: 2 da matriz + 1 da filial.
         $this->withToken($token)
             ->getJson('/api/admin/clientes')
             ->assertOk()
-            ->assertJsonCount(2, 'data');   // os dois da matriz
+            ->assertJsonCount(3, 'data');
 
+        // O combo da tela restringe a uma unidade.
         $this->withToken($token)
-            ->withHeader('X-Empresa-Id', (string) $this->filial->id)
-            ->getJson('/api/admin/clientes')
+            ->getJson("/api/admin/clientes?empresa_id={$this->filial->id}")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.nome', 'Cliente da Filial');

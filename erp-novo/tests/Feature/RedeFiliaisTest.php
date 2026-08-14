@@ -108,7 +108,7 @@ class RedeFiliaisTest extends TestCase
         return [$user, $user->createToken('teste')->plainTextToken];
     }
 
-    public function test_dono_da_rede_alterna_entre_as_filiais(): void
+    public function test_dono_da_rede_ve_a_rede_e_pode_filtrar_por_filial(): void
     {
         // Dono: empresa padrão = matriz, com acesso também à filial.
         [$dono, $token] = $this->usuarioDe($this->matriz, [$this->filial]);
@@ -116,20 +116,27 @@ class RedeFiliaisTest extends TestCase
         $this->assertTrue($dono->podeAcessarEmpresa($this->matriz->id));
         $this->assertTrue($dono->podeAcessarEmpresa($this->filial->id));
 
-        // Sem header: vê a matriz.
+        // Por padrão vê a REDE (matriz + filial) — comportamento do ctrl-web,
+        // que usa `whereIn('empresa_id', empresas_permitidas)`.
         $this->withToken($token)
             ->getJson('/api/admin/clientes')
             ->assertOk()
-            ->assertJsonPath('data.0.nome', 'Cliente da Matriz')
+            ->assertJsonCount(2, 'data');
+
+        // O combo da tela (`?empresa_id=`) refina para uma filial.
+        $this->withToken($token)
+            ->getJson("/api/admin/clientes?empresa_id={$this->filial->id}")
+            ->assertOk()
+            ->assertJsonPath('data.0.nome', 'Cliente da Filial')
             ->assertJsonCount(1, 'data');
 
-        // Trocando para a filial: vê a filial, e SÓ ela.
+        // Trocar a empresa ATIVA muda o contexto (config/caixa), não a
+        // visibilidade: a listagem continua mostrando a rede.
         $this->withToken($token)
             ->withHeader('X-Empresa-Id', (string) $this->filial->id)
             ->getJson('/api/admin/clientes')
             ->assertOk()
-            ->assertJsonPath('data.0.nome', 'Cliente da Filial')
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(2, 'data');
     }
 
     public function test_usuario_de_uma_filial_nao_alcanca_a_irma(): void

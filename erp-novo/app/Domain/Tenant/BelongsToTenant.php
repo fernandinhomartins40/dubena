@@ -86,9 +86,15 @@ trait BelongsToTenant
 }
 
 /**
- * Global scope que aplica `where empresa_id = <tenant ativo>` quando há tenant.
- * Sem tenant resolvido (ex.: CLI/ETL), não filtra — a responsabilidade de
- * escopar fica de quem chama.
+ * Global scope que restringe as consultas às empresas VISÍVEIS do tenant.
+ *
+ * Não é `empresa_id = <ativa>`, e sim `empresa_id IN (<visíveis>)` — o mesmo que
+ * o ctrl-web faz em `whereIn('pedido.empresa_id', $empresas->pluck('id'))`. Numa
+ * empresa só as duas formas coincidem; numa rede com filiais, a diferença é o
+ * dono ver a operação inteira em vez de só a unidade em que está posicionado.
+ *
+ * Sem tenant resolvido (CLI/ETL), não filtra — quem chama é responsável pelo
+ * escopo.
  */
 class TenantScope implements Scope
 {
@@ -98,8 +104,17 @@ class TenantScope implements Scope
 
     public function apply(Builder $builder, Model $model): void
     {
-        if ($this->context->empresaId() !== null) {
-            $builder->where($model->getTable().'.empresa_id', $this->context->empresaId());
+        $visiveis = $this->context->empresasVisiveis();
+        if ($visiveis === []) {
+            return;
         }
+
+        $coluna = $model->getTable().'.empresa_id';
+
+        // Uma empresa: `=` em vez de `IN` — o plano do Postgres é melhor e o
+        // SQL fica legível no log.
+        count($visiveis) === 1
+            ? $builder->where($coluna, $visiveis[0])
+            : $builder->whereIn($coluna, $visiveis);
     }
 }

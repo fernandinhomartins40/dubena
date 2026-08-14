@@ -86,6 +86,37 @@ class User extends Authenticatable
             || $this->empresas()->whereKey($empresaId)->exists();
     }
 
+    /**
+     * Empresas cujos dados o usuário VÊ nas listagens, dentro da rede.
+     *
+     * Espelha `empresas_permitidas` do ctrl-web: a empresa padrão MAIS as
+     * vinculadas em `empresa_user`, restritas ao grupo informado — a rede é a
+     * fronteira dura, um vínculo cruzando redes nunca amplia a visão.
+     *
+     * `support` vê todas as empresas do grupo (regra do legado para o suporte).
+     *
+     * @return list<int>
+     */
+    public function empresasVisiveis(?int $grupoId = null): array
+    {
+        $grupoId ??= (int) $this->grupo_id;
+
+        if ($this->support) {
+            return Empresa::query()->where('grupo_id', $grupoId)
+                ->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        $ids = $this->empresas()->where('empresas.grupo_id', $grupoId)
+            ->pluck('empresas.id')->map(fn ($id) => (int) $id)->all();
+
+        // A empresa padrão entra sempre — é onde o usuário está posicionado.
+        if ((int) $this->empresa_id > 0) {
+            $ids[] = (int) $this->empresa_id;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     /** Grupo da empresa informada (para setar o tenant ao trocar de empresa). */
     public function grupoIdDaEmpresa(int $empresaId): ?int
     {

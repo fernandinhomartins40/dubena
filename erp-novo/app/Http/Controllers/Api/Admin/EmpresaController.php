@@ -25,9 +25,17 @@ class EmpresaController extends Controller
     {
         $this->autorizar($request, 'empresa.view');
 
-        $empresas = $this->doGrupo($request)->orderBy('razao_social')->get();
+        $query = $this->doGrupo($request);
 
-        return EmpresaResource::collection($empresas);
+        // O seletor do cabeçalho consome esta lista, então ela precisa conter
+        // só o que o usuário REALMENTE acessa — mostrar uma filial que ele não
+        // pode abrir vira um erro na cara dele. `support` continua vendo todas.
+        $user = $request->user();
+        if ($user !== null && ! $user->support && method_exists($user, 'empresasVisiveis')) {
+            $query->whereIn('id', $user->empresasVisiveis($this->grupoDoUsuario($request)));
+        }
+
+        return EmpresaResource::collection($query->orderBy('razao_social')->get());
     }
 
     public function show(Request $request, int $id): EmpresaResource

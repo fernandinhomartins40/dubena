@@ -21,6 +21,45 @@ Há **duas barreiras** de isolamento, e as duas valem ao mesmo tempo:
 2. *Row Level Security* no Postgres (134 tabelas), com a role de runtime
    `erp_app` sem `BYPASSRLS`.
 
+## Contexto ≠ visibilidade (o erro que custou caro)
+
+O ctrl-web separa **dois** conceitos, e colapsá-los num só foi o defeito que
+fazia a operação sumir da tela:
+
+| Conceito | No legado | No ERP novo | O que define |
+|---|---|---|---|
+| **Empresa ativa** | `Session('empresa_padrao')` | `TenantContext::empresaId()` | config, caixa, numeração fiscal, cabeçalho da NF-e. É **uma**. |
+| **Empresas visíveis** | `Session('empresas_permitidas')` | `TenantContext::empresasVisiveis()` | o que as **listagens** mostram. É um **conjunto**. |
+
+E o legado é explícito no `PedidoRepository`:
+
+```php
+if ($empresa_id != 0) {
+    $pedidos->where('pedido.empresa_id', $empresa_id);          // filtrou uma
+} else {
+    $pedidos->whereIn('pedido.empresa_id', $empresas->pluck('id')); // TODAS as suas
+}
+```
+
+**Por padrão, mostra-se a rede inteira.** Filtrar por uma empresa é escolha do
+usuário no combo do cabeçalho — não o comportamento normal.
+
+Antes, o ERP novo tratava a troca de empresa como interruptor exclusivo: ao
+selecionar uma filial, 400 mil pedidos e 66 mil clientes da matriz sumiam da
+tela, e parecia que o sistema tinha perdido os dados.
+
+**Regra hoje:**
+
+- listagens → `empresa_id IN (empresas visíveis)`;
+- filtro `?empresa_id=` → refina para uma (nunca amplia: empresa fora do
+  conjunto é ignorada);
+- `X-Empresa-Id` → troca o **contexto**, não esconde a rede;
+- **escrita** → sempre na empresa ativa (`WITH CHECK` da RLS). Ver a rede é uma
+  coisa; gravar é sempre onde você está posicionado.
+
+Com **uma empresa só**, o comportamento é idêntico ao anterior — a diferença só
+aparece em rede com filiais.
+
 ## Como um usuário opera mais de uma filial
 
 Três peças independentes — e é o esquecimento de uma delas que produz o usuário
@@ -60,9 +99,13 @@ dia), **Entregador** (espelha o app: pedido + monitora).
 
 ## Onde isso está testado
 
-- `tests/Feature/RedeFiliaisTest.php` — o dono alterna entre filiais e vê os
-  dados de cada uma; quem é de uma filial não alcança a irmã nem forçando o
-  header; outra rede é inacessível.
+- `tests/Feature/VisibilidadeRedeTest.php` — a regra principal: listagem mostra
+  a rede, o filtro refina, trocar de empresa ativa não esconde nada, outra rede
+  permanece invisível e o filtro nunca amplia acesso.
+- `tests/Feature/RedeFiliaisTest.php` — quem é de uma filial não alcança a irmã
+  nem forçando o header; outra rede é inacessível.
+- `tests/Feature/TrocaDeEmpresaRegraTest.php` — a ida e volta entre empresas
+  (a origem vira vínculo permanente), com rede genérica.
 - `tests/Feature/AcessoRedeDubenaSeederTest.php` — o cenário real montado pelo
   seeder (dono + gerente de filial), incluindo idempotência.
 - `tests/Feature/SegurancaMultiTenantTest.php` e a suíte de RLS — as duas

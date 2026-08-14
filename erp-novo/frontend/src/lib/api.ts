@@ -45,12 +45,44 @@ export const api = axios.create({
   headers: { Accept: 'application/json' },
 })
 
+const FILTRO_EMPRESA_KEY = 'erpnovo_filtro_empresa'
+
+/**
+ * Filtro "empresa" das listagens — o combo do cabeçalho.
+ *
+ * Numa rede com filiais, as telas mostram a operação INTEIRA por padrão (é o
+ * comportamento do ERP antigo). Este filtro refina para uma unidade; `null`
+ * volta a mostrar a rede. Não confundir com a EMPRESA ATIVA (`X-Empresa-Id`),
+ * que define config, caixa e numeração fiscal.
+ *
+ * Fica em sessionStorage: é uma escolha de visualização, não deve sobreviver
+ * ao fechamento do navegador nem contaminar outra aba.
+ */
+export function setFiltroEmpresa(empresaId: number | null): void {
+  if (empresaId && empresaId > 0) sessionStorage.setItem(FILTRO_EMPRESA_KEY, String(empresaId))
+  else sessionStorage.removeItem(FILTRO_EMPRESA_KEY)
+}
+
+export function getFiltroEmpresa(): number | null {
+  const v = Number(sessionStorage.getItem(FILTRO_EMPRESA_KEY))
+  return Number.isFinite(v) && v > 0 ? v : null
+}
+
 // Anexa o Bearer token quando houver (modo token; cookie funciona sem ele).
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  // O filtro vai em TODA requisição: o backend o aplica no escopo de tenant, o
+  // que evita ter de tocar nas ~40 telas de listagem uma a uma. Uma chamada que
+  // já defina `empresa_id` explicitamente tem prioridade.
+  const filtro = getFiltroEmpresa()
+  if (filtro && config.params?.empresa_id === undefined) {
+    config.params = { ...(config.params ?? {}), empresa_id: filtro }
+  }
+
   return config
 })
 

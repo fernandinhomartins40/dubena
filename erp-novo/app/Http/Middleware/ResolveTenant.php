@@ -31,7 +31,7 @@ class ResolveTenant
             $empresaId = (int) $user->empresa_id;
             $grupoId = (int) $user->grupo_id;
 
-            // Troca de empresa ativa (se solicitada e permitida ao usuário).
+            // Troca da empresa ATIVA (contexto): config, caixa, numeração fiscal.
             $solicitada = $request->header('X-Empresa-Id');
             if ($solicitada !== null && method_exists($user, 'podeAcessarEmpresa')) {
                 $solicitada = (int) $solicitada;
@@ -42,8 +42,22 @@ class ResolveTenant
             }
 
             if ($empresaId > 0 && $grupoId > 0) {
-                $this->tenant->set($empresaId, $grupoId);
-                $this->setRlsTenant($empresaId, $grupoId);
+                // As LISTAGENS mostram todas as empresas do usuário na rede —
+                // não só a ativa. É o comportamento do ctrl-web
+                // (`empresas_permitidas` + `whereIn`), e o que o dono de uma
+                // rede espera: ver a operação inteira ao abrir uma tela.
+                $visiveis = method_exists($user, 'empresasVisiveis')
+                    ? $user->empresasVisiveis($grupoId)
+                    : [$empresaId];
+
+                $this->tenant->set($empresaId, $grupoId, $visiveis);
+
+                // Filtro OPCIONAL por empresa (o combo da tela). Equivale ao
+                // `if ($empresa_id != 0)` do legado: refina a visão, nunca
+                // amplia — uma empresa fora do conjunto é ignorada.
+                $this->tenant->filtrarPorEmpresa($this->empresaDoFiltro($request));
+
+                $this->setRlsTenant($empresaId, $grupoId, $this->tenant->empresasVisiveis());
             }
         }
 
@@ -64,21 +78,49 @@ class ResolveTenant
     }
 
     /**
-     * Define `app.empresa_id` e `app.grupo_id` na sessão do Postgres para alimentar
-     * as policies de RLS. É a 2ª barreira: mesmo uma query crua só vê linhas do
-     * tenant ativo — empresa (tabelas operacionais) e grupo (cadastros de apoio
-     * compartilhados). NO-OP fora do pgsql. set_config(..., false) = escopo de sessão.
+     * Empresa pedida no filtro da tela (`?empresa_id=`), se houver.
+     *
+     * Não confundir com `X-Empresa-Id`: aquele troca o CONTEXTO (config, caixa,
+     * numeração fiscal); este só refina o que a listagem mostra.
      */
-    private function setRlsTenant(int $empresaId, int $grupoId): void
+    private function empresaDoFiltro(Request $request): ?int
+    {
+        $valor = $request->query('empresa_id');
+
+        return is_numeric($valor) ? (int) $valor : null;
+    }
+
+    /**
+     * Define as GUCs que alimentam as policies de RLS. É a 2ª barreira: mesmo
+     * uma query crua só vê linhas permitidas.
+     *
+     * `app.empresa_id` = a empresa ATIVA (contexto).
+     * `app.empresas_visiveis` = a lista que as listagens podem ver, em CSV.
+     *
+     * As duas precisam andar juntas: se a policy continuasse comparando só com
+     * `app.empresa_id`, o banco barraria exatamente o que a aplicação passou a
+     * liberar — as filiais sumiriam de novo, agora sem erro visível.
+     *
+     * NO-OP fora do pgsql. set_config(..., false) = escopo de sessão.
+     *
+     * @param  list<int>  $visiveis
+     */
+    private function setRlsTenant(int $empresaId, int $grupoId, array $visiveis = []): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
             return;
         }
 
-        DB::statement('SELECT set_config(?, ?, false), set_config(?, ?, false)', [
-            'app.empresa_id', (string) $empresaId,
-            'app.grupo_id', (string) $grupoId,
-        ]);
+        $lista = implode(',', $visiveis !== [] ? $visiveis : [$empresaId]);
+
+        DB::statement(
+            'SELECT set_config(?, ?, false), set_config(?, ?, false), set_config(?, ?, false)',
+            [
+                'app.empresa_id', (string) $empresaId,
+                'app.grupo_id', (string) $grupoId,
+                'app.empresas_visiveis', $lista,
+            ]
+        );
     }
 
     /** Zera as GUCs de tenant (fim de requisição). NO-OP fora do pgsql. */
@@ -88,6 +130,10 @@ class ResolveTenant
             return;
         }
 
-        DB::statement("SELECT set_config('app.empresa_id', '', false), set_config('app.grupo_id', '', false)");
+        DB::statement(
+            "SELECT set_config('app.empresa_id', '', false), "
+            ."set_config('app.grupo_id', '', false), "
+            ."set_config('app.empresas_visiveis', '', false)"
+        );
     }
 }
