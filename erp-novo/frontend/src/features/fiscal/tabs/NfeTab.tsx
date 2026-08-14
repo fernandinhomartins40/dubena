@@ -7,11 +7,24 @@ import { useNfe, useTransmitirNfe, useCancelarNfe, type NfeRow } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 import { useBusca } from '@/lib/useBusca'
 
-const SITUACAO_NFE: Record<number, { l: string; v: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
-  100: { l: 'Autorizada', v: 'success' },
-  101: { l: 'Cancelada', v: 'destructive' },
-  3: { l: 'Autorizada', v: 'success' },
+/**
+ * Situação da nota — os valores do enum `SituacaoNota` do backend.
+ *
+ * Antes isto era um mapa por CÓDIGO da SEFAZ (100/101), que a API nunca
+ * devolveu: o resultado era toda nota cair no fallback "Pendente", inclusive as
+ * 239 mil autorizadas.
+ */
+const SITUACAO_NFE: Record<string, { l: string; v: 'success' | 'warning' | 'destructive' | 'secondary' }> = {
+  AUTORIZADA: { l: 'Autorizada', v: 'success' },
+  CANCELADA: { l: 'Cancelada', v: 'destructive' },
+  REJEITADA: { l: 'Rejeitada', v: 'destructive' },
+  DENEGADA: { l: 'Denegada', v: 'destructive' },
+  EMITIDA: { l: 'Emitida', v: 'warning' },
+  RASCUNHO: { l: 'Rascunho', v: 'secondary' },
 }
+
+const fmtMoeda = (v: string | number | null | undefined) =>
+  v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function NfeTab() {
   const { busca, setBusca, q, submit } = useBusca()
@@ -30,18 +43,55 @@ export function NfeTab() {
   }
 
   const columns: Column<NfeRow>[] = [
-    { key: 'num', header: 'Número', cell: (n) => <span className="font-medium tabular-nums">{n.nfserie}/{n.nfnumero}</span> },
-    { key: 'modelo', header: 'Modelo', width: 'w-20', cell: (n) => n.nfmodelo || '—' },
-    { key: 'chave', header: 'Chave de acesso', cell: (n) => <span className="text-xs text-muted-foreground tabular-nums">{n.chaveacesso || '—'}</span> },
-    { key: 'emissao', header: 'Emissão', cell: (n) => fmtData(n.datahoraemissao) },
-    { key: 'sit', header: 'Situação', align: 'center', cell: (n) => { const s = SITUACAO_NFE[Number(n.nfsituacao_id)]; return s ? <Badge variant={s.v}>{s.l}</Badge> : <Badge variant="warning">Pendente</Badge> } },
     {
-      key: 'acoes', header: '', align: 'right', cell: (n) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="outline" size="sm" loading={transmitir.isPending} onClick={() => onTransmitir(n)}><Send size={14} /> Transmitir</Button>
-          <Button variant="ghost" size="sm" onClick={() => setCancelando(n)}><Ban size={14} /> Cancelar</Button>
-        </div>
-      ),
+      key: 'num', header: 'Número',
+      cell: (n) => <span className="font-medium tabular-nums">{n.serie ?? '—'}/{n.numero ?? '—'}</span>,
+    },
+    { key: 'modelo', header: 'Modelo', width: 'w-20', cell: (n) => n.modelo || '—' },
+    {
+      key: 'cliente', header: 'Cliente',
+      cell: (n) => <span className="truncate">{n.cliente?.nome ?? '—'}</span>,
+    },
+    {
+      key: 'chave', header: 'Chave de acesso',
+      cell: (n) => <span className="text-xs text-muted-foreground tabular-nums">{n.chave || '—'}</span>,
+    },
+    { key: 'emissao', header: 'Emissão', cell: (n) => fmtData(n.emitida_em) },
+    { key: 'valor', header: 'Valor', align: 'right', cell: (n) => fmtMoeda(n.valor_total) },
+    {
+      key: 'sit', header: 'Situação', align: 'center',
+      cell: (n) => {
+        const s = n.situacao ? SITUACAO_NFE[n.situacao] : undefined
+        return s
+          ? <Badge variant={s.v}>{s.l}</Badge>
+          : <Badge variant="secondary">{n.situacao ?? '—'}</Badge>
+      },
+    },
+    {
+      key: 'acoes', header: '', align: 'right',
+      cell: (n) => {
+        // Transmitir/cancelar só fazem sentido conforme o estado: oferecer
+        // "Transmitir" numa nota já autorizada convida ao erro.
+        const podeTransmitir = n.situacao === 'RASCUNHO' || n.situacao === 'REJEITADA'
+        const podeCancelar = n.situacao === 'AUTORIZADA'
+
+        if (!podeTransmitir && !podeCancelar) return null
+
+        return (
+          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {podeTransmitir && (
+              <Button variant="outline" size="sm" loading={transmitir.isPending} onClick={() => onTransmitir(n)}>
+                <Send size={14} /> Transmitir
+              </Button>
+            )}
+            {podeCancelar && (
+              <Button variant="ghost" size="sm" onClick={() => setCancelando(n)}>
+                <Ban size={14} /> Cancelar
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -54,7 +104,7 @@ export function NfeTab() {
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar número ou chave de acesso…" />
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(n) => n.id} empty={<EmptyState icon={<FileText />} title="Nenhuma NF-e" description="Notas são geradas a partir de pedidos." />} />
       <FormDialog open={!!cancelando} onOpenChange={(o) => !o && setCancelando(null)}
-        title={`Cancelar NF-e ${cancelando?.nfserie ?? ''}/${cancelando?.nfnumero ?? ''}`}
+        title={`Cancelar NF-e ${cancelando?.serie ?? ''}/${cancelando?.numero ?? ''}`}
         confirmLabel="Cancelar NF-e" loading={cancelar.isPending} onConfirm={onCancelar}>
         <Field label="Justificativa (mín. 15 caracteres)" required><Input value={justif} onChange={(e) => setJustif(e.target.value)} /></Field>
       </FormDialog>

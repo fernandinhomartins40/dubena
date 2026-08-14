@@ -1,10 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
+/**
+ * Saldo de estoque como a API entrega — nomes do schema NOVO
+ * (`quantidade_minima`), não os do ERP antigo (`quantidademinima`). Com o nome
+ * errado a coluna vinha `undefined` e a tela mostrava "—" em todos os mínimos.
+ */
 export interface SaldoRow {
-  id: number; setor_id: number; produto_id: number
-  quantidade: number; quantidademinima: number; quantidademaxima: number
-  setor: string; produto: string
+  id: number
+  setor_id: number
+  produto_id: number
+  quantidade: number
+  quantidade_minima: number | null
+  quantidade_maxima: number | null
+  custo_medio?: number | null
+  setor: string
+  produto: string
 }
 
 export function useSaldos(setorId: number | null, q: string) {

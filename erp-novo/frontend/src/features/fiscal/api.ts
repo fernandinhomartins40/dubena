@@ -34,7 +34,27 @@ export function useExcluirOperacao() {
 }
 
 // NF-e
-export interface NfeRow { id: number; nfmodelo: string | null; nfserie: string | null; nfnumero: string | null; chaveacesso: string | null; datahoraemissao: string | null; nfsituacao_id: number | null }
+/**
+ * Nota fiscal como a API entrega.
+ *
+ * Os nomes são os do schema NOVO (`serie`, `numero`, `chave`, `situacao`), não
+ * os do ERP antigo (`nfserie`, `nfnumero`, `chaveacesso`, `nfsituacao_id`).
+ * Enquanto a tela lia os nomes legados, cada campo vinha `undefined` e as 241
+ * mil notas apareciam como linhas vazias com "/" e travessões.
+ */
+export interface NfeRow {
+  id: number
+  modelo: string | null
+  serie: number | string | null
+  numero: number | string | null
+  chave: string | null
+  protocolo: string | null
+  situacao: 'RASCUNHO' | 'EMITIDA' | 'AUTORIZADA' | 'REJEITADA' | 'DENEGADA' | 'CANCELADA' | null
+  motivo_rejeicao: string | null
+  valor_total: string | number | null
+  emitida_em: string | null
+  cliente?: { id: number; nome: string } | null
+}
 export const useNfe = (q: string) => useQuery<NfeRow[]>({ queryKey: ['fiscal-nfe', q], queryFn: async () => (await api.get('/fiscal/nfe', { params: { q } })).data.data })
 export function useTransmitirNfe() {
   const qc = useQueryClient()

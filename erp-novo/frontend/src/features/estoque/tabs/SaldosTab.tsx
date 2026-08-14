@@ -15,8 +15,8 @@ export function SaldosTab() {
     { key: 'produto', header: 'Produto', cell: (r) => <span className="font-medium">{r.produto}</span> },
     { key: 'setor', header: 'Setor', cell: (r) => <span className="text-muted-foreground">{r.setor}</span> },
     { key: 'qtd', header: 'Quantidade', align: 'right', cell: (r) => <span className={`tabular-nums font-medium ${r.quantidade < 0 ? 'text-destructive' : ''}`}>{fmt(r.quantidade)}</span> },
-    { key: 'min', header: 'Mín.', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{fmt(r.quantidademinima)}</span> },
-    { key: 'max', header: 'Máx.', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{fmt(r.quantidademaxima)}</span> },
+    { key: 'min', header: 'Mín.', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{fmt(r.quantidade_minima)}</span> },
+    { key: 'max', header: 'Máx.', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{fmt(r.quantidade_maxima)}</span> },
   ]
   return (
     <>
