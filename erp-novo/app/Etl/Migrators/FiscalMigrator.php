@@ -61,10 +61,18 @@ final class FiscalMigrator implements Migrator
         $idsEmpresa = $this->idsDe('empresas');
         $idsCliente = $this->idsDe('clientes');
         $chavesUsadas = [];
+        // O destino tem UNIQUE (empresa, modelo, serie, numero). O legado
+        // repete a combinacao — nota inutilizada e reemitida com o mesmo
+        // numero, ou reenvio em contingencia. Fica a PRIMEIRA (a original);
+        // as demais sao contadas como puladas.
+        $numerosUsados = [];
 
         // ── Notas emitidas ──
         $ctx->legado()->table('nfemitidas')->orderBy('id')->chunk(2000,
-            function ($rows) use (&$lidos, &$gravados, &$pulados, &$chavesUsadas, $ctx, $idsEmpresa, $idsCliente) {
+            function ($rows) use (
+                &$lidos, &$gravados, &$pulados, &$chavesUsadas, &$numerosUsados,
+                $ctx, $idsEmpresa, $idsCliente
+            ) {
                 $lote = [];
                 foreach ($rows as $r) {
                     $lidos++;
@@ -88,16 +96,27 @@ final class FiscalMigrator implements Migrator
                     }
 
                     $cliente = (int) ($r->cliente_id ?? 0);
+                    $modelo = mb_substr((string) $r->nfmodelo, 0, 4);
+                    $serie = (int) preg_replace('/\D/', '', (string) $r->nfserie) ?: 1;
+                    $numero = (int) $r->nfnumero;
+
+                    $chaveNota = "{$empresa}|{$modelo}|{$serie}|{$numero}";
+                    if (isset($numerosUsados[$chaveNota])) {
+                        $pulados++;
+
+                        continue;
+                    }
+                    $numerosUsados[$chaveNota] = true;
 
                     $lote[] = [
                         'id' => (int) $r->id,
                         'empresa_id' => $empresa,
                         'grupo_id' => (int) $r->grupo_id,
                         'cliente_id' => isset($idsCliente[$cliente]) ? $cliente : null,
-                        'modelo' => mb_substr((string) $r->nfmodelo, 0, 4),
+                        'modelo' => $modelo,
                         'tipo' => 'S',   // emitida = saída
-                        'serie' => (int) preg_replace('/\D/', '', (string) $r->nfserie) ?: 1,
-                        'numero' => (int) $r->nfnumero,
+                        'serie' => $serie,
+                        'numero' => $numero,
                         'chave' => $chave !== null ? mb_substr($chave, 0, 44) : null,
                         'protocolo' => mb_substr((string) ($r->protocolo ?? ''), 0, 30) ?: null,
                         'valor_produtos' => $this->dec($r->vprod ?? 0),

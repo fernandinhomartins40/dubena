@@ -88,6 +88,7 @@ final class CaixaMigrator implements Migrator
             $idsConta = $this->idsDe('contas');
             $empresaDaConta = $this->empresaPorConta();
             $idsParcela = $this->idsDe('financeiroparcelas');
+            $this->idsUser = $this->idsDe('users');
             $corrente = $saldoInicial;
 
             $ctx->legado()->table('contamovimentos')
@@ -128,6 +129,11 @@ final class CaixaMigrator implements Migrator
                             'multa' => round((float) ($r->multa ?? 0), 2),
                             'desconto' => round((float) ($r->desconto ?? 0), 2),
                             'descricao' => mb_substr((string) ($r->descricao ?? ''), 0, 255) ?: null,
+                            'origem' => mb_substr((string) ($r->origem ?? ''), 0, 40) ?: null,
+                            'user_id' => $this->userValido($r->user_id ?? null),
+                            // NOT NULL no destino: a data da baixa é o momento
+                            // do movimento; sem ela, cai no created_at.
+                            'datahora' => $r->datahorabaixa ?? $r->created_at ?? now(),
                             'created_at' => $r->datahorabaixa ?? $r->created_at ?? null,
                         ];
                     }
@@ -161,6 +167,17 @@ final class CaixaMigrator implements Migrator
             new CountInvariant($ctx, 'contas', 'contas'),
             new CountInvariant($ctx, 'contamovimentos', 'contamovimentos'),
         ];
+    }
+
+    /** @var array<int,true> ids de users válidos (FK opcional do movimento). */
+    private array $idsUser = [];
+
+    /** id do usuário se existir no destino, senão null. */
+    private function userValido(mixed $v): ?int
+    {
+        $id = (int) ($v ?? 0);
+
+        return isset($this->idsUser[$id]) ? $id : null;
     }
 
     /** @return array<int,int> */

@@ -81,6 +81,9 @@ MAPA = {
     "VALEGASVENDAS": "valegasvendas",
     "CONDICAOPAGAMENTOPARCELAS": "condicaopagamentoparcelas",
     "PROMOTORVENDAS": "promotorvendas",
+    "CONTAMOVIMENTOESTORNOS": "contamovimentoestornos",
+    "VENDAATIVAS": "vendaativas",
+    "VENDAATIVACLIENTES": "vendaativaclientes",
 }
 
 TIPOS = {

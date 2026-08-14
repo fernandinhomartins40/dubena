@@ -104,11 +104,14 @@ final class FinanceiroMigrator implements Migrator
         if ($this->tabelaExiste($ctx, 'financeiroparcelas')) {
             $idsTitulo = $this->idsDe('financeiros');
             $empresaDoTitulo = $this->empresaPorTitulo();
+            // A chave (financeiro_id, numero) e UNIQUE no destino e o legado a
+            // repete. O controle tem de ser GLOBAL: duplicatas aparecem em
+            // blocos diferentes, entao um `$vistos` por bloco nao pega.
+            $vistos = [];
 
             $ctx->legado()->table('financeiroparcelas')->orderBy('id')->chunk(5000,
-                function ($rows) use (&$lidos, &$gravados, &$pulados, $ctx, $idsTitulo, $empresaDoTitulo) {
+                function ($rows) use (&$lidos, &$gravados, &$pulados, &$vistos, $ctx, $idsTitulo, $empresaDoTitulo) {
                     $lote = [];
-                    $vistos = [];
                     foreach ($rows as $r) {
                         $lidos++;
                         $titulo = (int) $r->financeiro_id;

@@ -51,6 +51,7 @@ final class ComplementosMigrator implements Migrator
             'estoquetransferencias', 'contatransferencias', 'nfemitidavolumes',
             'boletohistoricos', 'estoquesetoracertos', 'valegasvendas',
             'condicaopagamentoparcelas', 'promotorvendas',
+            'contamovimentoestornos', 'vendaativas', 'vendaativaclientes',
         ];
         if (array_filter($origens, fn ($t) => $this->tabelaExiste($ctx, $t)) === []) {
             return new MigrationResult($this->nome(), 0, 0, 0,
@@ -65,6 +66,8 @@ final class ComplementosMigrator implements Migrator
         $this->vendasValeGas($ctx);
         $this->parcelasCondicaoPagamento($ctx);
         $this->visitasPromotor($ctx);
+        $this->estornosConta($ctx);
+        $this->vendaAtiva($ctx);
 
         if ($this->pulados > 0) {
             $this->avisos[] = "{$this->pulados} registro(s) descartado(s): referência "
@@ -334,8 +337,53 @@ final class ComplementosMigrator implements Migrator
         $this->gravar($ctx, 'vale_gas_vendas', $lote);
     }
 
+    /**
+     * Condição de pagamento + suas parcelas.
+     *
+     * A condição não é migrada por nenhum outro migrador (o CadastrosApoio
+     * cobre só os cadastros de forma "descricao/ativo", e esta tem estrutura
+     * própria). Sem ela, as 88 parcelas ficariam órfãs e o cadastro de
+     * "à vista / 30 / 30-60" apareceria vazio na tela.
+     */
     private function parcelasCondicaoPagamento(MigrationContext $ctx): void
     {
+        if ($this->tabelaExiste($ctx, 'condicaopagamentos')
+            && DB::table('condicaopagamentos')->count() === 0) {
+            $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
+            $lote = [];
+            // O destino tem UNIQUE (grupo_id, descricao) e o legado repete
+            // descrições ("NÃO USAR" aparece várias vezes). Fica a primeira.
+            $vistasDescricoes = [];
+            foreach ($ctx->legado()->table('condicaopagamentos')->orderBy('id')->get() as $r) {
+                $this->lidos++;
+                $grupo = (int) ($r->grupo_id ?? 0) ?: $grupoPadrao;
+                $descricao = mb_substr(trim((string) $r->descricao), 0, 255);
+                $chave = $grupo.'|'.mb_strtolower($descricao);
+                if (isset($vistasDescricoes[$chave])) {
+                    $this->pulados++;
+
+                    continue;
+                }
+                $vistasDescricoes[$chave] = true;
+
+                $lote[] = [
+                    'id' => (int) $r->id,
+                    'grupo_id' => $grupo,
+                    'descricao' => $descricao,
+                    'num_parcelas' => (int) ($r->num_parcelas ?? 1) ?: 1,
+                    'intervalo_dias' => (int) ($r->intervalo ?? 30),
+                    'dias_primeira' => (int) ($r->dias_primeira ?? 0),
+                    // O legado não tem flag "à vista": é à vista quando a
+                    // condição tem uma parcela sem prazo.
+                    'a_vista' => (int) ($r->num_parcelas ?? 1) <= 1
+                        && (int) ($r->dias_primeira ?? 0) === 0,
+                    'ativo' => $this->booleano($r->ativo ?? '1'),
+                    'created_at' => $r->created_at ?? null,
+                ];
+            }
+            $this->gravar($ctx, 'condicaopagamentos', $lote);
+        }
+
         if (! $this->tabelaExiste($ctx, 'condicaopagamentoparcelas')) {
             return;
         }
@@ -407,6 +455,105 @@ final class ComplementosMigrator implements Migrator
                 }
                 $this->gravar($ctx, 'promotor_visitas', $lote);
             });
+    }
+
+    /** Estorno de movimento de conta: o lançamento revertido, preservado. */
+    private function estornosConta(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'contamovimentoestornos')) {
+            return;
+        }
+        $empresaDaConta = $this->mapa('contas', 'empresa_id');
+        $users = $this->idsDe('users');
+        $parcelas = $this->idsDe('financeiroparcelas');
+        $transferencias = $this->idsDe('conta_transferencias');
+
+        $lote = [];
+        foreach ($ctx->legado()->table('contamovimentoestornos')->orderBy('id')->get() as $r) {
+            $this->lidos++;
+            $conta = (int) ($r->conta_id ?? 0);
+            if (! isset($empresaDaConta[$conta])) {
+                $this->pulados++;
+
+                continue;
+            }
+            $pr = mb_strtoupper(trim((string) ($r->pagarreceber ?? '')));
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresaDaConta[$conta],
+                'conta_id' => $conta,
+                'financeiroparcela_id' => $this->ou($parcelas, $r->financeiroparcela_id ?? null),
+                'conta_transferencia_id' => $this->ou($transferencias, $r->contatransferencia_id ?? null),
+                'user_id' => $this->ou($users, $r->user_id ?? null),
+                'valor' => round((float) ($r->valor ?? 0), 2),
+                'valor_efetivado' => round((float) ($r->valorefetivado ?? 0), 2),
+                'juros' => round((float) ($r->juros ?? 0), 2),
+                'multa' => round((float) ($r->multa ?? 0), 2),
+                'desconto' => round((float) ($r->desconto ?? 0), 2),
+                'pagarreceber' => $pr !== '' ? mb_substr($pr, 0, 1) : null,
+                'motivo' => mb_substr((string) ($r->motivo ?? ''), 0, 255) ?: null,
+                'descricao' => mb_substr((string) ($r->descricao ?? ''), 0, 255) ?: null,
+                'datahora_baixa' => $r->datahorabaixa ?? null,
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        $this->gravar($ctx, 'contamovimento_estornos', $lote);
+    }
+
+    /** Venda ativa (telemarketing): a campanha e os clientes trabalhados. */
+    private function vendaAtiva(MigrationContext $ctx): void
+    {
+        $empresaPadrao = (int) (DB::table('empresas')->min('id') ?? 0);
+
+        if ($this->tabelaExiste($ctx, 'vendaativas') && $empresaPadrao > 0) {
+            $empresas = $this->idsDe('empresas');
+            $lote = [];
+            foreach ($ctx->legado()->table('vendaativas')->orderBy('id')->get() as $r) {
+                $this->lidos++;
+                $empresa = (int) ($r->empresa_id ?? 0);
+                $lote[] = [
+                    'id' => (int) $r->id,
+                    'empresa_id' => isset($empresas[$empresa]) ? $empresa : $empresaPadrao,
+                    'descricao' => mb_substr(
+                        trim((string) ($r->descricao ?? "Campanha {$r->id}")), 0, 255
+                    ),
+                    'ativo' => $this->booleano($r->ativo ?? '1'),
+                    'created_at' => $r->created_at ?? null,
+                ];
+            }
+            $this->gravar($ctx, 'venda_ativas', $lote);
+        }
+
+        if (! $this->tabelaExiste($ctx, 'vendaativaclientes')) {
+            return;
+        }
+        $campanhas = $this->mapa('venda_ativas', 'empresa_id');
+        $clientes = $this->idsDe('clientes');
+        $pedidos = $this->idsDe('pedidos');
+
+        $lote = [];
+        foreach ($ctx->legado()->table('vendaativaclientes')->orderBy('id')->get() as $r) {
+            $this->lidos++;
+            $campanha = (int) ($r->vendaativa_id ?? 0);
+            $cliente = (int) ($r->cliente_id ?? 0);
+            if (! isset($campanhas[$campanha], $clientes[$cliente])) {
+                $this->pulados++;
+
+                continue;
+            }
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $campanhas[$campanha],
+                'venda_ativa_id' => $campanha,
+                'cliente_id' => $cliente,
+                'pedido_id' => $this->ou($pedidos, $r->pedido_id ?? null),
+                'datahora' => $r->datahora ?? null,
+                'ligar_novamente' => $this->booleano($r->ligarnovamente ?? null),
+                'previsao_proxima_compra' => $r->previsaoproxcompra ?? null,
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        $this->gravar($ctx, 'venda_ativa_clientes', $lote);
     }
 
     /** id se existir no conjunto, senão null (FK opcional). */

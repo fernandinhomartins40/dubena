@@ -206,13 +206,25 @@ final class SatelitesMigrator implements Migrator
         $novos = [];
         $proximo = (int) (DB::table('convenios')->max('id') ?? 0);
 
+        $grupoDaEmpresa = $this->grupoPorEmpresa();
+        // O convênio no legado não tem nome próprio — é do cliente titular,
+        // então é o nome dele que identifica o convênio na tela.
+        $nomeDoCliente = DB::table('clientes')
+            ->whereIn('id', array_keys($clientes))
+            ->pluck('nome', 'id');
+
         foreach (array_keys($clientes) as $clienteId) {
             $proximo++;
             $convenioDoCliente[$clienteId] = $proximo;
+            $empresaId = $empresaDoCliente[$clienteId] ?? 0;
             $linha = [
                 'id' => $proximo,
-                'empresa_id' => $empresaDoCliente[$clienteId] ?? 0,
+                'empresa_id' => $empresaId,
+                'grupo_id' => $grupoDaEmpresa[$empresaId] ?? null,
                 'cliente_id' => $clienteId,
+                'descricao' => mb_substr(
+                    (string) ($nomeDoCliente[$clienteId] ?? "Convênio {$clienteId}"), 0, 255
+                ),
                 'ativo' => true,
             ];
             $novos[] = array_filter(
@@ -262,6 +274,17 @@ final class SatelitesMigrator implements Migrator
             .'fechamento derivado de emissão/vencimento';
 
         return [$gravados, count($fechamentos), $pulados, $aviso];
+    }
+
+    /** @return array<int,int> empresa_id => grupo_id */
+    private function grupoPorEmpresa(): array
+    {
+        $out = [];
+        foreach (DB::table('empresas')->select('id', 'grupo_id')->get() as $e) {
+            $out[(int) $e->id] = (int) $e->grupo_id;
+        }
+
+        return $out;
     }
 
     /** @return array<int,int> */
