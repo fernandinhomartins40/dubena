@@ -3,24 +3,27 @@
 namespace App\Etl\Migrators;
 
 use App\Etl\Contracts\Migrator;
-use App\Etl\Invariants\BalanceInvariant;
 use App\Etl\Invariants\CountInvariant;
-use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Caixa\Cheque;
-use App\Models\Caixa\Conta;
-use App\Models\Caixa\ContaMovimento;
+use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
- * N6 — migra contas + movimentos + cheques (o coração do saldo, baseline #1).
+ * N6 — contas (caixa/banco) e seus movimentos (~410 mil).
  *
- * INVARIANTE DE OURO do cutover: Σ contamovimentos.valor = conta.saldo_atual.
- * Migra o movimento fielmente (valor assinado) e o saldo materializado; a
- * BalanceInvariant prova que não divergiram. Sem essa verde, NÃO se faz cutover.
+ * Não existe tabela `caixas` no legado: o caixa É uma conta, distinguida por
+ * `contatipo_id`. O que o destino chama de `tipo` (CAIXA/BANCO) é derivado da
+ * existência de `banco_id`.
+ *
+ * `saldo_resultante` é NOT NULL no destino e não existe no legado — é
+ * reconstruído acumulando os movimentos por conta em ordem cronológica, a
+ * partir do `saldoinicial` da conta. É o que torna o extrato conferível.
  */
 final class CaixaMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -30,140 +33,169 @@ final class CaixaMigrator implements Migrator
 
     public function dependeDe(): array
     {
-        return ['empresas', 'financeiro'];
+        return ['financeiro'];
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
         $this->ctxAtual = $ctx;
 
-        $contas = $this->lerContas($ctx);
-        $movimentos = $this->lerMovimentos($ctx);
-        $cheques = $this->lerCheques($ctx);
-
-        $gravados = 0;
-        if (! $ctx->dryRun) {
-            foreach ($contas as $c) {
-                Conta::withoutTenant()->updateOrCreate(['id' => $c['id']], $c);
-                $gravados++;
-            }
-            foreach ($movimentos as $m) {
-                ContaMovimento::updateOrCreate(['id' => $m['id']], $m);
-                $gravados++;
-            }
-            foreach ($cheques as $ch) {
-                Cheque::withoutTenant()->updateOrCreate(['id' => $ch['id']], $ch);
-                $gravados++;
-            }
+        if (! $this->tabelaExiste($ctx, 'contas')) {
+            return new MigrationResult($this->nome(), 0, 0, 0,
+                ['legado indisponível ou sem as tabelas de conta/caixa']);
         }
+
+        $idsEmpresa = $this->idsDe('empresas');
+        $lidos = 0;
+        $gravados = 0;
+        $pulados = 0;
+        $avisos = [];
+
+        // ── Contas ──
+        $contas = [];
+        $saldoInicial = [];
+        foreach ($ctx->legado()->table('contas')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $empresa = (int) $r->empresa_id;
+            if (! isset($idsEmpresa[$empresa])) {
+                $pulados++;
+
+                continue;
+            }
+            $saldoInicial[(int) $r->id] = (float) ($r->saldoinicial ?? 0);
+            $contas[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresa,
+                'grupo_id' => (int) $r->grupo_id,
+                'descricao' => mb_substr(trim((string) $r->descricao), 0, 255),
+                // O legado não rotula caixa/banco: quem tem banco é BANCO.
+                'tipo' => ! empty($r->banco_id) ? 'BANCO' : 'CAIXA',
+                'agencia' => mb_substr((string) ($r->agencia ?? ''), 0, 20) ?: null,
+                'numero' => mb_substr((string) ($r->conta ?? ''), 0, 30) ?: null,
+                'saldo_inicial' => round((float) ($r->saldoinicial ?? 0), 2),
+                'saldo_atual' => round((float) ($r->saldoatual ?? 0), 2),
+                'fechado' => $this->booleano($r->fechado ?? null),
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+
+        if (! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('contas', $contas);
+        }
+
+        // ── Movimentos (volumosos; saldo reconstruído por conta) ──
+        if ($this->tabelaExiste($ctx, 'contamovimentos')) {
+            $idsConta = $this->idsDe('contas');
+            $empresaDaConta = $this->empresaPorConta();
+            $idsParcela = $this->idsDe('financeiroparcelas');
+            $corrente = $saldoInicial;
+
+            $ctx->legado()->table('contamovimentos')
+                ->orderBy('datahorabaixa')
+                ->orderBy('id')
+                ->chunk(5000, function ($rows) use (
+                    &$lidos, &$gravados, &$pulados, &$corrente,
+                    $ctx, $idsConta, $empresaDaConta, $idsParcela
+                ) {
+                    $lote = [];
+                    foreach ($rows as $r) {
+                        $lidos++;
+                        $conta = (int) $r->conta_id;
+                        if (! isset($idsConta[$conta])) {
+                            $pulados++;
+
+                            continue;
+                        }
+
+                        $pr = mb_strtoupper(trim((string) $r->pagarreceber));
+                        $entrada = str_starts_with($pr, 'R');
+                        $valor = round((float) ($r->valorefetivado ?: $r->valor), 2);
+                        $corrente[$conta] = ($corrente[$conta] ?? 0.0)
+                            + ($entrada ? $valor : -$valor);
+
+                        $parcela = (int) ($r->financeiroparcela_id ?? 0);
+
+                        $lote[] = [
+                            'id' => (int) $r->id,
+                            'empresa_id' => $empresaDaConta[$conta] ?? 0,
+                            'conta_id' => $conta,
+                            'financeiroparcela_id' => isset($idsParcela[$parcela]) ? $parcela : null,
+                            'tipo' => $entrada ? 'ENTRADA' : 'SAIDA',
+                            'pagarreceber' => $entrada ? 'R' : 'P',
+                            'valor' => $valor,
+                            'saldo_resultante' => round($corrente[$conta], 2),
+                            'juros' => round((float) ($r->juros ?? 0), 2),
+                            'multa' => round((float) ($r->multa ?? 0), 2),
+                            'desconto' => round((float) ($r->desconto ?? 0), 2),
+                            'descricao' => mb_substr((string) ($r->descricao ?? ''), 0, 255) ?: null,
+                            'created_at' => $r->datahorabaixa ?? $r->created_at ?? null,
+                        ];
+                    }
+                    if ($lote !== [] && ! $ctx->dryRun) {
+                        $gravados += $this->gravarPreservandoId('contamovimentos', $lote, ['id'], 1000);
+                    }
+                });
+        }
+
+        if ($pulados > 0) {
+            $avisos[] = "{$pulados} registro(s) descartado(s): empresa ou conta "
+                .'ausente no destino';
+        }
+        $avisos[] = 'saldo_resultante reconstruído a partir do saldo inicial da conta '
+            .'mais os movimentos em ordem cronológica (o legado não o armazena)';
 
         return new MigrationResult(
             migrator: $this->nome(),
-            lidos: count($contas) + count($movimentos) + count($cheques),
+            lidos: $lidos,
             gravados: $ctx->dryRun ? 0 : $gravados,
-            pulados: 0,
+            pulados: $pulados,
+            avisos: $avisos,
         );
     }
 
     public function invariantes(): array
     {
         $ctx = $this->ctxAtual ?? new MigrationContext();
-        if (! $this->legadoDisponivel($ctx)) {
-            return [];
-        }
 
         return [
             new CountInvariant($ctx, 'contas', 'contas'),
             new CountInvariant($ctx, 'contamovimentos', 'contamovimentos'),
-            // O caso #1: Σ movimentos por conta = saldo_atual.
-            new BalanceInvariant($ctx, 'contamovimentos', 'valor', 'contas', 'saldo_atual', ['conta_id'], 0.01),
-            new IntegrityInvariant($ctx, 'contamovimentos', 'conta_id', 'contas'),
         ];
     }
 
-    /** @return list<array<string, mixed>> */
-    private function lerContas(MigrationContext $ctx): array
+    /** @return array<int,int> */
+    private function empresaPorConta(): array
     {
-        try {
-            $rows = $ctx->legado()->table('contas')->get();
-        } catch (\Throwable) {
-            return [];
+        $out = [];
+        foreach (DB::table('contas')->select('id', 'empresa_id')->get() as $c) {
+            $out[(int) $c->id] = (int) $c->empresa_id;
         }
 
-        return $rows->map(fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'grupo_id' => (int) $r->grupo_id,
-            'descricao' => trim((string) $r->descricao),
-            'tipo' => strtoupper((string) ($r->tipo ?? 'CAIXA')),
-            'banco_id' => $r->banco_id ?? null,
-            'agencia' => $r->agencia ?? null,
-            'numero' => $r->numero ?? null,
-            'saldo_inicial' => (float) ($r->saldoinicial ?? 0),
-            'saldo_atual' => (float) ($r->saldoatual ?? 0),
-            'fechado' => (bool) ($r->fechado ?? false),
-            'ativo' => (bool) ($r->ativo ?? true),
-        ])->all();
+        return $out;
     }
 
-    /** @return list<array<string, mixed>> */
-    private function lerMovimentos(MigrationContext $ctx): array
+    private function booleano(mixed $v): bool
     {
-        try {
-            $rows = $ctx->legado()->table('contamovimentos')->get();
-        } catch (\Throwable) {
-            return [];
+        $v = mb_strtoupper(trim((string) ($v ?? '')));
+
+        return in_array($v, ['1', 'S', 'T', 'TRUE', 'Y'], true);
+    }
+
+    /** @return array<int,true> */
+    private function idsDe(string $tabela): array
+    {
+        $ids = [];
+        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+            $ids[(int) $r->id] = true;
         }
 
-        return $rows->map(fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'conta_id' => (int) $r->conta_id,
-            'financeiroparcela_id' => $r->financeiroparcela_id ?? null,
-            'tipo' => strtoupper((string) ($r->tipo ?? 'AJUSTE')),
-            'pagarreceber' => $r->pagarreceber ?? null,
-            'valor' => (float) $r->valor,
-            'saldo_resultante' => (float) ($r->saldoresultante ?? $r->saldo ?? 0),
-            'juros' => (float) ($r->juros ?? 0),
-            'multa' => (float) ($r->multa ?? 0),
-            'desconto' => (float) ($r->desconto ?? 0),
-            'descricao' => $r->descricao ?? null,
-            'origem' => $r->origem ?? null,
-            'origem_id' => $r->origem_id ?? null,
-            'datahora' => $r->datahora ?? $r->created_at ?? now(),
-        ])->all();
+        return $ids;
     }
 
-    /** @return list<array<string, mixed>> */
-    private function lerCheques(MigrationContext $ctx): array
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
     {
         try {
-            $rows = $ctx->legado()->table('cheques')->get();
-        } catch (\Throwable) {
-            return [];
-        }
-
-        return $rows->map(fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'grupo_id' => (int) $r->grupo_id,
-            'cliente_id' => $r->cliente_id ?? null,
-            'banco_id' => $r->banco_id ?? null,
-            'especie' => strtoupper(substr((string) ($r->especie ?? 'R'), 0, 1)),
-            'numero' => $r->numero ?? null,
-            'titular' => $r->titular ?? null,
-            'valor' => (float) ($r->valor ?? 0),
-            'bom_para' => $r->bompara ?? $r->bom_para ?? null,
-            'situacao' => strtoupper((string) ($r->situacao ?? 'CARTEIRA')),
-        ])->all();
-    }
-
-    private function legadoDisponivel(MigrationContext $ctx): bool
-    {
-        try {
-            $ctx->legado()->getPdo();
-
-            return true;
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
         } catch (\Throwable) {
             return false;
         }

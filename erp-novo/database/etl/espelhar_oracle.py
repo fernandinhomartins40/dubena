@@ -47,6 +47,32 @@ MAPA = {
     "PEDIDOSITUACAOS": "pedidosituacaos",
     "PEDIDOS": "pedidos",
     "PEDIDOITEMS": "pedidoprodutos",
+    # Estoque
+    "ESTOQUESETORS": "estoquesetors",
+    "ESTOQUESETORHISTORICOS": "estoquesetorhistoricos",
+    "ESTOQUETRANSFERENCIAS": "estoquetransferencias",
+    "ESTOQUETRANSFERENCIAITEMS": "estoquetransferenciaitems",
+    # Financeiro
+    "FINANCEIROS": "financeiros",
+    "FINANCEIROPARCELAS": "financeiroparcelas",
+    # Fiscal
+    "NFEMITIDAS": "nfemitidas",
+    "NFEMITIDAITEMS": "nfemitidaitems",
+    "NFRECEBIDAS": "nfrecebidas",
+    "NFRECEBIDAITEMS": "nfrecebidaitems",
+    "NFOPERACAOS": "nfoperacaos",
+    "NFSITUACAOS": "nfsituacaos",
+    # Caixa / conta (nao ha tabela `caixas` no legado: o caixa e a CONTA)
+    "CONTAS": "contas",
+    "CONTAMOVIMENTOS": "contamovimentos",
+    # Cobranca
+    "BOLETOS": "boletos",
+    # Satelites (convenio e um FECHAMENTO por cliente, nao um cadastro proprio)
+    "CONVENIOFECHAMENTOS": "conveniofechamentos",
+    "VALEGAS": "valegas",
+    "COMODATOS": "comodatos",
+    # Config da empresa (credenciais PIX/Maps)
+    "EMPRESACONFIGS": "empresaconfigs",
 }
 
 TIPOS = {

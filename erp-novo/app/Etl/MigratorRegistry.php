@@ -9,6 +9,7 @@ use App\Etl\Migrators\CaixaMigrator;
 use App\Etl\Migrators\ClientesMigrator;
 use App\Etl\Migrators\CobrancaMigrator;
 use App\Etl\Migrators\CrmMigrator;
+use App\Etl\Migrators\EmpresaConfigMigrator;
 use App\Etl\Migrators\EmpresasMigrator;
 use App\Etl\Migrators\EstadosMigrator;
 use App\Etl\Migrators\EstoqueMigrator;
@@ -41,6 +42,7 @@ final class MigratorRegistry
 
             // N1 — cadastros base
             EmpresasMigrator::class,
+            EmpresaConfigMigrator::class,
             CadastrosApoioMigrator::class,
 
             // N2 — geográfico + clientes

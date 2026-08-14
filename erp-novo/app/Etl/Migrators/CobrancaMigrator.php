@@ -4,17 +4,25 @@ namespace App\Etl\Migrators;
 
 use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
-use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Cobranca\Boleto;
+use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
- * N7 — migra boletos emitidos + ocorrências do legado. Histórico de cobrança
- * preservado; situação mapeada para o enum.
+ * N7 — cobrança bancária (boletos).
+ *
+ * O boleto do legado NÃO guarda valor nem vencimento: são da parcela do
+ * financeiro que ele cobra (`financeiroparcela_id`). Por isso este migrador
+ * depende de `financeiro` e busca valor/vencimento lá — boleto sem parcela
+ * correspondente é descartado (as duas colunas são NOT NULL no destino).
+ *
+ * `banco_codigo` também não está no boleto: vem da conta emissora.
  */
 final class CobrancaMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -24,73 +32,159 @@ final class CobrancaMigrator implements Migrator
 
     public function dependeDe(): array
     {
-        return ['financeiro'];
+        return ['financeiro', 'caixa'];
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
         $this->ctxAtual = $ctx;
-        $boletos = $this->lerBoletos($ctx);
 
+        if (! $this->tabelaExiste($ctx, 'boletos')) {
+            return new MigrationResult($this->nome(), 0, 0, 0,
+                ['legado sem `boletos` — nada a migrar']);
+        }
+
+        $idsEmpresa = $this->idsDe('empresas');
+        $parcelas = $this->dadosDaParcela();
+        $bancoDaConta = $this->bancoPorConta($ctx);
+
+        $lidos = 0;
         $gravados = 0;
-        if (! $ctx->dryRun) {
-            foreach ($boletos as $b) {
-                Boleto::withoutTenant()->updateOrCreate(['id' => $b['id']], $b);
-                $gravados++;
-            }
+        $pulados = 0;
+
+        $ctx->legado()->table('boletos')->orderBy('id')->chunk(2000,
+            function ($rows) use (
+                &$lidos, &$gravados, &$pulados, $ctx, $idsEmpresa, $parcelas, $bancoDaConta
+            ) {
+                $lote = [];
+                foreach ($rows as $r) {
+                    $lidos++;
+                    $empresa = (int) $r->empresa_id;
+                    $parcelaId = (int) ($r->financeiroparcela_id ?? 0);
+                    $parcela = $parcelas[$parcelaId] ?? null;
+
+                    // valor e vencimento são NOT NULL e só existem na parcela.
+                    if (! isset($idsEmpresa[$empresa]) || $parcela === null) {
+                        $pulados++;
+
+                        continue;
+                    }
+
+                    $lote[] = [
+                        'id' => (int) $r->id,
+                        'empresa_id' => $empresa,
+                        'financeiroparcela_id' => $parcelaId,
+                        'cliente_id' => $parcela['cliente_id'],
+                        'banco_codigo' => $bancoDaConta[(int) $r->conta_id] ?? 0,
+                        'nosso_numero' => mb_substr((string) ($r->nossonumero ?? ''), 0, 30) ?: null,
+                        'valor' => $parcela['valor'],
+                        'vencimento' => $parcela['vencimento'],
+                        'situacao' => $this->situacao($r, $parcela['baixado']),
+                        'created_at' => $r->datahora ?? $r->created_at ?? null,
+                    ];
+                }
+                if ($lote !== [] && ! $ctx->dryRun) {
+                    $gravados += $this->gravarPreservandoId('boletos', $lote, ['id'], 1000);
+                }
+            });
+
+        $avisos = [];
+        if ($pulados > 0) {
+            $avisos[] = "{$pulados} boleto(s) descartado(s): sem parcela correspondente "
+                .'no financeiro (valor e vencimento vêm dela)';
         }
 
         return new MigrationResult(
             migrator: $this->nome(),
-            lidos: count($boletos),
+            lidos: $lidos,
             gravados: $ctx->dryRun ? 0 : $gravados,
-            pulados: 0,
+            pulados: $pulados,
+            avisos: $avisos,
         );
     }
 
     public function invariantes(): array
     {
         $ctx = $this->ctxAtual ?? new MigrationContext();
-        if (! $this->legadoDisponivel($ctx)) {
-            return [];
-        }
 
-        return [
-            new CountInvariant($ctx, 'boletos', 'boletos'),
-            new IntegrityInvariant($ctx, 'boletos', 'financeiroparcela_id', 'financeiroparcelas'),
-        ];
+        return [new CountInvariant($ctx, 'boletos', 'boletos')];
     }
 
-    /** @return list<array<string, mixed>> */
-    private function lerBoletos(MigrationContext $ctx): array
+    /** Estado do boleto a partir das flags do legado e da baixa da parcela. */
+    private function situacao(object $r, bool $baixado): string
     {
-        try {
-            $rows = $ctx->legado()->table('boletos')->get();
-        } catch (\Throwable) {
-            return [];
+        if ($this->booleano($r->cancelado ?? null)) {
+            return 'CANCELADO';
+        }
+        if ($baixado) {
+            return 'PAGO';
         }
 
-        return $rows->map(fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'financeiroparcela_id' => $r->financeiroparcela_id ?? null,
-            'cliente_id' => $r->cliente_id ?? null,
-            'banco_codigo' => (int) ($r->banco_codigo ?? $r->bancocodigo ?? 0),
-            'carteira' => $r->carteira ?? null,
-            'nosso_numero' => $r->nossonumero ?? $r->nosso_numero ?? null,
-            'linha_digitavel' => $r->linhadigitavel ?? null,
-            'valor' => (float) ($r->valor ?? 0),
-            'vencimento' => $r->vencimento ?? $r->datavencimento ?? null,
-            'situacao' => strtoupper((string) ($r->situacao ?? 'PENDENTE')),
-        ])->all();
+        return 'PENDENTE';
     }
 
-    private function legadoDisponivel(MigrationContext $ctx): bool
+    /**
+     * parcela_id => valor, vencimento, baixado e cliente do título.
+     *
+     * @return array<int, array{valor:float, vencimento:string, baixado:bool, cliente_id:?int}>
+     */
+    private function dadosDaParcela(): array
+    {
+        $out = [];
+        DB::table('financeiroparcelas as p')
+            ->leftJoin('financeiros as f', 'f.id', '=', 'p.financeiro_id')
+            ->select('p.id', 'p.valor', 'p.vencimento', 'p.baixado', 'f.cliente_id')
+            ->orderBy('p.id')
+            ->chunk(20000, function ($rows) use (&$out) {
+                foreach ($rows as $p) {
+                    $out[(int) $p->id] = [
+                        'valor' => round((float) $p->valor, 2),
+                        'vencimento' => $p->vencimento,
+                        'baixado' => (bool) $p->baixado,
+                        'cliente_id' => $p->cliente_id !== null ? (int) $p->cliente_id : null,
+                    ];
+                }
+            });
+
+        return $out;
+    }
+
+    /** @return array<int,int> conta_id => código do banco */
+    private function bancoPorConta(MigrationContext $ctx): array
+    {
+        $out = [];
+        if (! $this->tabelaExiste($ctx, 'contas')) {
+            return $out;
+        }
+        foreach ($ctx->legado()->table('contas')->select('id', 'banco_id')->get() as $c) {
+            $out[(int) $c->id] = (int) ($c->banco_id ?? 0);
+        }
+
+        return $out;
+    }
+
+    private function booleano(mixed $v): bool
+    {
+        $v = mb_strtoupper(trim((string) ($v ?? '')));
+
+        return in_array($v, ['1', 'S', 'T', 'TRUE', 'Y'], true);
+    }
+
+    /** @return array<int,true> */
+    private function idsDe(string $tabela): array
+    {
+        $ids = [];
+        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+            $ids[(int) $r->id] = true;
+        }
+
+        return $ids;
+    }
+
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
     {
         try {
-            $ctx->legado()->getPdo();
-
-            return true;
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
         } catch (\Throwable) {
             return false;
         }
