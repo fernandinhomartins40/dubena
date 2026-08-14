@@ -244,6 +244,26 @@ O objetivo é o revendedor migrar sozinho. O que a experiência acima ensina:
 - `php artisan etl:run --dry-run --check` — simulação e portão de validação.
 - Migradores de empresas, geográfico, clientes, produtos, pedidos, monitora e app.
 
+### 5.3b Levar a carga para a VPS (homologação)
+
+Feito em 13/08/2026: o `erp_novo` da VPS foi substituído pela migração completa
+(2,9 GB; backup do estado anterior em `/root/backup_pre_migracao2.sql.gz`).
+
+Duas armadilhas que custaram uma tentativa cada:
+
+- **Versão do dump.** A VPS roda **PostgreSQL 15**, o ambiente local **16**. Um
+  `pg_dump -Fc` da 16 falha na 15 com `unsupported version (1.15) in file
+  header`, e o `pg_dump` 15 recusa servidor 16 (`server version mismatch`). A
+  saída é **SQL puro gzipado** (`pg_dump --format=plain | gzip`), portável entre
+  versões. E validar o arquivo (`gzip -t`) **antes** de dropar o destino — na
+  primeira tentativa o banco foi apagado e só então o restore falhou.
+- **Privilégios após o restore.** Recriar o banco faz as tabelas nascerem com o
+  dono do dump, e a role de runtime `erp_app` (NOSUPERUSER/NOBYPASSRLS) perde o
+  acesso: o app responde `permission denied for table clientes`. Corrige-se com
+  `GRANT ... ON ALL TABLES/SEQUENCES IN SCHEMA public TO erp_app` mais
+  `ALTER DEFAULT PRIVILEGES`. Isso **não** afeta a RLS: a role segue sem
+  bypass e as 134 tabelas com RLS continuam protegidas.
+
 ### 5.4 O que ainda falta
 
 - **Migradores de financeiro, estoque, caixa, fiscal e cobrança**: continuam no
