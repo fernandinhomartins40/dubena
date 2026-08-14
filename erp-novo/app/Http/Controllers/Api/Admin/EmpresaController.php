@@ -76,6 +76,18 @@ class EmpresaController extends Controller
 
         abort_unless($user->podeAcessarEmpresa($empresa->id), 403, 'Sem acesso a esta empresa.');
 
+        // A empresa de ORIGEM vira vínculo permanente antes da troca.
+        //
+        // `podeAcessarEmpresa` aceita a empresa padrão (`users.empresa_id`) OU
+        // uma da pivot. Como esta ação MUDA a padrão, sem gravar o vínculo o
+        // usuário perderia o acesso à empresa de onde saiu — ficaria preso na
+        // nova, com 403 ao tentar voltar. Regra da plataforma, não configuração
+        // de tenant: vale para qualquer rede, presente ou futura.
+        $origem = (int) $user->empresa_id;
+        if ($origem > 0 && $origem !== (int) $empresa->id) {
+            $user->empresas()->syncWithoutDetaching([$origem]);
+        }
+
         $user->forceFill(['empresa_id' => $empresa->id])->save();
         $tenant->set($empresa->id, (int) $empresa->grupo_id);
 
