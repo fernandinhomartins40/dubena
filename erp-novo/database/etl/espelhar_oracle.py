@@ -17,12 +17,13 @@ Uso:
   python espelhar_oracle.py clientes pedidos
 """
 import io
+import os
 import subprocess
 import sys
 
 import psycopg2
 
-ORA = "dubena-ora"
+ORA = os.environ.get("ORA_CONTAINER", "dubena-ora")
 ORA_CONN = "CTRL2QTI/dubena@localhost/XE"
 PG_DSN = "host=127.0.0.1 port=55432 dbname=erp_novo user=postgres password=dubena"
 
@@ -88,6 +89,94 @@ MAPA = {
     "PLANOCONTAS": "planocontas",
     "CENTROCUSTOS": "centrocustos",
     "FINANCEIRORATEIOS": "financeirorateios",
+    # ── Ampliacao pos-auditoria (AUDITORIA_MIGRACAO_DADOS_LEGADOS.md) ──
+    "ESTADOS": "estados",
+    # Usuarios do ERP (pedidos referenciam atendente/entregador por user_id)
+    "EMPRESA_USER": "empresa_user",
+    # RH (nomes de destino = o que os Migrators leem)
+    "CARGOS": "cargos",
+    "PARENTESCOS": "parentescos",
+    "TIPOEXAMES": "tipoexames",
+    "COLABORADORS": "colaboradores",
+    "COLABORADORFAMILIAS": "colaboradorfamilias",
+    "COLABORADOREXAMES": "colaboradorexames",
+    "COLABORADORFERIAS": "colaboradorferias",
+    "COLABORADORTELEFONES": "colaboradortelefones",
+    "COLABORADORCOMISSAOS": "colaboradorcomissoes",
+    "COMISSAOEXCECOES": "comissaoexcecoes",
+    "SETORCOLABORADORES": "setorcolaboradores",
+    # Frota
+    "VEICULOTIPOS": "veiculotipos",
+    "TIPOCOMBUSTIVELS": "tipocombustivels",
+    "VEICULOS": "veiculos",
+    "VEICULOABASTECIMENTOS": "veiculoabastecimentos",
+    "VEICULOPNEUS": "veiculopneus",
+    "VEICULOTROCAOLEOS": "veiculotrocaoleos",
+    # Cadastros de apoio (CadastrosApoioMigrator)
+    "SEGMENTOS": "segmentos",
+    "TIPOPESSOAS": "tipopessoas",
+    "TELEFONETIPOS": "telefonetipos",
+    "CLIENTECONTATOTIPOS": "clientecontatotipos",
+    "CLIENTECONTATOSITUACAOS": "clientecontatosituacaos",
+    "BANCOS": "bancos",
+    "CONTAMOVIMENTOTIPOS": "contamovimentotipos",
+    # Historicos e fechamentos
+    "PEDIDOSITUACAOHISTORICOS": "pedidosituacaohistoricos",
+    "CONVENIOFECHAMENTOPEDIDOS": "conveniofechamentopedidos",
+    "COMODATOITEMS": "comodatoitems",
+    "CONTAFECHAMENTOS": "contafechamentos",
+    "ESTOQUEFECHAMENTOS": "estoquefechamentos",
+    "ESTOQUEFECHAMENTOSETORS": "estoquefechamentosetors",
+    # Cheques
+    "CHEQUESITUACAOS": "chequesituacaos",
+    "CHEQUERECEBIDOS": "chequerecebidos",
+    "CHEQUESITUACAOHISTORICOS": "chequesituacaohistoricos",
+    "CHEQUERECEBIDOFINANCEIROS": "chequerecebidofinanceiros",
+    # Remessa CNAB
+    "BOLETOREMESSAS": "boletoremessas",
+    "BOLETOREMESSAFINANCEIROS": "boletoremessafinanceiros",
+    "OCORRENCIASREMESSAS": "ocorrenciasremessas",
+    # Mobile / PIX legados
+    "ANDROIDS": "androids",
+    "PIXTRANSACTIONS": "pixtransactions",
+    "PIXPEDIDOS": "pixpedidos",
+    # Preco por cliente
+    "CLIENTEPRODUTOS": "clienteprodutos",
+    # CRM (pos-venda completo + metas + sorteios + checklists)
+    "POSVENDAS": "posvendas",
+    "POSVENDAPERGUNTAS": "posvendaperguntas",
+    "POSVENDARESPOSTAS": "posvendarespostas",
+    "POSVENDAPESQUISAS": "posvendapesquisas",
+    "POSVENDAPESQUISARESPOSTAS": "posvendapesquisarespostas",
+    "METAVENDAS": "metavendas",
+    "SORTEIOS": "sorteios",
+    "PROMOCAOS": "promocoes",
+    "CHECKLISTS": "checklists",
+    "CHECKLISTPESQUISAS": "checklistexecucoes",
+    # Gestao (zero linhas hoje, mas silencia avisos e cobre outras instalacoes)
+    "CUPONSFISCAIS": "cuponsfiscais",
+    "CUPONSFISCAISITENS": "cupomfiscalitens",
+    "MCMMS": "mcmms",
+    "EMPRESABEMS": "empresabens",
+    "DOCUMENTOS": "documentos",
+    # Malha fiscal (regras de imposto por produto/UF/lei)
+    "NFGRUPOFISCALS": "nfgrupofiscals",
+    "NFIMPOSTOS": "nfimpostos",
+    "NFIMPOSTOESTADOS": "nfimpostoestados",
+    "NFCESTS": "nfcests",
+    "NFCSTS": "nfcsts",
+    "NFCLASTRIBS": "nfclastribs",
+    "NFICMS": "nficms",
+    "NFPIS": "nfpis",
+    "NFCOFINS": "nfcofins",
+    "NFIPIS": "nfipis",
+    "NFOPERACAOPRODUTOS": "nfoperacaoprodutos",
+    "SPEDTIPOITEMS": "spedtipoitems",
+    "PRODUTOLEIIMPOSTOS": "produtoleiimpostos",
+    "NFEMITIDACARTACORRECAOS": "nfemitidacartacorrecaos",
+    # Notificacoes internas (sem consumidor ainda; preservacao do dado)
+    "NOTIFICACOES": "notificacoes",
+    "NOTIFICACAOUSERS": "notificacaousers",
 }
 
 TIPOS = {

@@ -122,9 +122,13 @@ final class CadastrosApoioMigrator implements Migrator
             return []; // legado indisponível neste ambiente
         }
 
-        return $rows->map(function ($r) use ($cfg) {
+        // Grupo de fallback: cadastros "globais" do legado (BANCOS vem com
+        // grupo_id=0/null) caem no primeiro grupo — a FK do destino é NOT NULL.
+        $grupoPadrao = (int) (\Illuminate\Support\Facades\DB::table('grupos')->min('id') ?? 1);
+
+        return $rows->map(function ($r) use ($cfg, $grupoPadrao) {
             $linha = [
-                'grupo_id' => (int) $r->grupo_id,
+                'grupo_id' => (int) ($r->grupo_id ?? 0) ?: $grupoPadrao,
                 'descricao' => trim((string) $r->descricao),
                 'ativo' => (bool) $r->ativo,
             ];

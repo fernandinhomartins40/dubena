@@ -107,6 +107,12 @@ final class AppGasEmCasaMigrator implements Migrator
                 PedidoAvaliacao::withoutTenant()->updateOrCreate(['pedido_id' => $a['pedido_id']], $a);
                 $gravados++;
             }
+
+            // Preço por condição de pagamento (era o gap P0 "catálogo sem preço"
+            // da auditoria 2026-08-14) + pagamentos online + cupons do app.
+            $gravados += $this->migrarPrecosPorCondicao();
+            $gravados += $this->migrarTransacoesOnline();
+            $gravados += $this->migrarCupons();
         }
 
         $pulados = $this->puladosEnderecos + $this->puladosAvaliacoes;
@@ -541,7 +547,10 @@ final class AppGasEmCasaMigrator implements Migrator
         $vistos = [];
         foreach ($rows as $r) {
             $pedidoId = $this->mapaPedidos[(int) $r->pedido_id] ?? null;
-            if ($pedidoId === null || isset($vistos[$pedidoId])) {
+            if ($pedidoId === null || isset($vistos[$pedidoId])
+                || $this->empresaDoPedido($pedidoId) === null) {
+                // empresa nula estouraria o NOT NULL do destino e derrubaria a
+                // carga inteira — pedido sem par vira descarte contado.
                 $this->puladosAvaliacoes++;
 
                 continue;
@@ -563,6 +572,147 @@ final class AppGasEmCasaMigrator implements Migrator
         }
 
         return $out;
+    }
+
+    /**
+     * Preço por condição de pagamento do app → produto_condicao_precos.
+     *
+     * O app precifica por condição (dinheiro/cartão/pix): sem esta tabela o
+     * catálogo do tenant migrado fica sem preço. As pontes são as tabelas de
+     * importação do sgcm (`*importacoes.erp_id` = id no ERP).
+     */
+    private function migrarPrecosPorCondicao(): int
+    {
+        try {
+            $rows = $this->app()->table('produtocondicaopagamentos')->get();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $empresa = $this->empresaDoApp();
+        if ($empresa === null || $rows->isEmpty()) {
+            return 0;
+        }
+
+        $produtoErp = [];
+        try {
+            foreach ($this->app()->table('produtoimportacoes')->get(['id', 'erp_id']) as $p) {
+                $produtoErp[(int) $p->id] = (int) $p->erp_id;
+            }
+        } catch (\Throwable) {
+        }
+        $condicaoErp = [];
+        try {
+            foreach ($this->app()->table('condicaopagamentoimportacoes')->get(['id', 'erp_id']) as $c) {
+                $condicaoErp[(int) $c->id] = (int) $c->erp_id;
+            }
+        } catch (\Throwable) {
+        }
+
+        $idsProduto = DB::table('produtos')->pluck('id')->flip();
+        $idsCondicao = DB::table('condicaopagamentos')->pluck('id')->flip();
+
+        $n = 0;
+        foreach ($rows as $r) {
+            $produto = $produtoErp[(int) $r->produtoimportacao_id] ?? 0;
+            $condicao = $condicaoErp[(int) $r->condicaopagamentoimportacao_id] ?? 0;
+            if (! isset($idsProduto[$produto]) || ! isset($idsCondicao[$condicao])) {
+                continue;
+            }
+
+            DB::table('produto_condicao_precos')->updateOrInsert(
+                [
+                    'empresa_id' => $empresa['empresa_id'],
+                    'produto_id' => $produto,
+                    'condicaopagamento_id' => $condicao,
+                    'gasdopovo' => false,
+                ],
+                [
+                    'valor' => round((float) $r->valor, 2),
+                    'created_at' => $r->created_at ?? now(),
+                    'updated_at' => now(),
+                ],
+            );
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /** Transações de pagamento online do app (cartão via gateway) → pagamentos_online. */
+    private function migrarTransacoesOnline(): int
+    {
+        try {
+            $rows = $this->app()->table('transacoesonline')->get();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $n = 0;
+        foreach ($rows as $r) {
+            $pedidoId = (int) ($r->erppedido_id ?? 0);
+            $pedido = DB::table('pedidos')
+                ->where('id', $pedidoId)->first(['id', 'empresa_id', 'cliente_id', 'valor_venda']);
+            if ($pedido === null) {
+                continue;
+            }
+
+            DB::table('pagamentos_online')->updateOrInsert(
+                ['pedido_id' => $pedido->id, 'tid' => (string) $r->tid],
+                [
+                    'empresa_id' => $pedido->empresa_id,
+                    'cliente_id' => $pedido->cliente_id,
+                    'gateway' => 'rede',
+                    'valor' => (float) $pedido->valor_venda,
+                    'situacao' => ((int) ($r->cancelado ?? 0)) === 1 ? 'CANCELADO' : 'CAPTURADO',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            );
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /** Cupons de desconto do app → promoções (o destino tem o campo `codigo`). */
+    private function migrarCupons(): int
+    {
+        try {
+            $rows = $this->app()->table('cupons')->get();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $grupo = (int) (DB::table('grupos')->min('id') ?? 0);
+        if ($grupo === 0) {
+            return 0;
+        }
+
+        $n = 0;
+        foreach ($rows as $r) {
+            $codigo = trim((string) ($r->codigo ?? ''));
+            if ($codigo === '') {
+                continue;
+            }
+            $percentual = mb_strtolower((string) ($r->tipo ?? '')) === 'percentual';
+
+            DB::table('promocoes')->updateOrInsert(
+                ['grupo_id' => $grupo, 'codigo' => $codigo],
+                [
+                    'descricao' => 'Cupom '.$codigo.' (app)',
+                    'inicio' => $r->datainicio ?? null,
+                    'fim' => $r->datafim ?? null,
+                    'desconto_percentual' => $percentual ? (float) $r->valor : null,
+                    'ativo' => (bool) ($r->ativo ?? true),
+                    'created_at' => $r->created_at ?? now(),
+                    'updated_at' => now(),
+                ],
+            );
+            $n++;
+        }
+
+        return $n;
     }
 
     private function empresaDoCliente(int $clienteId): ?int

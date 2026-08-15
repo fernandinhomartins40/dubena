@@ -68,6 +68,13 @@ final class ComplementosMigrator implements Migrator
         $this->visitasPromotor($ctx);
         $this->estornosConta($ctx);
         $this->vendaAtiva($ctx);
+        // Blocos pós-auditoria 2026-08-14 (dados que ficavam para trás):
+        $this->historicoSituacaoPedido($ctx);
+        $this->pedidosFechamentoConvenio($ctx);
+        $this->fechamentosConta($ctx);
+        $this->fechamentosEstoque($ctx);
+        $this->cheques($ctx);
+        $this->precosPorCliente($ctx);
 
         if ($this->pulados > 0) {
             $this->avisos[] = "{$this->pulados} registro(s) descartado(s): referência "
@@ -347,24 +354,30 @@ final class ComplementosMigrator implements Migrator
      */
     private function parcelasCondicaoPagamento(MigrationContext $ctx): void
     {
-        if ($this->tabelaExiste($ctx, 'condicaopagamentos')
-            && DB::table('condicaopagamentos')->count() === 0) {
+        // O remap duplicada→canônica é calculado SEMPRE (mesmo quando as
+        // condições já foram carregadas em execução anterior): sem ele, as
+        // parcelas da condição descartada eram puladas em vez de seguirem a
+        // canônica — 61 de 88 parcelas se perdiam (auditoria 2026-08-14).
+        $remapCondicao = [];
+        if ($this->tabelaExiste($ctx, 'condicaopagamentos')) {
             $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
             $lote = [];
             // O destino tem UNIQUE (grupo_id, descricao) e o legado repete
-            // descrições ("NÃO USAR" aparece várias vezes). Fica a primeira.
-            $vistasDescricoes = [];
+            // descrições ("NÃO USAR" aparece várias vezes). Fica a primeira;
+            // as demais são REMAPEADAS para ela.
+            $canonicaDaDescricao = [];
             foreach ($ctx->legado()->table('condicaopagamentos')->orderBy('id')->get() as $r) {
                 $this->lidos++;
                 $grupo = (int) ($r->grupo_id ?? 0) ?: $grupoPadrao;
                 $descricao = mb_substr(trim((string) $r->descricao), 0, 255);
                 $chave = $grupo.'|'.mb_strtolower($descricao);
-                if (isset($vistasDescricoes[$chave])) {
+                if (isset($canonicaDaDescricao[$chave])) {
+                    $remapCondicao[(int) $r->id] = $canonicaDaDescricao[$chave];
                     $this->pulados++;
 
                     continue;
                 }
-                $vistasDescricoes[$chave] = true;
+                $canonicaDaDescricao[$chave] = (int) $r->id;
 
                 $lote[] = [
                     'id' => (int) $r->id,
@@ -381,7 +394,9 @@ final class ComplementosMigrator implements Migrator
                     'created_at' => $r->created_at ?? null,
                 ];
             }
-            $this->gravar($ctx, 'condicaopagamentos', $lote);
+            if (DB::table('condicaopagamentos')->count() === 0) {
+                $this->gravar($ctx, 'condicaopagamentos', $lote);
+            }
         }
 
         if (! $this->tabelaExiste($ctx, 'condicaopagamentoparcelas')) {
@@ -394,6 +409,7 @@ final class ComplementosMigrator implements Migrator
         foreach ($ctx->legado()->table('condicaopagamentoparcelas')->orderBy('id')->get() as $r) {
             $this->lidos++;
             $cond = (int) $r->condicaopagamento_id;
+            $cond = $remapCondicao[$cond] ?? $cond;
             $dias = (int) ($r->dias ?? 0);
             // O destino tem unique (condicao, dias).
             if (! isset($condicoes[$cond]) || isset($vistos[$cond.':'.$dias])) {
@@ -554,6 +570,267 @@ final class ComplementosMigrator implements Migrator
             ];
         }
         $this->gravar($ctx, 'venda_ativa_clientes', $lote);
+    }
+
+    /**
+     * Timeline do pedido (2 milhões de linhas no dump auditado) — a tabela
+     * destino `pedidosituacaohistorico` existia VAZIA. O `efeito` (NOT NULL no
+     * destino) vem da situação já migrada; o legado não guarda o user da ação.
+     */
+    private function historicoSituacaoPedido(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'pedidosituacaohistoricos')) {
+            return;
+        }
+        $empresaDoPedido = $this->mapa('pedidos', 'empresa_id');
+        $efeitoDaSituacao = [];
+        foreach (DB::table('pedidosituacoes')->get(['id', 'efeito']) as $s) {
+            $efeitoDaSituacao[(int) $s->id] = (string) $s->efeito;
+        }
+
+        $ctx->legado()->table('pedidosituacaohistoricos')->orderBy('id')->chunk(5000,
+            function ($rows) use ($ctx, $empresaDoPedido, $efeitoDaSituacao) {
+                $lote = [];
+                foreach ($rows as $r) {
+                    $this->lidos++;
+                    $pedido = (int) $r->pedido_id;
+                    $situacao = (int) $r->pedidosituacao_id;
+                    if (! isset($empresaDoPedido[$pedido], $efeitoDaSituacao[$situacao])
+                        || ($r->datahora ?? null) === null) {
+                        $this->pulados++;
+
+                        continue;
+                    }
+                    $lote[] = [
+                        'id' => (int) $r->id,
+                        'empresa_id' => $empresaDoPedido[$pedido],
+                        'pedido_id' => $pedido,
+                        'pedidosituacao_id' => $situacao,
+                        'efeito' => $efeitoDaSituacao[$situacao],
+                        'datahora' => $r->datahora,
+                        'created_at' => $r->created_at ?? null,
+                    ];
+                }
+                $this->gravar($ctx, 'pedidosituacaohistorico', $lote);
+            });
+    }
+
+    /**
+     * Composição dos fechamentos de convênio (28 mil vínculos pedido↔fechamento).
+     *
+     * O destino tem UNIQUE(pedido_id) — um pedido pertence a UM fechamento. O
+     * legado repete o pedido quando o fechamento foi refeito: vale o VÍNCULO
+     * MAIS RECENTE (maior id), que é o fechamento vigente.
+     */
+    private function pedidosFechamentoConvenio(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'conveniofechamentopedidos')) {
+            return;
+        }
+        $fechamentos = $this->idsDe('convenio_fechamentos');
+        $pedidos = $this->idsDe('pedidos');
+
+        $porPedido = [];
+        $ctx->legado()->table('conveniofechamentopedidos')->orderBy('id')->chunk(5000,
+            function ($rows) use (&$porPedido, $fechamentos, $pedidos) {
+                foreach ($rows as $r) {
+                    $this->lidos++;
+                    $fechamento = (int) $r->conveniofechamento_id;
+                    $pedido = (int) $r->pedido_id;
+                    if (! isset($fechamentos[$fechamento], $pedidos[$pedido])) {
+                        $this->pulados++;
+
+                        continue;
+                    }
+                    if (isset($porPedido[$pedido])) {
+                        $this->pulados++; // vínculo antigo substituído pelo refeito
+                    }
+                    // orderBy id: a última ocorrência é o fechamento vigente.
+                    $porPedido[$pedido] = [
+                        'id' => (int) $r->id,
+                        'convenio_fechamento_id' => $fechamento,
+                        'pedido_id' => $pedido,
+                        'valor' => round((float) ($r->pedidovalor ?? 0), 2),
+                        'created_at' => $r->created_at ?? null,
+                    ];
+                }
+            });
+
+        foreach (array_chunk(array_values($porPedido), 5000) as $lote) {
+            $this->gravar($ctx, 'convenio_fechamento_pedidos', $lote);
+        }
+    }
+
+    /** Fechamentos de caixa (abertura/fechamento de conta com saldos). */
+    private function fechamentosConta(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'contafechamentos')) {
+            return;
+        }
+        $empresaDaConta = $this->mapa('contas', 'empresa_id');
+        $users = $this->idsDe('users');
+
+        $ctx->legado()->table('contafechamentos')->orderBy('id')->chunk(5000,
+            function ($rows) use ($ctx, $empresaDaConta, $users) {
+                $lote = [];
+                foreach ($rows as $r) {
+                    $this->lidos++;
+                    $conta = (int) $r->conta_id;
+                    if (! isset($empresaDaConta[$conta]) || ($r->datahoraabertura ?? null) === null) {
+                        $this->pulados++;
+
+                        continue;
+                    }
+                    $lote[] = [
+                        'id' => (int) $r->id,
+                        'empresa_id' => $empresaDaConta[$conta],
+                        'conta_id' => $conta,
+                        'user_id' => $this->ou($users, $r->abertura_user_id ?? null),
+                        'abertura' => $r->datahoraabertura,
+                        'fechamento' => $r->datahorafechamento ?? null,
+                        'saldo_inicial' => round((float) ($r->saldoinicial ?? 0), 2),
+                        'saldo_final' => isset($r->saldofinal) ? round((float) $r->saldofinal, 2) : null,
+                        'aberto' => ! $this->booleano($r->fechado ?? null),
+                        'created_at' => $r->created_at ?? null,
+                    ];
+                }
+                $this->gravar($ctx, 'contafechamentos', $lote);
+            });
+    }
+
+    /**
+     * Fechamentos de estoque: o legado tem cabeçalho (ESTOQUEFECHAMENTOS) +
+     * uma linha por setor/produto (ESTOQUEFECHAMENTOSETORS); o destino é plano
+     * (empresa/setor/produto/data/saldos) — cada linha de setor vira um registro,
+     * com a data e o estado (reaberto) herdados do cabeçalho.
+     */
+    private function fechamentosEstoque(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'estoquefechamentosetors')) {
+            return;
+        }
+        $cabecalhos = [];
+        if ($this->tabelaExiste($ctx, 'estoquefechamentos')) {
+            foreach ($ctx->legado()->table('estoquefechamentos')->get() as $c) {
+                $cabecalhos[(int) $c->id] = [
+                    'data' => $c->datahorafechamento ?? ($c->fechamentomensal ?? null),
+                    'aberto' => $this->booleano($c->reaberto ?? null),
+                ];
+            }
+        }
+        $setores = $this->idsDe('setores');
+        $produtos = $this->idsDe('produtos');
+
+        $ctx->legado()->table('estoquefechamentosetors')->orderBy('id')->chunk(5000,
+            function ($rows) use ($ctx, $cabecalhos, $setores, $produtos) {
+                $lote = [];
+                foreach ($rows as $r) {
+                    $this->lidos++;
+                    $setor = (int) $r->setor_id;
+                    $produto = (int) $r->produto_id;
+                    $cab = $cabecalhos[(int) ($r->estoquefechamento_id ?? 0)] ?? null;
+                    $data = $cab['data'] ?? ($r->created_at ?? null);
+                    if (! isset($setores[$setor], $produtos[$produto]) || $data === null) {
+                        $this->pulados++;
+
+                        continue;
+                    }
+                    $quantidade = (float) ($r->quantidade ?? 0);
+                    $lote[] = [
+                        'id' => (int) $r->id,
+                        'empresa_id' => (int) $r->empresa_id,
+                        'setor_id' => $setor,
+                        'produto_id' => $produto,
+                        'data_fechamento' => $data,
+                        'saldo_inicial' => $quantidade,
+                        'saldo_final' => $quantidade,
+                        'aberto' => $cab['aberto'] ?? false,
+                        'created_at' => $r->created_at ?? null,
+                    ];
+                }
+                $this->gravar($ctx, 'estoquefechamentos', $lote);
+            });
+    }
+
+    /**
+     * Cheques recebidos → `cheques`. A situação legada é FK (CHEQUESITUACAOS) e
+     * vira o texto da situação; o titular/cliente o legado não guarda.
+     */
+    private function cheques(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'chequerecebidos')) {
+            return;
+        }
+        $situacoes = [];
+        if ($this->tabelaExiste($ctx, 'chequesituacaos')) {
+            foreach ($ctx->legado()->table('chequesituacaos')->get(['id', 'descricao']) as $s) {
+                $situacoes[(int) $s->id] = mb_strtoupper(trim((string) $s->descricao));
+            }
+        }
+        $bancos = $this->idsDe('bancos');
+        $empresas = $this->idsDe('empresas');
+
+        $lote = [];
+        foreach ($ctx->legado()->table('chequerecebidos')->orderBy('id')->get() as $r) {
+            $this->lidos++;
+            if (! isset($empresas[(int) $r->empresa_id])) {
+                $this->pulados++;
+
+                continue;
+            }
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => (int) $r->empresa_id,
+                'grupo_id' => (int) $r->grupo_id,
+                'banco_id' => $this->ou($bancos, $r->banco_id ?? null),
+                'especie' => 'R', // char(1): R = recebido, E = emitido
+                'numero' => mb_substr((string) ($r->numerocheque ?? ''), 0, 30) ?: null,
+                'agencia' => mb_substr((string) ($r->agencia ?? ''), 0, 20) ?: null,
+                'conta_corrente' => mb_substr((string) ($r->numeroconta ?? ''), 0, 30) ?: null,
+                'valor' => round((float) ($r->valor ?? 0), 2),
+                'bom_para' => $r->datavencimento ?? null,
+                'situacao' => mb_substr($situacoes[(int) ($r->chequesituacao_id ?? 0)] ?? 'RECEBIDO', 0, 20),
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        $this->gravar($ctx, 'cheques', $lote);
+    }
+
+    /** Preço negociado por cliente (CLIENTEPRODUTOS) → clienteprecos. */
+    private function precosPorCliente(MigrationContext $ctx): void
+    {
+        if (! $this->tabelaExiste($ctx, 'clienteprodutos')) {
+            return;
+        }
+        $empresaDoCliente = $this->mapa('clientes', 'empresa_id');
+        $produtos = $this->idsDe('produtos');
+
+        // O destino tem UNIQUE (cliente, produto); o legado repete o par quando
+        // o preço foi renegociado — vale o registro MAIS RECENTE (maior id).
+        $porPar = [];
+        foreach ($ctx->legado()->table('clienteprodutos')->orderBy('id')->get() as $r) {
+            $this->lidos++;
+            $cliente = (int) $r->cliente_id;
+            $produto = (int) $r->produto_id;
+            if (! isset($empresaDoCliente[$cliente], $produtos[$produto])) {
+                $this->pulados++;
+
+                continue;
+            }
+            if (isset($porPar[$cliente.':'.$produto])) {
+                $this->pulados++; // preço antigo substituído pelo renegociado
+            }
+            $porPar[$cliente.':'.$produto] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresaDoCliente[$cliente],
+                'cliente_id' => $cliente,
+                'produto_id' => $produto,
+                'preco' => isset($r->preco) ? round((float) $r->preco, 2) : null,
+                'desconto' => isset($r->desconto) ? round((float) $r->desconto, 2) : null,
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        $this->gravar($ctx, 'clienteprecos', array_values($porPar));
     }
 
     /** id se existir no conjunto, senão null (FK opcional). */

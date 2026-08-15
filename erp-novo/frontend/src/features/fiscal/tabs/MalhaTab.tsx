@@ -20,6 +20,7 @@ export function MalhaTab() {
         <TabsTrigger value="cst-pis">CST PIS</TabsTrigger>
         <TabsTrigger value="cst-cofins">CST COFINS</TabsTrigger>
         <TabsTrigger value="cst">CST</TabsTrigger>
+        <TabsTrigger value="cest">CEST</TabsTrigger>
       </TabsList>
       <TabsContent value="grupos-fiscais"><MalhaCadastro tipo="grupos-fiscais" titulo="Grupo Fiscal" comCodigo={false} /></TabsContent>
       <TabsContent value="operacoes"><OperacoesTab /></TabsContent>
@@ -28,6 +29,7 @@ export function MalhaTab() {
       <TabsContent value="cst-pis"><MalhaCadastro tipo="cst-pis" titulo="CST PIS" /></TabsContent>
       <TabsContent value="cst-cofins"><MalhaCadastro tipo="cst-cofins" titulo="CST COFINS" /></TabsContent>
       <TabsContent value="cst"><MalhaCadastro tipo="cst" titulo="CST" /></TabsContent>
+      <TabsContent value="cest"><MalhaCadastro tipo="cest" titulo="CEST" /></TabsContent>
     </Tabs>
   )
 }

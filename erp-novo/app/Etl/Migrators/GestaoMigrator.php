@@ -72,10 +72,12 @@ final class GestaoMigrator implements Migrator
             'valor_residual' => isset($r->valorresidual) ? (float) $r->valorresidual : null,
             'ativo' => (bool) ($r->ativo ?? true),
         ]);
+        // Legado: documentos são metadados (tipo/colaborador/descrição), sem
+        // arquivo anexado — o binário nunca existiu no banco.
         $documentos = $this->ler($ctx, 'documentos', fn ($r) => [
             'id' => (int) $r->id,
             'empresa_id' => (int) ($r->empresa_id ?? 0),
-            'arquivo_path' => $r->arquivopath ?? ($r->arquivo ?? null),
+            'descricao' => trim((string) ($r->descricao ?? '')) ?: null,
         ]);
 
         $gravados = 0;

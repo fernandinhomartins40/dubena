@@ -7,17 +7,25 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Frota\Veiculo;
-use App\Models\Frota\VeiculoAbastecimento;
-use App\Models\Frota\VeiculoPneu;
-use App\Models\Frota\VeiculoTrocaOleo;
+use App\Etl\Support\PreservaIdsDoLegado;
 
 /**
- * F15 — migra Frota: veículos + abastecimentos, pneus e trocas de óleo.
- * Conversões: kmatual→km_atual, etc.; flags → boolean. Filhas herdam empresa_id.
+ * F15 — migra Frota: tipos (veículo/combustível), veículos, abastecimentos,
+ * pneus e trocas de óleo.
+ *
+ * REESCRITO após a auditoria 2026-08-14: a versão anterior migrava zero linhas
+ * porque as tabelas não estavam no espelho; e as colunas assumidas não batiam
+ * com o legado real. Diferenças de modelagem resolvidas aqui:
+ *
+ *  - abastecimento legado NÃO guarda valor/litro (só km e total de litros);
+ *  - pneu legado é um EVENTO de troca (data/km/valor/medida), não uma posição
+ *    instalada — medida vira `marca`, data/km viram instalação;
+ *  - troca de óleo: km da troca = `kmultimatrocaoleo`.
  */
 final class FrotaMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -34,61 +42,120 @@ final class FrotaMigrator implements Migrator
     {
         $this->ctxAtual = $ctx;
 
+        if (! $this->tabelaExiste($ctx, 'veiculos')) {
+            return new MigrationResult($this->nome(), 0, 0, 0,
+                ['tabela `veiculos` ausente no espelho do legado — frota NÃO migrada '
+                    .'(re-rodar espelhar_oracle.py)']);
+        }
+
+        $lidos = 0;
+        $gravados = 0;
+
+        // ── Catálogos (FK do veículo) ──
+        $tipos = $this->ler($ctx, 'veiculotipos', fn ($r) => [
+            'id' => (int) $r->id,
+            'grupo_id' => (int) $r->grupo_id,
+            'descricao' => trim((string) $r->descricao),
+            'ativo' => $this->booleano($r->ativo ?? '1'),
+            'created_at' => $r->created_at ?? null,
+        ]);
+        $combustiveis = $this->ler($ctx, 'tipocombustivels', fn ($r) => [
+            'id' => (int) $r->id,
+            'grupo_id' => (int) $r->grupo_id,
+            'descricao' => trim((string) $r->descricao),
+            'ativo' => $this->booleano($r->ativo ?? '1'),
+            'created_at' => $r->created_at ?? null,
+        ]);
+        if (! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('veiculo_tipos', $tipos);
+            $gravados += $this->gravarPreservandoId('tipo_combustiveis', $combustiveis);
+        }
+        $lidos += count($tipos) + count($combustiveis);
+
+        // ── Veículos ──
         $veiculos = $this->ler($ctx, 'veiculos', fn ($r) => [
             'id' => (int) $r->id,
             'empresa_id' => (int) $r->empresa_id,
             'grupo_id' => (int) $r->grupo_id,
-            'veiculotipo_id' => $r->veiculotipo_id ?? null,
-            'tipocombustivel_id' => $r->tipocombustivel_id ?? null,
-            'placa' => trim((string) ($r->placa ?? '')),
-            'descricao' => $r->descricao ?? null,
-            'renavam' => $r->renavam ?? null,
-            'km_atual' => isset($r->kmatual) ? (float) $r->kmatual : null,
+            'veiculotipo_id' => ($r->veiculotipo_id ?? null) !== null ? (int) $r->veiculotipo_id : null,
+            'tipocombustivel_id' => ($r->tipocombustivel_id ?? null) !== null ? (int) $r->tipocombustivel_id : null,
+            'placa' => mb_substr(trim((string) ($r->placa ?? '')), 0, 10) ?: 'S/PLACA',
+            'descricao' => mb_substr(trim((string) ($r->descricao ?? '')), 0, 255)
+                ?: mb_substr(trim((string) ($r->placa ?? '')), 0, 255) ?: "Veículo {$r->id}",
+            'km_atual' => (float) ($r->kmatual ?? 0),
             'km_troca_oleo' => isset($r->kmtrocaoleo) ? (float) $r->kmtrocaoleo : null,
             'km_ultima_troca_oleo' => isset($r->kmultimatrocaoleo) ? (float) $r->kmultimatrocaoleo : null,
-            'ativo' => (bool) ($r->ativo ?? true),
+            'ativo' => $this->booleano($r->ativo ?? '1'),
+            'created_at' => $r->created_at ?? null,
         ]);
-        $abastecimentos = $this->ler($ctx, 'veiculoabastecimentos', fn ($r) => [
-            'id' => (int) $r->id,
-            'veiculo_id' => (int) $r->veiculo_id,
-            'data' => $r->data ?? null,
-            'km' => isset($r->km) ? (float) $r->km : null,
-            'litros' => isset($r->litros) ? (float) $r->litros : null,
-            'valor_litro' => isset($r->valorlitro) ? (float) $r->valorlitro : null,
-            'valor_total' => isset($r->valortotal) ? (float) $r->valortotal : null,
-            'tanque_cheio' => (bool) ($r->tanquecheio ?? false),
+        $veiculos = $this->anularFksInvalidas($veiculos, [
+            'veiculotipo_id' => 'veiculo_tipos',
+            'tipocombustivel_id' => 'tipo_combustiveis',
         ]);
-        $pneus = $this->ler($ctx, 'veiculopneus', fn ($r) => [
-            'id' => (int) $r->id,
-            'veiculo_id' => (int) $r->veiculo_id,
-            'posicao' => $r->posicao ?? null,
-            'marca' => $r->marca ?? null,
-            'data_instalacao' => $r->datainstalacao ?? null,
-            'km_instalacao' => isset($r->kminstalacao) ? (float) $r->kminstalacao : null,
-        ]);
-        $trocasOleo = $this->ler($ctx, 'veiculotrocaoleos', fn ($r) => [
-            'id' => (int) $r->id,
-            'veiculo_id' => (int) $r->veiculo_id,
-            'data' => $r->data ?? null,
-            'km' => isset($r->km) ? (float) $r->km : null,
-            'valor' => isset($r->valor) ? (float) $r->valor : null,
-            'observacao' => $r->observacao ?? null,
-        ]);
-
-        $gravados = 0;
         if (! $ctx->dryRun) {
-            foreach ($veiculos as $v) {
-                $this->upsert(Veiculo::withoutTenant(), $this->semNulos($v));
-                $gravados++;
-            }
-            $gravados += $this->gravar(VeiculoAbastecimento::class, $abastecimentos);
-            $gravados += $this->gravar(VeiculoPneu::class, $pneus);
-            $gravados += $this->gravar(VeiculoTrocaOleo::class, $trocasOleo);
+            $gravados += $this->gravarPreservandoId('veiculos', $veiculos);
+        }
+        $lidos += count($veiculos);
+        $idsVeiculo = array_flip(array_map(fn ($v) => $v['id'], $veiculos));
+        $empresaDoVeiculo = [];
+        foreach ($veiculos as $v) {
+            $empresaDoVeiculo[$v['id']] = $v['empresa_id'];
         }
 
-        $lidos = count($veiculos) + count($abastecimentos) + count($pneus) + count($trocasOleo);
+        $pulados = 0;
+        $filhas = function (string $tabela, callable $map) use ($ctx, $idsVeiculo, $empresaDoVeiculo, &$lidos, &$pulados) {
+            $out = [];
+            foreach ($this->ler($ctx, $tabela, $map) as $row) {
+                $lidos++;
+                $veiculo = (int) $row['veiculo_id'];
+                if (! isset($idsVeiculo[$veiculo])) {
+                    $pulados++;
 
-        return new MigrationResult($this->nome(), $lidos, $ctx->dryRun ? 0 : $gravados, 0);
+                    continue;
+                }
+                $row['empresa_id'] = $empresaDoVeiculo[$veiculo];
+                $out[] = $row;
+            }
+
+            return $out;
+        };
+
+        // ── Abastecimentos (legado: km + total de litros, sem valor) ──
+        $abastecimentos = $filhas('veiculoabastecimentos', fn ($r) => [
+            'id' => (int) $r->id,
+            'veiculo_id' => (int) $r->veiculo_id,
+            'data' => $r->data ?? null,
+            'km' => isset($r->kmatual) ? (float) $r->kmatual : null,
+            'litros' => isset($r->totallitros) ? (float) $r->totallitros : null,
+            'created_at' => $r->created_at ?? null,
+        ]);
+
+        // ── Pneus (evento de troca → registro de instalação) ──
+        $pneus = $filhas('veiculopneus', fn ($r) => [
+            'id' => (int) $r->id,
+            'veiculo_id' => (int) $r->veiculo_id,
+            'marca' => mb_substr(trim((string) ($r->medidapneus ?? '')), 0, 60) ?: null,
+            'data_instalacao' => $r->data ?? null,
+            'km_instalacao' => isset($r->km) ? (float) $r->km : null,
+            'created_at' => $r->created_at ?? null,
+        ]);
+
+        // ── Trocas de óleo ──
+        $trocasOleo = $filhas('veiculotrocaoleos', fn ($r) => [
+            'id' => (int) $r->id,
+            'veiculo_id' => (int) $r->veiculo_id,
+            'data' => $r->data ?? null,
+            'km' => isset($r->kmultimatrocaoleo) ? (float) $r->kmultimatrocaoleo : null,
+            'created_at' => $r->created_at ?? null,
+        ]);
+
+        if (! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('veiculo_abastecimentos', $abastecimentos);
+            $gravados += $this->gravarPreservandoId('veiculo_pneus', $pneus);
+            $gravados += $this->gravarPreservandoId('veiculo_trocas_oleo', $trocasOleo);
+        }
+
+        return new MigrationResult($this->nome(), $lidos, $ctx->dryRun ? 0 : $gravados, $pulados);
     }
 
     public function invariantes(): array
@@ -100,6 +167,7 @@ final class FrotaMigrator implements Migrator
 
         return [
             new CountInvariant($ctx, 'veiculos', 'veiculos'),
+            new CountInvariant($ctx, 'veiculoabastecimentos', 'veiculo_abastecimentos'),
             new IntegrityInvariant($ctx, 'veiculos', 'empresa_id', 'empresas'),
             new IntegrityInvariant($ctx, 'veiculo_abastecimentos', 'veiculo_id', 'veiculos'),
         ];
@@ -112,25 +180,10 @@ final class FrotaMigrator implements Migrator
     private function ler(MigrationContext $ctx, string $tabela, callable $map): array
     {
         try {
-            return $ctx->legado()->table($tabela)->get()->map($map)->all();
+            return $ctx->legado()->table($tabela)->orderBy('id')->get()->map($map)->all();
         } catch (\Throwable) {
             return [];
         }
-    }
-
-    /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
-     * @param  list<array<string,mixed>>  $rows
-     */
-    private function gravar(string $model, array $rows): int
-    {
-        $n = 0;
-        foreach ($rows as $row) {
-            $this->upsert($model::query(), $this->semNulos($row));
-            $n++;
-        }
-
-        return $n;
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool
@@ -144,26 +197,17 @@ final class FrotaMigrator implements Migrator
         }
     }
 
-    /**
-     * Upsert PRESERVANDO o id do legado (forceFill ignora $fillable). Essencial
-     * para manter as FKs entre tabelas após a migração.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  array<string,mixed>  $row
-     */
-    private function upsert(\Illuminate\Database\Eloquent\Builder $query, array $row): void
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
     {
-        $model = $query->firstWhere('id', $row['id']) ?? $query->getModel()->newInstance();
-        $model->forceFill($row)->save();
+        try {
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
+        } catch (\Throwable) {
+            return false;
+        }
     }
-    /**
-     * Remove chaves null (exceto id) p/ colunas NOT NULL com DEFAULT usarem o default.
-     *
-     * @param  array<string,mixed>  $row
-     * @return array<string,mixed>
-     */
-    private function semNulos(array $row): array
+
+    private function booleano(mixed $v): bool
     {
-        return array_filter($row, fn ($v, $k) => $v !== null || $k === 'id', ARRAY_FILTER_USE_BOTH);
+        return in_array(mb_strtoupper(trim((string) ($v ?? ''))), ['1', 'S', 'T', 'TRUE', 'Y'], true);
     }
 }

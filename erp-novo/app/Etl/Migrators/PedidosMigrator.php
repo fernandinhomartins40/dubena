@@ -31,7 +31,9 @@ final class PedidosMigrator implements Migrator
 
     public function dependeDe(): array
     {
-        return ['clientes', 'produtos', 'estoque'];
+        // `users` na frente: atendente/entregador referenciam user_id do legado
+        // e são anulados quando o user não existe no destino.
+        return ['clientes', 'produtos', 'estoque', 'users'];
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult

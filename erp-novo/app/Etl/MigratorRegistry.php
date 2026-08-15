@@ -20,14 +20,15 @@ use App\Etl\Migrators\FiscalMigrator;
 use App\Etl\Migrators\FrotaMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\GestaoMigrator;
+use App\Etl\Migrators\FiscalConfigMigrator;
 use App\Etl\Migrators\MobileMigrator;
 use App\Etl\Migrators\MonitoraLegadoMigrator;
-use App\Etl\Migrators\MonitoraMigrator;
 use App\Etl\Migrators\PagamentoMigrator;
 use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Migrators\ProdutosMigrator;
 use App\Etl\Migrators\RhMigrator;
 use App\Etl\Migrators\SatelitesMigrator;
+use App\Etl\Migrators\UsersMigrator;
 
 /**
  * Registro central dos migrators, em ordem de dependência.
@@ -45,6 +46,9 @@ final class MigratorRegistry
             // N1 — cadastros base
             EmpresasMigrator::class,
             EmpresaConfigMigrator::class,
+            // Usuários ANTES de pedidos: atendente/entregador referenciam user_id
+            // do legado (achado P0 da auditoria — sem isso, viram null).
+            UsersMigrator::class,
             CadastrosApoioMigrator::class,
             // Plano de contas, centros de custo e operacoes fiscais — dao
             // significado ao financeiro (DRE) e ao fiscal.
@@ -75,14 +79,16 @@ final class MigratorRegistry
 
             // N9 — fiscal (NF-e/NFC-e/CF-e)
             FiscalMigrator::class,
+            // Malha fiscal: regras de imposto (grupos, CST/CEST, imposto por
+            // produto/UF/lei) — sem elas a emissão de NF-e não tem base tributária.
+            FiscalConfigMigrator::class,
 
             // N10 — mobile (devices + pagamentos online)
             MobileMigrator::class,
 
-            // N11 — monitora (GPS, módulo isolado)
-            MonitoraMigrator::class,
-
             // Monitora ORIGINAL (MySQL) — veículos/cercas/última posição.
+            // (O antigo MonitoraMigrator era código morto: lia tabelas
+            // `monitora_*` que nunca existiram no legado — removido.)
             MonitoraLegadoMigrator::class,
 
             // App "Gás em Casa" (MySQL sgcm_api) — o que só existe no app

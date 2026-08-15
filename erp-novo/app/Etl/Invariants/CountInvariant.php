@@ -28,20 +28,29 @@ final class CountInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
-        // A tabela pode não existir na origem: o legado varia por instalação e
-        // nem todo dump traz todos os módulos. Sem origem não há o que comparar
-        // — a invariante não se aplica, e isso NÃO é uma falha do cutover.
+        // Conexão do legado indisponível (dev/CI sem dump): não há o que
+        // comparar — a invariante não se aplica.
+        //
+        // MAS: conexão disponível com a TABELA ausente é FALHA, não skip.
+        // Foi exatamente assim que módulos inteiros migraram "0 linhas com
+        // sucesso" sem ninguém ver (auditoria 2026-08-14): o nome errado ou o
+        // espelho incompleto silenciava a própria checagem que o detectaria.
         try {
-            if (! $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado)) {
-                return InvariantResult::ok(
-                    $this->nome(),
-                    "origem `{$this->tabelaLegado}` ausente no dump — não se aplica"
-                );
-            }
+            $temTabela = $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado);
         } catch (\Throwable) {
             return InvariantResult::ok(
                 $this->nome(),
                 'legado indisponível — não se aplica'
+            );
+        }
+
+        if (! $temTabela) {
+            return InvariantResult::falha(
+                $this->nome(),
+                "origem `{$this->tabelaLegado}` NÃO existe no legado — nome errado "
+                    .'ou tabela fora do MAPA do espelho (espelhar_oracle.py)',
+                -1,
+                (int) $this->ctx->novo()->table($this->tabelaNova)->count(),
             );
         }
 

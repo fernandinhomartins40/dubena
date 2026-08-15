@@ -26,6 +26,11 @@ class EtlRun extends Command
 
     public function handle(): int
     {
+        // Carga de migração legítima: os migradores materializam mapas de FK do
+        // dump inteiro (443 mil títulos, 475 mil parcelas, 442 mil rateios) —
+        // o limite padrão de 512M do CLI derruba o financeiro no meio.
+        ini_set('memory_limit', '3G');
+
         $ctx = new MigrationContext(dryRun: (bool) $this->option('dry-run'));
         $alvo = $this->argument('migrator');
 

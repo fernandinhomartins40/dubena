@@ -7,14 +7,22 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Mobile\AppDevice;
-use App\Models\Mobile\PagamentoOnline;
+use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
- * N10 — migra devices do app e transações de pagamento online do legado.
+ * N10 — migra os DEVICES do legado (tablets/celulares dos entregadores).
+ *
+ * REESCRITO após a auditoria 2026-08-14: a versão anterior lia `app_devices` e
+ * `pagamentos_online` — tabelas que NUNCA existiram no legado (zero linhas em
+ * silêncio). A fonte real dos devices é `ANDROIDS` (espelhada como `androids`);
+ * pagamentos online do app vivem no sgcm_api e são migrados pelo
+ * AppGasEmCasaMigrator (transacoesonline).
  */
 final class MobileMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+
     private ?MigrationContext $ctxAtual = null;
 
     public function nome(): string
@@ -24,92 +32,99 @@ final class MobileMigrator implements Migrator
 
     public function dependeDe(): array
     {
-        return ['empresas', 'pedidos'];
+        return ['empresas', 'users'];
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
         $this->ctxAtual = $ctx;
 
-        $devices = $this->ler($ctx, 'app_devices', fn ($r) => [
-            'id' => (int) $r->id,
-            'user_id' => (int) $r->user_id,
-            'empresa_id' => $r->empresa_id ?? null,
-            'plataforma' => $r->plataforma ?? null,
-            'push_token' => $r->push_token ?? $r->pushtoken ?? null,
-            'device_id' => $r->device_id ?? null,
-            'ativo' => (bool) ($r->ativo ?? true),
-        ]);
+        if (! $this->tabelaExiste($ctx, 'androids')) {
+            return new MigrationResult($this->nome(), 0, 0, 0,
+                ['tabela `androids` ausente no espelho do legado — devices NÃO migrados '
+                    .'(re-rodar espelhar_oracle.py)']);
+        }
 
-        $pagamentos = $this->ler($ctx, 'pagamentos_online', fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'pedido_id' => $r->pedido_id ?? null,
-            'cliente_id' => $r->cliente_id ?? null,
-            'gateway' => (string) ($r->gateway ?? 'rede'),
-            'tid' => $r->tid ?? null,
-            'nsu' => $r->nsu ?? null,
-            'valor' => (float) ($r->valor ?? 0),
-            'parcelas' => (int) ($r->parcelas ?? 1),
-            'situacao' => strtoupper((string) ($r->situacao ?? 'CAPTURADO')),
-        ]);
+        $idsUser = [];
+        foreach (DB::table('users')->pluck('id') as $id) {
+            $idsUser[(int) $id] = true;
+        }
+        $idsEmpresa = [];
+        foreach (DB::table('empresas')->pluck('id') as $id) {
+            $idsEmpresa[(int) $id] = true;
+        }
+
+        $lidos = 0;
+        $pulados = 0;
+        $lote = [];
+
+        foreach ($ctx->legado()->table('androids')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $user = (int) ($r->user_id ?? 0);
+            if (! isset($idsUser[$user])) {
+                $pulados++; // user_id é NOT NULL no destino: device sem dono não entra
+
+                continue;
+            }
+            $empresa = (int) ($r->empresa_id ?? 0);
+            $lote[] = [
+                'id' => (int) $r->id,
+                'user_id' => $user,
+                'empresa_id' => isset($idsEmpresa[$empresa]) ? $empresa : null,
+                'plataforma' => 'android',
+                'push_token' => ($r->registrationid ?? null) !== null
+                    ? mb_substr((string) $r->registrationid, 0, 255) : null,
+                'device_id' => mb_substr((string) ($r->androidid ?? $r->serie ?? ''), 0, 100) ?: null,
+                'ativo' => $this->booleano($r->ativo ?? '1'),
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
 
         $gravados = 0;
-        if (! $ctx->dryRun) {
-            foreach ($devices as $d) {
-                AppDevice::updateOrCreate(['id' => $d['id']], $d);
-                $gravados++;
-            }
-            foreach ($pagamentos as $p) {
-                PagamentoOnline::withoutTenant()->updateOrCreate(['id' => $p['id']], $p);
-                $gravados++;
-            }
+        if (! $ctx->dryRun && $lote !== []) {
+            $gravados = $this->gravarPreservandoId('app_devices', $lote);
+        }
+
+        $avisos = [];
+        if ($pulados > 0) {
+            $avisos[] = "{$pulados} device(s) sem user vinculado no legado — não migrados "
+                .'(user_id é obrigatório no destino)';
         }
 
         return new MigrationResult(
             migrator: $this->nome(),
-            lidos: count($devices) + count($pagamentos),
+            lidos: $lidos,
             gravados: $ctx->dryRun ? 0 : $gravados,
-            pulados: 0,
+            pulados: $pulados,
+            avisos: $avisos,
         );
     }
 
     public function invariantes(): array
     {
         $ctx = $this->ctxAtual ?? new MigrationContext();
-        if (! $this->legadoDisponivel($ctx)) {
+        if (! $this->tabelaExiste($ctx, 'androids')) {
             return [];
         }
 
         return [
-            new CountInvariant($ctx, 'pagamentos_online', 'pagamentos_online'),
+            new CountInvariant($ctx, 'androids', 'app_devices',
+                whereLegado: 'user_id IS NOT NULL'),
             new IntegrityInvariant($ctx, 'app_devices', 'user_id', 'users'),
         ];
     }
 
-    /**
-     * @param \Closure(object):array<string,mixed> $map
-     * @return list<array<string, mixed>>
-     */
-    private function ler(MigrationContext $ctx, string $tabela, \Closure $map): array
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
     {
         try {
-            $rows = $ctx->legado()->table($tabela)->get();
-        } catch (\Throwable) {
-            return [];
-        }
-
-        return $rows->map($map)->all();
-    }
-
-    private function legadoDisponivel(MigrationContext $ctx): bool
-    {
-        try {
-            $ctx->legado()->getPdo();
-
-            return true;
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function booleano(mixed $v): bool
+    {
+        return in_array(mb_strtoupper(trim((string) ($v ?? ''))), ['1', 'S', 'T', 'TRUE', 'Y'], true);
     }
 }

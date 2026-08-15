@@ -89,10 +89,19 @@ final class CobrancaMigrator implements Migrator
                 }
             });
 
+        // ── PIX do legado + remessas CNAB (pós-auditoria 2026-08-14) ──
+        [$l2, $g2, $p2] = $this->pixLegado($ctx);
+        $lidos += $l2;
+        $gravados += $g2;
+        $pulados += $p2;
+        [$l3, $g3] = $this->remessasCnab($ctx, $bancoDaConta);
+        $lidos += $l3;
+        $gravados += $g3;
+
         $avisos = [];
         if ($pulados > 0) {
-            $avisos[] = "{$pulados} boleto(s) descartado(s): sem parcela correspondente "
-                .'no financeiro (valor e vencimento vêm dela)';
+            $avisos[] = "{$pulados} boleto(s)/pix descartado(s): sem parcela/pedido "
+                .'correspondente no destino';
         }
 
         return new MigrationResult(
@@ -109,6 +118,141 @@ final class CobrancaMigrator implements Migrator
         $ctx = $this->ctxAtual ?? new MigrationContext();
 
         return [new CountInvariant($ctx, 'boletos', 'boletos')];
+    }
+
+    /**
+     * Cobranças PIX do legado (PIXTRANSACTIONS, 4.961 no dump auditado) →
+     * pix_cobrancas. Empresa vem do pedido; txid é obrigatório no destino.
+     *
+     * @return array{0:int,1:int,2:int} [lidos, gravados, pulados]
+     */
+    private function pixLegado(MigrationContext $ctx): array
+    {
+        if (! $this->tabelaExiste($ctx, 'pixtransactions')) {
+            return [0, 0, 0];
+        }
+
+        $empresaDoPedido = [];
+        foreach (DB::table('pedidos')->select('id', 'empresa_id', 'cliente_id')->cursor() as $p) {
+            $empresaDoPedido[(int) $p->id] = [(int) $p->empresa_id, $p->cliente_id !== null ? (int) $p->cliente_id : null];
+        }
+        $empresaPadrao = (int) (DB::table('empresas')->orderByDesc('matriz')->orderBy('id')->value('id') ?? 0);
+
+        $lidos = 0;
+        $gravados = 0;
+        $pulados = 0;
+        $lote = [];
+        foreach ($ctx->legado()->table('pixtransactions')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $txid = trim((string) ($r->txid ?? ''));
+            if ($txid === '' || $empresaPadrao === 0) {
+                $pulados++;
+
+                continue;
+            }
+            $pedido = (int) ($r->pedido_id ?? 0);
+            [$empresa, $cliente] = $empresaDoPedido[$pedido] ?? [$empresaPadrao, null];
+
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresa,
+                'pedido_id' => isset($empresaDoPedido[$pedido]) ? $pedido : null,
+                'cliente_id' => $cliente,
+                'txid' => mb_substr($txid, 0, 60),
+                'e2eid' => ($r->endtoendid ?? null) !== null ? mb_substr((string) $r->endtoendid, 0, 60) : null,
+                'valor' => round((float) ($r->valor ?? 0), 2),
+                'copia_e_cola' => $r->pixcopiaecola ?? null,
+                'expira_em' => $r->expires_at ?? null,
+                'situacao' => $this->situacaoPix($r->status ?? null),
+                'pago_em' => $r->datapagamento ?? null,
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        if ($lote !== [] && ! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('pix_cobrancas', $lote, ['id'], 1000);
+        }
+
+        return [$lidos, $gravados, $pulados];
+    }
+
+    /**
+     * Status PIX do PSP → vocabulário do destino (varchar(20)). O legado grava o
+     * status cru do Itaú — "REMOVIDA_PELO_USUARIO_RECEBEDOR" estoura a coluna.
+     */
+    private function situacaoPix(mixed $status): string
+    {
+        $s = mb_strtoupper(trim((string) ($status ?? '')));
+
+        return match (true) {
+            $s === '' => 'DESCONHECIDA',
+            str_starts_with($s, 'REMOVIDA') => 'CANCELADA',
+            default => mb_substr($s, 0, 20),
+        };
+    }
+
+    /**
+     * Remessas CNAB do legado → remessas_cnab. O total/valor vêm dos vínculos
+     * (BOLETOREMESSAFINANCEIROS) somados sobre as parcelas já migradas.
+     *
+     * @param  array<int,int>  $bancoDaConta
+     * @return array{0:int,1:int} [lidos, gravados]
+     */
+    private function remessasCnab(MigrationContext $ctx, array $bancoDaConta): array
+    {
+        if (! $this->tabelaExiste($ctx, 'boletoremessas')) {
+            return [0, 0];
+        }
+
+        // Agregado por remessa: nº de boletos e soma das parcelas cobradas.
+        $porRemessa = [];
+        if ($this->tabelaExiste($ctx, 'boletoremessafinanceiros')) {
+            $valorParcela = [];
+            foreach (DB::table('financeiroparcelas')->select('id', 'valor')->cursor() as $p) {
+                $valorParcela[(int) $p->id] = (float) $p->valor;
+            }
+            foreach ($ctx->legado()->table('boletoremessafinanceiros')
+                ->get(['boletoremessa_id', 'financeiroparcela_id', 'cancelado']) as $v) {
+                if ($this->booleano($v->cancelado ?? null)) {
+                    continue;
+                }
+                $id = (int) $v->boletoremessa_id;
+                $porRemessa[$id]['n'] = ($porRemessa[$id]['n'] ?? 0) + 1;
+                $porRemessa[$id]['valor'] = ($porRemessa[$id]['valor'] ?? 0.0)
+                    + ($valorParcela[(int) ($v->financeiroparcela_id ?? 0)] ?? 0.0);
+            }
+        }
+
+        $empresaDaConta = [];
+        foreach (DB::table('contas')->select('id', 'empresa_id')->cursor() as $c) {
+            $empresaDaConta[(int) $c->id] = (int) $c->empresa_id;
+        }
+        $empresaPadrao = (int) (DB::table('empresas')->min('id') ?? 0);
+
+        $lidos = 0;
+        $gravados = 0;
+        $lote = [];
+        foreach ($ctx->legado()->table('boletoremessas')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $conta = (int) ($r->conta_id ?? 0);
+            $agg = $porRemessa[(int) $r->id] ?? ['n' => 0, 'valor' => 0.0];
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresaDaConta[$conta] ?? $empresaPadrao,
+                'banco_codigo' => $bancoDaConta[$conta] ?? 0,
+                'numero_remessa' => (int) ($r->numerosequencia ?? $r->id),
+                'total_boletos' => (int) $agg['n'],
+                'valor_total' => round((float) $agg['valor'], 2),
+                'situacao' => $this->booleano($r->cancelado ?? null)
+                    ? 'CANCELADA'
+                    : ($this->booleano($r->efetivado ?? null) ? 'EFETIVADA' : 'GERADA'),
+                'created_at' => $r->datahora ?? $r->created_at ?? null,
+            ];
+        }
+        if ($lote !== [] && ! $ctx->dryRun && $empresaPadrao > 0) {
+            $gravados += $this->gravarPreservandoId('remessas_cnab', $lote, ['id'], 1000);
+        }
+
+        return [$lidos, $gravados];
     }
 
     /**

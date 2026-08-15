@@ -32,6 +32,19 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <!-- Testes NUNCA enxergam os bancos legados reais do .env: os testes
+             "sem legado" dependem de a conexão falhar, e um espelho carregado
+             (55432) faria o dry-run varrer 475 mil parcelas (OOM). Porta
+             inválida = falha imediata da conexão. -->
+        <env name="LEGADO_DB_HOST" value="127.0.0.1"/>
+        <env name="LEGADO_DB_PORT" value="1"/>
+        <env name="LEGADO_DB_DATABASE" value="inexistente_teste"/>
+        <env name="APP_LEGADO_DB_HOST" value="127.0.0.1"/>
+        <env name="APP_LEGADO_DB_PORT" value="1"/>
+        <env name="APP_LEGADO_DB_DATABASE" value="inexistente_teste"/>
+        <env name="MONITORA_LEGADO_DB_HOST" value="127.0.0.1"/>
+        <env name="MONITORA_LEGADO_DB_PORT" value="1"/>
+        <env name="MONITORA_LEGADO_DB_DATABASE" value="inexistente_teste"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

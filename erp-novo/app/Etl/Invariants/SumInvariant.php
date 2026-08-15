@@ -33,18 +33,23 @@ final class SumInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
-        // A tabela pode não existir na origem (o legado varia por instalação e
-        // nem todo dump traz todos os módulos): sem origem não há soma a
-        // comparar, e isso não é falha do cutover.
+        // Conexão indisponível (dev/CI): não se aplica. Conexão disponível com a
+        // TABELA ausente é FALHA — nome errado ou espelho incompleto silenciaria
+        // a própria checagem (auditoria 2026-08-14).
         try {
-            if (! $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado)) {
-                return InvariantResult::ok(
-                    $this->nome(),
-                    "origem `{$this->tabelaLegado}` ausente no dump — não se aplica"
-                );
-            }
+            $temTabela = $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado);
         } catch (\Throwable) {
             return InvariantResult::ok($this->nome(), 'legado indisponível — não se aplica');
+        }
+
+        if (! $temTabela) {
+            return InvariantResult::falha(
+                $this->nome(),
+                "origem `{$this->tabelaLegado}` NÃO existe no legado — nome errado "
+                    .'ou tabela fora do MAPA do espelho (espelhar_oracle.py)',
+                -1,
+                round((float) $this->ctx->novo()->table($this->tabelaNova)->sum($this->colunaNova), 2),
+            );
         }
 
         // No legado a coluna pode estar em string-BR; permite custom (BrFormat) via closure.

@@ -211,6 +211,17 @@ final class FiscalMigrator implements Migrator
             $avisos[] = $aviso;
         }
 
+        // ── Itens das recebidas + cartas de correção (pós-auditoria 2026-08-14:
+        // as duas fontes estavam espelhadas sem consumidor) ──
+        [$n, $g, $p] = $this->migrarItensRecebidas($ctx);
+        $lidos += $n;
+        $gravados += $g;
+        $pulados += $p;
+        [$n, $g, $p] = $this->migrarCartasCorrecao($ctx);
+        $lidos += $n;
+        $gravados += $g;
+        $pulados += $p;
+
         if ($pulados > 0) {
             $avisos[] = "{$pulados} registro(s) fiscais descartados: empresa/nota "
                 .'ausente no destino';
@@ -286,6 +297,102 @@ final class FiscalMigrator implements Migrator
             });
 
         return [$lidos, $gravados, $pulados, null];
+    }
+
+    /**
+     * Itens das notas recebidas (o legado detalha ~100 colunas de tributo por
+     * item; o destino guarda o essencial da entrada).
+     *
+     * @return array{0:int,1:int,2:int}
+     */
+    private function migrarItensRecebidas(MigrationContext $ctx): array
+    {
+        if (! $this->tabelaExiste($ctx, 'nfrecebidaitems')
+            || ! $this->tabelaDestinoExiste('nf_recebida_itens')) {
+            return [0, 0, 0];
+        }
+
+        $empresaDaNota = [];
+        foreach (DB::table('nf_recebidas')->select('id', 'empresa_id')->cursor() as $r) {
+            $empresaDaNota[(int) $r->id] = (int) $r->empresa_id;
+        }
+
+        $lidos = 0;
+        $gravados = 0;
+        $pulados = 0;
+        $lote = [];
+        foreach ($ctx->legado()->table('nfrecebidaitems')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $nota = (int) $r->nfrecebida_id;
+            if (! isset($empresaDaNota[$nota])) {
+                $pulados++;
+
+                continue;
+            }
+            $lote[] = [
+                'id' => (int) $r->id,
+                'nf_recebida_id' => $nota,
+                'empresa_id' => $empresaDaNota[$nota],
+                'codigo_fornecedor' => mb_substr((string) ($r->cprod ?? ''), 0, 60) ?: null,
+                'descricao' => mb_substr(trim((string) ($r->xprod ?? '')), 0, 255) ?: 'Item',
+                'ncm' => mb_substr((string) ($r->ncm ?? ''), 0, 10) ?: null,
+                'cfop' => mb_substr((string) ($r->cfop ?? ''), 0, 4) ?: null,
+                'quantidade' => round((float) ($r->qcom ?? 0), 3),
+                'valor_unitario' => round((float) ($r->vuncom ?? 0), 4),
+                'valor_total' => $this->dec($r->vprod ?? 0),
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        if ($lote !== [] && ! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('nf_recebida_itens', $lote, ['id'], 500);
+        }
+
+        return [$lidos, $gravados, $pulados];
+    }
+
+    /**
+     * Cartas de correção emitidas (evento 110110) → cartas_correcao.
+     *
+     * @return array{0:int,1:int,2:int}
+     */
+    private function migrarCartasCorrecao(MigrationContext $ctx): array
+    {
+        if (! $this->tabelaExiste($ctx, 'nfemitidacartacorrecaos')
+            || ! $this->tabelaDestinoExiste('cartas_correcao')) {
+            return [0, 0, 0];
+        }
+
+        $empresaDaNota = $this->empresaPorNota();
+
+        $lidos = 0;
+        $gravados = 0;
+        $pulados = 0;
+        $lote = [];
+        foreach ($ctx->legado()->table('nfemitidacartacorrecaos')->orderBy('id')->get() as $r) {
+            $lidos++;
+            $nota = (int) ($r->nfemitida_id ?? 0);
+            if (! isset($empresaDaNota[$nota])) {
+                $pulados++;
+
+                continue;
+            }
+            $protocolo = trim((string) ($r->protocoloretornoevento ?? ''));
+            $lote[] = [
+                'id' => (int) $r->id,
+                'empresa_id' => $empresaDaNota[$nota],
+                'nota_fiscal_id' => $nota,
+                'sequencia' => (int) ($r->nseqevento ?? 1) ?: 1,
+                'correcao' => trim((string) ($r->xcorrecao ?? '')) ?: '-',
+                'protocolo' => mb_substr($protocolo, 0, 30) ?: null,
+                'registrada' => $protocolo !== '',
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+        if ($lote !== [] && ! $ctx->dryRun) {
+            $gravados += $this->gravarPreservandoId('cartas_correcao', $lote, ['id'], 500);
+        }
+
+        return [$lidos, $gravados, $pulados];
     }
 
     /**

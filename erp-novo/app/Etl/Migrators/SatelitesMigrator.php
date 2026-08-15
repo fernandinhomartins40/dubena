@@ -108,6 +108,21 @@ final class SatelitesMigrator implements Migrator
         // ── Comodato ──
         if ($this->tabelaExiste($ctx, 'comodatos')) {
             $produtoPadrao = (int) (DB::table('produtos')->min('id') ?? 0);
+
+            // Itens REAIS do contrato (COMODATOITEMS, 1.344 no dump auditado):
+            // produto e quantidade vêm daqui — o "produto padrão qtde 1" só
+            // resta para contrato sem item (auditoria 2026-08-14, P1).
+            $itensPorComodato = [];
+            if ($this->tabelaExiste($ctx, 'comodatoitems')) {
+                foreach ($ctx->legado()->table('comodatoitems')->orderBy('id')->get() as $i) {
+                    $itensPorComodato[(int) $i->comodato_id][] = [
+                        'produto_id' => (int) ($i->produto_id ?? 0),
+                        'quantidade' => (float) ($i->quantidade ?? 0),
+                    ];
+                }
+            }
+
+            $semItem = 0;
             $lote = [];
             foreach ($ctx->legado()->table('comodatos')->orderBy('id')->get() as $r) {
                 $lidos++;
@@ -117,13 +132,29 @@ final class SatelitesMigrator implements Migrator
 
                     continue;
                 }
+
+                // Produto do item de maior quantidade; quantidade = soma dos itens.
+                $produto = $produtoPadrao;
+                $quantidade = 1.0;
+                $itens = $itensPorComodato[(int) $r->id] ?? [];
+                if ($itens !== []) {
+                    usort($itens, fn ($a, $b) => $b['quantidade'] <=> $a['quantidade']);
+                    $candidato = $itens[0]['produto_id'];
+                    if (isset($idsProduto[$candidato])) {
+                        $produto = $candidato;
+                    }
+                    $quantidade = max(1.0, array_sum(array_column($itens, 'quantidade')));
+                } else {
+                    $semItem++;
+                }
+
                 $lote[] = [
                     'id' => (int) $r->id,
                     'empresa_id' => $empresaDoCliente[$cliente] ?? (int) $r->empresa_id,
                     'grupo_id' => (int) $r->grupo_id,
                     'cliente_id' => $cliente,
-                    'produto_id' => $produtoPadrao,
-                    'quantidade' => 1,
+                    'produto_id' => $produto,
+                    'quantidade' => $quantidade,
                     'quantidade_devolvida' => 0,
                     'situacao' => $this->booleano($r->ativo ?? '1') ? 'ATIVO' : 'ENCERRADO',
                     'data_emprestimo' => $r->datacontrato,
@@ -134,9 +165,8 @@ final class SatelitesMigrator implements Migrator
             if ($lote !== [] && ! $ctx->dryRun) {
                 $gravados += $this->gravarPreservandoId('comodatos', $lote, ['id'], 500);
             }
-            if ($lote !== []) {
-                $avisos[] = 'comodato do legado é CONTRATO (cliente + datas), sem produto '
-                    .'nem quantidade — migrado com produto padrão e quantidade 1';
+            if ($semItem > 0) {
+                $avisos[] = "{$semItem} comodato(s) sem item no legado — produto padrão e quantidade 1";
             }
         }
 

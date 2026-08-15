@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Etl\Migrators;
+
+use App\Etl\Contracts\Migrator;
+use App\Etl\Support\MigrationContext;
+use App\Etl\Support\MigrationResult;
+use App\Models\Fiscal\MalhaFiscal;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Migra os CATÁLOGOS fiscais do legado para a malha fiscal genérica (C12).
+ *
+ * O legado guarda a configuração tributária em tabelas próprias (NFGRUPOFISCALS,
+ * NFICMS, NFPIS, ...); o schema novo tem `malha_fiscal` (grupo_id, tipo, codigo,
+ * descricao) — os `tipo` abaixo são exatamente os que a tela de Config Fiscal
+ * consome (frontend/features/fiscal/tabs/MalhaTab.tsx).
+ *
+ * O que NÃO cabe aqui (e é reportado em aviso, nunca descartado em silêncio):
+ * as MATRIZES de alíquota — `nfimpostos` (por grupo fiscal), `nfimpostoestados`
+ * (por UF) e `produtoleiimpostos` (317 mil linhas por produto/lei). O motor novo
+ * (FiscalService) hoje usa CST/alíquota fixos da operação; enquanto o destino
+ * dessas matrizes não for modelado, elas permanecem íntegras no espelho.
+ */
+final class FiscalConfigMigrator implements Migrator
+{
+    /** tabela do espelho => tipo na malha_fiscal (os da tela + preservação). */
+    private const CATALOGOS = [
+        'nfgrupofiscals' => 'grupos-fiscais',
+        'nficms' => 'cst-icms',
+        'nfipis' => 'cst-ipi',
+        'nfpis' => 'cst-pis',
+        'nfcofins' => 'cst-cofins',
+        'nfcsts' => 'cst',
+        'nfcests' => 'cest',
+        'nfclastribs' => 'classificacao-tributaria',
+    ];
+
+    /** colunas candidatas a `codigo`, na ordem de preferência. */
+    private const COLUNAS_CODIGO = ['cst', 'cest', 'codigo', 'ncm', 'cclastrib', 'ctrib'];
+
+    private ?MigrationContext $ctxAtual = null;
+
+    public function nome(): string
+    {
+        return 'fiscal-config';
+    }
+
+    public function dependeDe(): array
+    {
+        return ['empresas']; // precisa de grupos
+    }
+
+    public function migrar(MigrationContext $ctx): MigrationResult
+    {
+        $this->ctxAtual = $ctx;
+
+        $lidos = 0;
+        $gravados = 0;
+        $pulados = 0;
+        $avisos = [];
+        $ausentes = [];
+
+        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 0);
+        if ($grupoPadrao === 0) {
+            return new MigrationResult($this->nome(), 0, 0, 0,
+                ['sem grupos no destino — rode o migrator de empresas antes']);
+        }
+
+        foreach (self::CATALOGOS as $tabela => $tipo) {
+            if (! $this->tabelaExiste($ctx, $tabela)) {
+                $ausentes[] = $tabela;
+
+                continue;
+            }
+
+            foreach ($ctx->legado()->table($tabela)->orderBy('id')->get() as $r) {
+                $lidos++;
+                $linha = (array) $r;
+
+                $descricao = trim((string) ($linha['descricao'] ?? ''));
+                $codigo = $this->codigoDe($linha);
+                if ($descricao === '' && $codigo === null) {
+                    $pulados++;
+
+                    continue;
+                }
+
+                if ($ctx->dryRun) {
+                    continue;
+                }
+
+                MalhaFiscal::withoutGrupo()->updateOrCreate(
+                    [
+                        'grupo_id' => (int) ($linha['grupo_id'] ?? 0) ?: $grupoPadrao,
+                        'tipo' => $tipo,
+                        'codigo' => $codigo,
+                        'descricao' => $descricao !== '' ? mb_substr($descricao, 0, 255) : (string) $codigo,
+                    ],
+                    ['ativo' => $this->booleano($linha['ativo'] ?? '1')],
+                );
+                $gravados++;
+            }
+        }
+
+        if ($ausentes !== []) {
+            $avisos[] = 'catálogo(s) ausente(s) no espelho: '.implode(', ', $ausentes)
+                .' — re-rodar espelhar_oracle.py';
+        }
+
+        // As matrizes de alíquota não têm destino modelado — dizer ALTO.
+        $matrizes = [];
+        foreach (['nfimpostos', 'nfimpostoestados', 'produtoleiimpostos', 'nfoperacaoprodutos'] as $t) {
+            if ($this->tabelaExiste($ctx, $t)) {
+                $matrizes[] = $t.'='.$ctx->legado()->table($t)->count();
+            }
+        }
+        if ($matrizes !== []) {
+            $avisos[] = 'matrizes de alíquota SEM destino no schema novo ('.implode(', ', $matrizes)
+                .'): o motor fiscal usa CST/alíquota da operação — modelar o destino '
+                .'antes do cutover da emissão de NF-e';
+        }
+
+        return new MigrationResult(
+            migrator: $this->nome(),
+            lidos: $lidos,
+            gravados: $ctx->dryRun ? 0 : $gravados,
+            pulados: $pulados,
+            avisos: $avisos,
+        );
+    }
+
+    public function invariantes(): array
+    {
+        return []; // updateOrCreate deduplica catálogos: contagem 1:1 não se aplica.
+    }
+
+    /** @param array<string,mixed> $linha */
+    private function codigoDe(array $linha): ?string
+    {
+        foreach (self::COLUNAS_CODIGO as $c) {
+            $v = trim((string) ($linha[$c] ?? ''));
+            if ($v !== '') {
+                return mb_substr($v, 0, 20);
+            }
+        }
+
+        return null;
+    }
+
+    private function booleano(mixed $v): bool
+    {
+        return in_array((string) $v, ['1', 'true', 't', 'S'], true) || $v === true || $v === 1;
+    }
+
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
+    {
+        try {
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+}

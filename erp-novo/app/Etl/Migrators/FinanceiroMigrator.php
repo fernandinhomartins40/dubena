@@ -56,8 +56,12 @@ final class FinanceiroMigrator implements Migrator
 
         $idsEmpresa = $this->idsDe('empresas');
         $idsCliente = $this->idsDe('clientes');
-        $idsPlano = $this->tabelaDestinoExiste('planocontas') ? $this->idsDe('planocontas') : [];
-        $idsCentro = $this->tabelaDestinoExiste('centrocustos') ? $this->idsDe('centrocustos') : [];
+        // Nomes REAIS das tabelas de destino: `planos_conta`/`centros_custo`.
+        // Com o nome errado ('planocontas') o guard zerava o conjunto e TODO
+        // título era gravado com planoconta_id null — desfazendo a religação
+        // do CadastrosContabeisMigrator (bug da mesma família da auditoria).
+        $idsPlano = $this->tabelaDestinoExiste('planos_conta') ? $this->idsDe('planos_conta') : [];
+        $idsCentro = $this->tabelaDestinoExiste('centros_custo') ? $this->idsDe('centros_custo') : [];
         $rateio = $this->rateioPrincipal($ctx);
 
         // ── Títulos ──
@@ -101,16 +105,21 @@ final class FinanceiroMigrator implements Migrator
             });
 
         // ── Parcelas (precisam do título já gravado) ──
+        $renumeradas = 0;
         if ($this->tabelaExiste($ctx, 'financeiroparcelas')) {
             $idsTitulo = $this->idsDe('financeiros');
             $empresaDoTitulo = $this->empresaPorTitulo();
             // A chave (financeiro_id, numero) e UNIQUE no destino e o legado a
-            // repete. O controle tem de ser GLOBAL: duplicatas aparecem em
-            // blocos diferentes, entao um `$vistos` por bloco nao pega.
+            // repete (renegociações antigas). Descartar a duplicata perdia
+            // 25.228 parcelas reais (auditoria 2026-08-14): agora a parcela
+            // repetida é RENUMERADA para o próximo número livre do título —
+            // nada se perde e os somatórios continuam batendo. O controle tem
+            // de ser GLOBAL: duplicatas aparecem em blocos diferentes.
             $vistos = [];
+            $maiorNumero = [];
 
             $ctx->legado()->table('financeiroparcelas')->orderBy('id')->chunk(5000,
-                function ($rows) use (&$lidos, &$gravados, &$pulados, &$vistos, $ctx, $idsTitulo, $empresaDoTitulo) {
+                function ($rows) use (&$lidos, &$gravados, &$pulados, &$vistos, &$maiorNumero, &$renumeradas, $ctx, $idsTitulo, $empresaDoTitulo) {
                     $lote = [];
                     foreach ($rows as $r) {
                         $lidos++;
@@ -120,15 +129,16 @@ final class FinanceiroMigrator implements Migrator
 
                             continue;
                         }
-                        // O destino tem unique (financeiro_id, numero): o legado
-                        // repete a combinação em alguns títulos antigos.
-                        $chave = $titulo.':'.(int) $r->numero;
+                        $numero = (int) $r->numero;
+                        $maiorNumero[$titulo] = max($maiorNumero[$titulo] ?? 0, $numero);
+                        $chave = $titulo.':'.$numero;
                         if (isset($vistos[$chave])) {
-                            $pulados++;
-
-                            continue;
+                            $numero = ++$maiorNumero[$titulo];
+                            $chave = $titulo.':'.$numero;
+                            $renumeradas++;
                         }
                         $vistos[$chave] = true;
+                        $r->numero = $numero;
 
                         $lote[] = [
                             'id' => (int) $r->id,
@@ -150,14 +160,53 @@ final class FinanceiroMigrator implements Migrator
                 });
         }
 
+        // ── Rateios COMPLETOS (pós-auditoria 2026-08-14): o título guarda o
+        // rateio principal, mas o destino TEM a tabela `financeirorateios` — os
+        // 442 mil rateios múltiplos são preservados integralmente nela. ──
+        if ($this->tabelaExiste($ctx, 'financeirorateios')
+            && $this->tabelaDestinoExiste('financeirorateios')) {
+            $empresaDoTitulo ??= $this->empresaPorTitulo();
+            $idsTitulo ??= $this->idsDe('financeiros');
+
+            $ctx->legado()->table('financeirorateios')->orderBy('id')->chunk(5000,
+                function ($rows) use (&$lidos, &$gravados, &$pulados, $ctx, $idsTitulo, $idsPlano, $idsCentro, $empresaDoTitulo) {
+                    $lote = [];
+                    foreach ($rows as $r) {
+                        $lidos++;
+                        $titulo = (int) $r->financeiro_id;
+                        if (! isset($idsTitulo[$titulo])) {
+                            $pulados++;
+
+                            continue;
+                        }
+                        $plano = (int) ($r->planoconta_id ?? 0);
+                        $centro = (int) ($r->centrocusto_id ?? 0);
+                        $lote[] = [
+                            'id' => (int) $r->id,
+                            'financeiro_id' => $titulo,
+                            'empresa_id' => $empresaDoTitulo[$titulo] ?? 0,
+                            'planoconta_id' => isset($idsPlano[$plano]) ? $plano : null,
+                            'centrocusto_id' => isset($idsCentro[$centro]) ? $centro : null,
+                            'valor' => round((float) ($r->valor ?? 0), 2),
+                            'created_at' => $r->created_at ?? null,
+                        ];
+                    }
+                    if ($lote !== [] && ! $ctx->dryRun) {
+                        $gravados += $this->gravarPreservandoId('financeirorateios', $lote, ['id'], 1000);
+                    }
+                });
+        }
+
         if ($rateio !== []) {
-            $avisos[] = 'plano de contas/centro de custo vieram do rateio de MAIOR '
-                .'valor de cada título (o legado permite rateio múltiplo; o schema '
-                .'novo guarda um por título)';
+            $avisos[] = 'o título leva o rateio de MAIOR valor nas FKs diretas; os '
+                .'rateios múltiplos completos estão em `financeirorateios`';
+        }
+        if ($renumeradas > 0) {
+            $avisos[] = "{$renumeradas} parcela(s) com (financeiro_id, numero) repetido no "
+                .'legado foram RENUMERADAS para o próximo número livre do título';
         }
         if ($pulados > 0) {
-            $avisos[] = "{$pulados} registro(s) descartado(s): empresa/título ausente "
-                .'ou parcela duplicada (financeiro_id + numero)';
+            $avisos[] = "{$pulados} registro(s) descartado(s): empresa/título ausente";
         }
 
         return new MigrationResult(
@@ -175,7 +224,11 @@ final class FinanceiroMigrator implements Migrator
 
         return [
             new CountInvariant($ctx, 'financeiros', 'financeiros'),
+            // Parcelas 1:1 — a renumeração preserva TODAS (nada de descarte por UNIQUE).
+            new CountInvariant($ctx, 'financeiroparcelas', 'financeiroparcelas'),
+            new CountInvariant($ctx, 'financeirorateios', 'financeirorateios'),
             new SumInvariant($ctx, 'financeiros', 'valor', 'financeiros', 'valor', 0.05),
+            new SumInvariant($ctx, 'financeiroparcelas', 'valor', 'financeiroparcelas', 'valor', 0.05),
         ];
     }
 
