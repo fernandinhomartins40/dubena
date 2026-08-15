@@ -20,24 +20,57 @@ use Illuminate\Validation\ValidationException;
  */
 class FiscalService
 {
+    /**
+     * Fallback de quando o item não tem regra na matriz — é exatamente o que o
+     * serviço fazia para TODO item antes da matriz existir. Mantido para não
+     * quebrar a emissão de quem ainda não cadastrou/migrou a tributação.
+     */
+    private const TRIBUTACAO_PADRAO = [
+        'cst_icms' => '00',
+        'aliq_icms' => 18.0,
+        'aliq_pis' => 1.65,
+        'aliq_cofins' => 7.6,
+    ];
+
     public function __construct(
         private CalculoImpostoService $imposto,
         private SefazDriver $sefaz,
         private NumeroSequencialService $sequencia,
+        private ResolucaoTributariaService $tributacao,
     ) {}
 
     /**
      * Monta uma nota (RASCUNHO) a partir de um pedido, calculando os impostos por
      * item. Não numera nem transmite — isso é no emitir().
+     *
+     * A tributação sai da MATRIZ migrada do legado (nf_impostos/nf_imposto_estados),
+     * resolvida por operação fiscal × grupo fiscal do produto × UF origem→destino ×
+     * consumidor final. Sem regra cadastrada para o item, cai no padrão histórico
+     * (CST 00 / 18% / PIS 1,65 / COFINS 7,6) — o comportamento anterior — e o
+     * chamador é avisado pelo campo `sem_regra_fiscal` da nota.
+     *
+     * @param  int|null  $operacaoFiscalId  operação fiscal (natureza/CFOP) da venda;
+     *                                      null usa a operação habilitada do produto.
      */
-    public function montarDoPedido(Pedido $pedido, ModeloDocumento $modelo): NotaFiscal
-    {
-        $pedido->loadMissing('itens.produto');
+    public function montarDoPedido(
+        Pedido $pedido,
+        ModeloDocumento $modelo,
+        ?int $operacaoFiscalId = null,
+    ): NotaFiscal {
+        $pedido->loadMissing('itens.produto', 'cliente');
         if ($pedido->itens->isEmpty()) {
             throw ValidationException::withMessages(['pedido' => 'Pedido sem itens para faturar.']);
         }
 
-        return DB::transaction(function () use ($pedido, $modelo) {
+        $ufEmitente = strtoupper((string) DB::table('empresas')
+            ->where('id', $pedido->empresa_id)->value('uf'));
+        $ufDestino = strtoupper((string) ($pedido->cliente->uf ?? '')) ?: $ufEmitente;
+        // Consumidor final = pessoa física (sem CNPJ), como no legado.
+        $consumidorFinal = blank($pedido->cliente?->cnpj);
+
+        return DB::transaction(function () use (
+            $pedido, $modelo, $operacaoFiscalId, $ufEmitente, $ufDestino, $consumidorFinal
+        ) {
             $nota = NotaFiscal::create([
                 'empresa_id' => $pedido->empresa_id,
                 'grupo_id' => $pedido->grupo_id,
@@ -54,16 +87,29 @@ class FiscalService
 
             foreach ($pedido->itens as $i => $item) {
                 $produto = $item->produto;
-                $imp = $this->imposto->calcular([
+
+                $grupoFiscal = $this->grupoFiscalDoProduto($produto);
+                $operacao = $operacaoFiscalId ?? $this->operacaoDoProduto(
+                    (int) $produto->id,
+                    (int) $pedido->empresa_id,
+                    $grupoFiscal,
+                );
+                $regra = $operacao === null ? null : $this->tributacao->regraPara(
+                    (int) $pedido->empresa_id,
+                    $operacao,
+                    $grupoFiscal,
+                );
+
+                $tributos = $regra
+                    ? $this->tributacao->resolver($regra, $ufEmitente, $ufDestino, $consumidorFinal)
+                    : self::TRIBUTACAO_PADRAO;
+
+                $imp = $this->imposto->calcular(array_merge($tributos, [
                     'quantidade' => (float) $item->quantidade,
                     'valor_unitario' => (float) $item->preco_unitario,
                     'desconto' => (float) $item->desconto,
-                    'cst_icms' => '00',
-                    'aliq_icms' => 18.0,                 // base; config por operação entra por extensão
-                    'aliq_pis' => 1.65,
-                    'aliq_cofins' => 7.6,
                     'aliq_ipi' => (float) ($produto->nfe_aliq_ipi ?? 0),
-                ]);
+                ]));
 
                 $valorTotal = round((float) $item->quantidade * (float) $item->preco_unitario - (float) $item->desconto, 2);
                 $nota->itens()->create(array_merge([
@@ -73,8 +119,8 @@ class FiscalService
                     'valor_unitario' => $item->preco_unitario,
                     'valor_total' => $valorTotal,
                     'desconto' => $item->desconto,
-                    'cfop' => '5102',
-                    'cst_icms' => '00',
+                    'cfop' => $this->cfopDe($operacao, $ufEmitente, $ufDestino),
+                    'cst_icms' => $tributos['cst_icms'] ?? '00',
                 ], $imp->toArray()));
 
                 $totais['prod'] += $valorTotal;
@@ -216,6 +262,64 @@ class FiscalService
                 'motivo' => $resultado['motivo'] ?? null,
             ]);
         });
+    }
+
+    /**
+     * Operação fiscal habilitada para o produto (`produto_operacao_fiscal`, o
+     * NFOPERACAOPRODUTOS do legado). Um produto costuma ter várias (venda de
+     * vasilhame, venda de GLP a consumidor final, troca...) e nem toda operação
+     * tem regra para o grupo fiscal DESTE produto.
+     *
+     * Por isso a escolha automática prefere, nesta ordem: (1) operação com regra
+     * específica do grupo fiscal do produto; (2) operação com regra coringa;
+     * (3) menor CFOP. Sem esse desempate, um produto com quatro operações poderia
+     * cair justamente na única sem regra e ser tributado pelo padrão — com a regra
+     * correta cadastrada ao lado.
+     */
+    private function operacaoDoProduto(int $produtoId, int $empresaId, ?int $grupoFiscalId): ?int
+    {
+        return DB::table('produto_operacao_fiscal as pof')
+            ->join('operacoes_fiscais as o', 'o.id', '=', 'pof.operacao_fiscal_id')
+            ->leftJoin('nf_impostos as ni', function ($j) use ($empresaId, $grupoFiscalId) {
+                $j->on('ni.operacao_fiscal_id', '=', 'pof.operacao_fiscal_id')
+                    ->where('ni.empresa_id', '=', $empresaId)
+                    ->where(fn ($q) => $q
+                        ->where('ni.grupo_fiscal_id', '=', $grupoFiscalId)
+                        ->orWhereNull('ni.grupo_fiscal_id'));
+            })
+            ->where('pof.produto_id', $produtoId)
+            ->orderByRaw('ni.id IS NULL')                 // com regra primeiro
+            ->orderByRaw('ni.grupo_fiscal_id IS NULL')    // específica antes da coringa
+            ->orderBy('o.cfop')
+            ->value('pof.operacao_fiscal_id');
+    }
+
+    private function grupoFiscalDoProduto(mixed $produto): ?int
+    {
+        $grupo = $produto->grupo_fiscal_id ?? null;
+
+        return $grupo === null ? null : (int) $grupo;
+    }
+
+    /**
+     * CFOP da operação fiscal, ajustado ao destino: o cadastro guarda o CFOP
+     * interno (5xxx) e a venda interestadual usa a família 6xxx — a mesma
+     * conversão que o legado faz na emissão.
+     */
+    private function cfopDe(?int $operacaoId, string $ufEmitente, string $ufDestino): string
+    {
+        $cfop = $operacaoId === null
+            ? null
+            : DB::table('operacoes_fiscais')->where('id', $operacaoId)->value('cfop');
+
+        $cfop = (string) ($cfop ?: '5102');
+
+        if ($ufEmitente !== '' && $ufDestino !== '' && $ufEmitente !== $ufDestino
+            && str_starts_with($cfop, '5')) {
+            $cfop = '6'.substr($cfop, 1);
+        }
+
+        return $cfop;
     }
 
     private function serie(int $empresaId, ModeloDocumento $modelo): int

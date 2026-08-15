@@ -21,6 +21,8 @@ use App\Etl\Migrators\FrotaMigrator;
 use App\Etl\Migrators\GeograficoMigrator;
 use App\Etl\Migrators\GestaoMigrator;
 use App\Etl\Migrators\FiscalConfigMigrator;
+use App\Etl\Migrators\IbptMigrator;
+use App\Etl\Migrators\MatrizTributariaMigrator;
 use App\Etl\Migrators\MobileMigrator;
 use App\Etl\Migrators\MonitoraLegadoMigrator;
 use App\Etl\Migrators\PagamentoMigrator;
@@ -82,6 +84,12 @@ final class MigratorRegistry
             // Malha fiscal: regras de imposto (grupos, CST/CEST, imposto por
             // produto/UF/lei) — sem elas a emissão de NF-e não tem base tributária.
             FiscalConfigMigrator::class,
+            // Matriz de tributação (NFIMPOSTOS/NFIMPOSTOESTADOS): a regra real de
+            // CST/alíquota/MVA por operação × grupo fiscal × UF. Sem ela o motor
+            // fiscal cai em CST/alíquota padrão.
+            MatrizTributariaMigrator::class,
+            // IBPT (Lei 12.741): carga tributária aproximada por UF × NCM.
+            IbptMigrator::class,
 
             // N10 — mobile (devices + pagamentos online)
             MobileMigrator::class,

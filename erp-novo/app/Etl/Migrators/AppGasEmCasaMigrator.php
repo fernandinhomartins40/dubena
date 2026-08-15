@@ -115,9 +115,14 @@ final class AppGasEmCasaMigrator implements Migrator
             $gravados += $this->migrarCupons();
         }
 
-        $pulados = $this->puladosEnderecos + $this->puladosAvaliacoes;
+        $pulados = $this->puladosEnderecos + $this->puladosAvaliacoes + $this->puladosPrecos;
         if ($this->puladosEnderecos) {
             $avisos[] = "{$this->puladosEnderecos} endereço(s) do app sem cliente correspondente no ERP";
+        }
+        if ($this->puladosPrecos) {
+            $avisos[] = "{$this->puladosPrecos} preço(s) por condição do app sem produto/condição "
+                .'no ERP — cadastros de teste desativados de 2019 (importações 1-3, ativo=0), '
+                .'não há dado vivo a recuperar';
         }
         if ($this->puladosAvaliacoes) {
             $avisos[] = "{$this->puladosAvaliacoes} avaliação(ões) sem pedido correspondente no ERP";
@@ -148,6 +153,9 @@ final class AppGasEmCasaMigrator implements Migrator
     private int $puladosEnderecos = 0;
 
     private int $puladosAvaliacoes = 0;
+
+    /** Preços por condição cujo produto/condição não existe no ERP (ver migrarPrecosPorCondicao). */
+    private int $puladosPrecos = 0;
 
     /**
      * Cria como cliente do ERP os usuários do app que não têm `api_id`
@@ -580,6 +588,14 @@ final class AppGasEmCasaMigrator implements Migrator
      * O app precifica por condição (dinheiro/cartão/pix): sem esta tabela o
      * catálogo do tenant migrado fica sem preço. As pontes são as tabelas de
      * importação do sgcm (`*importacoes.erp_id` = id no ERP).
+     *
+     * Sobre os 11 preços "órfãos" que a auditoria listou como pendência: são de
+     * MARÇO/2019, apontam para `produtoimportacoes` 1-3 (erp_id 5 e 8, produtos
+     * que nunca existiram neste ERP — os reais são 50, 98, 297...) e estão com
+     * `ativo='0'`, cadastrados pelo user_id 1 da implantação. São registros de
+     * TESTE desativados, não dado perdido: os 23 preços vivos (importações 4/5/7,
+     * `ativo='1'`) migram todos. Ficam contabilizados em `$ignorados` e
+     * reportados — nada de descarte silencioso.
      */
     private function migrarPrecosPorCondicao(): int
     {
@@ -613,10 +629,13 @@ final class AppGasEmCasaMigrator implements Migrator
         $idsCondicao = DB::table('condicaopagamentos')->pluck('id')->flip();
 
         $n = 0;
+        $this->puladosPrecos = 0;
         foreach ($rows as $r) {
             $produto = $produtoErp[(int) $r->produtoimportacao_id] ?? 0;
             $condicao = $condicaoErp[(int) $r->condicaopagamentoimportacao_id] ?? 0;
             if (! isset($idsProduto[$produto]) || ! isset($idsCondicao[$condicao])) {
+                $this->puladosPrecos++;
+
                 continue;
             }
 

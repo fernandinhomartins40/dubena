@@ -23,7 +23,7 @@ class Produto extends Model
 
     protected $fillable = [
         'empresa_id', 'grupo_id',
-        'descricao', 'produtoclasse_id', 'unidademedida_id',
+        'descricao', 'produtoclasse_id', 'grupo_fiscal_id', 'unidademedida_id',
         'vasilhame_retornavel', 'produto_retornavel_id', 'ativo', 'envia_app_nf',
         'dias_giro', 'observacao',
         'preco_venda', 'preco_venda_minimo', 'custo_medio', 'custo_frete',

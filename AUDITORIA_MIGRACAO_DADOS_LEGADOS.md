@@ -178,15 +178,65 @@ Os 9 passos foram executados e validados no banco de teste. Suíte completa: **6
 | Avaliações do app | 21.907 | 21.905 (2 sem pedido) | ✓ |
 | Pedidos de fechamento de convênio | 28.260 | 28.218 (42 re-fechamentos substituídos) | ✓ |
 | Preço por cliente | 1.386 | 1.385 (1 renegociado) | ✓ |
-| Preço por condição (app) | 34 | 23 (11 sem produto/condição no ERP) | ⚠ |
+| Preço por condição (app) | 34 | 23 (11 são cadastros de teste de 2019, `ativo=0`) | ✓ |
 | Malha fiscal (catálogos) | — | 1.091 | ✓ |
+| Matriz de tributação (`nfimpostos`) | 61 | 61 | ✓ |
+| Matriz por UF (`nfimpostoestados`) | 31 | 31 | ✓ |
+| Produto × operação fiscal | 21 | 21 | ✓ |
+| IBPT / Lei 12.741 (`produtoleiimpostos`) | 317.520 | 317.520 | ✓ |
 
-## Pendências conscientes
+## Pendências conscientes — TODAS FECHADAS (2026-08-15)
 
-- **Matrizes de alíquota fiscais** (`nfimpostos` 61, `nfimpostoestados` 31,
-  `produtoleiimpostos` 317.520): íntegras no espelho, sem destino no schema novo — o
-  motor fiscal usa CST/alíquota fixos da operação. Modelar antes do cutover de NF-e.
-- **Usuários migrados sem papel**: atribuir roles no RBAC (a senha bcrypt funciona).
-- 11 preços por condição do app sem produto/condição correspondente no ERP.
-- Relatórios/telas sem contraparte (P2 da auditoria) seguem como backlog de produto.
+As três pendências que restavam foram implementadas. O que se descobriu ao fazê-lo
+mudou o diagnóstico de duas delas:
+
+- **Matrizes de alíquota fiscais** — ✅ resolvido, com uma **correção de premissa**:
+  `produtoleiimpostos` (317.520 linhas) *não* é matriz de tributação. É a tabela do
+  **IBPT** (Lei 12.741/2012, o "De olho no imposto"): carga tributária aproximada por
+  UF × NCM, para o rodapé do cupom. E o destino dela **já existia** (`ibpt_aliquotas`,
+  lida pelo `IbptService`) — só nunca fora populada, porque o `ibpt:atualizar` depende
+  de um CSV externo. Migrada 1:1 pelo `IbptMigrator`.
+
+  A matriz de tributação de verdade é `nfimpostos` + `nfimpostoestados` (61 + 31
+  linhas), e essa realmente não tinha destino. Agora tem: `nf_impostos` /
+  `nf_imposto_estados` (migration `matriz_tributacao`), carregadas pelo
+  `MatrizTributariaMigrator` e consumidas pela nova `ResolucaoTributariaService` —
+  porte fiel do `ImpostoDB` legado, com as quatro decisões que ele toma: PJ ×
+  consumidor final, interno × interestadual, recusa a faturar sem regra da UF (erra
+  em vez de tributar errado) e CFOP 5xxx→6xxx. O `FiscalService` deixou de usar
+  CST 00 / 18% / CFOP 5102 fixos.
+
+  Duas descobertas no caminho, ambas corrigidas:
+  - `produtos.grupo_fiscal_id` **não havia sido migrado**. A matriz é indexada por
+    operação × grupo fiscal; sem essa coluna, 25 dos 26 produtos seriam tributados
+    pela regra errada. Coluna criada e populada.
+  - 9 regras apontavam para operações fiscais absorvidas pelo dedup do commit
+    `c16b4a6` (66→57 por UNIQUE grupo+descrição). Em vez de descartá-las, o migrator
+    as **redireciona** pela mesma chave (grupo, descrição) — zero descartes.
+
+- **Usuários migrados sem papel** — ✅ resolvido. O legado não tem RBAC por papel (a
+  permissão vive em `menuusers`, menu × ação, que não está no espelho), mas o papel é
+  derivável e foi **validado contra os dados**: `support=1` → Administrador; e o
+  significado de `tipo_id` foi confirmado cruzando com os 400 mil pedidos — dos 26
+  usuários com `tipo_id=21`, 23 aparecem como entregador e nenhum como atendente.
+  Resultado: 74/74 usuários com papel (31 Entregador, 34 Operador, 12 Administrador,
+  1 Gerente), **zero sem papel**.
+
+- **11 preços por condição do app** — ✅ resolvido, e **não eram perda de migração**.
+  São de março/2019, apontam para `produtoimportacoes` 1-3 (erp_id 5 e 8 — produtos
+  que nunca existiram neste ERP; os reais são 50, 98, 297...), estão com `ativo='0'`
+  e foram cadastrados pelo usuário 1 da implantação: registros de **teste
+  desativados**. Os 23 preços vivos migram todos. O descarte, que antes era um
+  `continue` silencioso, agora é contado e reportado com o diagnóstico.
+
+Segue como backlog de produto (P2 da auditoria): relatórios/telas sem contraparte.
+
+### O que ainda depende de decisão de negócio
+
+- A tabela IBPT é **mensal** e a migrada é a versão `18.2.C` (vigência out/2018 a
+  jan/2019, a última que o legado carregou). Antes do cutover fiscal, rodar
+  `ibpt:atualizar` com o CSV da vigência corrente.
+- Itens sem regra na matriz continuam caindo no padrão histórico (CST 00 / 18%) — o
+  comportamento anterior, mantido para não quebrar quem ainda não cadastrou a
+  tributação. No dump atual, só 6 produtos têm vínculo produto×operação no legado.
 

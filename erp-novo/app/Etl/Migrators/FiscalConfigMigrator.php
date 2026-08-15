@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\DB;
  * descricao) — os `tipo` abaixo são exatamente os que a tela de Config Fiscal
  * consome (frontend/features/fiscal/tabs/MalhaTab.tsx).
  *
- * O que NÃO cabe aqui (e é reportado em aviso, nunca descartado em silêncio):
- * as MATRIZES de alíquota — `nfimpostos` (por grupo fiscal), `nfimpostoestados`
- * (por UF) e `produtoleiimpostos` (317 mil linhas por produto/lei). O motor novo
- * (FiscalService) hoje usa CST/alíquota fixos da operação; enquanto o destino
- * dessas matrizes não for modelado, elas permanecem íntegras no espelho.
+ * As MATRIZES de alíquota já NÃO ficam aqui e já não estão pendentes: `nfimpostos`
+ * e `nfimpostoestados` são carregadas pelo MatrizTributariaMigrator (destino
+ * `nf_impostos`/`nf_imposto_estados`) e `produtoleiimpostos` pelo IbptMigrator
+ * (destino `ibpt_aliquotas` — é a tabela do IBPT/Lei 12.741, não uma matriz de
+ * tributação). Este migrator cuida só dos CATÁLOGOS.
  */
 final class FiscalConfigMigrator implements Migrator
 {
@@ -106,19 +106,6 @@ final class FiscalConfigMigrator implements Migrator
         if ($ausentes !== []) {
             $avisos[] = 'catálogo(s) ausente(s) no espelho: '.implode(', ', $ausentes)
                 .' — re-rodar espelhar_oracle.py';
-        }
-
-        // As matrizes de alíquota não têm destino modelado — dizer ALTO.
-        $matrizes = [];
-        foreach (['nfimpostos', 'nfimpostoestados', 'produtoleiimpostos', 'nfoperacaoprodutos'] as $t) {
-            if ($this->tabelaExiste($ctx, $t)) {
-                $matrizes[] = $t.'='.$ctx->legado()->table($t)->count();
-            }
-        }
-        if ($matrizes !== []) {
-            $avisos[] = 'matrizes de alíquota SEM destino no schema novo ('.implode(', ', $matrizes)
-                .'): o motor fiscal usa CST/alíquota da operação — modelar o destino '
-                .'antes do cutover da emissão de NF-e';
         }
 
         return new MigrationResult(
