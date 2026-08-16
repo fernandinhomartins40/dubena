@@ -50,9 +50,15 @@ trait RegistraFalhaDeLeitura
         try {
             return $leitura();
         } catch (\Throwable $e) {
-            if ($this->ehTabelaAusente($e)) {
+            if ($this->ehTabelaAusente($e) || $this->ehConexaoIndisponivel($e)) {
                 // Caso 1: esperado fora do ambiente com dump. As invariantes
                 // (CountInvariant::hasTable) é que decidem se isso é falha.
+                //
+                // Conexão ausente entra aqui pelo mesmo motivo: em dev/CI o
+                // legado simplesmente não existe, e toda a arquitetura já trata
+                // isso como "não se aplica" (ver `legadoDisponivel()` nos
+                // migrators e o skip da CountInvariant). Tratar como erro faria
+                // o `etl:run` falhar em qualquer ambiente sem dump.
                 return $vazio;
             }
 
@@ -82,6 +88,40 @@ trait RegistraFalhaDeLeitura
     protected function limparAvisosDeLeitura(): void
     {
         $this->avisosDeLeitura = [];
+    }
+
+    /**
+     * A exceção é "não consegui nem conectar no legado"?
+     *
+     * Distinto de "a conexão caiu no meio da carga": aqui o banco de origem não
+     * está configurado/acessível desde o início, que é a situação normal em
+     * dev/CI. O `phpunit.xml` inclusive aponta a conexão `legado` para um destino
+     * inexistente de propósito, para exercitar o caminho "sem dump".
+     */
+    private function ehConexaoIndisponivel(\Throwable $e): bool
+    {
+        $msg = mb_strtolower($e->getMessage());
+
+        foreach ([
+            'could not find driver',
+            'connection refused',
+            'no such host',
+            'could not translate host name',
+            'unable to connect',
+            'database file does not exist',
+            'connection to server',
+            'name or service not known',
+            'access denied for user',
+            'unsupported driver',
+        ] as $marca) {
+            if (str_contains($msg, $marca)) {
+                return true;
+            }
+        }
+
+        // Driver não configurado no config/database.php.
+        return $e instanceof \InvalidArgumentException
+            && str_contains($msg, 'not configured');
     }
 
     /**

@@ -85,6 +85,31 @@ class FalhaDeLeituraTest extends TestCase
         Log::shouldHaveReceived('warning')->once();
     }
 
+    /**
+     * Conexão de legado ausente é a situação NORMAL em dev/CI — o `phpunit.xml`
+     * aponta a conexão para um destino inexistente de propósito, para exercitar
+     * o caminho "sem dump". Se isso virasse aviso, o `etl:run` passaria a falhar
+     * em todo ambiente sem os bancos legados.
+     */
+    public function test_conexao_indisponivel_nao_gera_aviso(): void
+    {
+        $m = $this->sujeito();
+
+        foreach ([
+            'could not find driver',
+            'SQLSTATE[08006] connection to server at "legado" failed: Connection refused',
+            'SQLSTATE[HY000] [2002] No such host is known',
+        ] as $mensagem) {
+            $r = $m->lerOuAvisar('tabela x', function () use ($mensagem) {
+                throw $this->queryException($mensagem);
+            });
+
+            $this->assertSame([], $r);
+        }
+
+        $this->assertSame([], $m->avisosPublicos(), 'ambiente sem dump não é falha de carga');
+    }
+
     public function test_leitura_bem_sucedida_nao_avisa(): void
     {
         $m = $this->sujeito();
