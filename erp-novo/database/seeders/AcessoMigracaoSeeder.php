@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\Role;
 use App\Models\Saas\PlatformAdmin;
 use App\Models\User;
+use Database\Seeders\Concerns\ResolveSenhaSeed;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,11 +22,13 @@ use Illuminate\Support\Facades\Hash;
  *
  * Idempotente: pode rodar de novo sem duplicar nem sobrescrever senha trocada.
  *
- * Senhas vêm do ambiente; os defaults são só para homologação e devem ser
- * trocados no primeiro acesso.
+ * Senhas vêm do ambiente: obrigatórias em produção, geradas e ecoadas no
+ * console fora dela (ver ResolveSenhaSeed).
  */
 class AcessoMigracaoSeeder extends Seeder
 {
+    use ResolveSenhaSeed;
+
     public function run(): void
     {
         $empresa = $this->empresaComMaisDados();
@@ -37,9 +40,9 @@ class AcessoMigracaoSeeder extends Seeder
 
         $this->command?->info("Empresa alvo: [{$empresa->id}] {$empresa->razao_social}");
 
-        $senhaAdmin = env('ADMIN_SEED_PASSWORD', 'dubena@2026');
-        $senhaOperador = env('OPERADOR_SEED_PASSWORD', 'operador@2026');
-        $senhaSuper = env('SUPERADMIN_SEED_PASSWORD', 'super@2026');
+        $senhaAdmin = $this->senhaSeed('ADMIN_SEED_PASSWORD', 'Admin Dubena');
+        $senhaOperador = $this->senhaSeed('OPERADOR_SEED_PASSWORD', 'Operador Dubena');
+        $senhaSuper = $this->senhaSeed('SUPERADMIN_SEED_PASSWORD', 'SuperAdmin da plataforma');
 
         // 1) Admin do tenant — `support` dá bypass de RBAC (acesso total),
         //    garantindo entrada mesmo se os papéis não estiverem sincronizados.

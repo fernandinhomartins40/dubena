@@ -4,10 +4,13 @@ import { ShieldCheck } from 'lucide-react'
 import { Button, Input, Field, toast } from '@/components/ui'
 import { useSaAuth } from './auth'
 
-/** Credencial de teste (atalho de preenchimento rápido). */
-const LOGIN_TESTE = { email: 'superadmin@gasemcasa.com', senha: 'superadmin123' }
-// Mostra o atalho fora de produção (em prod o painel real não traz seed de teste).
-const MOSTRAR_TESTE = !import.meta.env.PROD || import.meta.env.VITE_APP_ENV !== 'prod'
+// Atalho de preenchimento: credencial vem SÓ de env var de build, e só em dev.
+// O gate anterior (`!PROD || VITE_APP_ENV !== 'prod'`) era verdadeiro em
+// qualquer build sem VITE_APP_ENV=prod — expunha a senha cross-tenant em
+// produção. Sem as envs, o bloco não renderiza.
+const SA_EMAIL = import.meta.env.VITE_SA_DEMO_EMAIL as string | undefined
+const SA_SENHA = import.meta.env.VITE_SA_DEMO_PASSWORD as string | undefined
+const MOSTRAR_TESTE = import.meta.env.DEV && !!SA_EMAIL && !!SA_SENHA
 
 /**
  * Login do SuperAdmin (P4). Isolado do login do tenant. Suporta 2FA: o backend
@@ -45,9 +48,10 @@ export function SaLoginPage() {
   }
 
   function preencherTeste() {
-    setEmail(LOGIN_TESTE.email)
-    setSenha(LOGIN_TESTE.senha)
-    entrar(LOGIN_TESTE.email, LOGIN_TESTE.senha)
+    if (!SA_EMAIL || !SA_SENHA) return
+    setEmail(SA_EMAIL)
+    setSenha(SA_SENHA)
+    entrar(SA_EMAIL, SA_SENHA)
   }
 
   return (
@@ -118,7 +122,7 @@ export function SaLoginPage() {
                 Preencher login de teste
               </Button>
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                {LOGIN_TESTE.email} · {LOGIN_TESTE.senha}
+                {SA_EMAIL}
               </p>
             </div>
           )}

@@ -6,9 +6,12 @@ import { useAuth } from '@/lib/auth'
 
 const EMAIL_KEY = 'erpnovo_lembrar_email'
 
-// Credenciais do acesso de demonstração — admin da empresa-matriz, que é quem
-// recebe a massa de dados (DeployAdminSeeder + DemoGuarapuavaSeeder).
-const DEMO = { email: 'admin@gasemcasa.com', senha: 'admin1234' }
+// Acesso de demonstração: vem SÓ de env var de build e só fora de produção.
+// Credencial literal aqui vazava a senha do admin `support` (bypass total de
+// RBAC) na tela de login pública — ausente o env, o botão não renderiza.
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL as string | undefined
+const DEMO_SENHA = import.meta.env.VITE_DEMO_PASSWORD as string | undefined
+const MOSTRAR_DEMO = import.meta.env.DEV && !!DEMO_EMAIL && !!DEMO_SENHA
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -31,8 +34,8 @@ export function LoginPage() {
   }, [])
 
   function preencherTeste() {
-    setEmail(DEMO.email)
-    setPassword(DEMO.senha)
+    setEmail(DEMO_EMAIL ?? '')
+    setPassword(DEMO_SENHA ?? '')
     setErro(null)
   }
 
@@ -131,12 +134,14 @@ export function LoginPage() {
               {enviando ? 'Entrando…' : 'Entrar'}
             </button>
 
-            <button
-              type="button" onClick={preencherTeste}
-              className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-input py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-            >
-              <Wand2 size={15} /> Preencher com acesso de demonstração
-            </button>
+            {MOSTRAR_DEMO && (
+              <button
+                type="button" onClick={preencherTeste}
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-input py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <Wand2 size={15} /> Preencher com acesso de demonstração
+              </button>
+            )}
           </form>
         </div>
       </div>

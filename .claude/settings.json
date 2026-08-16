@@ -275,8 +275,6 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://gasemcasa.com/novo/api/app/v1/entregador/pedidos)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://gasemcasa.com/novo/api/app/v1/entregador/missao)",
       "Bash(curl -s https://gasemcasa.com/novo/api/health)",
-      "Bash(curl -s -X POST https://routes.googleapis.com/directions/v2:computeRoutes -H 'Content-Type: application/json' -H 'X-Goog-Api-Key: AIzaSyA9ql-tGlpFZB_ZdvpiPMsNCvBV-tAMQWg' -H 'X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline' -d '{\"origin\":{\"location\":{\"latLng\":{\"latitude\":-25.3862,\"longitude\":-51.4868}}},\"destination\":{\"location\":{\"latLng\":{\"latitude\":-25.3900,\"longitude\":-51.4600}}},\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}')",
-      "Bash(curl -s -X POST https://routes.googleapis.com/directions/v2:computeRoutes -H 'Content-Type: application/json' -H 'X-Goog-Api-Key: AIzaSyCAt5FIyYzlcKy392I_Eq4XEruRvcqCYfY' -H 'X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline' -d '{\"origin\":{\"location\":{\"latLng\":{\"latitude\":-25.3862,\"longitude\":-51.4868}}},\"destination\":{\"location\":{\"latLng\":{\"latitude\":-25.3900,\"longitude\":-51.4600}}},\"travelMode\":\"DRIVE\",\"routingPreference\":\"TRAFFIC_AWARE\"}')",
       "Bash(ls features/superadmin/)",
       "Bash(wc -l features/superadmin/*)",
       "Bash(awk -F/ '{print $1}')",

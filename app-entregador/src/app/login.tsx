@@ -17,8 +17,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
 
-/** Credencial de entregador de teste (só usada no atalho de debug). */
-const LOGIN_TESTE = { email: "entregador@teste.com", senha: "entregador123" }
+/**
+ * Credencial do atalho de debug — vem do ambiente (LOGIN_TESTE_EMAIL/_SENHA via
+ * app.config.ts), nunca do código. Sem ambas, o atalho não é renderizado.
+ */
+const LOGIN_TESTE = APP.login_teste
+const MOSTRAR_TESTE = APP.debug && !!LOGIN_TESTE.email && !!LOGIN_TESTE.senha
 
 /**
  * Login do entregador (P7) — e-mail/senha do colaborador. Suporta 2FA (TOTP):
@@ -125,7 +129,7 @@ export default function Login() {
 
                 <Botao titulo="Entrar" onPress={() => entrar()} carregando={carregando} />
 
-                {APP.debug && (
+                {MOSTRAR_TESTE && (
                     <View style={s.testeBox}>
                         <Text style={s.testeLabel}>Modo teste</Text>
                         <Botao
@@ -134,9 +138,7 @@ export default function Login() {
                             onPress={() => entrar(LOGIN_TESTE)}
                             carregando={carregando}
                         />
-                        <Text style={s.testeHint}>
-                            {LOGIN_TESTE.email} · {LOGIN_TESTE.senha}
-                        </Text>
+                        <Text style={s.testeHint}>{LOGIN_TESTE.email}</Text>
                     </View>
                 )}
             </ScrollView>

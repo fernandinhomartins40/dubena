@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Empresa;
 use App\Models\Grupo;
 use App\Models\User;
+use Database\Seeders\Concerns\ResolveSenhaSeed;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -13,13 +14,16 @@ use Illuminate\Support\Facades\Hash;
  *
  * O banco novo nasce vazio; sem um usuário não há login na SPA. Cria um grupo +
  * empresa-matriz + usuário admin (support = bypass de RBAC). Credenciais via env
- * (ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD); defaults trocáveis após o 1º acesso.
+ * (ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD) — obrigatórias em produção, geradas
+ * fora dela (ver ResolveSenhaSeed).
  *
  * É o admin que recebe a massa de demonstração (DemoGuarapuavaSeeder popula a
- * empresa-matriz); o botão de autopreenchimento da SPA usa estas credenciais.
+ * empresa-matriz).
  */
 class DeployAdminSeeder extends Seeder
 {
+    use ResolveSenhaSeed;
+
     public function run(): void
     {
         $grupo = Grupo::firstOrCreate(
@@ -32,8 +36,10 @@ class DeployAdminSeeder extends Seeder
             ['nome_fantasia' => 'Matriz', 'uf' => 'SP', 'matriz' => true, 'ativo' => true],
         );
 
-        $email = env('ADMIN_SEED_EMAIL', 'admin@gasemcasa.com');
-        $senha = env('ADMIN_SEED_PASSWORD', 'admin1234');
+        $email = $this->emailSeed('ADMIN_SEED_EMAIL', 'admin@gasemcasa.com');
+        // Resolvida sempre (mesmo quando o admin já existe): em produção a
+        // ausência da env var precisa falhar o deploy, não passar em silêncio.
+        $senha = $this->senhaSeed('ADMIN_SEED_PASSWORD', 'Admin do tenant');
 
         $admin = User::firstOrNew(['email' => $email]);
         $admin->name = $admin->name ?: 'Administrador';

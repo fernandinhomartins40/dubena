@@ -15,6 +15,8 @@ import { ConfigContext, ExpoConfig } from "expo/config"
  *  - GOOGLE_MAPS_API_KEY   chave do Google Maps
  *  - REVERB_HOST/PORT/...  conexão WebSocket (tempo real — P6/P8)
  *  - APP_DEBUG             "true" para habilitar atalhos de debug (default: false)
+ *  - LOGIN_TESTE_EMAIL     credencial do atalho "Modo teste" (opcional, só dev)
+ *  - LOGIN_TESTE_SENHA     idem — sem ambas, o atalho não é renderizado
  *
  * O entregador NÃO usa login por telefone (Firebase phone-auth) — ele entra com
  * e-mail/senha do colaborador (POST app/v1/login). Por isso não há EMPRESA_ID:
@@ -25,6 +27,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     const apiUrl = process.env.API_URL ?? ""
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY ?? ""
     const debug = process.env.APP_DEBUG === "true"
+
+    // Credencial do atalho "Modo teste" da tela de login. Vem do ambiente e
+    // NUNCA do código-fonte: literal aqui vaza uma conta válida no bundle.
+    // Ausente = o atalho não aparece, mesmo com APP_DEBUG=true.
+    const loginTeste = {
+        email: process.env.LOGIN_TESTE_EMAIL ?? "",
+        senha: process.env.LOGIN_TESTE_SENHA ?? "",
+    }
 
     // Tempo real (Laravel Reverb / Pusher protocol). Opcional: sem isso, o app cai
     // para polling. Ver src/helpers/realtime.ts.
@@ -57,6 +67,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             apiUrl,
             googleMapsApiKey,
             debug,
+            loginTeste,
             reverb,
         },
     }

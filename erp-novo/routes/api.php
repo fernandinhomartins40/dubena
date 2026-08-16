@@ -82,13 +82,18 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
 
 // Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador (e-mail+senha).
-Route::post('/app/v1/login', [AppAuthController::class, 'login']);
+// Mesmo limiter do login web: são o mesmo alvo de brute-force por outra porta.
+Route::post('/app/v1/login', [AppAuthController::class, 'login'])
+    ->middleware('throttle:login');
 
 // Login do CLIENTE pelo app (PÚBLICO) — F1. Phone-auth do Firebase + empresa_id.
-Route::post('/app/v1/cliente/login', [AppAuthController::class, 'loginCliente']);
+Route::post('/app/v1/cliente/login', [AppAuthController::class, 'loginCliente'])
+    ->middleware('throttle:login');
 
 // Cadastro do CLIENTE pelo app (PÚBLICO) — F3b. Firebase + dados → cria cliente + token.
-Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCliente']);
+// Limiter próprio, mais estreito que o de login: cadastro é irreversível e cria linhas.
+Route::post('/app/v1/cliente/cadastro', [AppAuthController::class, 'cadastrarCliente'])
+    ->middleware('throttle:cadastro-cliente');
 
 // Marketplace (PÚBLICO) — MP1. Descoberta de empresas por geolocalização (rate-limited).
 Route::post('/app/v1/marketplace/empresas', [MarketplaceController::class, 'empresas'])

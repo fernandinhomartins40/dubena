@@ -155,7 +155,9 @@ class ClienteAuthService
                     'password' => Hash::make(Str::random(40)),
                     'empresa_id' => $cliente->empresa_id,
                     'grupo_id' => $cliente->grupo_id,
-                    'support' => false,
+                    // `support` sai do $fillable (T1.8) e é ignorado por
+                    // firstOrCreate: o default da coluna (false) já é o correto
+                    // aqui — um cliente do app JAMAIS deve ter bypass de RBAC.
                     'ativo' => true,
                 ],
             );

@@ -49,12 +49,16 @@ return [
     | "expires_at" attribute, but first-party sessions are not affected.
     |
     | P1 (hardening de auth dos apps): tokens Bearer dos apps passam a expirar.
-    | Padrão 43200 min (30 dias); ajuste via SANCTUM_EXPIRATION. A SPA usa a
+    | Padrão 1440 min (24 h); ajuste via SANCTUM_EXPIRATION. A SPA usa a
     | sessão de cookie stateful, que NÃO é afetada por este valor.
+    |
+    | T1.5: eram 43200 (30 dias) — um token vazado valia um mês, e a SPA guarda
+    | o Bearer client-side (localStorage em "manter conectado"). Os apps mobile
+    | renovam via AppAuthController::refresh, então a janela curta é viável.
     |
     */
 
-    'expiration' => env('SANCTUM_EXPIRATION', 43200),
+    'expiration' => env('SANCTUM_EXPIRATION', 1440),
 
     /*
     |--------------------------------------------------------------------------

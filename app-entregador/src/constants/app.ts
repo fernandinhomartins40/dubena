@@ -14,11 +14,17 @@ type ReverbExtra = {
     scheme?: string
 }
 
+type LoginTesteExtra = {
+    email?: string
+    senha?: string
+}
+
 type AppExtra = {
     appEnv?: string
     apiUrl?: string
     googleMapsApiKey?: string
     debug?: boolean
+    loginTeste?: LoginTesteExtra
     reverb?: ReverbExtra
 }
 
@@ -56,6 +62,14 @@ export const APP = {
     api_url: extra.apiUrl ?? "",
     /** Chave do Google Maps. */
     gap_key: extra.googleMapsApiKey ?? "",
+    /**
+     * Credencial do atalho "Modo teste" (só dev). Vem do ambiente; vazia por
+     * default — a tela de login só mostra o atalho quando ambas estão presentes.
+     */
+    login_teste: {
+        email: extra.loginTeste?.email ?? "",
+        senha: extra.loginTeste?.senha ?? "",
+    },
     /** Conexão de tempo real (Reverb/Pusher). Vazio = sem WebSocket (cai p/ polling). */
     reverb: {
         key: extra.reverb?.key ?? "",

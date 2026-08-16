@@ -19,13 +19,18 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    /**
+     * `support` NÃO entra aqui (T1.8): o flag dá bypass total de RBAC via
+     * Gate::before (AuthServiceProvider). Fora do $fillable, nenhum
+     * `create($request->all())` futuro consegue escalar privilégio por
+     * mass-assign. Quem precisa setá-lo (seeders) usa atribuição explícita.
+     */
     protected $fillable = [
         'name',
         'email',
         'password',
         'empresa_id',
         'grupo_id',
-        'support',
         'ativo',
     ];
 
