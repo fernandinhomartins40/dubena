@@ -8,6 +8,7 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use App\Etl\Support\RegistraFalhaDeLeitura;
 use App\Models\Rh\Colaborador;
 use App\Models\Rh\ColaboradorComissao;
 use App\Models\Rh\ColaboradorExame;
@@ -38,6 +39,7 @@ use Illuminate\Support\Facades\DB;
 final class RhMigrator implements Migrator
 {
     use PreservaIdsDoLegado;
+    use RegistraFalhaDeLeitura;
 
     private ?MigrationContext $ctxAtual = null;
 
@@ -61,6 +63,7 @@ final class RhMigrator implements Migrator
                     .'(re-rodar espelhar_oracle.py)']);
         }
 
+        $this->limparAvisosDeLeitura();
         $avisos = [];
         $gravados = 0;
         $lidos = 0;
@@ -96,13 +99,18 @@ final class RhMigrator implements Migrator
             $usersEntregadores[(int) $id] = true;
         }
 
-        $telefonePrincipal = [];
-        try {
-            foreach ($ctx->legado()->table('colaboradortelefones')->orderBy('id')->get(['colaborador_id', 'telefone']) as $t) {
-                $telefonePrincipal[(int) $t->colaborador_id] ??= trim((string) $t->telefone);
-            }
-        } catch (\Throwable) {
-        }
+        $telefonePrincipal = $this->lerOuAvisar(
+            'colaboradortelefones',
+            function () use ($ctx) {
+                $mapa = [];
+                foreach ($ctx->legado()->table('colaboradortelefones')->orderBy('id')
+                    ->get(['colaborador_id', 'telefone']) as $t) {
+                    $mapa[(int) $t->colaborador_id] ??= trim((string) $t->telefone);
+                }
+
+                return $mapa;
+            },
+        );
 
         $parentescos = $this->descricoes($ctx, 'parentescos');
         $tiposExame = $this->descricoes($ctx, 'tipoexames');
@@ -174,6 +182,10 @@ final class RhMigrator implements Migrator
                 try {
                     $fim = \Carbon\Carbon::parse($inicio)->addDays($dias - 1)->toDateString();
                 } catch (\Throwable) {
+                    // Data de início inválida no legado (campo texto livre):
+                    // o recesso entra sem data-fim em vez de derrubar a carga.
+                    // Não é leitura de origem — nada a avisar no relatório.
+                    $fim = null;
                 }
             }
 
@@ -259,7 +271,10 @@ final class RhMigrator implements Migrator
                 .'(users.colaborador_id) — flag entregador ficou toda false';
         }
 
-        return new MigrationResult($this->nome(), $lidos, $ctx->dryRun ? 0 : $gravados, $pulados, $avisos);
+        return new MigrationResult(
+            $this->nome(), $lidos, $ctx->dryRun ? 0 : $gravados, $pulados,
+            array_merge($avisos, $this->avisosDeLeitura()),
+        );
     }
 
     public function invariantes(): array
@@ -282,15 +297,17 @@ final class RhMigrator implements Migrator
     /** id => descricao de um cadastro do espelho (parentescos, tipoexames). */
     private function descricoes(MigrationContext $ctx, string $tabela): array
     {
-        $out = [];
-        try {
-            foreach ($ctx->legado()->table($tabela)->get(['id', 'descricao']) as $r) {
-                $out[(int) $r->id] = trim((string) $r->descricao);
-            }
-        } catch (\Throwable) {
-        }
+        return $this->lerOuAvisar(
+            "{$tabela} (cadastro de apoio do RH)",
+            function () use ($ctx, $tabela) {
+                $out = [];
+                foreach ($ctx->legado()->table($tabela)->get(['id', 'descricao']) as $r) {
+                    $out[(int) $r->id] = trim((string) $r->descricao);
+                }
 
-        return $out;
+                return $out;
+            },
+        );
     }
 
     /**

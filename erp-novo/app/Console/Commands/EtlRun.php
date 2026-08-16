@@ -45,6 +45,8 @@ class EtlRun extends Command
         }
 
         $falhou = false;
+        /** @var list<string> $todosAvisos */
+        $todosAvisos = [];
 
         foreach ($migrators as $m) {
             $this->info("→ {$m->nome()}".($ctx->dryRun ? ' (dry-run)' : ''));
@@ -52,6 +54,7 @@ class EtlRun extends Command
             $this->line('  '.$res->resumo());
             foreach ($res->avisos as $aviso) {
                 $this->warn('  ! '.$aviso);
+                $todosAvisos[] = "{$m->nome()}: {$aviso}";
             }
 
             if ($this->option('check')) {
@@ -63,8 +66,38 @@ class EtlRun extends Command
             }
         }
 
+        // Bloco consolidado (T2.6): com 28 migrators, um aviso isolado no meio
+        // do log rola para fora da tela e ninguém vê. O resumo final é o que
+        // torna o aviso acionável.
+        $this->newLine();
+        $this->line('Avisos:');
+        if ($todosAvisos === []) {
+            $this->line('  (nenhum)');
+        } else {
+            foreach ($todosAvisos as $aviso) {
+                $this->warn('  ! '.$aviso);
+            }
+        }
+
         if ($falhou) {
             $this->error('ETL concluído COM FALHA de invariante (portão NÃO liberado).');
+
+            return self::FAILURE;
+        }
+
+        // "Origem indisponível" é diferente de "origem vazia": a primeira
+        // significa que a carga rodou com dado FALTANDO e não deve ser tratada
+        // como sucesso por um script de deploy.
+        $indisponiveis = array_values(array_filter(
+            $todosAvisos,
+            fn (string $a) => str_contains($a, 'leitura falhou'),
+        ));
+
+        if ($indisponiveis !== []) {
+            $this->error(sprintf(
+                'ETL concluído com %d falha(s) de LEITURA da origem — a carga está incompleta.',
+                count($indisponiveis),
+            ));
 
             return self::FAILURE;
         }

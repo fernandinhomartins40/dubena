@@ -8,6 +8,7 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use App\Etl\Support\RegistraFalhaDeLeitura;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 final class ClientesMigrator implements Migrator
 {
     use PreservaIdsDoLegado;
+    use RegistraFalhaDeLeitura;
 
     private ?MigrationContext $ctxAtual = null;
 
@@ -36,6 +38,7 @@ final class ClientesMigrator implements Migrator
     public function migrar(MigrationContext $ctx): MigrationResult
     {
         $this->ctxAtual = $ctx;
+        $this->limparAvisosDeLeitura();
 
         $clientes = $this->lerClientes($ctx);
         $telefones = $this->lerTelefones($ctx);
@@ -130,7 +133,7 @@ final class ClientesMigrator implements Migrator
             lidos: count($clientes) + count($telefones) + $telefonesOrfaos,
             gravados: $ctx->dryRun ? 0 : $gravados,
             pulados: $telefonesOrfaos,
-            avisos: $avisos,
+            avisos: array_merge($avisos, $this->avisosDeLeitura()),
         );
     }
 
@@ -177,9 +180,13 @@ final class ClientesMigrator implements Migrator
     /** @return list<array<string, mixed>> */
     private function lerClientes(MigrationContext $ctx): array
     {
-        try {
-            $rows = $ctx->legado()->table('clientes')->get();
-        } catch (\Throwable) {
+        $rows = $this->lerOuAvisar(
+            'clientes (legado)',
+            fn () => $ctx->legado()->table('clientes')->get(),
+            collect(),
+        );
+
+        if ($rows->isEmpty()) {
             return [];
         }
 
@@ -235,9 +242,13 @@ final class ClientesMigrator implements Migrator
     /** @return list<array<string, mixed>> */
     private function lerTelefones(MigrationContext $ctx): array
     {
-        try {
-            $rows = $ctx->legado()->table('clientetelefones')->get();
-        } catch (\Throwable) {
+        $rows = $this->lerOuAvisar(
+            'clientetelefones (legado)',
+            fn () => $ctx->legado()->table('clientetelefones')->get(),
+            collect(),
+        );
+
+        if ($rows->isEmpty()) {
             return [];
         }
 

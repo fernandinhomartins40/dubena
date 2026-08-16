@@ -7,6 +7,7 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use App\Etl\Support\RegistraFalhaDeLeitura;
 use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteEndereco;
 use App\Models\Pedido\PedidoAvaliacao;
@@ -35,6 +36,7 @@ use Illuminate\Support\Facades\Schema;
 final class AppGasEmCasaMigrator implements Migrator
 {
     use PreservaIdsDoLegado;
+    use RegistraFalhaDeLeitura;
 
     private ?MigrationContext $ctxAtual = null;
 
@@ -63,6 +65,7 @@ final class AppGasEmCasaMigrator implements Migrator
                 ['conexão `app_legado` indisponível — nada a migrar']);
         }
 
+        $this->limparAvisosDeLeitura();
         $this->montarCorrelacoes($ctx);
 
         $avisos = [];
@@ -134,7 +137,9 @@ final class AppGasEmCasaMigrator implements Migrator
             lidos: count($enderecos) + count($avaliacoes) + $pulados,
             gravados: $ctx->dryRun ? 0 : $gravados,
             pulados: $pulados,
-            avisos: $avisos,
+            // Falhas de leitura entram no relatório (T2.6): antes eram engolidas
+            // e "não consegui ler" ficava idêntico a "não havia o que ler".
+            avisos: array_merge($avisos, $this->avisosDeLeitura()),
         );
     }
 
@@ -168,9 +173,12 @@ final class AppGasEmCasaMigrator implements Migrator
     private function criarClientesDoApp(): int
     {
         $novos = [];
-        try {
-            $rows = $this->app()->table('clienteimportacoes')->get();
-        } catch (\Throwable) {
+        $rows = $this->lerOuAvisar(
+            'clienteimportacoes (clientes do app)',
+            fn () => $this->app()->table('clienteimportacoes')->get(),
+            collect(),
+        );
+        if ($rows->isEmpty()) {
             return 0;
         }
 
@@ -293,14 +301,14 @@ final class AppGasEmCasaMigrator implements Migrator
      */
     private function criarPedidosRecentesDoApp(): int
     {
-        try {
-            $rows = $this->app()->table('pedidos')->orderBy('id')->get();
-        } catch (\Throwable) {
-            return 0;
-        }
+        $rows = $this->lerOuAvisar(
+            'pedidos do app (sgcm_api)',
+            fn () => $this->app()->table('pedidos')->orderBy('id')->get(),
+            collect(),
+        );
 
         $empresa = $this->empresaDoApp();
-        if ($empresa === null) {
+        if ($empresa === null || $rows->isEmpty()) {
             return 0;
         }
 
@@ -415,21 +423,24 @@ final class AppGasEmCasaMigrator implements Migrator
     private function itensPorPedidoDoApp(): array
     {
         $out = [];
-        try {
-            $rows = $this->app()->table('pedidoitens')->get();
-        } catch (\Throwable) {
-            return [];
-        }
+        $rows = $this->lerOuAvisar(
+            'pedidoitens do app',
+            fn () => $this->app()->table('pedidoitens')->get(),
+            collect(),
+        );
 
         // `produtoimportacoes` espelha o produto do ERP: `erp_id` é o id lá.
-        $produtoErp = [];
-        try {
-            foreach ($this->app()->table('produtoimportacoes')->get() as $p) {
-                $produtoErp[(int) $p->id] = (int) $p->erp_id;
-            }
-        } catch (\Throwable) {
-            $produtoErp = [];
-        }
+        $produtoErp = $this->lerOuAvisar(
+            'produtoimportacoes (ponte produto app→ERP)',
+            function () {
+                $mapa = [];
+                foreach ($this->app()->table('produtoimportacoes')->get() as $p) {
+                    $mapa[(int) $p->id] = (int) $p->erp_id;
+                }
+
+                return $mapa;
+            },
+        );
 
         foreach ($rows as $r) {
             $out[(int) $r->pedido_id][] = [
@@ -447,12 +458,12 @@ final class AppGasEmCasaMigrator implements Migrator
     private function telefonesPorCliente(): array
     {
         $out = [];
-        try {
-            $rows = $this->app()->table('clientetelefones')
-                ->select('cliente_id', 'telefone')->get();
-        } catch (\Throwable) {
-            return [];
-        }
+        $rows = $this->lerOuAvisar(
+            'clientetelefones do app',
+            fn () => $this->app()->table('clientetelefones')
+                ->select('cliente_id', 'telefone')->get(),
+            collect(),
+        );
 
         foreach ($rows as $r) {
             $fone = trim((string) $r->telefone);
@@ -543,15 +554,14 @@ final class AppGasEmCasaMigrator implements Migrator
             }
         }
 
-        try {
-            $this->mapaPedidos = $legado->table('pedidos')
-                ->whereNotNull('apipedido_id')
-                ->pluck('id', 'apipedido_id')
-                ->map(fn ($v) => (int) $v)
-                ->all();
-        } catch (\Throwable) {
-            $this->mapaPedidos = [];
-        }
+        // Fatal como o mapa de clientes (T2.6): um mapa de pedidos vazio faz o
+        // migrator tratar todo pedido do app como "sem par no ERP" e recriá-lo.
+        // Degradar silenciosamente aqui é gerar pedido duplicado.
+        $this->mapaPedidos = $legado->table('pedidos')
+            ->whereNotNull('apipedido_id')
+            ->pluck('id', 'apipedido_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
     }
 
     /** @return list<array<string,mixed>> */
@@ -559,11 +569,11 @@ final class AppGasEmCasaMigrator implements Migrator
     {
         $this->puladosEnderecos = 0;
 
-        try {
-            $rows = $this->app()->table('clienteenderecos')->where('ativo', 1)->get();
-        } catch (\Throwable) {
-            return [];
-        }
+        $rows = $this->lerOuAvisar(
+            'clienteenderecos do app',
+            fn () => $this->app()->table('clienteenderecos')->where('ativo', 1)->get(),
+            collect(),
+        );
 
         $out = [];
         foreach ($rows as $r) {
@@ -600,11 +610,11 @@ final class AppGasEmCasaMigrator implements Migrator
     {
         $this->puladosAvaliacoes = 0;
 
-        try {
-            $rows = $this->app()->table('pedidoavaliacoes')->get();
-        } catch (\Throwable) {
-            return [];
-        }
+        $rows = $this->lerOuAvisar(
+            'pedidoavaliacoes do app',
+            fn () => $this->app()->table('pedidoavaliacoes')->get(),
+            collect(),
+        );
 
         $out = [];
         $vistos = [];
@@ -654,31 +664,40 @@ final class AppGasEmCasaMigrator implements Migrator
      */
     private function migrarPrecosPorCondicao(): int
     {
-        try {
-            $rows = $this->app()->table('produtocondicaopagamentos')->get();
-        } catch (\Throwable) {
-            return 0;
-        }
+        $rows = $this->lerOuAvisar(
+            'produtocondicaopagamentos do app',
+            fn () => $this->app()->table('produtocondicaopagamentos')->get(),
+            collect(),
+        );
 
         $empresa = $this->empresaDoApp();
         if ($empresa === null || $rows->isEmpty()) {
             return 0;
         }
 
-        $produtoErp = [];
-        try {
-            foreach ($this->app()->table('produtoimportacoes')->get(['id', 'erp_id']) as $p) {
-                $produtoErp[(int) $p->id] = (int) $p->erp_id;
-            }
-        } catch (\Throwable) {
-        }
-        $condicaoErp = [];
-        try {
-            foreach ($this->app()->table('condicaopagamentoimportacoes')->get(['id', 'erp_id']) as $c) {
-                $condicaoErp[(int) $c->id] = (int) $c->erp_id;
-            }
-        } catch (\Throwable) {
-        }
+        $produtoErp = $this->lerOuAvisar(
+            'produtoimportacoes (ponte produto app→ERP)',
+            function () {
+                $mapa = [];
+                foreach ($this->app()->table('produtoimportacoes')->get(['id', 'erp_id']) as $p) {
+                    $mapa[(int) $p->id] = (int) $p->erp_id;
+                }
+
+                return $mapa;
+            },
+        );
+
+        $condicaoErp = $this->lerOuAvisar(
+            'condicaopagamentoimportacoes (ponte condição app→ERP)',
+            function () {
+                $mapa = [];
+                foreach ($this->app()->table('condicaopagamentoimportacoes')->get(['id', 'erp_id']) as $c) {
+                    $mapa[(int) $c->id] = (int) $c->erp_id;
+                }
+
+                return $mapa;
+            },
+        );
 
         $idsProduto = DB::table('produtos')->pluck('id')->flip();
         $idsCondicao = DB::table('condicaopagamentos')->pluck('id')->flip();
@@ -716,11 +735,11 @@ final class AppGasEmCasaMigrator implements Migrator
     /** Transações de pagamento online do app (cartão via gateway) → pagamentos_online. */
     private function migrarTransacoesOnline(): int
     {
-        try {
-            $rows = $this->app()->table('transacoesonline')->get();
-        } catch (\Throwable) {
-            return 0;
-        }
+        $rows = $this->lerOuAvisar(
+            'transacoesonline do app',
+            fn () => $this->app()->table('transacoesonline')->get(),
+            collect(),
+        );
 
         $n = 0;
         foreach ($rows as $r) {
@@ -752,11 +771,11 @@ final class AppGasEmCasaMigrator implements Migrator
     /** Cupons de desconto do app → promoções (o destino tem o campo `codigo`). */
     private function migrarCupons(): int
     {
-        try {
-            $rows = $this->app()->table('cupons')->get();
-        } catch (\Throwable) {
-            return 0;
-        }
+        $rows = $this->lerOuAvisar(
+            'cupons do app',
+            fn () => $this->app()->table('cupons')->get(),
+            collect(),
+        );
 
         $grupo = (int) (DB::table('grupos')->min('id') ?? 0);
         if ($grupo === 0) {

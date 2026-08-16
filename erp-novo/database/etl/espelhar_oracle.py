@@ -89,6 +89,17 @@ MAPA = {
     "PLANOCONTAS": "planocontas",
     "CENTROCUSTOS": "centrocustos",
     "FINANCEIRORATEIOS": "financeirorateios",
+    # ── Ampliacao T2.7 (docs/gauntlet/DECISAO_TABELAS_SEM_MIGRACAO.md) ──
+    # As 5 tabelas com dado de risco fiscal/financeiro que estavam fora do
+    # espelho. As demais da lista das 15 foram decididas como ARQUIVAR ou
+    # APOSENTAR — a ausencia delas aqui e deliberada e esta documentada.
+    "CREDITOPISCOFINS": "creditopiscofins",          # catalogo EFD-Contribuicoes (bloco M)
+    "NFRECEBIDAPARCELAS": "nfrecebidaparcelas",      # contas a pagar da NF de entrada
+    "CONTAEXTRATOCONFIGS": "contaextratoconfigs",    # regras de classificacao do extrato
+    "CLIENTECONVENIOS": "clienteconvenios",          # contrato do convenio (comissao/limite)
+    # CLIENTEPRODUTOSCONVENIOS fica FORA de proposito: `clienteprecos` ja cobre
+    # preco por (cliente, produto) e ja esta populada — portar criaria uma
+    # segunda fonte de verdade para a mesma regra.
     # ── Ampliacao pos-auditoria (AUDITORIA_MIGRACAO_DADOS_LEGADOS.md) ──
     "ESTADOS": "estados",
     # Usuarios do ERP (pedidos referenciam atendente/entregador por user_id)
