@@ -148,11 +148,57 @@ final class PedidosMigrator implements Migrator
         }
 
         return [
-            new CountInvariant($ctx, 'pedidos', 'pedidos'),
+            // Acréscimo legítimo de SEGUNDA ORIGEM (T2.4): pedidos feitos pelo
+            // app APÓS o corte do dump do ERP. O `AppGasEmCasaMigrator` os traz
+            // do MySQL `sgcm_api` (correlacionados por `apipedido_id`), e por
+            // isso o destino tem mais linhas que o Oracle — por desenho.
+            //
+            // Verificado que é só acréscimo, nunca perda:
+            //   SELECT count(*) FROM (SELECT id::text FROM legado.pedidos
+            //     EXCEPT SELECT id::text FROM public.pedidos) x;   -- 0
+            //
+            // A closure conta exatamente os ids do destino ausentes no Oracle;
+            // se algum pedido do dump sumir, a contagem NÃO compensa (o EXCEPT
+            // é direcional) e a invariante volta a falhar, como deve.
+            new CountInvariant(
+                $ctx, 'pedidos', 'pedidos',
+                acrescimosEsperados: fn () => $this->pedidosSoDoApp($ctx),
+            ),
             new CountInvariant($ctx, 'pedidoprodutos', 'pedidoitens'),
             new IntegrityInvariant($ctx, 'pedidos', 'cliente_id', 'clientes'),
             new IntegrityInvariant($ctx, 'pedidoitens', 'pedido_id', 'pedidos'),
         ];
+    }
+
+    /**
+     * Pedidos que existem no destino e NÃO no dump Oracle — os que vieram do
+     * app depois do corte do dump.
+     *
+     * Direcional de propósito: mede só o excedente. Um pedido do Oracle que
+     * sumisse no destino não seria compensado por este número, e a invariante
+     * continuaria acusando — que é exatamente o comportamento desejado.
+     */
+    private function pedidosSoDoApp(MigrationContext $ctx): int
+    {
+        try {
+            $doOracle = $ctx->legado()->table('pedidos')->pluck('id')
+                ->map(fn ($v) => (int) $v)->flip();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        if ($doOracle->isEmpty()) {
+            return 0;
+        }
+
+        $extras = 0;
+        foreach (DB::table('pedidos')->select('id')->cursor() as $p) {
+            if (! isset($doOracle[(int) $p->id])) {
+                $extras++;
+            }
+        }
+
+        return $extras;
     }
 
     /** @return list<array<string, mixed>> */

@@ -168,20 +168,37 @@ class F15MigratorsTest extends TestCase
         $this->assertStringContainsString('cliente satisfeito', (string) $pos->observacao);
     }
 
-    public function test_pagamento_migra_cartao_com_taxa(): void
+    /**
+     * O `PagamentoMigrator` NÃO tem origem no legado (T2.3).
+     *
+     * O teste anterior criava uma tabela `cartaotransacoes` fictícia e conferia
+     * que o migrator a lia — validando o próprio defeito: essa tabela nunca
+     * existiu no Oracle, e o migrator "rodava com sucesso" migrando zero linhas.
+     *
+     * Verificado em `user_tables`: as únicas candidatas reais são
+     * `PIXTRANSACTIONS` (já migrada pelo CobrancaMigrator) e `BENEFICIARIOS`
+     * (cadastro de programa, ≠ benefício concedido). Cartão não existia.
+     *
+     * O que este teste trava é a regressão: se alguém reintroduzir uma leitura
+     * de tabela inventada, o aviso explícito desaparece e o teste quebra.
+     */
+    public function test_pagamento_declara_ausencia_de_origem_em_vez_de_inventar_tabela(): void
     {
-        $empresa = $this->empresa();
-        $leg = DB::connection($this->legadoConn);
+        $this->empresa();
 
-        $leg->statement('create table cartaotransacoes (id integer, empresa_id integer, bandeira text, tipo text, nsu text, valorbruto real, taxapercentual real, valorliquido real, situacao text)');
-        $leg->table('cartaotransacoes')->insert(['id' => 1, 'empresa_id' => $empresa->id, 'bandeira' => 'VISA', 'tipo' => 'credito', 'nsu' => '999', 'valorbruto' => 100.0, 'taxapercentual' => 3.0, 'valorliquido' => 97.0, 'situacao' => 'aprovada']);
+        $resultado = (new PagamentoMigrator)->migrar($this->ctx());
 
-        (new PagamentoMigrator)->migrar($this->ctx());
+        $this->assertSame(0, $resultado->lidos);
+        $this->assertSame(0, $resultado->gravados);
+        $this->assertNotEmpty($resultado->avisos, 'a ausência de origem precisa ser declarada, não silenciosa');
+        $this->assertStringContainsString('sem origem no legado', $resultado->avisos[0]);
 
-        $tx = CartaoTransacao::withoutTenant()->find(1);
-        $this->assertNotNull($tx);
-        $this->assertSame('VISA', $tx->bandeira);
-        $this->assertEqualsWithDelta(97.0, (float) $tx->valor_liquido, 0.01);
+        // Nenhuma invariante de CONTAGEM: comparar contra tabela inexistente foi
+        // exatamente o que mascarou o problema por meses.
+        $nomes = array_map(fn ($i) => $i->nome(), (new PagamentoMigrator)->invariantes());
+        foreach ($nomes as $nome) {
+            $this->assertStringNotContainsString('contagem', $nome);
+        }
     }
 
     public function test_registry_inclui_novos_migrators_sem_ciclo(): void

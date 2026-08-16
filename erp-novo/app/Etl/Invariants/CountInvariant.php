@@ -5,19 +5,39 @@ namespace App\Etl\Invariants;
 use App\Etl\Contracts\Invariant;
 use App\Etl\Support\InvariantResult;
 use App\Etl\Support\MigrationContext;
+use Closure;
 
 /**
- * Invariante de CONTAGEM: nº de registros no legado == nº no novo (menos descartes).
- * É o check #1 da regra de ouro do plano.
+ * Invariante de CONTAGEM: nº de registros no legado == nº no novo, ajustado por
+ * descartes e acréscimos legítimos. É o check #1 da regra de ouro do plano.
+ *
+ * A fórmula é: `origem - descartes + acrescimos == destino`.
+ *
+ * **Por que existe `acrescimosEsperados` (T2.4).** A versão anterior só tinha o
+ * lado dos descartes. Migrators que criam linhas a partir de uma SEGUNDA origem
+ * — o caso do `AppGasEmCasaMigrator`, que traz pedidos do app posteriores ao
+ * corte do dump — eram estruturalmente incapazes de passar. O efeito não foi um
+ * falso negativo isolado: falhas legítimas (a duplicação 4× de clientes) e
+ * falhas por desenho ficavam indistinguíveis no mesmo placar vermelho, e foi
+ * assim que a corrupção real virou ruído de fundo e passou despercebida.
+ *
+ * Ambos os ajustes aceitam `Closure` além de `int`. **Prefira a closure**: um
+ * número fixo é verdade no dia em que foi medido e vira mentira na próxima
+ * recarga. A closure recalcula consultando a origem.
  */
 final class CountInvariant implements Invariant
 {
+    /**
+     * @param  Closure():int|int  $descartesEsperados  linhas da origem que não devem chegar ao destino
+     * @param  Closure():int|int  $acrescimosEsperados  linhas do destino vindas de outra origem
+     */
     public function __construct(
         private MigrationContext $ctx,
         private string $tabelaLegado,
         private string $tabelaNova,
-        private int $descartesEsperados = 0,
+        private Closure|int $descartesEsperados = 0,
         private ?string $whereLegado = null,
+        private Closure|int $acrescimosEsperados = 0,
     ) {
     }
 
@@ -58,11 +78,28 @@ final class CountInvariant implements Invariant
         if ($this->whereLegado) {
             $qLegado->whereRaw($this->whereLegado);
         }
-        $origem = (int) $qLegado->count() - $this->descartesEsperados;
+
+        $descartes = $this->resolver($this->descartesEsperados);
+        $acrescimos = $this->resolver($this->acrescimosEsperados);
+
+        $origem = (int) $qLegado->count() - $descartes + $acrescimos;
         $destino = (int) $this->ctx->novo()->table($this->tabelaNova)->count();
 
-        return $origem === $destino
-            ? InvariantResult::ok($this->nome(), "origem=destino={$destino}")
-            : InvariantResult::falha($this->nome(), 'contagem divergente', $origem, $destino);
+        if ($origem === $destino) {
+            $detalhe = "origem=destino={$destino}";
+            if ($descartes !== 0 || $acrescimos !== 0) {
+                $detalhe .= sprintf(' (descartes=%d, acrescimos=%d)', $descartes, $acrescimos);
+            }
+
+            return InvariantResult::ok($this->nome(), $detalhe);
+        }
+
+        return InvariantResult::falha($this->nome(), 'contagem divergente', $origem, $destino);
+    }
+
+    /** Resolve o ajuste, que pode ser um número fixo ou um cálculo sobre a origem. */
+    private function resolver(Closure|int $ajuste): int
+    {
+        return $ajuste instanceof Closure ? (int) ($ajuste)() : $ajuste;
     }
 }

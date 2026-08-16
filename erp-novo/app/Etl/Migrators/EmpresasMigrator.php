@@ -7,6 +7,7 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
  * N1 — migra grupos e empresas (a entidade-tenant) do legado.
@@ -65,8 +66,48 @@ final class EmpresasMigrator implements Migrator
 
         return [
             new CountInvariant($ctx, 'empresasgrupos', 'grupos'),
-            new CountInvariant($ctx, 'empresas', 'empresas'),
+
+            // Acréscimo legítimo de SEGUNDA ORIGEM (T2.4/T2.5): o destino tem
+            // 3 empresas a mais que o Oracle — CENTRAL GÁS, DUBENA PARTICULAR e
+            // QTI — que vêm do dump MySQL do `monitora`, não do dump Oracle
+            // contra o qual esta invariante compara. Verificado: as três estão
+            // sem clientes e sem pedidos (são cadastros do módulo de GPS).
+            //
+            //   SELECT id, razao_social FROM public.empresas
+            //    WHERE id::text NOT IN (SELECT id::text FROM legado.empresas);
+            //
+            // Closure contando a origem real do acréscimo, em vez do literal 3:
+            // se o dump do monitora mudar, a invariante acompanha.
+            new CountInvariant(
+                $ctx, 'empresas', 'empresas',
+                acrescimosEsperados: fn () => $this->empresasSoDoMonitora($ctx),
+            ),
         ];
+    }
+
+    /**
+     * Empresas que existem no destino mas NÃO no dump Oracle — as que vieram do
+     * dump MySQL do `monitora` (segunda origem deste pipeline).
+     *
+     * Contado sobre os dados a cada execução (T2.5): número fixo aqui
+     * esconderia uma divergência futura em vez de detectá-la.
+     */
+    private function empresasSoDoMonitora(MigrationContext $ctx): int
+    {
+        try {
+            $doOracle = $ctx->legado()->table('empresas')->pluck('id')
+                ->map(fn ($v) => (string) $v)->all();
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        if ($doOracle === []) {
+            return 0;
+        }
+
+        return (int) DB::table('empresas')
+            ->whereNotIn(DB::raw('id::text'), $doOracle)
+            ->count();
     }
 
     /** @return list<array<string, mixed>> */

@@ -243,8 +243,55 @@ final class FiscalMigrator implements Migrator
         $ctx = $this->ctxAtual ?? new MigrationContext();
 
         return [
-            new CountInvariant($ctx, 'nfemitidas', 'notas_fiscais'),
+            // Descarte por COLISÃO DE CHAVE NATURAL, comprovado (T2.5): 3 notas
+            // do legado não chegam ao destino. Cada uma tem uma GÊMEA com o
+            // mesmo (empresa, MODELO, série, número) — 6 linhas para 3 notas.
+            // O destino tem UNIQUE nessa chave
+            // (`notas_fiscais_empresa_id_modelo_serie_numero_unique`) e ficou
+            // com uma de cada par.
+            //
+            // Verificado par a par: a que sobrevive é sempre a de situação 100
+            // (AUTORIZADA); as descartadas têm situação 2 e 539 (rejeitada/
+            // denegada) — tentativas de emissão que falharam e foram reemitidas
+            // com o mesmo número. A nota com valor fiscal é a autorizada, e ela
+            // está no destino. Não há perda de documento válido.
+            //
+            //   SELECT nfnumero, id, nfsituacao_id FROM legado.nfemitidas
+            //    WHERE nfnumero::text IN ('168834','168880','168881')
+            //    ORDER BY nfnumero::int, id::int;
+            new CountInvariant(
+                $ctx, 'nfemitidas', 'notas_fiscais',
+                descartesEsperados: fn () => $this->notasComNumeroDuplicado($ctx),
+            ),
         ];
+    }
+
+    /**
+     * Quantas notas da origem colidem em (empresa, série, número) — isto é,
+     * quantas linhas excedem a primeira de cada chave natural.
+     *
+     * Calculado sobre a origem a cada execução (T2.5): um número fixo aqui
+     * viraria mentira na próxima recarga do dump.
+     */
+    private function notasComNumeroDuplicado(MigrationContext $ctx): int
+    {
+        try {
+            // O agrupamento espelha EXATAMENTE o UNIQUE do destino
+            // (`notas_fiscais_empresa_id_modelo_serie_numero_unique`), MODELO
+            // incluído. Sem o modelo o agrupamento acha 38 colisões — NF-e (55)
+            // e NFC-e (65) numeram em faixas próprias e coincidem sem conflito
+            // real. Com ele, exatamente 3: os pares medidos.
+            $duplicadas = $ctx->legado()
+                ->table('nfemitidas')
+                ->selectRaw('count(*) - 1 AS excedentes')
+                ->groupBy('empresa_id', 'nfmodelo', 'nfserie', 'nfnumero')
+                ->havingRaw('count(*) > 1')
+                ->pluck('excedentes');
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        return (int) $duplicadas->sum();
     }
 
     /** @return array{0:int,1:int,2:int,3:?string} */

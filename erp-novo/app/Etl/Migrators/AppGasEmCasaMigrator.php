@@ -11,6 +11,7 @@ use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteEndereco;
 use App\Models\Pedido\PedidoAvaliacao;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Migra o banco do APP "Gás em Casa" (MySQL `sgcm_api`) para o schema novo.
@@ -196,6 +197,9 @@ final class AppGasEmCasaMigrator implements Migrator
 
             $novos[] = [
                 'id' => $proximoId,
+                // Ponte persistida (T2.1): é o que torna a próxima execução
+                // capaz de reconhecer esta linha em vez de criar outra.
+                'api_id' => $apiId,
                 'empresa_id' => $empresa['empresa_id'],
                 'grupo_id' => $empresa['grupo_id'],
                 'nome' => mb_substr($nome, 0, 200),
@@ -218,7 +222,10 @@ final class AppGasEmCasaMigrator implements Migrator
             return 0;
         }
 
-        $this->gravarPreservandoId('clientes', $novos);
+        // Chave natural (empresa_id, api_id), NÃO `id` (T2.1): o id aqui é
+        // sintético e móvel (max(id)+1 muda a cada execução), então upsert por
+        // id sempre INSERE. Pela chave de origem, a 2ª execução ATUALIZA.
+        $this->gravarPreservandoId('clientes', $novos, ['empresa_id', 'api_id']);
 
         // Telefones do app: sem eles o cadastro criado fica sem contato — que é
         // justamente como o app identifica o cliente.
@@ -234,15 +241,50 @@ final class AppGasEmCasaMigrator implements Migrator
             }
         }
         if ($linhasTelefone !== []) {
-            $proximoTel = (int) DB::table('clientetelefones')->max('id');
-            foreach ($linhasTelefone as &$t) {
-                $t['id'] = ++$proximoTel;
-            }
-            unset($t);
-            $this->gravarPreservandoId('clientetelefones', $linhasTelefone);
+            // Mesmo defeito dos clientes (T2.1 passo 4): o id vinha de
+            // max(id)+1 e o upsert por `id` inseria de novo a cada execução
+            // (40.656 linhas para 10.150 telefones distintos). A chave natural
+            // é (cliente_id, telefone): o mesmo número, no mesmo cliente, é a
+            // mesma linha. Só numera os que ainda não existem.
+            $this->numerarTelefonesNovos($linhasTelefone);
+            $this->gravarPreservandoId(
+                'clientetelefones', $linhasTelefone, ['cliente_id', 'telefone']
+            );
         }
 
         return count($novos);
+    }
+
+    /**
+     * Atribui `id` às linhas de telefone, reaproveitando o id já existente
+     * quando o par (cliente_id, telefone) está no banco.
+     *
+     * Sem isto o upsert por chave natural tentaria gravar um `id` novo para uma
+     * linha existente: no Postgres o UPDATE do upsert sobrescreveria a PK, e
+     * qualquer FK que apontasse para ela ficaria pendurada. Reusar o id mantém
+     * a atualização inofensiva.
+     *
+     * @param  list<array<string,mixed>>  $linhas  (por referência)
+     */
+    private function numerarTelefonesNovos(array &$linhas): void
+    {
+        $existentes = [];
+        $clienteIds = array_values(array_unique(array_column($linhas, 'cliente_id')));
+
+        foreach (array_chunk($clienteIds, 5000) as $bloco) {
+            foreach (DB::table('clientetelefones')->whereIn('cliente_id', $bloco)
+                ->get(['id', 'cliente_id', 'telefone']) as $t) {
+                $existentes[$t->cliente_id.'|'.$t->telefone] = (int) $t->id;
+            }
+        }
+
+        $proximo = (int) DB::table('clientetelefones')->max('id');
+
+        foreach ($linhas as &$linha) {
+            $chave = $linha['cliente_id'].'|'.$linha['telefone'];
+            $linha['id'] = $existentes[$chave] ?? ++$proximo;
+        }
+        unset($linha);
     }
 
     /**
@@ -478,14 +520,27 @@ final class AppGasEmCasaMigrator implements Migrator
     {
         $legado = $ctx->legado();
 
-        try {
-            $this->mapaClientes = $legado->table('clientes')
-                ->whereNotNull('api_id')
-                ->pluck('id', 'api_id')
-                ->map(fn ($v) => (int) $v)
-                ->all();
-        } catch (\Throwable) {
-            $this->mapaClientes = [];
+        // (a) Ponte gravada pelo ERP legado quando o pedido entrava pelo app.
+        //
+        // Falha aqui é FATAL, não degradação (T2.6): um mapa vazio faz o
+        // migrator considerar TODOS os clientes do app como "sem par" e recriar
+        // a base inteira. Foi assim que 11.104 origens viraram 44.416 linhas.
+        // Melhor abortar a carga do que corromper silenciosamente.
+        $this->mapaClientes = $legado->table('clientes')
+            ->whereNotNull('api_id')
+            ->pluck('id', 'api_id')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        // (b) Clientes que ESTE migrator criou em execuções anteriores (T2.1).
+        //
+        // Sem esta segunda fonte, a dedup só enxergava a ponte do legado e cada
+        // reexecução escolhia uma faixa de ids nova — o upsert por `id` inseria
+        // em vez de atualizar. É a correção central da idempotência.
+        if (Schema::hasColumn('clientes', 'api_id')) {
+            foreach (DB::table('clientes')->whereNotNull('api_id')->pluck('id', 'api_id') as $apiId => $id) {
+                $this->mapaClientes[(int) $apiId] = (int) $id;
+            }
         }
 
         try {

@@ -3,16 +3,35 @@
 namespace App\Etl\Migrators;
 
 use App\Etl\Contracts\Migrator;
-use App\Etl\Invariants\CountInvariant;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
-use App\Models\Pagamento\CartaoTransacao;
-use App\Models\Pagamento\GasDoPovoBeneficio;
 
 /**
- * F15 — migra Pagamentos: transações de cartão (NSU/autorização/taxa) e benefícios
- * Gás do Povo. Ambos empresa-scoped; conversões legado→novo + flags.
+ * F15 — Pagamentos: **sem origem no legado** (correção da T2.3 do PLANO_PRODUCAO).
+ *
+ * A versão anterior lia `cartaotransacoes` e `gasdopovobeneficios`, duas
+ * tabelas que **nunca existiram** no Oracle: o migrator fora escrito contra um
+ * schema imaginado, "rodava com sucesso" e migrava zero linhas. A checagem
+ * `hasTable` da `CountInvariant` foi o que tornou isso visível.
+ *
+ * **O que a investigação encontrou** (`user_tables` do Oracle, grafias reais):
+ *
+ * | Tabela candidata  | Linhas | Veredito |
+ * |-------------------|--------|----------|
+ * | `PIXTRANSACTIONS` | 4.961  | Já migrada pelo `CobrancaMigrator` (`pixLegado()`) — está no MAPA do espelho e chega íntegra a `pix_cobrancas`. Trazê-la aqui duplicaria a carga. |
+ * | `BENEFICIARIOS`   |   480  | NÃO corresponde a `gasdopovo_beneficios`. É um CADASTRO DE PROGRAMA (`codbenef`, `descricao`, `datainicio`, `datafim`, `uf` — todas do PR), sem cliente, NIS, valor ou competência; o destino é o BENEFÍCIO CONCEDIDO a um cliente. Mapear uma na outra inventaria dado. Decisão registrada na T2.7. |
+ * | Transações de cartão | — | Não existe tabela de origem: o módulo não existia no legado. |
+ *
+ * **Por que o migrator continua existindo.** Os destinos (`cartao_transacoes`,
+ * `gasdopovo_beneficios`) são alimentados pela OPERAÇÃO do sistema novo, não
+ * pela carga histórica. Manter a classe registrada — sem invariante de
+ * contagem, que só mentiria — preserva o ponto de extensão e, sobretudo,
+ * deixa a ausência de origem **escrita e rastreável** em vez de implícita.
+ * Foi o implícito que produziu o defeito original.
+ *
+ * As invariantes de INTEGRIDADE seguem valendo: se algum dia essas tabelas
+ * receberem linhas, elas não podem apontar para empresa inexistente.
  */
 final class PagamentoMigrator implements Migrator
 {
@@ -32,73 +51,30 @@ final class PagamentoMigrator implements Migrator
     {
         $this->ctxAtual = $ctx;
 
-        $cartoes = $this->ler($ctx, 'cartaotransacoes', fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'pedido_id' => $r->pedido_id ?? null,
-            'conta_id' => $r->conta_id ?? null,
-            'bandeira' => $r->bandeira ?? null,
-            'tipo' => $r->tipo ?? null,
-            'nsu' => $r->nsu ?? null,
-            'autorizacao' => $r->autorizacao ?? null,
-            'parcelas' => isset($r->parcelas) ? (int) $r->parcelas : null,
-            'valor_bruto' => isset($r->valorbruto) ? (float) $r->valorbruto : null,
-            'taxa_percentual' => isset($r->taxapercentual) ? (float) $r->taxapercentual : null,
-            'valor_liquido' => isset($r->valorliquido) ? (float) $r->valorliquido : null,
-            'situacao' => $r->situacao ?? null,
+        // Nada a migrar POR DESENHO (não por falha): ver o quadro no docblock.
+        // O aviso é explícito para que "não migrou nada" nunca mais se confunda
+        // com "não conseguiu migrar" na leitura do relatório do ETL.
+        return new MigrationResult($this->nome(), 0, 0, 0, [
+            'pagamentos: sem origem no legado — PIX vem do CobrancaMigrator, '
+                .'BENEFICIARIOS é cadastro de programa (≠ benefício concedido) '
+                .'e cartão não existia no legado. Ver T2.3/T2.7.',
         ]);
-        $beneficios = $this->ler($ctx, 'gasdopovobeneficios', fn ($r) => [
-            'id' => (int) $r->id,
-            'empresa_id' => (int) $r->empresa_id,
-            'cliente_id' => $r->cliente_id ?? null,
-            'nis' => $r->nis ?? null,
-            'competencia' => $r->competencia ?? null,
-            'valor' => isset($r->valor) ? (float) $r->valor : null,
-            'situacao' => $r->situacao ?? null,
-            'pedido_id' => $r->pedido_id ?? null,
-        ]);
-
-        $gravados = 0;
-        if (! $ctx->dryRun) {
-            foreach ($cartoes as $c) {
-                $this->upsert(CartaoTransacao::withoutTenant(), $this->semNulos($c));
-                $gravados++;
-            }
-            foreach ($beneficios as $b) {
-                $this->upsert(GasDoPovoBeneficio::withoutTenant(), $this->semNulos($b));
-                $gravados++;
-            }
-        }
-
-        return new MigrationResult($this->nome(), count($cartoes) + count($beneficios), $ctx->dryRun ? 0 : $gravados, 0);
     }
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return [];
         }
 
+        // SEM CountInvariant: não há par origem→destino a comparar. Declarar
+        // uma contagem contra tabela inexistente foi exatamente o defeito que
+        // a T2.3 corrige.
         return [
-            new CountInvariant($ctx, 'cartaotransacoes', 'cartao_transacoes'),
-            new CountInvariant($ctx, 'gasdopovobeneficios', 'gasdopovo_beneficios'),
             new IntegrityInvariant($ctx, 'cartao_transacoes', 'empresa_id', 'empresas'),
             new IntegrityInvariant($ctx, 'gasdopovo_beneficios', 'empresa_id', 'empresas'),
         ];
-    }
-
-    /**
-     * @param  callable(object):array<string,mixed>  $map
-     * @return list<array<string,mixed>>
-     */
-    private function ler(MigrationContext $ctx, string $tabela, callable $map): array
-    {
-        try {
-            return $ctx->legado()->table($tabela)->get()->map($map)->all();
-        } catch (\Throwable) {
-            return [];
-        }
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool
@@ -110,29 +86,5 @@ final class PagamentoMigrator implements Migrator
         } catch (\Throwable) {
             return false;
         }
-    }
-
-    /**
-     * Remove chaves com valor null (exceto id) para que colunas NOT NULL com
-     * DEFAULT no banco usem o default em vez de receber null do legado.
-     *
-     * @param  array<string,mixed>  $row
-     * @return array<string,mixed>
-     */
-    /**
-     * Upsert PRESERVANDO o id do legado (forceFill ignora $fillable). Essencial
-     * para manter as FKs entre tabelas após a migração.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @param  array<string,mixed>  $row
-     */
-    private function upsert(\Illuminate\Database\Eloquent\Builder $query, array $row): void
-    {
-        $model = $query->firstWhere('id', $row['id']) ?? $query->getModel()->newInstance();
-        $model->forceFill($row)->save();
-    }
-    private function semNulos(array $row): array
-    {
-        return array_filter($row, fn ($v, $k) => $v !== null || $k === 'id', ARRAY_FILTER_USE_BOTH);
     }
 }

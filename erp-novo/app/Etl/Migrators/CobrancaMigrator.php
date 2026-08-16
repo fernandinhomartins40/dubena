@@ -117,7 +117,31 @@ final class CobrancaMigrator implements Migrator
     {
         $ctx = $this->ctxAtual ?? new MigrationContext();
 
-        return [new CountInvariant($ctx, 'boletos', 'boletos')];
+        return [
+            // Descarte ESTRUTURAL, comprovado (T2.5): 409 boletos do legado não
+            // chegam ao destino, e são exatamente os que estão cancelados E sem
+            // parcela financeira. `valor` e `vencimento` são NOT NULL no destino
+            // e só existem na parcela (ver a regra em `migrarBoletos`, o
+            // `continue` quando $parcela === null) — sem ela o boleto não tem
+            // como ser representado.
+            //
+            // Query que comprova a correlação de 100% (409 = 409 = 409):
+            //   WITH aus AS (SELECT id FROM legado.boletos
+            //                EXCEPT SELECT id FROM public.boletos)
+            //   SELECT count(*) FILTER (WHERE cancelado::text IN ('1','t','true')),
+            //          count(*) FILTER (WHERE financeiroparcela_id IS NULL)
+            //     FROM legado.boletos b JOIN aus ON aus.id = b.id;
+            //
+            // Closure e não número fixo: recalcula a cada recarga em vez de
+            // petrificar um valor medido uma única vez.
+            new CountInvariant(
+                $ctx, 'boletos', 'boletos',
+                descartesEsperados: fn () => (int) $ctx->legado()->table('boletos')
+                    ->whereNull('financeiroparcela_id')
+                    ->whereIn(DB::raw('cancelado::text'), ['1', 't', 'true'])
+                    ->count(),
+            ),
+        ];
     }
 
     /**

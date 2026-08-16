@@ -142,8 +142,31 @@ final class ClientesMigrator implements Migrator
         }
 
         return [
-            new CountInvariant($ctx, 'clientes', 'clientes'),
-            new CountInvariant($ctx, 'clientetelefones', 'clientetelefones'),
+            // Acréscimo legítimo de SEGUNDA ORIGEM (T2.4): o app "Gás em Casa"
+            // (MySQL `sgcm_api`) tem cadastros que nunca existiram no ERP —
+            // clientes que se registraram pelo app e ainda não compraram pelo
+            // balcão. O `AppGasEmCasaMigrator` os cria, e são reconhecíveis pela
+            // coluna-ponte `api_id` (T2.1).
+            //
+            // Contar `api_id IS NOT NULL` no destino é o que torna esta
+            // invariante honesta: antes, um migrator que cria linhas de outra
+            // origem era estruturalmente incapaz de passar, e a falha por
+            // desenho se misturava às falhas reais no mesmo placar vermelho.
+            new CountInvariant(
+                $ctx, 'clientes', 'clientes',
+                acrescimosEsperados: fn () => (int) DB::table('clientes')
+                    ->whereNotNull('api_id')->count(),
+            ),
+
+            // Mesma lógica: os telefones desses clientes. Só contam os que
+            // pertencem a cliente vindo do app.
+            new CountInvariant(
+                $ctx, 'clientetelefones', 'clientetelefones',
+                acrescimosEsperados: fn () => (int) DB::table('clientetelefones')
+                    ->join('clientes', 'clientes.id', '=', 'clientetelefones.cliente_id')
+                    ->whereNotNull('clientes.api_id')
+                    ->count(),
+            ),
             // Integridade de FK no banco NOVO: zero cliente com empresa inexistente;
             // zero telefone órfão (sem cliente).
             new IntegrityInvariant($ctx, 'clientes', 'empresa_id', 'empresas'),

@@ -7,6 +7,7 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use Illuminate\Support\Facades\DB;
 
 /**
  * N2 — migra geográfico (cidades/bairros/ruas) do legado. Base do endereço.
@@ -156,10 +157,69 @@ final class GeograficoMigrator implements Migrator
         }
 
         return [
-            new CountInvariant($ctx, 'cidades', 'cidades'),
+            // Divergência de −1 EXPLICADA (T2.5), e não é perda: "Tunas do
+            // Paraná" existe no destino com id 4127882 (o código IBGE) em vez
+            // do id 522 do legado — este migrator usa o código IBGE como
+            // identificador, que é o certo (chave nacional estável). O EXCEPT
+            // por id acusa ausência; o EXCEPT por (descrição, uf) não acusa
+            // nenhuma.
+            //
+            //   SELECT d.id, d.descricao FROM public.cidades d
+            //     JOIN legado.cidades a ON upper(trim(d.descricao)) = upper(trim(a.descricao))
+            //    WHERE a.id = '522';   -- devolve id 4127882
+            //
+            // O descarte é a linha do legado cujo id foi substituído pelo IBGE.
+            new CountInvariant(
+                $ctx, 'cidades', 'cidades',
+                descartesEsperados: fn () => $this->cidadesComIdSubstituidoPeloIbge($ctx),
+            ),
             new CountInvariant($ctx, 'bairros', 'bairros'),
             new CountInvariant($ctx, 'ruas', 'ruas'),
         ];
+    }
+
+    /**
+     * Cidades do legado cujo id NÃO aparece no destino porque a linha foi
+     * gravada sob o código IBGE.
+     *
+     * Confere que a cidade de fato existe lá (por descrição+UF): se não
+     * existisse, seria perda real e a invariante deve continuar falhando.
+     */
+    private function cidadesComIdSubstituidoPeloIbge(MigrationContext $ctx): int
+    {
+        try {
+            $origem = $ctx->legado()->table('cidades')->get(['id', 'descricao', 'uf']);
+        } catch (\Throwable) {
+            return 0;
+        }
+
+        $idsDestino = DB::table('cidades')->pluck('id')
+            ->map(fn ($v) => (string) $v)->flip();
+
+        $destinoPorNome = [];
+        foreach (DB::table('cidades')->get(['descricao', 'uf']) as $c) {
+            $destinoPorNome[$this->chaveCidade($c->descricao, $c->uf)] = true;
+        }
+
+        $remapeadas = 0;
+        foreach ($origem as $c) {
+            if (isset($idsDestino[(string) $c->id])) {
+                continue;
+            }
+
+            // Só conta como remapeamento se a cidade REALMENTE está lá sob
+            // outro id — caso contrário é ausência de verdade.
+            if (isset($destinoPorNome[$this->chaveCidade($c->descricao, $c->uf)])) {
+                $remapeadas++;
+            }
+        }
+
+        return $remapeadas;
+    }
+
+    private function chaveCidade(?string $descricao, ?string $uf): string
+    {
+        return mb_strtoupper(trim((string) $descricao)).'|'.mb_strtoupper(trim((string) $uf));
     }
 
     /**
