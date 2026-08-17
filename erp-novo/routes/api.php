@@ -592,8 +592,17 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('colaboradores/{id}/familia', [ColaboradorController::class, 'familia'])->whereNumber('id');
         Route::post('colaboradores/{id}/familia', [ColaboradorController::class, 'addFamilia'])->whereNumber('id');
         Route::delete('colaboradores/{id}/familia/{famId}', [ColaboradorController::class, 'delFamilia'])->whereNumber(['id', 'famId']);
+        // Recessos e comissões: CRUD completo (T4.7). Eram só GET, e sem POST o
+        // RH não lança férias nem altera comissão sem voltar ao legado.
         Route::get('colaboradores/{id}/recessos', [ColaboradorController::class, 'recessos'])->whereNumber('id');
+        Route::post('colaboradores/{id}/recessos', [ColaboradorController::class, 'addRecesso'])->whereNumber('id');
+        Route::put('colaboradores/{id}/recessos/{recessoId}', [ColaboradorController::class, 'updateRecesso'])->whereNumber('id')->whereNumber('recessoId');
+        Route::delete('colaboradores/{id}/recessos/{recessoId}', [ColaboradorController::class, 'deleteRecesso'])->whereNumber('id')->whereNumber('recessoId');
+
         Route::get('colaboradores/{id}/comissoes', [ColaboradorController::class, 'comissoes'])->whereNumber('id');
+        Route::post('colaboradores/{id}/comissoes', [ColaboradorController::class, 'addComissao'])->whereNumber('id');
+        Route::put('colaboradores/{id}/comissoes/{comissaoId}', [ColaboradorController::class, 'updateComissao'])->whereNumber('id')->whereNumber('comissaoId');
+        Route::delete('colaboradores/{id}/comissoes/{comissaoId}', [ColaboradorController::class, 'deleteComissao'])->whereNumber('id')->whereNumber('comissaoId');
         // RH complementar (C5): exames (ASO), turnos/escala, ponto.
         Route::get('colaboradores/{id}/exames', [ColaboradorController::class, 'exames'])->whereNumber('id');
         Route::post('colaboradores/{id}/exames', [ColaboradorController::class, 'addExame'])->whereNumber('id');
@@ -610,8 +619,17 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::delete('veiculos/{id}', [VeiculoController::class, 'destroy'])->whereNumber('id');
         Route::get('veiculos/{id}/abastecimentos', [VeiculoController::class, 'abastecimentos'])->whereNumber('id');
         Route::post('veiculos/{id}/abastecimentos', [VeiculoController::class, 'registrarAbastecimento'])->whereNumber('id');
+        // Trocas de óleo e pneus: escrita restaurada (T4.7). Registrar a troca é
+        // o que ZERA o alerta de troca vencida — sem POST ele fica aceso para
+        // sempre e o operador aprende a ignorá-lo.
         Route::get('veiculos/{id}/trocas-oleo', [VeiculoController::class, 'trocasOleo'])->whereNumber('id');
+        Route::post('veiculos/{id}/trocas-oleo', [VeiculoController::class, 'registrarTrocaOleo'])->whereNumber('id');
+        Route::delete('veiculos/{id}/trocas-oleo/{trocaId}', [VeiculoController::class, 'excluirTrocaOleo'])->whereNumber('id')->whereNumber('trocaId');
+
         Route::get('veiculos/{id}/pneus', [VeiculoController::class, 'pneus'])->whereNumber('id');
+        Route::post('veiculos/{id}/pneus', [VeiculoController::class, 'registrarPneu'])->whereNumber('id');
+        Route::put('veiculos/{id}/pneus/{pneuId}', [VeiculoController::class, 'atualizarPneu'])->whereNumber('id')->whereNumber('pneuId');
+        Route::delete('veiculos/{id}/pneus/{pneuId}', [VeiculoController::class, 'excluirPneu'])->whereNumber('id')->whereNumber('pneuId');
         // Entrada/saída de pátio + documentos do veículo (F12).
         Route::get('veiculos/{id}/entradas-saidas', [VeiculoController::class, 'entradasSaidas'])->whereNumber('id');
         Route::post('veiculos/{id}/entradas-saidas', [VeiculoController::class, 'registrarEntradaSaida'])->whereNumber('id');

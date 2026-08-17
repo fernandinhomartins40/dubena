@@ -4,6 +4,7 @@ namespace App\Domain\Frota;
 
 use App\Models\Frota\Veiculo;
 use App\Models\Frota\VeiculoAbastecimento;
+use App\Models\Frota\VeiculoTrocaOleo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -90,6 +91,50 @@ class VeiculoService
         }
 
         return round($kmRodado / $litros, 2);
+    }
+
+    /**
+     * Registra uma troca de óleo (T4.7) e ZERA o alerta.
+     *
+     * Era só leitura no novo, enquanto o legado tem CRUD completo — sem isto o
+     * operador da frota não consegue lançar a troca que acabou de fazer.
+     *
+     * O ponto sutil está no `km_ultima_troca_oleo`: `alertaTrocaOleo()` calcula
+     * o rodado a partir DELE, não da última linha da tabela. Gravar a troca sem
+     * atualizá-lo deixaria o alerta de "troca vencida" aceso para sempre, e o
+     * operador aprenderia a ignorá-lo — que é o pior resultado possível para um
+     * alerta.
+     *
+     * @param  array<string,mixed>  $dados
+     */
+    public function registrarTrocaOleo(Veiculo $veiculo, array $dados): VeiculoTrocaOleo
+    {
+        $km = (int) $dados['km'];
+
+        // Mesma regra do abastecimento: o hodômetro não anda para trás.
+        if ($km < (int) $veiculo->km_atual) {
+            throw ValidationException::withMessages([
+                'km' => "O km da troca ({$km}) não pode ser menor que o km atual do veículo ({$veiculo->km_atual}).",
+            ]);
+        }
+
+        return DB::transaction(function () use ($veiculo, $dados, $km) {
+            // `empresa_id` vem do trait de tenant dos models (como no
+            // abastecimento acima); passá-lo aqui seria ignorado pelo $fillable.
+            $troca = $veiculo->trocasOleo()->create([
+                'data' => $dados['data'] ?? now()->toDateString(),
+                'km' => $km,
+                'valor' => $dados['valor'] ?? null,
+                'observacao' => $dados['observacao'] ?? null,
+            ]);
+
+            $veiculo->update([
+                'km_atual' => $km,
+                'km_ultima_troca_oleo' => $km,
+            ]);
+
+            return $troca;
+        });
     }
 
     /**

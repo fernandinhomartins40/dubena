@@ -109,6 +109,80 @@ class VeiculoController extends Controller
         return response()->json(['data' => Veiculo::query()->findOrFail($id)->pneus()->get()]);
     }
 
+    // ── Escrita de trocas de óleo e pneus (T4.7) ──
+    //
+    // Eram só leitura no novo; o legado tem `Route::resource` completo para os
+    // dois. Sem POST, o operador da frota não lança a troca que acabou de fazer
+    // — e o alerta de "troca vencida" fica aceso para sempre.
+
+    public function registrarTrocaOleo(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        $veiculo = Veiculo::query()->findOrFail($id);
+
+        $dados = $request->validate([
+            'data' => 'nullable|date',
+            'km' => 'required|integer|min:0',
+            'valor' => 'nullable|numeric|min:0',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+
+        // Pelo service: é ele que aplica a regra do hodômetro e atualiza o
+        // `km_ultima_troca_oleo`, que é o que zera o alerta.
+        return response()->json(
+            ['data' => $this->service->registrarTrocaOleo($veiculo, $dados)],
+            201,
+        );
+    }
+
+    public function excluirTrocaOleo(Request $request, int $id, int $trocaId): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        Veiculo::query()->findOrFail($id)->trocasOleo()->findOrFail($trocaId)->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
+    }
+
+    public function registrarPneu(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        $veiculo = Veiculo::query()->findOrFail($id);
+
+        return response()->json(
+            ['data' => $veiculo->pneus()->create($this->validarPneu($request))],
+            201,
+        );
+    }
+
+    public function atualizarPneu(Request $request, int $id, int $pneuId): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        // findOrFail sobre a relação: o pneu tem de ser DESTE veículo.
+        $pneu = Veiculo::query()->findOrFail($id)->pneus()->findOrFail($pneuId);
+        $pneu->update($this->validarPneu($request));
+
+        return response()->json(['data' => $pneu->fresh()]);
+    }
+
+    public function excluirPneu(Request $request, int $id, int $pneuId): JsonResponse
+    {
+        $this->autorizar($request, 'veiculo.edit');
+        Veiculo::query()->findOrFail($id)->pneus()->findOrFail($pneuId)->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
+    }
+
+    /** @return array<string,mixed> */
+    private function validarPneu(Request $request): array
+    {
+        return $request->validate([
+            'posicao' => 'required|string|max:30',
+            'marca' => 'nullable|string|max:60',
+            'data_instalacao' => 'nullable|date',
+            'km_instalacao' => 'nullable|integer|min:0',
+        ]);
+    }
+
     // ── Entrada/saída de pátio (F12) ──
     public function entradasSaidas(Request $request, int $id): JsonResponse
     {

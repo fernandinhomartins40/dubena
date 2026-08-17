@@ -124,6 +124,107 @@ class ColaboradorController extends Controller
         return response()->json(['data' => Colaborador::query()->findOrFail($id)->comissoes()->with('excecoes')->get()]);
     }
 
+    // ── Escrita de recessos e comissões (T4.1/T4.7) ──
+    //
+    // Ambos eram SÓ LEITURA no novo, enquanto o legado tem `Route::resource`
+    // completo (`RecessosController`, `ColaboradorcomissoesController`). Sem
+    // POST/PUT/DELETE o operador de RH não consegue lançar férias nem alterar
+    // uma comissão — precisa voltar ao legado, o que inviabiliza aposentá-lo.
+
+    public function addRecesso(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+
+        return response()->json(
+            ['data' => $colaborador->recessos()->create($this->validarRecesso($request))],
+            201,
+        );
+    }
+
+    public function updateRecesso(Request $request, int $id, int $recessoId): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+
+        // findOrFail SOBRE A RELAÇÃO: garante que o recesso é deste colaborador,
+        // e não de outro cujo id o cliente tenha adivinhado.
+        $recesso = $colaborador->recessos()->findOrFail($recessoId);
+        $recesso->update($this->validarRecesso($request));
+
+        return response()->json(['data' => $recesso->fresh()]);
+    }
+
+    public function deleteRecesso(Request $request, int $id, int $recessoId): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        Colaborador::query()->findOrFail($id)->recessos()->findOrFail($recessoId)->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
+    }
+
+    public function addComissao(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $colaborador = Colaborador::query()->findOrFail($id);
+
+        return response()->json(
+            ['data' => $colaborador->comissoes()->create($this->validarComissao($request))],
+            201,
+        );
+    }
+
+    public function updateComissao(Request $request, int $id, int $comissaoId): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        $comissao = Colaborador::query()->findOrFail($id)->comissoes()->findOrFail($comissaoId);
+        $comissao->update($this->validarComissao($request));
+
+        return response()->json(['data' => $comissao->fresh()]);
+    }
+
+    public function deleteComissao(Request $request, int $id, int $comissaoId): JsonResponse
+    {
+        $this->autorizar($request, 'colaborador.edit');
+        Colaborador::query()->findOrFail($id)->comissoes()->findOrFail($comissaoId)->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
+    }
+
+    /** @return array<string,mixed> */
+    private function validarRecesso(Request $request): array
+    {
+        return $request->validate([
+            'tipo' => 'nullable|string|max:30',
+            'inicio' => 'required|date',
+            // `after_or_equal` e não `after`: recesso de um dia só é legítimo.
+            'fim' => 'required|date|after_or_equal:inicio',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+    }
+
+    /** @return array<string,mixed> */
+    private function validarComissao(Request $request): array
+    {
+        return $request->validate([
+            'produto_id' => 'nullable|integer|exists:produtos,id',
+            'setor_id' => 'nullable|integer|exists:setores,id',
+            'condicaopagamento_id' => 'nullable|integer',
+            // `integer` e não string: o model faz cast para int (o legado usa um
+            // código numérico de tipo de comissão).
+            'tipo_comissao' => 'nullable|integer',
+            // Percentual acima de 100 é quase sempre erro de digitação (5000 em
+            // vez de 50,00) e sai caro na folha.
+            'percentual' => 'nullable|numeric|min:0|max:100',
+            'empresa_valor' => 'nullable|numeric|min:0',
+            'percentual_app' => 'nullable|numeric|min:0|max:100',
+            'empresa_valor_app' => 'nullable|numeric|min:0',
+            'data_inicio' => 'nullable|date',
+            'data_fim' => 'nullable|date|after_or_equal:data_inicio',
+            'ativo' => 'nullable|boolean',
+        ]);
+    }
+
     // ── Exames ocupacionais (ASO) — C5 ──
     public function exames(Request $request, int $id): JsonResponse
     {
