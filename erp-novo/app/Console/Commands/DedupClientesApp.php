@@ -130,26 +130,50 @@ class DedupClientesApp extends Command
      */
     private function referenciasAClientes(): array
     {
+        // Lê de `pg_constraint`, NÃO de `information_schema`.
+        //
+        // Descoberto ao rodar em produção: `information_schema.constraint_column_usage`
+        // só expõe constraints de objetos que o usuário POSSUI. A aplicação roda como
+        // `erp_app` (a role restrita NOSUPERUSER NOBYPASSRLS do multi-tenant), que não
+        // é dona das tabelas — então o comando via ZERO FKs e teria apagado as cópias
+        // sem remapear nada, criando ~40 mil órfãos.
+        //
+        // `pg_constraint` é o catálogo real e é legível por qualquer role com acesso
+        // às tabelas. O ANY(conkey) cobre FK composta, embora aqui todas sejam de
+        // coluna única.
         $linhas = DB::select(<<<'SQL'
-            SELECT tc.table_name AS tabela, kcu.column_name AS coluna
-              FROM information_schema.table_constraints tc
-              JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name
-               AND tc.table_schema = kcu.table_schema
-              JOIN information_schema.constraint_column_usage ccu
-                ON tc.constraint_name = ccu.constraint_name
-               AND tc.table_schema = ccu.table_schema
-             WHERE tc.constraint_type = 'FOREIGN KEY'
-               AND tc.table_schema = 'public'
-               AND ccu.table_name = 'clientes'
-               AND ccu.column_name = 'id'
+            SELECT c.conrelid::regclass::text AS tabela,
+                   a.attname                  AS coluna
+              FROM pg_constraint c
+              JOIN pg_attribute a
+                ON a.attrelid = c.conrelid
+               AND a.attnum   = ANY (c.conkey)
+             WHERE c.contype   = 'f'
+               AND c.confrelid = 'public.clientes'::regclass
              ORDER BY 1, 2
         SQL);
 
-        return array_map(
-            fn ($l) => ['tabela' => $l->tabela, 'coluna' => $l->coluna],
+        $refs = array_map(
+            fn ($l) => [
+                'tabela' => str_replace('public.', '', $l->tabela),
+                'coluna' => $l->coluna,
+            ],
             $linhas,
         );
+
+        // Rede de segurança: `clientes` tem dezenas de tabelas filhas. Uma lista
+        // vazia aqui significa catálogo inacessível, não "não há FK" — e seguir
+        // em frente apagaria as cópias deixando as filhas órfãs.
+        if ($refs === []) {
+            throw new \RuntimeException(
+                'Nenhuma FK para clientes.id foi encontrada no catálogo. Isso é '
+                .'implausível e provavelmente indica falta de permissão de leitura '
+                .'em pg_constraint. Abortando: remover as cópias sem remapear as '
+                .'referências criaria órfãos.'
+            );
+        }
+
+        return $refs;
     }
 
     /**
