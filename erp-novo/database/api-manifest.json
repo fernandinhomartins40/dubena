@@ -197,6 +197,8 @@
     "GET api/admin/usuarios",
     "GET api/admin/vale-gas",
     "GET api/admin/vale-gas/situacoes",
+    "GET api/admin/vale-gas/{id}/duplicata",
+    "GET api/admin/vale-gas/{id}/pdf",
     "GET api/admin/veiculos",
     "GET api/admin/veiculos/{id}",
     "GET api/admin/veiculos/{id}/abastecimentos",

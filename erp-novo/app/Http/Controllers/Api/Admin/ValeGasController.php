@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Satelite\SituacaoValeGas;
+use App\Domain\Satelite\ValeGasPdfService;
 use App\Domain\Satelite\ValeGasService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
@@ -27,6 +28,9 @@ class ValeGasController extends Controller
         $q = trim((string) $request->query('q', ''));
 
         $query = ValeGas::query()
+            // Sem o eager load a coluna "Cliente" da tela ficava sempre vazia:
+            // a listagem devolve o modelo cru, e a relacao nao vinha junto.
+            ->with('cliente:id,nome')
             ->when($q !== '', fn ($b) => $b->where('codigo', 'ilike', '%'.$q.'%'))
             ->when($request->query('situacao'), fn ($b, $s) => $b->where('situacao', $s))
             ->orderByDesc('id');
@@ -53,6 +57,37 @@ class ValeGasController extends Controller
         $d['grupo_id'] = $request->user()->grupo_id;
 
         return response()->json(['data' => $this->service->emitir($d)], 201);
+    }
+
+    /**
+     * GET /vale-gas/{id}/pdf — o cupom que vai para a mão do cliente.
+     *
+     * Permissão de leitura: imprimir não altera nada. Quem consulta o vale
+     * precisa poder imprimi-lo.
+     */
+    public function pdf(Request $request, int $id, ValeGasPdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'valegas.view');
+
+        $vale = ValeGas::query()->findOrFail($id);
+
+        return response($pdf->vale($vale), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="vale-'.$vale->codigo.'.pdf"',
+        ]);
+    }
+
+    /** GET /vale-gas/{id}/duplicata — a via de cobrança do vale vendido a prazo. */
+    public function duplicata(Request $request, int $id, ValeGasPdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'valegas.view');
+
+        $vale = ValeGas::query()->findOrFail($id);
+
+        return response($pdf->duplicata($vale), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="duplicata-'.$vale->codigo.'.pdf"',
+        ]);
     }
 
     /** POST /vale-gas/baixar — muda situação por código (usado pela SPA). */

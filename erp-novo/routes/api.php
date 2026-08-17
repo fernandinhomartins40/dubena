@@ -432,6 +432,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('vale-gas', [ValeGasController::class, 'index']);
         Route::post('vale-gas', [ValeGasController::class, 'store']);
         Route::post('vale-gas/baixar', [ValeGasController::class, 'baixar']);
+        // Impressao (item 19): o vale E um documento fisico — sem papel o
+        // produto nao existe. Duplicata cobre a venda a prazo.
+        Route::get('vale-gas/{id}/pdf', [ValeGasController::class, 'pdf'])->whereNumber('id');
+        Route::get('vale-gas/{id}/duplicata', [ValeGasController::class, 'duplicata'])->whereNumber('id');
 
         // ── Comodato — N8 ──
         Route::get('comodatos', [ComodatoController::class, 'index']);
