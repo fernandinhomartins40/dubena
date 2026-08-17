@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { FileText, Send, Ban, AlertCircle } from 'lucide-react'
+import { FileText, Send, Ban, AlertCircle, Printer } from 'lucide-react'
 import {
   Button, Input, Badge, DataTable, type Column, EmptyState, Field, FormDialog, SearchBar, toast,
 } from '@/components/ui'
-import { useNfe, useTransmitirNfe, useCancelarNfe, type NfeRow } from '../api'
+import { useNfe, useTransmitirNfe, useCancelarNfe, abrirDanfe, type NfeRow } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 import { useBusca } from '@/lib/useBusca'
 
@@ -38,6 +38,16 @@ export function NfeTab() {
   async function onTransmitir(nf: NfeRow) {
     try { const r = await transmitir.mutateAsync(nf.id); toast.success(r?.message ?? 'Transmissão solicitada.') }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Falha na transmissão.') }
+  }
+  async function onImprimir(nf: NfeRow) {
+    try { await abrirDanfe(nf.id) }
+    catch (e: any) {
+      // Com responseType blob o corpo do erro também vem como blob: sem ler o
+      // texto, o motivo da recusa ("nota não autorizada") não chegaria à tela.
+      let msg = 'Falha ao gerar o DANFE.'
+      try { msg = JSON.parse(await (e?.response?.data as Blob).text())?.message ?? msg } catch { /* mantém o genérico */ }
+      toast.error(msg)
+    }
   }
   async function onCancelar() {
     if (justif.trim().length < 15) { toast.error('A justificativa deve ter ao menos 15 caracteres.'); return }
@@ -77,11 +87,19 @@ export function NfeTab() {
         // "Transmitir" numa nota já autorizada convida ao erro.
         const podeTransmitir = n.situacao === 'RASCUNHO' || n.situacao === 'REJEITADA'
         const podeCancelar = n.situacao === 'AUTORIZADA'
+        // DANFE de nota cancelada sai com tarja: reimprimir para arquivo e
+        // legítimo, e o papel diz que a nota nao vale.
+        const podeImprimir = n.situacao === 'AUTORIZADA' || n.situacao === 'CANCELADA'
 
-        if (!podeTransmitir && !podeCancelar) return null
+        if (!podeTransmitir && !podeCancelar && !podeImprimir) return null
 
         return (
           <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {podeImprimir && (
+              <Button variant="outline" size="sm" onClick={() => onImprimir(n)}>
+                <Printer size={14} /> DANFE
+              </Button>
+            )}
             {podeTransmitir && (
               <Button variant="outline" size="sm" loading={transmitir.isPending} onClick={() => onTransmitir(n)}>
                 <Send size={14} /> Transmitir

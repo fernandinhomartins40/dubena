@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Fiscal\DanfePdfService;
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\IbptService;
 use App\Domain\Fiscal\ModeloDocumento;
@@ -57,6 +58,25 @@ class NotaFiscalController extends Controller
         $this->autorizar($request, 'fiscal.view');
 
         return response()->json(['data' => NotaFiscal::query()->with('itens')->findOrFail($id)]);
+    }
+
+    /**
+     * GET /notas/{id}/danfe — o impresso que acompanha a mercadoria.
+     *
+     * Sem DANFE a carga não circula legalmente. A permissão é `fiscal.view`
+     * porque imprimir não emite nem altera nada: quem consulta a nota precisa
+     * poder imprimir o papel dela.
+     */
+    public function danfe(Request $request, int $id, DanfePdfService $danfe): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'fiscal.view');
+
+        $nota = NotaFiscal::query()->findOrFail($id);
+
+        return response($danfe->gerar($nota), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="danfe-'.$nota->numero.'.pdf"',
+        ]);
     }
 
     /** POST /notas/emitir — emite a partir de um pedido. */

@@ -115,3 +115,19 @@ export function useProcessarNfEntrada() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['nf-entrada'] }),
   })
 }
+
+/**
+ * Abre o DANFE numa aba para impressão.
+ *
+ * Abre em vez de baixar porque o DANFE existe para virar papel: o operador
+ * imprime e a folha segue com a carga. Vai por blob, e não por `window.open`
+ * na URL, porque o Bearer token viaja no header — um link direto chegaria
+ * sem autenticação.
+ */
+export async function abrirDanfe(id: number): Promise<void> {
+  const resp = await api.get(`/notas/${id}/danfe`, { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data as Blob)
+  window.open(url, '_blank', 'noopener')
+  // Revoga tarde: revogar antes de a aba ler o blob mostra página em branco.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}

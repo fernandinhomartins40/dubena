@@ -96,7 +96,7 @@ Classificação: **PRÉ** = antes do go-live · **PÓS** = depois, com prazo ·
 |---|---|---|---|
 | 3 | Impressão de contrato/etiquetas de convênio | **PÓS** (90d) | A mala direta já exporta CSV para etiquetas. Contrato de convênio é evento raro (97 clientes conveniados no total) — imprimir de um modelo em Word cobre o intervalo. |
 | 6 | PDFs de requisição/transferência de estoque | **PÓS** (90d) | Movimentação **interna**: o saldo está correto no sistema, o papel é conferência de conveniência. A infra de PDF da T4.6 torna isto barato depois. |
-| 8 | Exportar XMLs em lote; enviar NF por e-mail; DANFE | **PRÉ** (parcial) | **DANFE é PRÉ**: sem ela a mercadoria não circula legalmente. Exportação em lote e envio por e-mail são **PÓS** — o contador aceita receber os XMLs por pasta compartilhada no intervalo. |
+| 8 | Exportar XMLs em lote; enviar NF por e-mail; DANFE | ✅ **DANFE feita** / **PÓS** (resto) | DANFE implementada (Code 128C, canhoto, tarja de cancelada; só de nota autorizada). ⚠️ conferência humana do barcode pendente. Exportação em lote e envio por e-mail seguem **PÓS** — o contador aceita receber os XMLs por pasta compartilhada no intervalo. |
 | 10 | SPED Créditos; download do arquivo gerado | **PÓS** (60d) | SPED Fiscal e Contribuições existem e são as obrigações mensais. Créditos é apuração específica; confirmar com a contabilidade se a empresa a entrega. |
 | 12 | Recibo de caixa | ✅ **feito** (T4.6) | — |
 | 13 | Desconto/antecipação de cheque | **PÓS** (90d) | Operação financeira pontual. O ciclo carteira→depósito→compensação→devolução está completo. |
@@ -149,8 +149,8 @@ classificar em bloco por engano.
 
 **PRÉ-GO-LIVE (6 itens):**
 
-1. T4.2 — classificação automática do extrato bancário
-2. DANFE (item 8)
+1. ~~T4.2 — classificação automática do extrato bancário~~ ✅ **feito**
+2. ~~DANFE (item 8)~~ ✅ **feito** (⚠️ conferência humana do barcode)
 3. Vale-gás impresso e duplicata (item 19)
 4. Contrato de comodato em PDF (item 20)
 5. Relatório de fluxo de caixa (item 28)
@@ -162,7 +162,7 @@ não existe mais no novo — ver §5.)*
 **+ 2 decisões suas** (§2 malote, §3 bina) que podem adicionar dois itens
 bloqueantes ou remover ambos do escopo.
 
-**Conferência humana pendente:** o código de barras do boleto (T4.6).
+**Conferência humana pendente:** o código de barras do boleto (T4.6, I2of5) e a chave do DANFE (Code 128C). São padrões diferentes — conferir os dois separadamente num leitor.
 
 Tudo o mais está classificado como PÓS com prazo e workaround, ou aposentado com
 justificativa. **Zero linhas sem veredito.**

@@ -445,6 +445,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('notas/emitir', [NotaFiscalController::class, 'emitir']);
         Route::get('notas/{id}', [NotaFiscalController::class, 'show'])->whereNumber('id');
         Route::post('notas/{id}/cancelar', [NotaFiscalController::class, 'cancelar'])->whereNumber('id');
+        // DANFE (T4.2/item 8): sem o impresso a mercadoria nao circula legalmente.
+        Route::get('notas/{id}/danfe', [NotaFiscalController::class, 'danfe'])->whereNumber('id');
+        Route::get('fiscal/nfe/{id}/danfe', [NotaFiscalController::class, 'danfe'])->whereNumber('id');
 
         // Aliases consumidos pela SPA (fiscal/nfe*) → NotaFiscalController.
         Route::get('fiscal/nfe', [NotaFiscalController::class, 'index']);

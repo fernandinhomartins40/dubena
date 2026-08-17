@@ -67,6 +67,16 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Regra de negócio violada → 422, não 500. Um DomainException é o
+        // domínio dizendo "isto não pode", como imprimir DANFE de nota não
+        // autorizada: a mensagem é para o operador ler, e devolvê-la como erro
+        // do servidor esconderia justamente o motivo.
+        $exceptions->render(function (\DomainException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        });
+
         // FASE 2 — dinheiro fail-closed: empresa sem credencial própria em produção
         // → 503 com mensagem neutra (detalhe fica no log; nada interno vaza ao app).
         $exceptions->render(function (CredencialNaoConfiguradaException $e, Request $request) {
