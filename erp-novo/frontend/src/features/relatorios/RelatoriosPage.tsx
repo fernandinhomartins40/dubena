@@ -14,12 +14,16 @@ export function RelatoriosPage() {
   const [inicio, setInicio] = useState(inicioMes)
   const [fim, setFim] = useState(hoje)
   const [mes, setMes] = useState(String(new Date().getMonth() + 1))
+  // 60 dias: o giro tipico de um P13 domestico fica entre 30 e 45, entao quem
+  // passou disso nao esta atrasado — esta comprando de outro.
+  const [dias, setDias] = useState('60')
   const [run, setRun] = useState(0)
   const [baixando, setBaixando] = useState(false)
 
   const params: Record<string, unknown> = {}
   if (sel.periodo) { params.inicio = inicio; params.fim = fim }
   if (sel.mes) params.mes = Number(mes)
+  if (sel.dias) params.dias = Number(dias)
 
   const { data, isLoading, isFetching } = useRelatorio(sel.slug, params, run > 0)
 
@@ -51,6 +55,11 @@ export function RelatoriosPage() {
               <Field label="Início"><Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></Field>
               <Field label="Fim"><Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></Field>
             </>}
+            {sel.dias && (
+              <Field label="Sem comprar há (dias)" hint="Acima deste corte o cliente entra na lista">
+                <Input type="number" min={1} value={dias} onChange={(e) => setDias(e.target.value)} />
+              </Field>
+            )}
             {sel.mes && (
               <Field label="Mês">
                 <Select value={mes} onValueChange={setMes}>

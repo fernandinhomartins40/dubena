@@ -546,4 +546,129 @@ class RelatorioService
                 'litros' => round((float) $r->litros, 3), 'valor_abastecido' => round((float) $r->valor, 2),
             ])->all();
     }
+
+    // ────────────── Relatórios PRÉ-GO-LIVE (triagem F4, §5) ──────────────
+
+    /**
+     * Fluxo de caixa PROJETADO, dia a dia.
+     *
+     * Por que não bastava o relatório `financeiro` que já existia: aquele dá a
+     * POSIÇÃO do período (total a receber, total a pagar, saldo previsto). O
+     * fluxo responde outra pergunta, que é a da rotina financeira diária —
+     * *"em que dia o dinheiro acaba?"*. Um saldo previsto positivo no mês pode
+     * esconder um vermelho no dia 12, quando vence a folha e o recebimento só
+     * entra no dia 20.
+     *
+     * Por isso a coluna que importa é o **saldo acumulado**, e por isso a série
+     * parte do saldo REAL das contas hoje (`contas.saldo_atual`), não de zero:
+     * um fluxo que começa em zero mostra falta de caixa onde há dinheiro em
+     * conta, e o operador para de confiar no relatório.
+     *
+     * Só entram parcelas EM ABERTO: as baixadas já estão dentro do saldo atual,
+     * e contá-las de novo seria dobrar o dinheiro.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function fluxoCaixa(int $empresaId, string $inicio, string $fim): array
+    {
+        $dtInicio = Carbon::parse($inicio)->startOfDay();
+        $dtFim = Carbon::parse($fim)->startOfDay();
+
+        // Ponto de partida: o que existe em caixa/banco agora. Contas fechadas
+        // ficam de fora — o saldo delas não está disponível para pagar nada.
+        $saldo = (float) DB::table('contas')
+            ->where('empresa_id', $empresaId)
+            ->where('fechado', false)
+            ->sum('saldo_atual');
+
+        $porDia = DB::table('financeiroparcelas as fp')
+            ->join('financeiros as f', 'f.id', '=', 'fp.financeiro_id')
+            ->where('f.empresa_id', $empresaId)
+            ->where('f.cancelado', false)
+            ->where('fp.baixado', false)
+            // Comparar a DATA, não o texto: `vencimento` guarda datetime, e um
+            // whereBetween contra 'AAAA-MM-DD' descartaria o último dia do
+            // período (00:00:00 do dia seguinte já é maior que a string do fim).
+            ->whereDate('fp.vencimento', '>=', $dtInicio->toDateString())
+            ->whereDate('fp.vencimento', '<=', $dtFim->toDateString())
+            ->groupBy('fp.vencimento')
+            ->selectRaw('fp.vencimento, '
+                ."sum(case when f.pagarreceber = 'R' then fp.valor else 0 end) as receber, "
+                ."sum(case when f.pagarreceber = 'P' then fp.valor else 0 end) as pagar")
+            ->get()
+            ->keyBy(fn ($r) => (string) Carbon::parse($r->vencimento)->toDateString());
+
+        $linhas = [];
+
+        // Percorre TODOS os dias do período, inclusive os sem movimento: o dia
+        // vazio é informação — mostra o saldo se sustentando (ou não) sem
+        // entrada nenhuma.
+        for ($dia = $dtInicio->copy(); $dia->lte($dtFim); $dia->addDay()) {
+            $chave = $dia->toDateString();
+            $r = $porDia->get($chave);
+
+            $receber = round((float) ($r->receber ?? 0), 2);
+            $pagar = round((float) ($r->pagar ?? 0), 2);
+            $saldo = round($saldo + $receber - $pagar, 2);
+
+            $linhas[] = [
+                'data' => $dia->format('d/m/Y'),
+                'a_receber' => $receber,
+                'a_pagar' => $pagar,
+                'resultado_dia' => round($receber - $pagar, 2),
+                'saldo_acumulado' => $saldo,
+                // A coluna que o financeiro procura de olho: o dia em que vira.
+                'situacao' => $saldo < 0 ? 'NEGATIVO' : 'OK',
+            ];
+        }
+
+        return $linhas;
+    }
+
+    /**
+     * Clientes sem compra há N dias — a lista de quem parou de comprar.
+     *
+     * É a base da venda ativa: no disk-gás o cliente não avisa que trocou de
+     * fornecedor, ele simplesmente deixa de ligar. Sem esta lista a perda é
+     * invisível até aparecer no faturamento do mês, quando já é tarde para
+     * recuperar.
+     *
+     * O corte padrão é 60 dias porque o giro típico de um P13 doméstico fica
+     * entre 30 e 45 dias: quem passou de 60 não está atrasado, está comprando
+     * de outro. O parâmetro existe porque o giro varia por perfil (comércio
+     * consome mais rápido que residência).
+     *
+     * Clientes que NUNCA compraram entram na lista — são cadastro morto ou
+     * venda perdida na origem, e nos dois casos o comercial precisa vê-los.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function clientesSemCompra(int $empresaId, int $dias = 60): array
+    {
+        $corte = Carbon::now()->subDays(max(1, $dias))->startOfDay();
+
+        return DB::table('clientes as c')
+            ->leftJoin('cidades as ci', 'ci.id', '=', 'c.cidade_id')
+            ->where('c.empresa_id', $empresaId)
+            ->where('c.cliente', true)
+            ->where('c.ativo', true)
+            ->where(fn ($q) => $q
+                ->whereNull('c.data_ultima_compra')
+                ->orWhere('c.data_ultima_compra', '<', $corte->toDateString()))
+            ->orderByRaw('c.data_ultima_compra asc nulls last')
+            ->limit(5000)
+            ->get(['c.id', 'c.nome', 'c.data_ultima_compra', 'ci.descricao as cidade', 'c.endereco', 'c.numero'])
+            ->map(function ($r) {
+                $ultima = $r->data_ultima_compra !== null ? Carbon::parse($r->data_ultima_compra) : null;
+
+                return [
+                    'cliente' => $r->nome,
+                    'cidade' => $r->cidade ?? '',
+                    'endereco' => trim(((string) $r->endereco).' '.((string) $r->numero)),
+                    'ultima_compra' => $ultima?->format('d/m/Y') ?? 'Nunca comprou',
+                    // Dias parado é o que ordena a abordagem do comercial.
+                    'dias_sem_comprar' => $ultima !== null ? $ultima->diffInDays(Carbon::now()) : null,
+                ];
+            })->all();
+    }
 }

@@ -126,8 +126,8 @@ classificar em bloco por engano.
 
 | Relatório | Veredito | Por quê |
 |---|---|---|
-| **Fluxo de caixa** | **PRÉ** | Rotina financeira diária/semanal. É o relatório que responde "tenho dinheiro para pagar o quê". |
-| **Clientes sem compra / inativos** | **PRÉ** | Rotina comercial: é a lista de quem parar de comprar. Base da venda ativa. |
+| **Fluxo de caixa** | ✅ **feito** | Projeção dia a dia com saldo acumulado, partindo do saldo real das contas abertas. Só parcelas em aberto (as baixadas já estão no saldo). Coluna `situacao` marca o dia em que vira negativo. |
+| **Clientes sem compra / inativos** | ✅ **feito** | Corte configurável (padrão 60d). Quem nunca comprou entra; cliente desativado não. Ordenado por dias parado. |
 | Clientes incompletos | **PÓS** (60d) | Higiene de cadastro; pode esperar. |
 | Mapas de entrega georreferenciados (4 variantes) | **PÓS** (120d) | A central de logística e o rastreamento cobrem a operação do dia. Os mapas são análise. |
 | Tempo de entrega | **PÓS** (90d) | Indicador de qualidade; o dado está registrado e pode ser extraído depois. |
@@ -153,8 +153,12 @@ classificar em bloco por engano.
 2. ~~DANFE (item 8)~~ ✅ **feito** (⚠️ conferência humana do barcode)
 3. ~~Vale-gás impresso e duplicata (item 19)~~ ✅ **feito**
 4. ~~Contrato de comodato em PDF (item 20)~~ ✅ **feito**
-5. Relatório de fluxo de caixa (item 28)
-6. Relatório de clientes sem compra/inativos (item 28)
+5. ~~Relatório de fluxo de caixa (item 28)~~ ✅ **feito**
+6. ~~Relatório de clientes sem compra/inativos (item 28)~~ ✅ **feito**
+
+**Os 6 itens técnicos PRÉ-GO-LIVE estão fechados.** O que resta antes de virar
+não é código: são as 2 decisões do dono (§2 malote, §3 bina), a conferência
+humana dos dois códigos de barras, e as pendências operacionais da F3.
 
 *(O log de senha mestra saiu da lista: verifiquei que o fluxo que ele registrava
 não existe mais no novo — ver §5.)*

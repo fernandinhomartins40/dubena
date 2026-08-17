@@ -143,10 +143,15 @@ class RelatorioController extends Controller
     /** @return array{inicio:string,fim:string} */
     /**
      * Registry da CENTRAL de relatórios (F10): slug => [método do service, precisa
-     * período?, precisa mês?, título]. Adicionar relatório = 1 linha + 1 método no
-     * service — sem novo controller/rota. Substitui a abordagem 1-tela-por-relatório.
+     * período?, precisa mês?, título, extras?]. Adicionar relatório = 1 linha + 1
+     * método no service — sem novo controller/rota. Substitui a abordagem
+     * 1-tela-por-relatório.
      *
-     * @var array<string, array{0:string,1:bool,2:bool,3:string}>
+     * `extras` (opcional) declara parâmetros de query além de período/mês, como
+     * `dias => int`. Sem ele, um relatório com corte configurável exigiria rota
+     * própria — que é justamente o que este registry existe para evitar.
+     *
+     * @var array<string, array{0:string,1:bool,2:bool,3:string,4?:array<string,string>}>
      */
     private const RELATORIOS = [
         'vendas' => ['vendas', true, false, 'Vendas por período'],
@@ -167,6 +172,9 @@ class RelatorioController extends Controller
         'nf-recebidas' => ['nfRecebidas', true, false, 'NF de entrada (recebidas)'],
         'promocoes' => ['promocoes', false, false, 'Promoções e adesão'],
         'veiculos' => ['veiculos', false, false, 'Frota e abastecimentos'],
+        // Triagem F4 §5 — os dois relatórios classificados como PRÉ-GO-LIVE.
+        'fluxo-caixa' => ['fluxoCaixa', true, false, 'Fluxo de caixa projetado'],
+        'clientes-sem-compra' => ['clientesSemCompra', false, false, 'Clientes sem compra (inativos)', ['dias' => 'int']],
     ];
 
     /**
@@ -179,6 +187,7 @@ class RelatorioController extends Controller
         $cfg = self::RELATORIOS[$slug] ?? null;
         abort_if($cfg === null, 404, 'Relatório desconhecido.');
         [$metodo, $precisaPeriodo, $precisaMes, $titulo] = $cfg;
+        $extras = $cfg[4] ?? [];
 
         $empresaId = (int) $request->user()->empresa_id;
         $args = [$empresaId];
@@ -189,6 +198,14 @@ class RelatorioController extends Controller
         }
         if ($precisaMes) {
             $args[] = (int) ($request->query('mes') ?: now()->month);
+        }
+        foreach ($extras as $nome => $tipo) {
+            // Só repassa o que o cliente mandou: ausente = o default do método
+            // no service, que é onde a regra de negócio do corte mora.
+            $valor = $request->query($nome);
+            if ($valor !== null && $valor !== '') {
+                $args[] = $tipo === 'int' ? (int) $valor : $valor;
+            }
         }
 
         $linhas = $this->service->{$metodo}(...$args);
@@ -203,6 +220,8 @@ class RelatorioController extends Controller
 
         $itens = collect(self::RELATORIOS)->map(fn ($c, $slug) => [
             'slug' => $slug, 'titulo' => $c[3], 'periodo' => $c[1], 'mes' => $c[2],
+            // A SPA precisa saber quais filtros extras desenhar.
+            'extras' => array_keys($c[4] ?? []),
         ])->values();
 
         return response()->json(['data' => $itens]);

@@ -10,6 +10,8 @@ export interface RelatorioDef {
   periodo: boolean
   /** parâmetro extra opcional, ex.: mês para aniversariantes */
   mes?: boolean
+  /** corte em dias (clientes sem compra) — o backend declara em `extras`. */
+  dias?: boolean
 }
 
 export const RELATORIOS: RelatorioDef[] = [
@@ -31,6 +33,9 @@ export const RELATORIOS: RelatorioDef[] = [
   { slug: 'nf-recebidas', titulo: 'NF de entrada (recebidas)', periodo: true },
   { slug: 'promocoes', titulo: 'Promoções e adesão', periodo: false },
   { slug: 'veiculos', titulo: 'Frota e abastecimentos', periodo: false },
+  // Triagem F4 §5 — os dois classificados como PRÉ-GO-LIVE.
+  { slug: 'fluxo-caixa', titulo: 'Fluxo de caixa projetado', periodo: true },
+  { slug: 'clientes-sem-compra', titulo: 'Clientes sem compra (inativos)', periodo: false, dias: true },
 ]
 
 export function useRelatorio(slug: string, params: Record<string, unknown>, enabled: boolean) {
