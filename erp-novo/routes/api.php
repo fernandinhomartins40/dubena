@@ -229,6 +229,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Inconsistências de cadastro (rua/bairro duplicados por similaridade) — F11.
         // ANTES de cadastros/{tipo} p/ não ser capturado como tipo.
         Route::get('cadastros/inconsistencias', [GeoController::class, 'inconsistencias']);
+        // A AÇÃO que fecha o ciclo (T4.1): sem ela a tela acima é um relatório
+        // que repete os mesmos falsos positivos para sempre.
+        Route::post('cadastros/inconsistencias/ignorar', [GeoController::class, 'ignorarInconsistencia']);
+        Route::delete('cadastros/inconsistencias/ignorar', [GeoController::class, 'reconsiderarInconsistencia']);
 
         // Cadastros de apoio genéricos (parametrizados por tipo).
         Route::get('cadastros/{tipo}', [CadastroApoioController::class, 'index']);

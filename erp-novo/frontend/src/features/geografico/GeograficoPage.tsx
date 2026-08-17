@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Search, MapPin } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, MapPin, CheckCircle2, AlertTriangle } from 'lucide-react'
 import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
-  Field, CheckboxField, AsyncSelect,
+  Field, CheckboxField, AsyncSelect, AsyncState,
   Tabs, TabsList, TabsTrigger, TabsContent,
   FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import {
   useCidades, useBairros, useRuas, useRegioes, useSalvarGeo, useExcluirGeo,
+  useInconsistencias, useIgnorarPar,
   type Cidade, type Bairro, type Rua, type Regiao,
+  type ParInconsistente, type TipoInconsistencia,
 } from './api'
 
 export function GeograficoPage() {
@@ -21,11 +23,13 @@ export function GeograficoPage() {
           <TabsTrigger value="bairros">Bairros</TabsTrigger>
           <TabsTrigger value="ruas">Ruas</TabsTrigger>
           <TabsTrigger value="regioes">Regiões</TabsTrigger>
+          <TabsTrigger value="inconsistencias">Inconsistências</TabsTrigger>
         </TabsList>
         <TabsContent value="cidades"><CidadesTab /></TabsContent>
         <TabsContent value="bairros"><BairrosTab /></TabsContent>
         <TabsContent value="ruas"><RuasTab /></TabsContent>
         <TabsContent value="regioes"><RegioesTab /></TabsContent>
+        <TabsContent value="inconsistencias"><InconsistenciasTab /></TabsContent>
       </Tabs>
     </div>
   )
@@ -254,6 +258,119 @@ function RegioesTab() {
 
       <ConfirmDelete open={!!del} nome={del?.descricao} tipo="região" loading={excluir.isPending} onClose={() => setDel(null)}
         onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Região excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
+    </>
+  )
+}
+
+// =================== INCONSISTÊNCIAS (T4.1) ===================
+//
+// Fila de prováveis duplicatas de rua/bairro. O detector já existia; o que
+// faltava era a AÇÃO de resolver o par — sem ela a tela é um relatório que
+// repete os mesmos falsos positivos para sempre, e o operador não tem como
+// registrar "conferi, são endereços diferentes".
+function InconsistenciasTab() {
+  const [tipo, setTipo] = useState<TipoInconsistencia>('todas')
+  const { data, isLoading, error } = useInconsistencias(tipo)
+  const ignorar = useIgnorarPar()
+  const [confirmar, setConfirmar] = useState<ParInconsistente | null>(null)
+  const [motivo, setMotivo] = useState('')
+
+  const pares = data?.data ?? []
+
+  async function onIgnorar() {
+    if (!confirmar) return
+    try {
+      await ignorar.mutateAsync({
+        tipo: confirmar.tipo,
+        item_id: confirmar.a.id,
+        item_ignorado_id: confirmar.b.id,
+        motivo: motivo.trim() || undefined,
+      })
+      toast.success('Par marcado como distinto — saiu da fila.')
+      setConfirmar(null); setMotivo('')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Erro ao registrar.')
+    }
+  }
+
+  const columns: Column<ParInconsistente>[] = [
+    {
+      key: 'tipo', header: 'Tipo',
+      cell: (p) => <Badge variant="secondary">{p.tipo === 'rua' ? 'Rua' : 'Bairro'}</Badge>,
+    },
+    { key: 'a', header: 'Registro', cell: (p) => <span className="font-medium">{p.a.descricao}</span> },
+    { key: 'b', header: 'Possível duplicata', cell: (p) => <span className="font-medium">{p.b.descricao}</span> },
+    {
+      key: 'similaridade', header: 'Semelhança',
+      cell: (p) => (
+        <Badge variant={p.similaridade >= 0.95 ? 'destructive' : 'warning'}>
+          {Math.round(p.similaridade * 100)}%
+        </Badge>
+      ),
+    },
+    {
+      key: 'acoes', header: '', className: 'w-px',
+      cell: (p) => (
+        <Button
+          size="sm" variant="outline"
+          onClick={(e) => { e.stopPropagation(); setConfirmar(p); setMotivo('') }}
+        >
+          <CheckCircle2 size={15} /> São distintos
+        </Button>
+      ),
+    },
+  ]
+
+  return (
+    <>
+      <Card className="mb-3 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Mostrar:</span>
+          {(['todas', 'ruas', 'bairros'] as const).map((t) => (
+            <Button key={t} size="sm" variant={tipo === t ? 'default' : 'outline'} onClick={() => setTipo(t)}>
+              {t === 'todas' ? 'Todas' : t === 'ruas' ? 'Ruas' : 'Bairros'}
+            </Button>
+          ))}
+          {pares.length > 0 && (
+            <span className="ml-auto text-sm text-muted-foreground">
+              {pares.length} par(es) a conferir
+            </span>
+          )}
+        </div>
+      </Card>
+
+      <AsyncState
+        loading={isLoading} error={error} empty={pares.length === 0}
+        emptyIcon={<CheckCircle2 />}
+        emptyTitle="Nenhuma inconsistência"
+        emptyDescription="Todos os pares semelhantes já foram conferidos."
+      >
+        <DataTable
+          columns={columns} rows={pares} rowKey={(p) => `${p.tipo}-${p.a.id}-${p.b.id}`}
+          empty={<EmptyState icon={<AlertTriangle />} title="Nenhuma inconsistência" />}
+        />
+      </AsyncState>
+
+      <ConfirmDialog
+        open={!!confirmar}
+        onOpenChange={(o) => { if (!o) { setConfirmar(null); setMotivo('') } }}
+        title="Marcar como registros distintos?"
+        description={
+          confirmar
+            ? `"${confirmar.a.descricao}" e "${confirmar.b.descricao}" deixarão de aparecer nesta lista.`
+            : ''
+        }
+        confirmLabel="Confirmar"
+        loading={ignorar.isPending}
+        onConfirm={onIgnorar}
+      >
+        <Field label="Motivo (opcional)">
+          <Input
+            autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ex.: quadras diferentes, conferido no mapa"
+          />
+        </Field>
+      </ConfirmDialog>
     </>
   )
 }

@@ -42,3 +42,35 @@ export function useExcluirGeo(entidade: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: [`geo-${entidade}`] }),
   })
 }
+
+// ── Inconsistências (T4.1) ───────────────────────────────────────────────────
+// Prováveis ruas/bairros duplicados, detectados por similaridade de nome.
+// A tela só é útil com a AÇÃO de ignorar: sem ela os mesmos falsos positivos
+// reaparecem a cada consulta e a fila nunca esvazia.
+
+export interface ParInconsistente {
+  tipo: 'rua' | 'bairro'
+  cidade_id: number
+  a: { id: number; descricao: string }
+  b: { id: number; descricao: string }
+  similaridade: number
+}
+
+export type TipoInconsistencia = 'todas' | 'ruas' | 'bairros'
+
+export function useInconsistencias(tipo: TipoInconsistencia) {
+  return useQuery<{ data: ParInconsistente[] }>({
+    queryKey: ['geo-inconsistencias', tipo],
+    queryFn: async () => (await api.get('/cadastros/inconsistencias', { params: { tipo } })).data,
+  })
+}
+
+export function useIgnorarPar() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (par: { tipo: 'rua' | 'bairro'; item_id: number; item_ignorado_id: number; motivo?: string }) =>
+      (await api.post('/cadastros/inconsistencias/ignorar', par)).data,
+    // Invalida a lista inteira: o par sai da fila imediatamente.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['geo-inconsistencias'] }),
+  })
+}

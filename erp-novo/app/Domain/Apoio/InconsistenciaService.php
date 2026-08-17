@@ -3,6 +3,7 @@
 namespace App\Domain\Apoio;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Detecção de inconsistências de cadastro (F11) — ruas/bairros DUPLICADOS por
@@ -42,6 +43,122 @@ class InconsistenciaService
     }
 
     /**
+     * Marca um par como NÃO-duplicado (T4.1) — a ação que fecha o ciclo.
+     *
+     * Sem ela, a tela de inconsistências é um relatório que repete os mesmos
+     * falsos positivos para sempre: o operador olha, conclui "essas duas ruas
+     * são mesmo diferentes", e não tem como registrar isso. A fila nunca esvazia.
+     *
+     * O par é gravado NORMALIZADO (menor id primeiro): sem isso, (A,B) e (B,A)
+     * seriam linhas distintas e o mesmo par voltaria à fila pela ordem inversa.
+     *
+     * @param  'rua'|'bairro'  $tipo
+     * @return bool  false se o par já estava ignorado (idempotente)
+     */
+    public function ignorarPar(
+        string $tipo,
+        int $itemId,
+        int $itemIgnoradoId,
+        int $grupoId,
+        ?int $empresaId = null,
+        ?int $userId = null,
+        ?string $motivo = null,
+    ): bool {
+        if (! in_array($tipo, ['rua', 'bairro'], true)) {
+            throw new \InvalidArgumentException("Tipo inválido: {$tipo} (use 'rua' ou 'bairro').");
+        }
+
+        if ($itemId === $itemIgnoradoId) {
+            throw new \InvalidArgumentException('Um registro não pode ser marcado como duplicata de si mesmo.');
+        }
+
+        [$a, $b] = $this->parNormalizado($itemId, $itemIgnoradoId);
+
+        $tabela = $tipo === 'rua' ? 'ruas' : 'bairros';
+        $existentes = DB::table($tabela)
+            ->where('grupo_id', $grupoId)
+            ->whereIn('id', [$a, $b])
+            ->count();
+
+        // Não aceita ignorar par de outro tenant nem id inexistente — a rota é
+        // autorizada, mas o id vem do cliente.
+        if ($existentes !== 2) {
+            throw new \InvalidArgumentException(
+                "Par inválido: {$tipo} {$a}/{$b} não existe neste grupo."
+            );
+        }
+
+        return DB::transaction(function () use ($tipo, $a, $b, $grupoId, $empresaId, $userId, $motivo) {
+            $jaExiste = DB::table('geo_pares_ignorados')
+                ->where('grupo_id', $grupoId)
+                ->where('tipo', $tipo)
+                ->where('item_id', $a)
+                ->where('item_ignorado_id', $b)
+                ->exists();
+
+            if ($jaExiste) {
+                return false;
+            }
+
+            DB::table('geo_pares_ignorados')->insert([
+                'tipo' => $tipo,
+                'item_id' => $a,
+                'item_ignorado_id' => $b,
+                'grupo_id' => $grupoId,
+                'empresa_id' => $empresaId,
+                'user_id' => $userId,
+                'motivo' => $motivo !== null ? mb_substr($motivo, 0, 255) : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return true;
+        });
+    }
+
+    /** Desfaz o "ignorar": o par volta para a fila de conferência. */
+    public function reconsiderarPar(string $tipo, int $itemId, int $itemIgnoradoId, int $grupoId): bool
+    {
+        [$a, $b] = $this->parNormalizado($itemId, $itemIgnoradoId);
+
+        return DB::table('geo_pares_ignorados')
+            ->where('grupo_id', $grupoId)
+            ->where('tipo', $tipo)
+            ->where('item_id', $a)
+            ->where('item_ignorado_id', $b)
+            ->delete() > 0;
+    }
+
+    /** @return array{0:int,1:int} par com o menor id primeiro */
+    private function parNormalizado(int $x, int $y): array
+    {
+        return $x <= $y ? [$x, $y] : [$y, $x];
+    }
+
+    /**
+     * Pares já ignorados, indexados por "tipo|menor|maior" para busca O(1).
+     *
+     * @return array<string,true>
+     */
+    private function ignorados(int $grupoId): array
+    {
+        if (! Schema::hasTable('geo_pares_ignorados')) {
+            return [];
+        }
+
+        $mapa = [];
+        foreach (
+            DB::table('geo_pares_ignorados')
+                ->where('grupo_id', $grupoId)
+                ->get(['tipo', 'item_id', 'item_ignorado_id']) as $linha
+        ) {
+            $mapa[$linha->tipo.'|'.$linha->item_id.'|'.$linha->item_ignorado_id] = true;
+        }
+
+        return $mapa;
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function duplicatas(string $tabela, string $tipo, int $grupoId): array
@@ -49,6 +166,11 @@ class InconsistenciaService
         $registros = DB::table($tabela)
             ->where('grupo_id', $grupoId)
             ->get(['id', 'cidade_id', 'descricao']);
+
+        // Pares que o operador já conferiu e marcou como distintos (T4.1). É o
+        // que transforma a tela de relatório em FILA DE TRABALHO: sem esta
+        // exclusão, os mesmos falsos positivos voltam a cada consulta.
+        $ignorados = $this->ignorados($grupoId);
 
         // Agrupa por cidade e compara cada par dentro da cidade.
         $porCidade = [];
@@ -61,6 +183,11 @@ class InconsistenciaService
             $n = count($itens);
             for ($i = 0; $i < $n; $i++) {
                 for ($j = $i + 1; $j < $n; $j++) {
+                    [$menor, $maior] = $this->parNormalizado((int) $itens[$i]->id, (int) $itens[$j]->id);
+                    if (isset($ignorados["{$tipo}|{$menor}|{$maior}"])) {
+                        continue;
+                    }
+
                     $sim = $this->similaridade((string) $itens[$i]->descricao, (string) $itens[$j]->descricao);
                     if ($sim >= self::LIMIAR && $sim < 1.0) {
                         $pares[] = [

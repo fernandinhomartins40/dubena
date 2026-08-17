@@ -115,6 +115,72 @@ class GeoController extends Controller
         return response()->json(['data' => $pares]);
     }
 
+    /**
+     * POST /cadastros/inconsistencias/ignorar — marca um par como NÃO-duplicado.
+     *
+     * É a ação que fecha o ciclo da tela (T4.1): sem ela o detector repete os
+     * mesmos falsos positivos indefinidamente e a fila nunca esvazia. Espelha o
+     * `ignorarRua`/`ignorarBairro` do legado.
+     */
+    public function ignorarInconsistencia(Request $request, InconsistenciaService $service): JsonResponse
+    {
+        // Escrita exige permissão de EDIÇÃO, não a de leitura usada no GET acima.
+        $this->autorizar($request, 'cliente.edit');
+
+        $dados = $request->validate([
+            'tipo' => ['required', 'string', 'in:rua,bairro'],
+            'item_id' => ['required', 'integer', 'min:1'],
+            'item_ignorado_id' => ['required', 'integer', 'min:1', 'different:item_id'],
+            'motivo' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user = $request->user();
+
+        try {
+            $novo = $service->ignorarPar(
+                tipo: $dados['tipo'],
+                itemId: (int) $dados['item_id'],
+                itemIgnoradoId: (int) $dados['item_ignorado_id'],
+                grupoId: (int) $user->grupo_id,
+                empresaId: $user->empresa_id !== null ? (int) $user->empresa_id : null,
+                userId: (int) $user->id,
+                motivo: $dados['motivo'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            // Id de outro tenant ou inexistente: 422, não 500.
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'data' => ['ignorado' => true, 'novo' => $novo],
+            'message' => $novo ? 'Par marcado como distinto.' : 'Este par já estava ignorado.',
+        ]);
+    }
+
+    /** DELETE /cadastros/inconsistencias/ignorar — devolve o par à fila. */
+    public function reconsiderarInconsistencia(Request $request, InconsistenciaService $service): JsonResponse
+    {
+        $this->autorizar($request, 'cliente.edit');
+
+        $dados = $request->validate([
+            'tipo' => ['required', 'string', 'in:rua,bairro'],
+            'item_id' => ['required', 'integer', 'min:1'],
+            'item_ignorado_id' => ['required', 'integer', 'min:1', 'different:item_id'],
+        ]);
+
+        $removido = $service->reconsiderarPar(
+            $dados['tipo'],
+            (int) $dados['item_id'],
+            (int) $dados['item_ignorado_id'],
+            (int) $request->user()->grupo_id,
+        );
+
+        return response()->json([
+            'data' => ['reconsiderado' => $removido],
+            'message' => $removido ? 'Par devolvido à fila.' : 'Este par não estava ignorado.',
+        ]);
+    }
+
     /** @return array{model: class-string, regras: array<string,string>, filtros: list<string>} */
     private function cfg(Request $request, string $entidade, string $permissao): array
     {
