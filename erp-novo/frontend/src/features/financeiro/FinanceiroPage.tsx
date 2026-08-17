@@ -4,6 +4,7 @@ import { CaixaTab } from './tabs/CaixaTab'
 import { PlanoTab } from './tabs/PlanoTab'
 import { CentroTab } from './tabs/CentroTab'
 import { ChequesTab, BoletosTab, DRETab, ConciliacaoTab } from './tabs/FinanceiroExtraTabs'
+import { ExtratoRegrasTab } from './tabs/ExtratoRegrasTab'
 
 /** Financeiro (F17.R7) — shell de abas; cada aba vive em ./tabs/*. */
 export function FinanceiroPage() {
@@ -18,6 +19,7 @@ export function FinanceiroPage() {
           <TabsTrigger value="boletos">Boletos / PIX</TabsTrigger>
           <TabsTrigger value="dre">DRE</TabsTrigger>
           <TabsTrigger value="conciliacao">Conciliação</TabsTrigger>
+          <TabsTrigger value="extrato-regras">Regras do Extrato</TabsTrigger>
           <TabsTrigger value="plano">Plano de Contas</TabsTrigger>
           <TabsTrigger value="centro">Centro de Custo</TabsTrigger>
         </TabsList>
@@ -27,6 +29,7 @@ export function FinanceiroPage() {
         <TabsContent value="boletos"><BoletosTab /></TabsContent>
         <TabsContent value="dre"><DRETab /></TabsContent>
         <TabsContent value="conciliacao"><ConciliacaoTab /></TabsContent>
+        <TabsContent value="extrato-regras"><ExtratoRegrasTab /></TabsContent>
         <TabsContent value="plano"><PlanoTab /></TabsContent>
         <TabsContent value="centro"><CentroTab /></TabsContent>
       </Tabs>

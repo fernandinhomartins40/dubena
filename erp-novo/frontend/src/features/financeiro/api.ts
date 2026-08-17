@@ -129,3 +129,35 @@ export function useDRE(inicio: string, fim: string, enabled: boolean) {
 export function useConciliacao(contaId: number | null, inicio: string, fim: string, enabled: boolean) {
   return useQuery({ queryKey: ['fin-conciliacao', contaId, inicio, fim], queryFn: async () => (await api.get('/financeiro/conciliacao', { params: { conta_id: contaId, inicio, fim } })).data.data, enabled })
 }
+
+// Regras de classificação do extrato (T4.2)
+export interface ExtratoRegra {
+  id: number; conta_id: number; descricao: string; acao: string
+  condicaopagamento_id: number | null; contamovimentotipo_id: number | null
+  plano_conta_id: number | null; centro_custo_id: number | null
+  cliente_id: number | null; conta_origem_id: number | null
+  ativo: boolean; prioridade: number
+}
+export function useExtratoRegras(contaId: number | null) {
+  return useQuery<{ data: ExtratoRegra[]; acoes: { valor: string; rotulo: string }[] }>({
+    queryKey: ['fin-extrato-regras', contaId],
+    queryFn: async () => (await api.get(`/financeiro/contas/${contaId}/extrato-regras`)).data,
+    enabled: contaId !== null,
+  })
+}
+export function useSalvarExtratoRegra(contaId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...d }: { id?: number } & Record<string, unknown>) =>
+      id ? (await api.put(`/financeiro/contas/${contaId}/extrato-regras/${id}`, d)).data
+         : (await api.post(`/financeiro/contas/${contaId}/extrato-regras`, d)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fin-extrato-regras', contaId] }),
+  })
+}
+export function useExcluirExtratoRegra(contaId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/financeiro/contas/${contaId}/extrato-regras/${id}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fin-extrato-regras', contaId] }),
+  })
+}

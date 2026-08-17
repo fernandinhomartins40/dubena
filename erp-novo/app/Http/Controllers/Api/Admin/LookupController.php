@@ -41,6 +41,7 @@ class LookupController extends Controller
         'planos-conta' => ['planos_conta', 'descricao', 'grupo'],
         'centros-custo' => ['centros_custo', 'descricao', 'grupo'],
         'condicoes-pagamento' => ['condicaopagamentos', 'descricao', 'grupo'],
+        'movimento-tipos' => ['contamovimentotipos', 'descricao', 'grupo'],
         'pedido-operacoes' => ['pedidooperacoes', 'descricao', 'grupo'],
         'pedido-situacoes' => ['pedidosituacoes', 'descricao', 'grupo'],
         'produto-classes' => ['produtoclasses', 'descricao', 'grupo'],

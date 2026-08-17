@@ -591,6 +591,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
         Route::post('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
         // Conciliação contábil (CONSISA) — F08.
+        // Regras de classificação automática do extrato (T4.2): é o que torna a
+        // importação OFX produtiva em vez de uma lista para classificar à mão.
+        Route::get('financeiro/contas/{contaId}/extrato-regras', [FinanceiroController::class, 'extratoRegras'])->whereNumber('contaId');
+        Route::post('financeiro/contas/{contaId}/extrato-regras', [FinanceiroController::class, 'criarExtratoRegra'])->whereNumber('contaId');
+        Route::put('financeiro/contas/{contaId}/extrato-regras/{id}', [FinanceiroController::class, 'atualizarExtratoRegra'])->whereNumber('contaId')->whereNumber('id');
+        Route::delete('financeiro/contas/{contaId}/extrato-regras/{id}', [FinanceiroController::class, 'excluirExtratoRegra'])->whereNumber('contaId')->whereNumber('id');
+
         Route::get('financeiro/conciliacao-contabil', [FinanceiroController::class, 'conciliacaoContabil']);
         Route::get('conciliacao-contabil', [FinanceiroController::class, 'conciliacaoContabil']);
 

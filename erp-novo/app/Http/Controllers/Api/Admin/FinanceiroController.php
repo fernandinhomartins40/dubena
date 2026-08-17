@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Financeiro\ConciliacaoContabilService;
 use App\Domain\Financeiro\ConciliacaoService;
+use App\Domain\Financeiro\ContaExtratoAcao;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -214,6 +215,103 @@ class FinanceiroController extends Controller
      * saldo contábil externo (CONSISA) por período (F08). Gate: sem CONSISA
      * configurada, devolve o lado do ERP com diferença = valor (habilitado=false).
      */
+    // ── Regras de classificacao do extrato (T4.2) ──
+    //
+    // Sem elas a importacao OFX devolve uma lista crua e cada linha precisa ser
+    // classificada a mao — inviavel no volume real da operacao.
+
+    /** GET /financeiro/contas/{contaId}/extrato-regras */
+    public function extratoRegras(Request $request, int $contaId): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.view');
+
+        $regras = \App\Models\Financeiro\ContaExtratoRegra::query()
+            ->where('conta_id', $contaId)
+            ->orderByDesc('prioridade')
+            ->orderBy('descricao')
+            ->get();
+
+        return response()->json([
+            'data' => $regras,
+            'acoes' => array_map(
+                fn (ContaExtratoAcao $a) => ['valor' => $a->value, 'rotulo' => $a->rotulo()],
+                ContaExtratoAcao::cases(),
+            ),
+        ]);
+    }
+
+    /** POST /financeiro/contas/{contaId}/extrato-regras */
+    public function criarExtratoRegra(Request $request, int $contaId): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+
+        $dados = $this->validarExtratoRegra($request);
+        $dados['conta_id'] = $contaId;
+
+        $regra = \App\Models\Financeiro\ContaExtratoRegra::query()->create($dados);
+
+        return response()->json(['data' => $regra], 201);
+    }
+
+    /** PUT /financeiro/contas/{contaId}/extrato-regras/{id} */
+    public function atualizarExtratoRegra(Request $request, int $contaId, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+
+        // findOrFail escopado pela conta: o id vem do cliente.
+        $regra = \App\Models\Financeiro\ContaExtratoRegra::query()
+            ->where('conta_id', $contaId)->findOrFail($id);
+
+        $regra->update($this->validarExtratoRegra($request));
+
+        return response()->json(['data' => $regra->fresh()]);
+    }
+
+    /** DELETE /financeiro/contas/{contaId}/extrato-regras/{id} */
+    public function excluirExtratoRegra(Request $request, int $contaId, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+
+        \App\Models\Financeiro\ContaExtratoRegra::query()
+            ->where('conta_id', $contaId)->findOrFail($id)->delete();
+
+        return response()->json(['data' => ['excluido' => true]]);
+    }
+
+    /**
+     * Valida a regra, com as OBRIGATORIEDADES POR ACAO do legado.
+     *
+     * E esta validacao condicional que da sentido a regra: uma de LANCAR sem
+     * plano de contas nao classifica nada; uma de TRANSFERIR sem conta de origem
+     * nao sabe de onde o dinheiro veio.
+     *
+     * @return array<string,mixed>
+     */
+    private function validarExtratoRegra(Request $request): array
+    {
+        $base = [
+            'descricao' => 'required|string|max:255',
+            'acao' => ['required', \Illuminate\Validation\Rule::enum(ContaExtratoAcao::class)],
+            'cliente_id' => 'nullable|integer',
+            'ativo' => 'nullable|boolean',
+            'prioridade' => 'nullable|integer|min:0',
+        ];
+
+        $acao = ContaExtratoAcao::tryFrom((string) $request->input('acao'));
+        $especificos = $acao?->camposObrigatorios() ?? [];
+
+        // Os campos que a acao NAO exige continuam aceitos como opcionais.
+        $opcionais = array_diff_key([
+            'condicaopagamento_id' => 'nullable|integer',
+            'contamovimentotipo_id' => 'nullable|integer',
+            'plano_conta_id' => 'nullable|integer',
+            'centro_custo_id' => 'nullable|integer',
+            'conta_origem_id' => 'nullable|integer',
+        ], $especificos);
+
+        return $request->validate($base + $especificos + $opcionais);
+    }
+
     public function conciliacaoContabil(Request $request, ConciliacaoContabilService $service): JsonResponse
     {
         $this->autorizar($request, 'financeiro.view');

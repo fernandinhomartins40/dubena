@@ -12,7 +12,11 @@ use Illuminate\Support\Carbon;
  */
 class ConciliacaoService
 {
-    public function __construct(private OfxParser $ofx) {}
+    public function __construct(
+        private OfxParser $ofx,
+        private RegraExtratoService $regras,
+    ) {
+    }
 
     /**
      * Concilia o OFX contra os movimentos da conta no período.
@@ -58,6 +62,11 @@ class ConciliacaoService
         }
 
         $erpPendentes = array_values(array_filter($movimentos, fn ($m) => ! $m['usado']));
+
+        // As pendentes são as que o operador teria de classificar à mão — é
+        // exatamente nelas que a regra economiza trabalho (T4.2). As já
+        // conciliadas não precisam: elas casaram com um movimento existente.
+        $ofxPendentes = $this->regras->aplicar($contaId, $ofxPendentes);
 
         return [
             'conciliados' => $conciliados,
