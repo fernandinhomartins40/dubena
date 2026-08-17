@@ -224,7 +224,11 @@ class VeiculoController extends Controller
         $this->autorizar($request, 'veiculo.edit');
         $v = Veiculo::query()->findOrFail($id);
         $d = $request->validate([
+            // `tipo` (texto livre) continua aceito para não quebrar o que já
+            // existe; `tipo_documento_id` é o caminho novo, com domínio de
+            // valores (T4.5) — o legado tinha esse cadastro e o novo não.
             'tipo' => 'required|string|max:60',
+            'tipo_documento_id' => 'nullable|integer|exists:tipos_documento_veiculo,id',
             'numero' => 'nullable|string|max:60',
             'emissao' => 'nullable|date',
             'vencimento' => 'nullable|date',

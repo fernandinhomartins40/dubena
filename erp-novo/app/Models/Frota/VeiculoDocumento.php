@@ -16,7 +16,10 @@ class VeiculoDocumento extends Model
 
     protected $table = 'veiculo_documentos';
 
-    protected $fillable = ['empresa_id', 'veiculo_id', 'tipo', 'numero', 'emissao', 'vencimento', 'observacao'];
+    protected $fillable = [
+        'empresa_id', 'veiculo_id', 'tipo', 'tipo_documento_id',
+        'numero', 'emissao', 'vencimento', 'observacao',
+    ];
 
     protected function casts(): array
     {

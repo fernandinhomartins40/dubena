@@ -15,6 +15,7 @@ use App\Models\Apoio\Parentesco;
 use App\Models\Apoio\Profissao;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
+use App\Models\Apoio\TipoDocumentoVeiculo;
 use App\Models\Apoio\TipoExame;
 use App\Models\Apoio\TipoPessoa;
 use App\Models\Apoio\Transportadora;
@@ -61,6 +62,10 @@ class CadastroApoioRegistry
         'cargos' => ['model' => Cargo::class, 'modulo' => 'colaborador', 'extras' => ['salario_base' => 'nullable|numeric|min:0']],
         'parentescos' => ['model' => Parentesco::class, 'modulo' => 'colaborador', 'extras' => []],
         'tipos-exame' => ['model' => TipoExame::class, 'modulo' => 'colaborador', 'extras' => ['admissional' => 'boolean']],
+        // Tipos de documento de VEICULO (T4.5): CRLV, seguro, ANTT. O endpoint
+        // `veiculos/{id}/documentos` gravava sem dominio de valores por tras.
+        // NAO confundir com o tipo da gestao documental (outro modulo).
+        'tipos-documento-veiculo' => ['model' => TipoDocumentoVeiculo::class, 'modulo' => 'veiculo', 'extras' => ['exige_validade' => 'boolean']],
     ];
 
     public function existe(string $tipo): bool
