@@ -31,6 +31,16 @@ class MarketplaceDemoSeeder extends Seeder
 {
     public function run(): void
     {
+        // GATE DE AMBIENTE (T3.7) — este seeder rodava INCONDICIONALMENTE em
+        // todo deploy, criando a "Unidade Batel" demo aderida ao marketplace
+        // mesmo em banco já populado. Em produção isso é uma revenda fictícia
+        // aparecendo na busca por geolocalização do app do consumidor.
+        if (app()->environment('production')) {
+            $this->command?->warn('MarketplaceDemoSeeder: IGNORADO em produção (dados de demonstração).');
+
+            return;
+        }
+
         $matriz = Empresa::query()->orderBy('id')->first();
         if (! $matriz) {
             return; // banco sem empresa (instalação zerada) — nada a fazer

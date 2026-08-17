@@ -92,6 +92,19 @@ class DemoGuarapuavaSeeder extends Seeder
 
     public function run(): void
     {
+        // GATE DE AMBIENTE (T3.7) — defesa em profundidade.
+        //
+        // O guard de contagem lá embaixo protege contra DUPLICAR massa, não
+        // contra RODAR EM PRODUÇÃO: um banco de produção recém-criado (antes do
+        // ETL) tem 0 clientes e receberia 200 clientes e 500 pedidos fake de
+        // Guarapuava na base real. O workflow de produção não chama este seeder,
+        // mas não se confia só na ausência do passo.
+        if (app()->environment('production')) {
+            $this->command?->warn('DemoGuarapuavaSeeder: IGNORADO em produção (massa de demonstração).');
+
+            return;
+        }
+
         // Base idempotente (admin/empresa + RBAC + planos + cidades) — sempre garantida.
         $this->call(DeployAdminSeeder::class);
         $this->call(RbacSeeder::class);
