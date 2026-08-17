@@ -73,6 +73,32 @@ return [
             'after_commit' => false,
         ],
 
+        /*
+         * Fila de JOBS LONGOS (T3.3 do PLANO_PRODUCAO).
+         *
+         * `retry_after` é o prazo que a fila espera antes de considerar um job
+         * perdido e ENTREGÁ-LO A OUTRO WORKER. Ele precisa ser maior que o
+         * tempo máximo de execução do job — senão a fila reentrega um job que
+         * ainda está rodando, e passam a existir duas execuções simultâneas.
+         *
+         * `ExecutarMigracaoJob` declara `$timeout = 21600` (6 h). Com os 90 s
+         * default, ele seria reentregue ~240 vezes durante uma única carga:
+         * corrida de duplicação de migração, com dois ETLs escrevendo no mesmo
+         * banco. Aqui o prazo é 7 h — folga de uma hora sobre o timeout.
+         *
+         * Worker próprio no compose de produção:
+         *   queue:work redis-longo --queue=migracao --tries=1 --timeout=21600
+         * (sem `--max-time`, que mataria o worker no meio da carga).
+         */
+        'redis-longo' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'migracao',
+            'retry_after' => (int) env('REDIS_QUEUE_LONGO_RETRY_AFTER', 25200),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

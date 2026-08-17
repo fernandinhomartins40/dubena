@@ -1,0 +1,190 @@
+# ──────────────────────────────────────────────────────────────────────────
+# erp-novo — PRODUÇÃO (T3.2 do PLANO_PRODUCAO).
+#
+# Até 17/08/2026 só existia o compose de HOMOLOGAÇÃO: não havia nada no repo
+# definindo como o sistema sobe como produção.
+#
+# DIFERENÇAS DELIBERADAS EM RELAÇÃO AO HOMOLOG (cada uma tem um porquê):
+#
+#  1. IMAGEM TAGGEADA POR SHA (`erpnovo-app:${GIT_SHA}`), não `:homolog` fixa.
+#     Sem tag de versão não existe rollback: "voltar" viraria "buildar de novo
+#     e torcer". Com ela, `deploy/rollback.sh <sha>` é uma troca de tag.
+#
+#  2. CÓDIGO DENTRO DA IMAGEM, não por bind-mount do checkout. No homolog,
+#     `.:/var/www` faz o container servir o working tree do runner — trocar a
+#     tag não trocaria o código, e o rollback seria ilusório.
+#
+#  3. `env_file` aponta para /opt/dubena-env/erp-novo-producao.env, fora do
+#     repositório e fora do checkout do CI.
+#
+#  4. PORTAS PRÓPRIAS (3130/3131), para coexistir com o homolog (3120/3121) e
+#     com o legado ctrl-web (3110) na mesma VPS durante a transição.
+#
+#  5. WORKER DEDICADO A JOBS LONGOS (T3.3). O worker default recicla a cada
+#     hora (`--max-time=3600`), o que mataria uma migração de 6h no meio.
+#
+#  6. HEALTHCHECKS em app e db, para o deploy saber que subiu de verdade.
+#
+# Uso:
+#   GIT_SHA=$(git rev-parse --short HEAD) \
+#   docker compose -f docker-compose.producao.yml up -d
+# ──────────────────────────────────────────────────────────────────────────
+x-app-comum: &app-comum
+  image: erpnovo-app:${GIT_SHA:?defina GIT_SHA — a tag de versao e pre-requisito do rollback}
+  restart: unless-stopped
+  working_dir: /var/www
+  env_file:
+    - ${ENV_PRODUCAO:-/opt/dubena-env/erp-novo-producao.env}
+  # Só storage e cache são volumes: o código vem da imagem (ver diferença 2).
+  volumes:
+    - app_storage:/var/www/storage
+    - app_bootstrap_cache:/var/www/bootstrap/cache
+  networks:
+    - erpnovo_prod
+
+services:
+  app:
+    <<: *app-comum
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: erpnovo-prod-app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      # php-fpm não fala HTTP: checa o socket local, que é o que o nginx usa.
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  web:
+    image: nginx:1.25-alpine
+    container_name: erpnovo-prod-web
+    restart: unless-stopped
+    # Só local: o Nginx do HOST faz o TLS e o proxy público.
+    ports:
+      - "127.0.0.1:3130:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # `public/` precisa existir para o nginx servir estáticos; vem da imagem
+      # da app pelo volume compartilhado.
+      - app_public:/var/www/public:ro
+    depends_on:
+      app:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/up >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - erpnovo_prod
+
+  # Worker de FILA — jobs curtos (push, geocodificação, atribuição de pedido).
+  # `--max-time=3600` recicla o processo de hora em hora, evitando vazamento de
+  # memória em execuções longas.
+  queue:
+    <<: *app-comum
+    container_name: erpnovo-prod-queue
+    command: php artisan queue:work --sleep=1 --tries=3 --max-time=3600
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+  # Worker de JOBS LONGOS (T3.3) — separado de propósito.
+  #
+  # `ExecutarMigracaoJob` declara timeout de 6h. No worker default ele seria
+  # morto pelo `--max-time=3600` e, pior, reentregue pela fila a cada 90s
+  # (`retry_after`), criando ETLs simultâneos no mesmo banco. Aqui: fila própria
+  # (`migracao`), conexão com retry_after de 7h, sem --max-time, e --tries=1
+  # porque recarga é decisão humana, não retry automático.
+  queue-longo:
+    <<: *app-comum
+    container_name: erpnovo-prod-queue-longo
+    command: php artisan queue:work redis-longo --queue=migracao --tries=1 --timeout=21600
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+  # SCHEDULER — sem ele o PIX nunca expira e as missões não são geradas
+  # (routes/console.php define 8 agendamentos).
+  scheduler:
+    <<: *app-comum
+    container_name: erpnovo-prod-scheduler
+    command: php artisan schedule:work
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+  # REVERB — WebSocket nativo (posição do entregador, status do pedido, PIX
+  # confirmado). O Nginx do host faz o proxy wss:// para 127.0.0.1:3131.
+  reverb:
+    <<: *app-comum
+    container_name: erpnovo-prod-reverb
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "127.0.0.1:3131:8080"
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:15-alpine
+    container_name: erpnovo-prod-db
+    restart: unless-stopped
+    environment:
+      # Inicializado com a role OWNER (dona do schema). O RUNTIME usa a role
+      # restrita `erp_app` (NOSUPERUSER/NOBYPASSRLS) — superuser IGNORA RLS, e
+      # é a RLS que impede um tenant de ler os dados de outro.
+      POSTGRES_DB: ${DB_DATABASE:-erp_novo}
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-${DB_USERNAME:-erp}}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?defina DB_OWNER_PASSWORD no env de producao}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_OWNER_USERNAME:-${DB_USERNAME:-erp}} -d ${DB_DATABASE:-erp_novo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - erpnovo_prod
+
+  redis:
+    image: redis:7-alpine
+    container_name: erpnovo-prod-redis
+    restart: unless-stopped
+    # `appendonly` para a fila sobreviver a um restart: sem isso, jobs
+    # enfileirados e ainda não processados somem.
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - erpnovo_prod
+
+volumes:
+  # `db_data` e `app_storage` são os dois volumes que o backup copia
+  # (deploy/backup/backup.sh). `app_storage` contém os certificados A1, que são
+  # insubstituíveis sem custo e prazo com a certificadora.
+  db_data:
+  app_storage:
+  app_public:
+  app_bootstrap_cache:
+  redis_data:
+
+networks:
+  erpnovo_prod:
+    driver: bridge

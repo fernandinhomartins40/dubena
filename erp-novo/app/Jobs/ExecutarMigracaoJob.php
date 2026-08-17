@@ -22,10 +22,26 @@ class ExecutarMigracaoJob implements ShouldQueue
 
     public int $tries = 1;         // sem retry automático: recarga é decisão humana
 
+    /**
+     * Fila dedicada a jobs longos (T3.3).
+     *
+     * A conexão default tem `retry_after = 90s`: com o timeout de 6 h acima, a
+     * fila reentregaria este job a cada 90 segundos ENQUANTO ELE AINDA RODA —
+     * dezenas de ETLs simultâneos escrevendo no mesmo banco. `redis-longo` usa
+     * 7 h, com folga sobre o timeout.
+     *
+     * Sem isto, o `$tries = 1` acima dá uma falsa sensação de segurança: ele
+     * impede o RETRY após falha, não a REENTREGA por prazo estourado.
+     */
     public function __construct(
         public int $migracaoId,
         public array $apenas = [],
     ) {
+        // Fila dedicada definida no CONSTRUTOR, não como propriedade: a trait
+        // `Illuminate\Bus\Queueable` já declara `$connection` e `$queue`, e
+        // redeclará-las (com ou sem tipo, com ou sem default) é erro fatal de
+        // composição em PHP. `onConnection`/`onQueue` são o caminho idiomático.
+        $this->onConnection('redis-longo')->onQueue('migracao');
     }
 
     public function handle(MigracaoService $service): void
