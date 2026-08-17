@@ -69,7 +69,14 @@ final class IbptMigrator implements Migrator
 
                     $ncm = preg_replace('/\D/', '', (string) ($r->ncm ?? ''));
                     $uf = strtoupper(trim((string) ($r->uf ?? ''))) ?: null;
-                    $ex = trim((string) ($r->ex ?? '')) ?: null;
+                    // `ex` vazio vira STRING VAZIA, nunca null: em SQL
+                    // `null != null`, então o UNIQUE (ncm, uf, ex) não impede a
+                    // repetição de linhas com ex nulo e o upsert nunca casa —
+                    // cada execução insere tudo de novo. Como `ex` é vazio em
+                    // 304.236 das 317.520 linhas da origem (a exceção fiscal só
+                    // existe para poucos NCMs), isso dobrava a tabela a cada
+                    // recarga. Mesmo padrão do defeito da T2.1, em outra tabela.
+                    $ex = trim((string) ($r->ex ?? ''));
 
                     if ($ncm === '') {
                         $pulados++;
@@ -79,7 +86,7 @@ final class IbptMigrator implements Migrator
 
                     // A UNIQUE do destino é (ncm, uf, ex): dedup dentro da carga
                     // para o upsert não receber a mesma chave duas vezes no lote.
-                    $chave = $ncm.'|'.($uf ?? '').'|'.($ex ?? '');
+                    $chave = $ncm.'|'.($uf ?? '').'|'.$ex;
                     if (isset($vistas[$chave])) {
                         $pulados++;
 
@@ -90,7 +97,7 @@ final class IbptMigrator implements Migrator
                     $lote[] = [
                         'ncm' => mb_substr($ncm, 0, 10),
                         'uf' => $uf ? mb_substr($uf, 0, 2) : null,
-                        'ex' => $ex ? mb_substr($ex, 0, 3) : null,
+                        'ex' => mb_substr($ex, 0, 3),
                         'nacional' => $this->dec($r->aliqnac ?? 0),
                         'importado' => $this->dec($r->aliqimp ?? 0),
                         'estadual' => $this->dec($r->aliqestadual ?? 0),
