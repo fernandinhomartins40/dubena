@@ -334,6 +334,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
         Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
         Route::put('pedidos/{id}/situacao', [PedidoController::class, 'mudarSituacao'])->whereNumber('id');
+        // Apoios operacionais do disk-gás (T4.8): as colunas existiam em
+        // `pedidos` apontando para tabelas que nunca foram criadas.
+        Route::post('pedidos/{id}/justificar-atraso', [PedidoController::class, 'justificarAtraso'])->whereNumber('id');
+        Route::post('pedidos/{id}/nao-venda', [PedidoController::class, 'registrarNaoVenda'])->whereNumber('id');
         // Emissão fiscal a partir do pedido concluído (NFC-e/NF-e) — F03.
         Route::post('pedidos/{id}/emitir-nfce', [PedidoController::class, 'emitirNfce'])->whereNumber('id');
 

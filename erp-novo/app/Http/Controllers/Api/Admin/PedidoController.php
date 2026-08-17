@@ -109,6 +109,62 @@ class PedidoController extends Controller
         return new PedidoResource($atualizado->load('situacao'));
     }
 
+    /**
+     * POST /pedidos/{id}/justificar-atraso — registra o motivo do atraso (T4.8).
+     *
+     * O legado exige justificativa ao marcar um pedido como atrasado
+     * (`PedidoController@justificaMotivoAtraso` + `PedidomotivoatrasoController`).
+     * No novo, a coluna `pedidomotivoatraso_id` existia apontando para uma
+     * tabela que nunca foi criada — o atendimento não tinha como justificar, e
+     * o gestor não tinha como saber por que os pedidos atrasam.
+     *
+     * O motivo é OBRIGATÓRIO: um atraso sem causa registrada não vira
+     * informação, e é justamente a informação que o relatório precisa.
+     */
+    public function justificarAtraso(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.edit');
+
+        $d = $request->validate([
+            'pedidomotivoatraso_id' => 'required|integer|exists:pedido_motivos_atraso,id',
+            'justificativa' => 'nullable|string|max:255',
+        ]);
+
+        $pedido = Pedido::query()->findOrFail($id);
+        $pedido->pedidomotivoatraso_id = (int) $d['pedidomotivoatraso_id'];
+        $pedido->save();
+
+        return response()->json([
+            'data' => ['pedido_id' => $pedido->id, 'pedidomotivoatraso_id' => $pedido->pedidomotivoatraso_id],
+            'message' => 'Atraso justificado.',
+        ]);
+    }
+
+    /**
+     * POST /pedidos/{id}/nao-venda — registra por que a venda não aconteceu.
+     *
+     * Usado no atendimento e na venda em campo (o entregador precisa registrar
+     * a recusa). `MotivonaovendaController` no legado; grep no novo retornava
+     * zero antes desta tarefa.
+     */
+    public function registrarNaoVenda(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.edit');
+
+        $d = $request->validate([
+            'motivonaovenda_id' => 'required|integer|exists:motivos_nao_venda,id',
+        ]);
+
+        $pedido = Pedido::query()->findOrFail($id);
+        $pedido->motivonaovenda_id = (int) $d['motivonaovenda_id'];
+        $pedido->save();
+
+        return response()->json([
+            'data' => ['pedido_id' => $pedido->id, 'motivonaovenda_id' => $pedido->motivonaovenda_id],
+            'message' => 'Motivo de não-venda registrado.',
+        ]);
+    }
+
     /** GET /pedidos/situacoes */
     public function situacoes(Request $request): JsonResponse
     {

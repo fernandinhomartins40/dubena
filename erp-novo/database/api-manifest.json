@@ -333,6 +333,8 @@
     "POST api/admin/pedidos",
     "POST api/admin/pedidos/situacoes",
     "POST api/admin/pedidos/{id}/emitir-nfce",
+    "POST api/admin/pedidos/{id}/justificar-atraso",
+    "POST api/admin/pedidos/{id}/nao-venda",
     "POST api/admin/pix/cobrancas",
     "POST api/admin/pos-vendas",
     "POST api/admin/produto-config/classes",

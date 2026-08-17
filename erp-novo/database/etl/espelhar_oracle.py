@@ -97,6 +97,11 @@ MAPA = {
     "NFRECEBIDAPARCELAS": "nfrecebidaparcelas",      # contas a pagar da NF de entrada
     "CONTAEXTRATOCONFIGS": "contaextratoconfigs",    # regras de classificacao do extrato
     "CLIENTECONVENIOS": "clienteconvenios",          # contrato do convenio (comissao/limite)
+    # ── Ampliacao T4.8: motivos do pedido ──
+    # As colunas pedidos.pedidomotivoatraso_id / motivonaovenda_id ja existiam no
+    # schema novo, mas as tabelas de dominio nunca foram criadas nem migradas.
+    "PEDIDOMOTIVOATRASOS": "pedidomotivoatrasos",    # justificativa de atraso
+    "MOTIVONAOVENDAS": "motivonaovendas",            # por que a venda nao aconteceu
     # CLIENTEPRODUTOSCONVENIOS fica FORA de proposito: `clienteprecos` ja cobre
     # preco por (cliente, produto) e ja esta populada — portar criaria uma
     # segunda fonte de verdade para a mesma regra.

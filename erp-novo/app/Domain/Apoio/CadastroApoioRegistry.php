@@ -11,7 +11,9 @@ use App\Models\Apoio\ClienteContatoTipo;
 use App\Models\Apoio\ContaMovimentoTipo;
 use App\Models\Apoio\EstadoCivil;
 use App\Models\Apoio\Feriado;
+use App\Models\Apoio\MotivoNaoVenda;
 use App\Models\Apoio\Parentesco;
+use App\Models\Apoio\PedidoMotivoAtraso;
 use App\Models\Apoio\Profissao;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
@@ -65,6 +67,10 @@ class CadastroApoioRegistry
         // Tipos de documento de VEICULO (T4.5): CRLV, seguro, ANTT. O endpoint
         // `veiculos/{id}/documentos` gravava sem dominio de valores por tras.
         // NAO confundir com o tipo da gestao documental (outro modulo).
+        // Motivos de atraso e de nao-venda (T4.8). As colunas ja existiam em
+        // `pedidos`, apontando para tabelas que nunca foram criadas.
+        'motivos-atraso' => ['model' => PedidoMotivoAtraso::class, 'modulo' => 'pedido', 'extras' => []],
+        'motivos-nao-venda' => ['model' => MotivoNaoVenda::class, 'modulo' => 'pedido', 'extras' => []],
         'tipos-documento-veiculo' => ['model' => TipoDocumentoVeiculo::class, 'modulo' => 'veiculo', 'extras' => ['exige_validade' => 'boolean']],
     ];
 
