@@ -7,6 +7,7 @@ import {
 } from '@/components/ui'
 import { useValeGas, useValeGasSituacoes, useBaixarValeGas, abrirValePdf, abrirDuplicata, type ValeGasRow } from './api'
 import { useBusca } from '@/lib/useBusca'
+import { mensagemDeErroBlob } from '@/lib/pdf'
 
 const fmtData = (s: string | null) => (s ? new Date(s).toLocaleDateString('pt-BR') : '—')
 
@@ -32,18 +33,13 @@ export function ValeGasPage() {
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao baixar.') }
   }
 
-  /** Lê a mensagem do erro que veio como blob (responseType: 'blob'). */
-  async function erroDeBlob(e: any, padrao: string): Promise<string> {
-    try { return JSON.parse(await (e?.response?.data as Blob).text())?.message ?? padrao } catch { return padrao }
-  }
-
   async function onImprimir(v: ValeGasRow) {
     try { await abrirValePdf(v.id) }
-    catch (e: any) { toast.error(await erroDeBlob(e, 'Falha ao imprimir o vale.')) }
+    catch (e: any) { toast.error(await mensagemDeErroBlob(e, 'Falha ao imprimir o vale.')) }
   }
   async function onDuplicata(v: ValeGasRow) {
     try { await abrirDuplicata(v.id) }
-    catch (e: any) { toast.error(await erroDeBlob(e, 'Falha ao gerar a duplicata.')) }
+    catch (e: any) { toast.error(await mensagemDeErroBlob(e, 'Falha ao gerar a duplicata.')) }
   }
 
   const columns: Column<ValeGasRow>[] = [

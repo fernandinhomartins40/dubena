@@ -105,7 +105,7 @@ Classificação: **PRÉ** = antes do go-live · **PÓS** = depois, com prazo ·
 | 16 | Importar arquivo do adquirente de cartão | **PÓS** (60d) | Virou registro de NSU. O conferente cruza o relatório do adquirente à mão no intervalo — volume baixo comparado ao extrato bancário. |
 | 18 | Convênio: NF+boleto encadeados; PDF/XLS do fechamento; dashboard GB | **PÓS** (60d) | O fechamento existe e consolida. Emitir NF e boleto a partir dele é um passo manual a mais — aceitável para 97 conveniados. |
 | 19 | Vale-gás impresso e duplicata em PDF | ✅ **feito** | Vale (meia página, código em destaque) e duplicata (uma linha por parcela). Cancelado/expirado não imprime e utilizado não reimprime — o papel seria indistinguível de um vale válido. `confirmaImpressao` do legado **não** foi portado: lá a impressão disparava a baixa; aqui a baixa tem caminho próprio, e acoplar faria reimpressão mudar estado financeiro. |
-| 20 | Contrato de comodato em PDF; gestão de saldos/vencidos/giro | **PRÉ** (contrato) / **PÓS** (gestão) | O contrato é o documento que protege o patrimônio da revenda (o vasilhame). A gestão analítica é gerencial. |
+| 20 | Contrato de comodato em PDF; gestão de saldos/vencidos/giro | ✅ **contrato feito** / **PÓS** (gestão) | Contrato com partes, objeto (saldo em poder do comodatário), 7 cláusulas e assinatura bilateral. Comodato devolvido **não** gera contrato: afirmaria posse inexistente. Texto das cláusulas isolado em `clausulas()` para revisão jurídica da revenda sem tocar no resto. A gestão analítica segue **PÓS**. |
 | 21 | Recessos e comissões | ✅ **feito** (T4.7) | — |
 | 22 | Troca de óleo e pneus; conferência de carga da portaria | ✅ **feito** (T4.7) / **PÓS** (portaria) | — |
 | 24 | DANFE/boleto/duplicata no dispositivo do entregador; parcelas vencidas na entrega | **PÓS** (90d) | O entregador leva o papel impresso da comanda (T4.6). Consultar parcelas vencidas no ato é melhoria de cobrança, não bloqueio. |
@@ -152,7 +152,7 @@ classificar em bloco por engano.
 1. ~~T4.2 — classificação automática do extrato bancário~~ ✅ **feito**
 2. ~~DANFE (item 8)~~ ✅ **feito** (⚠️ conferência humana do barcode)
 3. ~~Vale-gás impresso e duplicata (item 19)~~ ✅ **feito**
-4. Contrato de comodato em PDF (item 20)
+4. ~~Contrato de comodato em PDF (item 20)~~ ✅ **feito**
 5. Relatório de fluxo de caixa (item 28)
 6. Relatório de clientes sem compra/inativos (item 28)
 

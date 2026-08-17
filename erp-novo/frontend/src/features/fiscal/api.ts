@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { abrirPdf } from '@/lib/pdf'
 
 // Malha fiscal (genérico por tipo)
 export interface MalhaRow { id: number; descricao: string; codigo?: string }
@@ -124,10 +125,4 @@ export function useProcessarNfEntrada() {
  * na URL, porque o Bearer token viaja no header — um link direto chegaria
  * sem autenticação.
  */
-export async function abrirDanfe(id: number): Promise<void> {
-  const resp = await api.get(`/notas/${id}/danfe`, { responseType: 'blob' })
-  const url = URL.createObjectURL(resp.data as Blob)
-  window.open(url, '_blank', 'noopener')
-  // Revoga tarde: revogar antes de a aba ler o blob mostra página em branco.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
+export const abrirDanfe = (id: number) => abrirPdf(`/notas/${id}/danfe`)

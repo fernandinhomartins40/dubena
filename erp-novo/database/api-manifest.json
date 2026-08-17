@@ -93,6 +93,7 @@
     "GET api/admin/colaboradores/{id}/recessos",
     "GET api/admin/colaboradores/{id}/turnos",
     "GET api/admin/comodatos",
+    "GET api/admin/comodatos/{id}/contrato",
     "GET api/admin/conciliacao-contabil",
     "GET api/admin/config-global",
     "GET api/admin/convenios",

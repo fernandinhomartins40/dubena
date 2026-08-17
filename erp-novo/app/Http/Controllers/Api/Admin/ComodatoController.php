@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Satelite\ComodatoPdfService;
 use App\Domain\Satelite\ComodatoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -43,6 +44,24 @@ class ComodatoController extends Controller
         $d['grupo_id'] = $request->user()->grupo_id;
 
         return response()->json(['data' => $this->service->emprestar($d, $request->user()->id)], 201);
+    }
+
+    /**
+     * GET /comodatos/{id}/contrato — o documento que protege o vasilhame.
+     *
+     * Permissao de leitura: imprimir nao altera nada. Quem consulta o comodato
+     * precisa poder gerar o contrato para colher a assinatura.
+     */
+    public function contrato(Request $request, int $id, ComodatoPdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        $comodato = Comodato::query()->findOrFail($id);
+
+        return response($pdf->contrato($comodato), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="comodato-'.$comodato->id.'.pdf"',
+        ]);
     }
 
     /** POST /comodatos/{id}/devolver */

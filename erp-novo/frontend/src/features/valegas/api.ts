@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { abrirPdf } from '@/lib/pdf'
 
 /** Vale-Gás (cupom pré-pago) — domínio do ERP (N8). */
 export interface ValeGasRow {
@@ -31,24 +32,8 @@ export function useBaixarValeGas() {
   })
 }
 
-/**
- * Abre o vale numa aba para impressão.
- *
- * Vai por blob, e não por link direto, porque o Bearer token viaja no header.
- */
-export async function abrirValePdf(id: number): Promise<void> {
-  await abrirPdf(`/vale-gas/${id}/pdf`)
-}
+/** Abre o vale numa aba para impressão. */
+export const abrirValePdf = (id: number) => abrirPdf(`/vale-gas/${id}/pdf`)
 
 /** Abre a duplicata (vale vendido a prazo). */
-export async function abrirDuplicata(id: number): Promise<void> {
-  await abrirPdf(`/vale-gas/${id}/duplicata`)
-}
-
-async function abrirPdf(url: string): Promise<void> {
-  const resp = await api.get(url, { responseType: 'blob' })
-  const objectUrl = URL.createObjectURL(resp.data as Blob)
-  window.open(objectUrl, '_blank', 'noopener')
-  // Revoga tarde: revogar antes de a aba ler o blob mostra página em branco.
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
-}
+export const abrirDuplicata = (id: number) => abrirPdf(`/vale-gas/${id}/duplicata`)

@@ -6,6 +6,7 @@ import {
 import { useNfe, useTransmitirNfe, useCancelarNfe, abrirDanfe, type NfeRow } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 import { useBusca } from '@/lib/useBusca'
+import { mensagemDeErroBlob } from '@/lib/pdf'
 
 /**
  * Situação da nota — os valores do enum `SituacaoNota` do backend.
@@ -41,13 +42,7 @@ export function NfeTab() {
   }
   async function onImprimir(nf: NfeRow) {
     try { await abrirDanfe(nf.id) }
-    catch (e: any) {
-      // Com responseType blob o corpo do erro também vem como blob: sem ler o
-      // texto, o motivo da recusa ("nota não autorizada") não chegaria à tela.
-      let msg = 'Falha ao gerar o DANFE.'
-      try { msg = JSON.parse(await (e?.response?.data as Blob).text())?.message ?? msg } catch { /* mantém o genérico */ }
-      toast.error(msg)
-    }
+    catch (e: any) { toast.error(await mensagemDeErroBlob(e, 'Falha ao gerar o DANFE.')) }
   }
   async function onCancelar() {
     if (justif.trim().length < 15) { toast.error('A justificativa deve ter ao menos 15 caracteres.'); return }

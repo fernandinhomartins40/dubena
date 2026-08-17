@@ -440,6 +440,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Comodato — N8 ──
         Route::get('comodatos', [ComodatoController::class, 'index']);
         Route::post('comodatos', [ComodatoController::class, 'store']);
+        // Contrato (item 20): o documento que protege o patrimonio da revenda.
+        Route::get('comodatos/{id}/contrato', [ComodatoController::class, 'contrato'])->whereNumber('id');
         Route::post('comodatos/{id}/devolver', [ComodatoController::class, 'devolver'])->whereNumber('id');
 
         // ── Fiscal (NF-e/NFC-e/CF-e) — N9 ──

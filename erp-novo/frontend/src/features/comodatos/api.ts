@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { abrirPdf } from '@/lib/pdf'
 
 /** Comodatos (empréstimo de vasilhame) — domínio do ERP (N8). */
 export interface Comodato {
@@ -23,3 +24,6 @@ export function useDevolverComodato() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['comodatos'] }),
   })
 }
+
+/** Abre o contrato de comodato numa aba para colher a assinatura. */
+export const abrirContratoComodato = (id: number) => abrirPdf(`/comodatos/${id}/contrato`)

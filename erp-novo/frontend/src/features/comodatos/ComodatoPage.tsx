@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Plus, PackageCheck, Undo2 } from 'lucide-react'
+import { Plus, PackageCheck, Undo2, FileSignature } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect,
   ResourceList, FormDialog, toast,
 } from '@/components/ui'
 import { data as fmtData } from '@/lib/format'
-import { useComodatos, useCriarComodato, useDevolverComodato, type Comodato } from './api'
+import { useComodatos, useCriarComodato, useDevolverComodato, abrirContratoComodato, type Comodato } from './api'
+import { mensagemDeErroBlob } from '@/lib/pdf'
 
 export function ComodatoPage() {
   const { data, isLoading } = useComodatos()
@@ -30,6 +31,11 @@ export function ComodatoPage() {
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
   }
 
+  async function onContrato(v: Comodato) {
+    try { await abrirContratoComodato(v.id) }
+    catch (e: any) { toast.error(await mensagemDeErroBlob(e, 'Falha ao gerar o contrato.')) }
+  }
+
   const columns: Column<Comodato>[] = [
     { key: 'cliente', header: 'Cliente', cell: (v) => v.cliente?.nome || '—' },
     { key: 'produto', header: 'Produto', cell: (v) => v.produto?.descricao || '—' },
@@ -38,9 +44,23 @@ export function ComodatoPage() {
     { key: 'desde', header: 'Desde', cell: (v) => fmtData(v.data_emprestimo) },
     { key: 'sit', header: 'Situação', cell: (v) => v.situacao === 'DEVOLVIDO' ? <Badge variant="secondary">Devolvido</Badge> : <Badge variant="warning">Em aberto</Badge> },
     {
-      key: 'acoes', header: '', align: 'right', cell: (v) => v.situacao !== 'DEVOLVIDO'
-        ? <Button variant="ghost" size="sm" onClick={() => onDevolver(v)}><Undo2 size={15} /> Devolver</Button>
-        : null,
+      key: 'acoes', header: '', align: 'right', width: 'w-60',
+      cell: (v) => {
+        // Devolvido nao gera contrato: o papel afirmaria uma posse que nao
+        // existe mais, e serviria de base para cobranca indevida.
+        if (v.situacao === 'DEVOLVIDO') return null
+
+        return (
+          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button variant="outline" size="sm" onClick={() => onContrato(v)}>
+              <FileSignature size={15} /> Contrato
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => onDevolver(v)}>
+              <Undo2 size={15} /> Devolver
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
