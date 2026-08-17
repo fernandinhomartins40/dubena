@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Cobranca\BoletoPdfService;
 use App\Domain\Cobranca\BoletoService;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -24,6 +25,28 @@ class BoletoController extends Controller
     use PaginaListagem;
 
     public function __construct(private BoletoService $service) {}
+
+    /**
+     * GET /boletos/{id}/pdf — imprime o boleto (T4.6).
+     *
+     * Era a lacuna BLOQUEANTE da familia de saidas impressas: o CNAB completo
+     * gerava o titulo, mandava ao banco e recebia o retorno, mas o boleto nunca
+     * virava papel — e sem o papel a cobranca nao chega ao cliente.
+     *
+     * `financeiro.view` e nao `.edit`: imprimir e leitura. Mas E dado financeiro
+     * de cliente, entao passa por autorizacao como todo o resto.
+     */
+    public function pdf(Request $request, int $id, BoletoPdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'financeiro.view');
+
+        $boleto = Boleto::query()->findOrFail($id);
+
+        return response($pdf->gerar($boleto), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="boleto-' . $boleto->id . '.pdf"',
+        ]);
+    }
 
     public function index(Request $request): JsonResponse
     {

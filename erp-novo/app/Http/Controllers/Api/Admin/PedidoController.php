@@ -6,6 +6,7 @@ use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
+use App\Domain\Shared\PdfService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
@@ -107,6 +108,65 @@ class PedidoController extends Controller
         $atualizado = $this->service->mudarSituacao($pedido, $d['pedidosituacao_id'], $request->user()->id);
 
         return new PedidoResource($atualizado->load('situacao'));
+    }
+
+    /**
+     * GET /pedidos/{id}/comanda — comanda de separacao/entrega (T4.6).
+     *
+     * `pedido.comanda` existe no legado e nao foi portada. E o papel que vai com
+     * o entregador: o que separar, para quem levar, quanto cobrar. Sem ela a
+     * conferencia da carga volta a ser de cabeca.
+     *
+     * Meia pagina: cabe na prancheta e sai duas por folha.
+     */
+    public function comanda(Request $request, int $id, PdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'pedido.view');
+
+        $pedido = Pedido::query()->with(['cliente', 'situacao', 'itens'])->findOrFail($id);
+        $empresa = $pedido->empresa_id !== null ? \App\Models\Empresa::query()->find($pedido->empresa_id) : null;
+
+        $linhas = [];
+        foreach ($pedido->itens as $item) {
+            $linhas[] = [
+                (string) ($item->produto->descricao ?? $item->produto_id),
+                (string) $item->quantidade,
+                'R$ ' . number_format((float) ($item->valor_unitario ?? 0), 2, ',', '.'),
+                'R$ ' . number_format((float) ($item->valor_total ?? 0), 2, ',', '.'),
+            ];
+        }
+
+        $endereco = trim(implode(' ', array_filter([
+            (string) ($pedido->endereco ?? ''),
+            (string) ($pedido->numero ?? ''),
+            (string) ($pedido->complemento ?? ''),
+        ])));
+
+        $corpo = $pdf->campos([
+            'Pedido' => (string) $pedido->id,
+            'Data' => $pedido->datahora ? \Illuminate\Support\Carbon::parse($pedido->datahora)->format('d/m/Y H:i') : null,
+            'Cliente' => (string) ($pedido->cliente->nome ?? ''),
+            'Endereco' => $endereco !== '' ? $endereco : null,
+            'Telefone' => (string) ($pedido->telefone ?? ''),
+            'Situacao' => (string) ($pedido->situacao->descricao ?? ''),
+            'Observacao' => (string) ($pedido->observacao ?? ''),
+        ])
+        . $pdf->itens(['Produto', 'Qtd', 'Unitario', 'Total'], $linhas)
+        . '<div class="total">Total: R$ '
+        . e(number_format((float) $pedido->valor_total, 2, ',', '.')) . '</div>'
+        . $pdf->assinatura('Recebi os produtos acima');
+
+        return response(
+            $pdf->meiaPagina('Comanda de entrega', $corpo, [
+                'empresa' => (string) ($empresa->razao_social ?? ''),
+                'cnpj' => (string) ($empresa->cnpj ?? ''),
+            ]),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="comanda-' . $pedido->id . '.pdf"',
+            ],
+        );
     }
 
     /**

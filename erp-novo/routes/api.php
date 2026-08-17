@@ -334,6 +334,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
         Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
         Route::put('pedidos/{id}/situacao', [PedidoController::class, 'mudarSituacao'])->whereNumber('id');
+        // Comanda impressa (T4.6): o papel que vai com o entregador.
+        Route::get('pedidos/{id}/comanda', [PedidoController::class, 'comanda'])->whereNumber('id');
         // Apoios operacionais do disk-gás (T4.8): as colunas existiam em
         // `pedidos` apontando para tabelas que nunca foram criadas.
         Route::post('pedidos/{id}/justificar-atraso', [PedidoController::class, 'justificarAtraso'])->whereNumber('id');
@@ -366,6 +368,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('caixa/contas', [CaixaController::class, 'criarConta']);
         Route::post('caixa/transferencias', [CaixaController::class, 'transferir']);
         Route::post('caixa/movimentos/{movimentoId}/estornar', [CaixaController::class, 'estornar'])->whereNumber('movimentoId');
+        // Recibo impresso (T4.6): sem ele o cliente que paga no balcão sai sem
+        // comprovante. `grep recibo` no novo retornava zero.
+        Route::get('caixa/movimentos/{movimentoId}/recibo', [CaixaController::class, 'recibo'])->whereNumber('movimentoId');
         Route::get('caixa/{contaId}/movimentos', [CaixaController::class, 'movimentos'])->whereNumber('contaId');
         Route::post('caixa/{contaId}/abrir', [CaixaController::class, 'abrir'])->whereNumber('contaId');
         Route::post('caixa/{contaId}/fechar', [CaixaController::class, 'fechar'])->whereNumber('contaId');
@@ -399,6 +404,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('boletos/remessas', [BoletoController::class, 'remessas']);
         Route::get('boletos/remessas/{id}/arquivo', [BoletoController::class, 'baixarRemessa'])->whereNumber('id');
         Route::get('boletos', [BoletoController::class, 'index']);
+        // Impressão do boleto (T4.6): sem ela o título não chega ao cliente.
+        Route::get('boletos/{id}/pdf', [BoletoController::class, 'pdf'])->whereNumber('id');
         Route::post('boletos', [BoletoController::class, 'gerar']);
         Route::post('boletos/remessa', [BoletoController::class, 'remessa']);
         Route::post('boletos/retorno', [BoletoController::class, 'retorno']);

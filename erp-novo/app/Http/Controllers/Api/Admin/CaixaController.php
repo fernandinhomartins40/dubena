@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\CaixaService;
+use App\Domain\Shared\PdfService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,51 @@ class CaixaController extends Controller
     use PaginaListagem;
 
     public function __construct(private CaixaService $service) {}
+
+    /**
+     * GET /caixa/movimentos/{id}/recibo — recibo do lancamento em PDF (T4.6).
+     *
+     * `CaixaController@gerarRecibo` existe no legado; grep `recibo` no novo
+     * retornava ZERO. Sem ele o cliente que paga no balcao sai sem comprovante,
+     * e o operador nao tem o que anexar ao acerto do dia.
+     *
+     * Meia pagina de proposito: dois recibos por folha A4. Papel custa, e um
+     * recibo ocupando uma folha inteira e desperdicio que o balcao nota todo dia.
+     */
+    public function recibo(Request $request, int $movimentoId, PdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'caixa.view');
+
+        $mov = ContaMovimento::query()->findOrFail($movimentoId);
+        $conta = Conta::query()->find($mov->conta_id);
+        $empresa = $mov->empresa_id !== null ? \App\Models\Empresa::query()->find($mov->empresa_id) : null;
+
+        $valor = 'R$ ' . number_format((float) $mov->valor, 2, ',', '.');
+        $tipo = ((string) $mov->pagarreceber) === 'R' ? 'RECEBIMENTO' : 'PAGAMENTO';
+
+        $corpo = $pdf->campos([
+            'Documento' => (string) $mov->id,
+            'Data' => $mov->datahora ? \Illuminate\Support\Carbon::parse($mov->datahora)->format('d/m/Y H:i') : null,
+            'Conta' => (string) ($conta->descricao ?? ''),
+            'Historico' => (string) ($mov->descricao ?? ''),
+            'Tipo' => $tipo,
+        ])
+        . '<div class="total">Valor: ' . e($valor) . '</div>'
+        . $pdf->assinatura('Recebemos de / Pagamos a');
+
+        return response(
+            $pdf->meiaPagina('Recibo de ' . $tipo, $corpo, [
+                'empresa' => (string) ($empresa->razao_social ?? ''),
+                'cnpj' => (string) ($empresa->cnpj ?? ''),
+                'rodape' => 'Documento gerado eletronicamente pelo sistema.',
+            ]),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="recibo-' . $mov->id . '.pdf"',
+            ],
+        );
+    }
 
     /** GET /caixa/contas */
     public function contas(Request $request): JsonResponse
