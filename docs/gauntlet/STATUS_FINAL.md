@@ -96,6 +96,30 @@ Nenhuma destas se resolve com acesso à VPS: o insumo está fora dela.
 | 12 | **Backup externo** (P5) | Escolher o destino (outro servidor? S3?). O backup vive no mesmo host que ele protege |
 | 13 | **Rebuild dos apps** (P4) | Depende do #8 e #10; sem as chaves no bundle, os apps ficam em polling |
 | 14 | **PABX** (T4.4) | Se a bina for usada: apontar o PABX para `POST /api/pabx/chamada` com `X-Pabx-Token` |
+| 15 | **Restringir a chave Google no console** (T1.9, passo 2) | Ver §5 |
+
+---
+
+## §5 — Sobre a chave do Google Maps/Firebase nos apps (T1.9)
+
+**Verificado:** a chave `AIzaSy…` existe em `app-gas-em-casa/google-services.json`
+e na cópia sob `android/app/`, **mas**:
+
+- nenhum dos dois arquivos está versionado (`git ls-files` → vazio);
+- ambos estão no `.gitignore`;
+- a string **nunca apareceu em nenhum commit** (`git log --all -S` → vazio).
+
+Ou seja: não houve vazamento por repositório, e a chave não precisa ser
+rotacionada por esse motivo.
+
+⚠️ **O que continua valendo:** `google-services.json` vai embutido no APK por
+natureza — a chave é extraível de qualquer app instalado, e isso é esperado. A
+proteção não é escondê-la, é **restringi-la no console Google**: package name +
+SHA-1 (Android), bundle ID (iOS), e limitar às APIs realmente usadas (Maps SDK,
+Geocoding). Sem restrição, qualquer um que extraia a chave do APK consome a
+quota da conta.
+
+Isso é console Google — conta do dono.
 
 ---
 
