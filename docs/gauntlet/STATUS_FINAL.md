@@ -24,7 +24,7 @@
 | Tarefa | Estado | Por quê |
 |---|---|---|
 | T6.1 runbook | ⚠️ **escrito, não ensaiado** | `deploy/CUTOVER_RUNBOOK.md` tem os 15 passos, 3 portões, smoke test e 3 níveis de rollback. **A coluna "tempo medido" está vazia** e os campos de decisor/responsável em branco. O critério binário é "ensaiado em staging pelo menos uma vez" |
-| T6.2 banco limpo | ❌ não iniciada | Exige criar o banco de produção na VPS |
+| T6.2 banco limpo | ⚠️ **portão automatizado** | As 5 verificações SQL viraram `php artisan banco:producao-check` (+ `--pos-etl`). Criar o banco continua sendo operação na VPS |
 | T6.3 virada Nginx | ⚠️ **escrito, falta ensaiar** | `virar.sh` + 2 vhosts existem; valida com `nginx -t` antes de recarregar e reverte sozinho. **Falta o passo 1**: comparar `nginx -T` da VPS com o repo |
 | T6.4 smoke test | ❌ humano | 7 itens, executados por quem conhece o negócio, com o legado aberto ao lado |
 | T6.5 GO/NO-GO | ✅ escrito | está no runbook; falta **nomear o decisor** e a hora-limite |
@@ -32,7 +32,11 @@
 | T6.7 rollback | ✅ escrito | 3 níveis com gatilho observável; níveis 1 e 2 não ensaiados |
 | T6.8 aposentadoria | ❌ pós-cutover | +30 dias após a virada |
 
-**A única da F6 que está pronta de fato:** a trava do `etl:run`. Ela recusa a
+**As duas da F6 prontas de fato:** a trava do `etl:run` e o portão
+`banco:producao-check`, que substitui 5 queries que seriam coladas à mão na
+janela — passo manual de madrugada é passo que se erra.
+
+Sobre a trava do `etl:run`: Ela recusa a
 recarga quando detecta pedidos criados no sistema novo — por evidência no banco,
 não por flag que alguém precisa lembrar de ligar. Verificada em execução real:
 bloqueia com exit 1, `--dry-run` passa, `--eu-sei-o-que-estou-fazendo` libera.

@@ -46,6 +46,7 @@ Três fatos verificados no código determinam o procedimento — não são prefe
 | # | Passo | Comando | OK |
 |---|---|---|---|
 | 5 | Backup completo do legado (Oracle + MySQLs) e do que já existe do novo | `bash deploy/backup/backup.sh` | ☐ |
+| 5b | **Banco de produção pronto para o ETL** (T6.2) | `php artisan banco:producao-check` → exit 0 | ☐ |
 | 6 | `golive:check --strict` verde em produção | `php artisan golive:check --strict` | ☐ |
 | 7 | Gates externos provisionados: Firebase, certificados A1 por empresa, PIX por empresa | conferir `.env` de produção | ☐ |
 | 8 | **Congelar a branch `main`** — push dispara deploy e recicla container | avisar a equipe | ☐ |
@@ -75,6 +76,16 @@ REVOKE INSERT, UPDATE, DELETE ON <schema>.* FROM <role_app_legado>;
 
 ### Passo 9 — recarga final
 
+**Antes de começar**, confirme que o banco está limpo e o espelho no lugar — a
+carga leva horas, e descobrir na hora 3 que o schema `legado` tem 40 tabelas em
+vez de 121 custa a janela inteira:
+
+```bash
+php artisan banco:producao-check      # exit 0 obrigatório
+```
+
+Depois:
+
 ```bash
 php artisan etl:run --check
 ```
@@ -82,6 +93,16 @@ php artisan etl:run --check
 **Esperar horas.** Não reciclar o container. Não fazer deploy.
 
 Tempo medido no ensaio: ______  |  Tempo real: ______
+
+### Passo 9b — conferência das contagens pós-carga
+
+```bash
+php artisan banco:producao-check --pos-etl
+```
+
+Vazio depois da carga é o sinal de que um migrator não rodou — e o
+`cutover:check` sozinho pode não pegar isso quando origem e destino estão ambos
+em zero.
 
 ### Passo 10 — PORTÃO 1: dados
 

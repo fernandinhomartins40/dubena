@@ -1361,7 +1361,7 @@ essa coluna estiver vazia, a T6.1 NÃO está pronta e a janela não deve abrir.
 
 ---
 
-### T6.2 — Preparar o banco de produção limpo — **[BLOQUEANTE]**
+### T6.2 — Preparar o banco de produção limpo — ⚠️ **PORTÃO AUTOMATIZADO; A EXECUÇÃO É OPERAÇÃO**
 
 **Achado que justifica.** Auditoria §9 §7.7.4: *"Dados criados em homolog (massa demo Guarapuava/marketplace) **não podem existir** no banco de produção — o banco de produção deve nascer vazio + `DeploySeeder` + ETL (nunca reaproveitar o banco de homolog)."*
 
