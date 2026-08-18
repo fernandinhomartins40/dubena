@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Empresa\EnderecoEmpresaSync;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -42,19 +43,27 @@ class EmpresaController extends Controller
     {
         $this->autorizar($request, 'empresa.view');
 
-        return new EmpresaResource($this->doGrupo($request)->findOrFail($id));
+        return new EmpresaResource(
+            $this->doGrupo($request)
+                ->with(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao'])
+                ->findOrFail($id),
+        );
     }
 
     public function store(EmpresaRequest $request): JsonResponse
     {
         $this->autorizar($request, 'empresa.create');
 
+        // O texto do endereço é derivado das FKs: a DANFE imprime a string, e
+        // sem isto ela sairia vazia mesmo com a cidade escolhida no formulário.
         $empresa = Empresa::create(array_merge(
-            $request->validated(),
+            app(EnderecoEmpresaSync::class)->aplicar($request->validated()),
             ['grupo_id' => $this->grupoDoUsuario($request)],
         ));
 
-        return (new EmpresaResource($empresa))->response()->setStatusCode(201);
+        return (new EmpresaResource(
+            $empresa->load(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao']),
+        ))->response()->setStatusCode(201);
     }
 
     public function update(EmpresaRequest $request, int $id): EmpresaResource
@@ -62,9 +71,11 @@ class EmpresaController extends Controller
         $this->autorizar($request, 'empresa.edit');
 
         $empresa = $this->doGrupo($request)->findOrFail($id);
-        $empresa->update($request->validated());
+        $empresa->update(app(EnderecoEmpresaSync::class)->aplicar($request->validated()));
 
-        return new EmpresaResource($empresa->refresh());
+        return new EmpresaResource(
+            $empresa->refresh()->load(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao']),
+        );
     }
 
     public function destroy(Request $request, int $id): JsonResponse

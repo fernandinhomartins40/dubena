@@ -3,6 +3,9 @@
 namespace App\Models\Rh;
 
 use App\Domain\Tenant\BelongsToTenant;
+use App\Models\Geografico\Bairro;
+use App\Models\Geografico\Cidade;
+use App\Models\Geografico\Rua;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +25,9 @@ class Colaborador extends Model
         'empresa_id', 'grupo_id', 'cargo_id', 'user_id',
         'nome', 'cpf', 'rg', 'data_nascimento', 'data_admissao', 'data_desligamento',
         'telefone', 'entregador', 'ativo',
+        // Endereço: o legado sempre teve (81 colaboradores com cidade/bairro) e
+        // o formulário da SPA já enviava — faltava a coluna no destino.
+        'cep', 'uf', 'cidade_id', 'bairro_id', 'rua_id', 'numero', 'complemento',
     ];
 
     protected function casts(): array
@@ -33,6 +39,21 @@ class Colaborador extends Model
             'entregador' => 'boolean',
             'ativo' => 'boolean',
         ];
+    }
+
+    public function cidade(): BelongsTo
+    {
+        return $this->belongsTo(Cidade::class);
+    }
+
+    public function bairro(): BelongsTo
+    {
+        return $this->belongsTo(Bairro::class);
+    }
+
+    public function rua(): BelongsTo
+    {
+        return $this->belongsTo(Rua::class);
     }
 
     public function cargo(): BelongsTo

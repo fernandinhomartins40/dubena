@@ -15,6 +15,9 @@ use App\Models\Rh\ColaboradorExame;
 use App\Models\Rh\ColaboradorFamilia;
 use App\Models\Rh\ColaboradorRecesso;
 use App\Models\Rh\ComissaoExcecao;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -50,7 +53,7 @@ final class RhMigrator implements Migrator
 
     public function dependeDe(): array
     {
-        return ['empresas', 'cadastros-apoio', 'users'];
+        return ['empresas', 'cadastros-apoio', 'users', 'geografico'];
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult
@@ -142,10 +145,26 @@ final class RhMigrator implements Migrator
                     ? mb_substr($telefonePrincipal[$id], 0, 30) : null,
                 'entregador' => $user !== null && isset($usersEntregadores[$user]),
                 'ativo' => $this->booleano($r->ativo ?? '1'),
+                // Endereço: o legado sempre teve (81 colaboradores com cidade e
+                // bairro preenchidos); faltava a coluna no destino.
+                'cep' => $this->soDigitos($r->cep ?? null, 8),
+                'uf' => ($r->uf ?? null) !== null ? mb_substr(trim((string) $r->uf), 0, 2) : null,
+                'cidade_id' => ($r->cidade_id ?? null) !== null ? (int) $r->cidade_id : null,
+                'bairro_id' => ($r->bairro_id ?? null) !== null ? (int) $r->bairro_id : null,
+                'rua_id' => ($r->rua_id ?? null) !== null ? (int) $r->rua_id : null,
+                'numero' => ($r->numero ?? null) !== null ? mb_substr(trim((string) $r->numero), 0, 20) : null,
+                'complemento' => $r->complemento ?? null,
                 'created_at' => $r->created_at ?? null,
             ];
         });
-        $colaboradores = $this->anularFksInvalidas($colaboradores, ['cargo_id' => 'cargos']);
+        $colaboradores = $this->anularFksInvalidas($colaboradores, [
+            'cargo_id' => 'cargos',
+            // Geográfico pode ter descartado a cidade do dump: FK nullable,
+            // referência sem destino vira null em vez de derrubar a carga.
+            'cidade_id' => 'cidades',
+            'bairro_id' => 'bairros',
+            'rua_id' => 'ruas',
+        ]);
         if (! $ctx->dryRun) {
             foreach ($colaboradores as $c) {
                 $this->upsert(Colaborador::withoutTenant(), $this->semNulos($c));
@@ -180,7 +199,7 @@ final class RhMigrator implements Migrator
             $fim = null;
             if ($inicio !== null && $dias > 0) {
                 try {
-                    $fim = \Carbon\Carbon::parse($inicio)->addDays($dias - 1)->toDateString();
+                    $fim = Carbon::parse($inicio)->addDays($dias - 1)->toDateString();
                 } catch (\Throwable) {
                     // Data de início inválida no legado (campo texto livre):
                     // o recesso entra sem data-fim em vez de derrubar a carga.
@@ -279,7 +298,7 @@ final class RhMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return [];
         }
@@ -328,7 +347,7 @@ final class RhMigrator implements Migrator
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
+     * @param  class-string<Model>  $model
      * @param  list<array<string,mixed>>  $rows
      */
     private function gravar(string $model, array $rows): int
@@ -389,10 +408,9 @@ final class RhMigrator implements Migrator
      * Upsert PRESERVANDO o id do legado (forceFill ignora $fillable). Essencial
      * para manter as FKs entre tabelas após a migração.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  array<string,mixed>  $row
      */
-    private function upsert(\Illuminate\Database\Eloquent\Builder $query, array $row): void
+    private function upsert(Builder $query, array $row): void
     {
         $model = $query->firstWhere('id', $row['id']) ?? $query->getModel()->newInstance();
         $model->forceFill($row)->save();

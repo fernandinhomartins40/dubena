@@ -27,9 +27,17 @@ class EmpresaRequest extends FormRequest
             'inscricao_municipal' => 'nullable|string|max:30',
             'cep' => 'nullable|string|max:10',
             'uf' => 'nullable|string|max:2',
+            // Texto: continua aceito (o PDF fiscal imprime a string), mas é
+            // DERIVADO das FKs abaixo quando elas vêm — ver EnderecoEmpresaSync.
             'cidade' => 'nullable|string|max:255',
             'bairro' => 'nullable|string|max:255',
             'endereco' => 'nullable|string|max:255',
+            // FKs: o formulário já as enviava; sem estas regras o `validated()`
+            // as descartava e o endereço da empresa nunca era gravado.
+            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'bairro_id' => 'nullable|integer|exists:bairros,id',
+            'rua_id' => 'nullable|integer|exists:ruas,id',
+            'regiao_id' => 'nullable|integer|exists:regioes,id',
             'numero' => 'nullable|string|max:20',
             'complemento' => 'nullable|string|max:255',
             'telefone1' => 'nullable|string|max:20',

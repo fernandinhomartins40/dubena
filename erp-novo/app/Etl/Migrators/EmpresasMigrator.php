@@ -59,7 +59,7 @@ final class EmpresasMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return []; // sem dump não há o que comparar (ambiente dev/CI)
         }
@@ -148,9 +148,14 @@ final class EmpresasMigrator implements Migrator
             'inscricao_municipal' => $r->inscricaomunicipal ?? null,
             'cep' => $this->soDigitos($r->cep ?? null, 8),
             'uf' => $r->uf ?? null,
-            'cidade' => $r->cidade ?? null,
-            'bairro' => $r->bairro ?? null,
-            'endereco' => $r->endereco ?? null,
+            // O legado NÃO tem cidade/bairro em texto — só as FKs. Ler
+            // `$r->cidade` devolvia null, e por isso as 7 empresas migraram sem
+            // endereço nenhum (a DANFE saía sem o endereço do emitente). O texto
+            // é derivado das FKs depois da carga, em `derivarTextoDoEndereco()`.
+            'cidade_id' => $r->cidade_id ?? null,
+            'bairro_id' => $r->bairro_id ?? null,
+            'rua_id' => $r->rua_id ?? null,
+            'regiao_id' => $r->regiao_id ?? null,
             'numero' => $r->numero ?? null,
             'complemento' => $r->complemento ?? null,
             'telefone1' => $r->telefone1 ?? $r->telefone ?? null,

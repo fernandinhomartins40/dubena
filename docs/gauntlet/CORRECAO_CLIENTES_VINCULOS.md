@@ -410,3 +410,117 @@ docker exec erpnovo-app php artisan cutover:check
 
 ⚠️ `etl:run pedidos` recarrega 400 mil linhas — leva tempo. É idempotente
 (upsert por id), mas **não rode durante uso ativo do sistema**.
+
+---
+
+# Terceira rodada: os dois defeitos estruturais, cobertos
+
+As duas divergências que eu havia deixado para decisão foram corrigidas. A
+investigação mudou o veredito: **não era o formulário que estava errado — era o
+schema novo que ficou para trás.**
+
+## O que o legado sempre teve
+
+| | `cidade_id` | `bairro_id` | `rua_id` | `regiao_id` |
+|---|---|---|---|---|
+| `legado.colaboradores` | 81/81 | 81/81 | ✔ | — |
+| `legado.empresas` | 7/7 | 7/7 | 7/7 | 7/7 |
+
+Endereço por FK, 100% preenchido, nos dois. O formulário da SPA estava certo o
+tempo todo; faltavam as colunas no destino. A migration original de `empresas`
+até registrava a intenção — `"Endereço (normalizado virá em N1)"` — mas o N1
+normalizou o cliente e nunca voltou ali.
+
+## A consequência que ninguém tinha visto
+
+As **7 empresas migraram sem cidade, bairro e endereço**. Não é cosmético:
+
+```php
+// DanfePdfService.php:159 — o emitente da nota fiscal
+$empresa->endereco ?? '', $empresa->numero ?? '', $empresa->bairro ?? '',
+$empresa->cidade ?? '', $empresa->uf ?? '', $empresa->cep ?? '',
+```
+
+**A DANFE estava saindo sem o endereço do emitente.** O mesmo vale para os PDFs
+de comodato e vale-gás.
+
+Causa: o `EmpresasMigrator` lia `$r->cidade` e `$r->bairro` como texto — colunas
+que **não existem** no legado, que guarda só as FKs. Lia null, gravava null,
+ninguém reclamou.
+
+## Como foi corrigido, sem quebrar o que funciona
+
+**A empresa passa a ter as duas representações, com papéis distintos:**
+
+- **FK** (`cidade_id`/`bairro_id`/`rua_id`/`regiao_id`) — a fonte da verdade. É o
+  que o formulário edita, o que casa com o cadastro geográfico e o que o
+  roteirizador consegue usar.
+- **texto** (`cidade`/`bairro`/`endereco`) — **derivado** da FK por
+  `App\Domain\Empresa\EnderecoEmpresaSync`. Continua existindo porque os PDFs
+  fiscais imprimem a string, e uma nota emitida não deve mudar de endereço se a
+  cidade for renomeada no cadastro depois.
+
+Trocar texto por FK teria quebrado os três PDFs. Manter só o texto teria deixado
+o endereço fora do roteirizador. As duas, sincronizadas, resolvem ambos.
+
+| Arquivo | Mudança |
+|---|---|
+| `2026_08_18_000200_endereco_normalizado_*.php` | FKs em `empresas` e `colaboradores` (+ `cep`/`uf`/`numero`/`complemento` no colaborador). Todas nullable; retrofit liga a FK onde o texto já casa com o cadastro |
+| `EnderecoEmpresaSync.php` | Deriva o texto das FKs; a UF vem da cidade. **Nunca apaga** texto quando a FK vem vazia |
+| `EmpresaController` | Aplica o sync no `store` e no `update`; carrega as relações para os rótulos |
+| `EmpresaRequest` | Valida as 4 FKs — sem isso o `validated()` as descartava |
+| `ColaboradorController` | Valida e devolve o endereço; **aceita `datanascimento`/`dataadmissao`** (grafia da SPA) |
+| `GeograficoMigrator` | Preenche o endereço das empresas **aqui**, não no `EmpresasMigrator` |
+| `RhMigrator` | Traz o endereço dos 81 colaboradores; passa a depender de `geografico` |
+
+### Por que o endereço da empresa é carregado no `GeograficoMigrator`
+
+`geografico` depende de `empresas` (precisa dos grupos), então as cidades só
+existem **depois** que as empresas foram gravadas — inverter criaria ciclo. A
+carga usa o **mesmo remap de cidade duplicada** que o migrator já calcula: sem
+ele, a empresa apontaria para a linha descartada na deduplicação.
+
+## Terceiro defeito, achado no caminho
+
+`ColaboradorController::validar()` só conhecia `data_nascimento`/`data_admissao`,
+mas a SPA envia `datanascimento`/`dataadmissao` (grafia do legado). **As datas de
+nascimento e admissão nunca eram gravadas** — nem na criação, nem na edição. O
+`validate()` as descartava antes de chegar ao service.
+
+## Testes
+
+`tests/Feature/EnderecoEmpresaColaboradorTest.php` — 6 testes, todos falham sem
+a correção:
+
+- empresa grava o endereço por FK;
+- **o texto é derivado da FK** (o que mantém a DANFE correta);
+- empresa devolve os rótulos;
+- colaborador grava o endereço;
+- colaborador aceita as datas na grafia da SPA;
+- colaborador devolve endereço e rótulos na edição.
+
+---
+
+## ⚠️ Achado que NÃO corrigi (precisa da sua decisão)
+
+O formulário de Empresa envia **22 campos que não existem no backend**:
+
+```
+inscricao_estadual_st, suframa, cnae, registro_anp, email,
+contnome, contcpf, contcnpj, contcrc, conttelefone, contemail,
+nfeserie, nfenumero, nfetipoambiente, nfecrt, nfceserie, nfcenumero,
+nfcetipoambiente, nfeemite, nfceemite, spedemite, distribuidora
+```
+
+Destes, **existem no legado e estão preenchidos nas 7 empresas**: `cnae` (6/7),
+`email` (7/7), os 6 campos do contador (`cont*`, 1/7) e **todos os 11 fiscais**
+(`nfeserie`, `nfenumero`, `nfecrt`, `nfetipoambiente`… 7/7).
+
+**Por que deixei para você decidir:** `nfenumero` é a numeração sequencial da
+NF-e. Migrá-la errado é pior que não migrar — emitir nota com número já usado é
+problema fiscal sério. E a emissão ainda depende do certificado A1, que está
+pendente no `GUIA_DO_DONO.md`, então nada disso está em uso hoje.
+
+**Recomendação:** tratar junto com a habilitação da NF-e, quando o certificado
+estiver instalado e for possível conferir a numeração contra o legado antes de
+emitir a primeira nota. Não é urgente; é delicado.

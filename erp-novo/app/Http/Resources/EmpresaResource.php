@@ -3,11 +3,12 @@
 namespace App\Http\Resources;
 
 use App\Domain\Tenant\TenantContext;
+use App\Models\Empresa;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Empresa
+ * @mixin Empresa
  */
 class EmpresaResource extends JsonResource
 {
@@ -30,6 +31,16 @@ class EmpresaResource extends JsonResource
             'endereco' => $this->endereco,
             'numero' => $this->numero,
             'complemento' => $this->complemento,
+            'cidade_id' => $this->cidade_id,
+            'bairro_id' => $this->bairro_id,
+            'rua_id' => $this->rua_id,
+            'regiao_id' => $this->regiao_id,
+            // Rótulos das FKs: o AsyncSelect só busca a lista quando o popover
+            // abre, então sem eles o campo preenchido exibe "Selecione...".
+            'cidade_label' => $this->whenLoaded('cidadeCadastro', fn () => $this->cidadeCadastro?->descricao),
+            'bairro_label' => $this->whenLoaded('bairroCadastro', fn () => $this->bairroCadastro?->descricao),
+            'rua_label' => $this->whenLoaded('rua', fn () => $this->rua?->descricao),
+            'regiao_label' => $this->whenLoaded('regiao', fn () => $this->regiao?->descricao),
             'telefone1' => $this->telefone1,
             'telefone2' => $this->telefone2,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,

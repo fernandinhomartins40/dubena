@@ -2,11 +2,13 @@
 
 namespace App\Etl\Migrators;
 
+use App\Domain\Empresa\EnderecoEmpresaSync;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
+use App\Models\Empresa;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -128,6 +130,13 @@ final class GeograficoMigrator implements Migrator
             $gravados += $this->gravarPreservandoId('cidades', $cidades);
             $gravados += $this->gravarPreservandoId('bairros', $bairros);
             $gravados += $this->gravarPreservandoId('ruas', $ruas);
+
+            // O endereço da EMPRESA é preenchido aqui, e não no
+            // `EmpresasMigrator`: cidade/bairro/rua só existem neste ponto
+            // (`geografico` depende de `empresas`, nunca o contrário). Usa o
+            // MESMO remap de cidade duplicada — sem ele a empresa apontaria
+            // para a linha descartada na deduplicação acima.
+            $this->enderecoDasEmpresas($ctx, $remap);
         }
 
         $avisos = [];
@@ -151,7 +160,7 @@ final class GeograficoMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return [];
         }
@@ -223,7 +232,7 @@ final class GeograficoMigrator implements Migrator
     }
 
     /**
-     * @param list<string> $colunas
+     * @param  list<string>  $colunas
      * @return list<array<string, mixed>>
      */
     private function ler(MigrationContext $ctx, string $tabela, array $colunas): array
@@ -262,6 +271,70 @@ final class GeograficoMigrator implements Migrator
 
             return $linha;
         })->all();
+    }
+
+    /**
+     * Preenche o endereço das empresas a partir do legado.
+     *
+     * Fica aqui, e não no `EmpresasMigrator`, por causa da ordem: `geografico`
+     * depende de `empresas` (precisa dos grupos), então as cidades só existem
+     * DEPOIS que as empresas foram gravadas — inverter criaria ciclo.
+     *
+     * O legado guarda o endereço da empresa só por FK (`cidade_id`/`bairro_id`/
+     * `rua_id`), sem colunas de texto. O `EmpresasMigrator` lia `$r->cidade`,
+     * que não existe, e por isso as 7 empresas migraram com endereço vazio — e a
+     * DANFE saía sem o endereço do emitente. Aqui as FKs são gravadas e o texto
+     * é DERIVADO delas, que é o que os PDFs fiscais imprimem.
+     *
+     * @param  array<int, int>  $remapCidade  cidade duplicada => canônica
+     */
+    private function enderecoDasEmpresas(MigrationContext $ctx, array $remapCidade): void
+    {
+        if (! $this->tabelaExiste($ctx, 'empresas')) {
+            return;
+        }
+
+        $idsCidade = DB::table('cidades')->pluck('id')->flip();
+        $idsBairro = DB::table('bairros')->pluck('id')->flip();
+        $idsRua = DB::table('ruas')->pluck('id')->flip();
+        $idsRegiao = DB::table('regioes')->pluck('id')->flip();
+        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+
+        foreach ($ctx->legado()->table('empresas')->get() as $r) {
+            $id = (int) $r->id;
+            if (! isset($idsEmpresa[$id])) {
+                continue;
+            }
+
+            $cidade = (int) ($r->cidade_id ?? 0);
+            $cidade = $remapCidade[$cidade] ?? $cidade;
+
+            // Referência que não sobreviveu à carga vira null: as colunas são
+            // nullable e derrubar a empresa por um bairro ausente seria pior.
+            $dados = [
+                'cidade_id' => isset($idsCidade[$cidade]) ? $cidade : null,
+                'bairro_id' => isset($idsBairro[(int) ($r->bairro_id ?? 0)]) ? (int) $r->bairro_id : null,
+                'rua_id' => isset($idsRua[(int) ($r->rua_id ?? 0)]) ? (int) $r->rua_id : null,
+                'regiao_id' => isset($idsRegiao[(int) ($r->regiao_id ?? 0)]) ? (int) $r->regiao_id : null,
+            ];
+
+            DB::table('empresas')->where('id', $id)->update($dados);
+        }
+
+        // Texto derivado das FKs (o que a DANFE imprime).
+        $sync = app(EnderecoEmpresaSync::class);
+        foreach (Empresa::query()->whereNotNull('cidade_id')->get() as $empresa) {
+            $sync->ressincronizar($empresa);
+        }
+    }
+
+    private function tabelaExiste(MigrationContext $ctx, string $tabela): bool
+    {
+        try {
+            return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool

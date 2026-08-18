@@ -47,12 +47,26 @@ class ColaboradorController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'colaborador.view');
-        $c = Colaborador::query()->with('cargo:id,descricao')->findOrFail($id);
+        $c = Colaborador::query()
+            ->with(['cargo:id,descricao', 'cidade:id,descricao,uf', 'bairro:id,descricao', 'rua:id,descricao'])
+            ->findOrFail($id);
 
         return response()->json(['data' => array_merge($this->linha($c), [
             'cpf' => $c->cpf, 'rg' => $c->rg, 'telefone' => $c->telefone,
             'cargo_id' => $c->cargo_id, 'entregador' => $c->entregador,
             'data_nascimento' => $c->data_nascimento?->toDateString(),
+            // O formulário lê os nomes sem underscore (herdados do legado):
+            // devolvê-los é o que faz o campo aparecer preenchido na edição.
+            'datanascimento' => $c->data_nascimento?->toDateString(),
+            'datadesligamento' => $c->data_desligamento?->toDateString(),
+            'ativo' => (bool) $c->ativo,
+            // Endereço + rótulos das FKs (o AsyncSelect só busca a lista ao abrir).
+            'cep' => $c->cep, 'uf' => $c->uf, 'numero' => $c->numero,
+            'complemento' => $c->complemento,
+            'cidade_id' => $c->cidade_id, 'bairro_id' => $c->bairro_id, 'rua_id' => $c->rua_id,
+            'cidade_label' => $c->cidade?->descricao,
+            'bairro_label' => $c->bairro?->descricao,
+            'rua_label' => $c->rua?->descricao,
         ])]);
     }
 
@@ -314,7 +328,7 @@ class ColaboradorController extends Controller
     /** @return array<string,mixed> */
     private function validar(Request $request): array
     {
-        return $request->validate([
+        $dados = $request->validate([
             'nome' => 'required|string|max:255',
             'cpf' => 'nullable|string|max:11',
             'rg' => 'nullable|string|max:20',
@@ -322,9 +336,38 @@ class ColaboradorController extends Controller
             'data_nascimento' => 'nullable|date',
             'data_admissao' => 'nullable|date',
             'data_desligamento' => 'nullable|date',
+            // A SPA envia sem underscore (o nome do legado). Sem estas regras o
+            // `validate()` as descartava e as datas nunca eram gravadas.
+            'datanascimento' => 'nullable|date',
+            'dataadmissao' => 'nullable|date',
+            'datadesligamento' => 'nullable|date',
             'telefone' => 'nullable|string|max:20',
             'entregador' => 'nullable|boolean',
             'ativo' => 'nullable|boolean',
+            // Endereço: o legado sempre teve (81 colaboradores com cidade e
+            // bairro) e o formulário já enviava — faltava a coluna no destino.
+            'cep' => 'nullable|string|max:8',
+            'uf' => 'nullable|string|max:2',
+            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'bairro_id' => 'nullable|integer|exists:bairros,id',
+            'rua_id' => 'nullable|integer|exists:ruas,id',
+            'numero' => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:255',
         ]);
+
+        // Normaliza o alias legado para o nome da coluna, sem sobrescrever a
+        // forma canônica quando as duas vierem.
+        foreach ([
+            'datanascimento' => 'data_nascimento',
+            'dataadmissao' => 'data_admissao',
+            'datadesligamento' => 'data_desligamento',
+        ] as $alias => $coluna) {
+            if (array_key_exists($alias, $dados)) {
+                $dados[$coluna] ??= $dados[$alias];
+                unset($dados[$alias]);
+            }
+        }
+
+        return $dados;
     }
 }
