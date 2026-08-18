@@ -12,6 +12,10 @@ _vps_probe.py
 **/.env.*
 !**/.env.example
 !**/.env.docker
+# Template de producao (T3.1): so NOMES de variavel e comentarios, sem
+# valor secreto. Ficava ignorado por `**/.env.*` e a documentacao dele
+# vivia so na maquina de quem editou.
+!**/.env.production.example
 
 # Arquivos com segredos REAIS (mantidos só localmente, ver SEGREDOS_LOCAIS.md)
 api-app-gc/instruções api-siav.txt
