@@ -98,3 +98,45 @@ export function useEmitirNfce(pedidoId: number | null) {
     },
   })
 }
+
+// Bina no atendimento (T4.4) — condicionado à decisão do dono.
+export interface ChamadaEntrante {
+  id: number
+  telefone: string
+  telefone_formatado: string
+  ramal: string | null
+  cliente_id: number | null
+  cliente: string | null
+  candidatos: { id: number; nome: string; telefone: string; endereco: string }[]
+  recebida_em: string | null
+}
+
+/** Fila de chamadas, com polling — a SPA ainda não assina canais do Echo. */
+export function useFilaChamadas(intervaloMs = 5000) {
+  return useQuery<ChamadaEntrante[]>({
+    queryKey: ['telefonia-fila'],
+    queryFn: async () => (await api.get('/telefonia/fila')).data.data,
+    refetchInterval: intervaloMs,
+    // Sem chamada não há o que mostrar; falhar em silêncio é melhor que um
+    // toast de erro piscando a cada 5s se a integração não estiver ligada.
+    retry: false,
+  })
+}
+
+export function useAtenderChamada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, cliente_id }: { id: number; cliente_id?: number }) =>
+      (await api.post(`/telefonia/chamadas/${id}/atender`, { cliente_id })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['telefonia-fila'] }),
+  })
+}
+
+export function useRejeitarChamada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo?: string }) =>
+      (await api.post(`/telefonia/chamadas/${id}/rejeitar`, { motivo })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['telefonia-fila'] }),
+  })
+}

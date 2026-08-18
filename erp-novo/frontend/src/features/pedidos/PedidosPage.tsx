@@ -4,6 +4,7 @@ import { PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/componen
 import { KanbanView } from './KanbanView'
 import { ListaView } from './ListaView'
 import { FichaDialog, NovoPedidoDialog } from './PedidoDialogs'
+import { PainelChamadas } from './PainelChamadas'
 
 /**
  * Página de pedidos — shell (FE-4): antes era um único arquivo de 455 linhas.
@@ -15,6 +16,8 @@ export function PedidosPage() {
   return (
     <div>
       <PageHeader title="Pedidos" subtitle="Painel de vendas e jornada do pedido" action={<NovoPedidoDialog />} />
+      {/* Bina (T4.4): some sozinho quando nao ha chamada tocando. */}
+      <PainelChamadas />
       <Tabs defaultValue="kanban">
         <TabsList><TabsTrigger value="kanban"><LayoutGrid size={15} className="mr-1" /> Kanban</TabsTrigger><TabsTrigger value="lista"><List size={15} className="mr-1" /> Lista</TabsTrigger></TabsList>
         <TabsContent value="kanban"><KanbanView onOpen={setVerFicha} /></TabsContent>

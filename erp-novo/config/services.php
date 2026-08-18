@@ -127,4 +127,13 @@ return [
         'consisa' => (bool) env('CONSISA_API_URL'),
     ],
 
+    /**
+     * PABX / bina (T4.4). Segredo DEDICADO — o legado usava sha1(APP_KEY) e a
+     * APP_KEY dele vazou no repositorio (auditoria §4 §2.6-7). Sem este valor
+     * o webhook recusa tudo (fail-closed).
+     */
+    'pabx' => [
+        'webhook_secret' => env('PABX_WEBHOOK_SECRET', ''),
+    ],
+
 ];

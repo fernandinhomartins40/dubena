@@ -30,6 +30,8 @@ use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MaloteController;
+use App\Http\Controllers\Api\Admin\TelefoniaController;
+use App\Http\Controllers\Api\PabxWebhookController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\MissaoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
@@ -81,6 +83,9 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 
 // Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
+// Webhook do PABX (T4.4) — chamada entrante. Segredo dedicado, fail-closed;
+// nao repete o sha1(APP_KEY) do legado (a APP_KEY dele vazou no repo).
+Route::post('/pabx/chamada', [PabxWebhookController::class, 'handle']);
 
 // Login do app mobile (PÚBLICO) — N10. Token real por usuário/colaborador (e-mail+senha).
 // Mesmo limiter do login web: são o mesmo alvo de brute-force por outra porta.
@@ -369,6 +374,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // Condicionado a decisao do dono; ver App\Domain\Caixa\MaloteService.
         Route::get('malotes/conferencia', [MaloteController::class, 'conferencia']);
         Route::post('malotes/fechar', [MaloteController::class, 'fechar']);
+
+        // Bina no atendimento (T4.4) — condicionado a decisao do dono.
+        Route::get('telefonia/fila', [TelefoniaController::class, 'fila']);
+        Route::get('telefonia/buscar', [TelefoniaController::class, 'buscar']);
+        Route::post('telefonia/chamadas/{id}/atender', [TelefoniaController::class, 'atender'])->whereNumber('id');
+        Route::post('telefonia/chamadas/{id}/rejeitar', [TelefoniaController::class, 'rejeitar'])->whereNumber('id');
         Route::get('caixa/contas', [CaixaController::class, 'contas']);
         Route::post('caixa/contas', [CaixaController::class, 'criarConta']);
         Route::post('caixa/transferencias', [CaixaController::class, 'transferir']);

@@ -1046,7 +1046,7 @@ o código não pode decidir é se o processo existe.
 
 ---
 
-### T4.4 — Decidir e executar: telefonia/bina no atendimento — **[BLOQUEANTE se o call-center usa]**
+### T4.4 — Decidir e executar: telefonia/bina no atendimento — ⚠️ **IMPLEMENTADO, AGUARDA A DECISÃO**
 
 **Achado que justifica.** Auditoria §2 linha 32 (❌) e §3.3-32. No legado, o atendimento do disk-gás identifica a chamada entrante e abre a ficha do cliente: `ctrl-web/app/Http/Controllers/NotificacoesController.php` (`meliganotification`), rotas `excluirTelefoneChamada` e `rejeitaligacao` (`web.php:911-912,1016-1043`), models `Monitoramentochamadas` e `Ligacoestelefonicas`, `ApiController@gravarTelefone`, `SearchController@searchTelefonesMonitoramento`.
 
@@ -1059,6 +1059,21 @@ No novo: greps por `ligac`, `chamada`, `bina` retornam 19 ocorrências em `app/`
 4. Na SPA, um listener que abre a ficha do cliente pelo telefone. **Nota:** a auditoria registra que a SPA hoje **não usa Echo** (grep por `laravel-echo` em `frontend/src` = vazio) — esta seria a primeira assinatura de canal do frontend web, então prevê o trabalho de instalar e configurar o Echo lá.
 
 **Pronto quando (binário).** Uma das duas: documento de aposentadoria assinado, **ou** `php artisan test --filter=Telefonia` verde + demonstração de chamada entrante abrindo a ficha na SPA.
+
+**Estado: PORTADO.** `test --filter=Telefonia` passa com 16 testes. Tabelas
+`telefonia_chamadas` (fila) e `telefonia_ligacoes` (histórico) com RLS,
+`TelefoniaService`, `TelefoniaController` (4 rotas), `PabxWebhookController`
+(webhook público com segredo dedicado, fail-closed), painel de chamadas na tela
+de pedidos.
+
+**Correção sobre o achado da auditoria:** ela citava `meliganotification` como o
+handler da bina. **Não é** — `NotificacoesController@meLiga` é polling de
+notificações (mensagens Android, app, cercas), sem nada de telefonia. O ponto de
+entrada real é `ApiController@gravarTelefone` (`:176`), que grava em
+`monitoramentochamadas`. A bina existe; o arquivo apontado estava errado.
+
+**A demonstração com chamada real depende do PABX** — e a decisão do dono
+continua pendente, mas deixou de ser bloqueante.
 
 ---
 
