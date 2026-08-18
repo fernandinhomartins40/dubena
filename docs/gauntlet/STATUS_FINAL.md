@@ -100,6 +100,19 @@ Nenhuma destas se resolve com acesso à VPS: o insumo está fora dela.
 
 ---
 
+## §4 — O que eu posso fazer na VPS, se você autorizar
+
+1. **Trocar as 2 senhas** (#1) — gero e te entrego
+2. **Comparar `nginx -T` com o repo** (passo 1 da T6.3)
+3. **Montar o comparativo de saldos** (#4) — extraio os números; a conferência
+   com o extrato continua sendo sua
+4. **Configurar o `rsync` do backup externo** (#12) — assim que você disser o destino
+
+O resto da lista não é questão de acesso: é chave que não existe no servidor, ou
+papel que precisa passar num leitor.
+
+---
+
 ## §5 — Sobre a chave do Google Maps/Firebase nos apps (T1.9)
 
 **Verificado:** a chave `AIzaSy…` existe em `app-gas-em-casa/google-services.json`
@@ -120,16 +133,3 @@ Geocoding). Sem restrição, qualquer um que extraia a chave do APK consome a
 quota da conta.
 
 Isso é console Google — conta do dono.
-
----
-
-## §4 — O que eu posso fazer na VPS, se você autorizar
-
-1. **Trocar as 2 senhas** (#1) — gero e te entrego
-2. **Comparar `nginx -T` com o repo** (passo 1 da T6.3)
-3. **Montar o comparativo de saldos** (#4) — extraio os números; a conferência
-   com o extrato continua sendo sua
-4. **Configurar o `rsync` do backup externo** (#12) — assim que você disser o destino
-
-O resto da lista não é questão de acesso: é chave que não existe no servidor, ou
-papel que precisa passar num leitor.
