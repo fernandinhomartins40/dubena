@@ -17,11 +17,11 @@ Baixos. S-1 exige coordenação com o PSP (assinatura/mTLS). Mudanças de audito
 ## Estratégia e fases
 
 **Fase 1 — Bloqueadores de go-live (S-1)**
-- Implementar verificação de assinatura HMAC (ou mTLS) do PSP no [PixWebhookController](../../erp-novo/app/Http/Controllers/Api/PixWebhookController.php) antes do `processarWebhook`.
+- Implementar verificação de assinatura HMAC (ou mTLS) do PSP no [PixWebhookController](../../../erp-novo/app/Http/Controllers/Api/PixWebhookController.php) antes do `processarWebhook`.
 - Backend: `config/services.php` (chave pública/segredo do PSP), validação de assinatura sobre o corpo cru.
 
 **Fase 2 — Arquivos e uploads (S-2, S-3)**
-- Reescopar por tenant a busca de evidência/comprovação em [MissaoController::evidencia](../../erp-novo/app/Http/Controllers/Api/Admin/MissaoController.php) (`->where('empresa_id', $tenant)`), e no download de comprovações de entrega.
+- Reescopar por tenant a busca de evidência/comprovação em [MissaoController::evidencia](../../../erp-novo/app/Http/Controllers/Api/Admin/MissaoController.php) (`->where('empresa_id', $tenant)`), e no download de comprovações de entrega.
 - Adicionar `image`/`mimes:jpg,png,pdf` + validação de magic bytes nos uploads (certificado, comprovações, evidências).
 
 **Fase 3 — Auditoria e endurecimento (S-4, S-7)**

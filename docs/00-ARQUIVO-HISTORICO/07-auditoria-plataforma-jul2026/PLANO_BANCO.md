@@ -17,7 +17,7 @@ DB-1 muda a PK de `role_user` (migration de alteração + backfill); exige janel
 ## Estratégia e fases
 
 **Fase 1 — Correção de PK do role_user (DB-1)** ⚠️ bloqueante para papéis globais
-- Nova migration: trocar PK composta por `id` autoincrement + `unique(user_id, role_id, empresa_id)`; decidir semântica do papel global (sentinela `empresa_id=0` vs unicidade parcial). Ajustar [User](../../erp-novo/app/Models/User.php) se usar sentinela.
+- Nova migration: trocar PK composta por `id` autoincrement + `unique(user_id, role_id, empresa_id)`; decidir semântica do papel global (sentinela `empresa_id=0` vs unicidade parcial). Ajustar [User](../../../erp-novo/app/Models/User.php) se usar sentinela.
 
 **Fase 2 — Portabilidade validada em Postgres (DB-2, DB-3)**
 - Job de CI com serviço Postgres rodando a suíte + `migrate:fresh --seed`.

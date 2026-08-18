@@ -1,6 +1,6 @@
 # AUDITORIA — API
 
-> Base: [routes/api.php](../../erp-novo/routes/api.php) (724 linhas), [channels.php](../../erp-novo/routes/channels.php), controllers `Api/*`.
+> Base: [routes/api.php](../../../erp-novo/routes/api.php) (724 linhas), [channels.php](../../../erp-novo/routes/channels.php), controllers `Api/*`.
 
 ## 1. Organização e contrato
 
@@ -10,7 +10,7 @@ Uma API JSON única, três superfícies segregadas por prefixo:
 - `/api/app/v1/*` — apps, mesmo grupo autenticado.
 - `/api/superadmin/*` — guard `platform` isolado, **fora** do middleware de tenant.
 
-**Contrato de resposta** (documentado no topo de [api.php](../../erp-novo/routes/api.php)): JSON uniforme, número cru, sem View/Redirect. Erros no padrão Laravel `{message, errors}`; tenant não resolvido → 409; guest em rota autenticada → 401 (não 500) graças ao `redirectGuestsTo(null)` + `shouldRenderJsonWhen` no [bootstrap/app.php](../../erp-novo/erp-novo/bootstrap/app.php). Semântica HTTP correta: 402 (licença), 403 (RBAC), 409 (tenant), 422 (validação), 423 (2FA), 429 (lockout).
+**Contrato de resposta** (documentado no topo de [api.php](../../../erp-novo/routes/api.php)): JSON uniforme, número cru, sem View/Redirect. Erros no padrão Laravel `{message, errors}`; tenant não resolvido → 409; guest em rota autenticada → 401 (não 500) graças ao `redirectGuestsTo(null)` + `shouldRenderJsonWhen` no [bootstrap/app.php](../../../erp-novo/erp-novo/bootstrap/app.php). Semântica HTTP correta: 402 (licença), 403 (RBAC), 409 (tenant), 422 (validação), 423 (2FA), 429 (lockout).
 
 ## 2. Versionamento
 
@@ -27,8 +27,8 @@ Uma API JSON única, três superfícies segregadas por prefixo:
 
 | ID | Prio | Achado | Evidência | Recomendação |
 |---|---|---|---|---|
-| API-1 | **P2** | Shape de resposta inconsistente (Resource vs array; envelope `data` variável) | [PedidoController](../../erp-novo/app/Http/Controllers/Api/Admin/PedidoController.php) usa Resource; [EstoqueController](../../erp-novo/app/Http/Controllers/Api/Admin/EstoqueController.php)/mobile montam arrays | Padronizar: sempre `{data, meta?}`; migrar respostas de lista para Resources |
-| API-2 | **P2** | Aliases duplicados criam dois contratos por função | [api.php](../../erp-novo/routes/api.php) `cheques/recebidos`, `cobranca/*`, `fiscal/nfe*`, `financeiro/dre`, `conciliacao-contabil` | Escolher a grafia canônica, marcar o resto `@deprecated`, remover após a SPA migrar |
+| API-1 | **P2** | Shape de resposta inconsistente (Resource vs array; envelope `data` variável) | [PedidoController](../../../erp-novo/app/Http/Controllers/Api/Admin/PedidoController.php) usa Resource; [EstoqueController](../../../erp-novo/app/Http/Controllers/Api/Admin/EstoqueController.php)/mobile montam arrays | Padronizar: sempre `{data, meta?}`; migrar respostas de lista para Resources |
+| API-2 | **P2** | Aliases duplicados criam dois contratos por função | [api.php](../../../erp-novo/routes/api.php) `cheques/recebidos`, `cobranca/*`, `fiscal/nfe*`, `financeiro/dre`, `conciliacao-contabil` | Escolher a grafia canônica, marcar o resto `@deprecated`, remover após a SPA migrar |
 | API-3 | **P2** | Contrato OpenAPI (`openapi-api-admin.yaml`) parcial e manual → drift | não cobre logística/SaaS/aliases | Gerar OpenAPI do código (ou testes de contrato) e versionar no CI |
 | API-4 | **P3** | Admin sem versão no path | `/api/admin/*` | Introduzir `/api/admin/v1` ao primeiro breaking change |
 | API-5 | **P3** | Paginação fixa em 20, não parametrizável | `->paginate(20)` em Cliente/Pedido | Aceitar `?per_page` com teto |

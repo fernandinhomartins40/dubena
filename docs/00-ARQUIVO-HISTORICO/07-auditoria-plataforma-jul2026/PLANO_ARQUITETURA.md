@@ -22,7 +22,7 @@ Baixos; mudanças são incrementais e cobertas por testes.
 - Gerar **OpenAPI a partir do código** (ou testes de contrato) cobrindo admin+app+superadmin; versionar no CI.
 
 **Fase 2 — Rotas (A4, A5)**
-- Canonizar aliases, marcar duplicados `@deprecated`, quebrar [routes/api.php](../../erp-novo/routes/api.php) por domínio.
+- Canonizar aliases, marcar duplicados `@deprecated`, quebrar [routes/api.php](../../../erp-novo/routes/api.php) por domínio.
 
 **Fase 3 — Infra compartilhada dos apps (A7)**
 - Monorepo/workspace com pacote comum (`http`, `realtime`, `storage`, tipos) consumido pelos dois apps.

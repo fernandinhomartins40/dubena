@@ -13,19 +13,19 @@
 
 | ID | Prio | Gargalo | Evidência | Impacto |
 |---|---|---|---|---|
-| PF-1 | **P2** | Matching de cliente por **geoloc/telefone carrega TODOS os clientes da empresa e filtra em PHP** | [PedidoMobileService::clientePorGeoloc](../../erp-novo/app/Domain/Mobile/PedidoMobileService.php), [ClienteAuthService::clientePorTelefone](../../erp-novo/app/Domain/Mobile/ClienteAuthService.php), [MissaoService::proximaCasa](../../erp-novo/app/Domain/Missao/MissaoService.php) | O(N) por request; num tenant com 50k clientes cada pedido/login varre tudo. OK para praça pequena, quebra na escala |
-| PF-2 | **P2** | Kanban carrega até 50 pedidos **por coluna** com contagem/soma em PHP, e ainda faz um `exists()` de NF por linha na serialização | [PedidoController::kanban](../../erp-novo/app/Http/Controllers/Api/Admin/PedidoController.php), `tem_nf` em [PedidoResource](../../erp-novo/app/Http/Resources/PedidoResource.php) | N colunas × 50 + N queries de NF; pesa com muitas situações/pedidos |
-| PF-3 | **P3** | `dashboardResumo` e relatórios agregam por query — verificar índices de suporte (datas/empresa) sob volume real | [RelatorioController](../../erp-novo/app/Http/Controllers/Api/Admin/RelatorioController.php) | Latência de dashboard |
+| PF-1 | **P2** | Matching de cliente por **geoloc/telefone carrega TODOS os clientes da empresa e filtra em PHP** | [PedidoMobileService::clientePorGeoloc](../../../erp-novo/app/Domain/Mobile/PedidoMobileService.php), [ClienteAuthService::clientePorTelefone](../../../erp-novo/app/Domain/Mobile/ClienteAuthService.php), [MissaoService::proximaCasa](../../../erp-novo/app/Domain/Missao/MissaoService.php) | O(N) por request; num tenant com 50k clientes cada pedido/login varre tudo. OK para praça pequena, quebra na escala |
+| PF-2 | **P2** | Kanban carrega até 50 pedidos **por coluna** com contagem/soma em PHP, e ainda faz um `exists()` de NF por linha na serialização | [PedidoController::kanban](../../../erp-novo/app/Http/Controllers/Api/Admin/PedidoController.php), `tem_nf` em [PedidoResource](../../../erp-novo/app/Http/Resources/PedidoResource.php) | N colunas × 50 + N queries de NF; pesa com muitas situações/pedidos |
+| PF-3 | **P3** | `dashboardResumo` e relatórios agregam por query — verificar índices de suporte (datas/empresa) sob volume real | [RelatorioController](../../../erp-novo/app/Http/Controllers/Api/Admin/RelatorioController.php) | Latência de dashboard |
 | PF-4 | **P3** | Busca `ilike '%q%'` sem índice trigram | Cliente/Pedido/Usuario | Full scan em busca textual |
 
 ## 2. Processamento assíncrono / filas
 
-- **PF-5 (P1 ops)**: `QUEUE_CONNECTION=database` no default e **sem worker no [docker-compose.homolog.yml](../../erp-novo/docker-compose.homolog.yml)** (só app/web/db/redis). Jobs (`AtribuirPedidoJob`, `EnviarPushJob`, `GeocodificarClienteJob`) **não são processados** → auto-atribuição, push e geocodificação ficam pendentes indefinidamente. Redis está no compose mas a fila não o usa por padrão.
+- **PF-5 (P1 ops)**: `QUEUE_CONNECTION=database` no default e **sem worker no [docker-compose.homolog.yml](../../../erp-novo/docker-compose.homolog.yml)** (só app/web/db/redis). Jobs (`AtribuirPedidoJob`, `EnviarPushJob`, `GeocodificarClienteJob`) **não são processados** → auto-atribuição, push e geocodificação ficam pendentes indefinidamente. Redis está no compose mas a fila não o usa por padrão.
 - **PF-6 (P1 ops)**: Scheduler (`schedule:run`) não evidenciado no deploy — 11 tarefas agendadas (expirar PIX, gerar missões, vencidos) não rodam sem cron.
 
 ## 3. Cache
 
-- `CACHE_STORE=database` default; **Redis disponível** mas não é o store padrão. [TenantCache](../../erp-novo/app/Domain/Shared/TenantCache.php) namespaced por tenant e [LicencaService](../../erp-novo/app/Domain/Saas/LicencaService.php) cacheia recursos (TTL 5 min). Google Routes tem cache in-memory + cache **persistente** por célula ([TracadorRotaCacheado](../../erp-novo/app/Domain/Logistica/Drivers/TracadorRotaCacheado.php)) — excelente para custo/latência.
+- `CACHE_STORE=database` default; **Redis disponível** mas não é o store padrão. [TenantCache](../../../erp-novo/app/Domain/Shared/TenantCache.php) namespaced por tenant e [LicencaService](../../../erp-novo/app/Domain/Saas/LicencaService.php) cacheia recursos (TTL 5 min). Google Routes tem cache in-memory + cache **persistente** por célula ([TracadorRotaCacheado](../../../erp-novo/app/Domain/Logistica/Drivers/TracadorRotaCacheado.php)) — excelente para custo/latência.
 - **PF-7 (P2)**: mover cache/fila/sessão para **Redis** em produção; `database` não escala em concorrência.
 
 ## 4. Tempo real
@@ -34,7 +34,7 @@
 
 ## 5. Roteirização / logística (bem resolvido)
 
-- Nearest-neighbor usa **sempre Haversine local (zero rede)** na ordenação O(N²); a Google Routes entra só no traçado final dos trechos escolhidos, com **circuit breaker** (uma falha corta 5 min) + cache persistente ([RoteirizadorService](../../erp-novo/app/Domain/Logistica/RoteirizadorService.php), [GoogleRoutesDriver](../../erp-novo/app/Domain/Logistica/Drivers/GoogleRoutesDriver.php)). Isso corrigiu um timeout de 22s documentado — desenho de performance maduro.
+- Nearest-neighbor usa **sempre Haversine local (zero rede)** na ordenação O(N²); a Google Routes entra só no traçado final dos trechos escolhidos, com **circuit breaker** (uma falha corta 5 min) + cache persistente ([RoteirizadorService](../../../erp-novo/app/Domain/Logistica/RoteirizadorService.php), [GoogleRoutesDriver](../../../erp-novo/app/Domain/Logistica/Drivers/GoogleRoutesDriver.php)). Isso corrigiu um timeout de 22s documentado — desenho de performance maduro.
 
 ## 6. Escalabilidade
 

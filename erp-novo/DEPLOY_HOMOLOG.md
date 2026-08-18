@@ -2,7 +2,7 @@
 
 Ambiente **isolado** do backend reescrito na VPS, rodando **em paralelo** ao
 ctrl-web (legado) **sem tocá-lo**. É o "Mundo B" do plano de reescrita
-(`docs/05-planejamento-historico/PLANO_REESCRITA_BACKEND.md`, princípio #1: *a app nova não toca o banco de
+(`docs/00-ARQUIVO-HISTORICO/05-planejamento-historico/PLANO_REESCRITA_BACKEND.md`, princípio #1: *a app nova não toca o banco de
 produção até o cutover*).
 
 ## O que sobe

@@ -14,18 +14,23 @@ dos repositórios originais** (não os altera — trabalho feito sobre clones).
 
 ## Documentação do projeto
 
-Toda a documentação de planejamento/PRD vive em **[`docs/`](docs/)** (organizada por finalidade).
-Comece pelo que está VIGENTE:
+Tudo vive em **[`docs/`](docs/)**, organizado por finalidade — comece pelo
+[índice](docs/README.md).
 
-- **[docs/01-vigente/](docs/01-vigente/)** — plano e PRDs ATUAIS (SPA React + Laravel API):
-  - `PLANO_SPA_REACT.md` — plano vigente (fases S1–S8) + plano de implementação por módulo.
-  - `MAPA_NAVEGACAO_ALVO.md` — de-para legado→novo (reorganizar ≠ eliminar).
-  - `IMPL_00_INDICE.md` + `IMPL_*.md` — PRDs de implementação por módulo (auditados do código); cada um é o CONTRATO (paridade + DoD).
-- `docs/02-auditoria-legado/` — PRDs fiéis (linha-a-linha) do legado (referência).
-- `docs/03-modernizacao-filament/` — auditoria da fase Filament (descartada — histórico).
-- `docs/04-historico/` — planos antigos supersedidos (histórico).
-- `*/ANALISE_TECNICA_*.md` — auditoria técnica de cada sistema.
-- `*/README.docker.md` — como subir cada sistema em Docker.
+**Se a pergunta é "o que falta para virar o sistema?":**
+👉 **[docs/gauntlet/GUIA_DO_DONO.md](docs/gauntlet/GUIA_DO_DONO.md)** (linguagem
+comum, tarefas em ordem de execução).
+
+| Pasta | O que é |
+|---|---|
+| [docs/gauntlet/](docs/gauntlet/) | **Fonte de verdade atual** — auditoria e plano de produção |
+| [docs/01-vigente/](docs/01-vigente/) | Contratos de implementação por módulo (`IMPL_*.md`) e specs ativas |
+| [docs/06-runbooks/](docs/06-runbooks/) | Procedimentos operacionais |
+| [docs/02-auditoria-legado/](docs/02-auditoria-legado/) | PRDs fiéis do legado (referência) |
+| [docs/00-ARQUIVO-HISTORICO/](docs/00-ARQUIVO-HISTORICO/) | 🗄️ Fases concluídas ou abandonadas — **não é fonte de verdade** |
+
+Além disso: `*/ANALISE_TECNICA_*.md` (auditoria técnica de cada sistema) e
+`*/README.docker.md` (como subir cada sistema em Docker).
 
 ## Progresso do roadmap
 

@@ -14,8 +14,8 @@
 | ID | Prio | Duplicação | Evidência | Recomendação |
 |---|---|---|---|---|
 | Q-1 | **P2** | Infra dos dois apps mobile quase idêntica | `http.ts`/`realtime.ts`/`storage.ts` em ambos | Pacote compartilhado (monorepo) |
-| Q-2 | **P3** | Verificação de 2FA duplicada (web × app) | [AuthController::verificar2fa](../../erp-novo/app/Http/Controllers/Api/AuthController.php) e [AppAuthController::verificar2fa](../../erp-novo/app/Http/Controllers/Api/Mobile/AppAuthController.php) idênticos | Extrair para o domínio Seguranca (um método) |
-| Q-3 | **P3** | Aliases de rota = dois caminhos por função | [api.php](../../erp-novo/routes/api.php) | Canonizar + depreciar |
+| Q-2 | **P3** | Verificação de 2FA duplicada (web × app) | [AuthController::verificar2fa](../../../erp-novo/app/Http/Controllers/Api/AuthController.php) e [AppAuthController::verificar2fa](../../../erp-novo/app/Http/Controllers/Api/Mobile/AppAuthController.php) idênticos | Extrair para o domínio Seguranca (um método) |
+| Q-3 | **P3** | Aliases de rota = dois caminhos por função | [api.php](../../../erp-novo/routes/api.php) | Canonizar + depreciar |
 | Q-4 | **P4** | Haversine reimplementado em 5+ services | Pedido/Missao/Distribuidor/Monitora/Roteirizador | Um helper `Geo::haversineKm` |
 
 A duplicação anterior de controllers (`autorizar()` em 36 lugares) **já foi eliminada** pela trait — bom sinal de refatoração ativa.
@@ -23,7 +23,7 @@ A duplicação anterior de controllers (`autorizar()` em 36 lugares) **já foi e
 ## 3. Responsabilidades e complexidade
 
 - Services coesos (uma responsabilidade por classe). Poucos "god objects".
-- **Q-5 (P3)**: pontos de alta complexidade concentrada: [CalculoImpostoService](../../erp-novo/app/Domain/Fiscal/CalculoImpostoService.php) (inevitável — regra fiscal), [AppClienteController](../../erp-novo/app/Http/Controllers/Api/Mobile/AppClienteController.php) 572L (evitável — extrair), [PedidosPage.tsx](../../erp-novo/frontend/src/features/pedidos/PedidosPage.tsx) 455L (extrair sub-componentes).
+- **Q-5 (P3)**: pontos de alta complexidade concentrada: [CalculoImpostoService](../../../erp-novo/app/Domain/Fiscal/CalculoImpostoService.php) (inevitável — regra fiscal), [AppClienteController](../../../erp-novo/app/Http/Controllers/Api/Mobile/AppClienteController.php) 572L (evitável — extrair), [PedidosPage.tsx](../../../erp-novo/frontend/src/features/pedidos/PedidosPage.tsx) 455L (extrair sub-componentes).
 
 ## 4. Testes
 

@@ -25,7 +25,7 @@ Subir worker/Reverb é operacional (infra), baixo risco de código.
 - Documentar a decisão do Gate central (diretório `app/Policies` vazio).
 
 **Fase 3 — Refino de controllers (B-1)**
-- Extrair sub-controllers de [AppClienteController](../../erp-novo/app/Http/Controllers/Api/Mobile/AppClienteController.php) (Perfil/Endereço/Pedido/Pagamento).
+- Extrair sub-controllers de [AppClienteController](../../../erp-novo/app/Http/Controllers/Api/Mobile/AppClienteController.php) (Perfil/Endereço/Pedido/Pagamento).
 
 **Fase 4 — Escala de consultas (B-2)** (coordenar com PLANO_PERFORMANCE)
 - Substituir filtros O(N) em PHP (geoloc/telefone) por consulta indexada/PostGIS.
