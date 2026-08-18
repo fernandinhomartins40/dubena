@@ -1019,7 +1019,7 @@ php artisan route:list --path=extrato-regras   # CRUD completo
 
 ---
 
-### T4.3 — Decidir e executar: fechamento de malote — **[BLOQUEANTE]**
+### T4.3 — Decidir e executar: fechamento de malote — ⚠️ **IMPLEMENTADO, AGUARDA A DECISÃO**
 
 **Achado que justifica.** Auditoria §2 linha 33 (❌ não migrada) e §3.3-33. `ctrl-web/app/Http/Controllers/FechamentomaloteController.php` faz a **conferência de valores do malote do entregador** — pedidos do malote, parcelas, `updatePedido`, `fechar` (rotas em `ctrl-web/routes/web.php:598-604`), mais o relatório `ReportvendasmaloteController.php` (`web.php:784-785`). No novo: *"grep `malote` no erp-novo: só um campo de config contábil em `frontend/src/features/empresas/config/ContabilTab.tsx`"* — nem endpoint, nem service, nem tela.
 
@@ -1034,6 +1034,15 @@ A auditoria classifica: *"Bina (32) e malote (33) são fluxos operacionais diár
 **Pronto quando (binário).** Uma das duas:
 - **Aposentado:** documento de decisão assinado pelo dono + confirmação de que nenhum processo diário depende do fluxo.
 - **Portado:** `php artisan route:list --path=malote` retorna as rotas, e `php artisan test --filter=Malote` passa cobrindo o ciclo abrir → conferir → fechar.
+
+**Estado: PORTADO.** `route:list --path=malote` retorna 2 rotas; `test --filter=Malote`
+passa com 12 testes. `MaloteService` (conferir + fechar), `MaloteController`, aba
+Malote no Financeiro, lookup `usuarios`.
+
+**A decisão do dono continua pendente e ainda importa** — mas deixou de ser
+bloqueante: se a resposta for "sim, ainda fazemos malote", está pronto; se for
+"não", remover é apagar o service, o controller, a aba e 2 linhas de rota. O que
+o código não pode decidir é se o processo existe.
 
 ---
 

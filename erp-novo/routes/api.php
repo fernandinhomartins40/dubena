@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\LookupController;
+use App\Http\Controllers\Api\Admin\MaloteController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\MissaoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
@@ -364,6 +365,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::delete('financeiro/centros-custo/{id}', [FinanceiroCadastroController::class, 'centroExcluir'])->whereNumber('id');
 
         // ── Caixa / Conta — N6 ──
+        // Fechamento de malote (T4.3) — acerto de valores do entregador.
+        // Condicionado a decisao do dono; ver App\Domain\Caixa\MaloteService.
+        Route::get('malotes/conferencia', [MaloteController::class, 'conferencia']);
+        Route::post('malotes/fechar', [MaloteController::class, 'fechar']);
         Route::get('caixa/contas', [CaixaController::class, 'contas']);
         Route::post('caixa/contas', [CaixaController::class, 'criarConta']);
         Route::post('caixa/transferencias', [CaixaController::class, 'transferir']);

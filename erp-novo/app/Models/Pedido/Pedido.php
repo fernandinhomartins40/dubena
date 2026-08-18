@@ -76,6 +76,12 @@ class Pedido extends Model
         return $this->belongsTo(Setor::class);
     }
 
+    /** Condicao de pagamento — o `condicaopagamento_id` ja estava no fillable. */
+    public function condicao(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Financeiro\CondicaoPagamento::class, 'condicaopagamento_id');
+    }
+
     public function itens(): HasMany
     {
         return $this->hasMany(PedidoItem::class);

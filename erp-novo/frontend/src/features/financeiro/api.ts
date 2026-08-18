@@ -161,3 +161,47 @@ export function useExcluirExtratoRegra(contaId: number | null) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fin-extrato-regras', contaId] }),
   })
 }
+
+// Fechamento de malote (T4.3) — acerto de valores do entregador.
+export interface MalotePedido {
+  pedido_id: number
+  cliente: string
+  situacao: string
+  valor: number
+  condicao: string
+  parcelas_abertas: number
+  valor_a_baixar: number
+  ja_baixado: boolean
+}
+export interface MaloteConferencia {
+  pedidos: MalotePedido[]
+  por_condicao: { condicao_id: number; condicao: string; pedidos: number; valor: number }[]
+  totais: { pedidos: number; valor_total: number; valor_a_baixar: number }
+}
+
+export function useConferenciaMalote(
+  filtros: { inicio: string; fim: string; setor_id: number | null; entregador_user_id: number | null },
+  enabled: boolean,
+) {
+  return useQuery<MaloteConferencia>({
+    queryKey: ['malote-conferencia', filtros],
+    queryFn: async () => (await api.get('/malotes/conferencia', { params: filtros })).data.data,
+    enabled,
+  })
+}
+
+export function useFecharMalote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (d: { pedidos: number[]; conta_id?: number }) =>
+      (await api.post('/malotes/fechar', d)).data.data as
+        { baixadas: number; valor: number; conta_id: number; ignorados: number[] },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['malote-conferencia'] })
+      // A baixa mexe no caixa e nos lançamentos: sem invalidar, a tela de
+      // lançamentos continuaria mostrando as parcelas como em aberto.
+      qc.invalidateQueries({ queryKey: ['fin-lancamentos'] })
+      qc.invalidateQueries({ queryKey: ['caixa'] })
+    },
+  })
+}

@@ -42,6 +42,9 @@ class LookupController extends Controller
         'centros-custo' => ['centros_custo', 'descricao', 'grupo'],
         'condicoes-pagamento' => ['condicaopagamentos', 'descricao', 'grupo'],
         'movimento-tipos' => ['contamovimentotipos', 'descricao', 'grupo'],
+        // Usuarios da empresa: o pedido guarda `entregador_user_id` (user), nao
+        // colaborador — o filtro do malote precisa casar com o que esta gravado.
+        'usuarios' => ['users', 'name', 'empresa'],
         'pedido-operacoes' => ['pedidooperacoes', 'descricao', 'grupo'],
         'pedido-situacoes' => ['pedidosituacoes', 'descricao', 'grupo'],
         'produto-classes' => ['produtoclasses', 'descricao', 'grupo'],
