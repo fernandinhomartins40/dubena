@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * AtribuirPedidoJob (L3) — auto-atribuição. Disparado quando um pedido PENDENTE
@@ -27,6 +28,12 @@ class AtribuirPedidoJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
+    /** Espera antes da segunda tentativa. */
+    public int $backoff = 30;
+
+    /** Distribuição consulta base e calcula rota: limite generoso, mas limite. */
+    public int $timeout = 90;
 
     public function __construct(public int $pedidoId, public int $empresaId, public int $grupoId) {}
 
@@ -59,5 +66,22 @@ class AtribuirPedidoJob implements ShouldQueue
             true, // automático
             'Auto-atribuição (distância/carga)',
         );
+    }
+
+    /**
+     * Esgotadas as tentativas, o pedido NÃO foi atribuído automaticamente.
+     *
+     * Não é perda de dado — o pedido continua na fila da central e o operador
+     * atribui à mão. Mas precisa ficar registrado: uma falha recorrente aqui
+     * significa que a distribuição automática parou de funcionar, e a operação
+     * só notaria pelo acúmulo na fila.
+     */
+    public function failed(\Throwable $e): void
+    {
+        Log::error('auto-atribuicao falhou; pedido segue na fila para o operador', [
+            'pedido_id' => $this->pedidoId,
+            'empresa_id' => $this->empresaId,
+            'erro' => $e->getMessage(),
+        ]);
     }
 }

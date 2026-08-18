@@ -25,6 +25,12 @@ class GeocodificarClienteJob implements ShouldQueue
 
     public int $tries = 3;
 
+    /** Espera crescente: a falha típica aqui é quota/instabilidade da API. */
+    public array $backoff = [30, 120];
+
+    /** Uma chamada HTTP pendurada não pode segurar o worker. */
+    public int $timeout = 60;
+
     public function __construct(public int $clienteId)
     {
     }
@@ -63,10 +69,45 @@ class GeocodificarClienteJob implements ShouldQueue
                     'longitude' => $loc['lng'],
                     'location_type' => $type,
                 ])->save();
+
+                return;
             }
+
+            // Resposta OK mas sem coordenada: endereço que o Google não achou.
+            // Não é erro de infraestrutura — repetir daria o mesmo resultado —,
+            // mas precisa ficar registrado: é o sinal de cadastro ruim que
+            // alimenta a fila de inconsistências do geográfico.
+            Log::info('Geocoding sem resultado para o endereço', [
+                'cliente_id' => $this->clienteId,
+                'status' => $resp->json('status'),
+            ]);
         } catch (\Throwable $e) {
-            Log::warning('Geocoding do cliente falhou', ['cliente_id' => $this->clienteId, 'erro' => $e->getMessage()]);
+            // T5.0/T5.1: relançar é o ponto. Engolir aqui fazia `$tries = 3`
+            // virar decoração — o job "sucedia" na primeira tentativa e a
+            // falha transitória (timeout, 5xx da API) nunca era repetida.
+            Log::warning('Geocoding do cliente falhou', [
+                'cliente_id' => $this->clienteId,
+                'tentativa' => $this->attempts(),
+                'erro' => $e->getMessage(),
+            ]);
+
+            throw $e;
         }
+    }
+
+    /**
+     * Esgotadas as tentativas, o cliente fica sem coordenada.
+     *
+     * Consequência concreta: ele não aparece no mapa da central e a
+     * distribuição automática não consegue medir distância até ele — cai para
+     * atribuição manual. Registrar é o que permite reprocessar depois.
+     */
+    public function failed(\Throwable $e): void
+    {
+        Log::error('Geocoding desistiu apos todas as tentativas', [
+            'cliente_id' => $this->clienteId,
+            'erro' => $e->getMessage(),
+        ]);
     }
 
     private function temEnderecoSuficiente(Cliente $c): bool

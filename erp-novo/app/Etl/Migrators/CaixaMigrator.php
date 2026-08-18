@@ -3,6 +3,7 @@
 namespace App\Etl\Migrators;
 
 use App\Etl\Contracts\Migrator;
+use App\Etl\Invariants\BalanceInvariant;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
@@ -166,6 +167,21 @@ final class CaixaMigrator implements Migrator
         return [
             new CountInvariant($ctx, 'contas', 'contas'),
             new CountInvariant($ctx, 'contamovimentos', 'contamovimentos'),
+            // T5.1 — a invariante do principio #5, que existia como classe e
+            // nunca era registrada: nenhum migrator a instanciava, entao ela
+            // jamais aparecia no `cutover:check`. Contar linhas prova que os
+            // movimentos vieram; so esta prova que o SALDO bate com eles.
+            // Um saldo materializado divergente do log de movimentos e dinheiro
+            // errado na tela, do tipo que ninguem descobre ate fechar o caixa.
+            // Recorte por id: só contas NASCIDAS no novo respondem pelo saldo.
+            // O legado nunca manteve Σmovimentos = saldoatual (conta 692: saldo
+            // 0 na origem com R$ 26,5 mi em movimentos), então cobrar isso do
+            // histórico herdado daria falha em 28 de 28 contas e ensinaria a
+            // ignorar o portão. Ver docs/gauntlet/T5.1_ACHADOS.md.
+            new BalanceInvariant(
+                $ctx, 'contamovimentos', 'valor', 'contas', 'saldo_atual',
+                ['conta_id'], 0.001, ['conta_id' => 'id'], $this->fronteiraLegado($ctx, 'contas'),
+            ),
         ];
     }
 
@@ -215,6 +231,30 @@ final class CaixaMigrator implements Migrator
             return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * Primeiro id que NÃO veio do legado.
+     *
+     * O ETL preserva os ids da origem; tudo acima do maior id migrado nasceu
+     * aqui. É a fronteira que separa "dado que herdamos como estava" de "dado
+     * pelo qual este sistema responde".
+     */
+    private function fronteiraLegado(MigrationContext $ctx, string $tabelaLegado): ?int
+    {
+        try {
+            if (! $ctx->legado()->getSchemaBuilder()->hasTable($tabelaLegado)) {
+                return null;
+            }
+
+            $max = (int) ($ctx->legado()->table($tabelaLegado)->max('id') ?? 0);
+
+            return $max > 0 ? $max + 1 : null;
+        } catch (\Throwable) {
+            // Legado indisponível (dev/CI): sem fronteira, verifica tudo — que
+            // é o comportamento correto num banco sem histórico herdado.
+            return null;
         }
     }
 }

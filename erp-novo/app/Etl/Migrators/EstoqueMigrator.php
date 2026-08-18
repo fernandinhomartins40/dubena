@@ -3,6 +3,7 @@
 namespace App\Etl\Migrators;
 
 use App\Etl\Contracts\Migrator;
+use App\Etl\Invariants\BalanceInvariant;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
@@ -99,6 +100,16 @@ final class EstoqueMigrator implements Migrator
         return [
             new CountInvariant($ctx, 'setors', 'setores'),
             new CountInvariant($ctx, 'estoquesetors', 'estoquesaldos'),
+            // T5.1 — ver CaixaMigrator: a invariante do principio #5 existia e
+            // nunca rodava. Aqui um saldo divergente do historico e estoque
+            // fantasma: o sistema vende o que nao tem, ou esconde o que tem.
+            // Mesmo recorte do CaixaMigrator: o saldo herdado do legado não
+            // deriva do histórico, e cobrar isso reprovaria 121 chaves de
+            // partida. Só o que nasce aqui responde pela igualdade.
+            new BalanceInvariant(
+                $ctx, 'estoquehistorico', 'quantidade', 'estoquesaldos', 'quantidade',
+                ['setor_id', 'produto_id'], 0.001, [], $this->fronteiraSaldos($ctx),
+            ),
         ];
     }
 
@@ -278,6 +289,25 @@ final class EstoqueMigrator implements Migrator
             return $ctx->legado()->getSchemaBuilder()->hasTable($tabela);
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * Primeiro id de `estoquesaldos` que não veio do legado. Ver a explicação
+     * em CaixaMigrator::fronteiraLegado().
+     */
+    private function fronteiraSaldos(MigrationContext $ctx): ?int
+    {
+        try {
+            if (! $ctx->legado()->getSchemaBuilder()->hasTable('estoquesetors')) {
+                return null;
+            }
+
+            $max = (int) ($ctx->legado()->table('estoquesetors')->max('id') ?? 0);
+
+            return $max > 0 ? $max + 1 : null;
+        } catch (\Throwable) {
+            return null;
         }
     }
 }

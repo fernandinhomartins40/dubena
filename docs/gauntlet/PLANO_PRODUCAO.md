@@ -1240,7 +1240,7 @@ psql -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public'
 
 **Pronto quando (binário).** `grep -c 'tries\|backoff\|failed' erp-novo/app/Jobs/NotificarEstoqueBaixoJob.php` ≥ 3, e nenhum caminho de falha retorna sem registrar log.
 
-### T5.1 — Reauditar e absorver a seção 5 — **[placeholder]**
+### T5.1 — Reauditar e absorver a seção 5 — ✅ **CONCLUÍDA**
 
 **Instrução ao agente Opus 5 que retomar este plano.**
 
@@ -1257,7 +1257,25 @@ psql -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public'
 - Comentário do compose fala em "11 comandos" agendados; `routes/console.php` define **8**. Documentação interna desatualizada. (Auditoria §9 §7.2)
 - `MigrationResult` tem campo `avisos` (`app/Etl/Support/MigrationResult.php:15`) que **nenhum** dos 68 catches usa. (Auditoria §5 §4.4) — parcialmente endereçado pela T2.6.
 
-**Pronto quando (binário).** Esta seção do plano deixa de conter a palavra "placeholder" e contém N tarefas rastreadas à seção 5 com critérios de aceite verificáveis.
+**Resultado.** Reauditoria completa em `docs/gauntlet/T5.1_ACHADOS.md`.
+
+- **1 das 4 refutações é falsa** (R2, jobs com `$tries`) — e o defeito era maior
+  que o registrado: **nenhum** dos 4 jobs de domínio tinha `failed()`, e
+  `GeocodificarClienteJob` tinha `$tries` decorativo (engolia a exceção, então
+  as tentativas nunca aconteciam). R1, R3 e R4 confirmadas verdadeiras.
+- **`BalanceInvariant` estava declarada, testada e nunca registrada** por nenhum
+  migrator — a invariante do princípio #5 jamais rodou no `cutover:check`.
+  Registrada em `CaixaMigrator` e `EstoqueMigrator`; `cutover:check` foi de
+  **69 OK / 0 falhas** para **71 OK / 0 falhas**.
+- **Cascas vazias removidas** (`Etl/Loaders|Readers|Transformers`, `Policies`).
+- ⚠️ **Risco conhecido registrado, não resolvido:** o saldo materializado do
+  legado não deriva dos movimentos do legado (conta 692: `saldoatual = 0` na
+  ORIGEM com R$ 26,5 mi em movimentos). Não é defeito da migração. Exige
+  conferência de 2–3 contas contra extrato bancário antes do go-live — decisão
+  do dono, em `T5.1_ACHADOS.md` §4.
+
+**F5 não é pré-requisito de F6** (item 3 da instrução): nenhum achado produz
+comportamento errado em produção.
 
 ---
 

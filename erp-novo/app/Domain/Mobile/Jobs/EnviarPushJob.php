@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /**
  * EnviarPushJob (P0) — entrega de push fora do request, na fila.
@@ -45,10 +46,29 @@ class EnviarPushJob implements ShouldQueue
         $this->capturarTenant();
     }
 
+    /** Uma chamada de push pendurada não pode segurar o worker. */
+    public int $timeout = 60;
+
     public function handle(PushTransport $transport): void
     {
         $this->aplicarTenant();
 
         $transport->enviar($this->tokens, $this->titulo, $this->corpo, $this->dados);
+    }
+
+    /**
+     * Esgotadas as tentativas, a notificação NÃO chegou ao aparelho.
+     *
+     * Push é best-effort por natureza, mas silêncio total não serve: no fluxo
+     * do pedido é assim que o cliente sabe que a entrega saiu. Sem este log, a
+     * única pista ficaria em `failed_jobs`, que ninguém lê no dia a dia.
+     */
+    public function failed(\Throwable $e): void
+    {
+        Log::error('push: envio falhou apos todas as tentativas', [
+            'titulo' => $this->titulo,
+            'destinatarios' => count($this->tokens),
+            'erro' => $e->getMessage(),
+        ]);
     }
 }

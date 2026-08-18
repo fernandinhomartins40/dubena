@@ -71,7 +71,7 @@ services:
     networks:
       - erpnovo
 
-  # SCHEDULER (PF-6) — dispara os 11 comandos agendados (expirar PIX, gerar missões,
+  # SCHEDULER (PF-6) — dispara os 8 comandos agendados (expirar PIX, gerar missões,
   # notificar vencidos, sync GPS…). `schedule:work` é um loop que executa o
   # schedule:run a cada minuto no próprio processo (sem precisar de crontab no host).
   scheduler:
