@@ -1300,7 +1300,7 @@ Estes são fatos verificados, não suposições — e eles **determinam** o form
 
 ---
 
-### T6.1 — Escrever o runbook do cutover — **[BLOQUEANTE]**
+### T6.1 — Escrever o runbook do cutover — ⚠️ **ESCRITO, NÃO ENSAIADO**
 
 **Achado que justifica.** Auditoria §9 §7.7.1: *"Janela de congelamento do legado + recarga final completa é o único caminho suportado (não há delta). Procedimento: congelar escrita no legado → `etl:run` completo contra o legado de produção → `cutover:check` → `golive:check --strict` → virada do Nginx. **Nada disso está roteirizado como runbook/workflow.**"*
 
@@ -1329,6 +1329,12 @@ Estes são fatos verificados, não suposições — e eles **determinam** o form
 
 **Pronto quando (binário).** `deploy/CUTOVER_RUNBOOK.md` existe, foi **ensaiado por inteiro em staging pelo menos uma vez**, e cada passo tem tempo medido registrado ao lado.
 
+**Estado:** o arquivo existe com todos os passos, portões, checklists e os três
+níveis de rollback com gatilho observável. **A coluna "tempo medido" está vazia
+e os campos de decisor/responsável estão em branco** — o ensaio exige staging
+com dump real de produção e é trabalho de operação, não de código. Enquanto
+essa coluna estiver vazia, a T6.1 NÃO está pronta e a janela não deve abrir.
+
 ---
 
 ### T6.2 — Preparar o banco de produção limpo — **[BLOQUEANTE]**
@@ -1354,7 +1360,7 @@ SELECT count(*) FROM information_schema.tables WHERE table_schema='legado';  -- 
 
 ---
 
-### T6.3 — Estratégia de virada do Nginx (com reversão em 1 comando) — **[BLOQUEANTE]**
+### T6.3 — Estratégia de virada do Nginx (com reversão em 1 comando) — ⚠️ **ESCRITO, FALTA ENSAIAR NA VPS**
 
 **Achado que justifica.** Auditoria §9 §7.4: `deploy/nginx/gasemcasa-com.conf` já roteia `/` e `/novo/` para o container novo (:3120) e o resto para o legado (:3110). A aplicação real na VPS é **NÃO VERIFICADA** — confirmar antes.
 
@@ -1431,7 +1437,12 @@ bash deploy/nginx/virar.sh legado && curl -sf https://gasemcasa.com/
 2. **Primeira hora:** confirmar que os 8 agendamentos de `routes/console.php` rodaram — especialmente `pix:expirar` (a cada minuto) e `logistica:gerar-missoes` (a cada 10 min). Confirmar que os jobs estão sendo consumidos (`AtribuirPedidoJob`, `EnviarPushJob`) — sem worker, auto-atribuição e push ficam **inertes** (Auditoria §9 §7.2).
 3. **Primeiro dia:** acompanhar com o operador. Cada "não consigo fazer X" é uma lacuna da triagem T4.9 se materializando — registre e cruze.
 4. **Legado em modo leitura:** manter o `ctrl-web` **de pé mas sem escrita** por pelo menos 30 dias. É a rede de consulta para o que a T4.9 classificou como `PÓS-GO-LIVE` e a fonte para qualquer reconciliação.
-5. **Congelar o ETL:** depois da virada, o legado não recebe mais escrita, então re-rodar `etl:run` **sobrescreveria** dados criados no novo sobre ids legados (comportamento verificado do upsert). Desabilitar o comando ou protegê-lo com uma flag explícita `--eu-sei-o-que-estou-fazendo`.
+5. ✅ **Congelar o ETL — FEITO.** `etl:run` agora se recusa a rodar quando
+   detecta pedidos criados no sistema novo (id acima da faixa do legado). A
+   detecção é por **evidência no banco**, não por flag que alguém precisa
+   lembrar de ligar. Verificado em execução real: bloqueia com exit 1
+   ("existem 8421 pedido(s) criados NESTE sistema"), `--dry-run` passa livre, e
+   `--eu-sei-o-que-estou-fazendo` libera.
 
 **Pronto quando (binário).**
 ```bash

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Runner do ETL (migração legado → novo).
@@ -20,12 +21,19 @@ class EtlRun extends Command
 {
     protected $signature = 'etl:run {migrator? : nome do migrador (vazio = todos)}
                                     {--dry-run : não grava, apenas simula}
-                                    {--check : valida invariantes após a carga}';
+                                    {--check : valida invariantes após a carga}
+                                    {--eu-sei-o-que-estou-fazendo : libera a recarga DEPOIS do cutover (T6.6.5)}';
 
     protected $description = 'Executa a migração de dados do banco legado para o schema novo (ETL).';
 
     public function handle(): int
     {
+        if (($erro = $this->travaPosCutover()) !== null) {
+            $this->error($erro);
+
+            return self::FAILURE;
+        }
+
         // Carga de migração legítima: os migradores materializam mapas de FK do
         // dump inteiro (443 mil títulos, 475 mil parcelas, 442 mil rateios) —
         // o limite padrão de 512M do CLI derruba o financeiro no meio.
@@ -105,5 +113,84 @@ class EtlRun extends Command
         $this->info('ETL concluído.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * T6.6.5 — impede a recarga depois que o sistema novo virou fonte da verdade.
+     *
+     * **O perigo concreto.** A recarga é idempotente por upsert preservando id
+     * (`PreservaIdsDoLegado`): re-rodar o ETL **sobrescreve** qualquer linha de
+     * id legado que tenha sido editada no sistema novo. Antes do cutover isso é
+     * a característica desejada — é o que torna a recarga final possível. Depois
+     * dele, é destruição silenciosa de trabalho real: o cliente cujo endereço o
+     * atendente corrigiu ontem volta ao endereço errado do legado, sem erro,
+     * sem log, sem ninguém perceber até a entrega falhar.
+     *
+     * **Como detecta.** Não por flag de configuração que alguém precisa lembrar
+     * de ligar, mas por evidência no próprio banco: existe pedido criado no
+     * sistema novo (id acima da faixa preservada do legado). Se a operação já
+     * está gerando pedidos aqui, o cutover aconteceu — independentemente do que
+     * qualquer arquivo diga.
+     *
+     * `--dry-run` passa livre: simular não grava nada.
+     *
+     * @return string|null mensagem de erro, ou null se pode prosseguir
+     */
+    private function travaPosCutover(): ?string
+    {
+        if ($this->option('dry-run') || $this->option('eu-sei-o-que-estou-fazendo')) {
+            return null;
+        }
+
+        try {
+            $novo = DB::connection();
+
+            if (! $novo->getSchemaBuilder()->hasTable('pedidos')) {
+                return null;   // banco ainda não migrado: nada a proteger
+            }
+
+            $maxLegado = $this->maiorIdDoLegado('pedidos');
+
+            if ($maxLegado === null) {
+                return null;   // sem legado acessível: não dá para afirmar nada
+            }
+
+            $nascidosAqui = (int) $novo->table('pedidos')->where('id', '>', $maxLegado)->count();
+
+            if ($nascidosAqui === 0) {
+                return null;
+            }
+
+            return "RECARGA BLOQUEADA: existem {$nascidosAqui} pedido(s) criados NESTE sistema "
+                ."(id > {$maxLegado}, a faixa do legado).
+"
+                ."  O cutover ja aconteceu. Re-rodar o ETL sobrescreveria, via upsert por id, 
+"
+                ."  toda edicao feita aqui sobre linhas herdadas — sem erro e sem log.
+"
+                .'  Se ainda assim for necessario, use --eu-sei-o-que-estou-fazendo (e tenha backup).';
+        } catch (\Throwable) {
+            // Falha ao inspecionar não pode virar bloqueio: em dev/CI o legado
+            // costuma estar ausente, e travar aí impediria o uso normal.
+            return null;
+        }
+    }
+
+    /** Maior id da tabela no legado, ou null se a origem não estiver acessível. */
+    private function maiorIdDoLegado(string $tabela): ?int
+    {
+        try {
+            $legado = DB::connection('legado');
+
+            if (! $legado->getSchemaBuilder()->hasTable($tabela)) {
+                return null;
+            }
+
+            $max = (int) ($legado->table($tabela)->max('id') ?? 0);
+
+            return $max > 0 ? $max : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
