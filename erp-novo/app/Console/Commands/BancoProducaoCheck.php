@@ -59,6 +59,7 @@ class BancoProducaoCheck extends Command
         $this->verificarSeedDemo();
         $this->verificarRoleRestrita();
         $this->verificarEspelhoLegado();
+        $this->verificarConexaoLegado();
 
         $this->newLine();
         $this->line("Resultado: {$this->fail} FALHA(s), {$this->warn} aviso(s).");
@@ -214,6 +215,44 @@ class BancoProducaoCheck extends Command
             );
         } catch (\Throwable $e) {
             $this->item('Espelho do legado verificável', false, $e->getMessage());
+        }
+    }
+
+    /**
+     * A app CONSEGUE LER o espelho? (18/08/2026)
+     *
+     * Ter o schema espelhado não basta: a conexão `legado` precisa apontar para
+     * ele e a role de runtime precisa ter SELECT. Em produção os dois falharam
+     * ao mesmo tempo — o `.env` apontava para um banco `ctrl` inexistente (o
+     * default de `config/database.php`) e o schema pertencia ao owner.
+     *
+     * **O sintoma não era erro.** Os migrators avisam "tabela ausente no
+     * espelho" e PULAM, então colaboradores, frota, plano de contas e centro de
+     * custo ficaram vazios sem nada quebrar. Descoberto só quando alguém
+     * estranhou as telas zeradas — que é tarde demais numa janela de cutover.
+     */
+    private function verificarConexaoLegado(): void
+    {
+        try {
+            $tabelas = DB::connection('legado')
+                ->getSchemaBuilder()
+                ->hasTable('clientes');
+
+            $this->item(
+                'App consegue LER o espelho (conexão `legado`)',
+                $tabelas,
+                'a conexão `legado` não enxerga o espelho. Confira LEGADO_DB_HOST/DATABASE/USERNAME '
+                .'(devem ser os MESMOS de DB_*) e LEGADO_DB_SCHEMA=legado',
+            );
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+
+            $dica = str_contains($msg, 'does not exist') || str_contains($msg, 'permission denied')
+                ? 'falta GRANT: `GRANT USAGE ON SCHEMA legado TO erp_app; '
+                    .'GRANT SELECT ON ALL TABLES IN SCHEMA legado TO erp_app;`'
+                : 'conexão `legado` mal configurada — o espelho vive no MESMO banco, schema `legado`';
+
+            $this->item('App consegue LER o espelho (conexão `legado`)', false, $dica);
         }
     }
 
