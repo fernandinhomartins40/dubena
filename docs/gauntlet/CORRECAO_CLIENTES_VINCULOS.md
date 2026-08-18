@@ -282,3 +282,131 @@ Mesmo efeito: o endereço da empresa não persiste pelo formulário.
 
 **Recomendação:** padronizar em FK como no cliente — cidade e bairro digitados
 livremente não casam com os cadastros usados no roteirizador e na logística.
+
+---
+
+# Segunda rodada: a varredura de TODAS as páginas
+
+Depois de corrigir clientes, varri as 27 features da SPA e todas as tabelas de
+lookup em produção, procurando o mesmo padrão. **A suspeita estava certa: o
+problema não era exclusivo de clientes.** Mas não era um defeito só — eram três.
+
+## Defeito A — cadastros de apoio vazios (6 tabelas)
+
+Todas do `CadastrosApoioMigrator`, o migrator que falhava em silêncio:
+
+| Tabela | Origem | Destino | Telas afetadas |
+|---|---|---|---|
+| `bancos` | 148 | **0** | Financeiro, Contas |
+| `contamovimentotipos` | 9 | **0** | Lançamentos, Malote |
+| `segmentos` | 4 | **0** | Clientes |
+| `telefonetipos` | 3 | **0** | Clientes (aba Contatos) |
+| `clientecontatotipos` | 3 | **0** | Clientes (aba Interações) |
+| `tipopessoas` | 2 | **0** | Clientes |
+
+Corrigido na primeira rodada. **Requer recarga** (passo 2 do procedimento).
+
+## Defeito B — FKs que o ETL lia mas não gravava
+
+| Tabela | Coluna | Origem | Destino | Causa |
+|---|---|---|---|---|
+| `pedidos` | `condicaopagamento_id` | **400.070** | 0 | nunca mapeada no migrator |
+| `contas` | `banco_id` | 7 | 0 | lida p/ derivar `tipo`, descartada em seguida |
+| `clientes` | `tipopessoa_id` | 44.349 | 0 | efeito cascata do defeito A |
+| `clientes` | `segmento_id` | 43.493 | 0 | efeito cascata do defeito A |
+
+### Por que o de pedidos é o mais grave
+
+`condicaopagamento_id` não é um campo decorativo:
+
+- `FinanceiroService` decide o lançamento por ele (à vista × a prazo);
+- `MaloteService` confere o fechamento de caixa pelo mesmo campo.
+
+Com 400 mil pedidos migrados sem ele, **o histórico financeiro perdeu a forma de
+pagamento** — e a conferência de malote não teria como fechar.
+
+### Por que a correção não foi trivial
+
+`condicaopagamentos` é carregada pelo `ComplementosMigrator`, que roda em **23º**
+na ordem topológica. `pedidos` roda em **11º**. E a FK
+`pedidos.condicaopagamento_id` é *imediata* (não deferrable), então gravar o
+pedido antes da condição existir viola a constraint.
+
+Inverter a dependência criaria ciclo:
+`complementos → caixa → financeiro → pedidos → complementos`.
+
+**Solução:** o `PedidosMigrator` passou a carregar as condições ele mesmo, quando
+a tabela ainda está vazia, usando **o mesmo critério de deduplicação** do
+`ComplementosMigrator` (o legado repete descrições e o destino tem
+`UNIQUE(grupo_id, descricao)`; a primeira ocorrência vence, as demais são
+remapeadas para ela). Os dois precisam concordar — se divergissem, o segundo a
+rodar apontaria para outro id. O `ComplementosMigrator` já tinha o guard
+`if (count() === 0)`, então ele apenas calcula o remap para as parcelas.
+
+## Defeito C — rótulos não emitidos pelo backend
+
+Varri os 36 arquivos que usam `AsyncSelect`: **todos** passam `valueLabel`
+corretamente. O defeito estava só no backend, que nunca emitiu `*_label`.
+Corrigido em Clientes, Produtos, Frota e RH.
+
+Restam dois, ligados a divergências estruturais (ver seção anterior):
+`regiao_label` e `grupofiscal_label`.
+
+---
+
+## O que a varredura descartou
+
+Para registro — foram verificados e estão **corretos**:
+
+- **Outros migrators com `catch (\Throwable)` silencioso:** nenhum. O
+  `CadastrosApoioMigrator` era o último; os demais já usam
+  `RegistraFalhaDeLeitura`.
+- **Tabelas do espelho ausentes:** 6 de 130 mapeadas
+  (`clienteconvenios`, `contaextratoconfigs`, `creditopiscofins`,
+  `motivonaovendas`, `nfrecebidaparcelas`, `pedidomotivoatrasos`) — nenhuma é
+  usada por migrator algum; não existem no dump deste cliente.
+- **`AsyncSelect` sem `valueLabel`:** nenhum caso.
+- **FKs de cidade/bairro/rua/convênio dos clientes, cargo dos colaboradores,
+  tipo/combustível dos veículos:** todas preservadas (origem = destino).
+
+## Testes de regressão
+
+`tests/Migration/FksNaoMapeadasTest.php` — 4 testes que falham sem a correção:
+
+- pedido preserva a condição de pagamento;
+- condição duplicada cai na canônica (e a duplicada não é gravada);
+- conta preserva o banco;
+- conta com banco inexistente não quebra a carga.
+
+**Por que faltava um teste assim:** a `CountInvariant` compara a *quantidade* de
+linhas (400.070 = 400.070, passa) e nada olhava se as *colunas* chegaram
+preenchidas. Uma FK esquecida no `mapearPedido()` não aparecia em lugar nenhum do
+relatório do `etl:run`.
+
+---
+
+## Procedimento atualizado de recarga
+
+Depois de corrigir o `.env` (passo 1, inalterado), a recarga precisa incluir os
+migrators afetados pelos defeitos A e B:
+
+```bash
+# apoio primeiro: é dele que vêm bancos, tipos de pessoa, segmentos...
+docker exec erpnovo-app php artisan etl:run cadastros-apoio
+
+# clientes: recupera tipopessoa_id e segmento_id
+docker exec erpnovo-app php artisan etl:run clientes
+
+# pedidos: recupera condicaopagamento_id dos 400 mil
+docker exec erpnovo-app php artisan etl:run pedidos
+
+# caixa: recupera banco_id das contas
+docker exec erpnovo-app php artisan etl:run caixa
+
+# confere
+docker exec erpnovo-app php artisan banco:producao-check --pos-etl
+docker exec erpnovo-app php artisan cutover:check
+```
+
+⚠️ `etl:run pedidos` recarrega 400 mil linhas — leva tempo. É idempotente
+(upsert por id), mas **não rode durante uso ativo do sistema**.

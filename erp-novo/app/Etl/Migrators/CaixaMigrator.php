@@ -71,6 +71,10 @@ final class CaixaMigrator implements Migrator
                 'descricao' => mb_substr(trim((string) $r->descricao), 0, 255),
                 // O legado não rotula caixa/banco: quem tem banco é BANCO.
                 'tipo' => ! empty($r->banco_id) ? 'BANCO' : 'CAIXA',
+                // O `banco_id` era lido para derivar o tipo, mas não gravado — a
+                // conta chegava marcada como BANCO sem dizer QUAL banco, e a tela
+                // de contas exibia o campo vazio.
+                'banco_id' => $r->banco_id ?? null,
                 'agencia' => mb_substr((string) ($r->agencia ?? ''), 0, 20) ?: null,
                 'numero' => mb_substr((string) ($r->conta ?? ''), 0, 30) ?: null,
                 'saldo_inicial' => round((float) ($r->saldoinicial ?? 0), 2),
@@ -81,6 +85,10 @@ final class CaixaMigrator implements Migrator
         }
 
         if (! $ctx->dryRun) {
+            // `bancos` vem do migrator de apoio, que pode não ter rodado (ou ter
+            // vindo incompleto do dump). FK nullable: referência sem destino vira
+            // null em vez de derrubar a carga inteira das contas.
+            $contas = $this->anularFksInvalidas($contas, ['banco_id' => 'bancos']);
             $gravados += $this->gravarPreservandoId('contas', $contas);
         }
 
@@ -162,7 +170,7 @@ final class CaixaMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
 
         return [
             new CountInvariant($ctx, 'contas', 'contas'),

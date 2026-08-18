@@ -24,6 +24,9 @@ final class PedidosMigrator implements Migrator
 
     private ?MigrationContext $ctxAtual = null;
 
+    /** @var array<int, true> ids de condicaopagamentos que existem no destino */
+    private array $idsCondicao = [];
+
     public function nome(): string
     {
         return 'pedidos';
@@ -63,11 +66,20 @@ final class PedidosMigrator implements Migrator
         $idsSituacao = $this->idsExistentes('pedidosituacoes');
         $idsCliente = $this->idsExistentes('clientes');
 
+        // `condicaopagamentos` é carregada pelo `complementos`, que roda DEPOIS
+        // de `pedidos` na ordem topológica (complementos depende de caixa, que
+        // depende de financeiro, que depende de pedidos). Inverter a dependência
+        // criaria ciclo. Como o legado repete descrições e o destino tem
+        // UNIQUE(grupo_id, descricao), a duplicada é remapeada para a canônica —
+        // o mesmo critério do `ComplementosMigrator`, para os dois concordarem.
+        $remapCondicao = $this->remapCondicaoPagamento($ctx);
+        $this->idsCondicao = $this->idsExistentes('condicaopagamentos');
+
         // As tabelas podem não existir no dump em uso (o legado varia por
         // instalação); ausência é "nada a migrar", não falha da carga.
         if ($this->tabelaExiste($ctx, 'pedidos')) {
             $ctx->legado()->table('pedidos')->orderBy('id')->chunk(2000,
-                function ($rows) use (&$gravados, &$lidos, &$pulados, $ctx, $idsSituacao, $idsCliente) {
+                function ($rows) use (&$gravados, &$lidos, &$pulados, $ctx, $idsSituacao, $idsCliente, $remapCondicao) {
                     $lote = [];
                     foreach ($rows as $r) {
                         $lidos++;
@@ -79,7 +91,7 @@ final class PedidosMigrator implements Migrator
 
                             continue;
                         }
-                        $lote[] = $this->mapearPedido($r);
+                        $lote[] = $this->mapearPedido($r, $remapCondicao);
                     }
                     if ($lote !== [] && ! $ctx->dryRun) {
                         // Setor, operação e usuários são opcionais no schema
@@ -90,6 +102,11 @@ final class PedidosMigrator implements Migrator
                             'atendente_user_id' => 'users',
                             'entregador_user_id' => 'users',
                         ]);
+                        // NÃO passa `condicaopagamento_id` por `anularFksInvalidas`:
+                        // a tabela destino ainda está vazia neste ponto da ordem, e
+                        // a checagem zeraria os 400 mil vínculos — que foi
+                        // exatamente o bug. A validade já foi garantida contra a
+                        // ORIGEM em `remapCondicaoPagamento()`.
                         $gravados += $this->gravarPreservandoId('pedidos', $lote);
                     }
                 });
@@ -142,7 +159,7 @@ final class PedidosMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return [];
         }
@@ -281,8 +298,95 @@ final class PedidosMigrator implements Migrator
         return $ids;
     }
 
-    /** @return array<string, mixed> */
-    private function mapearPedido(object $r): array
+    /**
+     * Garante `condicaopagamentos` carregada e devolve o remap duplicada→canônica.
+     *
+     * O `ComplementosMigrator` é o dono desta tabela, mas roda DEPOIS de `pedidos`
+     * (complementos → caixa → financeiro → pedidos), e inverter a dependência
+     * criaria ciclo. Como a FK `pedidos.condicaopagamento_id` é imediata, gravar o
+     * pedido antes da condição existir violaria a constraint — por isso a carga
+     * acontece aqui quando a tabela ainda está vazia.
+     *
+     * O critério de deduplicação é o MESMO do `ComplementosMigrator` (primeira
+     * ocorrência por (grupo, descrição) vence, pelo UNIQUE do destino): os dois
+     * precisam concordar, senão o segundo a rodar remapearia para outro id.
+     *
+     * @return array<int, int> id do legado => id canônico no destino
+     */
+    private function remapCondicaoPagamento(MigrationContext $ctx): array
+    {
+        if (! $this->tabelaExiste($ctx, 'condicaopagamentos')) {
+            return [];
+        }
+
+        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
+        $jaCarregada = DB::table('condicaopagamentos')->count() > 0;
+
+        $remap = [];
+        $canonicaDaDescricao = [];
+        $lote = [];
+
+        foreach ($ctx->legado()->table('condicaopagamentos')->orderBy('id')->get() as $r) {
+            $grupo = (int) ($r->grupo_id ?? 0) ?: $grupoPadrao;
+            $descricao = mb_substr(trim((string) $r->descricao), 0, 255);
+            $chave = $grupo.'|'.mb_strtolower($descricao);
+
+            if (isset($canonicaDaDescricao[$chave])) {
+                $remap[(int) $r->id] = $canonicaDaDescricao[$chave];
+
+                continue;
+            }
+            $canonicaDaDescricao[$chave] = (int) $r->id;
+
+            $lote[] = [
+                'id' => (int) $r->id,
+                'grupo_id' => $grupo,
+                'descricao' => $descricao,
+                'num_parcelas' => (int) ($r->num_parcelas ?? 1) ?: 1,
+                'intervalo_dias' => (int) ($r->intervalo ?? 30),
+                'dias_primeira' => (int) ($r->dias_primeira ?? 0),
+                // O legado não tem flag "à vista": é à vista quando a condição
+                // tem uma parcela sem prazo.
+                'a_vista' => (int) ($r->num_parcelas ?? 1) <= 1
+                    && (int) ($r->dias_primeira ?? 0) === 0,
+                'ativo' => ! in_array((string) ($r->ativo ?? '1'), ['0', '', 'N', 'n'], true),
+                'created_at' => $r->created_at ?? null,
+            ];
+        }
+
+        if (! $jaCarregada && $lote !== [] && ! $ctx->dryRun) {
+            $this->gravarPreservandoId('condicaopagamentos', $lote);
+        }
+
+        return $remap;
+    }
+
+    /**
+     * Condição do pedido já resolvida para o id que EXISTE no destino.
+     *
+     * Duplicada vira canônica pelo remap; o que não sobreviveu à carga (o dump
+     * tem pedido apontando para condição inexistente) vira null — a coluna é
+     * nullable, e derrubar o lote inteiro por isso seria pior.
+     *
+     * @param  array<int, int>  $remapCondicao
+     */
+    private function condicaoResolvida(object $r, array $remapCondicao): ?int
+    {
+        $id = (int) ($r->condicaopagamento_id ?? 0);
+        if ($id === 0) {
+            return null;
+        }
+
+        $id = $remapCondicao[$id] ?? $id;
+
+        return isset($this->idsCondicao[$id]) ? $id : null;
+    }
+
+    /**
+     * @param  array<int, int>  $remapCondicao
+     * @return array<string, mixed>
+     */
+    private function mapearPedido(object $r, array $remapCondicao = []): array
     {
         return [
             'id' => (int) $r->id,
@@ -291,6 +395,12 @@ final class PedidosMigrator implements Migrator
             'cliente_id' => (int) $r->cliente_id,
             'pedidooperacao_id' => $r->pedidooperacao_id ?? null,
             'pedidosituacao_id' => (int) $r->pedidosituacao_id,
+            // A forma de pagamento não era mapeada: 400 mil pedidos migravam com
+            // `condicaopagamento_id` nulo. O FinanceiroService decide o lançamento
+            // por ela (à vista × a prazo) e o MaloteService confere o malote pelo
+            // mesmo campo — sem ele, o histórico financeiro perde a forma de
+            // pagamento e a conferência de caixa não fecha.
+            'condicaopagamento_id' => $this->condicaoResolvida($r, $remapCondicao),
             'setor_id' => $r->entregasetor_id ?? null,
             'atendente_user_id' => $r->atendenteuser_id ?? null,
             'entregador_user_id' => $r->entregadoruser_id ?? null,
