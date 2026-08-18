@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Domain\Cliente\GeocodificarClienteJob;
+use App\Models\Apoio\Segmento;
+use App\Models\Apoio\TipoPessoa;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Geografico\Cidade;
@@ -29,6 +31,37 @@ class ClienteTest extends TestCase
         ]);
 
         return [$user, $empresa];
+    }
+
+    /**
+     * O formulario de edicao le `tipopessoa_label`/`segmento_label` para exibir
+     * o valor ja escolhido: o AsyncSelect so busca a lista quando o usuario abre
+     * o popover, entao sem o rotulo o campo preenchido aparece como
+     * "Selecione..." — foi assim que clientes migrados pareceram sem vinculo.
+     */
+    public function test_show_devolve_os_rotulos_das_fks(): void
+    {
+        [$user, $empresa] = $this->suporte();
+
+        $tipo = TipoPessoa::create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'Fisica', 'ativo' => true]);
+        $segmento = Segmento::create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'Residencial', 'ativo' => true]);
+        $cidade = Cidade::factory()->create(['grupo_id' => $empresa->grupo_id]);
+
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'tipopessoa_id' => $tipo->id,
+            'segmento_id' => $segmento->id,
+            'cidade_id' => $cidade->id,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson("/api/admin/clientes/{$cliente->id}")
+            ->assertOk()
+            ->assertJsonPath('data.tipopessoa_id', $tipo->id)
+            ->assertJsonPath('data.tipopessoa_label', 'Fisica')
+            ->assertJsonPath('data.segmento_label', 'Residencial')
+            ->assertJsonPath('data.cidade_label', $cidade->descricao);
     }
 
     public function test_lista_apenas_clientes_da_empresa_ativa(): void

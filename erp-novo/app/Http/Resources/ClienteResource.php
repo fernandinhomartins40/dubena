@@ -52,6 +52,14 @@ class ClienteResource extends JsonResource
             'cidade_id' => $this->cidade_id,
             'bairro_id' => $this->bairro_id,
             'rua_id' => $this->rua_id,
+            // Labels das FKs: o AsyncSelect so busca a lista quando o usuario
+            // abre o popover. Sem o rotulo junto do id, o campo preenchido
+            // aparece como "Selecione..." — parecendo cliente sem vinculo.
+            'cidade_label' => $this->whenLoaded('cidade', fn () => $this->cidade?->descricao),
+            'bairro_label' => $this->whenLoaded('bairro', fn () => $this->bairro?->descricao),
+            'rua_label' => $this->whenLoaded('rua', fn () => $this->rua?->descricao),
+            'tipopessoa_label' => $this->whenLoaded('tipopessoa', fn () => $this->tipopessoa?->descricao),
+            'segmento_label' => $this->whenLoaded('segmento', fn () => $this->segmento?->descricao),
             'email' => $this->email,
             'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
             'longitude' => $this->longitude !== null ? (float) $this->longitude : null,

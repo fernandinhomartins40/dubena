@@ -30,7 +30,6 @@ export interface ClienteForm {
   inscricao_estadual?: string | null
   indicador_ie?: number | null
   suframa?: string | null
-  consisa_id?: string | null
   // Flags
   cliente?: boolean
   fornecedor?: boolean

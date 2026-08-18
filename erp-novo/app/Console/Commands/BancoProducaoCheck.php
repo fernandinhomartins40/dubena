@@ -60,6 +60,7 @@ class BancoProducaoCheck extends Command
         $this->verificarRoleRestrita();
         $this->verificarEspelhoLegado();
         $this->verificarConexaoLegado();
+        $this->verificarCadastrosDeApoio();
 
         $this->newLine();
         $this->line("Resultado: {$this->fail} FALHA(s), {$this->warn} aviso(s).");
@@ -254,6 +255,47 @@ class BancoProducaoCheck extends Command
 
             $this->item('App consegue LER o espelho (conexão `legado`)', false, $dica);
         }
+    }
+
+    /**
+     * Cadastros de apoio carregados E com o id do legado preservado.
+     *
+     * O modo de falha que isto pega e silencioso: com a conexao `legado`
+     * quebrada, o migrator lia zero linhas, gravava zero e reportava sucesso —
+     * a CountInvariant comparava 0 origem = 0 destino e passava. Sem
+     * `tipopessoas`, o `anularFksInvalidas` do ClientesMigrator zerou o
+     * `tipopessoa_id` de 44 mil clientes, e o formulario passou a exibir
+     * cliente sem tipo nem segmento.
+     */
+    private function verificarCadastrosDeApoio(): void
+    {
+        if (! $this->option('pos-etl')) {
+            return; // antes da carga estas tabelas DEVEM estar vazias
+        }
+
+        foreach (['tipopessoas', 'segmentos', 'telefonetipos'] as $tabela) {
+            if (! Schema::hasTable($tabela)) {
+                continue;
+            }
+
+            $this->item(
+                "Cadastro de apoio `{$tabela}` carregado",
+                DB::table($tabela)->count() > 0,
+                'rode `php artisan etl:run cadastros-apoio` — sem isto os selects da SPA vem vazios',
+            );
+        }
+
+        if (! Schema::hasTable('clientes') || DB::table('clientes')->count() === 0) {
+            return;
+        }
+
+        // Vinculo preservado: se a origem tinha tipo de pessoa, o destino tambem tem.
+        $this->item(
+            'Clientes mantiveram o vinculo com tipo de pessoa',
+            DB::table('clientes')->whereNotNull('tipopessoa_id')->exists(),
+            'todos os clientes estao sem `tipopessoa_id` — sinal de que `tipopessoas` estava vazia '
+            .'na carga e as FKs foram anuladas. Recarregue apoio e depois clientes',
+        );
     }
 
     private function item(string $label, bool $ok, ?string $detalhe = null, bool $aviso = false): void

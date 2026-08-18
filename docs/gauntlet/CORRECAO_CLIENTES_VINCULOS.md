@@ -1,0 +1,284 @@
+# Correção: clientes sem tipo, segmento e rótulos no formulário
+
+**Sintoma relatado.** Ao abrir um cliente em `/novo/app/clientes/[id]`, o
+formulário não mostrava os dados completos: "Tipo de Pessoa" e "Segmento"
+apareciam como *Selecione…*, e os dropdowns não listavam opção alguma.
+
+**Não era um bug só.** Eram cinco defeitos encadeados, e o mais grave é que
+**nenhum deles gerava erro** — a carga reportava sucesso.
+
+---
+
+## Antes: o que é a conexão `legado` (não é o ctrl-web)
+
+O nome confunde, e vale fixar — **o erp-novo tem banco próprio e não lê o banco
+do sistema legado.**
+
+| Nome | O que é | Onde vive |
+|---|---|---|
+| `ctrl-web` | O ERP legado em produção | Container `ctrl-web-db`, **banco separado — o erp-novo nunca toca nele** |
+| schema `legado` | Uma *cópia congelada* do dump Oracle | **Dentro** do banco `erp_novo`, 121 tabelas |
+
+```
+banco erp_novo
+├── schema public   → 190 tabelas  ← o sistema novo roda aqui
+└── schema legado   → 121 tabelas  ← cópia do dump, SÓ LEITURA, só para o ETL
+```
+
+O schema `legado` é a **matéria-prima do ETL**: o comando `etl:run` lê de
+`legado.clientes` e escreve em `public.clientes`. Por isso a conexão chamada
+`legado` no `.env` aponta para o **mesmo banco** (`LEGADO_DB_DATABASE=erp_novo`)
+com `LEGADO_DB_SCHEMA=legado`.
+
+**Por que dentro do mesmo banco:** o ETL compara origem e destino para validar as
+invariantes (contagens, Σ movimentos = saldo). Na mesma conexão isso é uma query;
+entre bancos separados seria frágil e lento.
+
+**Depois do cutover:** o schema `legado` pode ser descartado — já cumpriu o papel.
+O `CUTOVER_RUNBOOK.md` mantém o legado de pé, sem escrita, por 30 dias como rede
+de segurança; só depois disso faz sentido `DROP SCHEMA legado CASCADE`.
+
+---
+
+## A cadeia de falhas
+
+```
+.env de produção com a conexão `legado` errada
+        │  LEGADO_DB_HOST vazio, DATABASE=ctrl (banco que não existe),
+        │  faltando LEGADO_DB_SCHEMA=legado
+        ▼
+CadastrosApoioMigrator não consegue ler  →  catch (\Throwable) { return []; }
+        │  engoliu o erro de conexão em silêncio
+        ▼
+0 linhas lidas, 0 gravadas  →  CountInvariant compara 0 = 0  →  PASSA ✅
+        │  a invariante confirmou uma carga que não aconteceu
+        ▼
+tipopessoas / segmentos ficam VAZIAS
+        ▼
+ClientesMigrator.anularFksInvalidas() faz o que foi mandado:
+a FK aponta para tabela vazia  →  vira NULL
+        ▼
+44.349 clientes perdem tipopessoa_id e 43.493 perdem segmento_id
+        ▼
+Formulário exibe cliente sem vínculo — que é a verdade do banco
+```
+
+Havia ainda um defeito **independente** desse encadeamento: mesmo com os dados
+corretos, o formulário continuaria mostrando *Selecione…*, porque o endpoint
+`GET /clientes/{id}` nunca devolveu os campos `*_label` que a tela lê.
+
+---
+
+## O que foi corrigido no código
+
+| # | Arquivo | Defeito | Correção |
+|---|---|---|---|
+| 1 | `app/Etl/Migrators/CadastrosApoioMigrator.php` | `updateOrCreate` chaveava por `(grupo_id, descricao)` e a linha **não continha `id`** — geraria ids novos, quebrando as FKs dos clientes | Chaveia por `id` e grava com `forceFill` (o `id` não está no `$fillable` de `CadastroApoio`, então `fill` o descartaria em silêncio) |
+| 2 | `app/Etl/Migrators/CadastrosApoioMigrator.php` | `catch (\Throwable) { return []; }` transformava falha de conexão em "0 linhas, tudo certo" | Passa a usar o trait `RegistraFalhaDeLeitura`, que só engole "tabela ausente" e **registra aviso** para qualquer outra falha |
+| 3 | `app/Http/Resources/ClienteResource.php` + `ClienteController.php` | O `show` não devolvia `tipopessoa_label`, `segmento_label`, `cidade_label`, `bairro_label`, `rua_label` — o front lia cinco campos inexistentes | Resource emite os rótulos; controller faz eager-load das relações (no `show` **e** no `update`) |
+| 4 | `app/Models/Cliente/Cliente.php` | Faltavam as relações `tipopessoa()` e `segmento()` | Adicionadas |
+| 5 | `frontend/.../ClienteFormPage.tsx` | Campo "Cód. Contábil" (`consisa_id`) não existe na tabela, nem no request, nem no Resource — digitar ali não gravava nada | Campo removido |
+| 6 | `frontend/.../ClienteFormPage.tsx` | A aba Endereço não tinha o campo **Rua**, embora `rua_id` exista e o ETL preencha 44.336 delas | Campo adicionado |
+| 7 | `app/Console/Commands/BancoProducaoCheck.php` | Nada detectava "apoio vazio + FKs anuladas" | Novo `verificarCadastrosDeApoio()` (só com `--pos-etl`, read-only) |
+
+Testes de regressão em `tests/Feature/ClienteTest.php`
+(`test_show_devolve_os_rotulos_das_fks`).
+
+---
+
+## ⚠️ O passo que ficou pendente para você
+
+O código está corrigido, mas **a produção só volta ao normal depois de dois
+passos na VPS** — e o primeiro eu não consegui executar: a edição do `.env` de
+produção foi bloqueada pelo mecanismo de segurança do agente (o script
+precisava copiar a senha do banco entre variáveis).
+
+### Passo 1 — corrigir a conexão `legado` no `.env`
+
+Arquivo: `/opt/actions-runner-dubena/_work/dubena/dubena/erp-novo/.env`
+
+As chaves `LEGADO_DB_*` devem ter **os mesmos valores** das `DB_*`
+correspondentes, porque o espelho do Oracle vive no **mesmo banco `erp_novo`**,
+num schema chamado `legado` — não num banco separado.
+
+```bash
+ssh root@gasemcasa.com
+cd /opt/actions-runner-dubena/_work/dubena/dubena/erp-novo
+cp .env .env.bak-$(date +%Y%m%d%H%M%S)     # backup antes de editar
+nano .env
+```
+
+Deixe assim (copiando os valores das `DB_*` que já estão no arquivo):
+
+```env
+LEGADO_DB_HOST=db              # hoje está VAZIO  ← a causa da falha
+LEGADO_DB_PORT=5432
+LEGADO_DB_DATABASE=erp_novo    # hoje está `ctrl` (banco inexistente)
+LEGADO_DB_USERNAME=<o mesmo de DB_USERNAME>
+LEGADO_DB_PASSWORD=<o mesmo de DB_PASSWORD>
+LEGADO_DB_SCHEMA=legado        # hoje está AUSENTE ← sem isto lê o schema errado
+```
+
+A referência comentada está em `erp-novo/.env.production.example` (linhas 79-85).
+
+#### Alternativa: um comando só (copia os valores das `DB_*` automaticamente)
+
+Se preferir não editar à mão, este comando faz backup e alinha as seis chaves
+sozinho — ele **lê** os valores de `DB_*` que já estão no arquivo e os replica:
+
+```bash
+ssh root@gasemcasa.com
+cd /opt/actions-runner-dubena/_work/dubena/dubena/erp-novo
+
+cp .env .env.bak-$(date +%Y%m%d%H%M%S)
+
+python3 - <<'PY'
+import io, re
+p = ".env"
+linhas = io.open(p, encoding="utf-8").read().splitlines()
+def ler(k):
+    for l in linhas:
+        if l.startswith(k + "="):
+            return l.split("=", 1)[1]
+    return ""
+alvo = {
+    "LEGADO_DB_HOST": ler("DB_HOST") or "db",
+    "LEGADO_DB_PORT": ler("DB_PORT") or "5432",
+    "LEGADO_DB_DATABASE": ler("DB_DATABASE") or "erp_novo",
+    "LEGADO_DB_USERNAME": ler("DB_USERNAME"),
+    "LEGADO_DB_PASSWORD": ler("DB_PASSWORD"),
+    "LEGADO_DB_SCHEMA": "legado",
+}
+vistos, saida = set(), []
+for l in linhas:
+    m = re.match(r"^(LEGADO_DB_[A-Z]+)=", l)
+    if m and m.group(1) in alvo:
+        saida.append(m.group(1) + "=" + alvo[m.group(1)]); vistos.add(m.group(1))
+    else:
+        saida.append(l)
+for k, v in alvo.items():
+    if k not in vistos:
+        saida.append(k + "=" + v)
+io.open(p, "w", encoding="utf-8", newline="
+").write("
+".join(saida) + "
+")
+print("chaves LEGADO_DB_* alinhadas com DB_*")
+PY
+```
+
+Depois:
+
+```bash
+docker exec erpnovo-app php artisan config:clear
+docker exec erpnovo-app php artisan banco:producao-check --pos-etl
+```
+
+O portão deve dizer **PASS** em *"App consegue LER o espelho (conexão `legado`)"*.
+Se disser FAIL com "permission denied", falta o GRANT:
+
+```sql
+GRANT USAGE ON SCHEMA legado TO erp_app;
+GRANT SELECT ON ALL TABLES IN SCHEMA legado TO erp_app;
+```
+
+### Passo 2 — recarregar apoio e clientes
+
+⚠️ **Só depois do passo 1 passar.** Rodar antes recarrega zero de novo.
+
+```bash
+# 1. simula primeiro — não grava nada
+docker exec erpnovo-app php artisan etl:run cadastros-apoio --dry-run
+
+# 2. carrega os cadastros de apoio (deve ler 4 segmentos, 2 tipos de pessoa,
+#    3 tipos de telefone, 3 tipos de contato, 148 bancos, 9 tipos de movimento)
+docker exec erpnovo-app php artisan etl:run cadastros-apoio
+
+# 3. recarrega os clientes, agora que as FKs têm destino válido
+docker exec erpnovo-app php artisan etl:run clientes
+
+# 4. confirma
+docker exec erpnovo-app php artisan banco:producao-check --pos-etl
+```
+
+**Por que recarregar clientes também:** o `tipopessoa_id` deles já foi anulado
+no banco. Carregar só o apoio popula os dropdowns, mas os 44 mil clientes
+continuam sem vínculo — o dado precisa vir da origem de novo.
+
+O ETL é idempotente por `upsert` de `id`, então recarregar não duplica nada.
+
+### Resultado esperado
+
+| Verificação | Antes | Depois |
+|---|---|---|
+| `tipopessoas` | 0 | 2 |
+| `segmentos` | 0 | 4 |
+| `telefonetipos` | 0 | 3 |
+| `clientes` com `tipopessoa_id` | 0 | 44.349 |
+| `clientes` com `segmento_id` | 0 | 43.493 |
+
+E no formulário: Tipo de Pessoa e Segmento preenchidos, dropdowns com opções.
+
+---
+
+## Por que isso passou despercebido até agora
+
+A `CountInvariant` compara *contagem na origem × contagem no destino*. Quando a
+origem está inacessível, ela lê `0` dos dois lados e conclui que a carga foi
+fiel. **Uma invariante que compara duas leituras da mesma fonte quebrada não
+verifica nada** — ela confirma o próprio erro.
+
+É o mesmo padrão do achado do dry-run em produção (`information_schema`
+reportando "0 tabelas referenciam clientes.id" com 40 mil linhas filhas): a
+resposta vazia parecia um resultado, mas era a ausência de permissão para ver.
+
+A correção #2 ataca a raiz — falha de leitura agora vira **aviso visível** no
+relatório do `etl:run`, em vez de silêncio.
+
+---
+
+## O mesmo defeito em outras telas (corrigido junto)
+
+A busca por `*_label` mostrou que **nenhum** endpoint do sistema emitia esses
+campos — só o front os lia. Quatro telas além de clientes:
+
+| Tela | Rótulos | Situação |
+|---|---|---|
+| Produtos | `classe_label`, `unidade_label`, `vasilhame_label` | ✅ corrigido (relação `retornavel()` criada) |
+| Frota / Veículos | `tipo_label`, `combustivel_label` | ✅ corrigido (relações `tipo()` e `combustivel()` criadas) |
+| RH / Colaboradores | `cargo_label` | ✅ corrigido |
+| Empresas | `cidade_label`, `bairro_label`, `regiao_label` | ⚠️ ver abaixo |
+
+`grupofiscal_label` (Produtos) não foi tratado: `/lookups/nf-grupos-fiscais` é
+uma lista **estática** com ids sintéticos (posição no array), sem tabela por trás
+— não há relação de onde tirar o rótulo. Funciona, mas o id não é estável.
+
+---
+
+## ⚠️ Duas divergências que encontrei e **não** corrigi
+
+Estão fora do que foi pedido e a decisão é sua — corrigir o formulário ou criar
+as colunas muda o comportamento do cadastro.
+
+### 1. Formulário de Colaborador pede endereço que não é gravado
+
+`frontend/src/features/rh/ColaboradoresPage.tsx` exige **Cidade e Bairro como
+obrigatórios** (`required`), além de Número e CEP. A tabela `colaboradores`
+(`database/migrations/2026_06_22_000200_create_rh_tables.php`) **não tem nenhuma
+dessas colunas** — nem o controller as valida.
+
+O usuário preenche, o campo é enviado, e o backend descarta em silêncio.
+
+**Duas saídas:** remover os campos do formulário, ou criar as colunas via
+migration se o endereço do colaborador for requisito real do negócio.
+
+### 2. Formulário de Empresa envia FK, mas a tabela guarda texto
+
+`EmpresaFormPage.tsx` envia `cidade_id`, `bairro_id`, `rua_id` e `regiao_id`
+(via `AsyncSelect`). O model `Empresa` tem `cidade` e `bairro` como **string
+livre**, e `regiao_id`/`rua_id` não existem.
+
+Mesmo efeito: o endereço da empresa não persiste pelo formulário.
+
+**Recomendação:** padronizar em FK como no cliente — cidade e bairro digitados
+livremente não casam com os cadastros usados no roteirizador e na logística.

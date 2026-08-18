@@ -56,7 +56,11 @@ class ClienteController extends Controller
     {
         $this->autorizar($request, 'cliente.view');
 
-        return new ClienteResource(Cliente::query()->with('telefones')->findOrFail($id));
+        return new ClienteResource(
+            Cliente::query()
+                ->with(['telefones', 'cidade', 'bairro', 'rua', 'tipopessoa', 'segmento'])
+                ->findOrFail($id),
+        );
     }
 
     public function store(ClienteRequest $request): JsonResponse
@@ -76,7 +80,11 @@ class ClienteController extends Controller
         $cliente = Cliente::query()->findOrFail($id);
         $dados = $this->semCamposBloqueados($request);
 
-        return new ClienteResource($this->service->atualizar($cliente, $dados));
+        $atualizado = $this->service->atualizar($cliente, $dados);
+
+        return new ClienteResource(
+            $atualizado->load(['telefones', 'cidade', 'bairro', 'rua', 'tipopessoa', 'segmento']),
+        );
     }
 
     /** GET /clientes/exportar — CSV. Gated por cliente.export (A7). */

@@ -38,7 +38,9 @@ class ProdutoController extends Controller
     {
         $this->autorizar($request, 'produto.view');
 
-        return new ProdutoResource(Produto::query()->with('origens')->findOrFail($id));
+        return new ProdutoResource(
+            Produto::query()->with(['origens', 'classe', 'unidade', 'retornavel'])->findOrFail($id),
+        );
     }
 
     public function store(ProdutoRequest $request): JsonResponse

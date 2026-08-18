@@ -5,6 +5,7 @@ namespace App\Models\Frota;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -57,5 +58,15 @@ class Veiculo extends Model
     public function documentos(): HasMany
     {
         return $this->hasMany(VeiculoDocumento::class);
+    }
+
+    public function tipo(): BelongsTo
+    {
+        return $this->belongsTo(VeiculoTipo::class, 'veiculotipo_id');
+    }
+
+    public function combustivel(): BelongsTo
+    {
+        return $this->belongsTo(TipoCombustivel::class, 'tipocombustivel_id');
     }
 }

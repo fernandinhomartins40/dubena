@@ -17,7 +17,7 @@ import { useCliente, useSalvarCliente, type ClienteForm } from './api'
 const VAZIO: ClienteForm = {
   nome: '', fantasia: '', tipopessoa_id: null, segmento_id: null, sexo: '',
   datanascimento: '', observacoes: '',
-  cpf: '', rg: '', cnpj: '', inscricao_estadual: '', indicador_ie: null, suframa: '', consisa_id: '',
+  cpf: '', rg: '', cnpj: '', inscricao_estadual: '', indicador_ie: null, suframa: '',
   cliente: true, fornecedor: false, transportador: false, simples: false, ativo: true, nfemite: false, gasdopovo: false,
   numero: '', cidade_id: null, bairro_id: null, rua_id: null, uf: '', cep: '', complemento: '', ponto_referencia: '', email: '',
 }
@@ -128,7 +128,6 @@ export function ClienteFormPage() {
               {ehJuridica && <Field label="CNPJ" error={erros.cnpj}><Input value={form.cnpj ?? ''} error={!!erros.cnpj} onChange={(e) => campo('cnpj', e.target.value)} /></Field>}
               <Field label="Inscrição Estadual"><Input value={form.inscricao_estadual ?? ''} onChange={(e) => campo('inscricao_estadual', e.target.value)} /></Field>
               {ehJuridica && <Field label="Suframa"><Input value={form.suframa ?? ''} onChange={(e) => campo('suframa', e.target.value)} /></Field>}
-              <Field label="Cód. Contábil"><Input value={form.consisa_id ?? ''} onChange={(e) => campo('consisa_id', e.target.value)} /></Field>
               <Field label="Indicador I.E.">
                 <Select value={String(form.indicador_ie ?? '')} onValueChange={(v) => campo('indicador_ie', v ? Number(v) : null)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -153,6 +152,10 @@ export function ClienteFormPage() {
               <AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: form.cidade_id }} value={form.bairro_id ?? null} valueLabel={labels.bairro} disabled={!form.cidade_id}
                 placeholder={form.cidade_id ? 'Selecione…' : 'Escolha a cidade primeiro'}
                 onChange={(id, opt) => { campo('bairro_id', id); setLabels((l) => ({ ...l, bairro: opt?.label ?? null })) }} />
+            </Field>
+            <Field label="Rua">
+              <AsyncSelect endpoint="/lookups/ruas" params={{ bairro_id: form.bairro_id }} value={form.rua_id ?? null} valueLabel={labels.rua}
+                onChange={(id, opt) => { campo('rua_id', id); setLabels((l) => ({ ...l, rua: opt?.label ?? null })) }} />
             </Field>
             <Field label="Número" required error={erros.numero}><Input value={form.numero} error={!!erros.numero} onChange={(e) => campo('numero', e.target.value)} /></Field>
             <Field label="CEP"><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>

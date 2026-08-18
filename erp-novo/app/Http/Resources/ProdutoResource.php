@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Produto\Produto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Produto\Produto
+ * @mixin Produto
  */
 class ProdutoResource extends JsonResource
 {
@@ -20,6 +21,11 @@ class ProdutoResource extends JsonResource
             'unidademedida_id' => $this->unidademedida_id,
             'vasilhame_retornavel' => (bool) $this->vasilhame_retornavel,
             'produto_retornavel_id' => $this->produto_retornavel_id,
+            // Rotulos das FKs: o AsyncSelect so carrega a lista quando o popover
+            // abre, entao sem eles o campo preenchido exibe "Selecione...".
+            'classe_label' => $this->whenLoaded('classe', fn () => $this->classe?->descricao),
+            'unidade_label' => $this->whenLoaded('unidade', fn () => $this->unidade?->descricao),
+            'vasilhame_label' => $this->whenLoaded('retornavel', fn () => $this->retornavel?->descricao),
             'ativo' => (bool) $this->ativo,
             'envia_app_nf' => (bool) $this->envia_app_nf,
             'dias_giro' => $this->dias_giro,

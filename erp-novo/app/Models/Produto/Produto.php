@@ -72,6 +72,12 @@ class Produto extends Model
         return $this->belongsTo(UnidadeMedida::class, 'unidademedida_id');
     }
 
+    /** Vasilhame retornado na troca (auto-relacao) — `vasilhame_label` do form. */
+    public function retornavel(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'produto_retornavel_id');
+    }
+
     public function origens(): HasMany
     {
         return $this->hasMany(ProdutoOrigem::class);

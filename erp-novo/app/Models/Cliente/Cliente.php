@@ -4,6 +4,8 @@ namespace App\Models\Cliente;
 
 use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
+use App\Models\Apoio\Segmento;
+use App\Models\Apoio\TipoPessoa;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\Rua;
@@ -92,5 +94,15 @@ class Cliente extends Model
     public function rua(): BelongsTo
     {
         return $this->belongsTo(Rua::class);
+    }
+
+    public function tipopessoa(): BelongsTo
+    {
+        return $this->belongsTo(TipoPessoa::class, 'tipopessoa_id');
+    }
+
+    public function segmento(): BelongsTo
+    {
+        return $this->belongsTo(Segmento::class, 'segmento_id');
     }
 }

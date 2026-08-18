@@ -305,6 +305,9 @@ class ColaboradorController extends Controller
             'dataadmissao' => $c->data_admissao?->toDateString(),
             'datadesligamento' => $c->data_desligamento?->toDateString(),
             'cargo' => $c->cargo?->descricao,
+            // O formulario de edicao le `cargo_label` para exibir o valor ja
+            // escolhido: o AsyncSelect so busca a lista quando o popover abre.
+            'cargo_label' => $c->cargo?->descricao,
         ];
     }
 

@@ -6,6 +6,8 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
+use App\Etl\Support\PreservaIdsDoLegado;
+use App\Etl\Support\RegistraFalhaDeLeitura;
 use App\Models\Apoio\Banco;
 use App\Models\Apoio\ClienteContatoSituacao;
 use App\Models\Apoio\ClienteContatoTipo;
@@ -13,6 +15,7 @@ use App\Models\Apoio\ContaMovimentoTipo;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
 use App\Models\Apoio\TipoPessoa;
+use Illuminate\Support\Facades\DB;
 
 /**
  * N1 — migra os cadastros de apoio (escopo por grupo) do legado para o schema novo.
@@ -23,6 +26,9 @@ use App\Models\Apoio\TipoPessoa;
  */
 final class CadastrosApoioMigrator implements Migrator
 {
+    use PreservaIdsDoLegado;
+    use RegistraFalhaDeLeitura;
+
     private ?MigrationContext $ctxAtual = null;
 
     /**
@@ -64,13 +70,14 @@ final class CadastrosApoioMigrator implements Migrator
                 continue;
             }
 
-            foreach ($linhas as $l) {
-                $cfg['model']::withoutGrupo()->updateOrCreate(
-                    ['grupo_id' => $l['grupo_id'], 'descricao' => $l['descricao']],
-                    $l,
-                );
-                $gravados++;
-            }
+            // Preserva o id do legado: `clientes.tipopessoa_id` referencia o id da
+            // ORIGEM. O `updateOrCreate` anterior chaveava por (grupo_id, descricao)
+            // e deixava o auto-increment escolher outro id — o vinculo de 44 mil
+            // clientes caia no `anularFksInvalidas` do ClientesMigrator.
+            $gravados += $this->gravarPreservandoId(
+                (new $cfg['model'])->getTable(),
+                $linhas,
+            );
         }
 
         return new MigrationResult(
@@ -78,12 +85,13 @@ final class CadastrosApoioMigrator implements Migrator
             lidos: $lidos,
             gravados: $ctx->dryRun ? 0 : $gravados,
             pulados: 0,
+            avisos: $this->avisosDeLeitura(),
         );
     }
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return []; // sem dump não há o que comparar (ambiente dev/CI)
         }
@@ -91,7 +99,7 @@ final class CadastrosApoioMigrator implements Migrator
         $invs = [];
         foreach (self::MAPA as $tabela => $cfg) {
             // Compara contagem origem (tabela legado) × destino (tabela do model novo).
-            $destino = (new $cfg['model']())->getTable();
+            $destino = (new $cfg['model'])->getTable();
             $invs[] = new CountInvariant($ctx, $tabela, $destino);
         }
 
@@ -110,24 +118,29 @@ final class CadastrosApoioMigrator implements Migrator
     }
 
     /**
-     * @param array{model: class-string, extras: list<string>, bools: list<string>} $cfg
+     * @param  array{model: class-string, extras: list<string>, bools: list<string>}  $cfg
      * @return list<array<string, mixed>>
      */
     private function lerLegado(MigrationContext $ctx, string $tabela, array $cfg): array
     {
-        try {
-            $colunas = array_merge(['id', 'grupo_id', 'descricao', 'ativo'], $cfg['extras']);
-            $rows = $ctx->legado()->table($tabela)->get($colunas);
-        } catch (\Throwable) {
-            return []; // legado indisponível neste ambiente
+        $colunas = array_merge(['id', 'grupo_id', 'descricao', 'ativo'], $cfg['extras']);
+        $rows = $this->lerOuAvisar(
+            "cadastros-apoio: {$tabela} (legado)",
+            fn () => $ctx->legado()->table($tabela)->get($colunas),
+            collect(),
+        );
+
+        if ($rows->isEmpty()) {
+            return [];
         }
 
         // Grupo de fallback: cadastros "globais" do legado (BANCOS vem com
         // grupo_id=0/null) caem no primeiro grupo — a FK do destino é NOT NULL.
-        $grupoPadrao = (int) (\Illuminate\Support\Facades\DB::table('grupos')->min('id') ?? 1);
+        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
 
         return $rows->map(function ($r) use ($cfg, $grupoPadrao) {
             $linha = [
+                'id' => (int) $r->id,
                 'grupo_id' => (int) ($r->grupo_id ?? 0) ?: $grupoPadrao,
                 'descricao' => trim((string) $r->descricao),
                 'ativo' => (bool) $r->ativo,

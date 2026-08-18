@@ -37,9 +37,13 @@ class VeiculoController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'veiculo.view');
-        $v = Veiculo::query()->findOrFail($id);
+        $v = Veiculo::query()->with(['tipo', 'combustivel'])->findOrFail($id);
 
         return response()->json(['data' => array_merge($this->linha($v), [
+            // Rotulos das FKs: sem eles o AsyncSelect do formulario exibe
+            // "Selecione..." mesmo com o veiculo ja classificado.
+            'tipo_label' => $v->tipo?->descricao,
+            'combustivel_label' => $v->combustivel?->descricao,
             'renavam' => $v->renavam,
             'km_troca_oleo' => $v->km_troca_oleo,
             'km_ultima_troca_oleo' => $v->km_ultima_troca_oleo,
