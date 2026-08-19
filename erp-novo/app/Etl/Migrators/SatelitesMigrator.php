@@ -158,7 +158,17 @@ final class SatelitesMigrator implements Migrator
                     'quantidade_devolvida' => 0,
                     'situacao' => $this->booleano($r->ativo ?? '1') ? 'ATIVO' : 'ENCERRADO',
                     'data_emprestimo' => $r->datacontrato,
-                    'data_devolucao' => $r->datavencimento ?? null,
+                    // `datavencimento` e QUANDO DEVERIA voltar; jogar em
+                    // `data_devolucao` (quando VOLTOU) dava um comodato aberto
+                    // como se ja tivesse sido devolvido.
+                    'data_vencimento' => $r->datavencimento ?? null,
+                    'data_devolucao' => null,
+                    'nome_representante' => $r->nomerepresentante ?? null,
+                    'cpf_representante' => ($r->cpfrepresentante ?? null) !== null
+                        ? mb_substr(preg_replace('/\D/', '', (string) $r->cpfrepresentante) ?: '', 0, 11) ?: null
+                        : null,
+                    'rg_representante' => ($r->rgrepresentante ?? null) !== null
+                        ? mb_substr(trim((string) $r->rgrepresentante), 0, 20) : null,
                     'created_at' => $r->created_at ?? null,
                 ];
             }
@@ -196,7 +206,7 @@ final class SatelitesMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
 
         return [
             new CountInvariant($ctx, 'valegas', 'vale_gas'),

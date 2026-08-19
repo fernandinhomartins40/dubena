@@ -15,6 +15,30 @@ class ProdutoRequest extends FormRequest
         return true;
     }
 
+    /**
+     * A SPA envia `precovenda`/`precovendaminimo` (grafia do legado); as colunas
+     * são `preco_venda`/`preco_venda_minimo`. Sem esta normalização o
+     * `validated()` descartava os dois campos e **editar o preço de um produto
+     * não gravava nada** — a tela salvava "com sucesso" e o valor continuava o
+     * mesmo. Normalizar aqui, e não em `rules()`, evita duplicar as regras.
+     */
+    protected function prepareForValidation(): void
+    {
+        foreach ([
+            'precovenda' => 'preco_venda',
+            'precovendaminimo' => 'preco_venda_minimo',
+            'customedio' => 'custo_medio',
+            'custofrete' => 'custo_frete',
+            'precogasdopovo' => 'preco_gasdopovo',
+            'pesoliquido' => 'peso_liquido',
+            'pesobruto' => 'peso_bruto',
+        ] as $alias => $coluna) {
+            if ($this->has($alias) && ! $this->filled($coluna)) {
+                $this->merge([$coluna => $this->input($alias)]);
+            }
+        }
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {

@@ -11,12 +11,15 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
 use App\Http\Resources\PedidoResource;
+use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -119,20 +122,20 @@ class PedidoController extends Controller
      *
      * Meia pagina: cabe na prancheta e sai duas por folha.
      */
-    public function comanda(Request $request, int $id, PdfService $pdf): \Illuminate\Http\Response
+    public function comanda(Request $request, int $id, PdfService $pdf): Response
     {
         $this->autorizar($request, 'pedido.view');
 
         $pedido = Pedido::query()->with(['cliente', 'situacao', 'itens'])->findOrFail($id);
-        $empresa = $pedido->empresa_id !== null ? \App\Models\Empresa::query()->find($pedido->empresa_id) : null;
+        $empresa = $pedido->empresa_id !== null ? Empresa::query()->find($pedido->empresa_id) : null;
 
         $linhas = [];
         foreach ($pedido->itens as $item) {
             $linhas[] = [
                 (string) ($item->produto->descricao ?? $item->produto_id),
                 (string) $item->quantidade,
-                'R$ ' . number_format((float) ($item->valor_unitario ?? 0), 2, ',', '.'),
-                'R$ ' . number_format((float) ($item->valor_total ?? 0), 2, ',', '.'),
+                'R$ '.number_format((float) ($item->valor_unitario ?? 0), 2, ',', '.'),
+                'R$ '.number_format((float) ($item->valor_total ?? 0), 2, ',', '.'),
             ];
         }
 
@@ -144,17 +147,17 @@ class PedidoController extends Controller
 
         $corpo = $pdf->campos([
             'Pedido' => (string) $pedido->id,
-            'Data' => $pedido->datahora ? \Illuminate\Support\Carbon::parse($pedido->datahora)->format('d/m/Y H:i') : null,
+            'Data' => $pedido->datahora ? Carbon::parse($pedido->datahora)->format('d/m/Y H:i') : null,
             'Cliente' => (string) ($pedido->cliente->nome ?? ''),
             'Endereco' => $endereco !== '' ? $endereco : null,
             'Telefone' => (string) ($pedido->telefone ?? ''),
             'Situacao' => (string) ($pedido->situacao->descricao ?? ''),
             'Observacao' => (string) ($pedido->observacao ?? ''),
         ])
-        . $pdf->itens(['Produto', 'Qtd', 'Unitario', 'Total'], $linhas)
-        . '<div class="total">Total: R$ '
-        . e(number_format((float) $pedido->valor_total, 2, ',', '.')) . '</div>'
-        . $pdf->assinatura('Recebi os produtos acima');
+        .$pdf->itens(['Produto', 'Qtd', 'Unitario', 'Total'], $linhas)
+        .'<div class="total">Total: R$ '
+        .e(number_format((float) $pedido->valor_total, 2, ',', '.')).'</div>'
+        .$pdf->assinatura('Recebi os produtos acima');
 
         return response(
             $pdf->meiaPagina('Comanda de entrega', $corpo, [
@@ -164,7 +167,7 @@ class PedidoController extends Controller
             200,
             [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="comanda-' . $pedido->id . '.pdf"',
+                'Content-Disposition' => 'inline; filename="comanda-'.$pedido->id.'.pdf"',
             ],
         );
     }
@@ -350,6 +353,9 @@ class PedidoController extends Controller
                 'valor' => round((float) ($agg->valor ?? 0), 2),
                 'pedidos' => $pedidos->map(fn (Pedido $p) => [
                     'id' => $p->id,
+                    // O card do kanban lê `valorvenda`; sem o alias o valor
+                    // aparecia como R$ 0,00 em todos os cartões.
+                    'valorvenda' => (float) $p->valor_venda,
                     'valor_venda' => (float) $p->valor_venda,
                     'datahora' => $p->datahora?->toIso8601String(),
                     'cliente' => $p->cliente?->nome,

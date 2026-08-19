@@ -2,11 +2,13 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Fiscal\NotaFiscal;
+use App\Models\Pedido\Pedido;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Pedido\Pedido
+ * @mixin Pedido
  */
 class PedidoResource extends JsonResource
 {
@@ -29,7 +31,7 @@ class PedidoResource extends JsonResource
             // (ex.: show de um pedido isolado). Fecha o N+1 do Kanban (PF-2).
             'tem_nf' => $this->resource->getAttribute('tem_nf') !== null
                 ? (bool) $this->resource->getAttribute('tem_nf')
-                : \App\Models\Fiscal\NotaFiscal::query()
+                : NotaFiscal::query()
                     ->where('pedido_id', $this->id)->where('situacao', '!=', 'CANCELADA')->exists(),
             'setor_id' => $this->setor_id,
             'datahora' => $this->datahora?->toIso8601String(),
@@ -38,6 +40,10 @@ class PedidoResource extends JsonResource
             'entrega_telefone' => $this->entrega_telefone,
             'entrega_taxa' => (float) $this->entrega_taxa,
             'entrega_troco_para' => $this->entrega_troco_para !== null ? (float) $this->entrega_troco_para : null,
+            // A lista, o kanban e o diálogo de pedido leem `valorvenda` (grafia
+            // do legado): sem o alias os três mostravam R$ 0,00 com o valor
+            // gravado. Os dois nomes viajam para não quebrar outro consumidor.
+            'valorvenda' => (float) $this->valor_venda,
             'valor_venda' => (float) $this->valor_venda,
             'valor_desconto' => (float) $this->valor_desconto,
             'observacao' => $this->observacao,

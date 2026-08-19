@@ -31,8 +31,20 @@ class ProdutoResource extends JsonResource
             'dias_giro' => $this->dias_giro,
             'observacao' => $this->observacao,
             // Preços / pesos (número cru)
+            //
+            // A SPA lê `precovenda`/`precovendaminimo` (grafia do legado) — sem
+            // esses aliases a lista de produtos mostrava R$ 0,00 em tudo, embora
+            // o preço estivesse gravado. Os dois nomes viajam para não quebrar
+            // quem já consome a forma com underscore.
+            'precovenda' => $this->num($this->preco_venda),
+            'precovendaminimo' => $this->num($this->preco_venda_minimo),
             'preco_venda' => $this->num($this->preco_venda),
             'preco_venda_minimo' => $this->num($this->preco_venda_minimo),
+            'customedio' => $this->num($this->custo_medio),
+            'custofrete' => $this->num($this->custo_frete),
+            'precogasdopovo' => $this->num($this->preco_gasdopovo),
+            'pesoliquido' => $this->num($this->peso_liquido),
+            'pesobruto' => $this->num($this->peso_bruto),
             'custo_medio' => $this->num($this->custo_medio),
             'custo_frete' => $this->num($this->custo_frete),
             'preco_gasdopovo' => $this->num($this->preco_gasdopovo),

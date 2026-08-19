@@ -2,11 +2,11 @@
 
 namespace App\Etl\Migrators;
 
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use App\Domain\Integracao\IntegracaoTenant;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
@@ -69,6 +69,7 @@ final class EmpresaConfigMigrator implements Migrator
         $gravados = 0;
         $pulados = 0;
         $comPix = 0;
+        $chavesOperacionais = 0;
         /** @var array<int,string> empresa_id => chave do Maps (aplicada por GRUPO no fim) */
         $mapsPorEmpresa = [];
 
@@ -131,11 +132,19 @@ final class EmpresaConfigMigrator implements Migrator
 
             // `dados` é um JSON compartilhado com o resto da config da empresa.
             // Sobrescrever a coluna inteira apagaria o que já estivesse lá — a
-            // gravação preserva as demais chaves e mexe só em `integracoes`.
-            if ($integracoes !== []) {
+            // gravação preserva as demais chaves.
+            $operacional = $this->configOperacional($r);
+            $chavesOperacionais += count($operacional);
+
+            if ($integracoes !== [] || $operacional !== []) {
                 $atual = json_decode((string) DB::table('empresa_configs')
                     ->where('empresa_id', $empresa)->value('dados'), true) ?: [];
-                $atual['integracoes'] = array_merge($atual['integracoes'] ?? [], $integracoes);
+                if ($integracoes !== []) {
+                    $atual['integracoes'] = array_merge($atual['integracoes'] ?? [], $integracoes);
+                }
+                if ($operacional !== []) {
+                    $atual = array_merge($atual, $operacional);
+                }
                 $linha['dados'] = json_encode($atual, JSON_UNESCAPED_UNICODE);
             }
 
@@ -158,6 +167,10 @@ final class EmpresaConfigMigrator implements Migrator
         $avisos[] = "{$comPix} empresa(s) com credencial PIX (client_secret cifrado; "
             ."chave e client_id em claro, como a tela lê) e {$gruposComMaps} grupo(s) "
             .'com chave do Google Maps';
+        $avisos[] = "{$chavesOperacionais} chave(s) de configuração operacional migradas para "
+            .'`dados` (plano de contas e centro de custo padrão, regras de estoque/entrega, '
+            .'percentuais contábeis, defaults de NFC-e, malote, convênio e gás do povo) — '
+            .'antes só e-mail, senha-mestra, PIX e Maps vinham do legado';
         $avisos[] = 'certificado digital A1 NÃO migrado: a coluna está nula no dump '
             .'(só a senha do PFX veio). Envie o .pfx pelo painel para emitir NFC-e';
         if ($pulados > 0) {
@@ -186,6 +199,156 @@ final class EmpresaConfigMigrator implements Migrator
         return $v === '' ? null : $v;
     }
 
+    /**
+     * Chaves booleanas (o legado guarda como texto '0'/'1').
+     *
+     * Explícito, e não inferido pelo nome: `impressao_vias_pedido` contém o
+     * NÚMERO de vias e casaria com qualquer heurística sobre "impressao".
+     *
+     * @var list<string>
+     */
+    private const FLAGS = [
+        'pedido_emite_nfce', 'pedido_valida_cartao', 'pedido_controla_tempo_ligacoes',
+        'permite_estoque_negativo', 'valida_coordenadas_entrega', 'valida_atraso',
+        'valida_pix_entrega', 'tela_controla_km', 'impressao_automatica',
+        'android_utiliza', 'android_envia_todos', 'valida_gas_bolso',
+        'email_requer_autenticacao', 'email_requer_tls',
+    ];
+
+    /**
+     * Configuração operacional da empresa → `dados` (JSON).
+     *
+     * O legado tem ~95 chaves preenchidas em `empresaconfigs` e este migrator
+     * trazia CINCO (e-mail, senha-mestra, PIX, Maps). Todo o resto — plano de
+     * contas e centro de custo padrão, regra de estoque negativo, percentuais
+     * contábeis, defaults de NFC-e, malote, convênio e gás do povo — ficava para
+     * trás sem aviso: a empresa migrava "configurada" com o default do sistema
+     * novo, e a divergência só apareceria na operação.
+     *
+     * Vão para `dados` porque é assim que a config é modelada aqui: o
+     * `EmpresaConfigController::update()` já grava qualquer chave desconhecida
+     * nesse JSON, então a tela lê e escreve sem mudança nenhuma. Uma chave só
+     * vira coluna quando alguma consulta precisa filtrar por ela.
+     *
+     * @return array<string, mixed> só as chaves com valor (null não é migrado)
+     */
+    private function configOperacional(object $r): array
+    {
+        // legado => nome no JSON. Agrupado por assunto, que é como a tela edita.
+        $mapa = [
+            // Contábil padrão
+            'planoconta_id' => 'planoconta_id',
+            'centrocusto_id' => 'centrocusto_id',
+            'pcreceitadesconto_id' => 'pc_receita_desconto_id',
+            'pcrecetajuro_id' => 'pc_receita_juro_id',
+            'pcdespesasdesconto_id' => 'pc_despesa_desconto_id',
+            'pcdespesasjuro_id' => 'pc_despesa_juro_id',
+            'ccreceitasjuros_id' => 'cc_receita_juro_id',
+            'ccreceitasdescontos_id' => 'cc_receita_desconto_id',
+            'ccdespesasjuros_id' => 'cc_despesa_juro_id',
+            'ccdespesasdescontos_id' => 'cc_despesa_desconto_id',
+            // Frete
+            'ccfrete_id' => 'ccfrete_id',
+            'pcfrete_id' => 'pcfrete_id',
+            'fretemodalidade' => 'frete_modalidade',
+            // Operação / pedido
+            'setorprincipal_id' => 'setor_principal_id',
+            'pedidostatuspadrao' => 'pedido_status_padrao',
+            'pedidoemitenfce' => 'pedido_emite_nfce',
+            'pedidovalidacartao' => 'pedido_valida_cartao',
+            'pedidovalidacartaodias' => 'pedido_valida_cartao_dias',
+            'pedidocontrolatempoligacoes' => 'pedido_controla_tempo_ligacoes',
+            'operacaodisk' => 'operacao_disk',
+            'pedidooperacao_id' => 'pedido_operacao_id',
+            'nfoperacoes_id' => 'nf_operacao_id',
+            'nfcecliente_id' => 'nfce_cliente_id',
+            'presencacomprador' => 'presenca_comprador',
+            'transportadorpadrao_id' => 'transportador_padrao_id',
+            'quant_padrao' => 'quantidade_padrao',
+            // Estoque / entrega
+            'permiteestoquenegativo' => 'permite_estoque_negativo',
+            'validacordenadasentrega' => 'valida_coordenadas_entrega',
+            'validaatraso' => 'valida_atraso',
+            'validapixentrega' => 'valida_pix_entrega',
+            'diastrabalhadosemana' => 'dias_trabalhados_semana',
+            'qnddiasinativocompra' => 'dias_inativo_compra',
+            'telacontrolakm' => 'tela_controla_km',
+            // Impressão
+            'impressaoautomatica' => 'impressao_automatica',
+            'impressaoqtdviaspedido' => 'impressao_vias_pedido',
+            // Percentuais contábeis (relatório de resultado)
+            'percentualencargos' => 'percentual_encargos',
+            'percentualprovisaodevedores' => 'percentual_provisao_devedores',
+            'percentualremuneracaocapital' => 'percentual_remuneracao_capital',
+            'percentualdistribuicaoresul' => 'percentual_distribuicao_resultado',
+            'fatorpotencialvenda' => 'fator_potencial_venda',
+            // Caixa / malote
+            'maloteconta_id' => 'maloteconta_id',
+            'contachecktroco' => 'conta_check_troco',
+            // Vale-gás
+            'ccvalegas_id' => 'ccvalegas_id',
+            'pcvalegas_id' => 'pcvalegas_id',
+            // App / NF do app
+            'androidutiliza' => 'android_utiliza',
+            'androidenviatodos' => 'android_envia_todos',
+            'validagasbolso' => 'valida_gas_bolso',
+            'mensagemgasbolso' => 'mensagem_gas_bolso',
+            'mensagemduplicata' => 'mensagem_duplicata',
+            'pedidooperacaoappnf_id' => 'appnf_pedido_operacao_id',
+            'presencacompradorappnf' => 'appnf_presenca_comprador',
+            'fretemodalidadeappnf' => 'appnf_frete_modalidade',
+            'transportadorappnf_id' => 'appnf_transportador_id',
+            'contaappnf_id' => 'appnf_conta_id',
+            // Convênio
+            'contaconvenionf_id' => 'convenio_conta_id',
+            'nfoperacaoconvenio_id' => 'convenio_nf_operacao_id',
+            'ccconvenio_id' => 'convenio_cc_id',
+            'pcconvenio_id' => 'convenio_pc_id',
+            'ccfreteconvenio_id' => 'convenio_ccfrete_id',
+            'pcfreteconvenio_id' => 'convenio_pcfrete_id',
+            'setorconvenio_id' => 'convenio_setor_id',
+            'veiculoconvenio_id' => 'convenio_veiculo_id',
+            'condicaopagamentoconvenio_id' => 'convenio_condicaopagamento_id',
+            'presencacompradorconvenionf' => 'convenio_presenca_comprador',
+            'fretemodalidadeconvenionf' => 'convenio_frete_modalidade',
+            'transportadorconvenionf_id' => 'convenio_transportador_id',
+            // Gás do povo (programa federal)
+            'produtogp_id' => 'gp_produto_id',
+            'valorfretegp' => 'valorfretegp',
+            'ccfretegp_id' => 'ccfretegp_id',
+            'pcfretegp_id' => 'pcfretegp_id',
+            'condicaopagamentofretegp_id' => 'gp_condicaopagamento_frete_id',
+            'condicaopagamentogp_id' => 'gp_condicaopagamento_id',
+            // Ressarcimento
+            'setor_ressarcimento' => 'setor_ressarcimento_id',
+            'operacao_ressarcimento' => 'operacao_ressarcimento_id',
+            // E-mail (complemento do que já vira coluna)
+            'emailassunto' => 'email_assunto',
+            'emailcorpo' => 'email_corpo',
+            'emailrequerautenticacao' => 'email_requer_autenticacao',
+            'emailrequerconexaotls' => 'email_requer_tls',
+        ];
+
+        $out = [];
+        foreach ($mapa as $origem => $destino) {
+            $valor = $r->{$origem} ?? null;
+            if ($valor === null || $valor === '') {
+                continue;
+            }
+
+            // O legado guarda flag como texto '0'/'1'. Sem converter, a tela
+            // recebe a STRING "0" — que é verdadeira em JavaScript, e o switch
+            // apareceria ligado com a configuração desligada.
+            $out[$destino] = match (true) {
+                in_array($destino, self::FLAGS, true) => ! in_array((string) $valor, ['0', 'N', 'n'], true),
+                is_numeric($valor) => str_contains((string) $valor, '.') ? (float) $valor : (int) $valor,
+                default => $this->texto($valor),
+            };
+        }
+
+        return $out;
+    }
+
     /** @return array<int,true> */
     private function idsDe(string $tabela): array
     {
@@ -209,7 +372,7 @@ final class EmpresaConfigMigrator implements Migrator
      * primeira — a rede tem uma key só, e a divergência vira aviso.
      *
      * @param  array<int,string>  $mapsPorEmpresa
-     * @return int  grupos que receberam chave
+     * @return int grupos que receberam chave
      */
     private function gravarMapsPorGrupo(array $mapsPorEmpresa): int
     {

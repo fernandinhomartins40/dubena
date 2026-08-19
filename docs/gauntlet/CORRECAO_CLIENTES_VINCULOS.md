@@ -614,3 +614,139 @@ sistema em uso.
 
 **Alternativa:** `php artisan etl:run` sem argumento roda tudo na ordem correta,
 o que é mais seguro que escolher migrators à mão. Use `--dry-run` antes.
+
+---
+
+# Quinta rodada: valores zerados na tela (contrato tela × API)
+
+**Sintoma relatado:** a aba Histórico do cliente listava as linhas certas, mas
+com `#` sem número, `—` na data e **R$ 0,00 em todas**. E, nas palavras do dono:
+*"não mostra os valores em nenhum lugar na aplicação"*.
+
+## A causa: nomes que não casam
+
+Não era dado ausente — era **divergência de nome entre o que a API emite e o que
+a tela lê**. A origem é histórica: o legado não usa underscore, e parte da SPA
+foi escrita a partir das telas antigas.
+
+| Tela | Lê | API emitia | Resultado |
+|---|---|---|---|
+| `HistoricoTab` | `id`, `datahora`, `valorvenda` | `pedido_id`, `data`, `valor_venda` | **nenhum dos 3 casava** |
+| `ProdutosListPage` | `precovenda` | `preco_venda` | preço R$ 0,00 na lista |
+| `ListaView`/`KanbanView`/`PedidoDialogs` | `valorvenda` | `valor_venda` | valor zerado no pedido |
+| `InteracoesTab` | `datahora`, `tipo`, `situacao` | model cru: `created_at`, `tipo_id`, `situacao_id` | linha em branco |
+| `PrecosTab` | `produto` (nome) | model cru: só `produto_id` | produto sem nome |
+
+E o pior, no formulário de produto: ele **envia** `precovenda`, mas o
+`ProdutoRequest` só validava `preco_venda` — o `validated()` descartava o campo.
+**Editar o preço de um produto salvava "com sucesso" e não gravava nada.**
+
+## Por que a suíte inteira passava
+
+Esta classe de defeito é invisível para todo o resto dos testes: a requisição
+responde **200**, a lista vem com a **quantidade certa de linhas**, nenhum erro
+é logado. Só a tela sabe que o campo veio com outro nome — e a tela não era
+testada contra o payload real.
+
+## Correção
+
+Onde o alias existe, **os dois nomes viajam** (`valorvenda` *e* `valor_venda`),
+para não quebrar consumidores já existentes. Na escrita, o request normaliza o
+alias antes de validar (`prepareForValidation`), como já fora feito para as
+datas do colaborador.
+
+Relações criadas para os rótulos: `ClienteInteracao::tipo()/situacao()` e
+`ClientePreco::produto()`.
+
+`tests/Feature/ContratoTelaApiTest.php` — 5 testes que amarram o contrato,
+cada um citando o arquivo `.tsx` que consome o campo. É a primeira cobertura
+dessa dimensão na suíte.
+
+## Recomendação estrutural (não feita agora)
+
+O certo seria **padronizar o nome em um dos lados** e remover o alias. Isso
+exige varrer as 27 features e é mudança grande; os aliases resolvem o sintoma
+hoje, e o teste impede a regressão. Fica registrado como dívida consciente — não
+como "está pronto".
+
+## Varredura: os 10 campos restantes — todos resolvidos
+
+A investigação de cada um no legado mudou o veredito de vários. Não eram dez
+casos iguais: eram quatro situações diferentes.
+
+### 1. Alias faltando (colunas existiam) — corrigido
+
+`customedio`, `custofrete`, `precogasdopovo`, `pesoliquido`, `pesobruto` no
+formulário de produto. Mesmo defeito dos preços: leitura sem alias e escrita
+descartada pelo `validated()`.
+
+### 2. Campo no lugar errado — corrigido movendo
+
+`nomerepresentante`, `cpfrepresentante`, `rgrepresentante` e `datacontrato`
+estavam na aba **Convênio**. No legado eles pertencem a **`comodatos`** — a aba
+de convênio foi montada com campos do formulário de comodato.
+
+`legado.comodatos`: 975 linhas, 784 com nome do representante, 694 com CPF, 975
+com data de contrato. O `ComodatoPdfService` imprime o contrato que protege o
+patrimônio da revenda, **e o contrato saía sem quem o assinou**.
+
+Corrigido: colunas criadas em `comodatos`, ETL passa a trazê-las, PDF imprime.
+
+Também corrigido no caminho: o ETL jogava `datavencimento` em `data_devolucao`.
+São coisas opostas — "quando deveria voltar" × "quando voltou" — e o efeito era
+um comodato **aberto** aparecer como já devolvido. Agora há `data_vencimento`.
+
+### 3. Campo que não existe em lugar nenhum — removido da tela
+
+`limitecompra`, `comissao`, `comissaodestino`, `diafechamento`, `diavencimento`
+(aba Convênio). Não existem no legado, no dump nem no banco novo. Eram campos
+inventados na tela.
+
+O convênio real usa `conveniolimite` (44.349 linhas), `convenio` (3.106
+conveniados) e `convenio_id` (5.101 vinculados) — que o backend já grava. A aba
+foi reescrita para editar só o que existe.
+
+### 4. Já funcionava — nada a fazer
+
+`valorfretegp`, `pcfrete_id`, `ccfrete_id`: o `EmpresaConfigController::update()`
+grava qualquer chave desconhecida em `empresa_configs.dados` (JSON). Criar
+colunas seria duplicar o destino.
+
+**Mas a investigação revelou um defeito maior ali** (ver abaixo).
+
+---
+
+## O achado maior: a config da empresa vinha quase vazia
+
+Ao conferir o frete, contei as chaves preenchidas em `legado.empresaconfigs`:
+**~95**. O `EmpresaConfigMigrator` trazia **cinco** (e-mail, senha-mestra, PIX,
+Maps).
+
+Ficavam para trás, entre outros:
+
+| Grupo | O que se perdia |
+|---|---|
+| Contábil | plano de contas e centro de custo padrão, contas de juros e descontos |
+| Operação | setor principal, status padrão do pedido, operação disk, validação de cartão |
+| Estoque/entrega | permite estoque negativo, valida coordenadas, valida atraso, dias trabalhados |
+| Contábil (resultado) | percentuais de encargos, provisão de devedores, remuneração de capital |
+| Caixa | **conta do malote** — sem ela o fechamento de caixa não tem para onde apontar |
+| Convênio | conta, operação de NF, centro de custo, setor, veículo, condição de pagamento |
+| Gás do povo | produto, frete, condições de pagamento |
+| App | mensagens, operação de NF do app, transportador |
+
+**A empresa migrava "configurada" — com o default do sistema novo.** A
+divergência só apareceria na operação, um caso por vez.
+
+Corrigido: 78 chaves mapeadas para `dados` (JSON), que é onde a config já vive e
+de onde a tela já lê.
+
+**Detalhe que importa:** o legado guarda flag como texto `'0'`/`'1'`. Sem
+converter, a tela recebe a **string `"0"`** — que é *verdadeira* em JavaScript.
+O switch apareceria **ligado** com a configuração desligada. A lista de flags é
+explícita, não inferida pelo nome: `impressao_vias_pedido` guarda o NÚMERO de
+vias e casaria com qualquer heurística sobre "impressao".
+
+`tests/Migration/ConfigOperacionalEComodatoTest.php` — 3 testes, incluindo a
+contra-prova de que o número de vias continua inteiro.
+

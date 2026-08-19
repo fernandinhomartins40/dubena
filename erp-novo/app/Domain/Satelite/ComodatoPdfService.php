@@ -27,9 +27,7 @@ use App\Models\Satelite\Comodato;
  */
 class ComodatoPdfService
 {
-    public function __construct(private PdfService $pdf)
-    {
-    }
+    public function __construct(private PdfService $pdf) {}
 
     /**
      * Gera o contrato de um comodato.
@@ -58,6 +56,19 @@ class ComodatoPdfService
             // Telefone vive em `clientetelefones`, nao numa coluna do cliente:
             // sem ele o contrato nao tem como localizar quem esta com o vasilhame.
             'Telefone' => (string) ($cliente?->telefones->first()?->telefone ?? ''),
+            // Quem assina pelo comodatário. Em contrato de pessoa jurídica é o
+            // que dá validade à assinatura — o legado guarda em 784 dos 975
+            // comodatos e o campo não vinha para cá.
+            'Representante' => $comodato->nome_representante !== null
+                ? trim(sprintf(
+                    '%s%s',
+                    $comodato->nome_representante,
+                    $comodato->cpf_representante !== null
+                        ? ' — CPF '.$this->documento($comodato->cpf_representante)
+                        : '',
+                ))
+                : null,
+            'Vencimento' => $comodato->data_vencimento?->format('d/m/Y'),
         ]);
 
         $objeto = $this->pdf->itens(

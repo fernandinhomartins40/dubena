@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteInteracao;
+use App\Models\Cliente\ClientePreco;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,25 @@ class ClienteSubrecursoController extends Controller
         $this->autorizar($request, 'cliente.view');
         $cliente = Cliente::query()->findOrFail($clienteId);
 
-        return response()->json(['data' => $cliente->interacoes()->latest()->get()]);
+        // A aba lê `datahora`, `tipo` e `situacao` (rótulos). Devolver o model
+        // cru entregava `created_at`/`tipo_id`/`situacao_id`, e a tela mostrava
+        // a linha em branco — dado presente, nome divergente.
+        $interacoes = $cliente->interacoes()
+            ->with(['tipo:id,descricao', 'situacao:id,descricao'])
+            ->latest()
+            ->get()
+            ->map(fn (ClienteInteracao $i) => [
+                'id' => $i->id,
+                'datahora' => $i->created_at?->toDateTimeString(),
+                'tipo_id' => $i->tipo_id,
+                'situacao_id' => $i->situacao_id,
+                'tipo' => $i->tipo?->descricao,
+                'situacao' => $i->situacao?->descricao,
+                'descricao' => $i->descricao,
+                'acao' => $i->acao,
+            ])->all();
+
+        return response()->json(['data' => $interacoes]);
     }
 
     public function addInteracao(Request $request, int $clienteId): JsonResponse
@@ -112,7 +132,19 @@ class ClienteSubrecursoController extends Controller
         $this->autorizar($request, 'cliente.view');
         $cliente = Cliente::query()->findOrFail($clienteId);
 
-        return response()->json(['data' => $cliente->precos()->get()]);
+        // A aba mostra o NOME do produto; o model cru só tem `produto_id`.
+        $precos = $cliente->precos()
+            ->with('produto:id,descricao')
+            ->get()
+            ->map(fn (ClientePreco $p) => [
+                'id' => $p->id,
+                'produto_id' => $p->produto_id,
+                'produto' => $p->produto?->descricao,
+                'preco' => $p->preco !== null ? (float) $p->preco : null,
+                'desconto' => $p->desconto !== null ? (float) $p->desconto : null,
+            ])->all();
+
+        return response()->json(['data' => $precos]);
     }
 
     // ── Histórico de compras (deriva de Pedidos/N4) ──
@@ -135,12 +167,20 @@ class ClienteSubrecursoController extends Controller
             ->limit($limite)
             ->get(['id', 'pedidosituacao_id', 'datahora', 'valor_venda', 'valor_desconto']);
 
+        // A aba Histórico lê `id`, `datahora` e `valorvenda`. Os nomes daqui
+        // (`pedido_id`, `data`, `valor_venda`) não casavam com NENHUM deles: a
+        // tabela listava a quantidade certa de linhas, mas com "#" sem número,
+        // "—" na data e R$ 0,00 em todas. Os nomes do contrato são os que a tela
+        // consome; os demais seguem juntos para não quebrar outro consumidor.
         $data = $pedidos->map(fn (Pedido $p) => [
+            'id' => $p->id,
             'pedido_id' => $p->id,
+            'datahora' => optional($p->datahora)->toDateTimeString(),
             'data' => optional($p->datahora)->toDateTimeString(),
             'situacao' => $p->situacao?->descricao,
             'efeito' => $p->situacao?->efeito?->value,
             'itens' => $p->itens_count,
+            'valorvenda' => (float) $p->valor_venda,
             'valor_venda' => (float) $p->valor_venda,
             'valor_desconto' => (float) $p->valor_desconto,
         ])->all();
