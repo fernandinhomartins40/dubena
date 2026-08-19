@@ -7,6 +7,7 @@ use App\Etl\Migrators\PedidosMigrator;
 use App\Etl\Support\MigrationContext;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Produto\Produto;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -138,6 +139,61 @@ class FksNaoMapeadasTest extends TestCase
             DB::table('condicaopagamentos')->where('id', 99)->exists(),
             'a duplicada não pode ser gravada: o destino tem UNIQUE(grupo_id, descricao)',
         );
+    }
+
+    /**
+     * O item do pedido tem de chegar com o PREÇO que foi cobrado.
+     *
+     * O migrator lia `precovenda`/`preco`; as colunas reais de
+     * `legado.pedidoprodutos` são `precovendaunitario` e `precovendatotal`.
+     * Como `?? 0` fechava a conta, **406.883 itens migraram com R$ 0,00** — o
+     * pedido exibia o total certo e cada item como "— × 1  R$ 0,00".
+     *
+     * Nenhuma invariante pegava: a CountInvariant confere a QUANTIDADE de itens,
+     * que estava certa.
+     */
+    public function test_item_do_pedido_preserva_o_preco_cobrado(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $leg = DB::connection($this->legadoConn);
+
+        $leg->statement('create table pedidooperacaos (id integer, grupo_id integer, descricao text, ativo integer)');
+        $leg->statement('create table pedidosituacaos (id integer, grupo_id integer, descricao text, fechadoconcluido integer, fechadocancelado integer, entregafinalizada integer, entregacancelada integer, ativo integer)');
+        $leg->table('pedidosituacaos')->insert([
+            'id' => 7, 'grupo_id' => $empresa->grupo_id, 'descricao' => 'Entregue',
+            'fechadoconcluido' => 1, 'fechadocancelado' => 0, 'entregafinalizada' => 1, 'entregacancelada' => 0, 'ativo' => 1,
+        ]);
+
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+        $produto = Produto::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'descricao' => 'Glp P13',
+        ]);
+
+        $leg->statement('create table pedidos (id integer, empresa_id integer, grupo_id integer, cliente_id integer, pedidooperacao_id integer, pedidosituacao_id integer, condicaopagamento_id integer, entregasetor_id integer, atendenteuser_id integer, entregadoruser_id integer, datahora text, datahoraacao text, entregaurgente integer, entregataxa real, entregatrocopara real, valorvenda real, valordesconto real, observacao text, fechadoconcluido integer)');
+        $leg->table('pedidos')->insert([
+            'id' => 456548, 'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => 7,
+            'valorvenda' => 110.0, 'valordesconto' => 0,
+            'entregaurgente' => 0, 'entregataxa' => 0, 'fechadoconcluido' => 1,
+        ]);
+
+        // Nomes REAIS do legado — o teste antigo teria passado com nomes inventados.
+        $leg->statement('create table pedidoprodutos (id integer, pedido_id integer, produto_id integer, quantidade real, precovendaunitario real, precovendatotal real, customedio real, created_at text)');
+        $leg->table('pedidoprodutos')->insert([
+            'id' => 697072, 'pedido_id' => 456548, 'produto_id' => $produto->id,
+            'quantidade' => 1, 'precovendaunitario' => 110, 'precovendatotal' => 110,
+            'customedio' => 75.2648,
+        ]);
+
+        (new PedidosMigrator)->migrar($this->ctx());
+
+        $item = DB::table('pedidoitens')->where('id', 697072)->first();
+
+        $this->assertNotNull($item, 'o item do pedido não migrou');
+        $this->assertSame(110.0, (float) $item->preco_unitario, 'o item migrou com preço R$ 0,00');
+        $this->assertSame(110.0, (float) $item->valor_total);
     }
 
     public function test_conta_preserva_o_banco(): void

@@ -66,7 +66,12 @@ class PedidoController extends Controller
         $this->autorizar($request, 'pedido.view');
 
         return new PedidoResource(
-            Pedido::query()->with(['cliente:id,nome', 'situacao', 'itens'])->findOrFail($id),
+            // `itens.produto` e `condicao`: sem eles o diálogo do pedido mostra
+            // "Condição: —" e cada item como "— × 1  R$ 0,00", com os dados
+            // gravados. O eager load evita N+1 na lista de itens.
+            Pedido::query()
+                ->with(['cliente:id,nome', 'situacao', 'itens.produto:id,descricao', 'condicao:id,descricao'])
+                ->findOrFail($id),
         );
     }
 

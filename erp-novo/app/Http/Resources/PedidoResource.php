@@ -48,10 +48,20 @@ class PedidoResource extends JsonResource
             'valor_desconto' => (float) $this->valor_desconto,
             'observacao' => $this->observacao,
             'estoque_movimentado' => (bool) $this->estoque_movimentado,
+            // A forma de pagamento do pedido. A relação existia e o Resource
+            // nunca a emitia — o diálogo mostrava "Condição: —" mesmo nos
+            // 400.070 pedidos que têm `condicaopagamento_id` preenchido.
+            'condicaopagamento_id' => $this->condicaopagamento_id,
+            'condicao' => $this->whenLoaded('condicao', fn () => $this->condicao?->descricao),
             'itens' => $this->whenLoaded('itens', fn () => $this->itens->map(fn ($i) => [
                 'id' => $i->id,
                 'produto_id' => $i->produto_id,
+                // O diálogo mostra o NOME do produto e lê `precovendatotal`
+                // (grafia do legado): sem os dois, cada item aparecia como
+                // "— × 1  R$ 0,00" com produto e valor gravados.
+                'produto' => $i->produto?->descricao,
                 'quantidade' => (float) $i->quantidade,
+                'precovendatotal' => (float) $i->valor_total,
                 'preco_unitario' => (float) $i->preco_unitario,
                 'desconto' => (float) $i->desconto,
                 'valor_total' => (float) $i->valor_total,

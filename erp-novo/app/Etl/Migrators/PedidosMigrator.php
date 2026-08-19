@@ -421,8 +421,23 @@ final class PedidosMigrator implements Migrator
     private function mapearItem(object $r): array
     {
         $qtd = (float) ($r->quantidade ?? 0);
-        $preco = (float) ($r->precovenda ?? $r->preco ?? 0);
+
+        // As colunas REAIS do legado são `precovendaunitario` e
+        // `precovendatotal`. O código lia `precovenda`/`preco`, que não existem
+        // em `pedidoprodutos`: os 406.883 itens migraram com preço 0,00 — o
+        // pedido mostrava o total certo e o item "— × 1  R$ 0,00".
+        //
+        // `?? null` e não `?? 0`: se um dia a coluna sumir do dump, o item entra
+        // com preço nulo e a invariante acusa, em vez de gravar zero em silêncio.
+        $preco = $r->precovendaunitario ?? $r->precovenda ?? $r->preco ?? null;
+        $preco = $preco !== null ? (float) $preco : 0.0;
         $desc = (float) ($r->desconto ?? 0);
+
+        // O total vem do legado quando existe: recalcular por quantidade × preço
+        // diverge do que foi cobrado quando houve arredondamento no fechamento.
+        $total = isset($r->precovendatotal)
+            ? (float) $r->precovendatotal
+            : round($qtd * $preco - $desc, 2);
 
         return [
             'id' => (int) $r->id,
@@ -431,7 +446,7 @@ final class PedidosMigrator implements Migrator
             'quantidade' => $qtd,
             'preco_unitario' => $preco,
             'desconto' => $desc,
-            'valor_total' => round($qtd * $preco - $desc, 2),
+            'valor_total' => $total,
         ];
     }
 

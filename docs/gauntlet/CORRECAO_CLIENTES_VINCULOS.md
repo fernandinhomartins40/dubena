@@ -816,3 +816,55 @@ Metade das falhas iniciais não era defeito de código: era **migrator que não
 tinha rodado**. `users` estava com 5 de 74, e disso decorriam os 62 devices
 "sem dono". A ordem importa e o `etl:run` sem argumento a respeita — rodar
 migrators avulsos exige saber a dependência.
+
+---
+
+# Sexta rodada: o item do pedido migrou com preço R$ 0,00
+
+**Sintoma:** no diálogo do pedido #456548, "Condição: —" e o item como
+`— × 1   R$ 0,00`, embora o pedido mostrasse **R$ 110,00** corretamente.
+
+Ao contrário das rodadas anteriores, **aqui não era só nome de campo**. Havia os
+dois problemas ao mesmo tempo, e o segundo é o mais caro encontrado até agora.
+
+## 1. Rótulos que faltavam (mesmo padrão de antes)
+
+| Tela lê | API emitia |
+|---|---|
+| `data.condicao` | nada — a relação `condicao()` existia e o Resource nunca a usou |
+| `it.produto` (nome) | só `produto_id` |
+| `it.precovendatotal` | `valor_total` |
+
+## 2. O dado estava zerado no banco
+
+```
+legado.pedidoprodutos:  precovendaunitario = 110    precovendatotal = 110
+public.pedidoitens:     preco_unitario     = 0.00   valor_total     = 0.00
+```
+
+O `mapearItem()` lia `$r->precovenda ?? $r->preco ?? 0`. **Nenhuma das duas
+colunas existe** em `pedidoprodutos` — as reais são `precovendaunitario` e
+`precovendatotal`. O `?? 0` fechava a conta em silêncio.
+
+**406.883 itens migraram com preço zero.**
+
+### Por que nenhuma invariante pegou
+
+A `CountInvariant` confere a QUANTIDADE de itens — que estava certa (406.883 =
+406.883). Nada olhava o conteúdo das colunas. É a mesma cegueira do
+`condicaopagamento_id`, e a razão de o `FksNaoMapeadasTest` existir.
+
+### O que mudou além do nome
+
+- **O total agora vem do legado** (`precovendatotal`) em vez de ser recalculado
+  por `quantidade × preço − desconto`: quando houve arredondamento no
+  fechamento, o recálculo diverge do que foi efetivamente cobrado.
+- **`?? null` em vez de `?? 0`** na leitura do preço: se a coluna sumir do dump,
+  o item entra com preço nulo e a invariante acusa — em vez de gravar zero e
+  parecer correto.
+
+Teste: `test_item_do_pedido_preserva_o_preco_cobrado`, com o schema REAL do
+legado (um teste com nomes inventados teria passado com o código quebrado — é
+exatamente o que o docblock do `F15MigratorsTest` já alertava).
+
+⚠️ **Requer recarga de `pedidos`** para os 406.883 itens receberem o preço.
