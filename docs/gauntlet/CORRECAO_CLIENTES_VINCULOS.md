@@ -868,3 +868,66 @@ legado (um teste com nomes inventados teria passado com o código quebrado — �
 exatamente o que o docblock do `F15MigratorsTest` já alertava).
 
 ⚠️ **Requer recarga de `pedidos`** para os 406.883 itens receberem o preço.
+
+---
+
+# Verificação: a tela Gás do Povo está vazia — e está certa
+
+**Pergunta do dono:** "a página /novo/app/gas-do-povo não mostra nenhum dado,
+não sei se o dump possui dados a serem apresentados nessa tela".
+
+**Resposta: o dump não tem benefícios concedidos.** A tela vazia é o estado
+correto, não um defeito.
+
+## O que existe no legado
+
+| Origem | Conteúdo |
+|---|---|
+| `clientes.gasdopovo` | **821** clientes marcados como beneficiários |
+| `pedidos.gasdopovo` | 1.003 pedidos vendidos pelo programa |
+| `produtos.precogasdopovo` | preço específico do programa |
+| `BENEFICIARIOS` (480 linhas) | **cadastro do PROGRAMA**, não do benefício |
+
+Não existe tabela de **benefício concedido**. `BENEFICIARIOS` guarda
+`codbenef`, `descricao`, `datainicio`, `datafim`, `uf` — sem cliente, sem NIS,
+sem valor, sem competência. O destino `gasdopovo_beneficios` é o benefício
+concedido A UM CLIENTE. Mapear uma na outra inventaria dado.
+
+A decisão está registrada no docblock do `PagamentoMigrator` (T2.7), junto com o
+histórico: a versão anterior daquele migrator lia `gasdopovobeneficios`, tabela
+que **nunca existiu** no Oracle — "rodava com sucesso" migrando zero linhas.
+
+`gasdopovo_beneficios` é alimentada pela **operação do sistema novo**, não pela
+carga histórica.
+
+## Conferência dos números
+
+- **821 origem → 821 no destino**, mais 231 clientes marcados que **não existem
+  no dump Oracle**: são cadastros vindos do app mobile (os mesmos 11.104 com id
+  acima do máximo do legado). Zero inventados.
+
+## Pendência registrada (não corrigida)
+
+`pedidos.gasdopovo` tem **1.003 pedidos marcados na origem** e a coluna **não
+existe** em `public.pedidos` — a informação de que a venda saiu pelo programa se
+perdeu.
+
+Não foi corrigido agora porque nem o model `Pedido` nem nenhuma tela da SPA leem
+esse campo: criar a coluna produziria dado que ninguém consome. Vale quando
+houver relatório do programa (volume vendido, conferência com a distribuidora) —
+aí a coluna tem leitor e a recarga faz sentido.
+
+---
+
+# Vínculo nota↔pedido: religado em produção
+
+`etl:run fiscal` religou **167.439 notas** aos seus pedidos (de 167.442; as 3
+restantes apontam para notas descartadas na carga, com aviso explícito no
+relatório).
+
+Efeito na tela: os pedidos faturados passam a exibir **NF-e: Emitida** com o
+número da nota, e — mais importante — o botão "Emitir NFC-e" deixa de aparecer
+para pedido que já tem nota autorizada, fechando o risco de emissão duplicada.
+
+Verificado que o pedido #456747, o do relato, continua sem nota — e está certo:
+no legado ele tem `nfce_id` nulo e `nfcegerou = 0`.
