@@ -73,9 +73,10 @@ final class GasDoPovoService
     /**
      * Resumo do programa no período — é o que se presta conta.
      *
-     * O desconto por botijão sai da diferença entre o preço normal e o do
-     * programa: é o subsídio efetivamente concedido, e o número que a
-     * distribuidora cobra.
+     * Volume (botijões), faturamento e preço médio PRATICADO. Não há cálculo de
+     * subsídio: a conferência com o dump mostrou que `precogasdopovo` é igual ao
+     * preço normal e as vendas variam de R$ 96 a R$ 127 — o programa é o canal
+     * de pagamento, não um desconto de tabela.
      *
      * @return array<string, mixed>
      */
@@ -104,19 +105,24 @@ final class GasDoPovoService
             )
             ->sum('pedidoitens.quantidade');
 
-        $desconto = null;
-        if ($parametros['preco'] !== null && $parametros['preco_venda'] !== null) {
-            $desconto = round(($parametros['preco_venda'] - $parametros['preco']) * $botijoes, 2);
-        }
+        // Preço médio praticado NAS VENDAS, não o do cadastro.
+        //
+        // A conferência com o dump desfez uma suposição: `precogasdopovo` do
+        // produto é IGUAL ao preço normal (120,00 nos dois), e mesmo assim as
+        // vendas saíram entre R$ 96 e R$ 127. Ou seja, **o programa não é um
+        // desconto no preço** — é o canal de pagamento (o cartão do benefício).
+        // Um card de "subsídio concedido" calculado pela diferença de cadastro
+        // mostraria R$ 0,00 e induziria a erro na prestação de contas.
+        //
+        // O que se confere de fato é volume e faturamento por período.
+        $precoMedio = $botijoes > 0 ? round($valor / $botijoes, 2) : null;
 
         return [
             'pedidos' => $pedidos,
             'valor' => round($valor, 2),
             'botijoes' => $botijoes,
             'ticket_medio' => $pedidos > 0 ? round($valor / $pedidos, 2) : 0.0,
-            // Subsídio concedido no período (preço normal − preço do programa).
-            // Null quando falta um dos preços: melhor não informar do que informar errado.
-            'subsidio' => $desconto,
+            'preco_medio' => $precoMedio,
             'beneficiarios' => Cliente::query()->where('gasdopovo', true)->count(),
         ];
     }

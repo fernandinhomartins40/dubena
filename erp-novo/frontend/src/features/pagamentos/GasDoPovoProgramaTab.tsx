@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Flame, Users, Receipt, TrendingDown, Settings2, AlertTriangle } from 'lucide-react'
+import { Flame, Users, Receipt, Tag, Settings2, AlertTriangle } from 'lucide-react'
 import {
   Card, CardContent, Badge, StatCard, Field, Input, AsyncState, EmptyState,
   DataTable, type Column, SearchBar,
@@ -42,7 +42,8 @@ export function GasDoPovoProgramaTab() {
           </Field>
           <p className="pb-2 text-sm text-muted-foreground">
             A venda entra no programa quando o cliente é beneficiário <em>e</em> a
-            condição de pagamento é a do programa.
+            condição de pagamento é a do programa — que é o cartão do benefício,
+            não um desconto de tabela.
           </p>
         </CardContent>
       </Card>
@@ -67,12 +68,10 @@ export function GasDoPovoProgramaTab() {
                 icon={Receipt} accent="neutral"
               />
               <StatCard
-                titulo="Subsídio concedido"
-                valor={data.resumo.subsidio !== null ? brl(data.resumo.subsidio) : '—'}
-                icon={TrendingDown} accent="success"
-                hint={data.resumo.subsidio === null
-                  ? 'Falta o preço do programa no produto'
-                  : 'Preço normal menos o preço do programa'}
+                titulo="Preço médio"
+                valor={data.resumo.preco_medio !== null ? brl(data.resumo.preco_medio) : '—'}
+                icon={Tag} accent="success"
+                hint="Praticado nas vendas, não o do cadastro"
               />
             </div>
 
@@ -105,8 +104,8 @@ function ProgramaNaoConfigurado() {
 function ParametrosDoPrograma({ p, beneficiarios }: { p: GpParametros; beneficiarios: number }) {
   const linhas: Array<[string, React.ReactNode]> = [
     ['Produto do programa', p.produto ?? <Ausente />],
-    ['Preço do programa', p.preco !== null ? brl(p.preco) : <Ausente />],
-    ['Preço normal', p.preco_venda !== null ? brl(p.preco_venda) : <Ausente />],
+    ['Preço de tabela do programa', p.preco !== null ? brl(p.preco) : <Ausente />],
+    ['Preço de venda normal', p.preco_venda !== null ? brl(p.preco_venda) : <Ausente />],
     ['Condição de pagamento', p.condicaopagamento ?? <Ausente />],
     ['Valor da entrega', p.valor_frete !== null ? brl(p.valor_frete) : <Ausente />],
     ['Cond. pagamento da entrega', p.condicaopagamento_frete ?? <Ausente />],

@@ -135,14 +135,30 @@ A tela foi refeita no modelo real do legado, mantendo a de voucher como uma aba
   sempre "os do programa";
 - `PedidosMigrator` passa a trazer a marca das 1.003 vendas.
 
-### O número que importa
+### Correção após conferir com o dado real
 
-O **subsídio concedido** = (preço normal − preço do programa) × botijões
-entregues. É o que a distribuidora e o órgão gestor cobram, e não existia em
-lugar nenhum do sistema novo.
+A primeira versão trazia um card de **"Subsídio concedido"** = (preço normal −
+preço do programa) × botijões. **A conferência com o dump desmentiu a premissa:**
 
-Quando falta um dos preços, o card mostra `—` com a explicação, em vez de exibir
-um número errado.
+```
+produto Glp P13:      preco_venda = 120,00   precogasdopovo = 120,00
+vendas do programa:   R$ 96,00 a R$ 127,18   (média 111,90)
+vendas normais:       média 105,95
+```
+
+Três fatos derrubam a ideia de desconto de tabela: o preço "do programa" é
+**idêntico** ao normal; as vendas variam num intervalo que não corresponde a
+nenhum dos dois; e a média do programa é **maior** que a das vendas normais.
+
+**O Gás do Povo é o canal de pagamento — o cartão do benefício — não um desconto
+no preço.** O card mostraria R$ 0,00 e induziria a erro justamente na prestação
+de contas, que era seu propósito.
+
+Trocado por **preço médio praticado**, rotulado como "das vendas, não o do
+cadastro". O que se confere é volume e faturamento por período.
+
+Registro do método: o teste unitário passava, porque fora escrito com a mesma
+premissa errada. Foi a conferência contra o banco de produção que pegou.
 
 ### Detalhes de implementação que valem registro
 

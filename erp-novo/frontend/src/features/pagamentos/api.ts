@@ -56,7 +56,7 @@ export interface GpParametros {
 }
 export interface GpResumo {
   pedidos: number; valor: number; botijoes: number
-  ticket_medio: number; subsidio: number | null; beneficiarios: number
+  ticket_medio: number; preco_medio: number | null; beneficiarios: number
 }
 export interface GpMes { mes: string; pedidos: number; valor: number }
 

@@ -120,10 +120,15 @@ class GasDoPovoProgramaTest extends TestCase
     }
 
     /**
-     * O subsídio é a diferença entre o preço normal e o do programa, vezes o
-     * volume — é o número que se presta conta à distribuidora.
+     * Volume, faturamento e preço MÉDIO PRATICADO.
+     *
+     * Não há cálculo de subsídio de propósito: a conferência com o dump mostrou
+     * que `precogasdopovo` é igual ao preço normal (120,00 nos dois) e que as
+     * vendas variam de R$ 96 a R$ 127. O programa é o canal de pagamento — o
+     * cartão do benefício —, não um desconto de tabela. Um card de "subsídio"
+     * pela diferença de cadastro mostraria R$ 0,00 e induziria a erro.
      */
-    public function test_resumo_apura_volume_e_subsidio(): void
+    public function test_resumo_apura_volume_e_preco_medio(): void
     {
         [$user, $empresa, $produto] = $this->cenario();
 
@@ -138,8 +143,8 @@ class GasDoPovoProgramaTest extends TestCase
             ->assertJsonPath('data.resumo.pedidos', 2)
             ->assertJsonPath('data.resumo.valor', fn ($v) => (float) $v === 90.0)
             ->assertJsonPath('data.resumo.botijoes', fn ($v) => (float) $v === 2.0)
-            // (120 − 45) × 2 botijões
-            ->assertJsonPath('data.resumo.subsidio', fn ($v) => (float) $v === 150.0)
+            // 90,00 faturados / 2 botijões
+            ->assertJsonPath('data.resumo.preco_medio', fn ($v) => (float) $v === 45.0)
             ->assertJsonPath('data.resumo.beneficiarios', 2);
     }
 
