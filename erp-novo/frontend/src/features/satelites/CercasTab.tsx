@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPin, Trash2, Pencil, Plus, Save, X, Search, ChevronRight } from 'lucide-react'
+import {
+  MapPin, Trash2, Pencil, Plus, Save, X, Search, ChevronRight,
+  Undo2, Redo2, Spline, Minimize2, Copy,
+} from 'lucide-react'
 import {
   Button, Card, CardContent, Field, Input, EmptyState, AsyncState, ConfirmDialog, toast,
   AsyncSelect,
@@ -8,6 +11,8 @@ import { useAuth } from '@/lib/auth'
 import { carregarGoogleMaps } from '@/lib/googleMaps'
 import { useCercas, useSalvarCerca, useExcluirCerca, useGoogleMapsKey, type Cerca } from './extraApi'
 import { useEmpresa } from '@/features/empresas/api'
+import { useEditorCerca } from './useEditorCerca'
+import type { Ponto } from './editorPoligono'
 
 // Centro padrão: Guarapuava/PR (fallback quando não há posição/cerca).
 const CENTRO_PADRAO = { lat: -25.3935, lng: -51.4562 }
@@ -15,27 +20,22 @@ const CORES = ['#FF6200', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#0EA5E9']
 /** Rótulo do grupo das cercas ainda não classificadas. */
 const SEM_MUNICIPIO = 'Sem município'
 
-/** Aba Cercas (geofencing poligonal) — desenha o polígono no Google Maps, igual ao legado. */
+/** Aba Cercas (geofencing poligonal) — desenha o polígono no Google Maps. */
 export function CercasTab() {
   const { can, user } = useAuth()
   const podeEditar = can('monitora.edit')
   const { data: key, isLoading: carregandoKey } = useGoogleMapsKey()
   const { data: cercas, isLoading } = useCercas()
-  // Para centralizar o mapa quando a empresa ainda não tem cerca nenhuma.
   const { data: empresa } = useEmpresa(user?.empresa_id ?? null)
   const salvar = useSalvarCerca()
   const excluir = useExcluirCerca()
 
   const mapRef = useRef<HTMLDivElement>(null)
   const gmap = useRef<any>(null)
-  // Estado do desenho em refs: o listener do mapa é criado uma vez e precisa
-  // enxergar o valor atual sem recriar o mapa a cada render.
+  const overlays = useRef<any[]>([]) // polígonos persistidos desenhados no mapa
+  const enquadrou = useRef(false) // o mapa já foi enquadrado nas cercas uma vez?
   const modoDesenho = useRef(false)
   const corAtual = useRef(CORES[0])
-  const marcadores = useRef<any[]>([]) // pinos numerados sobre os vértices
-  const enquadrou = useRef(false) // o mapa já foi enquadrado nas cercas uma vez?
-  const overlays = useRef<any[]>([]) // polígonos persistidos desenhados no mapa
-  const rascunho = useRef<any>(null) // polígono recém-desenhado (ainda não salvo)
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState<string | null>(null)
 
@@ -44,13 +44,37 @@ export function CercasTab() {
     descricao: string; cor: string; cidade_id?: number | null; cidadeLabel?: string | null
   }>({ descricao: '', cor: CORES[0] })
   const [temRascunho, setTemRascunho] = useState(false)
-  const [vertices, setVertices] = useState(0)
   const [excluindo, setExcluindo] = useState<Cerca | null>(null)
   const [selecionada, setSelecionada] = useState<number | null>(null)
   const [filtro, setFiltro] = useState('')
   const [recolhidos, setRecolhidos] = useState<string[]>([])
   const [busca, setBusca] = useState('')
   const [buscando, setBuscando] = useState(false)
+
+  /**
+   * Vértices das OUTRAS cercas — alvo do snap.
+   *
+   * Grudar na borda vizinha é o que impede buraco e sobreposição entre setores
+   * adjacentes: sem isso o geofencing acaba com endereços em nenhuma cerca ou
+   * em duas.
+   */
+  const vizinhos = useMemo<Ponto[]>(() => {
+    const saida: Ponto[] = []
+    for (const c of cercas ?? []) {
+      if (editando?.id === c.id) continue
+      for (const p of c.pontos ?? []) {
+        saida.push({ lat: Number(p.latitude), lng: Number(p.longitude) })
+      }
+    }
+
+    return saida
+  }, [cercas, editando])
+
+  const editor = useEditorCerca({ vizinhos })
+  // O listener de clique do mapa é registrado uma única vez e capturaria o
+  // `editor` da primeira renderização. A ref dá acesso sempre ao atual.
+  const editorRef = useRef(editor)
+  editorRef.current = editor
 
   // 1) Carrega o SDK e cria o mapa quando há key.
   useEffect(() => {
@@ -59,42 +83,22 @@ export function CercasTab() {
     carregarGoogleMaps(key)
       .then((google) => {
         if (!vivo || !mapRef.current) return
-        gmap.current = new google.maps.Map(mapRef.current, { center: CENTRO_PADRAO, zoom: 13, mapTypeControl: false, streetViewControl: false })
+        gmap.current = new google.maps.Map(mapRef.current, {
+          center: CENTRO_PADRAO, zoom: 13, mapTypeControl: false, streetViewControl: false,
+        })
 
-        // Desenho por CLIQUE no mapa, e não pelo `DrawingManager`: a Google
-        // descontinuou o DrawingManager na versão 3.65 da Maps JavaScript API
-        // (o aviso vermelho aparecia sobre o mapa).
-        //
-        // O polígono NÃO é `editable`: quem move o vértice é o marcador
-        // numerado, que fica por cima e bloquearia as alças nativas. Ver
-        // `redesenharMarcadores`.
+        // Desenho por CLIQUE no mapa, e não pelo `DrawingManager`: a Google o
+        // descontinuou na versão 3.65 da Maps JavaScript API.
         google.maps.event.addListener(gmap.current, 'click', (ev: any) => {
           if (!modoDesenho.current) return
           const ponto = { lat: ev.latLng.lat(), lng: ev.latLng.lng() }
 
-          if (!rascunho.current) {
-            rascunho.current = new google.maps.Polygon({
-              paths: [ponto],
-              fillColor: corAtual.current, fillOpacity: 0.25,
-              strokeColor: corAtual.current, strokeWeight: 2,
-              editable: false, map: gmap.current,
-            })
-            // O caminho muda quando o marcador é arrastado ou removido — sem
-            // estes listeners o contador congelava e a conferência do desenho
-            // ficava sem retorno.
-            const path = rascunho.current.getPath()
-            ;['insert_at', 'remove_at', 'set_at'].forEach((ev2) =>
-              google.maps.event.addListener(path, ev2, () => {
-                setVertices(path.getLength())
-                redesenharMarcadores()
-              }),
-            )
+          if (!editorRef.current.ativo) {
+            editorRef.current.abrir(gmap.current, [ponto], corAtual.current)
             setTemRascunho(true)
           } else {
-            rascunho.current.getPath().push(ev.latLng)
+            editorRef.current.acrescentar(ponto)
           }
-          setVertices(rascunho.current.getPath().getLength())
-          redesenharMarcadores()
         })
         setPronto(true)
       })
@@ -110,10 +114,11 @@ export function CercasTab() {
     overlays.current = []
     const bounds = new google.maps.LatLngBounds()
     let temPonto = false
+
     cercas.forEach((c) => {
       if (!c.pontos?.length) return
-      // A cerca em edição vira rascunho editável: desenhar as duas deixaria a
-      // área duplicada no mapa, e arrastar um vértice moveria só uma delas.
+      // A cerca em edição vira polígono editável do editor: desenhar as duas
+      // deixaria a área duplicada no mapa.
       if (editando?.id === c.id) return
       const path = c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }))
       const destacada = selecionada === c.id
@@ -132,6 +137,7 @@ export function CercasTab() {
       overlays.current.push(poly)
       path.forEach((pt) => { bounds.extend(pt); temPonto = true })
     })
+
     if (temPonto) {
       // Enquadra todas apenas na PRIMEIRA carga: refazer isso a cada render
       // desfaria o zoom que o usuário acabou de dar ao clicar numa cerca.
@@ -145,8 +151,7 @@ export function CercasTab() {
 
     // Sem cerca alguma (revenda nova, ou primeira vez nesta empresa) o mapa
     // ficava parado em Guarapuava — quem opera em outra cidade não achava a
-    // própria região e não tinha como começar a desenhar. Centraliza no
-    // endereço da empresa; havendo só o nome da cidade, geocodifica.
+    // própria região e não tinha como começar a desenhar.
     if (empresa?.latitude && empresa?.longitude) {
       gmap.current.setCenter({ lat: Number(empresa.latitude), lng: Number(empresa.longitude) })
       gmap.current.setZoom(13)
@@ -163,61 +168,38 @@ export function CercasTab() {
     }
   }, [cercas, pronto, empresa, selecionada, editando]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Marcadores numerados sobre cada vértice.
-   *
-   * O polígono editável do Google mostra alças pequenas e sem ordem — em cerca
-   * com dezenas de pontos não dá para saber qual é qual, nem conferir se o
-   * traçado seguiu a rua certa. O número mostra a sequência; o clique remove o
-   * ponto, que era a operação que faltava para corrigir um clique errado sem
-   * recomeçar o desenho inteiro.
-   */
-  function redesenharMarcadores() {
-    const google = (window as any).google
-    marcadores.current.forEach((m) => m.setMap(null))
-    marcadores.current = []
-    if (!rascunho.current || !gmap.current) return
-
-    const path = rascunho.current.getPath()
-    for (let i = 0; i < path.getLength(); i++) {
-      const pos = path.getAt(i)
-      const m = new google.maps.Marker({
-        position: pos,
-        map: gmap.current,
-        // ARRASTÁVEL: o marcador fica por cima das alças do polígono editável e
-        // as bloquearia. Em vez de disputar o clique, ele PASSA A SER a alça —
-        // arrastar o pino move o vértice. Sem isto os pontos ficavam travados.
-        draggable: true,
-        crossOnDrag: false,
-        label: { text: String(i + 1), color: '#fff', fontSize: '11px', fontWeight: '600' },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: corAtual.current,
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-        },
-        title: `Vértice ${i + 1} — arraste para mover, clique duplo para remover`,
-        zIndex: 999,
-      })
-      // Arrasto: atualiza o vértice no caminho do polígono, que é a fonte da
-      // verdade do desenho.
-      m.addListener('drag', (ev: any) => path.setAt(i, ev.latLng))
-      // Remover é no DUPLO clique: com clique simples, soltar o arraste em cima
-      // do próprio pino apagava o vértice que se acabou de posicionar.
-      m.addListener('dblclick', () => {
-        if (path.getLength() <= 3) {
-          toast.error('O polígono precisa de ao menos 3 vértices.')
-
-          return
-        }
-        path.removeAt(i)
-        setVertices(path.getLength())
-        redesenharMarcadores()
-      })
-      marcadores.current.push(m)
+  // Ctrl+Z / Ctrl+Y enquanto edita: é o atalho que todo editor gráfico tem, e
+  // sem ele um arraste errado custava redesenhar o contorno.
+  useEffect(() => {
+    if (!temRascunho) return
+    const atalho = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); editor.desfazer() }
+      if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); editor.refazer() }
     }
+    window.addEventListener('keydown', atalho)
+
+    return () => window.removeEventListener('keydown', atalho)
+  }, [temRascunho, editor])
+
+  /**
+   * Aproxima o mapa na cerca e a destaca — SEM entrar em edição.
+   *
+   * Clicar na lista ou no polígono é "quero ver onde fica"; editar é uma
+   * decisão à parte, pelo lápis.
+   */
+  function focarCerca(c: Cerca) {
+    if (!gmap.current || !c.pontos?.length) return
+    const google = (window as any).google
+    const bounds = new google.maps.LatLngBounds()
+    c.pontos.forEach((p) => bounds.extend({ lat: Number(p.latitude), lng: Number(p.longitude) }))
+    gmap.current.fitBounds(bounds, 48)
+    setSelecionada(c.id)
+  }
+
+  function limparRascunho() {
+    editor.fechar()
+    setTemRascunho(false)
   }
 
   /** Move o mapa para o endereço digitado (geocodificação do próprio SDK). */
@@ -231,88 +213,64 @@ export function CercasTab() {
         setBuscando(false)
         if (status !== 'OK' || !res?.[0]) { toast.error('Endereço não encontrado.'); return }
         const g = res[0].geometry
-        // `viewport` respeita o tamanho do lugar: uma cidade não deve abrir
-        // com o mesmo zoom de uma rua.
+        // `viewport` respeita o tamanho do lugar: uma cidade não deve abrir com
+        // o mesmo zoom de uma rua.
         if (g.viewport) gmap.current.fitBounds(g.viewport)
         else { gmap.current.setCenter(g.location); gmap.current.setZoom(15) }
       },
     )
   }
 
-  function limparRascunho() {
-    if (rascunho.current) { rascunho.current.setMap(null); rascunho.current = null }
-    marcadores.current.forEach((m) => m.setMap(null))
-    marcadores.current = []
-    setVertices(0)
-    setTemRascunho(false)
-  }
-
   function iniciarDesenho() {
     setEditando(null)
+    setSelecionada(null)
     setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
     limparRascunho()
     corAtual.current = CORES[0]
     modoDesenho.current = true
-    setVertices(0)
-  }
-
-  /**
-   * Aproxima o mapa na cerca e a destaca — SEM entrar em edição.
-   *
-   * Clicar na lista ou no polígono é "quero ver onde fica"; editar é uma
-   * decisão à parte, pelo lápis. Antes o clique abria o formulário e trocava o
-   * polígono por um rascunho editável: bastava um clique acidental para
-   * arrastar um vértice sem perceber.
-   */
-  function focarCerca(c: Cerca) {
-    if (!gmap.current || !c.pontos?.length) return
-    const google = (window as any).google
-
-    const bounds = new google.maps.LatLngBounds()
-    c.pontos.forEach((p) => bounds.extend({ lat: Number(p.latitude), lng: Number(p.longitude) }))
-    gmap.current.fitBounds(bounds, 48)
-
-    setSelecionada(c.id)
   }
 
   function abrirEdicao(c: Cerca) {
-    // Sai a seleção: o polígono persistido é substituído pelo rascunho
-    // editável, e manter o destaque desenharia a área duas vezes.
     setSelecionada(null)
     setEditando(c)
     setForm({
       descricao: c.descricao, cor: c.cor ?? CORES[0],
       cidade_id: c.cidade_id, cidadeLabel: c.cidade ? `${c.cidade}${c.uf ? `/${c.uf}` : ''}` : null,
     })
-    limparRascunho()
-    // Carrega os pontos da cerca como rascunho editável.
-    const google = (window as any).google
-    const path = c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }))
-    modoDesenho.current = false
+    modoDesenho.current = true // continuar clicando acrescenta vértices
     corAtual.current = c.cor ?? CORES[0]
-    // `editable: false`: quem move o vértice é o marcador numerado (ver
-    // `redesenharMarcadores`). Deixar as duas camadas de alça sobrepostas era o
-    // que travava o arrasto.
-    rascunho.current = new google.maps.Polygon({ paths: path, fillColor: c.cor ?? CORES[0], fillOpacity: 0.3, strokeColor: c.cor ?? CORES[0], strokeWeight: 2, editable: false, map: gmap.current })
-    const gpath = rascunho.current.getPath()
-    ;['insert_at', 'remove_at', 'set_at'].forEach((ev) =>
-      google.maps.event.addListener(gpath, ev, () => { setVertices(gpath.getLength()); redesenharMarcadores() }),
+    editor.abrir(
+      gmap.current,
+      c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) })),
+      c.cor ?? CORES[0],
     )
     setTemRascunho(true)
-    setVertices(gpath.getLength())
-    redesenharMarcadores()
+    focarCerca(c)
+    setSelecionada(null)
   }
 
-  function pontosDoRascunho(): { latitude: number; longitude: number }[] {
-    if (!rascunho.current) return []
-    const arr: { latitude: number; longitude: number }[] = []
-    rascunho.current.getPath().forEach((latlng: any) => arr.push({ latitude: latlng.lat(), longitude: latlng.lng() }))
-    return arr
+  /** Duplica uma cerca como base para desenhar a vizinha. */
+  function duplicar(c: Cerca) {
+    setEditando(null)
+    setSelecionada(null)
+    setForm({
+      descricao: `${c.descricao} (cópia)`, cor: c.cor ?? CORES[0],
+      cidade_id: c.cidade_id, cidadeLabel: c.cidade ? `${c.cidade}${c.uf ? `/${c.uf}` : ''}` : null,
+    })
+    modoDesenho.current = true
+    corAtual.current = c.cor ?? CORES[0]
+    editor.abrir(
+      gmap.current,
+      c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) })),
+      c.cor ?? CORES[0],
+    )
+    setTemRascunho(true)
+    toast.success('Contorno copiado — ajuste e salve como nova cerca.')
   }
 
   async function onSalvar() {
     if (!form.descricao.trim()) { toast.error('Informe o nome da cerca.'); return }
-    const pontos = pontosDoRascunho()
+    const pontos = editor.lerPontos().map((p) => ({ latitude: p.lat, longitude: p.lng }))
     if (pontos.length < 3) { toast.error('Desenhe um polígono com ao menos 3 pontos.'); return }
     try {
       await salvar.mutateAsync({
@@ -332,15 +290,13 @@ export function CercasTab() {
     setEditando(null)
     setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
     modoDesenho.current = false
-    setVertices(0)
   }
 
   /**
    * Cercas por município, filtradas.
    *
    * "Sem município" vai por ÚLTIMO e não é escondido: é a fila de trabalho de
-   * quem precisa classificar as cercas herdadas, e some sozinha à medida que
-   * são atribuídas.
+   * quem precisa classificar as cercas herdadas.
    */
   const grupos = useMemo(() => {
     const termo = filtro.trim().toLowerCase()
@@ -365,6 +321,7 @@ export function CercasTab() {
   }
 
   const editandoAlgo = temRascunho || editando !== null
+  const { vertices, areaKm2: area, perimetroKm, podeDesfazer, podeRefazer } = editor.estado
 
   if (carregandoKey) return <AsyncState loading skeletonRows={3}>{null}</AsyncState>
   if (!key) {
@@ -373,19 +330,50 @@ export function CercasTab() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       {/* Mapa */}
       <Card>
-        <CardContent className="p-0 relative">
+        <CardContent className="relative p-0">
           <div ref={mapRef} className="h-[560px] w-full rounded-lg" />
-          {erroMapa && <div className="absolute inset-0 grid place-items-center bg-card/80 text-sm text-destructive p-4 text-center">{erroMapa}</div>}
+          {erroMapa && <div className="absolute inset-0 grid place-items-center bg-card/80 p-4 text-center text-sm text-destructive">{erroMapa}</div>}
           {podeEditar && pronto && !editandoAlgo && (
             <Button className="absolute left-3 top-3 shadow-md" onClick={iniciarDesenho}><Plus size={16} /> Desenhar cerca</Button>
           )}
+
+          {/* Barra de ferramentas do editor: só aparece com contorno aberto. */}
+          {editandoAlgo && temRascunho && (
+            <div className="absolute left-3 top-3 flex gap-1 rounded-md bg-card/95 p-1 shadow-md">
+              <Button variant="ghost" size="icon" title="Desfazer (Ctrl+Z)"
+                disabled={!podeDesfazer} onClick={() => editor.desfazer()}>
+                <Undo2 size={16} />
+              </Button>
+              <Button variant="ghost" size="icon" title="Refazer (Ctrl+Y)"
+                disabled={!podeRefazer} onClick={() => editor.refazer()}>
+                <Redo2 size={16} />
+              </Button>
+              <div className="mx-1 w-px bg-border" />
+              <Button variant="ghost" size="icon" title="Arredondar cantos"
+                disabled={vertices < 3} onClick={() => editor.suavizarContorno()}>
+                <Spline size={16} />
+              </Button>
+              <Button variant="ghost" size="icon" title="Simplificar (remove pontos redundantes)"
+                disabled={vertices < 4} onClick={() => editor.simplificarContorno()}>
+                <Minimize2 size={16} />
+              </Button>
+            </div>
+          )}
+
+          {/* Medidas ao vivo: dimensionar o setor enquanto desenha. */}
+          {editandoAlgo && vertices >= 3 && (
+            <div className="absolute bottom-3 left-3 rounded-md bg-card/95 px-3 py-1.5 text-xs shadow-md">
+              <span className="font-medium tabular-nums">{area.toFixed(2)} km²</span>
+              <span className="text-muted-foreground"> · {perimetroKm.toFixed(1)} km de contorno</span>
+            </div>
+          )}
+
           {/* Ir para um endereço: quem está começando não tem cerca nem, às
-              vezes, endereço da empresa cadastrado — sem isto o mapa ficava
-              num lugar qualquer e não havia como chegar à região de atuação. */}
-          {pronto && (
+              vezes, endereço da empresa cadastrado. */}
+          {pronto && !editandoAlgo && (
             <form
               onSubmit={(e) => { e.preventDefault(); irParaEndereco() }}
               className="absolute right-3 top-3 flex gap-1 rounded-md bg-card/95 p-1 shadow-md"
@@ -405,33 +393,36 @@ export function CercasTab() {
       {/* Painel lateral */}
       <div className="space-y-4">
         {editandoAlgo ? (
-          <Card><CardContent className="pt-6 space-y-4">
+          <Card><CardContent className="space-y-4 pt-6">
             <div className="flex items-center justify-between">
               <p className="font-medium">{editando ? 'Editar cerca' : 'Nova cerca'}</p>
               <Button variant="ghost" size="icon" onClick={cancelar}><X size={16} /></Button>
             </div>
-            {/* Instruções completas: o desenho é preciso na medida em que o
-                usuário sabe que pode ajustar e remover pontos. Sem dizer isso,
-                um clique errado levava a recomeçar a cerca inteira. */}
+
             {!temRascunho ? (
-              <div className="rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground space-y-1">
+              <div className="space-y-1 rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">Como desenhar</p>
                 <p>1. Clique no mapa em cada esquina do contorno.</p>
-                <p>2. Arraste um pino para ajustar; dê duplo clique nele para remover.</p>
-                <p>3. Use o zoom para seguir as ruas com precisão.</p>
+                <p>2. Arraste os pinos numerados para ajustar.</p>
+                <p>3. Arraste um ponto branco (no meio da linha) para inserir vértice.</p>
+                <p>4. Duplo clique num pino remove aquele vértice.</p>
               </div>
             ) : (
-              <div className="rounded-md bg-secondary/60 p-3 text-xs space-y-1">
+              <div className="space-y-1 rounded-md bg-secondary/60 p-3 text-xs">
                 <p className="font-medium text-foreground">
                   {vertices} vértice(s)
                   {vertices < 3 && <span className="text-destructive"> — mínimo de 3</span>}
                 </p>
                 <p className="text-muted-foreground">
-                  Continue clicando no mapa para adicionar. Arraste um pino para
-                  ajustar, ou dê duplo clique nele para remover.
+                  Arraste os pinos para ajustar · ponto branco insere · duplo clique remove ·
+                  clique no mapa acrescenta ao fim.
+                </p>
+                <p className="text-muted-foreground">
+                  Perto da borda de outra cerca, o ponto gruda nela automaticamente.
                 </p>
               </div>
             )}
+
             <Field label="Nome" required><Input autoFocus value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Zona Centro" /></Field>
             <Field label="Município">
               <AsyncSelect
@@ -441,10 +432,12 @@ export function CercasTab() {
               />
             </Field>
             <Field label="Cor">
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 {CORES.map((c) => (
-                  <button key={c} type="button" aria-label={`Cor ${c}`} onClick={() => setForm((f) => ({ ...f, cor: c }))}
-                    className={`size-7 rounded-full border-2 transition ${form.cor === c ? 'border-foreground scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                  <button key={c} type="button" aria-label={`Cor ${c}`}
+                    onClick={() => setForm((f) => ({ ...f, cor: c }))}
+                    className={`size-7 rounded-full border-2 transition ${form.cor === c ? 'scale-110 border-foreground' : 'border-transparent'}`}
+                    style={{ background: c }} />
                 ))}
               </div>
             </Field>
@@ -473,8 +466,7 @@ export function CercasTab() {
               emptyDescription={podeEditar ? 'Clique em “Desenhar cerca” para criar a primeira.' : undefined}>
               {/* Agrupado por MUNICÍPIO: a lista plana misturava dois níveis —
                   "Turvo" e "Goioxim" são cidades inteiras, "Setor 01" a "08" são
-                  zonas dentro de Guarapuava. Quem opera em várias cidades não
-                  conseguia enxergar o que é de onde. */}
+                  zonas dentro de Guarapuava. */}
               <div className="-mx-2 max-h-[430px] overflow-y-auto">
                 {grupos.length === 0 && (
                   <p className="px-2 py-4 text-center text-sm text-muted-foreground">
@@ -516,8 +508,9 @@ export function CercasTab() {
                             </button>
                             {podeEditar && (
                               <div className="flex shrink-0">
-                                <Button variant="ghost" size="icon" onClick={() => abrirEdicao(c)}><Pencil size={15} /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => setExcluindo(c)}><Trash2 size={15} /></Button>
+                                <Button variant="ghost" size="icon" title="Editar" onClick={() => abrirEdicao(c)}><Pencil size={15} /></Button>
+                                <Button variant="ghost" size="icon" title="Duplicar" onClick={() => duplicar(c)}><Copy size={15} /></Button>
+                                <Button variant="ghost" size="icon" title="Excluir" onClick={() => setExcluindo(c)}><Trash2 size={15} /></Button>
                               </div>
                             )}
                           </div>
