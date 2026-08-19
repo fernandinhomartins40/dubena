@@ -401,6 +401,10 @@ final class PedidosMigrator implements Migrator
             // mesmo campo — sem ele, o histórico financeiro perde a forma de
             // pagamento e a conferência de caixa não fecha.
             'condicaopagamento_id' => $this->condicaoResolvida($r, $remapCondicao),
+            // Venda subsidiada pelo programa Gas do Povo. Derivada no legado de
+            // cliente beneficiario + condicao de pagamento do programa; aqui so
+            // se preserva o que ja foi decidido la.
+            'gasdopovo' => (bool) ($r->gasdopovo ?? false),
             'setor_id' => $r->entregasetor_id ?? null,
             'atendente_user_id' => $r->atendenteuser_id ?? null,
             'entregador_user_id' => $r->entregadoruser_id ?? null,

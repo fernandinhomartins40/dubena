@@ -410,6 +410,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('gasdopovo', [PagamentoController::class, 'gasIndex']);
         Route::post('gasdopovo', [PagamentoController::class, 'gasRegistrar']);
         Route::post('gasdopovo/{id}/sacar', [PagamentoController::class, 'gasSacar'])->whereNumber('id');
+        // O PROGRAMA (parametros da empresa, beneficiarios e vendas subsidiadas),
+        // distinto dos beneficios acima. Rotas literais antes de `{id}`.
+        Route::get('gasdopovo/programa', [PagamentoController::class, 'gasPrograma']);
+        Route::get('gasdopovo/beneficiarios', [PagamentoController::class, 'gasBeneficiarios']);
+        Route::get('gasdopovo/vendas', [PagamentoController::class, 'gasVendas']);
 
         // (API-2) Os aliases de ESCRITA cheques/recebidos foram removidos — a SPA
         // usa a rota canônica /cheques (a especie 'R' é enviada no corpo).

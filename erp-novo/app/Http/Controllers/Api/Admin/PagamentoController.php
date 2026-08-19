@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Pagamento\GasDoPovoService;
 use App\Domain\Pagamento\PagamentoService;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
 use App\Models\Pagamento\CartaoTransacao;
 use App\Models\Pagamento\GasDoPovoBeneficio;
+use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -76,5 +80,93 @@ class PagamentoController extends Controller
         $beneficio = GasDoPovoBeneficio::query()->findOrFail($id);
 
         return response()->json(['data' => $this->service->sacarBeneficio($beneficio, $d['pedido_id'], $d['conta_id'] ?? null)]);
+    }
+
+    // ───────── Gás do Povo: o programa como o legado opera ─────────
+    //
+    // Distinto dos benefícios acima (modelo de voucher, alimentado pela operação
+    // do sistema novo): aqui é o PROGRAMA — parâmetros da empresa, quem são os
+    // beneficiários e o que foi vendido subsidiado. Ver
+    // `docs/02-auditoria-legado/GAS_DO_POVO_NO_LEGADO.md`.
+
+    /** GET /gasdopovo/programa — parâmetros + resumo do período + série mensal. */
+    public function gasPrograma(Request $request, GasDoPovoService $programa): JsonResponse
+    {
+        $this->autorizar($request, 'gasdopovo.view');
+
+        $d = $request->validate([
+            'de' => 'nullable|date',
+            'ate' => 'nullable|date|after_or_equal:de',
+        ]);
+
+        $empresaId = app(TenantContext::class)->empresaId();
+
+        return response()->json(['data' => [
+            'parametros' => $programa->parametros($empresaId),
+            'resumo' => $programa->resumo($empresaId, $d['de'] ?? null, $d['ate'] ?? null),
+            'por_mes' => $programa->porMes($empresaId),
+        ]]);
+    }
+
+    /** GET /gasdopovo/beneficiarios — os clientes marcados no cadastro. */
+    public function gasBeneficiarios(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'gasdopovo.view');
+        $q = trim((string) $request->query('q', ''));
+
+        $clientes = Cliente::query()
+            ->where('gasdopovo', true)
+            ->when($q !== '', fn ($b) => $b->where(fn ($w) => $w
+                ->where('nome', 'ilike', '%'.$q.'%')
+                ->orWhere('cpf', 'ilike', '%'.$q.'%')))
+            ->orderBy('nome')
+            ->paginate(30, ['id', 'nome', 'cpf', 'cnpj', 'ativo', 'data_ultima_compra']);
+
+        // Envelope {data, meta} — o mesmo do resto da API. O `paginate` cru
+        // devolve `total` na raiz, e a SPA lê de `meta`.
+        return response()->json([
+            'data' => $clientes->items(),
+            'meta' => [
+                'current_page' => $clientes->currentPage(),
+                'last_page' => $clientes->lastPage(),
+                'per_page' => $clientes->perPage(),
+                'total' => $clientes->total(),
+            ],
+        ]);
+    }
+
+    /** GET /gasdopovo/vendas — os pedidos marcados como do programa. */
+    public function gasVendas(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'gasdopovo.view');
+
+        $d = $request->validate([
+            'de' => 'nullable|date',
+            'ate' => 'nullable|date|after_or_equal:de',
+        ]);
+
+        $pedidos = Pedido::query()
+            ->where('gasdopovo', true)
+            ->with(['cliente:id,nome', 'situacao:id,descricao'])
+            ->when(isset($d['de']), fn ($b) => $b->whereDate('datahora', '>=', $d['de']))
+            ->when(isset($d['ate']), fn ($b) => $b->whereDate('datahora', '<=', $d['ate']))
+            ->orderByDesc('datahora')
+            ->paginate(30);
+
+        return response()->json([
+            'data' => $pedidos->through(fn (Pedido $p) => [
+                'id' => $p->id,
+                'datahora' => $p->datahora?->toIso8601String(),
+                'cliente' => $p->cliente?->nome,
+                'situacao' => $p->situacao?->descricao,
+                'valorvenda' => (float) $p->valor_venda,
+            ])->items(),
+            'meta' => [
+                'current_page' => $pedidos->currentPage(),
+                'last_page' => $pedidos->lastPage(),
+                'per_page' => $pedidos->perPage(),
+                'total' => $pedidos->total(),
+            ],
+        ]);
     }
 }

@@ -2,12 +2,16 @@ import { useState } from 'react'
 import { Plus, HandCoins, Wallet } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect,
-  ResourceList, FormDialog, toast,
+  ResourceList, FormDialog, toast, PageHeader,
+  Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
 import { brl } from '@/lib/format'
 import { useBeneficios, useRegistrarBeneficio, useSacarBeneficio, type Beneficio } from './api'
+import {
+  GasDoPovoProgramaTab, GasDoPovoBeneficiariosTab, GasDoPovoVendasTab,
+} from './GasDoPovoProgramaTab'
 
-export function GasDoPovoPage() {
+function BeneficiosVoucherTab() {
   const { data, isLoading } = useBeneficios()
   const registrar = useRegistrarBeneficio()
   const sacar = useSacarBeneficio()
@@ -55,8 +59,8 @@ export function GasDoPovoPage() {
   return (
     <>
       <ResourceList
-        title="Gás do Povo"
-        subtitle="Auxílio governamental — benefícios e saque"
+        title="Benefícios"
+        subtitle="Modelo de voucher: crédito por competência, consumido no saque. Alimentado pela operação — o histórico do legado não usa este modelo."
         action={<Button onClick={abrir}><Plus size={16} /> Novo benefício</Button>}
         columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
         emptyIcon={<HandCoins />} emptyTitle="Nenhum benefício"
@@ -92,5 +96,43 @@ export function GasDoPovoPage() {
         </Field>
       </FormDialog>
     </>
+  )
+}
+
+/**
+ * Gás do Povo.
+ *
+ * Duas leituras do mesmo programa, e a distinção é o que faz a tela ser útil:
+ *
+ *  - **Programa / Beneficiários / Vendas** — como o legado opera de verdade
+ *    (parâmetros na config, checkbox no cliente, venda marcada por condição de
+ *    pagamento). É onde estão os 821 beneficiários e as 1.003 vendas migradas.
+ *  - **Benefícios** — o modelo de voucher (saldo + saque), que só o sistema novo
+ *    tem. Fica vazio até a operação começar a usá-lo, e isso é o esperado.
+ *
+ * Ver `docs/02-auditoria-legado/GAS_DO_POVO_NO_LEGADO.md`.
+ */
+export function GasDoPovoPage() {
+  const [aba, setAba] = useState('programa')
+
+  return (
+    <div>
+      <PageHeader
+        title="Gás do Povo"
+        subtitle="Programa subsidiado — parâmetros, beneficiários e vendas"
+      />
+      <Tabs value={aba} onValueChange={setAba}>
+        <TabsList>
+          <TabsTrigger value="programa">Programa</TabsTrigger>
+          <TabsTrigger value="beneficiarios">Beneficiários</TabsTrigger>
+          <TabsTrigger value="vendas">Vendas</TabsTrigger>
+          <TabsTrigger value="beneficios">Benefícios</TabsTrigger>
+        </TabsList>
+        <TabsContent value="programa"><GasDoPovoProgramaTab /></TabsContent>
+        <TabsContent value="beneficiarios"><GasDoPovoBeneficiariosTab /></TabsContent>
+        <TabsContent value="vendas"><GasDoPovoVendasTab /></TabsContent>
+        <TabsContent value="beneficios"><BeneficiosVoucherTab /></TabsContent>
+      </Tabs>
+    </div>
   )
 }

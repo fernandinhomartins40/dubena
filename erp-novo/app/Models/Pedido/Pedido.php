@@ -5,6 +5,8 @@ namespace App\Models\Pedido;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
 use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Fiscal\NotaFiscal;
 use App\Models\Monitora\Veiculo;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,6 +32,7 @@ class Pedido extends Model
         'datahora', 'datahora_acao', 'entrega_urgente', 'entrega_telefone',
         'entrega_taxa', 'entrega_troco_para', 'valor_venda', 'valor_desconto',
         'observacao', 'estoque_movimentado',
+        'gasdopovo',
     ];
 
     protected function casts(): array
@@ -79,7 +82,7 @@ class Pedido extends Model
     /** Condicao de pagamento — o `condicaopagamento_id` ja estava no fillable. */
     public function condicao(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Financeiro\CondicaoPagamento::class, 'condicaopagamento_id');
+        return $this->belongsTo(CondicaoPagamento::class, 'condicaopagamento_id');
     }
 
     public function itens(): HasMany
@@ -100,7 +103,7 @@ class Pedido extends Model
      */
     public function notasVivas(): HasMany
     {
-        return $this->hasMany(\App\Models\Fiscal\NotaFiscal::class)
+        return $this->hasMany(NotaFiscal::class)
             ->where('situacao', '!=', 'CANCELADA');
     }
 }

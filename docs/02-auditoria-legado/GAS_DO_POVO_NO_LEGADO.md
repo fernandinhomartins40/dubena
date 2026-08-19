@@ -113,7 +113,53 @@ que ela pede**. Não é falha de migração.
 
 ---
 
-## Opções (decisão do dono)
+## O que foi implementado (opção B)
+
+A tela foi refeita no modelo real do legado, mantendo a de voucher como uma aba
+à parte. Quatro abas em `/novo/app/gas-do-povo`:
+
+| Aba | O que mostra | Origem |
+|---|---|---|
+| **Programa** | Parâmetros da empresa + resumo do período + evolução mensal | `empresa_configs.dados` (migrado) |
+| **Beneficiários** | Os clientes marcados no cadastro | `clientes.gasdopovo` (821 migrados) |
+| **Vendas** | Os pedidos marcados como do programa | `pedidos.gasdopovo` (1.003) |
+| **Benefícios** | O modelo de voucher (saldo + saque) | operação do sistema novo |
+
+### Backend
+
+- `app/Domain/Pagamento/GasDoPovoService.php` — resolve os parâmetros a partir
+  da config, apura o resumo do período e a série mensal;
+- `GET /gasdopovo/programa`, `/gasdopovo/beneficiarios`, `/gasdopovo/vendas`;
+- `2026_08_19_000100_gasdopovo_em_pedidos.php` — a coluna que faltava, com
+  índice **parcial** (`WHERE gasdopovo`): são 0,25% dos pedidos e a consulta é
+  sempre "os do programa";
+- `PedidosMigrator` passa a trazer a marca das 1.003 vendas.
+
+### O número que importa
+
+O **subsídio concedido** = (preço normal − preço do programa) × botijões
+entregues. É o que a distribuidora e o órgão gestor cobram, e não existia em
+lugar nenhum do sistema novo.
+
+Quando falta um dos preços, o card mostra `—` com a explicação, em vez de exibir
+um número errado.
+
+### Detalhes de implementação que valem registro
+
+- **Gráfico em CSS puro** (barras horizontais): a série tem 12 pontos e não
+  justifica uma dependência de biblioteca de gráficos.
+- **`to_char` só no Postgres**: a expressão do mês é trocada por `strftime` em
+  sqlite, senão o serviço quebra nos testes.
+- **Aviso de não configurado**: sem produto e condição definidos, a tela diz
+  onde configurar em vez de mostrar zeros como se estivesse tudo certo.
+
+`tests/Feature/GasDoPovoProgramaTest.php` — 7 testes, incluindo a contra-prova
+de que a venda normal do mesmo produto **não** entra na conta do programa.
+
+---
+
+## Opções consideradas
+
 
 **A. Deixar como está.** A tela existe para a operação futura do sistema novo, se
 o modelo de voucher for adotado. O histórico do legado não a alimenta.
