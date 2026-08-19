@@ -6,7 +6,10 @@ use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Shared\NumeroSequencialService;
 use App\Etl\Migrators\FiscalMigrator;
 use App\Etl\Support\MigrationContext;
+use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -109,6 +112,54 @@ class NumeracaoFiscalTest extends TestCase
             app(NumeroSequencialService::class)
                 ->proximo(ModeloDocumento::NFE->chaveSequencia($empresa->id, 1)),
             'adotou o contador defasado e repetiria notas já emitidas',
+        );
+    }
+
+    /**
+     * A nota tem de ficar ligada ao pedido que a originou.
+     *
+     * O vínculo vive em `pedidos.nfce_id` — `nfemitidas` não tem coluna de
+     * pedido. Nem o PedidosMigrator (que não lia a coluna) nem o FiscalMigrator
+     * (que só enxerga a nota) o traziam: as 241.021 notas migraram com
+     * `pedido_id` nulo, e o diálogo do pedido mostrava "NF-e: —" nos 167.442
+     * pedidos faturados — além de oferecer emitir NFC-e para pedido que já tem
+     * nota autorizada.
+     */
+    public function test_nota_fica_ligada_ao_pedido_de_origem(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $this->schemaLegado($empresa, nfeNumero: 0, nfceNumero: 0);
+        $leg = DB::connection($this->legadoConn);
+
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+        $situacao = PedidoSituacao::factory()->create([
+            'grupo_id' => $empresa->grupo_id,
+        ]);
+        $pedido = Pedido::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
+            'datahora' => now(), 'valor_venda' => 116.08, 'valor_desconto' => 0,
+        ]);
+
+        $leg->table('nfemitidas')->insert([
+            'id' => 900, 'grupo_id' => $empresa->grupo_id, 'empresa_id' => $empresa->id,
+            'nfmodelo' => '65', 'nfserie' => '1', 'nfnumero' => 4242,
+            'chaveacesso' => str_repeat('7', 44), 'protocolo' => 'p1',
+            'vnf' => 116.08, 'datahoraemissao' => '2026-08-12 19:00:00',
+        ]);
+
+        // O legado liga do lado do PEDIDO.
+        $leg->statement('create table pedidos (id integer, nfce_id integer)');
+        $leg->table('pedidos')->insert(['id' => $pedido->id, 'nfce_id' => 900]);
+
+        (new FiscalMigrator)->migrar($this->ctx());
+
+        $this->assertSame(
+            $pedido->id,
+            (int) DB::table('notas_fiscais')->where('id', 900)->value('pedido_id'),
+            'a nota migrou solta: o pedido faturado aparece como "NF-e: —"',
         );
     }
 

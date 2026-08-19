@@ -225,6 +225,7 @@ final class FiscalMigrator implements Migrator
         $pulados += $p;
 
         if (! $ctx->dryRun) {
+            $avisos = array_merge($avisos, $this->religarNotaAoPedido($ctx));
             $avisos = array_merge($avisos, $this->semearNumeracaoFiscal($ctx));
         }
 
@@ -531,6 +532,70 @@ final class FiscalMigrator implements Migrator
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Liga a nota fiscal ao pedido que a originou.
+     *
+     * **O vínculo está do lado do PEDIDO no legado.** `nfemitidas` não tem
+     * coluna de pedido; quem aponta é `pedidos.nfce_id` — e por isso nem o
+     * `PedidosMigrator` (que não lê a coluna) nem o `FiscalMigrator` (que só
+     * enxerga a nota) o traziam. As 241.021 notas migraram com `pedido_id` nulo.
+     *
+     * O custo: o diálogo do pedido mostra "NF-e: —" mesmo nos 167.442 pedidos
+     * faturados, e a SPA usa `notasVivas` para decidir se ainda cabe emitir —
+     * ou seja, oferecia emitir NFC-e para pedido que já tem nota autorizada.
+     *
+     * Roda aqui, e não no `PedidosMigrator`, porque `notas_fiscais` só existe
+     * depois desta carga (`fiscal` depende de `pedidos`, nunca o contrário).
+     *
+     * @return list<string> avisos para o relatório do `etl:run`
+     */
+    private function religarNotaAoPedido(MigrationContext $ctx): array
+    {
+        if (! $this->tabelaExiste($ctx, 'pedidos')) {
+            return [];
+        }
+
+        $idsNota = DB::table('notas_fiscais')->pluck('id')->flip();
+        $idsPedido = DB::table('pedidos')->pluck('id')->flip();
+        $ligados = 0;
+        $semNota = 0;
+
+        // Em blocos: são 400 mil pedidos, e o UPDATE é por nota.
+        $ctx->legado()->table('pedidos')
+            ->whereNotNull('nfce_id')
+            ->select('id', 'nfce_id')
+            ->orderBy('id')
+            ->chunk(5000, function ($rows) use (&$ligados, &$semNota, $idsNota, $idsPedido) {
+                $porNota = [];
+                foreach ($rows as $r) {
+                    $nota = (int) $r->nfce_id;
+                    $pedido = (int) $r->id;
+                    if (! isset($idsNota[$nota]) || ! isset($idsPedido[$pedido])) {
+                        $semNota++;
+
+                        continue;
+                    }
+                    $porNota[$nota] = $pedido;
+                }
+
+                foreach (array_chunk($porNota, 1000, true) as $bloco) {
+                    foreach ($bloco as $nota => $pedido) {
+                        DB::table('notas_fiscais')->where('id', $nota)->update(['pedido_id' => $pedido]);
+                        $ligados++;
+                    }
+                }
+            });
+
+        $avisos = ["{$ligados} nota(s) fiscal(is) religada(s) ao pedido de origem "
+            .'(o vínculo vive em `pedidos.nfce_id`, não na nota)'];
+
+        if ($semNota > 0) {
+            $avisos[] = "{$semNota} pedido(s) apontam para nota que não sobreviveu à carga — vínculo não criado";
+        }
+
+        return $avisos;
     }
 
     /**
