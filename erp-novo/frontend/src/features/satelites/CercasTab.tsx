@@ -33,6 +33,7 @@ export function CercasTab() {
   const modoDesenho = useRef(false)
   const corAtual = useRef(CORES[0])
   const marcadores = useRef<any[]>([]) // pinos numerados sobre os vértices
+  const enquadrou = useRef(false) // o mapa já foi enquadrado nas cercas uma vez?
   const overlays = useRef<any[]>([]) // polígonos persistidos desenhados no mapa
   const rascunho = useRef<any>(null) // polígono recém-desenhado (ainda não salvo)
   const [pronto, setPronto] = useState(false)
@@ -45,6 +46,7 @@ export function CercasTab() {
   const [temRascunho, setTemRascunho] = useState(false)
   const [vertices, setVertices] = useState(0)
   const [excluindo, setExcluindo] = useState<Cerca | null>(null)
+  const [selecionada, setSelecionada] = useState<number | null>(null)
   const [filtro, setFiltro] = useState('')
   const [recolhidos, setRecolhidos] = useState<string[]>([])
   const [busca, setBusca] = useState('')
@@ -107,17 +109,34 @@ export function CercasTab() {
     let temPonto = false
     cercas.forEach((c) => {
       if (!c.pontos?.length) return
+      // A cerca em edição vira rascunho editável: desenhar as duas deixaria a
+      // área duplicada no mapa, e arrastar um vértice moveria só uma delas.
+      if (editando?.id === c.id) return
       const path = c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }))
+      const destacada = selecionada === c.id
       const poly = new google.maps.Polygon({
-        paths: path, fillColor: c.cor ?? '#FF6200', fillOpacity: 0.2,
-        strokeColor: c.cor ?? '#FF6200', strokeWeight: 2, map: gmap.current,
+        paths: path,
+        fillColor: c.cor ?? '#FF6200',
+        // A selecionada fica mais opaca e com traço mais grosso: num mapa com
+        // 19 áreas sobrepostas, cor sozinha não diz qual está em foco.
+        fillOpacity: destacada ? 0.45 : 0.15,
+        strokeColor: c.cor ?? '#FF6200',
+        strokeWeight: destacada ? 4 : 2,
+        zIndex: destacada ? 10 : 1,
+        map: gmap.current,
       })
-      poly.addListener('click', () => abrirEdicao(c))
+      poly.addListener('click', () => focarCerca(c))
       overlays.current.push(poly)
       path.forEach((pt) => { bounds.extend(pt); temPonto = true })
     })
     if (temPonto) {
-      gmap.current.fitBounds(bounds)
+      // Enquadra todas apenas na PRIMEIRA carga: refazer isso a cada render
+      // desfaria o zoom que o usuário acabou de dar ao clicar numa cerca.
+      if (!enquadrou.current) {
+        gmap.current.fitBounds(bounds)
+        enquadrou.current = true
+      }
+
       return
     }
 
@@ -139,7 +158,7 @@ export function CercasTab() {
         },
       )
     }
-  }, [cercas, pronto, empresa]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cercas, pronto, empresa, selecionada, editando]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Marcadores numerados sobre cada vértice.
@@ -220,7 +239,29 @@ export function CercasTab() {
     setVertices(0)
   }
 
+  /**
+   * Aproxima o mapa na cerca e a destaca — SEM entrar em edição.
+   *
+   * Clicar na lista ou no polígono é "quero ver onde fica"; editar é uma
+   * decisão à parte, pelo lápis. Antes o clique abria o formulário e trocava o
+   * polígono por um rascunho editável: bastava um clique acidental para
+   * arrastar um vértice sem perceber.
+   */
+  function focarCerca(c: Cerca) {
+    if (!gmap.current || !c.pontos?.length) return
+    const google = (window as any).google
+
+    const bounds = new google.maps.LatLngBounds()
+    c.pontos.forEach((p) => bounds.extend({ lat: Number(p.latitude), lng: Number(p.longitude) }))
+    gmap.current.fitBounds(bounds, 48)
+
+    setSelecionada(c.id)
+  }
+
   function abrirEdicao(c: Cerca) {
+    // Sai a seleção: o polígono persistido é substituído pelo rascunho
+    // editável, e manter o destaque desenharia a área duas vezes.
+    setSelecionada(null)
     setEditando(c)
     setForm({
       descricao: c.descricao, cor: c.cor ?? CORES[0],
@@ -266,6 +307,7 @@ export function CercasTab() {
   }
 
   function cancelar() {
+    setSelecionada(null)
     limparRascunho()
     setEditando(null)
     setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
@@ -437,8 +479,17 @@ export function CercasTab() {
                     {!recolhidos.includes(municipio) && (
                       <div className="divide-y divide-border">
                         {lista.map((c) => (
-                          <div key={c.id} className="flex items-center justify-between gap-2 py-2 pl-6 pr-2">
-                            <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => abrirEdicao(c)}>
+                          <div
+                            key={c.id}
+                            className={`flex items-center justify-between gap-2 py-2 pl-6 pr-2 transition-colors ${
+                              selecionada === c.id ? 'bg-secondary/70' : ''
+                            }`}
+                          >
+                            <button
+                              className="flex min-w-0 items-center gap-2 text-left"
+                              onClick={() => focarCerca(c)}
+                              title="Ver no mapa"
+                            >
                               <span className="size-3 shrink-0 rounded-full" style={{ background: c.cor ?? '#FF6200' }} />
                               <span className="truncate text-sm">{c.descricao}</span>
                               <span className="shrink-0 text-xs text-muted-foreground">{c.pontos?.length ?? 0} pts</span>
