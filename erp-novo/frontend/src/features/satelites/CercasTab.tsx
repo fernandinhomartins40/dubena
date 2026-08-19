@@ -63,8 +63,11 @@ export function CercasTab() {
 
         // Desenho por CLIQUE no mapa, e não pelo `DrawingManager`: a Google
         // descontinuou o DrawingManager na versão 3.65 da Maps JavaScript API
-        // (o aviso vermelho aparecia sobre o mapa). Um `Polygon` editável com
-        // `addListener('click')` faz o mesmo — e sem depender da lib `drawing`.
+        // (o aviso vermelho aparecia sobre o mapa).
+        //
+        // O polígono NÃO é `editable`: quem move o vértice é o marcador
+        // numerado, que fica por cima e bloquearia as alças nativas. Ver
+        // `redesenharMarcadores`.
         google.maps.event.addListener(gmap.current, 'click', (ev: any) => {
           if (!modoDesenho.current) return
           const ponto = { lat: ev.latLng.lat(), lng: ev.latLng.lng() }
@@ -74,11 +77,11 @@ export function CercasTab() {
               paths: [ponto],
               fillColor: corAtual.current, fillOpacity: 0.25,
               strokeColor: corAtual.current, strokeWeight: 2,
-              editable: true, map: gmap.current,
+              editable: false, map: gmap.current,
             })
-            // O caminho muda também quando o usuário ARRASTA um vértice do
-            // polígono editável — sem estes listeners o contador congelava e a
-            // conferência do desenho ficava sem retorno.
+            // O caminho muda quando o marcador é arrastado ou removido — sem
+            // estes listeners o contador congelava e a conferência do desenho
+            // ficava sem retorno.
             const path = rascunho.current.getPath()
             ;['insert_at', 'remove_at', 'set_at'].forEach((ev2) =>
               google.maps.event.addListener(path, ev2, () => {
@@ -181,6 +184,11 @@ export function CercasTab() {
       const m = new google.maps.Marker({
         position: pos,
         map: gmap.current,
+        // ARRASTÁVEL: o marcador fica por cima das alças do polígono editável e
+        // as bloquearia. Em vez de disputar o clique, ele PASSA A SER a alça —
+        // arrastar o pino move o vértice. Sem isto os pontos ficavam travados.
+        draggable: true,
+        crossOnDrag: false,
         label: { text: String(i + 1), color: '#fff', fontSize: '11px', fontWeight: '600' },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
@@ -190,11 +198,20 @@ export function CercasTab() {
           strokeColor: '#fff',
           strokeWeight: 2,
         },
-        title: `Vértice ${i + 1} — clique para remover`,
+        title: `Vértice ${i + 1} — arraste para mover, clique duplo para remover`,
         zIndex: 999,
       })
-      m.addListener('click', () => {
-        if (path.getLength() <= 1) return
+      // Arrasto: atualiza o vértice no caminho do polígono, que é a fonte da
+      // verdade do desenho.
+      m.addListener('drag', (ev: any) => path.setAt(i, ev.latLng))
+      // Remover é no DUPLO clique: com clique simples, soltar o arraste em cima
+      // do próprio pino apagava o vértice que se acabou de posicionar.
+      m.addListener('dblclick', () => {
+        if (path.getLength() <= 3) {
+          toast.error('O polígono precisa de ao menos 3 vértices.')
+
+          return
+        }
         path.removeAt(i)
         setVertices(path.getLength())
         redesenharMarcadores()
@@ -273,7 +290,10 @@ export function CercasTab() {
     const path = c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }))
     modoDesenho.current = false
     corAtual.current = c.cor ?? CORES[0]
-    rascunho.current = new google.maps.Polygon({ paths: path, fillColor: c.cor ?? CORES[0], fillOpacity: 0.3, strokeColor: c.cor ?? CORES[0], strokeWeight: 2, editable: true, map: gmap.current })
+    // `editable: false`: quem move o vértice é o marcador numerado (ver
+    // `redesenharMarcadores`). Deixar as duas camadas de alça sobrepostas era o
+    // que travava o arrasto.
+    rascunho.current = new google.maps.Polygon({ paths: path, fillColor: c.cor ?? CORES[0], fillOpacity: 0.3, strokeColor: c.cor ?? CORES[0], strokeWeight: 2, editable: false, map: gmap.current })
     const gpath = rascunho.current.getPath()
     ;['insert_at', 'remove_at', 'set_at'].forEach((ev) =>
       google.maps.event.addListener(gpath, ev, () => { setVertices(gpath.getLength()); redesenharMarcadores() }),
@@ -397,7 +417,7 @@ export function CercasTab() {
               <div className="rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">Como desenhar</p>
                 <p>1. Clique no mapa em cada esquina do contorno.</p>
-                <p>2. Arraste um ponto para ajustar; clique nele para remover.</p>
+                <p>2. Arraste um pino para ajustar; dê duplo clique nele para remover.</p>
                 <p>3. Use o zoom para seguir as ruas com precisão.</p>
               </div>
             ) : (
@@ -407,8 +427,8 @@ export function CercasTab() {
                   {vertices < 3 && <span className="text-destructive"> — mínimo de 3</span>}
                 </p>
                 <p className="text-muted-foreground">
-                  Continue clicando no mapa para adicionar. Arraste um ponto para
-                  ajustar, ou clique nele para remover.
+                  Continue clicando no mapa para adicionar. Arraste um pino para
+                  ajustar, ou dê duplo clique nele para remover.
                 </p>
               </div>
             )}

@@ -93,6 +93,42 @@ class CercaCriacaoTest extends TestCase
         $this->assertSame([-46.63, -46.6, -46.6, -46.63], $lngs);
     }
 
+    /**
+     * Mover um vértice tem de persistir.
+     *
+     * O relato foi "não salvava". A causa era da tela (os pontos ficavam
+     * travados, então não havia alteração a enviar), mas o contrato do backend
+     * precisa estar fixado: reenviar o polígono com uma coordenada diferente
+     * grava a coordenada nova, não a antiga.
+     */
+    public function test_mover_um_vertice_persiste(): void
+    {
+        [$user] = $this->revendaNova();
+
+        $id = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/monitora/cercas', [
+                'descricao' => 'Zona Leste', 'pontos' => $this->quadrado(),
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        // O primeiro vértice muda de lugar.
+        $movido = $this->quadrado();
+        $movido[0] = ['latitude' => -23.50, 'longitude' => -46.70];
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/admin/monitora/cercas/{$id}", [
+                'descricao' => 'Zona Leste', 'pontos' => $movido,
+            ])
+            ->assertOk();
+
+        $primeiro = DB::table('monitora_cerca_pontos')
+            ->where('cerca_id', $id)->orderBy('ordem')->first();
+
+        $this->assertSame(-23.5, (float) $primeiro->latitude, 'o vértice movido não foi gravado');
+        $this->assertSame(-46.7, (float) $primeiro->longitude);
+    }
+
     /** Polígono precisa de área: dois pontos são uma reta, não uma cerca. */
     public function test_recusa_poligono_com_menos_de_tres_pontos(): void
     {
