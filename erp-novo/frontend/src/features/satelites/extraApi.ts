@@ -78,10 +78,13 @@ export async function baixarEventos(veiculoId: number, de: string, ate: string, 
 export interface CercaPonto { latitude: number | string; longitude: number | string; ordem?: number }
 export interface Cerca {
   id: number; descricao: string; cor: string | null; setor_id: number | null; ativo: boolean
+  /** Município a que a cerca pertence — a tela agrupa por ele. */
+  cidade_id: number | null; cidade: string | null; uf: string | null
   pontos: CercaPonto[]
 }
 export interface CercaForm {
   id?: number; descricao: string; cor?: string | null; setor_id?: number | null; ativo?: boolean
+  cidade_id?: number | null
   pontos: { latitude: number; longitude: number }[]
 }
 export const useCercas = () =>

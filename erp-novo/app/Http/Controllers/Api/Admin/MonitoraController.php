@@ -209,7 +209,32 @@ class MonitoraController extends Controller
     {
         $this->autorizar($request, 'monitora.view');
 
-        return response()->json(['data' => Cerca::query()->with('pontos')->orderBy('descricao')->get()]);
+        // A cidade viaja junto: a tela agrupa por município e um id solto não
+        // diz nada a quem confere. `orderBy` por cidade e depois por descrição
+        // deixa a lista já na ordem em que será exibida.
+        $cercas = Cerca::query()
+            ->with(['pontos', 'cidade:id,descricao,uf'])
+            ->orderBy('descricao')
+            ->get()
+            ->map(fn (Cerca $c) => [
+                'id' => $c->id,
+                'descricao' => $c->descricao,
+                'cor' => $c->cor,
+                'setor_id' => $c->setor_id,
+                'cidade_id' => $c->cidade_id,
+                'cidade' => $c->cidade?->descricao,
+                'uf' => $c->cidade?->uf,
+                'ativo' => (bool) $c->ativo,
+                'centro_lat' => $c->centro_lat !== null ? (float) $c->centro_lat : null,
+                'centro_lng' => $c->centro_lng !== null ? (float) $c->centro_lng : null,
+                'pontos' => $c->pontos->map(fn ($p) => [
+                    'latitude' => (float) $p->latitude,
+                    'longitude' => (float) $p->longitude,
+                    'ordem' => $p->ordem,
+                ]),
+            ]);
+
+        return response()->json(['data' => $cercas]);
     }
 
     /** POST /monitora/cercas — cria cerca POLIGONAL (descrição + cor/setor + vértices). */
@@ -225,6 +250,7 @@ class MonitoraController extends Controller
                 'descricao' => $d['descricao'],
                 'cor' => $d['cor'] ?? null,
                 'setor_id' => $d['setor_id'] ?? null,
+                'cidade_id' => $d['cidade_id'] ?? null,
                 'ativo' => $d['ativo'] ?? true,
             ]);
             $this->salvarPontos($cerca, $d['pontos']);
@@ -247,6 +273,7 @@ class MonitoraController extends Controller
                 'descricao' => $d['descricao'],
                 'cor' => $d['cor'] ?? null,
                 'setor_id' => $d['setor_id'] ?? null,
+                'cidade_id' => $d['cidade_id'] ?? null,
                 'ativo' => $d['ativo'] ?? true,
             ]);
             $cerca->pontos()->delete();
@@ -276,6 +303,10 @@ class MonitoraController extends Controller
             'descricao' => 'required|string|max:255',
             'cor' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
             'setor_id' => 'nullable|integer|exists:setores,id',
+            // Município a que a cerca pertence. Nullable: a cerca continua
+            // valendo como geofence sem ele, e aparece agrupada em
+            // "Sem município" para ser classificada.
+            'cidade_id' => 'nullable|integer|exists:cidades,id',
             'ativo' => 'boolean',
             'pontos' => 'required|array|min:3',
             'pontos.*.latitude' => 'required|numeric|between:-90,90',

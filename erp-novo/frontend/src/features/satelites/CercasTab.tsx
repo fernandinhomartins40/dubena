@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { MapPin, Trash2, Pencil, Plus, Save, X, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPin, Trash2, Pencil, Plus, Save, X, Search, ChevronRight } from 'lucide-react'
 import {
   Button, Card, CardContent, Field, Input, EmptyState, AsyncState, ConfirmDialog, toast,
+  AsyncSelect,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { carregarGoogleMaps } from '@/lib/googleMaps'
@@ -11,6 +12,8 @@ import { useEmpresa } from '@/features/empresas/api'
 // Centro padrão: Guarapuava/PR (fallback quando não há posição/cerca).
 const CENTRO_PADRAO = { lat: -25.3935, lng: -51.4562 }
 const CORES = ['#FF6200', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#0EA5E9']
+/** Rótulo do grupo das cercas ainda não classificadas. */
+const SEM_MUNICIPIO = 'Sem município'
 
 /** Aba Cercas (geofencing poligonal) — desenha o polígono no Google Maps, igual ao legado. */
 export function CercasTab() {
@@ -36,10 +39,14 @@ export function CercasTab() {
   const [erroMapa, setErroMapa] = useState<string | null>(null)
 
   const [editando, setEditando] = useState<Cerca | null>(null)
-  const [form, setForm] = useState<{ descricao: string; cor: string }>({ descricao: '', cor: CORES[0] })
+  const [form, setForm] = useState<{
+    descricao: string; cor: string; cidade_id?: number | null; cidadeLabel?: string | null
+  }>({ descricao: '', cor: CORES[0] })
   const [temRascunho, setTemRascunho] = useState(false)
   const [vertices, setVertices] = useState(0)
   const [excluindo, setExcluindo] = useState<Cerca | null>(null)
+  const [filtro, setFiltro] = useState('')
+  const [recolhidos, setRecolhidos] = useState<string[]>([])
   const [busca, setBusca] = useState('')
   const [buscando, setBuscando] = useState(false)
 
@@ -206,7 +213,7 @@ export function CercasTab() {
 
   function iniciarDesenho() {
     setEditando(null)
-    setForm({ descricao: '', cor: CORES[0] })
+    setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
     limparRascunho()
     corAtual.current = CORES[0]
     modoDesenho.current = true
@@ -215,7 +222,10 @@ export function CercasTab() {
 
   function abrirEdicao(c: Cerca) {
     setEditando(c)
-    setForm({ descricao: c.descricao, cor: c.cor ?? CORES[0] })
+    setForm({
+      descricao: c.descricao, cor: c.cor ?? CORES[0],
+      cidade_id: c.cidade_id, cidadeLabel: c.cidade ? `${c.cidade}${c.uf ? `/${c.uf}` : ''}` : null,
+    })
     limparRascunho()
     // Carrega os pontos da cerca como rascunho editável.
     const google = (window as any).google
@@ -244,7 +254,10 @@ export function CercasTab() {
     const pontos = pontosDoRascunho()
     if (pontos.length < 3) { toast.error('Desenhe um polígono com ao menos 3 pontos.'); return }
     try {
-      await salvar.mutateAsync({ id: editando?.id, descricao: form.descricao, cor: form.cor, pontos })
+      await salvar.mutateAsync({
+        id: editando?.id, descricao: form.descricao, cor: form.cor,
+        cidade_id: form.cidade_id ?? null, pontos,
+      })
       toast.success(editando ? 'Cerca atualizada.' : 'Cerca criada.')
       cancelar()
     } catch (e: any) {
@@ -255,9 +268,38 @@ export function CercasTab() {
   function cancelar() {
     limparRascunho()
     setEditando(null)
-    setForm({ descricao: '', cor: CORES[0] })
+    setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
     modoDesenho.current = false
     setVertices(0)
+  }
+
+  /**
+   * Cercas por município, filtradas.
+   *
+   * "Sem município" vai por ÚLTIMO e não é escondido: é a fila de trabalho de
+   * quem precisa classificar as cercas herdadas, e some sozinha à medida que
+   * são atribuídas.
+   */
+  const grupos = useMemo(() => {
+    const termo = filtro.trim().toLowerCase()
+    const mapa = new Map<string, Cerca[]>()
+
+    for (const c of cercas ?? []) {
+      const municipio = c.cidade ? `${c.cidade}${c.uf ? `/${c.uf}` : ''}` : SEM_MUNICIPIO
+      if (termo && !c.descricao.toLowerCase().includes(termo) && !municipio.toLowerCase().includes(termo)) continue
+      if (!mapa.has(municipio)) mapa.set(municipio, [])
+      mapa.get(municipio)!.push(c)
+    }
+
+    return [...mapa.entries()].sort(([a], [b]) => {
+      if (a === SEM_MUNICIPIO) return 1
+      if (b === SEM_MUNICIPIO) return -1
+      return a.localeCompare(b, 'pt-BR')
+    })
+  }, [cercas, filtro])
+
+  function alternarGrupo(municipio: string) {
+    setRecolhidos((r) => (r.includes(municipio) ? r.filter((m) => m !== municipio) : [...r, municipio]))
   }
 
   const editandoAlgo = temRascunho || editando !== null
@@ -329,6 +371,13 @@ export function CercasTab() {
               </div>
             )}
             <Field label="Nome" required><Input autoFocus value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Zona Centro" /></Field>
+            <Field label="Município">
+              <AsyncSelect
+                endpoint="/lookups/cidades" value={form.cidade_id ?? null} valueLabel={form.cidadeLabel ?? null}
+                onChange={(id, opt) => setForm((f) => ({ ...f, cidade_id: id, cidadeLabel: opt?.label ?? null }))}
+                placeholder="Selecione o município…"
+              />
+            </Field>
             <Field label="Cor">
               <div className="flex gap-2 flex-wrap">
                 {CORES.map((c) => (
@@ -344,24 +393,67 @@ export function CercasTab() {
           </CardContent></Card>
         ) : (
           <Card><CardContent className="pt-6">
-            <p className="font-medium mb-1">Cercas cadastradas</p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="font-medium">Cercas cadastradas</p>
+              {(cercas?.length ?? 0) > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {cercas!.length} em {grupos.length} município(s)
+                </span>
+              )}
+            </div>
+            {(cercas?.length ?? 0) > 6 && (
+              <Input
+                value={filtro} onChange={(e) => setFiltro(e.target.value)}
+                placeholder="Filtrar por nome ou município…" className="mb-3 h-8 text-sm"
+              />
+            )}
             <AsyncState loading={isLoading} empty={!cercas?.length} emptyIcon={<MapPin />} emptyTitle="Nenhuma cerca"
               emptyDescription={podeEditar ? 'Clique em “Desenhar cerca” para criar a primeira.' : undefined}>
-              <div className="divide-y divide-border -mx-2">
-                {cercas?.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-2 px-2 py-2">
-                    <button className="flex items-center gap-2 min-w-0 text-left" onClick={() => abrirEdicao(c)}>
-                      <span className="size-3 shrink-0 rounded-full" style={{ background: c.cor ?? '#FF6200' }} />
-                      <span className="text-sm truncate">{c.descricao}</span>
-                      <span className="text-xs text-muted-foreground shrink-0">{c.pontos?.length ?? 0} pts</span>
+              {/* Agrupado por MUNICÍPIO: a lista plana misturava dois níveis —
+                  "Turvo" e "Goioxim" são cidades inteiras, "Setor 01" a "08" são
+                  zonas dentro de Guarapuava. Quem opera em várias cidades não
+                  conseguia enxergar o que é de onde. */}
+              <div className="-mx-2 max-h-[430px] overflow-y-auto">
+                {grupos.length === 0 && (
+                  <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    Nenhuma cerca corresponde ao filtro.
+                  </p>
+                )}
+                {grupos.map(([municipio, lista]) => (
+                  <section key={municipio}>
+                    <button
+                      onClick={() => alternarGrupo(municipio)}
+                      className="sticky top-0 z-10 flex w-full items-center gap-1.5 bg-card px-2 py-1.5 text-left"
+                    >
+                      <ChevronRight
+                        size={14}
+                        className={`shrink-0 text-muted-foreground transition-transform ${recolhidos.includes(municipio) ? '' : 'rotate-90'}`}
+                      />
+                      <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {municipio}
+                      </span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">{lista.length}</span>
                     </button>
-                    {podeEditar && (
-                      <div className="flex shrink-0">
-                        <Button variant="ghost" size="icon" onClick={() => abrirEdicao(c)}><Pencil size={15} /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => setExcluindo(c)}><Trash2 size={15} /></Button>
+                    {!recolhidos.includes(municipio) && (
+                      <div className="divide-y divide-border">
+                        {lista.map((c) => (
+                          <div key={c.id} className="flex items-center justify-between gap-2 py-2 pl-6 pr-2">
+                            <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => abrirEdicao(c)}>
+                              <span className="size-3 shrink-0 rounded-full" style={{ background: c.cor ?? '#FF6200' }} />
+                              <span className="truncate text-sm">{c.descricao}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">{c.pontos?.length ?? 0} pts</span>
+                            </button>
+                            {podeEditar && (
+                              <div className="flex shrink-0">
+                                <Button variant="ghost" size="icon" onClick={() => abrirEdicao(c)}><Pencil size={15} /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => setExcluindo(c)}><Trash2 size={15} /></Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
-                  </div>
+                  </section>
                 ))}
               </div>
             </AsyncState>

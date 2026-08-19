@@ -3,8 +3,10 @@
 namespace App\Models\Monitora;
 
 use App\Domain\Tenant\BelongsToTenant;
+use App\Models\Geografico\Cidade;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -19,7 +21,7 @@ class Cerca extends Model
 
     protected $table = 'monitora_cercas';
 
-    protected $fillable = ['empresa_id', 'grupo_id', 'descricao', 'cor', 'setor_id', 'centro_lat', 'centro_lng', 'raio_metros', 'ativo'];
+    protected $fillable = ['empresa_id', 'grupo_id', 'cidade_id', 'descricao', 'cor', 'setor_id', 'centro_lat', 'centro_lng', 'raio_metros', 'ativo'];
 
     protected function casts(): array
     {
@@ -35,5 +37,10 @@ class Cerca extends Model
     public function pontos(): HasMany
     {
         return $this->hasMany(CercaPonto::class)->orderBy('ordem');
+    }
+
+    public function cidade(): BelongsTo
+    {
+        return $this->belongsTo(Cidade::class);
     }
 }
