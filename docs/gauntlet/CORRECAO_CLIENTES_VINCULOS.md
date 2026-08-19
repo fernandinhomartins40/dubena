@@ -750,3 +750,69 @@ vias e casaria com qualquer heurística sobre "impressao".
 `tests/Migration/ConfigOperacionalEComodatoTest.php` — 3 testes, incluindo a
 contra-prova de que o número de vias continua inteiro.
 
+
+---
+
+# Recarga executada em produção — resultado
+
+Depois de corrigir a conexão `legado` na **fonte certa**
+(`/opt/dubena-env/erp-novo-homolog.env`, que o deploy copia por cima do `.env`
+do repositório — editar só o `.env` era desfeito no deploy seguinte), a recarga
+completa foi executada.
+
+## Antes → depois
+
+| Item | Antes | Depois |
+|---|---|---|
+| `tipopessoas` / `segmentos` | 0 / 0 | **2 / 4** |
+| `bancos` / `contamovimentotipos` | 0 / 0 | **148 / 9** |
+| clientes com `tipopessoa_id` | 0 | **44.349** |
+| clientes com `segmento_id` | 0 | **43.493** |
+| pedidos com `condicaopagamento_id` | 0 | **400.070** |
+| endereço das 7 empresas | vazio | **completo** (a DANFE voltou a ter emitente) |
+| endereço dos colaboradores | sem coluna | **81/81** |
+| numeração fiscal | nenhuma | **14 sequências**, conferidas |
+| config por empresa | 5 chaves | **288 chaves** (79 na matriz) |
+| comodatos com representante | 0 | **784** (de 975) |
+| `users` | 5 | **79** |
+| `app_devices` | 0 | **62** |
+| `financeirorateios` | 0 | **442.477** |
+| IBPT | 0 | **317.520** |
+
+`financeiroparcelas`: 475.000 = 475.000 e a **soma bate exatamente**
+(R$ 264.255.627,76).
+
+## Portões
+
+**`banco:producao-check --pos-etl`: 0 falhas, 0 avisos.**
+
+**`cutover:check`: 63 OK / 4 falhas** — de 13 no início. As 4 restantes foram
+verificadas uma a uma com `EXCEPT` por id:
+
+| Invariante | Perdidos | Extras | Veredito |
+|---|---|---|---|
+| `empresasgrupos → grupos` | **0** | 1 | acréscimo |
+| `produtos → produtos` | **0** | 4 | acréscimo |
+| `setors → setores` | **0** | 1 | acréscimo |
+| `estoquesetors → estoquesaldos` | **0** | 4 | acréscimo |
+
+**Zero perdas.** São registros criados no sistema novo (seed/demo) além do dump.
+A `CountInvariant` compara contagem e não distingue acréscimo de perda — por isso
+a verificação por `EXCEPT` é o que vale.
+
+## Descartes legítimos, documentados
+
+- **409 boletos** sem `financeiroparcela_id`: o boleto do legado não guarda valor
+  nem vencimento (vêm da parcela), e as duas colunas são NOT NULL no destino.
+  Outros **3** que tinham parcela foram recuperados ao rodar `cobranca` de novo.
+- **6 notas fiscais** de empresa ausente.
+- **9 cadastros contábeis** por duplicidade.
+- **25.228 parcelas** com `(financeiro_id, numero)` repetido foram RENUMERADAS
+  (não descartadas) para o próximo número livre do título.
+
+## Lição da ordem de execução
+
+Metade das falhas iniciais não era defeito de código: era **migrator que não
+tinha rodado**. `users` estava com 5 de 74, e disso decorriam os 62 devices
+"sem dono". A ordem importa e o `etl:run` sem argumento a respeita — rodar
+migrators avulsos exige saber a dependência.
