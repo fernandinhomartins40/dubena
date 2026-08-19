@@ -22,9 +22,15 @@ use Illuminate\Support\Facades\DB;
  * empresas do Monitora que não existem no ERP têm seus veículos pulados — não se
  * inventa tenant.
  *
- * Cercas: no legado o formato é POLÍGONO (tabela cercapoligonos); o schema novo
- * guarda centro+raio. Converte-se o polígono no seu círculo circunscrito
- * (centroide + maior distância ao centroide), preservando a área de cobertura.
+ * Cercas: o legado guarda POLÍGONO (`cercapoligonos`) e o schema novo guarda as
+ * DUAS formas — os vértices em `monitora_cerca_pontos` (a cerca de verdade, que
+ * a tela desenha) e um círculo circunscrito em `monitora_cercas` (centroide +
+ * maior distância ao centroide), útil para enquadrar o mapa e para uma checagem
+ * barata de "está longe demais" antes do teste exato.
+ *
+ * A primeira versão gravava só o círculo, e isso DEFORMAVA a área: um setor em L
+ * virava um círculo cobrindo bairros vizinhos, e a tela mostrava "0 pts" porque
+ * não havia polígono nenhum para desenhar.
  *
  * Fonte: conexão `monitora_legado` (MySQL).
  */
@@ -33,6 +39,9 @@ final class MonitoraLegadoMigrator implements Migrator
     use PreservaIdsDoLegado;
 
     private ?MigrationContext $ctxAtual = null;
+
+    /** @var list<array<string, mixed>> vértices das cercas, gravados após as cercas */
+    private array $pontos = [];
 
     public function nome(): string
     {
@@ -78,6 +87,22 @@ final class MonitoraLegadoMigrator implements Migrator
             $gravados += $this->gravarPreservandoId('monitora_veiculos', $veiculos);
             $gravados += $this->gravarPreservandoId('monitora_cercas', $cercas);
 
+            // Depois das cercas: `cerca_id` é FK. Recarga apaga e regrava os
+            // vértices da cerca — o polígono é substituído por inteiro, nunca
+            // mesclado, senão uma cerca redesenhada no legado ficaria com os
+            // pontos velhos misturados aos novos.
+            if ($this->pontos !== []) {
+                $idsCerca = array_column($cercas, 'id');
+                DB::table('monitora_cerca_pontos')->whereIn('cerca_id', $idsCerca)->delete();
+                foreach (array_chunk($this->pontos, 500) as $bloco) {
+                    DB::table('monitora_cerca_pontos')->insert(array_map(
+                        fn ($p) => $p + ['created_at' => now(), 'updated_at' => now()],
+                        $bloco,
+                    ));
+                }
+                $gravados += count($this->pontos);
+            }
+
             // A última posição herda a empresa do veículo (`empresa_id` é NOT
             // NULL nas filhas, por causa do isolamento multi-tenant).
             $empresaDoVeiculo = [];
@@ -113,7 +138,7 @@ final class MonitoraLegadoMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->disponivel()) {
             return [];
         }
@@ -309,11 +334,38 @@ final class MonitoraLegadoMigrator implements Migrator
                 'centro_lat' => round($lat, 7),
                 'centro_lng' => round($lng, 7),
                 'raio_metros' => round($raio, 2),
+                // A cor identifica o setor no mapa — o legado a define por cerca
+                // e ela vinha sendo descartada.
+                'cor' => $this->corValida($c->cor ?? null),
                 'ativo' => (bool) ($c->ativo ?? true),
             ];
+
+            // O POLÍGONO é a cerca de verdade. O círculo acima é aproximação
+            // (centroide + raio circunscrito) e serve para enquadrar o mapa;
+            // guardar só ele deformava a área — um setor em L virava um círculo
+            // que cobre bairros vizinhos. Os vértices vão para
+            // `monitora_cerca_pontos`, que é o que a tela desenha.
+            foreach ($meus as $ordem => [$plat, $plng]) {
+                $this->pontos[] = [
+                    'cerca_id' => (int) $c->id,
+                    'empresa_id' => $emp['empresa_id'],
+                    'grupo_id' => $emp['grupo_id'],
+                    'latitude' => round($plat, 7),
+                    'longitude' => round($plng, 7),
+                    'ordem' => $ordem,
+                ];
+            }
         }
 
         return [$out, $pulados, $semPoligono];
+    }
+
+    /** Cor no formato #RRGGBB; qualquer outra coisa vira null (a tela usa o padrão). */
+    private function corValida(mixed $cor): ?string
+    {
+        $c = trim((string) ($cor ?? ''));
+
+        return preg_match('/^#[0-9A-Fa-f]{6}$/', $c) === 1 ? $c : null;
     }
 
     /**

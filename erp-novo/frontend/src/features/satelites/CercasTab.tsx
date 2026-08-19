@@ -22,7 +22,10 @@ export function CercasTab() {
 
   const mapRef = useRef<HTMLDivElement>(null)
   const gmap = useRef<any>(null)
-  const drawing = useRef<any>(null)
+  // Estado do desenho em refs: o listener do mapa é criado uma vez e precisa
+  // enxergar o valor atual sem recriar o mapa a cada render.
+  const modoDesenho = useRef(false)
+  const corAtual = useRef(CORES[0])
   const overlays = useRef<any[]>([]) // polígonos persistidos desenhados no mapa
   const rascunho = useRef<any>(null) // polígono recém-desenhado (ainda não salvo)
   const [pronto, setPronto] = useState(false)
@@ -31,6 +34,7 @@ export function CercasTab() {
   const [editando, setEditando] = useState<Cerca | null>(null)
   const [form, setForm] = useState<{ descricao: string; cor: string }>({ descricao: '', cor: CORES[0] })
   const [temRascunho, setTemRascunho] = useState(false)
+  const [vertices, setVertices] = useState(0)
   const [excluindo, setExcluindo] = useState<Cerca | null>(null)
 
   // 1) Carrega o SDK e cria o mapa quando há key.
@@ -41,17 +45,27 @@ export function CercasTab() {
       .then((google) => {
         if (!vivo || !mapRef.current) return
         gmap.current = new google.maps.Map(mapRef.current, { center: CENTRO_PADRAO, zoom: 13, mapTypeControl: false, streetViewControl: false })
-        drawing.current = new google.maps.drawing.DrawingManager({
-          drawingControl: false,
-          polygonOptions: { fillColor: form.cor, fillOpacity: 0.25, strokeColor: form.cor, strokeWeight: 2, editable: true },
-        })
-        drawing.current.setMap(gmap.current)
-        google.maps.event.addListener(drawing.current, 'polygoncomplete', (poly: any) => {
-          // Só um rascunho por vez.
-          if (rascunho.current) rascunho.current.setMap(null)
-          rascunho.current = poly
-          setTemRascunho(true)
-          drawing.current.setDrawingMode(null)
+
+        // Desenho por CLIQUE no mapa, e não pelo `DrawingManager`: a Google
+        // descontinuou o DrawingManager na versão 3.65 da Maps JavaScript API
+        // (o aviso vermelho aparecia sobre o mapa). Um `Polygon` editável com
+        // `addListener('click')` faz o mesmo — e sem depender da lib `drawing`.
+        google.maps.event.addListener(gmap.current, 'click', (ev: any) => {
+          if (!modoDesenho.current) return
+          const ponto = { lat: ev.latLng.lat(), lng: ev.latLng.lng() }
+
+          if (!rascunho.current) {
+            rascunho.current = new google.maps.Polygon({
+              paths: [ponto],
+              fillColor: corAtual.current, fillOpacity: 0.25,
+              strokeColor: corAtual.current, strokeWeight: 2,
+              editable: true, map: gmap.current,
+            })
+            setTemRascunho(true)
+          } else {
+            rascunho.current.getPath().push(ev.latLng)
+          }
+          setVertices(rascunho.current.getPath().getLength())
         })
         setPronto(true)
       })
@@ -83,6 +97,7 @@ export function CercasTab() {
 
   function limparRascunho() {
     if (rascunho.current) { rascunho.current.setMap(null); rascunho.current = null }
+    setVertices(0)
     setTemRascunho(false)
   }
 
@@ -90,8 +105,9 @@ export function CercasTab() {
     setEditando(null)
     setForm({ descricao: '', cor: CORES[0] })
     limparRascunho()
-    drawing.current?.setOptions({ polygonOptions: { fillColor: CORES[0], fillOpacity: 0.25, strokeColor: CORES[0], strokeWeight: 2, editable: true } })
-    drawing.current?.setDrawingMode((window as any).google.maps.drawing.OverlayType.POLYGON)
+    corAtual.current = CORES[0]
+    modoDesenho.current = true
+    setVertices(0)
   }
 
   function abrirEdicao(c: Cerca) {
@@ -101,6 +117,7 @@ export function CercasTab() {
     // Carrega os pontos da cerca como rascunho editável.
     const google = (window as any).google
     const path = c.pontos.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }))
+    modoDesenho.current = false
     rascunho.current = new google.maps.Polygon({ paths: path, fillColor: c.cor ?? CORES[0], fillOpacity: 0.3, strokeColor: c.cor ?? CORES[0], strokeWeight: 2, editable: true, map: gmap.current })
     setTemRascunho(true)
   }
@@ -129,7 +146,8 @@ export function CercasTab() {
     limparRascunho()
     setEditando(null)
     setForm({ descricao: '', cor: CORES[0] })
-    drawing.current?.setDrawingMode(null)
+    modoDesenho.current = false
+    setVertices(0)
   }
 
   const editandoAlgo = temRascunho || editando !== null
@@ -161,7 +179,12 @@ export function CercasTab() {
               <p className="font-medium">{editando ? 'Editar cerca' : 'Nova cerca'}</p>
               <Button variant="ghost" size="icon" onClick={cancelar}><X size={16} /></Button>
             </div>
-            {!temRascunho && <p className="text-xs text-muted-foreground">Desenhe o contorno no mapa (clique para marcar os vértices; feche no primeiro ponto).</p>}
+            {!temRascunho
+              ? <p className="text-xs text-muted-foreground">Clique no mapa para marcar cada vértice do contorno.</p>
+              : <p className="text-xs text-muted-foreground">
+                  {vertices} vértice(s) — continue clicando para adicionar, ou arraste os pontos para ajustar.
+                  {vertices < 3 && <span className="text-destructive"> Mínimo de 3.</span>}
+                </p>}
             <Field label="Nome" required><Input autoFocus value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Zona Centro" /></Field>
             <Field label="Cor">
               <div className="flex gap-2 flex-wrap">
@@ -172,7 +195,7 @@ export function CercasTab() {
               </div>
             </Field>
             <div className="flex gap-2">
-              <Button onClick={onSalvar} loading={salvar.isPending} disabled={!temRascunho}><Save size={16} /> Salvar</Button>
+              <Button onClick={onSalvar} loading={salvar.isPending} disabled={!temRascunho || vertices < 3}><Save size={16} /> Salvar</Button>
               <Button variant="outline" onClick={cancelar}>Cancelar</Button>
             </div>
           </CardContent></Card>

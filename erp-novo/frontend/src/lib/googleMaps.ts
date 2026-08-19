@@ -1,5 +1,10 @@
 /**
- * Carregador sob demanda do Google Maps JS SDK (com a lib `drawing` p/ cercas).
+ * Carregador sob demanda do Google Maps JS SDK.
+ *
+ * A lib `drawing` NÃO é mais carregada: a Google descontinuou o `DrawingManager`
+ * na versão 3.65 da Maps JavaScript API, e o aviso vinha impresso sobre o mapa.
+ * O desenho de cercas usa `Polygon` editável com clique no mapa — mesmo
+ * resultado, sem dependência descontinuada.
  * Carrega uma única vez por página; reusa a promessa. Sem dependência npm — usa
  * a key vinda da config global (mesma do legado ctrl-web).
  *
@@ -10,7 +15,7 @@ let promessa: Promise<any> | null = null
 
 export function carregarGoogleMaps(apiKey: string): Promise<any> {
   const w = window as any
-  if (w.google?.maps?.drawing) return Promise.resolve(w.google)
+  if (w.google?.maps?.Map) return Promise.resolve(w.google)
   if (promessa) return promessa
 
   promessa = new Promise((resolve, reject) => {
@@ -30,7 +35,7 @@ export function carregarGoogleMaps(apiKey: string): Promise<any> {
     const limpar = () => clearTimeout(timeout)
 
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=drawing&callback=${cb}&language=pt-BR&region=BR&loading=async`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=${cb}&language=pt-BR&region=BR&loading=async`
     s.async = true
     s.defer = true
     s.onload = limpar
