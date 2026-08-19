@@ -12,6 +12,7 @@ import { carregarGoogleMaps } from '@/lib/googleMaps'
 import { useCercas, useSalvarCerca, useExcluirCerca, useGoogleMapsKey, type Cerca } from './extraApi'
 import { useEmpresa } from '@/features/empresas/api'
 import { useEditorCerca } from './useEditorCerca'
+import { CardVertice } from './CardVertice'
 import type { Ponto } from './editorPoligono'
 
 // Centro padrão: Guarapuava/PR (fallback quando não há posição/cerca).
@@ -321,7 +322,17 @@ export function CercasTab() {
   }
 
   const editandoAlgo = temRascunho || editando !== null
-  const { vertices, areaKm2: area, perimetroKm, podeDesfazer, podeRefazer } = editor.estado
+  const {
+    vertices, areaKm2: area, perimetroKm, podeDesfazer, podeRefazer,
+    selecionado, posicaoSelecionado,
+  } = editor.estado
+
+  // Medidas do container do mapa — o card do vértice usa para virar de lado
+  // quando o ponto selecionado está perto da borda.
+  const limitesMapa = {
+    largura: mapRef.current?.clientWidth ?? 0,
+    altura: mapRef.current?.clientHeight ?? 0,
+  }
 
   if (carregandoKey) return <AsyncState loading skeletonRows={3}>{null}</AsyncState>
   if (!key) {
@@ -352,7 +363,9 @@ export function CercasTab() {
                 <Redo2 size={16} />
               </Button>
               <div className="mx-1 w-px bg-border" />
-              <Button variant="ghost" size="icon" title="Arredondar cantos"
+              {/* Arredonda o contorno INTEIRO. Para uma esquina só, clique no
+                  pino e use a curvatura do card daquele ponto. */}
+              <Button variant="ghost" size="icon" title="Arredondar todos os cantos"
                 disabled={vertices < 3} onClick={() => editor.suavizarContorno()}>
                 <Spline size={16} />
               </Button>
@@ -361,6 +374,20 @@ export function CercasTab() {
                 <Minimize2 size={16} />
               </Button>
             </div>
+          )}
+
+          {/* Ferramentas do ponto selecionado, ancoradas nele. */}
+          {editandoAlgo && selecionado !== null && posicaoSelecionado && (
+            <CardVertice
+              numero={selecionado + 1}
+              posicao={posicaoSelecionado}
+              limites={limitesMapa}
+              podeRemover={vertices > 3}
+              onCurvar={(forca) => editor.curvarSelecionado(forca)}
+              onAlinhar={() => editor.alinharSelecionado()}
+              onRemover={() => editor.removerSelecionado()}
+              onFechar={() => editor.limparSelecao()}
+            />
           )}
 
           {/* Medidas ao vivo: dimensionar o setor enquanto desenha. */}

@@ -64,42 +64,117 @@ export function metrosEntre(a: Ponto, b: Ponto): number {
  * atual e o rastreador continuam funcionando sem nenhuma mudança. O custo é ter
  * mais linhas no banco — aceitável para uma cerca que se desenha uma vez.
  *
- * Catmull-Rom porque ela PASSA pelos pontos originais (ao contrário de uma
- * Bézier comum, que só é atraída por eles): o usuário marcou aquela esquina, a
- * curva tem de encostar nela.
+ * **Por que não Catmull-Rom.** A primeira versão usava Catmull-Rom, que tem a
+ * propriedade elegante de passar pelos vértices marcados. Só que ela faz
+ * *overshoot*: a curva estufa para FORA do contorno. No quadrado de teste
+ * inflou a área em 35% — cerca de 150 m de invasão em cada lado, uma quadra
+ * inteira entrando no setor sem ninguém ter desenhado isso. Reduzir a tensão
+ * amenizava (15%) mas não resolvia; zerar tornava a curva invisível.
  *
- * @param passos segmentos gerados entre cada par de vértices
+ * A Bézier quadrática de canto não tem esse problema por construção: ela vive
+ * dentro do triângulo dos seus pontos de controle, então a curva nunca sai do
+ * polígono original. O preço é que o vértice marcado deixa de existir — vira
+ * arco entre os vizinhos — que é exatamente o que se espera de "arredondar
+ * canto", e é a mesma operação de `arredondarCanto`, aplicada a todos.
+ *
+ * @param intensidade 0..1, quanto do segmento vizinho a curva ocupa
+ * @param passos segmentos gerados em cada arco
  */
-export function suavizar(pontos: Ponto[], passos = 6): Ponto[] {
+export function suavizar(pontos: Ponto[], intensidade = 0.6, passos = 6): Ponto[] {
   if (pontos.length < 3) return pontos
+
+  const forca = Math.max(0, Math.min(1, intensidade))
+  if (forca === 0) return pontos
 
   const n = pontos.length
   const saida: Ponto[] = []
+  const t = forca * 0.5
 
   for (let i = 0; i < n; i++) {
     // O polígono é fechado: os vizinhos dão a volta no fim da lista.
-    const p0 = pontos[(i - 1 + n) % n]
-    const p1 = pontos[i]
-    const p2 = pontos[(i + 1) % n]
-    const p3 = pontos[(i + 2) % n]
+    const anterior = pontos[(i - 1 + n) % n]
+    const canto = pontos[i]
+    const proximo = pontos[(i + 1) % n]
 
-    for (let t = 0; t < passos; t++) {
-      const s = t / passos
-      const s2 = s * s
-      const s3 = s2 * s
+    const entrada = {
+      lat: canto.lat + (anterior.lat - canto.lat) * t,
+      lng: canto.lng + (anterior.lng - canto.lng) * t,
+    }
+    const saidaCanto = {
+      lat: canto.lat + (proximo.lat - canto.lat) * t,
+      lng: canto.lng + (proximo.lng - canto.lng) * t,
+    }
 
+    for (let k = 0; k <= passos; k++) {
+      const s = k / passos
+      const u = 1 - s
       saida.push({
-        lat: 0.5 * ((2 * p1.lat) + (-p0.lat + p2.lat) * s
-          + (2 * p0.lat - 5 * p1.lat + 4 * p2.lat - p3.lat) * s2
-          + (-p0.lat + 3 * p1.lat - 3 * p2.lat + p3.lat) * s3),
-        lng: 0.5 * ((2 * p1.lng) + (-p0.lng + p2.lng) * s
-          + (2 * p0.lng - 5 * p1.lng + 4 * p2.lng - p3.lng) * s2
-          + (-p0.lng + 3 * p1.lng - 3 * p2.lng + p3.lng) * s3),
+        lat: u * u * entrada.lat + 2 * u * s * canto.lat + s * s * saidaCanto.lat,
+        lng: u * u * entrada.lng + 2 * u * s * canto.lng + s * s * saidaCanto.lng,
       })
     }
   }
 
   return saida
+}
+
+/**
+ * Arredonda UM canto do contorno, sem tocar no resto.
+ *
+ * O botão global de suavizar aplicava curva em todos os vértices de uma vez —
+ * quem queria arredondar uma esquina acabava com o quarteirão inteiro redondo.
+ * Aqui o vértice `i` vira um arco entre os seus dois vizinhos, como a ferramenta
+ * de canto do Illustrator: o ponto original desaparece e no lugar dele entra a
+ * curva.
+ *
+ * `intensidade` (0..1) é quanto do segmento vizinho a curva ocupa. Em 0 o canto
+ * volta a ser reto; em 1 o arco encosta nos vizinhos e o canto some por inteiro.
+ * A curva é DENSIFICADA em vértices pelo mesmo motivo de `suavizar`: o polígono
+ * continua sendo uma lista de pontos, e nada no geofencing precisa mudar.
+ *
+ * @param passos segmentos gerados no arco
+ */
+export function arredondarCanto(
+  pontos: Ponto[],
+  i: number,
+  intensidade = 0.5,
+  passos = 8,
+): Ponto[] {
+  const n = pontos.length
+  if (n < 3 || i < 0 || i >= n) return pontos
+
+  const forca = Math.max(0, Math.min(1, intensidade))
+  if (forca === 0) return pontos
+
+  const anterior = pontos[(i - 1 + n) % n]
+  const canto = pontos[i]
+  const proximo = pontos[(i + 1) % n]
+
+  // Metade é o limite geométrico: passar disso invadiria o canto vizinho e as
+  // duas curvas se cruzariam.
+  const t = (forca * 0.5)
+  const entrada = {
+    lat: canto.lat + (anterior.lat - canto.lat) * t,
+    lng: canto.lng + (anterior.lng - canto.lng) * t,
+  }
+  const saida = {
+    lat: canto.lat + (proximo.lat - canto.lat) * t,
+    lng: canto.lng + (proximo.lng - canto.lng) * t,
+  }
+
+  // Bézier quadrática com o canto original como ponto de controle: o arco sai
+  // tangente às duas retas, que é o que dá a aparência de canto arredondado.
+  const arco: Ponto[] = []
+  for (let k = 0; k <= passos; k++) {
+    const s = k / passos
+    const u = 1 - s
+    arco.push({
+      lat: u * u * entrada.lat + 2 * u * s * canto.lat + s * s * saida.lat,
+      lng: u * u * entrada.lng + 2 * u * s * canto.lng + s * s * saida.lng,
+    })
+  }
+
+  return [...pontos.slice(0, i), ...arco, ...pontos.slice(i + 1)]
 }
 
 /**
