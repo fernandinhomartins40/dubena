@@ -501,26 +501,116 @@ a correção:
 
 ---
 
-## ⚠️ Achado que NÃO corrigi (precisa da sua decisão)
+## Quarta rodada: a numeração fiscal (o risco mais caro do cutover)
 
-O formulário de Empresa envia **22 campos que não existem no backend**:
+Eu havia deixado isto como "decisão do dono", classificado como *delicado, não
+urgente*. **Estava errado.** Não era gestão de risco — era adiar trabalho. O
+risco real não está em migrar a numeração; está em NÃO migrar e alguém descobrir
+na primeira emissão, com o legado já desligado.
+
+### O que o levantamento mostrou
 
 ```
-inscricao_estadual_st, suframa, cnae, registro_anp, email,
-contnome, contcpf, contcnpj, contcrc, conttelefone, contemail,
-nfeserie, nfenumero, nfetipoambiente, nfecrt, nfceserie, nfcenumero,
-nfcetipoambiente, nfeemite, nfceemite, spedemite, distribuidora
+empresa 2  (matriz)  NF-e  série 1 → contador 81.074 | 40.316 notas emitidas
+empresa 2  (matriz)  NFC-e série 1 → contador 361.778 | 193.072 notas emitidas
+empresa 114..135     NF-e/NFC-e    → contadores de 2 a 4.724
 ```
 
-Destes, **existem no legado e estão preenchidos nas 7 empresas**: `cnae` (6/7),
-`email` (7/7), os 6 campos do contador (`cont*`, 1/7) e **todos os 11 fiscais**
-(`nfeserie`, `nfenumero`, `nfecrt`, `nfetipoambiente`… 7/7).
+Todas em **ambiente de produção** (`nfetipoambiente=1`), com protocolo de
+autorização da Receita.
 
-**Por que deixei para você decidir:** `nfenumero` é a numeração sequencial da
-NF-e. Migrá-la errado é pior que não migrar — emitir nota com número já usado é
-problema fiscal sério. E a emissão ainda depende do certificado A1, que está
-pendente no `GUIA_DO_DONO.md`, então nada disso está em uso hoje.
+**Sem semear a sequência, a primeira NF-e emitida no sistema novo sai com número
+1** — colidindo com 40.316 notas já autorizadas. A SEFAZ rejeita, e o erro só
+aparece na hora de faturar.
 
-**Recomendação:** tratar junto com a habilitação da NF-e, quando o certificado
-estiver instalado e for possível conferir a numeração contra o legado antes de
-emitir a primeira nota. Não é urgente; é delicado.
+O mais irônico: `NumeroSequencialService::definir()` **já existia para isso**. O
+docblock diz literalmente *"ETL importando a numeração da empresa legada"*.
+Nenhum migrator o chamava.
+
+### A armadilha que só apareceu ao conferir
+
+Comparando o contador da empresa com o maior número **realmente emitido**:
+
+| empresa | modelo | contador | maior emitido | |
+|---|---|---|---|---|
+| 2 | 55 | 81.074 | **335.358** | ⚠️ contador atrás |
+| 2 | 65 | 361.778 | 361.778 | ✔ |
+| 114–135 | 55/65 | — | — | ✔ (12 combinações batem) |
+
+Em 13 das 14 combinações os dois valores batem. **Na matriz, modelo 55, o
+contador está 254 mil números atrás** — o legado reiniciou a série em algum
+momento.
+
+Migrar o contador cegamente faria a matriz emitir nota com número já usado. A
+regra implementada é **`max(contador, maior_emitido)`**, e o migrator emite aviso
+explícito quando os dois divergem.
+
+### O que foi feito
+
+| Arquivo | Mudança |
+|---|---|
+| `FiscalMigrator::semearNumeracaoFiscal()` | Semeia `sequencias` por empresa+modelo+série com `max(contador, emitido)`; avisa quando o contador está defasado |
+| `EmpresasMigrator::configFiscalECadastral()` | Os outros ~30 campos que o formulário enviava e o backend descartava: fiscal (CRT, ambiente, série, modelo), SPED completo, contador (`cont*`), cadastro (CNAE, registro ANP, distribuidora, SUFRAMA) → `empresa_configs.dados` |
+| `BancoProducaoCheck::verificarNumeracaoFiscal()` | **Reprova o portão** se existir nota emitida com número acima da sequência — o defeito não pode voltar silencioso |
+
+`tests/Migration/NumeracaoFiscalTest.php` — 4 testes:
+
+- semeia a numeração a partir do contador da empresa;
+- **contador defasado perde para o maior número emitido** (o caso real da matriz);
+- série nunca usada começa do 1;
+- recarregar o ETL não avança a numeração (idempotência).
+
+### Por que a numeração fica em `sequencias` e não em `empresa_configs`
+
+Numeração é **estado transacional**, não configuração: é incrementada sob lock a
+cada emissão (`SELECT ... FOR UPDATE`), preservando a regra do legado que impedia
+notas duplicadas sob concorrência. Guardá-la junto da config faria a emissão
+disputar lock com qualquer edição de cadastro.
+
+
+---
+
+# Sequência final de recarga (substitui as anteriores)
+
+Depois de corrigir o `.env` (passo 1), esta é a ordem completa. Ela respeita a
+ordem topológica do ETL — rodar fora de ordem faz FK virar null.
+
+```bash
+# 1. apoio: bancos, tipos de pessoa, segmentos, tipos de telefone/contato
+docker exec erpnovo-app php artisan etl:run cadastros-apoio
+
+# 2. empresas: config fiscal/SPED/contador em empresa_configs.dados
+docker exec erpnovo-app php artisan etl:run empresas
+
+# 3. geografico: cidades/bairros/ruas + ENDEREÇO DAS EMPRESAS
+docker exec erpnovo-app php artisan etl:run geografico
+
+# 4. clientes: recupera tipopessoa_id e segmento_id (44 mil)
+docker exec erpnovo-app php artisan etl:run clientes
+
+# 5. pedidos: recupera condicaopagamento_id (400 mil) — o mais demorado
+docker exec erpnovo-app php artisan etl:run pedidos
+
+# 6. caixa: recupera banco_id das contas
+docker exec erpnovo-app php artisan etl:run caixa
+
+# 7. fiscal: SEMEIA A NUMERAÇÃO — sem isto a 1ª nota sai com número 1
+docker exec erpnovo-app php artisan etl:run fiscal
+
+# 8. rh: endereço dos 81 colaboradores
+docker exec erpnovo-app php artisan etl:run rh
+
+# 9. portões
+docker exec erpnovo-app php artisan banco:producao-check --pos-etl
+docker exec erpnovo-app php artisan cutover:check
+```
+
+**Leia os avisos do passo 7.** O migrator informa quando o contador do legado
+está defasado em relação às notas emitidas — é esperado na matriz (modelo 55), e
+o valor adotado é o maior dos dois.
+
+⚠️ O passo 5 recarrega 400 mil pedidos: leva tempo e não deve rodar com o
+sistema em uso.
+
+**Alternativa:** `php artisan etl:run` sem argumento roda tudo na ordem correta,
+o que é mais seguro que escolher migrators à mão. Use `--dry-run` antes.

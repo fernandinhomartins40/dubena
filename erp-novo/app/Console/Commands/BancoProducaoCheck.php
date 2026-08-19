@@ -61,6 +61,7 @@ class BancoProducaoCheck extends Command
         $this->verificarEspelhoLegado();
         $this->verificarConexaoLegado();
         $this->verificarCadastrosDeApoio();
+        $this->verificarNumeracaoFiscal();
 
         $this->newLine();
         $this->line("Resultado: {$this->fail} FALHA(s), {$this->warn} aviso(s).");
@@ -296,6 +297,45 @@ class BancoProducaoCheck extends Command
             'todos os clientes estao sem `tipopessoa_id` — sinal de que `tipopessoas` estava vazia '
             .'na carga e as FKs foram anuladas. Recarregue apoio e depois clientes',
         );
+    }
+
+    /**
+     * A numeração fiscal foi herdada do legado?
+     *
+     * O modo de falha e catastrofico e silencioso: sem a sequencia semeada, a
+     * PRIMEIRA nota emitida no sistema novo sai com numero 1 e colide com as
+     * dezenas de milhares ja autorizadas na Receita. A SEFAZ rejeita, e isso so
+     * aparece na hora de faturar — com o legado ja desligado.
+     */
+    private function verificarNumeracaoFiscal(): void
+    {
+        if (! $this->option('pos-etl') || ! Schema::hasTable('notas_fiscais')) {
+            return;
+        }
+
+        $emitidas = DB::table('notas_fiscais')
+            ->selectRaw('empresa_id, modelo, serie, MAX(numero) AS maxnum')
+            ->groupBy('empresa_id', 'modelo', 'serie')
+            ->get();
+
+        if ($emitidas->isEmpty()) {
+            return; // nada emitido no legado: nao ha numeracao a herdar
+        }
+
+        foreach ($emitidas as $n) {
+            $chave = "nf:{$n->empresa_id}:{$n->modelo}:{$n->serie}";
+            $valor = (int) (DB::table('sequencias')->where('chave', $chave)->value('valor') ?? 0);
+
+            $this->item(
+                "Numeracao fiscal herdada (empresa {$n->empresa_id} modelo {$n->modelo} serie {$n->serie})",
+                $valor >= (int) $n->maxnum,
+                sprintf(
+                    'sequencia em %d, mas ja existe nota numero %d — a proxima emissao REPETIRIA '
+                    .'numero autorizado na Receita. Rode `etl:run fiscal`',
+                    $valor, (int) $n->maxnum,
+                ),
+            );
+        }
     }
 
     private function item(string $label, bool $ok, ?string $detalhe = null, bool $aviso = false): void

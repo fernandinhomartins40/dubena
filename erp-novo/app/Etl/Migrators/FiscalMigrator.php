@@ -2,6 +2,8 @@
 
 namespace App\Etl\Migrators;
 
+use App\Domain\Fiscal\ModeloDocumento;
+use App\Domain\Shared\NumeroSequencialService;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
@@ -222,6 +224,10 @@ final class FiscalMigrator implements Migrator
         $gravados += $g;
         $pulados += $p;
 
+        if (! $ctx->dryRun) {
+            $avisos = array_merge($avisos, $this->semearNumeracaoFiscal($ctx));
+        }
+
         if ($pulados > 0) {
             $avisos[] = "{$pulados} registro(s) fiscais descartados: empresa/nota "
                 .'ausente no destino';
@@ -240,7 +246,7 @@ final class FiscalMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
 
         return [
             // Descarte por COLISÃO DE CHAVE NATURAL, comprovado (T2.5): 3 notas
@@ -525,6 +531,99 @@ final class FiscalMigrator implements Migrator
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Semeia a numeração fiscal por empresa+modelo+série.
+     *
+     * **Sem isto a primeira NF-e emitida no sistema novo sai com número 1** — e
+     * colide com as 40.316 notas modelo 55 já autorizadas na Receita para a
+     * matriz. `NumeroSequencialService::definir()` existia exatamente para este
+     * fim (o docblock diz "ETL importando a numeração da empresa legada"), mas
+     * nenhum migrator o chamava.
+     *
+     * **A regra é `max(contador, maior_emitido)`, e isso não é excesso de zelo.**
+     * Em 13 das 14 combinações do dump os dois valores batem; na empresa 2
+     * modelo 55 o contador da empresa diz 81.074 enquanto o maior número
+     * realmente emitido é 335.358 (o legado reiniciou a série em algum momento).
+     * Seguir o contador cegamente faria a matriz emitir nota com número já
+     * usado — o pior desfecho possível, porque a SEFAZ rejeita e o erro só
+     * aparece na hora de faturar.
+     *
+     * @return list<string> avisos para o relatório do `etl:run`
+     */
+    private function semearNumeracaoFiscal(MigrationContext $ctx): array
+    {
+        $sequencia = app(NumeroSequencialService::class);
+        $avisos = [];
+
+        // 1) O que a empresa diz no contador dela.
+        $contador = [];
+        if ($this->tabelaExiste($ctx, 'empresas')) {
+            foreach ($ctx->legado()->table('empresas')->get() as $e) {
+                $id = (int) $e->id;
+                foreach ([
+                    ModeloDocumento::NFE->value => [$e->nfeserie ?? 1, $e->nfenumero ?? 0],
+                    ModeloDocumento::NFCE->value => [$e->nfceserie ?? 1, $e->nfcenumero ?? 0],
+                ] as $modelo => [$serie, $numero]) {
+                    $contador["{$id}:{$modelo}:".(int) $serie] = (int) $numero;
+                }
+            }
+        }
+
+        // 2) O que foi REALMENTE emitido — a verdade que a Receita conhece.
+        $emitido = [];
+        foreach (DB::table('notas_fiscais')
+            ->selectRaw('empresa_id, modelo, serie, MAX(numero) AS maxnum')
+            ->groupBy('empresa_id', 'modelo', 'serie')
+            ->get() as $n) {
+            $emitido[(int) $n->empresa_id.':'.$n->modelo.':'.(int) $n->serie] = (int) $n->maxnum;
+        }
+
+        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+        $divergentes = 0;
+
+        foreach (array_unique([...array_keys($contador), ...array_keys($emitido)]) as $chave) {
+            [$empresaId, $modelo, $serie] = explode(':', $chave);
+            if (! isset($idsEmpresa[(int) $empresaId])) {
+                continue;
+            }
+
+            $doContador = $contador[$chave] ?? 0;
+            $doEmitido = $emitido[$chave] ?? 0;
+            $valor = max($doContador, $doEmitido);
+
+            if ($valor === 0) {
+                continue; // série nunca usada: deixa a sequência nascer em 1
+            }
+
+            if ($doEmitido > $doContador && $doContador > 0) {
+                $divergentes++;
+                $avisos[] = sprintf(
+                    'numeração: empresa %s modelo %s série %s — contador do legado (%d) está ATRÁS '
+                    .'do maior número emitido (%d); adotado o maior para não repetir nota',
+                    $empresaId, $modelo, $serie, $doContador, $doEmitido,
+                );
+            }
+
+            $modeloEnum = ModeloDocumento::tryFrom($modelo);
+            if ($modeloEnum === null) {
+                continue;
+            }
+
+            $sequencia->definir(
+                $modeloEnum->chaveSequencia((int) $empresaId, (int) $serie),
+                $valor,
+            );
+        }
+
+        $avisos[] = sprintf(
+            'numeração fiscal semeada para %d sequência(s) empresa+modelo+série%s',
+            count(array_unique([...array_keys($contador), ...array_keys($emitido)])),
+            $divergentes > 0 ? " ({$divergentes} com contador defasado)" : '',
+        );
+
+        return $avisos;
     }
 
     private function tabelaExiste(MigrationContext $ctx, string $tabela): bool

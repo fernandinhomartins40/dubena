@@ -47,6 +47,7 @@ final class EmpresasMigrator implements Migrator
             // quebraria o vínculo de tenant de toda a carga.
             $gravados += $this->gravarPreservandoId('grupos', $grupos);
             $gravados += $this->gravarPreservandoId('empresas', $empresas);
+            $this->configFiscalECadastral($ctx);
         }
 
         return new MigrationResult(
@@ -54,6 +55,10 @@ final class EmpresasMigrator implements Migrator
             lidos: count($grupos) + count($empresas),
             gravados: $ctx->dryRun ? 0 : $gravados,
             pulados: 0,
+            avisos: $ctx->dryRun ? [] : [
+                'config fiscal/SPED/contador gravada em `empresa_configs.dados` '
+                .'(o formulário de empresa já enviava estes campos; o backend os descartava)',
+            ],
         );
     }
 
@@ -148,14 +153,15 @@ final class EmpresasMigrator implements Migrator
             'inscricao_municipal' => $r->inscricaomunicipal ?? null,
             'cep' => $this->soDigitos($r->cep ?? null, 8),
             'uf' => $r->uf ?? null,
-            // O legado NÃO tem cidade/bairro em texto — só as FKs. Ler
-            // `$r->cidade` devolvia null, e por isso as 7 empresas migraram sem
-            // endereço nenhum (a DANFE saía sem o endereço do emitente). O texto
-            // é derivado das FKs depois da carga, em `derivarTextoDoEndereco()`.
-            'cidade_id' => $r->cidade_id ?? null,
-            'bairro_id' => $r->bairro_id ?? null,
-            'rua_id' => $r->rua_id ?? null,
-            'regiao_id' => $r->regiao_id ?? null,
+            // O endereço por FK NÃO é gravado aqui: este migrator roda em 2º e
+            // `cidades`/`bairros`/`ruas`/`regioes` só existem depois do
+            // `geografico` (7º), que depende deste — gravar agora viola a FK.
+            // É o `GeograficoMigrator::enderecoDasEmpresas()` que preenche, e de
+            // lá deriva o texto que a DANFE imprime.
+            //
+            // O legado NÃO tem cidade/bairro em texto, só as FKs: ler
+            // `$r->cidade` devolvia null, e foi por isso que as 7 empresas
+            // migraram sem endereço nenhum.
             'numero' => $r->numero ?? null,
             'complemento' => $r->complemento ?? null,
             'telefone1' => $r->telefone1 ?? $r->telefone ?? null,
@@ -176,6 +182,133 @@ final class EmpresasMigrator implements Migrator
         $d = preg_replace('/\D/', '', (string) ($v ?? ''));
 
         return $d === '' ? null : substr($d, 0, $max);
+    }
+
+    /**
+     * Config fiscal, SPED, contador e dados cadastrais → `empresa_configs.dados`.
+     *
+     * O formulário de empresa já enviava estes campos (`nfeserie`, `nfecrt`,
+     * `spedperfil`, `contnome`, `cnae`, `registro_anp`…) e o backend os
+     * descartava por não existirem no `$fillable`. Todos existem no legado e
+     * estão preenchidos: CRT e tipo de ambiente em 7/7 empresas, CNAE em 6/7,
+     * dados do contador em 1/7.
+     *
+     * Ficam em `dados` (JSON) e não em colunas próprias porque é assim que a
+     * config da empresa é modelada aqui — colunas são promovidas quando uma fase
+     * precisa consultá-las por índice. A numeração NÃO entra neste JSON: ela é
+     * estado transacional e vive em `sequencias`, semeada pelo FiscalMigrator.
+     */
+    private function configFiscalECadastral(MigrationContext $ctx): void
+    {
+        // Sem legado (dev/CI) não há config a herdar. O guard tem de estar aqui
+        // e não só no chamador: `lerEmpresas()` devolve vazio silenciosamente
+        // nesse caso, então chegar até aqui com a conexão morta é o normal.
+        if (! $this->legadoDisponivel($ctx)) {
+            return;
+        }
+
+        try {
+            $doLegado = $ctx->legado()->table('empresas')->get();
+        } catch (\Throwable) {
+            return; // dump sem a tabela: nada a herdar
+        }
+
+        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+
+        foreach ($doLegado as $r) {
+            $id = (int) $r->id;
+            if (! isset($idsEmpresa[$id])) {
+                continue;
+            }
+
+            $fiscal = array_filter([
+                'nfe_modelo' => $this->inteiroOuNull($r->nfemodelo ?? null),
+                'nfe_serie' => $this->inteiroOuNull($r->nfeserie ?? null),
+                'nfe_crt' => $this->inteiroOuNull($r->nfecrt ?? null),
+                'nfe_tipo_ambiente' => $this->inteiroOuNull($r->nfetipoambiente ?? null),
+                'nfe_tipo_emissao' => $this->inteiroOuNull($r->nfetipoemissao ?? null),
+                'nfe_emite' => $this->boolOuNull($r->nfeemite ?? null),
+                'nfce_modelo' => $this->inteiroOuNull($r->nfcemodelo ?? null),
+                'nfce_serie' => $this->inteiroOuNull($r->nfceserie ?? null),
+                'nfce_crt' => $this->inteiroOuNull($r->nfcecrt ?? null),
+                'nfce_tipo_ambiente' => $this->inteiroOuNull($r->nfcetipoambiente ?? null),
+                'nfce_emite' => $this->boolOuNull($r->nfceemite ?? null),
+            ], fn ($v) => $v !== null);
+
+            $sped = array_filter([
+                'emite' => $this->boolOuNull($r->spedemite ?? null),
+                'perfil' => $this->texto($r->spedperfil ?? null),
+                'atividade' => $this->inteiroOuNull($r->spedatividade ?? null),
+                'incidencia_tributaria' => $this->inteiroOuNull($r->spedincidenciatributaria ?? null),
+                'apropriacao_credito' => $this->inteiroOuNull($r->spedapropriacaocredito ?? null),
+                'tipo_contribuicao' => $this->inteiroOuNull($r->spedtipocontribuicao ?? null),
+                'regime_cumulativo' => $this->inteiroOuNull($r->spedregimecumulativo ?? null),
+            ], fn ($v) => $v !== null);
+
+            $contador = array_filter([
+                'nome' => $this->texto($r->contnome ?? null),
+                'cpf' => $this->soDigitos($r->contcpf ?? null, 11),
+                'cnpj' => $this->soDigitos($r->contcnpj ?? null, 14),
+                'crc' => $this->texto($r->contcrc ?? null),
+                'telefone' => $this->texto($r->conttelefone ?? null),
+                'email' => $this->texto($r->contemail ?? null),
+            ], fn ($v) => $v !== null);
+
+            $cadastro = array_filter([
+                'cnae' => $this->texto($r->cnae ?? null),
+                'email' => $this->texto($r->email ?? null),
+                'registro_anp' => $this->texto($r->registro_anp ?? null),
+                'distribuidora' => $this->texto($r->distribuidora ?? null),
+                'suframa' => $this->texto($r->suframa ?? null),
+                'inscricao_estadual_st' => $this->texto($r->inscricao_estadual_st ?? null),
+                'capacidade_armazenamento' => $this->inteiroOuNull($r->capacidadearmazenamento ?? null),
+            ], fn ($v) => $v !== null);
+
+            $blocos = array_filter([
+                'fiscal' => $fiscal,
+                'sped' => $sped,
+                'contador' => $contador,
+                'cadastro' => $cadastro,
+            ], fn ($b) => $b !== []);
+
+            if ($blocos === []) {
+                continue;
+            }
+
+            // `dados` é compartilhado (integrações, etc.): mescla em vez de
+            // sobrescrever, senão a carga apagaria o que outro migrator gravou.
+            $atual = json_decode(
+                (string) DB::table('empresa_configs')->where('empresa_id', $id)->value('dados'),
+                true,
+            ) ?: [];
+
+            DB::table('empresa_configs')->updateOrInsert(
+                ['empresa_id' => $id],
+                [
+                    'dados' => json_encode(array_merge($atual, $blocos), JSON_UNESCAPED_UNICODE),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ],
+            );
+        }
+    }
+
+    private function inteiroOuNull(mixed $v): ?int
+    {
+        return ($v === null || $v === '') ? null : (int) $v;
+    }
+
+    /** O legado guarda flag como texto '0'/'1'. */
+    private function boolOuNull(mixed $v): ?bool
+    {
+        return ($v === null || $v === '') ? null : ! in_array((string) $v, ['0', 'N', 'n'], true);
+    }
+
+    private function texto(mixed $v): ?string
+    {
+        $t = trim((string) ($v ?? ''));
+
+        return $t === '' ? null : $t;
     }
 
     private function legadoDisponivel(MigrationContext $ctx): bool
