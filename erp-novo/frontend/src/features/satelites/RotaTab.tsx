@@ -363,7 +363,7 @@ export function RotaTab() {
         {viagens.length > 0 && (
           <Card><CardContent className="space-y-3 pt-4">
             <p className="text-xs font-medium text-muted-foreground">
-              {viagens.length} viagem{viagens.length > 1 ? 'ns' : ''} no período
+              {viagens.length} {viagens.length > 1 ? 'viagens' : 'viagem'} no período
             </p>
 
             <div className="max-h-[340px] space-y-3 overflow-y-auto">

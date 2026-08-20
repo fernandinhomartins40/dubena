@@ -521,4 +521,27 @@ class TraccarRastreamentoTest extends TestCase
     {
         $this->assertFalse((bool) config('services.traccar.autocadastrar'));
     }
+
+    /**
+     * O provedor devolve a ULTIMA posicao conhecida, tendo ela mudado ou nao.
+     *
+     * Com polling a cada 30s, um veiculo parado a noite toda regravava a mesma
+     * leitura: em producao deram 27.891 linhas num dia para 3.749 posicoes
+     * reais, uma repetida 1.859 vezes. No tracado isso empilha pontos no mesmo
+     * lugar; no banco, cresce sem trazer informacao nova.
+     */
+    public function test_mesma_leitura_repetida_nao_e_regravada(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar();
+        $veiculo = $this->veiculoComImei();
+
+        $sync = app(MonitoraSyncService::class);
+        $this->assertSame(1, $sync->sincronizar($veiculo->empresa_id));
+        // O provedor responde a mesma coisa nas rodadas seguintes.
+        $this->assertSame(0, $sync->sincronizar($veiculo->empresa_id));
+        $this->assertSame(0, $sync->sincronizar($veiculo->empresa_id));
+
+        $this->assertSame(1, $veiculo->posicoes()->count());
+    }
 }

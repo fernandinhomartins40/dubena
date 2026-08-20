@@ -137,6 +137,8 @@ class ViagensService
 
         $viagens = [];
         $trecho = [];
+        /** Momento em que o veículo parou; null enquanto está andando. */
+        $paradoDesde = null;
 
         for ($i = 0; $i < $n; $i++) {
             $trecho[] = $posicoes[$i];
@@ -145,22 +147,39 @@ class ViagensService
                 continue;
             }
 
-            // O corte é o INTERVALO entre duas posições consecutivas, e não a
-            // velocidade zero: rastreador desligado ou fora de área também
-            // deixa um buraco no tempo, e emendar os dois lados desenharia uma
-            // reta atravessando a cidade por onde o veículo nunca passou.
             $atual = Carbon::parse($posicoes[$i]->registrado_em);
             $proxima = Carbon::parse($posicoes[$i + 1]->registrado_em);
             $intervalo = $atual->diffInSeconds($proxima);
-
             $paradoAgora = (float) $posicoes[$i]->velocidade < self::VELOCIDADE_PARADO;
 
-            if ($intervalo > self::PARADA_MINIMA_SEGUNDOS && $paradoAgora) {
+            // Duas formas de encerrar uma viagem, e as duas são necessárias.
+            //
+            // 1) Buraco no tempo: rastreador desligado ou fora de área. Emendar
+            //    os dois lados desenharia uma reta atravessando a cidade.
+            $buraco = $intervalo > self::PARADA_MINIMA_SEGUNDOS && $paradoAgora;
+
+            // 2) Tempo ACUMULADO parado no mesmo lugar. Este rastreador reporta
+            //    a cada 30 s mesmo com o veículo desligado: uma entrega de 8
+            //    minutos vira 16 posições seguidas, e nenhum intervalo passa de
+            //    300 s. Só olhando o intervalo, a ida e a volta da entrega
+            //    ficavam na MESMA viagem — e o traçado desenhava o laço que o
+            //    dono via como triângulo na tela.
+            if ($paradoAgora) {
+                $paradoDesde ??= $atual;
+            } else {
+                $paradoDesde = null;
+            }
+            $acumulado = $paradoDesde !== null
+                ? $paradoDesde->diffInSeconds($proxima)
+                : 0;
+
+            if ($buraco || $acumulado > self::PARADA_MINIMA_SEGUNDOS) {
                 $viagem = $this->montar($trecho);
                 if ($viagem !== null) {
                     $viagens[] = $viagem;
                 }
                 $trecho = [];
+                $paradoDesde = null;
             }
         }
 

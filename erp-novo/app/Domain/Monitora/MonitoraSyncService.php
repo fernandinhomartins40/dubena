@@ -4,6 +4,7 @@ namespace App\Domain\Monitora;
 
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Models\Monitora\Veiculo;
+use Illuminate\Support\Carbon;
 
 /**
  * MonitoraSyncService (N11 — GATE SGCasa). Busca posições no provedor externo
@@ -44,6 +45,17 @@ class MonitoraSyncService
             if (! $veiculo) {
                 continue;
             }
+
+            // O provedor devolve a ÚLTIMA posição conhecida, tendo ela mudado
+            // ou não. Com polling a cada 30 s, um veículo parado a noite toda
+            // regravaria a mesma leitura milhares de vezes: em produção deram
+            // 27.891 linhas num dia para 3.749 posições reais, uma delas
+            // repetida 1.859 vezes. No traçado isso empilha pontos no mesmo
+            // lugar, e no banco cresce sem trazer informação nova.
+            if ($this->jaGravada($veiculo, $p)) {
+                continue;
+            }
+
             $this->monitora->registrarPosicao($veiculo, [
                 'latitude' => $p['latitude'],
                 'longitude' => $p['longitude'],
@@ -56,6 +68,30 @@ class MonitoraSyncService
         }
 
         return $ingeridas;
+    }
+
+    /**
+     * Esta leitura já está gravada?
+     *
+     * Compara o INSTANTE do fix, e não as coordenadas: um veículo parado num
+     * sinal reporta fixes diferentes no mesmo lugar, e esses interessam —
+     * mostram que o rastreador continua vivo. O que não interessa é regravar
+     * exatamente o mesmo fix que o provedor está apenas repetindo.
+     *
+     * @param  array{registrado_em?:string}  $nova
+     */
+    private function jaGravada(Veiculo $veiculo, array $nova): bool
+    {
+        // `fresh` e não a relação já carregada: o próprio loop acabou de
+        // gravar posição para este veículo, e a relação em memória ficaria com
+        // o valor de antes — toda leitura nova seria aceita como inédita.
+        $ultima = $veiculo->ultimaPosicao()->first();
+
+        if ($ultima?->registrado_em === null || ! isset($nova['registrado_em'])) {
+            return false;
+        }
+
+        return $ultima->registrado_em->equalTo(Carbon::parse($nova['registrado_em']));
     }
 
     /**

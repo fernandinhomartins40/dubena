@@ -724,4 +724,50 @@ class ViagensRotaTest extends TestCase
         }
         $this->assertTrue($achouEsquina, 'a limpeza comeu o vertice da esquina');
     }
+
+    /**
+     * O TRIANGULO DA TELA, causa final: entrega com o rastreador reportando.
+     *
+     * Padrao real (AMI-9780, 20/08): o veiculo chega, fica 8 MINUTOS parado
+     * reportando a cada 30s, e depois da meia-volta. Nenhum intervalo entre
+     * posicoes passa de 300s — entao o corte por buraco no tempo nao dispara, e
+     * a ida e a volta ficavam na MESMA viagem. No mapa isso desenha um laco:
+     * a linha vai, para, e volta por cima. Era o triangulo.
+     */
+    public function test_parada_com_rastreador_reportando_separa_viagens(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        $t = 0;
+
+        // Ida: 6 posicoes andando.
+        for ($k = 0; $k < 6; $k++, $t++) {
+            $pontos[] = [$base->copy()->addSeconds($t * 30)->format('H:i:s'),
+                -25.3900 - ($k * 0.0008), -51.4600, 30.0];
+        }
+        $latParada = -25.3900 - (5 * 0.0008);
+
+        // Entrega: 16 posicoes A 0 km/h no mesmo ponto — 8 minutos.
+        for ($k = 0; $k < 16; $k++, $t++) {
+            $pontos[] = [$base->copy()->addSeconds($t * 30)->format('H:i:s'),
+                $latParada, -51.4600, 0.0];
+        }
+
+        // Volta: refaz o caminho de tras para frente.
+        for ($k = 4; $k >= 0; $k--, $t++) {
+            $pontos[] = [$base->copy()->addSeconds($t * 30)->format('H:i:s'),
+                -25.3900 - ($k * 0.0008), -51.4600, 30.0];
+        }
+        $this->posicoes($veiculo, $pontos);
+
+        $saida = app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertCount(
+            2,
+            $saida['viagens'],
+            'a entrega de 8 min nao separou a ida da volta — o tracado desenha um laco',
+        );
+    }
 }
