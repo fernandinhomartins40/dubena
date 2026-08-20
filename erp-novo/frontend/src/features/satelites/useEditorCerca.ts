@@ -1,28 +1,25 @@
 import { useCallback, useRef, useState } from 'react'
 import {
-  arredondarCanto, areaKm2, meio, metrosEntre, perimetroKm, simplificar, suavizar, type Ponto,
+  areaKm2, meio, metrosEntre, perimetroKm, simplificar, tracado, type No, type Ponto,
 } from './editorPoligono'
 
 /**
- * Edição do contorno de uma cerca no Google Maps.
+ * Edição do contorno de uma cerca no Google Maps, no modelo da ferramenta
+ * Curvatura do Illustrator.
  *
- * Concentra os gestos e o histórico; o componente de tela só chama os comandos
- * e desenha os botões. A separação existe porque a versão anterior misturava
- * refs do mapa, estado do React e JSX no mesmo arquivo — e cada ajuste na
- * interação quebrava o desenho.
+ * **Cada nó guarda se é liso ou canto.** Arrastar um nó liso arqueia a linha ao
+ * vivo; duplo clique alterna entre curva e bico. A curva não é gravada: o banco
+ * guarda os nós e o traçado é recalculado a cada desenho. É isso que permite
+ * mexer no ponto depois de curvar — na versão anterior a curva era densificada
+ * em vértices e o ponto original sumia, então não havia mais o que arrastar.
  *
- * **Regra que orienta tudo aqui: uma camada só de interação.** O polígono nunca
- * é `editable`; todo gesto passa pelos marcadores. Duas camadas sobrepostas
- * disputando o clique foi o que travou os vértices na tentativa anterior.
- *
- * **Seleção por vértice.** Clicar num pino o seleciona e abre o card de
- * ferramentas ao lado dele, como o painel de ponto do Illustrator. Curvatura,
- * remoção e alinhamento agem sobre o ponto selecionado, não sobre o contorno
- * inteiro — arredondar uma esquina não pode deixar o quarteirão todo redondo.
+ * **Uma camada só de interação.** O polígono nunca é `editable`; todo gesto
+ * passa pelos marcadores. Duas camadas sobrepostas disputando o clique foi o
+ * que travou os vértices numa tentativa anterior.
  */
 
 const COR_MEIO = '#ffffff'
-/** Cor do pino selecionado — precisa destoar de qualquer cor de cerca. */
+/** Cor do nó selecionado — precisa destoar de qualquer cor de cerca. */
 const COR_SELECIONADO = '#111827'
 
 interface Opcoes {
@@ -32,19 +29,16 @@ interface Opcoes {
   snapMetros?: number
 }
 
-/** Onde o card de ferramentas deve aparecer, em pixels do container do mapa. */
-export interface PosicaoTela { x: number; y: number }
-
 export interface EstadoCerca {
   vertices: number
   areaKm2: number
   perimetroKm: number
   podeDesfazer: boolean
   podeRefazer: boolean
-  /** Índice do vértice selecionado, ou null. */
+  /** Índice do nó selecionado, ou null. */
   selecionado: number | null
-  /** Posição em tela do vértice selecionado (para ancorar o card). */
-  posicaoSelecionado: PosicaoTela | null
+  /** O nó selecionado é liso? (para rotular o botão de alternar) */
+  selecionadoLiso: boolean
 }
 
 const VAZIO: EstadoCerca = {
@@ -54,7 +48,7 @@ const VAZIO: EstadoCerca = {
   podeDesfazer: false,
   podeRefazer: false,
   selecionado: null,
-  posicaoSelecionado: null,
+  selecionadoLiso: false,
 }
 
 export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
@@ -64,14 +58,21 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
   const meios = useRef<any[]>([])
   const cor = useRef('#FF6200')
   const selecionado = useRef<number | null>(null)
-  /** Listeners de movimentação do mapa — reposicionam o card ao arrastar/zoom. */
-  const listenerMapa = useRef<any[]>([])
 
-  // Histórico como pilhas de snapshots. Um polígono tem dezenas de pontos e a
+  /**
+   * Os nós são a fonte da verdade — não o path do polígono.
+   *
+   * O path desenhado é derivado (curva aproximada em segmentos), então ler dele
+   * de volta perderia a informação de qual ponto é liso e devolveria dezenas de
+   * pontos onde há um nó só.
+   */
+  const nos = useRef<No[]>([])
+
+  // Histórico como pilhas de snapshots. Um contorno tem dezenas de nós e a
   // edição é curta: guardar a lista inteira é mais simples (e mais seguro) que
   // reverter operação por operação.
-  const passado = useRef<Ponto[][]>([])
-  const futuro = useRef<Ponto[][]>([])
+  const passado = useRef<No[][]>([])
+  const futuro = useRef<No[][]>([])
 
   const [estado, setEstado] = useState<EstadoCerca>(VAZIO)
 
@@ -81,65 +82,38 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
   const vizinhosRef = useRef(vizinhos)
   vizinhosRef.current = vizinhos
 
-  /** Lê o contorno atual do polígono. */
-  const lerPontos = useCallback((): Ponto[] => {
-    if (!poligono.current) return []
-    const saida: Ponto[] = []
-    poligono.current.getPath().forEach((p: any) => saida.push({ lat: p.lat(), lng: p.lng() }))
-
-    return saida
-  }, [])
+  /** Nós atuais (cópia — quem chama não deve alterar o interno por engano). */
+  const lerNos = useCallback((): No[] => nos.current.map((p) => ({ ...p })), [])
 
   /**
-   * Converte a posição do vértice selecionado em pixels do container do mapa.
+   * O contorno como lista de pontos, já com as curvas resolvidas.
    *
-   * O card flutuante é HTML sobreposto, então precisa da projeção: não há como
-   * posicioná-lo por latitude/longitude.
+   * É o que vai para o banco: o geofencing e o rastreador continuam recebendo
+   * uma lista de coordenadas, sem saber que houve curva.
    */
-  const posicaoDoSelecionado = useCallback((): PosicaoTela | null => {
-    const i = selecionado.current
-    if (i === null || !mapa.current || !poligono.current) return null
-
-    const path = poligono.current.getPath()
-    if (i >= path.getLength()) return null
-
-    const projecao = mapa.current.getProjection?.()
-    const limites = mapa.current.getBounds?.()
-    if (!projecao || !limites) return null
-
-    const ne = projecao.fromLatLngToPoint(limites.getNorthEast())
-    const sw = projecao.fromLatLngToPoint(limites.getSouthWest())
-    const ponto = projecao.fromLatLngToPoint(path.getAt(i))
-    if (!ne || !sw || !ponto) return null
-
-    const escala = 2 ** mapa.current.getZoom()
-
-    return {
-      x: Math.round((ponto.x - sw.x) * escala),
-      y: Math.round((ponto.y - ne.y) * escala),
-    }
-  }, [])
+  const lerPontos = useCallback((): Ponto[] => tracado(nos.current), [])
 
   const publicar = useCallback(() => {
     const pontos = lerPontos()
+    const i = selecionado.current
     setEstado({
-      vertices: pontos.length,
+      vertices: nos.current.length,
       areaKm2: areaKm2(pontos),
       perimetroKm: perimetroKm(pontos),
       podeDesfazer: passado.current.length > 0,
       podeRefazer: futuro.current.length > 0,
-      selecionado: selecionado.current,
-      posicaoSelecionado: posicaoDoSelecionado(),
+      selecionado: i,
+      selecionadoLiso: i !== null ? (nos.current[i]?.liso ?? false) : false,
     })
-  }, [lerPontos, posicaoDoSelecionado])
+  }, [lerPontos])
 
   /** Guarda o traçado atual antes de uma alteração — é o que o desfazer usa. */
   const marcarHistorico = useCallback(() => {
-    passado.current.push(lerPontos())
+    passado.current.push(lerNos())
     // 50 passos bastam para qualquer edição e evitam segurar memória à toa.
     if (passado.current.length > 50) passado.current.shift()
     futuro.current = []
-  }, [lerPontos])
+  }, [lerNos])
 
   /**
    * Gruda o ponto num vértice de cerca vizinha, quando houver um perto.
@@ -166,7 +140,16 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
   const publicarRef = useRef<() => void>(() => {})
   publicarRef.current = publicar
 
-  /** Redesenha marcadores dos vértices e dos pontos-médio. */
+  /** Repinta o traçado a partir dos nós, sem refazer os marcadores. */
+  const repintarTracado = useCallback(() => {
+    const google = (window as any).google
+    if (!poligono.current) return
+    poligono.current.setPath(
+      lerPontos().map((p) => new google.maps.LatLng(p.lat, p.lng)),
+    )
+  }, [lerPontos])
+
+  /** Redesenha marcadores dos nós e dos pontos-médio. */
   const redesenhar = useCallback(() => {
     const google = (window as any).google
     marcadores.current.forEach((m) => m.setMap(null))
@@ -175,36 +158,42 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
     meios.current = []
     if (!poligono.current || !mapa.current) return
 
-    const path = poligono.current.getPath()
-    const total = path.getLength()
+    repintarTracado()
 
-    // Um vértice pode ter sumido (remoção, simplificação): a seleção presa a um
-    // índice que não existe mais deixaria o card apontando para o vazio.
+    const lista = nos.current
+    const total = lista.length
+
+    // Um nó pode ter sumido (remoção, simplificação): a seleção presa a um
+    // índice que não existe mais deixaria a barra agindo sobre o vazio.
     if (selecionado.current !== null && selecionado.current >= total) {
       selecionado.current = null
     }
 
-    for (let i = 0; i < total; i++) {
+    lista.forEach((no, i) => {
       const ativo = selecionado.current === i
       const m = new google.maps.Marker({
-        position: path.getAt(i),
+        position: { lat: no.lat, lng: no.lng },
         map: mapa.current,
         draggable: true,
         crossOnDrag: false,
-        label: { text: String(i + 1), color: '#fff', fontSize: '11px', fontWeight: '600' },
+        // Nó liso é círculo, nó de canto é quadrado — a mesma convenção visual
+        // do Illustrator, legível sem precisar clicar para descobrir.
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: ativo ? 12 : 9,
+          path: no.liso
+            ? google.maps.SymbolPath.CIRCLE
+            : 'M -7,-7 L 7,-7 L 7,7 L -7,7 Z',
+          scale: no.liso ? (ativo ? 9 : 7) : (ativo ? 1.1 : 0.85),
           fillColor: ativo ? COR_SELECIONADO : cor.current,
           fillOpacity: 1,
           strokeColor: '#fff',
           strokeWeight: ativo ? 3 : 2,
         },
-        title: `Vértice ${i + 1} — clique para as ferramentas, arraste para mover`,
+        title: no.liso
+          ? 'Ponto curvo — arraste para moldar, duplo clique vira canto'
+          : 'Canto — arraste para mover, duplo clique vira curva',
         zIndex: ativo ? 30 : 20,
       })
 
-      // Clique seleciona: é o que abre o card de ferramentas daquele ponto.
       m.addListener('click', () => {
         selecionado.current = selecionado.current === i ? null : i
         redesenharRef.current()
@@ -212,41 +201,43 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
       })
 
       m.addListener('dragstart', () => marcarHistorico())
+      // O traçado acompanha o arrasto: é o que dá a sensação de moldar a curva
+      // com o dedo, em vez de aplicar um comando e ver o resultado depois.
       m.addListener('drag', (ev: any) => {
-        path.setAt(i, ev.latLng)
-        // Os pontos-médio acompanham o arrasto: redesenhá-los durante o gesto
-        // deixaria o marcador sendo arrastado sob o dedo, então só o contorno
-        // se move aqui — os médios são refeitos ao soltar.
+        nos.current[i] = { ...nos.current[i], lat: ev.latLng.lat(), lng: ev.latLng.lng() }
+        repintarTracado()
       })
       m.addListener('dragend', (ev: any) => {
         const grudado = comSnap({ lat: ev.latLng.lat(), lng: ev.latLng.lng() })
-        path.setAt(i, new google.maps.LatLng(grudado.lat, grudado.lng))
+        nos.current[i] = { ...nos.current[i], ...grudado }
         // Arrastar também seleciona: quem mexeu no ponto quase sempre quer
         // ajustá-lo em seguida.
         selecionado.current = i
         redesenharRef.current()
         publicarRef.current()
       })
+
+      // O gesto central da ferramenta Curvatura: alterna curva × canto.
       m.addListener('dblclick', () => {
-        if (total <= 3) return
         marcarHistorico()
-        path.removeAt(i)
-        selecionado.current = null
+        nos.current[i] = { ...nos.current[i], liso: !nos.current[i].liso }
+        selecionado.current = i
         redesenharRef.current()
         publicarRef.current()
       })
 
       marcadores.current.push(m)
-    }
+    })
 
-    // Pontos-médio: menores e translúcidos, entre cada par. Clicar ou arrastar
-    // um deles INSERE um vértice ali — é como se acrescenta detalhe a um trecho
-    // sem refazer o contorno.
+    // Pontos-médio: menores e translúcidos, entre cada par de nós. Clicar ou
+    // arrastar um deles INSERE um nó ali — é como se acrescenta detalhe a um
+    // trecho sem refazer o contorno. Nasce liso, porque quem insere ponto no
+    // meio de uma linha quase sempre quer moldá-la.
     if (total >= 2) {
       for (let i = 0; i < total; i++) {
-        const a = path.getAt(i)
-        const b = path.getAt((i + 1) % total)
-        const centro = meio({ lat: a.lat(), lng: a.lng() }, { lat: b.lat(), lng: b.lng() })
+        const a = lista[i]
+        const b = lista[(i + 1) % total]
+        const centro = meio(a, b)
 
         const mm = new google.maps.Marker({
           position: centro,
@@ -258,22 +249,31 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
             fillColor: COR_MEIO, fillOpacity: 0.9,
             strokeColor: cor.current, strokeWeight: 2,
           },
-          title: 'Clique ou arraste para inserir um vértice aqui',
+          title: 'Clique ou arraste para inserir um ponto aqui',
           zIndex: 15,
         })
 
+        const inserir = (p: Ponto) => {
+          nos.current.splice(i + 1, 0, { ...p, liso: true })
+        }
+
         mm.addListener('click', () => {
           marcarHistorico()
-          path.insertAt(i + 1, mm.getPosition())
+          inserir(centro)
           selecionado.current = i + 1
           redesenharRef.current()
           publicarRef.current()
         })
         mm.addListener('dragstart', () => {
           marcarHistorico()
-          path.insertAt(i + 1, mm.getPosition())
+          inserir(centro)
         })
-        mm.addListener('drag', (ev: any) => path.setAt(i + 1, ev.latLng))
+        mm.addListener('drag', (ev: any) => {
+          nos.current[i + 1] = {
+            ...nos.current[i + 1], lat: ev.latLng.lat(), lng: ev.latLng.lng(),
+          }
+          repintarTracado()
+        })
         mm.addListener('dragend', () => {
           selecionado.current = i + 1
           redesenharRef.current()
@@ -283,11 +283,18 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
         meios.current.push(mm)
       }
     }
-  }, [comSnap, marcarHistorico])
+  }, [comSnap, marcarHistorico, repintarTracado])
 
   redesenharRef.current = redesenhar
 
-  /** Abre um contorno para edição (cerca existente ou rascunho novo). */
+  /**
+   * Abre um contorno para edição.
+   *
+   * Cerca vinda do banco chega como lista de coordenadas, sem informação de
+   * curvatura: todos os nós entram como canto. É o comportamento certo — o
+   * traçado gravado é exatamente o que se vê, e nada muda de forma sozinho ao
+   * abrir uma cerca antiga.
+   */
   const abrir = useCallback((mapaGoogle: any, pontos: Ponto[], corHex: string) => {
     const google = (window as any).google
     mapa.current = mapaGoogle
@@ -295,6 +302,7 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
     passado.current = []
     futuro.current = []
     selecionado.current = null
+    nos.current = pontos.map((p) => ({ lat: p.lat, lng: p.lng, liso: false }))
 
     poligono.current?.setMap(null)
     poligono.current = new google.maps.Polygon({
@@ -307,35 +315,23 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
       zIndex: 5,
     })
 
-    // O card é HTML posicionado em pixels: mover ou dar zoom no mapa muda onde
-    // o vértice está na tela, e sem isto ele ficaria para trás.
-    listenerMapa.current.forEach((l) => google.maps.event.removeListener(l))
-    listenerMapa.current = ['bounds_changed', 'zoom_changed'].map((evento) =>
-      google.maps.event.addListener(mapaGoogle, evento, () => {
-        if (selecionado.current !== null) publicarRef.current()
-      }),
-    )
-
     redesenhar()
     publicar()
   }, [redesenhar, publicar])
 
-  /** Acrescenta um vértice no fim (usado no desenho por cliques no mapa). */
+  /** Acrescenta um nó no fim (usado no desenho por cliques no mapa). */
   const acrescentar = useCallback((p: Ponto) => {
-    const google = (window as any).google
     if (!poligono.current) return
     marcarHistorico()
-    const grudado = comSnap(p)
-    poligono.current.getPath().push(new google.maps.LatLng(grudado.lat, grudado.lng))
+    nos.current.push({ ...comSnap(p), liso: false })
     redesenhar()
     publicar()
   }, [comSnap, marcarHistorico, redesenhar, publicar])
 
-  const aplicar = useCallback((novos: Ponto[]) => {
-    const google = (window as any).google
+  const aplicar = useCallback((novos: No[]) => {
     if (!poligono.current) return
     marcarHistorico()
-    poligono.current.setPath(novos.map((p) => new google.maps.LatLng(p.lat, p.lng)))
+    nos.current = novos
     redesenhar()
     publicar()
   }, [marcarHistorico, redesenhar, publicar])
@@ -343,29 +339,24 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
   const desfazer = useCallback(() => {
     const anterior = passado.current.pop()
     if (!anterior) return
-    futuro.current.push(lerPontos())
-    const google = (window as any).google
-    poligono.current?.setPath(anterior.map((p) => new google.maps.LatLng(p.lat, p.lng)))
+    futuro.current.push(lerNos())
+    nos.current = anterior
     selecionado.current = null
     redesenhar()
     publicar()
-  }, [lerPontos, redesenhar, publicar])
+  }, [lerNos, redesenhar, publicar])
 
   const refazer = useCallback(() => {
     const proximo = futuro.current.pop()
     if (!proximo) return
-    passado.current.push(lerPontos())
-    const google = (window as any).google
-    poligono.current?.setPath(proximo.map((p) => new google.maps.LatLng(p.lat, p.lng)))
+    passado.current.push(lerNos())
+    nos.current = proximo
     selecionado.current = null
     redesenhar()
     publicar()
-  }, [lerPontos, redesenhar, publicar])
+  }, [lerNos, redesenhar, publicar])
 
   const fechar = useCallback(() => {
-    const google = (window as any).google
-    listenerMapa.current.forEach((l) => google?.maps?.event?.removeListener(l))
-    listenerMapa.current = []
     poligono.current?.setMap(null)
     poligono.current = null
     marcadores.current.forEach((m) => m.setMap(null))
@@ -374,60 +365,51 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
     meios.current = []
     passado.current = []
     futuro.current = []
+    nos.current = []
     selecionado.current = null
     setEstado(VAZIO)
   }, [])
 
-  /** Tira a seleção — fecha o card sem alterar o traçado. */
-  const limparSelecao = useCallback(() => {
-    if (selecionado.current === null) return
-    selecionado.current = null
-    redesenhar()
-    publicar()
-  }, [redesenhar, publicar])
-
-  /**
-   * Arredonda o canto do vértice selecionado.
-   *
-   * A curva vira vértices e o ponto original some, então a seleção não faz mais
-   * sentido depois: o card fecha, e quem quiser mais curva seleciona um dos
-   * pontos novos.
-   */
-  const curvarSelecionado = useCallback((intensidade: number) => {
+  /** Alterna curva × canto no nó selecionado (o mesmo que o duplo clique). */
+  const alternarSelecionado = useCallback(() => {
     const i = selecionado.current
-    if (i === null) return
-    const novos = arredondarCanto(lerPontos(), i, intensidade)
-    selecionado.current = null
+    if (i === null || !nos.current[i]) return
+    const novos = lerNos()
+    novos[i].liso = !novos[i].liso
     aplicar(novos)
-  }, [lerPontos, aplicar])
+  }, [lerNos, aplicar])
 
-  /** Remove o vértice selecionado (o mesmo que o duplo clique no pino). */
+  /** Remove o nó selecionado. */
   const removerSelecionado = useCallback(() => {
     const i = selecionado.current
-    const pontos = lerPontos()
-    if (i === null || pontos.length <= 3) return
+    if (i === null || nos.current.length <= 3) return
     selecionado.current = null
-    aplicar(pontos.filter((_, k) => k !== i))
-  }, [lerPontos, aplicar])
+    aplicar(lerNos().filter((_, k) => k !== i))
+  }, [lerNos, aplicar])
+
+  /** Torna todos os nós curvos — o contorno inteiro fica arredondado. */
+  const curvarTudo = useCallback(() => {
+    aplicar(lerNos().map((p) => ({ ...p, liso: true })))
+  }, [lerNos, aplicar])
+
+  /** Volta todos os nós a canto — desfaz o arredondamento sem perder pontos. */
+  const retificarTudo = useCallback(() => {
+    aplicar(lerNos().map((p) => ({ ...p, liso: false })))
+  }, [lerNos, aplicar])
 
   /**
-   * Alinha o vértice selecionado com os dois vizinhos, tirando o bico.
+   * Remove nós que quase não mudam a linha.
    *
-   * Serve para endireitar um trecho que deveria ser reto — uma avenida, o limite
-   * de um quarteirão — sem ter que apagar e redesenhar.
+   * Só considera a posição: um nó liso removido leva junto a sua curvatura, o
+   * que é o esperado — ele deixou de existir.
    */
-  const alinharSelecionado = useCallback(() => {
-    const i = selecionado.current
-    const pontos = lerPontos()
-    if (i === null || pontos.length < 3) return
-
-    const n = pontos.length
-    const a = pontos[(i - 1 + n) % n]
-    const b = pontos[(i + 1) % n]
-    const novos = [...pontos]
-    novos[i] = { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 }
-    aplicar(novos)
-  }, [lerPontos, aplicar])
+  const simplificarContorno = useCallback(() => {
+    const antes = lerNos()
+    const mantidos = simplificar(antes.map(({ lat, lng }) => ({ lat, lng })))
+    const chave = (p: Ponto) => `${p.lat},${p.lng}`
+    const manter = new Set(mantidos.map(chave))
+    aplicar(antes.filter((p) => manter.has(chave(p))))
+  }, [lerNos, aplicar])
 
   return {
     estado,
@@ -437,15 +419,13 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
     desfazer,
     refazer,
     lerPontos,
-    limparSelecao,
-    curvarSelecionado,
+    lerNos,
+    alternarSelecionado,
     removerSelecionado,
-    alinharSelecionado,
-    /** Suaviza TODOS os cantos densificando o contorno em vértices. */
-    suavizarContorno: () => aplicar(suavizar(lerPontos())),
-    /** Remove pontos que quase não mudam a linha. */
-    simplificarContorno: () => aplicar(simplificar(lerPontos())),
-    /** Há polígono aberto para edição? */
+    curvarTudo,
+    retificarTudo,
+    simplificarContorno,
+    /** Há contorno aberto para edição? */
     get ativo() { return poligono.current !== null },
   }
 }

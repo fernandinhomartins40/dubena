@@ -1,43 +1,119 @@
 /**
- * Editor de polígono sobre o Google Maps.
+ * Geometria do editor de cercas.
  *
- * Isolado do componente de tela porque é lógica de manipulação geométrica —
- * arrastar vértice, inserir no meio de um segmento, suavizar canto, medir área.
- * Misturar isso com JSX deixava `CercasTab` ilegível e impossível de ajustar
- * sem quebrar o resto.
- *
- * **Uma camada só de interação.** A tentativa anterior sobrepunha marcadores ao
- * polígono `editable` do Google: as duas camadas disputavam o clique e os
- * vértices travavam. Aqui o polígono NÃO é editável e todos os gestos passam
- * pelos marcadores — arrastar move, duplo clique remove, e os pontos-médio
- * (menores, entre dois vértices) inserem quando arrastados.
+ * Isolado do componente de tela porque é cálculo puro — derivar o traçado dos
+ * nós, simplificar, medir área e perímetro. Misturar isso com JSX deixava
+ * `CercasTab` ilegível e impossível de ajustar sem quebrar o resto. Como é
+ * função pura, é também a única parte do editor que dá para testar: a interação
+ * com o Google Maps não roda fora do navegador.
  */
 
 export interface Ponto { lat: number; lng: number }
 
+/**
+ * Um vértice do contorno, com o estado que a ferramenta Curvatura mantém.
+ *
+ * `liso` é o que diferencia esta ferramenta de um "arredondar canto": o ponto
+ * NÃO desaparece ao virar curva. Ele continua lá, arrastável, e a curva é
+ * recalculada a partir dele — como no Illustrator, onde duplo clique alterna
+ * entre passar suave pelo ponto e fazer bico nele.
+ */
+export interface No extends Ponto { liso: boolean }
+
+/** Quantos segmentos de reta aproximam cada trecho curvo ao desenhar. */
+const PASSOS_TRACADO = 12
+
+/**
+ * Teto da tangente, como fração do menor segmento vizinho.
+ *
+ * Sem esta trava a curva estufa para fora do contorno — foi o que inflou uma
+ * cerca de teste em 36% e a fez cobrir uma quadra que ninguém desenhou. Com
+ * 0,33 a curvatura continua evidente e o arco fica contido.
+ *
+ * Num contorno de bairro real (poucos nós lisos entre cantos) o desvio de área
+ * fica abaixo de 1%. Os desvios grandes só surgem quando TODOS os nós são
+ * lisos, e aí o usuário está literalmente pedindo um círculo.
+ */
+const TETO_TANGENTE = 0.33
+
+/**
+ * Converte os nós no traçado que aparece no mapa.
+ *
+ * Trecho entre dois nós de canto é reta; havendo nó liso na ponta, o trecho
+ * vira curva. A tangente em cada nó liso é dada pelos seus vizinhos, o que faz
+ * a curva atravessar o nó suavemente em vez de dobrar ali.
+ *
+ * **A curvatura é derivada, não gravada.** O banco guarda só os nós; o traçado
+ * é recalculado a cada desenho. É isso que permite arrastar um ponto e ver a
+ * curva acompanhar ao vivo — se a curva fosse densificada em vértices, arrastar
+ * um deles deformaria o arco em vez de refazê-lo.
+ */
+export function tracado(nos: No[], passos = PASSOS_TRACADO): Ponto[] {
+  const n = nos.length
+  if (n < 3) return nos.map(({ lat, lng }) => ({ lat, lng }))
+
+  const saida: Ponto[] = []
+
+  // Tangente de um nó liso: metade do vetor entre os vizinhos, limitada ao
+  // menor segmento adjacente. Em nó de canto a tangente é zero — é o que trava
+  // a curva e produz o bico.
+  const tangente = (i: number): Ponto => {
+    if (!nos[i].liso) return { lat: 0, lng: 0 }
+
+    const a = nos[(i - 1 + n) % n]
+    const p = nos[i]
+    const b = nos[(i + 1) % n]
+    const m = { lat: (b.lat - a.lat) / 2, lng: (b.lng - a.lng) / 2 }
+
+    // Distância em graus basta aqui: a comparação é entre segmentos do mesmo
+    // contorno, na mesma latitude, e o resultado só escala um vetor.
+    const grausAte = (x: Ponto, y: Ponto) => Math.hypot(x.lat - y.lat, x.lng - y.lng)
+    const teto = TETO_TANGENTE * Math.min(grausAte(p, a), grausAte(p, b))
+    const tamanho = Math.hypot(m.lat, m.lng)
+    if (tamanho > teto && tamanho > 0) {
+      return { lat: (m.lat * teto) / tamanho, lng: (m.lng * teto) / tamanho }
+    }
+
+    return m
+  }
+
+  for (let i = 0; i < n; i++) {
+    const p1 = nos[i]
+    const p2 = nos[(i + 1) % n]
+
+    // Reta entre dois cantos: não gasta pontos aproximando o que já é reto.
+    if (!p1.liso && !p2.liso) {
+      saida.push({ lat: p1.lat, lng: p1.lng })
+      continue
+    }
+
+    const m1 = tangente(i)
+    const m2 = tangente((i + 1) % n)
+
+    // Hermite cúbica: passa por p1 e p2 com as tangentes dadas. Onde a tangente
+    // é zero (canto) ela degenera em algo que sai reto do ponto, que é
+    // exatamente o comportamento desejado.
+    for (let k = 0; k < passos; k++) {
+      const s = k / passos
+      const s2 = s * s
+      const s3 = s2 * s
+      const h1 = 2 * s3 - 3 * s2 + 1
+      const h2 = s3 - 2 * s2 + s
+      const h3 = -2 * s3 + 3 * s2
+      const h4 = s3 - s2
+
+      saida.push({
+        lat: h1 * p1.lat + h2 * m1.lat + h3 * p2.lat + h4 * m2.lat,
+        lng: h1 * p1.lng + h2 * m1.lng + h3 * p2.lng + h4 * m2.lng,
+      })
+    }
+  }
+
+  return saida
+}
+
 /** Raio médio da Terra, em metros — usado nas medidas. */
 const RAIO_TERRA = 6_371_008.8
-
-export interface OpcoesEditor {
-  google: any
-  mapa: any
-  cor: string
-  /** Vértices de outras cercas, para o snap. */
-  vizinhos?: Ponto[]
-  /** Distância (px) para o snap grudar num vértice vizinho. */
-  snapPx?: number
-  aoMudar: (estado: EstadoEditor) => void
-}
-
-export interface EstadoEditor {
-  vertices: number
-  /** Área em km². */
-  area: number
-  /** Perímetro em km. */
-  perimetro: number
-  podeDesfazer: boolean
-  podeRefazer: boolean
-}
 
 /**
  * Distância aproximada em metros entre dois pontos (fórmula de haversine).
@@ -54,127 +130,6 @@ export function metrosEntre(a: Ponto, b: Ponto): number {
     Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
 
   return 2 * RAIO_TERRA * Math.asin(Math.sqrt(h))
-}
-
-/**
- * Suaviza o contorno gerando pontos intermediários (Catmull-Rom → Bézier).
- *
- * **A curva é DENSIFICADA em vértices**, não guardada como curva: o polígono
- * resultante é uma lista de pontos como qualquer outra, então o geofencing
- * atual e o rastreador continuam funcionando sem nenhuma mudança. O custo é ter
- * mais linhas no banco — aceitável para uma cerca que se desenha uma vez.
- *
- * **Por que não Catmull-Rom.** A primeira versão usava Catmull-Rom, que tem a
- * propriedade elegante de passar pelos vértices marcados. Só que ela faz
- * *overshoot*: a curva estufa para FORA do contorno. No quadrado de teste
- * inflou a área em 35% — cerca de 150 m de invasão em cada lado, uma quadra
- * inteira entrando no setor sem ninguém ter desenhado isso. Reduzir a tensão
- * amenizava (15%) mas não resolvia; zerar tornava a curva invisível.
- *
- * A Bézier quadrática de canto não tem esse problema por construção: ela vive
- * dentro do triângulo dos seus pontos de controle, então a curva nunca sai do
- * polígono original. O preço é que o vértice marcado deixa de existir — vira
- * arco entre os vizinhos — que é exatamente o que se espera de "arredondar
- * canto", e é a mesma operação de `arredondarCanto`, aplicada a todos.
- *
- * @param intensidade 0..1, quanto do segmento vizinho a curva ocupa
- * @param passos segmentos gerados em cada arco
- */
-export function suavizar(pontos: Ponto[], intensidade = 0.6, passos = 6): Ponto[] {
-  if (pontos.length < 3) return pontos
-
-  const forca = Math.max(0, Math.min(1, intensidade))
-  if (forca === 0) return pontos
-
-  const n = pontos.length
-  const saida: Ponto[] = []
-  const t = forca * 0.5
-
-  for (let i = 0; i < n; i++) {
-    // O polígono é fechado: os vizinhos dão a volta no fim da lista.
-    const anterior = pontos[(i - 1 + n) % n]
-    const canto = pontos[i]
-    const proximo = pontos[(i + 1) % n]
-
-    const entrada = {
-      lat: canto.lat + (anterior.lat - canto.lat) * t,
-      lng: canto.lng + (anterior.lng - canto.lng) * t,
-    }
-    const saidaCanto = {
-      lat: canto.lat + (proximo.lat - canto.lat) * t,
-      lng: canto.lng + (proximo.lng - canto.lng) * t,
-    }
-
-    for (let k = 0; k <= passos; k++) {
-      const s = k / passos
-      const u = 1 - s
-      saida.push({
-        lat: u * u * entrada.lat + 2 * u * s * canto.lat + s * s * saidaCanto.lat,
-        lng: u * u * entrada.lng + 2 * u * s * canto.lng + s * s * saidaCanto.lng,
-      })
-    }
-  }
-
-  return saida
-}
-
-/**
- * Arredonda UM canto do contorno, sem tocar no resto.
- *
- * O botão global de suavizar aplicava curva em todos os vértices de uma vez —
- * quem queria arredondar uma esquina acabava com o quarteirão inteiro redondo.
- * Aqui o vértice `i` vira um arco entre os seus dois vizinhos, como a ferramenta
- * de canto do Illustrator: o ponto original desaparece e no lugar dele entra a
- * curva.
- *
- * `intensidade` (0..1) é quanto do segmento vizinho a curva ocupa. Em 0 o canto
- * volta a ser reto; em 1 o arco encosta nos vizinhos e o canto some por inteiro.
- * A curva é DENSIFICADA em vértices pelo mesmo motivo de `suavizar`: o polígono
- * continua sendo uma lista de pontos, e nada no geofencing precisa mudar.
- *
- * @param passos segmentos gerados no arco
- */
-export function arredondarCanto(
-  pontos: Ponto[],
-  i: number,
-  intensidade = 0.5,
-  passos = 8,
-): Ponto[] {
-  const n = pontos.length
-  if (n < 3 || i < 0 || i >= n) return pontos
-
-  const forca = Math.max(0, Math.min(1, intensidade))
-  if (forca === 0) return pontos
-
-  const anterior = pontos[(i - 1 + n) % n]
-  const canto = pontos[i]
-  const proximo = pontos[(i + 1) % n]
-
-  // Metade é o limite geométrico: passar disso invadiria o canto vizinho e as
-  // duas curvas se cruzariam.
-  const t = (forca * 0.5)
-  const entrada = {
-    lat: canto.lat + (anterior.lat - canto.lat) * t,
-    lng: canto.lng + (anterior.lng - canto.lng) * t,
-  }
-  const saida = {
-    lat: canto.lat + (proximo.lat - canto.lat) * t,
-    lng: canto.lng + (proximo.lng - canto.lng) * t,
-  }
-
-  // Bézier quadrática com o canto original como ponto de controle: o arco sai
-  // tangente às duas retas, que é o que dá a aparência de canto arredondado.
-  const arco: Ponto[] = []
-  for (let k = 0; k <= passos; k++) {
-    const s = k / passos
-    const u = 1 - s
-    arco.push({
-      lat: u * u * entrada.lat + 2 * u * s * canto.lat + s * s * saida.lat,
-      lng: u * u * entrada.lng + 2 * u * s * canto.lng + s * s * saida.lng,
-    })
-  }
-
-  return [...pontos.slice(0, i), ...arco, ...pontos.slice(i + 1)]
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapPin, Trash2, Pencil, Plus, Save, X, Search, ChevronRight,
-  Undo2, Redo2, Spline, Minimize2, Copy,
+  Undo2, Redo2, Spline, Minimize2, Copy, CornerUpRight,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Field, Input, EmptyState, AsyncState, ConfirmDialog, toast,
@@ -12,7 +12,6 @@ import { carregarGoogleMaps } from '@/lib/googleMaps'
 import { useCercas, useSalvarCerca, useExcluirCerca, useGoogleMapsKey, type Cerca } from './extraApi'
 import { useEmpresa } from '@/features/empresas/api'
 import { useEditorCerca } from './useEditorCerca'
-import { CardVertice } from './CardVertice'
 import type { Ponto } from './editorPoligono'
 
 // Centro padrão: Guarapuava/PR (fallback quando não há posição/cerca).
@@ -324,15 +323,8 @@ export function CercasTab() {
   const editandoAlgo = temRascunho || editando !== null
   const {
     vertices, areaKm2: area, perimetroKm, podeDesfazer, podeRefazer,
-    selecionado, posicaoSelecionado,
+    selecionado, selecionadoLiso,
   } = editor.estado
-
-  // Medidas do container do mapa — o card do vértice usa para virar de lado
-  // quando o ponto selecionado está perto da borda.
-  const limitesMapa = {
-    largura: mapRef.current?.clientWidth ?? 0,
-    altura: mapRef.current?.clientHeight ?? 0,
-  }
 
   if (carregandoKey) return <AsyncState loading skeletonRows={3}>{null}</AsyncState>
   if (!key) {
@@ -363,31 +355,49 @@ export function CercasTab() {
                 <Redo2 size={16} />
               </Button>
               <div className="mx-1 w-px bg-border" />
-              {/* Arredonda o contorno INTEIRO. Para uma esquina só, clique no
-                  pino e use a curvatura do card daquele ponto. */}
-              <Button variant="ghost" size="icon" title="Arredondar todos os cantos"
-                disabled={vertices < 3} onClick={() => editor.suavizarContorno()}>
-                <Spline size={16} />
-              </Button>
-              <Button variant="ghost" size="icon" title="Simplificar (remove pontos redundantes)"
-                disabled={vertices < 4} onClick={() => editor.simplificarContorno()}>
-                <Minimize2 size={16} />
-              </Button>
+
+              {/* Ações do ponto selecionado. Ficam na barra e não num card
+                  flutuante: o gesto principal (arrastar para moldar, duplo
+                  clique para alternar) já acontece no próprio ponto, e um card
+                  colado nele cobriria justamente a curva que se quer ver. */}
+              {selecionado !== null ? (
+                <>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs"
+                    onClick={() => editor.alternarSelecionado()}
+                    title="Alterna entre ponto curvo e canto (ou dê duplo clique nele)">
+                    {selecionadoLiso ? <CornerUpRight size={15} /> : <Spline size={15} />}
+                    {selecionadoLiso ? 'Virar canto' : 'Virar curva'}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive"
+                    disabled={vertices <= 3} onClick={() => editor.removerSelecionado()}
+                    title={vertices > 3 ? 'Remover este ponto' : 'Um contorno precisa de ao menos 3 pontos'}>
+                    <Trash2 size={15} />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" size="icon" title="Arredondar todo o contorno"
+                    disabled={vertices < 3} onClick={() => editor.curvarTudo()}>
+                    <Spline size={16} />
+                  </Button>
+                  <Button variant="ghost" size="icon" title="Deixar todo o contorno reto"
+                    disabled={vertices < 3} onClick={() => editor.retificarTudo()}>
+                    <CornerUpRight size={16} />
+                  </Button>
+                  <Button variant="ghost" size="icon" title="Simplificar (remove pontos redundantes)"
+                    disabled={vertices < 4} onClick={() => editor.simplificarContorno()}>
+                    <Minimize2 size={16} />
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
-          {/* Ferramentas do ponto selecionado, ancoradas nele. */}
-          {editandoAlgo && selecionado !== null && posicaoSelecionado && (
-            <CardVertice
-              numero={selecionado + 1}
-              posicao={posicaoSelecionado}
-              limites={limitesMapa}
-              podeRemover={vertices > 3}
-              onCurvar={(forca) => editor.curvarSelecionado(forca)}
-              onAlinhar={() => editor.alinharSelecionado()}
-              onRemover={() => editor.removerSelecionado()}
-              onFechar={() => editor.limparSelecao()}
-            />
+          {/* Dica do gesto: sem isto ninguém descobre o duplo clique. */}
+          {editandoAlgo && vertices >= 2 && (
+            <div className="absolute right-3 top-3 rounded-md bg-card/95 px-3 py-1.5 text-[11px] text-muted-foreground shadow-md">
+              Arraste um ponto para moldar · duplo clique alterna curva e canto
+            </div>
           )}
 
           {/* Medidas ao vivo: dimensionar o setor enquanto desenha. */}
