@@ -114,6 +114,24 @@ export function RotaTab() {
 
     const bounds = new google.maps.LatLngBounds()
 
+    // Setas ao longo da linha mostram o SENTIDO do percurso. Sem isso, uma
+    // viagem de ida e volta pela mesma rua fica identica nos dois sentidos, e
+    // nao da para saber se o veiculo estava indo ou voltando.
+    const setas = {
+      icon: {
+        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 2.6,
+        fillColor: '#fff',
+        fillOpacity: 1,
+        strokeColor: COR_ATIVA,
+        strokeWeight: 1.5,
+      },
+      // A cada 8% do trajeto: perto o bastante para o sentido ser obvio em
+      // qualquer zoom, esparso o bastante para nao virar linha tracejada.
+      offset: '4%',
+      repeat: '8%',
+    }
+
     viagens.forEach((v, i) => {
       const ativa = foco === null || foco === i
       const linha = new google.maps.Polyline({
@@ -121,6 +139,9 @@ export function RotaTab() {
         strokeColor: ativa ? COR_ATIVA : COR_INATIVA,
         strokeWeight: ativa ? 4 : 2,
         strokeOpacity: ativa ? 0.9 : 0.35,
+        // Setas so na viagem em foco: com todas desenhadas o mapa viraria um
+        // amontoado de setas de trechos diferentes.
+        icons: ativa && foco !== null ? [setas] : undefined,
         zIndex: ativa ? 10 : 1,
         map: gmap.current,
       })
@@ -135,25 +156,32 @@ export function RotaTab() {
 
       if (!ativa) return
 
-      // Bandeira verde na saída, alfinete na chegada — sem isso não dá para
-      // saber em que ponta o trajeto começou.
+      // Pontas rotuladas A e B: dois circulos de cores diferentes exigiam
+      // decorar qual cor era a saida. Com letra o mapa se explica sozinho.
+      const ponta = (cor: string) => ({
+        path: 'M 0,0 C -3,-9 -10,-11 -10,-18 a 10,10 0 1,1 20,0 c 0,7 -7,9 -10,18 z',
+        scale: 1.1,
+        fillColor: cor,
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2,
+        labelOrigin: new google.maps.Point(0, -18),
+        anchor: new google.maps.Point(0, 0),
+      })
+
       overlays.current.push(new google.maps.Marker({
         position: v.origem, map: gmap.current,
-        title: `Saída ${hora(v.inicio)}`,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE, scale: 7,
-          fillColor: '#22C55E', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
-        },
+        title: `Saida ${hora(v.inicio)}`,
+        label: { text: 'A', color: '#fff', fontSize: '11px', fontWeight: '700' },
+        icon: ponta('#22C55E'),
         zIndex: 20,
       }))
       overlays.current.push(new google.maps.Marker({
         position: v.destino, map: gmap.current,
         title: `Chegada ${hora(v.fim)}`,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE, scale: 7,
-          fillColor: '#EF4444', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
-        },
-        zIndex: 20,
+        label: { text: 'B', color: '#fff', fontSize: '11px', fontWeight: '700' },
+        icon: ponta('#EF4444'),
+        zIndex: 21,
       }))
     })
 

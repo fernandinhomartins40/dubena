@@ -215,12 +215,17 @@ class ViagensService
     }
 
     /**
-     * Enxuga o caminho para não trafegar milhares de coordenadas.
+     * Enxuga o caminho preservando a FORMA do trajeto (Ramer–Douglas–Peucker).
      *
-     * Uma viagem longa pode ter 2 mil posições; no zoom de uma tela de mapa a
-     * diferença entre elas e 400 pontos é invisível, e o JSON fica 5x menor.
-     * A amostragem é uniforme e preserva sempre o primeiro e o último ponto —
-     * origem e destino não podem se deslocar.
+     * A primeira versão amostrava de N em N pontos, e isso desenhava triângulos
+     * cortando quarteirões: numa esquina, se os pontos da conversão caíam entre
+     * as amostras, a linha emendava reto por cima do quarteirão. As posições
+     * reais ficam a ~58 m uma da outra (mediana medida em produção), então
+     * perder duas seguidas numa curva já inventa um atalho que não existe.
+     *
+     * O RDP descarta apenas pontos que quase não mudam a linha — num trecho
+     * reto sobra quase nada, e numa curva todos os vértices ficam. É o oposto
+     * da amostragem cega: gasta pontos onde a forma exige.
      *
      * @param  list<array{lat:float,lng:float}>  $caminho
      * @return list<array{lat:float,lng:float}>
@@ -232,14 +237,94 @@ class ViagensService
             return $caminho;
         }
 
-        $passo = $total / $maximo;
-        $saida = [];
-        for ($i = 0; $i < $maximo; $i++) {
-            $saida[] = $caminho[(int) floor($i * $passo)];
+        // 12 m é menos da metade do erro típico de um GPS urbano: nessa
+        // tolerância o desvio some no ruído do próprio aparelho, e a linha
+        // continua encostada na rua.
+        $saida = $this->rdp($caminho, 12.0);
+
+        // Trajeto muito sinuoso pode não caber no teto nem depois do RDP.
+        // Afrouxa até 40 m e PARA: além disso a linha começa a cortar esquina,
+        // que é justamente o defeito que este método existe para evitar. Uma
+        // rota de bairro tem centenas de curvas legítimas — nesse caso o certo
+        // é devolver mais pontos, não um desenho errado.
+        $tolerancia = 12.0;
+        while (count($saida) > $maximo && $tolerancia < 40.0) {
+            $tolerancia *= 1.5;
+            $saida = $this->rdp($caminho, $tolerancia);
         }
-        $saida[] = $caminho[$total - 1];
 
         return $saida;
+    }
+
+    /**
+     * Ramer–Douglas–Peucker: mantém o ponto que mais se afasta da reta entre as
+     * pontas, e repete nos dois lados até tudo caber na tolerância (metros).
+     *
+     * @param  list<array{lat:float,lng:float}>  $pontos
+     * @return list<array{lat:float,lng:float}>
+     */
+    private function rdp(array $pontos, float $toleranciaMetros): array
+    {
+        $n = count($pontos);
+        if ($n < 3) {
+            return $pontos;
+        }
+
+        $pior = 0.0;
+        $indice = 0;
+        for ($i = 1; $i < $n - 1; $i++) {
+            $d = $this->metrosAteReta($pontos[$i], $pontos[0], $pontos[$n - 1]);
+            if ($d > $pior) {
+                $pior = $d;
+                $indice = $i;
+            }
+        }
+
+        if ($pior <= $toleranciaMetros) {
+            return [$pontos[0], $pontos[$n - 1]];
+        }
+
+        $esquerda = $this->rdp(array_slice($pontos, 0, $indice + 1), $toleranciaMetros);
+        $direita = $this->rdp(array_slice($pontos, $indice), $toleranciaMetros);
+
+        // O ponto do corte pertence às duas metades: sem tirar a duplicata ele
+        // apareceria repetido na saída.
+        return array_merge(array_slice($esquerda, 0, -1), $direita);
+    }
+
+    /**
+     * Distância em metros de um ponto até o segmento a→b.
+     *
+     * A longitude é corrigida pelo cosseno da latitude antes da conta plana:
+     * em Guarapuava (−25°) um grau de longitude vale ~10% menos que um de
+     * latitude, e ignorar isso distorceria qual ponto o RDP julga relevante.
+     *
+     * @param  array{lat:float,lng:float}  $p
+     * @param  array{lat:float,lng:float}  $a
+     * @param  array{lat:float,lng:float}  $b
+     */
+    private function metrosAteReta(array $p, array $a, array $b): float
+    {
+        $metrosPorGrau = 111_320.0;
+        $cos = cos($a['lat'] * M_PI / 180);
+
+        $px = ($p['lng'] - $a['lng']) * $metrosPorGrau * $cos;
+        $py = ($p['lat'] - $a['lat']) * $metrosPorGrau;
+        $bx = ($b['lng'] - $a['lng']) * $metrosPorGrau * $cos;
+        $by = ($b['lat'] - $a['lat']) * $metrosPorGrau;
+
+        $comprimento = $bx * $bx + $by * $by;
+        if ($comprimento < 1e-9) {
+            return sqrt($px * $px + $py * $py);
+        }
+
+        // Projeção limitada a [0,1]: fora disso o ponto mais próximo é uma das
+        // pontas, não a reta infinita que passa por elas.
+        $t = max(0.0, min(1.0, ($px * $bx + $py * $by) / $comprimento));
+        $dx = $px - $t * $bx;
+        $dy = $py - $t * $by;
+
+        return sqrt($dx * $dx + $dy * $dy);
     }
 
     /** Distância em km entre duas coordenadas (haversine). */

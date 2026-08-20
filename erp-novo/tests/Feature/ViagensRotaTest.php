@@ -206,7 +206,9 @@ class ViagensRotaTest extends TestCase
         $viagem = app(ViagensService::class)
             ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0];
 
-        $this->assertLessThanOrEqual(401, count($viagem['caminho']));
+        // O teto e meta, nao garantia: num percurso reto o RDP corta bem mais
+        // que isso, e num sinuoso ele para de afrouxar antes de cortar esquina.
+        $this->assertLessThan(900, count($viagem['caminho']), 'a reducao nao agiu');
         $this->assertSame(900, $viagem['pontos'], 'a contagem original deve ser preservada');
 
         $primeiro = $viagem['caminho'][0];
@@ -268,6 +270,38 @@ class ViagensRotaTest extends TestCase
         );
     }
 
+    /**
+     * Distancia em metros de um ponto ate o segmento a-b.
+     *
+     * Repetido aqui de proposito: o teste precisa medir de forma INDEPENDENTE
+     * do codigo que verifica, senao um erro na formula passaria despercebido
+     * nos dois lados.
+     *
+     * @param  array{lat:float,lng:float}  $p
+     * @param  array{lat:float,lng:float}  $a
+     * @param  array{lat:float,lng:float}  $b
+     */
+    private function metrosAteSegmento(array $p, array $a, array $b): float
+    {
+        $m = 111320.0;
+        $cos = cos($a['lat'] * M_PI / 180);
+        $px = ($p['lng'] - $a['lng']) * $m * $cos;
+        $py = ($p['lat'] - $a['lat']) * $m;
+        $bx = ($b['lng'] - $a['lng']) * $m * $cos;
+        $by = ($b['lat'] - $a['lat']) * $m;
+
+        $comprimento = $bx * $bx + $by * $by;
+        if ($comprimento < 1e-9) {
+            return sqrt($px * $px + $py * $py);
+        }
+
+        $t = max(0.0, min(1.0, ($px * $bx + $py * $by) / $comprimento));
+        $dx = $px - $t * $bx;
+        $dy = $py - $t * $by;
+
+        return sqrt($dx * $dx + $dy * $dy);
+    }
+
     public function test_endpoint_devolve_as_viagens(): void
     {
         [$user, $veiculo] = $this->cenario();
@@ -300,5 +334,98 @@ class ViagensRotaTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson("/api/admin/monitora/veiculos/{$outro->id}/viagens?de=2026-08-10&ate=2026-08-10")
             ->assertNotFound();
+    }
+
+    /**
+     * O DEFEITO DA TELA: o tracado cortava quarteirao.
+     *
+     * A reducao amostrava de N em N pontos e descartava justamente os vertices
+     * das curvas — numa esquina a linha emendava reto por cima do quarteirao,
+     * desenhando um triangulo onde o veiculo tinha feito a volta. Este teste
+     * fixa que a forma sobrevive: uma conversao em L continua sendo um L.
+     */
+    public function test_reducao_preserva_a_esquina_e_nao_corta_quarteirao(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        // Percurso em L: desce a avenida, vira a esquina, segue pela rua.
+        // 900 posicoes forcam a reducao a agir (teto de 400).
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        $i = 0;
+        for ($k = 0; $k < 450; $k++, $i++) {
+            $pontos[] = [$base->copy()->addSeconds($i * 20)->format('H:i:s'),
+                -25.390 - ($k * 0.00004), -51.4600, 40.0];
+        }
+        $latEsquina = -25.390 - (449 * 0.00004);
+        for ($k = 1; $k <= 450; $k++, $i++) {
+            $pontos[] = [$base->copy()->addSeconds($i * 20)->format('H:i:s'),
+                $latEsquina, -51.4600 + ($k * 0.00004), 40.0];
+        }
+        $this->posicoes($veiculo, $pontos);
+
+        $viagem = app(ViagensService::class)
+            ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0];
+
+        $caminho = $viagem['caminho'];
+        $this->assertLessThan(900, count($caminho), 'a reducao nao agiu');
+
+        // O vertice da esquina tem de sobreviver: sem ele a linha cortaria em
+        // diagonal do meio da avenida ate o meio da rua.
+        $achouEsquina = false;
+        foreach ($caminho as $p) {
+            if (abs($p['lat'] - $latEsquina) < 1e-6 && abs($p['lng'] - (-51.4600)) < 1e-6) {
+                $achouEsquina = true;
+                break;
+            }
+        }
+        $this->assertTrue($achouEsquina, 'o vertice da esquina foi descartado — a linha corta o quarteirao');
+    }
+
+    /**
+     * Nenhum ponto do tracado reduzido pode se afastar do percurso real mais
+     * que a tolerancia — e o que garante a linha encostada na rua.
+     */
+    public function test_tracado_reduzido_nao_se_afasta_do_percurso_real(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        // Zigue-zague de quarteirao: o caso que mais sofre com amostragem cega.
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        for ($k = 0; $k < 800; $k++) {
+            $volta = intdiv($k, 100) % 2 === 0;
+            $pontos[] = [
+                $base->copy()->addSeconds($k * 20)->format('H:i:s'),
+                -25.390 - ($k * 0.00003),
+                -51.460 + ($volta ? ($k % 100) * 0.00002 : (100 - ($k % 100)) * 0.00002),
+                40.0,
+            ];
+        }
+        $this->posicoes($veiculo, $pontos);
+
+        $viagem = app(ViagensService::class)
+            ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0];
+
+        // Cada ponto ORIGINAL precisa estar perto da LINHA desenhada — nao de
+        // um vertice dela. Medir ate o vertice mais proximo acusaria erro em
+        // qualquer trecho reto longo, onde o ponto do meio esta a centenas de
+        // metros das pontas e ainda assim exatamente sobre a linha.
+        $caminho = $viagem['caminho'];
+        $piorDesvio = 0.0;
+        foreach ($pontos as $indice => $orig) {
+            if ($indice % 25 !== 0) {
+                continue;
+            }
+            $ponto = ['lat' => $orig[1], 'lng' => $orig[2]];
+            $menor = PHP_FLOAT_MAX;
+            for ($k = 1; $k < count($caminho); $k++) {
+                $menor = min($menor, $this->metrosAteSegmento($ponto, $caminho[$k - 1], $caminho[$k]));
+            }
+            $piorDesvio = max($piorDesvio, $menor);
+        }
+
+        $this->assertLessThan(60.0, $piorDesvio,
+            "o tracado se afastou {$piorDesvio}m do percurso real — esta cortando caminho");
     }
 }
