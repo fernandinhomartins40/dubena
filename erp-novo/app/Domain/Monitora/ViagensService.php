@@ -17,10 +17,11 @@ use Illuminate\Support\Collection;
  * lista de trechos — saiu às 08:12 da base, chegou às 08:31 no bairro tal — e
  * cada um pode ser desenhado sozinho.
  *
- * **O traçado NÃO passa pelo Google.** As posições vêm a cada ~30 s, então
- * ligá-las em sequência já acompanha as ruas de perto. Usar a Roads API para
- * "grudar" a linha no asfalto custaria por 100 pontos — e são 16 milhões de
- * posições históricas. O ganho visual não paga a conta.
+ * **O traçado passa pelo Google só onde precisa.** A frota tem dois perfis de
+ * rastreador: o que reporta a cada 10 s deixa 80–100 m entre posições, e ali a
+ * reta já segue a rua; o que reporta a cada 2 MINUTOS deixa ~937 m, e a reta
+ * atravessa quadras inteiras. Só o segundo caso vai para a Roads API, sempre
+ * atrás do cache de `monitora_vias_cache`.
  *
  * O resultado é gravado em `monitora_viagens_cache`: apurar viagens varre todas
  * as posições do dia, e a mesma consulta repetida (é a tela que o dono deixa
@@ -231,6 +232,19 @@ class ViagensService
     private const PONTOS_POR_CHAMADA = 100;
 
     /**
+     * Salto acima do qual nem a Roads API resolve.
+     *
+     * Medido contra o serviço: um salto de 662 m volta com 21 pontos e vãos de
+     * 99 m — encaixe perfeito. Um de 2,2 km volta com UM ponto: o Google
+     * desiste, porque entre dois pontos tão distantes existem caminhos demais e
+     * ele não tem como saber qual o veículo tomou.
+     *
+     * Gastar chamada paga nesses trechos é jogar dinheiro fora para receber a
+     * mesma reta de volta. Acima disto o traçado fica reto e assumido como tal.
+     */
+    private const SALTO_SEM_SOLUCAO = 1200.0;
+
+    /**
      * Encaixa nas ruas apenas os TRECHOS com salto grande.
      *
      * A Roads API cobra por chamada, e a maior parte do trajeto não precisa
@@ -259,7 +273,10 @@ class ViagensService
             $atual = $caminho[$i];
             $salto = $this->kmEntre($anterior['lat'], $anterior['lng'], $atual['lat'], $atual['lng']) * 1000;
 
-            if ($salto <= self::SALTO_QUE_CORTA_QUARTEIRAO) {
+            // Nem toda reta longa vale uma chamada: abaixo do piso a linha ja
+            // segue a rua, e acima do teto o Google desiste e devolve a mesma
+            // reta — pagar nos dois casos e desperdicio.
+            if ($salto <= self::SALTO_QUE_CORTA_QUARTEIRAO || $salto > self::SALTO_SEM_SOLUCAO) {
                 $saida[] = $atual;
 
                 continue;
@@ -268,14 +285,14 @@ class ViagensService
             // Junta saltos consecutivos numa chamada só: num trecho de rodovia
             // eles vêm em sequência, e uma chamada por par desperdiçaria cota.
             $bloco = [$anterior, $atual];
-            while (
-                $i + 1 < $total
-                && count($bloco) < self::PONTOS_POR_CHAMADA
-                && $this->kmEntre(
+            while ($i + 1 < $total && count($bloco) < self::PONTOS_POR_CHAMADA) {
+                $proximo = $this->kmEntre(
                     $caminho[$i]['lat'], $caminho[$i]['lng'],
                     $caminho[$i + 1]['lat'], $caminho[$i + 1]['lng'],
-                ) * 1000 > self::SALTO_QUE_CORTA_QUARTEIRAO
-            ) {
+                ) * 1000;
+                if ($proximo <= self::SALTO_QUE_CORTA_QUARTEIRAO || $proximo > self::SALTO_SEM_SOLUCAO) {
+                    break;
+                }
                 $i++;
                 $bloco[] = $caminho[$i];
             }
