@@ -222,7 +222,15 @@ class ViagensService
             'origem' => ['lat' => (float) $primeiro->latitude, 'lng' => (float) $primeiro->longitude],
             'destino' => ['lat' => (float) $ultimo->latitude, 'lng' => (float) $ultimo->longitude],
             'pontos' => count($caminho),
-            'caminho' => $this->encaixarNasVias($this->reduzir($this->limparVaivem($caminho))),
+            // Limpa DUAS vezes, e não é redundância: antes do encaixe tira o
+            // vaivém do próprio GPS (que faria a Roads API grudar pontos em
+            // ruas transversais erradas), e depois tira o que o encaixe
+            // introduziu — ela devolve coordenadas repetidas e, às vezes, um
+            // ponto na via vizinha. Limpar só antes deixava 21 desvios de até
+            // 95 m no traçado entregue.
+            'caminho' => $this->limparVaivem(
+                $this->encaixarNasVias($this->reduzir($this->limparVaivem($caminho)))
+            ),
         ];
     }
 
