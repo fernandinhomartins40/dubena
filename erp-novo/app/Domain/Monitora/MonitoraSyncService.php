@@ -21,6 +21,10 @@ class MonitoraSyncService
     /** Sincroniza posições dos veículos ativos de uma empresa. @return int posições ingeridas */
     public function sincronizar(int $empresaId): int
     {
+        if (config('services.traccar.autocadastrar')) {
+            $this->cadastrarAparelhosNovos($empresaId);
+        }
+
         $veiculos = Veiculo::query()->where('empresa_id', $empresaId)->where('ativo', true)
             ->whereNotNull('imei')->get()->keyBy('imei');
 
@@ -40,6 +44,7 @@ class MonitoraSyncService
                 'latitude' => $p['latitude'],
                 'longitude' => $p['longitude'],
                 'velocidade' => $p['velocidade'] ?? 0,
+                'direcao' => $p['direcao'] ?? null,
                 'ignicao' => $p['ignicao'] ?? false,
                 'registrado_em' => $p['registrado_em'] ?? now(),
             ]);
@@ -47,5 +52,65 @@ class MonitoraSyncService
         }
 
         return $ingeridas;
+    }
+
+    /**
+     * Cadastra veículo para aparelho que o provedor conhece mas o ERP não.
+     *
+     * Um rastreador instalado num caminhão novo passaria despercebido: não
+     * aparece no mapa e ninguém sente falta do que nunca viu. Criando o registro
+     * automaticamente, o veículo surge na frota com o apelido que o operador deu
+     * no rastreador ("Caminhão Volks", "Fox") e alguém corrige a placa depois.
+     *
+     * O veículo nasce INATIVO de propósito: entrar sozinho na operação — em
+     * roteirização, em relatório de frota — seria o sistema decidindo algo que
+     * não lhe cabe. Ativar é um clique, e é uma escolha de quem opera.
+     *
+     * @return int veículos criados
+     */
+    private function cadastrarAparelhosNovos(int $empresaId): int
+    {
+        $aparelhos = $this->sgcasa->listarAparelhos();
+        if ($aparelhos === []) {
+            return 0;
+        }
+
+        // Confere contra TODOS os veículos da empresa, não só os ativos: um
+        // veículo desativado à mão não pode ser recriado a cada rodada.
+        $conhecidos = Veiculo::query()->where('empresa_id', $empresaId)
+            ->whereNotNull('imei')->pluck('imei')->all();
+        $conhecidos = array_flip($conhecidos);
+
+        $empresa = \App\Models\Empresa::find($empresaId);
+        if (! $empresa) {
+            return 0;
+        }
+
+        $criados = 0;
+        foreach ($aparelhos as $a) {
+            if ($a['imei'] === '' || isset($conhecidos[$a['imei']])) {
+                continue;
+            }
+
+            Veiculo::create([
+                'empresa_id' => $empresaId,
+                'grupo_id' => $empresa->grupo_id,
+                // A coluna é NOT NULL e única por empresa; o IMEI serve de
+                // marcador provisório e deixa evidente que falta preencher.
+                'placa' => $this->placaProvisoria($a['imei']),
+                'descricao' => mb_substr($a['nome'], 0, 255),
+                'imei' => $a['imei'],
+                'ativo' => false,
+            ]);
+            $criados++;
+        }
+
+        return $criados;
+    }
+
+    /** Placa provisória a partir do IMEI, dentro dos 10 caracteres da coluna. */
+    private function placaProvisoria(string $imei): string
+    {
+        return mb_substr('?'.$imei, 0, 10);
     }
 }

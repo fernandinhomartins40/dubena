@@ -14,11 +14,20 @@ class FakeSgcasaDriver implements SgcasaDriver
     /** @var list<array<string,mixed>> posições pré-carregadas (para teste) */
     public array $posicoes = [];
 
+    /** @var list<array{imei:string, nome:string}> aparelhos pré-carregados (para teste) */
+    public array $aparelhos = [];
+
     public function buscarPosicoes(array $imeis): array
     {
         return array_values(array_filter(
             $this->posicoes,
             fn ($p) => in_array($p['imei'], $imeis, true),
         ));
+    }
+
+    /** @return list<array{imei:string, nome:string}> */
+    public function listarAparelhos(): array
+    {
+        return $this->aparelhos;
     }
 }

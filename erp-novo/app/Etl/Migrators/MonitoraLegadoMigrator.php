@@ -79,11 +79,23 @@ final class MonitoraLegadoMigrator implements Migrator
                 ['nenhuma empresa do Monitora pôde ser mapeada nem criada']);
         }
 
+        $tipos = $this->lerTiposVeiculo($mapaEmpresa);
         [$veiculos, $veiculosPulados] = $this->lerVeiculos($mapaEmpresa);
         [$cercas, $cercasPuladas, $cercasSemPoligono] = $this->lerCercas($mapaEmpresa);
 
+        // Tipo que não veio do legado não pode virar FK órfã no veículo.
+        $idsTipo = array_flip(array_column($tipos, 'id'));
+        foreach ($veiculos as &$v) {
+            if ($v['tipo_id'] !== null && ! isset($idsTipo[$v['tipo_id']])) {
+                $v['tipo_id'] = null;
+            }
+        }
+        unset($v);
+
         $gravados = 0;
         if (! $ctx->dryRun) {
+            // Antes dos veículos: `tipo_id` é FK.
+            $gravados += $this->gravarPreservandoId('monitora_veiculo_tipos', $tipos);
             $gravados += $this->gravarPreservandoId('monitora_veiculos', $veiculos);
             $gravados += $this->gravarPreservandoId('monitora_cercas', $cercas);
 
@@ -245,6 +257,77 @@ final class MonitoraLegadoMigrator implements Migrator
     }
 
     /** @return array{0: list<array<string,mixed>>, 1: int} */
+    /**
+     * Tipos de veículo do Monitora (CARRO, CAMINHÃO, CAMINHONETE, MOTO).
+     *
+     * Não confundir com `veiculo_tipos`, que é o cadastro da frota do ERP e vem
+     * de outro dump. Este aqui existe para o mapa: é o tipo que decide o ícone
+     * desenhado e a velocidade a partir da qual o relatório aponta excesso.
+     *
+     * O legado não tem `grupo_id` nesta tabela — o cadastro era global. Como no
+     * schema novo o tipo pertence a um grupo, todos entram no grupo da primeira
+     * empresa mapeada, que é o da revenda.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function lerTiposVeiculo(array $mapaEmpresa): array
+    {
+        if ($mapaEmpresa === []) {
+            return [];
+        }
+
+        // Espelho antigo pode não ter a tabela: o migrator roda contra dumps de
+        // idades diferentes, e ausência de tipos não pode impedir a frota de
+        // migrar — só deixa os veículos sem ícone.
+        if (! $this->fonte()->getSchemaBuilder()->hasTable('veiculotipos')) {
+            return [];
+        }
+
+        $grupoId = (int) reset($mapaEmpresa)['grupo_id'];
+        $out = [];
+
+        foreach ($this->fonte()->table('veiculotipos')->get() as $t) {
+            $out[] = [
+                'id' => (int) $t->id,
+                'grupo_id' => $grupoId,
+                'descricao' => mb_substr(trim((string) ($t->descricao ?? '')), 0, 255),
+                // O legado guardava caminho de imagem ('veiculos/caminhao'); a
+                // tela nova escolhe o desenho pelo nome do tipo, então só o
+                // rótulo curto interessa aqui.
+                'icone' => $this->iconeDoTipo((string) ($t->descricao ?? '')),
+                'velocidade_maxima' => (int) ($t->velocidade_maxima ?? 0) ?: null,
+                'ativo' => true,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Rótulo do ícone a partir da descrição do tipo.
+     *
+     * Comparação sem acento porque o legado grava 'CAMINHÃO' e um dump com
+     * codificação trocada vira 'CAMINHÃO' — casar por prefixo sem acento
+     * sobrevive aos dois casos.
+     */
+    private function iconeDoTipo(string $descricao): string
+    {
+        $limpo = mb_strtolower($descricao);
+        $limpo = strtr($limpo, [
+            'á' => 'a', 'â' => 'a', 'ã' => 'a', 'à' => 'a',
+            'é' => 'e', 'ê' => 'e', 'í' => 'i', 'ó' => 'o', 'ô' => 'o',
+            'õ' => 'o', 'ú' => 'u', 'ç' => 'c',
+        ]);
+
+        return match (true) {
+            str_contains($limpo, 'caminhonete') => 'caminhonete',
+            str_contains($limpo, 'caminh') => 'caminhao',
+            str_contains($limpo, 'moto') => 'moto',
+            str_contains($limpo, 'carro') => 'carro',
+            default => 'outro',
+        };
+    }
+
     private function lerVeiculos(array $mapaEmpresa): array
     {
         $out = [];
@@ -262,8 +345,15 @@ final class MonitoraLegadoMigrator implements Migrator
                 'grupo_id' => $emp['grupo_id'],
                 'placa' => mb_substr(trim((string) ($v->placa ?? '')), 0, 10),
                 'descricao' => $v->descricao ?? null,
-                // `deviceid` do rastreador é o que liga o veículo às posições.
+                // `deviceid` do rastreador é o que liga o veículo às posições —
+                // e é o mesmo valor que o Traccar chama de `uniqueId`, o que
+                // permite casar os dois sistemas sem tabela de-para.
                 'imei' => $v->deviceid !== null ? mb_substr((string) $v->deviceid, 0, 30) : null,
+                // Sem o tipo o mapa desenha todo veículo como um ponto igual:
+                // não dá para distinguir o caminhão da moto no meio da frota.
+                'tipo_id' => ($v->veiculotipo_id ?? null) !== null ? (int) $v->veiculotipo_id : null,
+                'motorista' => $v->motorista !== null
+                    ? mb_substr(trim((string) $v->motorista), 0, 255) : null,
                 'ativo' => (bool) ($v->ativo ?? true),
             ];
         }

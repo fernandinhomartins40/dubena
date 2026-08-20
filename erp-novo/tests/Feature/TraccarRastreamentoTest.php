@@ -1,0 +1,414 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Domain\Monitora\Contracts\SgcasaDriver;
+use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
+use App\Domain\Monitora\Drivers\TraccarDriver;
+use App\Domain\Monitora\MonitoraSyncService;
+use App\Models\Empresa;
+use App\Models\Monitora\UltimaPosicao;
+use App\Models\Monitora\Veiculo;
+use App\Models\Monitora\VeiculoTipo;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+/**
+ * Ingestão de posições do Traccar.
+ *
+ * O rastreamento estava parado no ERP novo: o histórico migrado terminava no dia
+ * do dump e nada entrava depois. Os aparelhos GPS funcionavam o tempo todo — o
+ * que faltava era o ERP consultar o Traccar, que é o provedor real da frota.
+ *
+ * O driver não era exercido por nenhum teste ("gate externo"), e foi assim que
+ * um driver escrito para uma API que não existe (SGCasa) ficou anos no lugar
+ * sem ninguém notar. Aqui a API é simulada com `Http::fake`, que testa a
+ * tradução do formato — o que de fato quebra — sem depender do serviço.
+ */
+class TraccarRastreamentoTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function configurarTraccar(): void
+    {
+        config([
+            // Sem escolher o driver, o container resolve o Fake e nada é
+            // ingerido — é o mesmo motivo pelo qual o rastreamento ficou parado
+            // em produção sem ninguém perceber.
+            'services.monitora.driver' => 'traccar',
+            'services.traccar.url' => 'http://traccar.teste:8082',
+            'services.traccar.usuario' => 'operador@teste',
+            'services.traccar.senha' => 'segredo',
+            'services.traccar.autocadastrar' => false,
+        ]);
+
+        // O binding é singleton: um Fake já resolvido numa asserção anterior
+        // continuaria em uso apesar da troca de config.
+        $this->app->forgetInstance(SgcasaDriver::class);
+    }
+
+    /**
+     * Resposta do Traccar no formato real (capturado do servidor em produção).
+     *
+     * @param  array<string,mixed>  $sobrepor  campos da posição a trocar
+     */
+    private function fingirTraccar(array $sobrepor = [], string $imei = '467857'): void
+    {
+        $posicao = array_merge([
+            'id' => 29130017,
+            'deviceId' => 4,
+            'protocol' => 'osmand',
+            'fixTime' => now()->subMinute()->toIso8601String(),
+            'serverTime' => now()->toIso8601String(),
+            'valid' => true,
+            'latitude' => -25.394382,
+            'longitude' => -51.488901,
+            'altitude' => 1045.2,
+            // 20 nós = 37,04 km/h. A conversão é o detalhe que mais erra.
+            'speed' => 20.0,
+            'course' => 90.0,
+            'attributes' => ['motion' => true],
+        ], $sobrepor);
+
+        Http::fake([
+            '*/api/devices' => Http::response([
+                ['id' => 4, 'uniqueId' => $imei, 'name' => 'Caminhão Volks', 'disabled' => false],
+            ]),
+            '*/api/positions' => Http::response([$posicao]),
+        ]);
+    }
+
+    private function veiculoComImei(string $imei = '467857'): Veiculo
+    {
+        $empresa = Empresa::factory()->create();
+
+        return Veiculo::create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'placa' => 'BBJ-6878',
+            'descricao' => 'Caminhao Volks',
+            'imei' => $imei,
+            'ativo' => true,
+        ]);
+    }
+
+    public function test_posicao_do_traccar_vira_ultima_posicao_do_veiculo(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar();
+        $veiculo = $this->veiculoComImei();
+
+        $ingeridas = app(MonitoraSyncService::class)
+            ->sincronizar($veiculo->empresa_id);
+
+        $this->assertSame(1, $ingeridas);
+
+        $ultima = UltimaPosicao::where('veiculo_id', $veiculo->id)->first();
+        $this->assertNotNull($ultima, 'a posição não chegou à tabela que o mapa lê');
+        $this->assertEqualsWithDelta(-25.394382, (float) $ultima->latitude, 0.000001);
+        $this->assertEqualsWithDelta(-51.488901, (float) $ultima->longitude, 0.000001);
+    }
+
+    /**
+     * Nós → km/h.
+     *
+     * O Traccar reporta velocidade náutica. Sem converter, um caminhão a 37 km/h
+     * apareceria como 20 — e nenhum excesso de velocidade seria apontado.
+     */
+    public function test_velocidade_e_convertida_de_nos_para_kmh(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar(['speed' => 20.0]);
+        $veiculo = $this->veiculoComImei();
+
+        app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id);
+
+        $this->assertEqualsWithDelta(
+            37.04,
+            (float) UltimaPosicao::where('veiculo_id', $veiculo->id)->value('velocidade'),
+            0.01,
+            'velocidade não convertida de nós',
+        );
+    }
+
+    /** A direção é o que gira o ícone no mapa: sem ela todo veículo aponta ao norte. */
+    public function test_direcao_e_ingerida(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar(['course' => 275.0]);
+        $veiculo = $this->veiculoComImei();
+
+        app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id);
+
+        $this->assertSame(275, (int) UltimaPosicao::where('veiculo_id', $veiculo->id)->value('direcao'));
+    }
+
+    /** Ângulo negativo existe em alguns aparelhos e a coluna é unsigned. */
+    public function test_direcao_negativa_e_normalizada(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar(['course' => -90.0]);
+        $veiculo = $this->veiculoComImei();
+
+        app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id);
+
+        $this->assertSame(270, (int) UltimaPosicao::where('veiculo_id', $veiculo->id)->value('direcao'));
+    }
+
+    /**
+     * Posição sem fix de satélite costuma repetir a última coordenada boa —
+     * ingeri-la faz o veículo "teleportar" no mapa.
+     */
+    public function test_posicao_invalida_e_descartada(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar(['valid' => false]);
+        $veiculo = $this->veiculoComImei();
+
+        $this->assertSame(0, app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id));
+    }
+
+    /**
+     * GPS com relógio furado existe: o histórico migrado tem posições em 2080.
+     * Gravá-las estragaria qualquer consulta por período.
+     */
+    public function test_posicao_com_data_no_futuro_e_descartada(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar(['fixTime' => now()->addYears(50)->toIso8601String()]);
+        $veiculo = $this->veiculoComImei();
+
+        $this->assertSame(0, app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id));
+    }
+
+    /** Aparelho que não corresponde a veículo nenhum não pode virar posição órfã. */
+    public function test_aparelho_de_outro_imei_nao_gera_posicao(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => false]);
+        $this->fingirTraccar([], imei: '999999');
+        $veiculo = $this->veiculoComImei('467857');
+
+        $this->assertSame(0, app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id));
+    }
+
+    /**
+     * Falha do provedor degrada, não derruba.
+     *
+     * Sem rastreamento a operação perde visibilidade, mas nada de financeiro ou
+     * fiscal fica errado — por isso aqui não vale o fail-closed que o resto do
+     * sistema usa para dinheiro.
+     */
+    public function test_traccar_fora_do_ar_nao_quebra_o_sync(): void
+    {
+        $this->configurarTraccar();
+        Http::fake(['*' => Http::response('', 500)]);
+        $veiculo = $this->veiculoComImei();
+
+        $this->assertSame(0, app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id));
+    }
+
+    /** Sem credencial configurada o driver não tenta nada — nem falha. */
+    public function test_sem_credencial_nao_consulta(): void
+    {
+        config(['services.traccar.url' => '', 'services.traccar.usuario' => '']);
+        Http::fake();
+
+        $this->assertSame([], app(TraccarDriver::class)->buscarPosicoes(['467857']));
+        Http::assertNothingSent();
+    }
+
+    /**
+     * Aparelho novo instalado num caminhão precisa aparecer.
+     *
+     * Sem o auto-cadastro ele fica invisível: não está no mapa e ninguém sente
+     * falta do que nunca viu.
+     */
+    public function test_aparelho_sem_veiculo_e_cadastrado_automaticamente(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '999888');
+        $empresa = Empresa::factory()->create();
+
+        app(MonitoraSyncService::class)->sincronizar($empresa->id);
+
+        $novo = Veiculo::where('imei', '999888')->first();
+        $this->assertNotNull($novo, 'aparelho novo não virou veículo');
+        $this->assertSame('Caminhão Volks', $novo->descricao);
+        $this->assertFalse(
+            (bool) $novo->ativo,
+            'veículo auto-cadastrado precisa nascer inativo — entrar sozinho na operação é decisão de quem opera',
+        );
+    }
+
+    /** Rodar de novo não pode duplicar o veículo criado na rodada anterior. */
+    public function test_autocadastro_nao_duplica_em_rodadas_seguidas(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '999888');
+        $empresa = Empresa::factory()->create();
+
+        $sync = app(MonitoraSyncService::class);
+        $sync->sincronizar($empresa->id);
+        $sync->sincronizar($empresa->id);
+
+        $this->assertSame(1, Veiculo::where('imei', '999888')->count());
+    }
+
+    /**
+     * Veículo desativado à mão não pode ser recriado.
+     *
+     * Quem desativou tinha um motivo; o sync recriando o registro a cada 30 s
+     * desfaria a decisão em silêncio.
+     */
+    public function test_autocadastro_respeita_veiculo_desativado(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '777777');
+        $empresa = Empresa::factory()->create();
+
+        Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'placa' => 'XXX-0000', 'imei' => '777777', 'ativo' => false,
+        ]);
+
+        app(MonitoraSyncService::class)->sincronizar($empresa->id);
+
+        $this->assertSame(1, Veiculo::where('imei', '777777')->count());
+    }
+
+    /** O driver Fake continua sendo o padrão fora de produção. */
+    public function test_driver_padrao_e_o_fake(): void
+    {
+        config(['services.monitora.driver' => 'fake']);
+        $this->assertInstanceOf(FakeSgcasaDriver::class, app(SgcasaDriver::class));
+    }
+
+    public function test_driver_traccar_e_escolhido_por_configuracao(): void
+    {
+        config(['services.monitora.driver' => 'traccar']);
+        $this->assertInstanceOf(TraccarDriver::class, app(SgcasaDriver::class));
+    }
+
+    /**
+     * O mapa precisa de tipo e motorista para desenhar o ícone certo e
+     * identificar o veículo — a tela tinha só placa, velocidade e hora.
+     */
+    public function test_mapa_recebe_tipo_motorista_e_excesso(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+        ]);
+
+        $tipo = VeiculoTipo::create([
+            'grupo_id' => $empresa->grupo_id, 'descricao' => 'CAMINHÃO',
+            'icone' => 'caminhao', 'velocidade_maxima' => 80, 'ativo' => true,
+        ]);
+        $veiculo = Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'placa' => 'BBJ-6878', 'descricao' => 'Caminhao Volks',
+            'motorista' => 'Sediclei', 'tipo_id' => $tipo->id, 'imei' => '467857', 'ativo' => true,
+        ]);
+        UltimaPosicao::create([
+            'veiculo_id' => $veiculo->id, 'empresa_id' => $empresa->id,
+            'latitude' => -25.39, 'longitude' => -51.46,
+            'velocidade' => 95, 'direcao' => 180, 'ignicao' => true, 'registrado_em' => now(),
+        ]);
+
+        $dado = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/admin/monitora/ultimas-posicoes')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->assertSame('Sediclei', $dado['motorista']);
+        $this->assertSame('CAMINHÃO', $dado['tipo']);
+        $this->assertSame('caminhao', $dado['icone']);
+        $this->assertSame(180, $dado['direcao']);
+        $this->assertSame(80, $dado['velocidade_maxima']);
+        $this->assertTrue($dado['excesso'], '95 km/h com máxima de 80 tem de acusar excesso');
+    }
+
+    /** Sem tipo cadastrado não há limite — e "sem limite" não é excesso. */
+    public function test_veiculo_sem_tipo_nao_acusa_excesso(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+        ]);
+        $veiculo = Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'placa' => 'AAA-1111', 'imei' => '111', 'ativo' => true,
+        ]);
+        UltimaPosicao::create([
+            'veiculo_id' => $veiculo->id, 'empresa_id' => $empresa->id,
+            'latitude' => -25.39, 'longitude' => -51.46,
+            'velocidade' => 200, 'ignicao' => true, 'registrado_em' => now(),
+        ]);
+
+        $dado = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/admin/monitora/ultimas-posicoes')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->assertFalse($dado['excesso']);
+        $this->assertNull($dado['velocidade_maxima']);
+    }
+
+    /**
+     * A aba Rota mostrava "sem trajeto" sem dizer por quê. O período disponível
+     * é o que permite distinguir rastreador quebrado de veículo na garagem.
+     */
+    public function test_periodo_disponivel_informa_o_intervalo_com_historico(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+        ]);
+        $veiculo = Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'placa' => 'AAA-2222', 'imei' => '222', 'ativo' => true,
+        ]);
+
+        foreach (['2026-08-10 08:00:00', '2026-08-13 16:00:00'] as $quando) {
+            $veiculo->posicoes()->create([
+                'latitude' => -25.39, 'longitude' => -51.46, 'velocidade' => 10,
+                'ignicao' => true, 'registrado_em' => $quando, 'empresa_id' => $empresa->id,
+            ]);
+        }
+
+        $dado = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/admin/monitora/veiculos/{$veiculo->id}/periodo")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame('2026-08-10', $dado['inicio']);
+        $this->assertSame('2026-08-13', $dado['fim']);
+        $this->assertSame(2, $dado['total']);
+    }
+
+    public function test_periodo_de_veiculo_sem_historico_vem_nulo(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+        ]);
+        $veiculo = Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'placa' => 'AAA-3333', 'imei' => '333', 'ativo' => true,
+        ]);
+
+        $dado = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/admin/monitora/veiculos/{$veiculo->id}/periodo")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertNull($dado['inicio']);
+        $this->assertSame(0, $dado['total']);
+    }
+}

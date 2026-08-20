@@ -5,7 +5,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
 import { carregarGoogleMaps } from '@/lib/googleMaps'
-import { useVeiculos, useHistorico, useEventos, baixarEventos, useGoogleMapsKey } from './extraApi'
+import { useVeiculos, useHistorico, useEventos, baixarEventos, useGoogleMapsKey, usePeriodoDisponivel } from './extraApi'
 
 const CENTRO_PADRAO = { lat: -25.3935, lng: -51.4562 }
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -22,6 +22,7 @@ export function RotaTab() {
 
   const { data: historico, isLoading: carregandoHist } = useHistorico(veiculoId, de, ate)
   const { data: eventos } = useEventos(veiculoId, de, ate)
+  const { data: periodo } = usePeriodoDisponivel(veiculoId)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const gmap = useRef<any>(null)
@@ -92,9 +93,29 @@ export function RotaTab() {
         <CardContent className="p-0 relative">
           <div ref={mapRef} className="h-[560px] w-full rounded-lg" />
           {erroMapa && <div className="absolute inset-0 grid place-items-center bg-card/80 text-sm text-destructive p-4 text-center">{erroMapa}</div>}
+          {/* Vazio explicativo: dizer QUE não há trajeto não ajuda quem não sabe
+              se o rastreador falhou, se o veículo ficou parado, ou se o período
+              é que está errado. Com o intervalo disponível a tela responde isso
+              e oferece o pulo para o último dia com dado. */}
           {pronto && veiculoId && !carregandoHist && !historico?.length && (
-            <div className="absolute inset-0 grid place-items-center bg-card/70 pointer-events-none">
-              <EmptyState icon={<RouteIcon />} title="Sem trajeto" description="Nenhuma posição no período." />
+            <div className="absolute inset-0 grid place-items-center bg-card/80 p-4">
+              <div className="max-w-sm text-center">
+                <EmptyState
+                  icon={<RouteIcon />}
+                  title="Sem trajeto neste período"
+                  description={
+                    periodo?.fim
+                      ? `Este veículo tem ${periodo.total.toLocaleString('pt-BR')} posições registradas, de ${periodo.inicio} até ${periodo.fim}.`
+                      : 'Este veículo nunca reportou posição. Confira se o rastreador está vinculado ao veículo (campo IMEI).'
+                  }
+                />
+                {periodo?.fim && periodo.fim !== ate && (
+                  <Button size="sm" variant="secondary" className="mt-2"
+                    onClick={() => { setDe(periodo.fim as string); setAte(periodo.fim as string) }}>
+                    Ver o último dia com registro ({periodo.fim})
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

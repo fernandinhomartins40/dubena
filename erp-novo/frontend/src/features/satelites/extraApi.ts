@@ -7,6 +7,17 @@ import { api } from '@/lib/api'
 export interface UltimaPosicao {
   veiculo_id: number; placa: string | null; latitude: number; longitude: number
   velocidade: number; ignicao: boolean; registrado_em: string | null
+  /** Apelido do veículo no rastreador ("Caminhão Volks"). */
+  descricao: string | null
+  motorista: string | null
+  /** Descrição do tipo ("CAMINHÃO") e o rótulo curto que escolhe o ícone. */
+  tipo: string | null
+  icone: string | null
+  /** Azimute em graus — gira o ícone no sentido da viagem. */
+  direcao: number | null
+  velocidade_maxima: number | null
+  /** Apurado no backend: velocidade acima da máxima do tipo. */
+  excesso: boolean
 }
 export const useUltimasPosicoes = () =>
   useQuery<UltimaPosicao[]>({ queryKey: ['monitora-posicoes'], queryFn: async () => (await api.get('/monitora/ultimas-posicoes')).data.data, refetchInterval: 30000 })
@@ -46,6 +57,21 @@ export function useHistorico(veiculoId: number | null, de: string, ate: string) 
     queryKey: ['monitora-historico', veiculoId, de, ate],
     enabled: !!veiculoId && !!de && !!ate,
     queryFn: async () => (await api.get(`/monitora/veiculos/${veiculoId}/historico`, { params: { de, ate, limite: 5000 } })).data.data,
+  })
+}
+
+/**
+ * Período com histórico de posições de um veículo.
+ *
+ * A tela abre em "hoje"; quando não há posição hoje, isto permite dizer até
+ * quando existe dado em vez de mostrar um mapa vazio sem explicação.
+ */
+export interface PeriodoDisponivel { inicio: string | null; fim: string | null; total: number }
+export function usePeriodoDisponivel(veiculoId: number | null) {
+  return useQuery<PeriodoDisponivel>({
+    queryKey: ['monitora-periodo', veiculoId],
+    enabled: !!veiculoId,
+    queryFn: async () => (await api.get(`/monitora/veiculos/${veiculoId}/periodo`)).data.data,
   })
 }
 

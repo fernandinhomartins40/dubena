@@ -16,8 +16,11 @@ Artisan::command('inspire', function () {
 // Alertas diários (estoque baixo) — 07:00.
 Schedule::command('notify:alertas')->dailyAt('07:00')->withoutOverlapping();
 
-// Sync de posições GPS (SGCasa) — a cada minuto (gate externo; só roda se configurado).
-Schedule::command('monitora:sync-positions')->everyMinute()->withoutOverlapping();
+// Sync de posições GPS (Traccar) — a cada 30s. O mapa ao vivo é a tela que o
+// dono deixa aberta durante a operação; um minuto de atraso já faz o caminhão
+// aparecer numa esquina que ele passou faz tempo. `withoutOverlapping` impede
+// que uma consulta lenta ao provedor acumule execuções.
+Schedule::command('monitora:sync-positions')->everyThirtySeconds()->withoutOverlapping();
 
 // Expira cobranças PIX vencidas — a cada minuto (espelha pix:expired do legado). C9.
 Schedule::command('pix:expirar')->everyMinute()->withoutOverlapping();

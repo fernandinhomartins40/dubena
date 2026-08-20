@@ -52,4 +52,15 @@ class SgcasaHttpDriver implements SgcasaDriver
             return [];
         }
     }
+
+    /**
+     * O SGCasa não expõe listagem de aparelhos — o cadastro de veículo lá é
+     * manual. Devolver vazio desliga o auto-cadastro sem quebrar o contrato.
+     *
+     * @return list<array{imei:string, nome:string}>
+     */
+    public function listarAparelhos(): array
+    {
+        return [];
+    }
 }

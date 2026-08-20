@@ -42,6 +42,7 @@ class MonitoraService
                     'latitude' => $dados['latitude'],
                     'longitude' => $dados['longitude'],
                     'velocidade' => $dados['velocidade'] ?? 0,
+                    'direcao' => $dados['direcao'] ?? null,
                     'ignicao' => $dados['ignicao'] ?? false,
                     'registrado_em' => $quando,
                 ],

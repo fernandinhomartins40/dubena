@@ -115,6 +115,18 @@ return [
         'token' => env('SGCASA_TOKEN'),
     ],
 
+    // Traccar — o rastreador que a frota da Dubena usa de fato. Credenciais
+    // herdadas da tabela `configs` do sistema legado de monitoramento.
+    'traccar' => [
+        'url' => env('TRACCAR_URL'),
+        'usuario' => env('TRACCAR_USUARIO'),
+        'senha' => env('TRACCAR_SENHA'),
+        // Cadastrar veículo automaticamente para aparelho ainda sem cadastro no
+        // ERP. Sem isto, aparelho novo instalado num caminhão fica invisível até
+        // alguém cadastrá-lo à mão — e ninguém percebe que está faltando.
+        'autocadastrar' => env('TRACCAR_AUTOCADASTRAR', true),
+    ],
+
     // Flags dos gates externos para o painel de status (SateliteStatusController).
     // Resolvidas aqui (build-time do config:cache) para não dependerem de env()
     // em runtime — env() retorna vazio quando a config está cacheada (prod).

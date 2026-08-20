@@ -184,23 +184,68 @@ class MonitoraController extends Controller
         return response()->json(['data' => $posicao], 201);
     }
 
+    /**
+     * GET /monitora/veiculos/{id}/periodo — primeiro e último dia com posição.
+     *
+     * A tela de rota abria em "hoje" e mostrava "sem trajeto" sem explicar nada.
+     * Quando o rastreamento está parado — ou o veículo ficou na garagem — não há
+     * como distinguir isso de um defeito. Devolvendo o período disponível, a
+     * tela consegue dizer até quando existe histórico e pular direto para lá.
+     */
+    public function periodoDisponivel(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+        $veiculo = Veiculo::query()->findOrFail($id);
+
+        $limites = $veiculo->posicoes()
+            ->selectRaw('min(registrado_em) as inicio, max(registrado_em) as fim, count(*) as total')
+            ->first();
+
+        return response()->json(['data' => [
+            'inicio' => $limites?->inicio ? substr((string) $limites->inicio, 0, 10) : null,
+            'fim' => $limites?->fim ? substr((string) $limites->fim, 0, 10) : null,
+            'total' => (int) ($limites?->total ?? 0),
+        ]]);
+    }
+
     /** GET /monitora/ultimas-posicoes — snapshot para o mapa. */
     public function ultimasPosicoes(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.view');
 
+        // O tipo e o motorista viajam junto: o mapa desenha o ícone conforme o
+        // tipo (caminhão ≠ moto) e quem opera identifica o veículo pelo nome do
+        // motorista antes da placa. A última posição sozinha não bastava para
+        // montar o card — a tela tinha só placa, velocidade e hora.
         $rows = UltimaPosicao::query()
             ->whereHas('veiculo', fn ($q) => $q->where('empresa_id', $request->user()->empresa_id))
-            ->with('veiculo:id,placa,descricao')->get()
-            ->map(fn (UltimaPosicao $u) => [
-                'veiculo_id' => $u->veiculo_id,
-                'placa' => $u->veiculo?->placa,
-                'latitude' => (float) $u->latitude,
-                'longitude' => (float) $u->longitude,
-                'velocidade' => (float) $u->velocidade,
-                'ignicao' => (bool) $u->ignicao,
-                'registrado_em' => $u->registrado_em?->toIso8601String(),
-            ]);
+            ->with(['veiculo:id,placa,descricao,motorista,tipo_id', 'veiculo.tipo:id,descricao,icone,velocidade_maxima'])
+            ->get()
+            ->map(function (UltimaPosicao $u) {
+                $veiculo = $u->veiculo;
+                $maxima = $veiculo?->tipo?->velocidade_maxima;
+                $velocidade = (float) $u->velocidade;
+
+                return [
+                    'veiculo_id' => $u->veiculo_id,
+                    'placa' => $veiculo?->placa,
+                    'descricao' => $veiculo?->descricao,
+                    'motorista' => $veiculo?->motorista,
+                    'tipo' => $veiculo?->tipo?->descricao,
+                    'icone' => $veiculo?->tipo?->icone,
+                    'latitude' => (float) $u->latitude,
+                    'longitude' => (float) $u->longitude,
+                    'velocidade' => $velocidade,
+                    'direcao' => $u->direcao !== null ? (int) $u->direcao : null,
+                    'velocidade_maxima' => $maxima !== null ? (int) $maxima : null,
+                    // Apurado aqui e não na tela: o limite é do tipo do veículo,
+                    // e a regra de excesso já existe no relatório — duas
+                    // definições do mesmo conceito divergiriam com o tempo.
+                    'excesso' => $maxima !== null && $velocidade > $maxima,
+                    'ignicao' => (bool) $u->ignicao,
+                    'registrado_em' => $u->registrado_em?->toIso8601String(),
+                ];
+            });
 
         return response()->json(['data' => $rows]);
     }

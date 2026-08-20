@@ -28,6 +28,7 @@ use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
+use App\Domain\Monitora\Drivers\TraccarDriver;
 use App\Domain\Tenant\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -187,18 +188,23 @@ class AppServiceProvider extends ServiceProvider
         // operação (sem rastreamento), não a corrompe — nada de dado financeiro
         // ou fiscal falso. Por isso avisa no log em vez de derrubar a resolução.
         $this->app->singleton(SgcasaDriver::class, function () {
-            $real = config('services.monitora.driver') === 'sgcasa';
+            $driver = (string) config('services.monitora.driver');
 
-            if (! $real && $this->app->isProduction()) {
+            if ($driver === 'traccar') {
+                return $this->app->make(TraccarDriver::class);
+            }
+            if ($driver === 'sgcasa') {
+                return $this->app->make(SgcasaHttpDriver::class);
+            }
+
+            if ($this->app->isProduction()) {
                 \Illuminate\Support\Facades\Log::warning(
-                    'MONITORA_DRIVER não é "sgcasa" em produção: o rastreamento GPS usará o driver FAKE.',
-                    ['driver' => (string) config('services.monitora.driver')],
+                    'MONITORA_DRIVER não é "traccar" nem "sgcasa" em produção: o rastreamento GPS usará o driver FAKE.',
+                    ['driver' => $driver],
                 );
             }
 
-            return $real
-                ? $this->app->make(SgcasaHttpDriver::class)
-                : $this->app->make(FakeSgcasaDriver::class);
+            return $this->app->make(FakeSgcasaDriver::class);
         });
     }
 

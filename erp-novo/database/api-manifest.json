@@ -154,6 +154,7 @@
     "GET api/admin/monitora/veiculos",
     "GET api/admin/monitora/veiculos/{id}/eventos",
     "GET api/admin/monitora/veiculos/{id}/historico",
+    "GET api/admin/monitora/veiculos/{id}/periodo",
     "GET api/admin/notas",
     "GET api/admin/notas/{id}",
     "GET api/admin/notas/{id}/danfe",

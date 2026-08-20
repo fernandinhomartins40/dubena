@@ -22,7 +22,7 @@ class UltimaPosicao extends Model
     protected $table = 'monitora_ultima_posicao';
 
     protected $fillable = [
-        'veiculo_id', 'latitude', 'longitude', 'velocidade', 'ignicao', 'registrado_em',
+        'veiculo_id', 'latitude', 'longitude', 'velocidade', 'direcao', 'ignicao', 'registrado_em',
     ];
 
     protected function casts(): array

@@ -16,4 +16,15 @@ interface SgcasaDriver
      * @return list<array{imei:string, latitude:float, longitude:float, velocidade:float, ignicao:bool, registrado_em:string}>
      */
     public function buscarPosicoes(array $imeis): array;
+
+    /**
+     * Aparelhos conhecidos pelo provedor, com o nome que o operador deu a cada um.
+     *
+     * Permite descobrir rastreador instalado num veículo que ainda não foi
+     * cadastrado no ERP. Sem isso, um aparelho novo fica invisível até alguém
+     * perceber a ausência e cadastrá-lo à mão.
+     *
+     * @return list<array{imei:string, nome:string}>
+     */
+    public function listarAparelhos(): array;
 }
