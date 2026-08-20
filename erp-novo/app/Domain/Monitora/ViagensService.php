@@ -247,8 +247,20 @@ class ViagensService
             // introduziu — ela devolve coordenadas repetidas e, às vezes, um
             // ponto na via vizinha. Limpar só antes deixava 21 desvios de até
             // 95 m no traçado entregue.
-            'caminho' => $this->limparVaivem(
-                $this->encaixarNasVias($this->reduzir($this->limparVaivem($caminho)))
+            // A ORDEM importa e foi a causa dos desvios que sobravam.
+            //
+            // `reduzir` rodava ANTES do encaixe, e assim eu descartava os
+            // pontos que dariam contexto à API — depois pedia que ela
+            // adivinhasse o caminho entre o que restou. Medido no trecho com o
+            // pior desvio: com as posições cruas, 14 pontos viram 114 e a
+            // posição real fica a 3 m do traçado; com o caminho já reduzido,
+            // ficava a 175 m.
+            //
+            // Agora: limpa o vaivém do GPS → encaixa nas ruas com o dado
+            // completo → limpa o que o encaixe introduziu → reduz por último,
+            // já sobre a linha certa.
+            'caminho' => $this->reduzir(
+                $this->limparVaivem($this->encaixarNasVias($this->limparVaivem($caminho)))
             ),
         ];
     }
