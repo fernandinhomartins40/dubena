@@ -232,6 +232,7 @@ class TraccarRastreamentoTest extends TestCase
         config(['services.traccar.autocadastrar' => true]);
         $this->fingirTraccar([], imei: '999888');
         $empresa = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $empresa->id]);
 
         app(MonitoraSyncService::class)->sincronizar($empresa->id);
 
@@ -251,6 +252,7 @@ class TraccarRastreamentoTest extends TestCase
         config(['services.traccar.autocadastrar' => true]);
         $this->fingirTraccar([], imei: '999888');
         $empresa = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $empresa->id]);
 
         $sync = app(MonitoraSyncService::class);
         $sync->sincronizar($empresa->id);
@@ -271,6 +273,7 @@ class TraccarRastreamentoTest extends TestCase
         config(['services.traccar.autocadastrar' => true]);
         $this->fingirTraccar([], imei: '777777');
         $empresa = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $empresa->id]);
 
         Veiculo::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -410,5 +413,112 @@ class TraccarRastreamentoTest extends TestCase
 
         $this->assertNull($dado['inicio']);
         $this->assertSame(0, $dado['total']);
+    }
+
+    /**
+     * O DEFEITO QUE FOI A PRODUCAO.
+     *
+     * `monitora:sync-positions` percorre todas as empresas ativas, e a lista de
+     * aparelhos do Traccar e global. Sem uma empresa dona, cada uma das 12
+     * empresas ganhou copia dos mesmos 25 rastreadores: 277 veiculos fantasmas
+     * na primeira noite. O teste anterior usava uma empresa so — por isso
+     * passava.
+     */
+    public function test_autocadastro_nao_replica_aparelhos_em_todas_as_empresas(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '999888');
+
+        $dona = Empresa::factory()->create();
+        $outra = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $dona->id]);
+
+        $sync = app(MonitoraSyncService::class);
+        foreach ([$dona->id, $outra->id] as $empresaId) {
+            $sync->sincronizar($empresaId);
+        }
+
+        $this->assertSame(
+            1,
+            Veiculo::where('imei', '999888')->count(),
+            'o aparelho foi replicado em outra empresa — a conta no Traccar e uma so',
+        );
+        $this->assertSame($dona->id, Veiculo::where('imei', '999888')->value('empresa_id'));
+    }
+
+    /**
+     * Sem dizer de quem sao os rastreadores, o auto-cadastro fica desligado.
+     *
+     * Adivinhar a empresa e pior que nao cadastrar: enche a frota errada de
+     * veiculos que nao existem, e alguem tem de limpar depois.
+     */
+    public function test_autocadastro_desligado_sem_empresa_dona(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true, 'services.traccar.empresa_id' => null]);
+        $this->fingirTraccar([], imei: '999888');
+        $empresa = Empresa::factory()->create();
+
+        app(MonitoraSyncService::class)->sincronizar($empresa->id);
+
+        $this->assertSame(0, Veiculo::where('imei', '999888')->count());
+    }
+
+    /** Rastreador ja cadastrado em outra empresa pertence a ela. */
+    public function test_autocadastro_nao_rouba_aparelho_de_outra_empresa(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '555444');
+
+        $outra = Empresa::factory()->create();
+        Veiculo::create([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'placa' => 'REA-0001', 'imei' => '555444', 'ativo' => true,
+        ]);
+
+        $dona = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $dona->id]);
+        app(MonitoraSyncService::class)->sincronizar($dona->id);
+
+        $this->assertSame(1, Veiculo::where('imei', '555444')->count());
+        $this->assertSame($outra->id, Veiculo::where('imei', '555444')->value('empresa_id'));
+    }
+
+    /**
+     * Aparelho que o ERP nao conhece nao pode ser criado numa empresa que nao e
+     * a dona da conta.
+     *
+     * Este e o teste que isola a PRIMEIRA protecao. O anterior ainda passaria
+     * so com a checagem de IMEI duplicado — aqui a empresa errada sincroniza
+     * primeiro, entao se o autocadastro nao respeitasse a dona, o veiculo
+     * nasceria no lugar errado antes de qualquer duplicata existir.
+     */
+    public function test_empresa_que_nao_e_dona_nao_cadastra_aparelho(): void
+    {
+        $this->configurarTraccar();
+        config(['services.traccar.autocadastrar' => true]);
+        $this->fingirTraccar([], imei: '999888');
+
+        $dona = Empresa::factory()->create();
+        $outra = Empresa::factory()->create();
+        config(['services.traccar.empresa_id' => $dona->id]);
+
+        // A empresa errada roda PRIMEIRO: sem a trava, e ela quem ficaria com
+        // o veiculo, e a dona depois nem o criaria (ja existiria o IMEI).
+        app(MonitoraSyncService::class)->sincronizar($outra->id);
+
+        $this->assertSame(
+            0,
+            Veiculo::where('empresa_id', $outra->id)->where('imei', '999888')->count(),
+            'empresa que nao e dona da conta no Traccar cadastrou o aparelho',
+        );
+    }
+
+    /** O padrao e ficar desligado: ligar e uma decisao consciente. */
+    public function test_autocadastro_e_desligado_por_padrao(): void
+    {
+        $this->assertFalse((bool) config('services.traccar.autocadastrar'));
     }
 }

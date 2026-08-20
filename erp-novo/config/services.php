@@ -124,7 +124,12 @@ return [
         // Cadastrar veículo automaticamente para aparelho ainda sem cadastro no
         // ERP. Sem isto, aparelho novo instalado num caminhão fica invisível até
         // alguém cadastrá-lo à mão — e ninguém percebe que está faltando.
-        'autocadastrar' => env('TRACCAR_AUTOCADASTRAR', true),
+        'autocadastrar' => env('TRACCAR_AUTOCADASTRAR', false),
+        // Empresa dona da conta no Traccar. OBRIGATÓRIA para o auto-cadastro:
+        // a conta no provedor é uma só e a lista de aparelhos é global, então
+        // sem dizer de quem são os rastreadores o sistema replicaria os mesmos
+        // aparelhos em toda empresa ativa.
+        'empresa_id' => env('TRACCAR_EMPRESA_ID'),
     ],
 
     // Flags dos gates externos para o painel de status (SateliteStatusController).

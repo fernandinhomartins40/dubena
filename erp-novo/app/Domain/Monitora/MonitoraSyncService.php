@@ -21,7 +21,11 @@ class MonitoraSyncService
     /** Sincroniza posições dos veículos ativos de uma empresa. @return int posições ingeridas */
     public function sincronizar(int $empresaId): int
     {
-        if (config('services.traccar.autocadastrar')) {
+        // O auto-cadastro roda para UMA empresa só, a dona da conta no
+        // provedor. A lista de aparelhos do Traccar é global: rodando para
+        // todas, cada empresa ganhava uma cópia dos mesmos 25 rastreadores —
+        // 277 veículos fantasmas na primeira noite em produção.
+        if ($this->autocadastroVale($empresaId)) {
             $this->cadastrarAparelhosNovos($empresaId);
         }
 
@@ -55,6 +59,26 @@ class MonitoraSyncService
     }
 
     /**
+     * O auto-cadastro se aplica a esta empresa?
+     *
+     * Exige `TRACCAR_EMPRESA_ID` apontando para a dona da conta no provedor.
+     * Sem essa definição o recurso fica desligado — e é o certo: a conta do
+     * Traccar é uma só, e não há como o sistema adivinhar de qual das empresas
+     * são os rastreadores. Adivinhar errado enche a frota alheia de veículos
+     * que não existem.
+     */
+    private function autocadastroVale(int $empresaId): bool
+    {
+        if (! config('services.traccar.autocadastrar')) {
+            return false;
+        }
+
+        $dona = config('services.traccar.empresa_id');
+
+        return $dona !== null && (int) $dona === $empresaId;
+    }
+
+    /**
      * Cadastra veículo para aparelho que o provedor conhece mas o ERP não.
      *
      * Um rastreador instalado num caminhão novo passaria despercebido: não
@@ -75,11 +99,14 @@ class MonitoraSyncService
             return 0;
         }
 
-        // Confere contra TODOS os veículos da empresa, não só os ativos: um
-        // veículo desativado à mão não pode ser recriado a cada rodada.
-        $conhecidos = Veiculo::query()->where('empresa_id', $empresaId)
-            ->whereNotNull('imei')->pluck('imei')->all();
-        $conhecidos = array_flip($conhecidos);
+        // Confere contra TODOS os veículos, de qualquer empresa, e não só os
+        // ativos. Dois motivos: um veículo desativado à mão não pode ser
+        // recriado a cada rodada; e um rastreador já cadastrado em outra
+        // empresa pertence a ela — duplicá-lo aqui criaria dois veículos
+        // disputando a mesma posição.
+        $conhecidos = array_flip(
+            Veiculo::query()->whereNotNull('imei')->pluck('imei')->all()
+        );
 
         $empresa = \App\Models\Empresa::find($empresaId);
         if (! $empresa) {
