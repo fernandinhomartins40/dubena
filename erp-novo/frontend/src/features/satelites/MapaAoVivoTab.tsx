@@ -5,7 +5,8 @@ import { carregarGoogleMaps } from '@/lib/googleMaps'
 import { dataHora } from '@/lib/format'
 import { useUltimasPosicoes, useGoogleMapsKey, type UltimaPosicao } from './extraApi'
 import {
-  pathDoVeiculo, estadoDoVeiculo, CORES_ESTADO, ROTULOS_ESTADO, type EstadoVeiculo,
+  svgDoVeiculo, TAMANHO_MARCADOR, estadoDoVeiculo, CORES_ESTADO, ROTULOS_ESTADO,
+  type EstadoVeiculo,
 } from './iconesVeiculo'
 
 // Centro padrão: Guarapuava/PR (fallback quando não há posição).
@@ -117,15 +118,12 @@ export function MapaAoVivoTab() {
       vistos.add(p.veiculo_id)
       bounds.extend(pos)
 
+      // Imagem SVG e nao `SymbolPath`: os icones da lucide sao tracados
+      // abertos, e preenche-los como simbolo viraria uma mancha.
       const icone = {
-        path: pathDoVeiculo(p.icone, p.tipo),
-        scale: 1.1,
-        fillColor: CORES_ESTADO[estado],
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 1.5,
-        rotation: p.direcao ?? 0,
-        anchor: new google.maps.Point(0, 0),
+        url: svgDoVeiculo(p.icone, p.tipo, CORES_ESTADO[estado], p.direcao),
+        scaledSize: new google.maps.Size(TAMANHO_MARCADOR, TAMANHO_MARCADOR),
+        anchor: new google.maps.Point(TAMANHO_MARCADOR / 2, TAMANHO_MARCADOR / 2),
       }
 
       const existente = markers.current.get(p.veiculo_id)

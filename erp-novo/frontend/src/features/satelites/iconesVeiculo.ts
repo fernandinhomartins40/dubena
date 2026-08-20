@@ -1,69 +1,128 @@
 /**
  * Ícones da frota no mapa ao vivo.
  *
- * O mapa desenhava todo veículo como um círculo cinza: no meio de uma frota de
- * 23 aparelhos não dava para distinguir o caminhão de entrega da moto, nem saber
- * para onde cada um seguia.
+ * São os desenhos da **lucide-react** — a mesma biblioteca do resto do sistema —
+ * e não silhuetas próprias. A primeira tentativa desenhou os veículos à mão em
+ * `SymbolPath`, e o resultado parecia uma seta genérica: forma inventada não
+ * compete com um ícone desenhado por quem desenha ícones.
  *
- * São paths SVG e não imagens PNG porque o Google Maps sabe **girar** um símbolo
- * pelo `rotation` — é assim que o ícone aponta para a direção da viagem. Com
- * imagem seria preciso um arquivo por ângulo.
+ * O Google Maps não aceita componente React como marcador, então o SVG é
+ * montado aqui com a geometria exata de cada ícone e entregue como `data:` URI.
+ * A geometria foi copiada de `lucide-react/dist/esm/icons/*.js`; se a biblioteca
+ * for atualizada e algum ícone mudar de traço, é aqui que se acerta.
  *
- * Os paths são desenhados apontando para CIMA (norte, 0°), centrados na origem,
- * porque o `rotation` do Google gira em torno da âncora e mede o ângulo a partir
- * do norte, no sentido horário — o mesmo referencial do azimute do GPS.
+ * **Por que ícone fixo e não girado.** Os desenhos da lucide são vistos de lado
+ * (o carro aponta para a direita). Girar um carro de perfil para o azimute o
+ * deixaria de cabeça para baixo em qualquer rumo oeste. A direção vai numa seta
+ * pequena ao lado — o ícone continua legível e a informação não se perde.
  */
 
-/** Silhuetas vistas de cima, apontando para o norte. */
-const CAMINHAO =
-  'M -7,-14 L 7,-14 L 8,-8 L 8,13 L -8,13 L -8,-8 Z '
-  + 'M -6,-11 L 6,-11 L 6,-7 L -6,-7 Z'
+/** Traços de cada ícone, no viewBox 24×24 da lucide. */
+const DESENHOS: Record<string, string> = {
+  caminhao:
+    '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>'
+    + '<path d="M15 18H9"/>'
+    + '<path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>'
+    + '<circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
 
-const CAMINHONETE =
-  'M -6,-13 L 6,-13 L 7,-6 L 7,12 L -7,12 L -7,-6 Z '
-  + 'M -5,-10 L 5,-10 L 5,-6 L -5,-6 Z'
+  carro:
+    '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>'
+    + '<circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
 
-const CARRO =
-  'M -5,-12 C -2,-14 2,-14 5,-12 L 6,-4 L 6,10 C 3,12 -3,12 -6,10 L -6,-4 Z '
-  + 'M -4,-9 L 4,-9 L 4,-5 L -4,-5 Z'
+  // Caminhonete usa o desenho de utilitário/caravan: carroceria alta, mais
+  // próxima de uma Strada ou Saveiro que o sedã do ícone `car`.
+  caminhonete:
+    '<path d="M18 19V9a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v8a2 2 0 0 0 2 2h2"/>'
+    + '<path d="M2 9h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2"/>'
+    + '<path d="M22 17v1a1 1 0 0 1-1 1H10v-9a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v9"/>'
+    + '<circle cx="8" cy="19" r="2"/>',
 
-const MOTO =
-  'M 0,-13 L 3,-7 L 3,4 L 6,10 L -6,10 L -3,4 L -3,-7 Z'
-
-/** Fallback: seta simples, ainda mostra a direção. */
-const GENERICO = 'M 0,-12 L 8,10 L 0,5 L -8,10 Z'
-
-const POR_ICONE: Record<string, string> = {
-  caminhao: CAMINHAO,
-  caminhonete: CAMINHONETE,
-  carro: CARRO,
-  moto: MOTO,
-  outro: GENERICO,
+  moto:
+    '<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/>'
+    + '<circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
 }
 
+/** Sem tipo definido: o carro é o veículo mais comum da frota. */
+const PADRAO = DESENHOS.carro
+
 /**
- * Escolhe a silhueta a partir do tipo do veículo.
+ * Escolhe o desenho a partir do tipo do veículo.
  *
  * Aceita tanto o campo `icone` (rótulo curto que o ETL gravou) quanto a
  * descrição livre do tipo: cadastro feito à mão na tela não passa pelo ETL e
  * pode ter qualquer texto.
  */
-export function pathDoVeiculo(icone?: string | null, tipo?: string | null): string {
+function desenhoDe(icone?: string | null, tipo?: string | null): string {
   const chave = (icone ?? '').trim().toLowerCase()
-  if (chave && POR_ICONE[chave]) return POR_ICONE[chave]
+  if (chave && DESENHOS[chave]) return DESENHOS[chave]
 
   const texto = (tipo ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
-  if (texto.includes('caminhonete') || texto.includes('utilitario')) return CAMINHONETE
-  if (texto.includes('caminh')) return CAMINHAO
-  if (texto.includes('moto')) return MOTO
-  if (texto.includes('carro') || texto.includes('automovel')) return CARRO
+  if (texto.includes('caminhonete') || texto.includes('utilitario')) return DESENHOS.caminhonete
+  if (texto.includes('caminh') || texto.includes('carreta')) return DESENHOS.caminhao
+  if (texto.includes('moto')) return DESENHOS.moto
+  if (texto.includes('carro') || texto.includes('automovel')) return DESENHOS.carro
 
-  return GENERICO
+  return PADRAO
 }
+
+/** Lado do quadrado do marcador, em pixels. */
+const TAMANHO = 40
+
+/**
+ * Marcador completo: disco colorido, ícone do veículo e seta da direção.
+ *
+ * O disco existe para o ícone ter contraste sobre qualquer mapa — traço fino
+ * sobre foto de satélite ou sobre uma cerca colorida some. A cor do disco é o
+ * estado operacional, que é a informação que se lê de longe.
+ *
+ * @param direcao azimute em graus; sem ela a seta não é desenhada
+ */
+export function svgDoVeiculo(
+  icone: string | null | undefined,
+  tipo: string | null | undefined,
+  cor: string,
+  direcao?: number | null,
+): string {
+  const raio = 13
+  const centro = TAMANHO / 2
+
+  // A seta orbita o disco na direção da viagem. `-90` porque o azimute conta do
+  // norte no sentido horário e o seno/cosseno contam do leste.
+  let seta = ''
+  if (direcao !== null && direcao !== undefined) {
+    const rad = ((direcao - 90) * Math.PI) / 180
+    const dx = centro + Math.cos(rad) * (raio + 4)
+    const dy = centro + Math.sin(rad) * (raio + 4)
+    seta = `<g transform="translate(${dx.toFixed(1)} ${dy.toFixed(1)}) rotate(${direcao})">`
+      + `<path d="M0,-4 L3,3 L0,1.4 L-3,3 Z" fill="${cor}" stroke="#fff" stroke-width="1"/>`
+      + '</g>'
+  }
+
+  // O ícone da lucide vem em 24×24: escalar para 17 e centralizar deixa o
+  // desenho dentro do disco com folga para o traço não encostar na borda.
+  const escala = 17 / 24
+  const deslocamento = centro - (24 * escala) / 2
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${TAMANHO}" height="${TAMANHO}" viewBox="0 0 ${TAMANHO} ${TAMANHO}">`
+    + `<circle cx="${centro}" cy="${centro}" r="${raio}" fill="${cor}" stroke="#fff" stroke-width="2.5"/>`
+    + seta
+    + `<g transform="translate(${deslocamento.toFixed(2)} ${deslocamento.toFixed(2)}) scale(${escala.toFixed(4)})"`
+    + ' fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+    + desenhoDe(icone, tipo)
+    + '</g></svg>'
+
+  // `encodeURIComponent` e não base64: o SVG continua legível no inspetor, e a
+  // string fica menor — são até 25 marcadores redesenhados a cada 30 s.
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+/** Tamanho do marcador, para o mapa ancorar o ícone pelo centro. */
+export const TAMANHO_MARCADOR = TAMANHO
 
 /** Estado operacional do veículo, que decide a cor no mapa. */
 export type EstadoVeiculo = 'excesso' | 'movimento' | 'ligado' | 'parado' | 'sem_sinal'
