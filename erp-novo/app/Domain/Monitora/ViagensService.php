@@ -232,17 +232,27 @@ class ViagensService
     private const PONTOS_POR_CHAMADA = 100;
 
     /**
-     * Salto acima do qual nem a Roads API resolve.
+     * Espaçamento máximo entre pontos enviados à Roads API.
      *
-     * Medido contra o serviço: um salto de 662 m volta com 21 pontos e vãos de
-     * 99 m — encaixe perfeito. Um de 2,2 km volta com UM ponto: o Google
-     * desiste, porque entre dois pontos tão distantes existem caminhos demais e
-     * ele não tem como saber qual o veículo tomou.
+     * A API precisa de pistas de por onde o caminho passa. Medido contra o
+     * serviço: um salto de 1,8 km enviado como DOIS pontos volta com 2 — ela
+     * desiste. O mesmo salto, pré-interpolado em 9 pontos ao longo da reta,
+     * volta com 98 encaixados na via.
      *
-     * Gastar chamada paga nesses trechos é jogar dinheiro fora para receber a
-     * mesma reta de volta. Acima disto o traçado fica reto e assumido como tal.
+     * Os pontos intermediários são chutes sobre a linha reta; o serviço os usa
+     * só como direção geral e devolve o traçado da rua de verdade.
      */
-    private const SALTO_SEM_SOLUCAO = 1200.0;
+    private const ESPACAMENTO_PARA_API = 250.0;
+
+    /**
+     * Salto acima do qual nem pré-interpolar resolve.
+     *
+     * Um vão muito grande tem caminhos demais entre as pontas, e o palpite da
+     * reta pode arrastar o resultado para a rua errada — pior que assumir a
+     * reta. 5 km cobre com folga o deslocamento de 2 min do rastreador lento
+     * (937 m de mediana) e ainda barra o buraco de horas sem sinal.
+     */
+    private const SALTO_SEM_SOLUCAO = 5000.0;
 
     /**
      * Encaixa nas ruas apenas os TRECHOS com salto grande.
@@ -285,7 +295,10 @@ class ViagensService
             // Junta saltos consecutivos numa chamada só: num trecho de rodovia
             // eles vêm em sequência, e uma chamada por par desperdiçaria cota.
             $bloco = [$anterior, $atual];
-            while ($i + 1 < $total && count($bloco) < self::PONTOS_POR_CHAMADA) {
+            // O bloco sera DENSIFICADO antes de ir para a API, entao o limite
+            // aqui e menor: cada salto vira varios pontos, e passar de 100 na
+            // chamada faria a API recusar tudo.
+            while ($i + 1 < $total && count($bloco) < 8) {
                 $proximo = $this->kmEntre(
                     $caminho[$i]['lat'], $caminho[$i]['lng'],
                     $caminho[$i + 1]['lat'], $caminho[$i + 1]['lng'],
@@ -297,7 +310,7 @@ class ViagensService
                 $bloco[] = $caminho[$i];
             }
 
-            $ajustado = $this->vias->ajustar($bloco);
+            $ajustado = $this->vias->ajustar($this->densificar($bloco));
             if ($ajustado === null) {
                 // Sem o primeiro ponto: ele já está na saída.
                 array_shift($bloco);
@@ -313,6 +326,52 @@ class ViagensService
             foreach ($ajustado as $p) {
                 $saida[] = $p;
             }
+        }
+
+        return $saida;
+    }
+
+    /**
+     * Acrescenta pontos ao longo das retas antes de mandar para a Roads API.
+     *
+     * Sem isso a API desiste em saltos grandes: 1,8 km enviado como dois pontos
+     * volta com dois. Com pontos a cada 250 m ao longo da reta, o mesmo trecho
+     * volta com 98 encaixados na via — os intermediarios sao chutes, e servem
+     * so como direcao geral para o servico achar o caminho.
+     *
+     * @param  list<array{lat:float,lng:float}>  $pontos
+     * @return list<array{lat:float,lng:float}>
+     */
+    private function densificar(array $pontos): array
+    {
+        $total = count($pontos);
+        if ($total < 2) {
+            return $pontos;
+        }
+
+        $saida = [$pontos[0]];
+
+        for ($i = 1; $i < $total; $i++) {
+            $a = $pontos[$i - 1];
+            $b = $pontos[$i];
+            $metros = $this->kmEntre($a['lat'], $a['lng'], $b['lat'], $b['lng']) * 1000;
+            $fatias = (int) ceil($metros / self::ESPACAMENTO_PARA_API);
+
+            for ($k = 1; $k < $fatias; $k++) {
+                $t = $k / $fatias;
+                $saida[] = [
+                    'lat' => $a['lat'] + ($b['lat'] - $a['lat']) * $t,
+                    'lng' => $a['lng'] + ($b['lng'] - $a['lng']) * $t,
+                ];
+                // A API recusa acima de 100 pontos; parar aqui e melhor que
+                // perder a chamada inteira.
+                if (count($saida) >= self::PONTOS_POR_CHAMADA - 1) {
+                    $saida[] = $pontos[$total - 1];
+
+                    return $saida;
+                }
+            }
+            $saida[] = $b;
         }
 
         return $saida;

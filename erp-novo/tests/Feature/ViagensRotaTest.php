@@ -582,4 +582,67 @@ class ViagensRotaTest extends TestCase
         $this->assertSame(2, $fake->chamadas);
         $this->assertSame(0, ViaCache::query()->count());
     }
+
+    /**
+     * A API precisa de pistas de por onde o caminho passa.
+     *
+     * Medido contra o servico: 1,8 km enviado como DOIS pontos volta com dois —
+     * ela desiste. Pre-interpolado a cada 250 m, o mesmo trecho volta com 98
+     * encaixados na via. Este teste fixa que o bloco enviado ao provedor chega
+     * densificado, e nao como o par cru.
+     */
+    public function test_salto_longo_e_densificado_antes_de_ir_para_a_api(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        $recebido = null;
+        $fake = new class extends FakeAjustadorDeVia {
+            public array $ultimoBloco = [];
+
+            public function ajustar(array $pontos): ?array
+            {
+                $this->chamadas++;
+                $this->ultimoBloco = $pontos;
+
+                return null;
+            }
+        };
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        // Salto de ~2,2 km: sozinho a API desistiria.
+        $this->posicoes($veiculo, [
+            ['08:00:00', -25.3900, -51.4600, 40.0],
+            ['08:02:00', -25.4100, -51.4600, 40.0],
+        ]);
+
+        app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertGreaterThan(
+            2,
+            count($fake->ultimoBloco),
+            'o bloco foi enviado cru — a Roads API devolveria os mesmos 2 pontos',
+        );
+        // ~2,2 km a cada 250 m: perto de 9 pontos.
+        $this->assertGreaterThanOrEqual(8, count($fake->ultimoBloco));
+        $this->assertLessThanOrEqual(100, count($fake->ultimoBloco), 'acima de 100 a API recusa a chamada');
+        unset($recebido);
+    }
+
+    /** Vao enorme (horas sem sinal) nao vai para a API: o palpite arrastaria a rota errada. */
+    public function test_salto_gigante_nao_vai_para_a_api(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        // ~11 km entre duas posicoes: acima do teto.
+        $this->posicoes($veiculo, [
+            ['08:00:00', -25.3900, -51.4600, 40.0],
+            ['08:02:00', -25.4900, -51.4600, 40.0],
+        ]);
+
+        app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertSame(0, $fake->chamadas);
+    }
 }
