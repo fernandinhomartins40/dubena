@@ -384,8 +384,33 @@ class ViagensService
                 $anterior['lat'], $anterior['lng'], $proximo['lat'], $proximo['lng'],
             ) * 1000;
 
-            if ($foraDaLinha > self::VAIVEM_MINIMO && $foraDaLinha > $entreVizinhos * 0.5) {
+            // Ponto repetido: a Roads API devolve a mesma coordenada quando
+            // dois pontos caem no mesmo segmento de via. Não desenha nada e só
+            // engorda o JSON.
+            if ($this->kmEntre($anterior['lat'], $anterior['lng'], $atual['lat'], $atual['lng']) * 1000 < 1.0) {
                 continue;
+            }
+
+            // O que separa vaivém de esquina é o ÂNGULO, não a distância.
+            // Numa esquina o trajeto vira e SEGUE (ângulo aberto, 90° numa
+            // quadra); no vaivém ele RETORNA por onde veio (ângulo agudo).
+            // Tentei distinguir por distância até a reta e por razão entre os
+            // lados: as duas ou deixavam bicos de 48 m passar, ou comiam o
+            // vértice da esquina — porque em ambos os casos o ponto do meio
+            // fica longe da reta, e só o ângulo diz se houve retorno.
+            $ida = $this->kmEntre($anterior['lat'], $anterior['lng'], $atual['lat'], $atual['lng']) * 1000;
+            $volta = $this->kmEntre($atual['lat'], $atual['lng'], $proximo['lat'], $proximo['lng']) * 1000;
+
+            if ($ida > 1.0 && $volta > 1.0 && $foraDaLinha > self::VAIVEM_MINIMO) {
+                // Lei dos cossenos no vértice do meio.
+                $cos = ($ida ** 2 + $volta ** 2 - $entreVizinhos ** 2) / (2 * $ida * $volta);
+                $angulo = rad2deg(acos(max(-1.0, min(1.0, $cos))));
+
+                // Abaixo de 60° o trajeto praticamente voltou sobre si mesmo.
+                // Uma esquina de quadra dá ~90°; uma curva suave, mais.
+                if ($angulo < 60.0) {
+                    continue;
+                }
             }
 
             $saida[] = $atual;
