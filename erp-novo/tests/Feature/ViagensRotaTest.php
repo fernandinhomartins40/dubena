@@ -645,4 +645,83 @@ class ViagensRotaTest extends TestCase
 
         $this->assertSame(0, $fake->chamadas);
     }
+
+    /**
+     * O TRIANGULO DA TELA: vaivem do GPS parado ou manobrando.
+     *
+     * Padrao capturado no dado real (AMI-9780): um ponto a 0 km/h, 30s depois
+     * outro 58m adiante a 17 km/h, 30s depois de volta. No mapa isso vira um
+     * bico saindo da rua. O snap-to-road nao corrige — cada ponto isolado e
+     * grudado na via mais proxima, que pode ser a transversal errada.
+     */
+    public function test_vaivem_do_gps_nao_desenha_bico_no_tracado(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        // Percurso reto pela avenida, com UM desvio de ~60m e volta no meio.
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        for ($k = 0; $k < 12; $k++) {
+            $pontos[] = [$base->copy()->addSeconds($k * 30)->format('H:i:s'),
+                -25.3900 - ($k * 0.0006), -51.4600, 30.0];
+        }
+        // O bico: sai da linha e volta.
+        array_splice($pontos, 6, 0, [[
+            $base->copy()->addSeconds(6 * 30 + 15)->format('H:i:s'),
+            -25.3936, -51.4594, 17.0,
+        ]]);
+        $this->posicoes($veiculo, $pontos);
+
+        $caminho = app(ViagensService::class)
+            ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0]['caminho'];
+
+        // Nenhum ponto do tracado pode estar longe da avenida (lng -51.4600).
+        $piorDesvio = 0.0;
+        foreach ($caminho as $p) {
+            $metros = abs($p['lng'] - (-51.4600)) * 111320 * cos($p['lat'] * M_PI / 180);
+            $piorDesvio = max($piorDesvio, $metros);
+        }
+
+        $this->assertLessThan(30.0, $piorDesvio,
+            "o bico de {$piorDesvio}m sobreviveu — e o triangulo que aparece na tela");
+    }
+
+    /**
+     * Curva legitima NAO pode ser confundida com vaivem.
+     *
+     * Numa esquina o trajeto SEGUE em outra direcao; no vaivem ele RETORNA.
+     * Apagar vertice de curva desenharia o corte de quarteirao que ja foi
+     * corrigido antes — o remedio nao pode reintroduzir a doenca.
+     */
+    public function test_curva_de_esquina_sobrevive_a_limpeza(): void
+    {
+        [, $veiculo] = $this->cenario();
+
+        // L: desce a avenida e vira a direita na rua.
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        $i = 0;
+        for ($k = 0; $k < 6; $k++, $i++) {
+            $pontos[] = [$base->copy()->addSeconds($i * 30)->format('H:i:s'),
+                -25.3900 - ($k * 0.0006), -51.4600, 30.0];
+        }
+        $latEsquina = -25.3900 - (5 * 0.0006);
+        for ($k = 1; $k <= 6; $k++, $i++) {
+            $pontos[] = [$base->copy()->addSeconds($i * 30)->format('H:i:s'),
+                $latEsquina, -51.4600 + ($k * 0.0006), 30.0];
+        }
+        $this->posicoes($veiculo, $pontos);
+
+        $caminho = app(ViagensService::class)
+            ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0]['caminho'];
+
+        $achouEsquina = false;
+        foreach ($caminho as $p) {
+            if (abs($p['lat'] - $latEsquina) < 1e-5 && abs($p['lng'] - (-51.4600)) < 1e-5) {
+                $achouEsquina = true;
+                break;
+            }
+        }
+        $this->assertTrue($achouEsquina, 'a limpeza comeu o vertice da esquina');
+    }
 }

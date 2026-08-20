@@ -126,10 +126,11 @@ export function RotaTab() {
         strokeColor: COR_ATIVA,
         strokeWeight: 1.5,
       },
-      // A cada 8% do trajeto: perto o bastante para o sentido ser obvio em
-      // qualquer zoom, esparso o bastante para nao virar linha tracejada.
-      offset: '4%',
-      repeat: '8%',
+      // A cada 60 PIXELS, e nao em % do trajeto: com porcentagem uma viagem de
+      // 30 km ganha setas a cada 2,4 km — invisiveis no zoom de rua, que era a
+      // queixa. Em pixels a densidade e a mesma em qualquer aproximacao.
+      offset: '30px',
+      repeat: '60px',
     }
 
     viagens.forEach((v, i) => {
@@ -139,9 +140,10 @@ export function RotaTab() {
         strokeColor: ativa ? COR_ATIVA : COR_INATIVA,
         strokeWeight: ativa ? 4 : 2,
         strokeOpacity: ativa ? 0.9 : 0.35,
-        // Setas so na viagem em foco: com todas desenhadas o mapa viraria um
-        // amontoado de setas de trechos diferentes.
-        icons: ativa && foco !== null ? [setas] : undefined,
+        // Setas em TODA viagem ativa, inclusive na visao geral: sem foco
+        // selecionado o mapa nao mostrava sentido nenhum, e e justamente essa
+        // a tela que se olha primeiro.
+        icons: ativa ? [setas] : undefined,
         zIndex: ativa ? 10 : 1,
         map: gmap.current,
       })
@@ -154,7 +156,10 @@ export function RotaTab() {
         v.caminho.forEach((p) => bounds.extend(p))
       }
 
-      if (!ativa) return
+      // Pontas A/B so na viagem em FOCO. Na visao geral seriam 3 pares de
+      // marcadores sobrepostos (as viagens emendam a poucos metros), poluindo
+      // justamente o cruzamento onde uma termina e a outra comeca.
+      if (foco !== i) return
 
       // Pontas rotuladas A e B: dois circulos de cores diferentes exigiam
       // decorar qual cor era a saida. Com letra o mapa se explica sozinho.

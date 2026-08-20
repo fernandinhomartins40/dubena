@@ -50,6 +50,14 @@ class ViagensService
      */
     private const DISTANCIA_MINIMA_KM = 0.3;
 
+    /**
+     * Desvio a partir do qual um vaivém é ruído, não manobra real.
+     *
+     * Abaixo de 30 m está dentro do erro do próprio GPS e não aparece no mapa;
+     * acima disso o bico fica visível saindo da rua.
+     */
+    private const VAIVEM_MINIMO = 30.0;
+
     /** Raio médio da Terra em km — para a distância percorrida. */
     private const RAIO_TERRA_KM = 6371.0088;
 
@@ -214,7 +222,7 @@ class ViagensService
             'origem' => ['lat' => (float) $primeiro->latitude, 'lng' => (float) $primeiro->longitude],
             'destino' => ['lat' => (float) $ultimo->latitude, 'lng' => (float) $ultimo->longitude],
             'pontos' => count($caminho),
-            'caminho' => $this->encaixarNasVias($this->reduzir($caminho)),
+            'caminho' => $this->encaixarNasVias($this->reduzir($this->limparVaivem($caminho))),
         ];
     }
 
@@ -327,6 +335,63 @@ class ViagensService
                 $saida[] = $p;
             }
         }
+
+        return $saida;
+    }
+
+    /**
+     * Remove o vaivem do GPS parado ou manobrando.
+     *
+     * Medido no dado real: um ponto a 0 km/h, 30 s depois outro 58 m adiante a
+     * 17 km/h, 30 s depois de volta. O rastreador oscila enquanto o veiculo
+     * manobra ou fica parado no sinal — e no mapa isso vira um bico saindo da
+     * rua, o triangulo que o dono viu na tela.
+     *
+     * O snap-to-road NAO corrige: cada ponto isolado e grudado na via mais
+     * proxima, que pode ser a transversal errada. A limpeza tem de vir antes.
+     *
+     * O criterio e ir e voltar: se o ponto do meio se afasta dos vizinhos mas
+     * os vizinhos estao perto entre si, ele nao pertence ao percurso. Uma curva
+     * legitima nao tem essa forma — nela o trajeto SEGUE, nao retorna.
+     *
+     * @param  list<array{lat:float,lng:float}>  $caminho
+     * @return list<array{lat:float,lng:float}>
+     */
+    private function limparVaivem(array $caminho): array
+    {
+        $total = count($caminho);
+        if ($total < 3) {
+            return $caminho;
+        }
+
+        $saida = [$caminho[0]];
+
+        for ($i = 1; $i < $total - 1; $i++) {
+            $anterior = end($saida);
+            $atual = $caminho[$i];
+            $proximo = $caminho[$i + 1];
+
+            // O critério é a distância do ponto até a RETA entre os vizinhos,
+            // e não a razão entre os lados: razão depende de quanto o percurso
+            // avança, e um bico grande num trecho longo escapava por pouco.
+            // Aqui a pergunta é direta — este ponto está fora do caminho?
+            $foraDaLinha = $this->metrosAteReta($atual, $anterior, $proximo);
+
+            // A distância entre os vizinhos separa desvio de curva: numa
+            // esquina o trajeto SEGUE (vizinhos distantes um do outro), no
+            // vaivém ele RETORNA (vizinhos próximos, ponto do meio longe).
+            $entreVizinhos = $this->kmEntre(
+                $anterior['lat'], $anterior['lng'], $proximo['lat'], $proximo['lng'],
+            ) * 1000;
+
+            if ($foraDaLinha > self::VAIVEM_MINIMO && $foraDaLinha > $entreVizinhos * 0.5) {
+                continue;
+            }
+
+            $saida[] = $atual;
+        }
+
+        $saida[] = $caminho[$total - 1];
 
         return $saida;
     }
