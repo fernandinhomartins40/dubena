@@ -75,6 +75,37 @@ export function usePeriodoDisponivel(veiculoId: number | null) {
   })
 }
 
+/**
+ * Uma viagem: trecho percorrido entre duas paradas longas.
+ *
+ * `caminho` ja vem reduzido pelo backend (no maximo ~400 pontos): no zoom de
+ * uma tela a diferenca para os milhares de pontos originais e invisivel, e o
+ * JSON fica varias vezes menor.
+ */
+export interface Viagem {
+  inicio: string
+  fim: string
+  duracao_min: number
+  distancia_km: number
+  velocidade_media: number
+  velocidade_maxima: number
+  origem: { lat: number; lng: number }
+  destino: { lat: number; lng: number }
+  pontos: number
+  caminho: { lat: number; lng: number }[]
+}
+export interface ViagensDoPeriodo {
+  viagens: Viagem[]
+  resumo: { total: number; distancia_km: number; duracao_min: number; posicoes: number }
+}
+export function useViagens(veiculoId: number | null, de: string, ate: string) {
+  return useQuery<ViagensDoPeriodo>({
+    queryKey: ['monitora-viagens', veiculoId, de, ate],
+    enabled: !!veiculoId && !!de && !!ate,
+    queryFn: async () => (await api.get(`/monitora/veiculos/${veiculoId}/viagens`, { params: { de, ate } })).data.data,
+  })
+}
+
 export interface EventosVeiculo {
   veiculo: { id: number; placa: string; descricao: string | null; tipo: string | null; velocidade_maxima: number | null }
   paradas: { inicio: string; fim: string; duracao_min: number; latitude: number; longitude: number }[]

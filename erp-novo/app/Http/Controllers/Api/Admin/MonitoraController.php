@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Monitora\MonitoraSyncService;
 use App\Domain\Monitora\RelatorioMonitoraService;
+use App\Domain\Monitora\ViagensService;
 use App\Domain\Relatorio\RelatorioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -30,6 +31,7 @@ class MonitoraController extends Controller
         private MonitoraSyncService $sync,
         private RelatorioMonitoraService $relatorio,
         private RelatorioService $exportador,
+        private ViagensService $viagens,
     ) {}
 
     public function veiculos(Request $request): JsonResponse
@@ -182,6 +184,27 @@ class MonitoraController extends Controller
         $posicao = $this->service->registrarPosicao($veiculo, $d);
 
         return response()->json(['data' => $posicao], 201);
+    }
+
+    /**
+     * GET /monitora/veiculos/{id}/viagens?de&ate — trechos entre paradas.
+     *
+     * A tela desenhava o período inteiro numa linha só: um dia de entrega passa
+     * pelas mesmas ruas várias vezes, e o emaranhado não dizia para onde o
+     * veículo foi nem quando. Aqui o dia vem partido em viagens, cada uma com
+     * horário de saída e de chegada, e o operador escolhe qual ver no mapa.
+     */
+    public function viagens(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+        $veiculo = Veiculo::query()->findOrFail($id);
+
+        $d = $request->validate([
+            'de' => 'required|date',
+            'ate' => 'required|date|after_or_equal:de',
+        ]);
+
+        return response()->json(['data' => $this->viagens->doVeiculo($veiculo, $d['de'], $d['ate'])]);
     }
 
     /**
