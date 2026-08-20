@@ -165,7 +165,17 @@ class CercasInteligentesService
             )->all();
 
             if (count($pontos) >= 3) {
-                $lista[] = ['id' => $c->id, 'descricao' => $c->descricao, 'pontos' => $pontos];
+                $lats = array_column($pontos, 'lat');
+                $lngs = array_column($pontos, 'lng');
+                $lista[] = [
+                    'id' => $c->id,
+                    'descricao' => $c->descricao,
+                    'pontos' => $pontos,
+                    // Area e caixa saem do laco: sao O(n) por cerca, e dentro do
+                    // laco seriam recalculadas uma vez por PAR.
+                    'area' => $this->areaRelativa($pontos),
+                    'caixa' => [min($lats), min($lngs), max($lats), max($lngs)],
+                ];
             }
         }
 
@@ -177,14 +187,20 @@ class CercasInteligentesService
                 $a = $lista[$i];
                 $b = $lista[$j];
 
+                // Caixas que nao se tocam nao podem ter area em comum. E o
+                // descarte que paga: numa praca com setores espalhados, a
+                // maioria dos pares nem chega perto, e cada par sobrevivente
+                // custa 3.600 testes de ponto-em-poligono.
+                if ($this->caixasSeparadas($a['caixa'], $b['caixa'])) {
+                    continue;
+                }
+
                 // Área-mãe englobando setor é desenho deliberado, não conflito.
                 // Comparar o TAMANHO das duas separa os dois casos: setores
                 // irmãos têm ordem de grandeza parecida; um envelope de cidade
                 // é muitas vezes maior que qualquer setor dentro dele.
-                $areaA = $this->areaRelativa($a['pontos']);
-                $areaB = $this->areaRelativa($b['pontos']);
-                $maiorArea = max($areaA, $areaB);
-                $menorArea = min($areaA, $areaB);
+                $maiorArea = max($a['area'], $b['area']);
+                $menorArea = min($a['area'], $b['area']);
 
                 if ($menorArea <= 0.0 || $maiorArea / $menorArea >= self::FATOR_AREA_MAE) {
                     continue;
@@ -212,6 +228,17 @@ class CercasInteligentesService
         usort($conflitos, fn ($x, $y) => $y['fracao'] <=> $x['fracao']);
 
         return $conflitos;
+    }
+
+    /**
+     * As duas caixas envolventes nao se tocam?
+     *
+     * @param  array{0:float,1:float,2:float,3:float}  $a  [sul, oeste, norte, leste]
+     * @param  array{0:float,1:float,2:float,3:float}  $b
+     */
+    private function caixasSeparadas(array $a, array $b): bool
+    {
+        return $a[2] < $b[0] || $b[2] < $a[0] || $a[3] < $b[1] || $b[3] < $a[1];
     }
 
     /**
