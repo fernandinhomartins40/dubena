@@ -163,6 +163,43 @@ export function useExcluirCerca() {
   })
 }
 
+// ---- Ferramentas assistidas (quadra, vareta mágica, conflitos) ----
+// Todas SUGEREM: devolvem contorno para o editor: nenhuma grava. Salvar
+// continua sendo o mesmo botão de sempre, e um encaixe ruim nunca entra
+// sozinho no geofencing.
+
+/** Ponto no formato que o editor usa (o backend responde em lat/lng). */
+export interface PontoLatLng { lat: number; lng: number }
+
+/** Fecha o quarteirão em volta de um clique, pelas ruas ao redor. */
+export function useQuadraDaCerca() {
+  return useMutation({
+    mutationFn: async (p: PontoLatLng): Promise<PontoLatLng[] | null> =>
+      (await api.post('/monitora/cercas/quadra', { latitude: p.lat, longitude: p.lng })).data.data,
+  })
+}
+
+/** Encaixa o contorno de uma cerca existente nas ruas — a vareta mágica. */
+export function useAjustarCerca() {
+  return useMutation({
+    mutationFn: async (id: number): Promise<PontoLatLng[] | null> =>
+      (await api.post(`/monitora/cercas/${id}/ajustar`)).data.data,
+  })
+}
+
+export interface ConflitoCerca {
+  a: number; b: number; descricao_a: string; descricao_b: string
+  /** Fração da área que as duas dividem (0 a 1). */
+  fracao: number
+}
+
+/** Pares de cercas disputando o mesmo território. */
+export const useConflitosDeCerca = () =>
+  useQuery<ConflitoCerca[]>({
+    queryKey: ['monitora-cercas-conflitos'],
+    queryFn: async () => (await api.get('/monitora/cercas/conflitos')).data.data,
+  })
+
 /** Chave do Google Maps (config global) — necessária para o mapa de cercas.
  *  O endpoint embrulha em { data: {...} }: o valor vem em response.data.data. */
 export const useGoogleMapsKey = () =>

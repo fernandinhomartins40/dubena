@@ -211,6 +211,41 @@ export function perimetroKm(pontos: Ponto[]): number {
   return total / 1000
 }
 
+/**
+ * Casco convexo de um conjunto de pontos (varredura de Andrew).
+ *
+ * Usado para UNIR quadras ao montar um setor clicando uma a uma. É
+ * aproximação: um setor em L sai com o canto preenchido. Vale mesmo assim
+ * porque a alternativa — clipper de polígonos completo — é muito código para
+ * rodar no navegador, e o operador tem os pontos na mão para corrigir o canto.
+ * União errada de geometria, essa sim, ele não teria como consertar.
+ */
+export function cascoConvexo(pontos: Ponto[]): Ponto[] {
+  if (pontos.length <= 3) return pontos
+
+  // Ordena por longitude e depois latitude; o algoritmo depende disso.
+  const p = [...pontos].sort((a, b) => (a.lng - b.lng) || (a.lat - b.lat))
+
+  // Produto vetorial: > 0 significa curva à esquerda (mantém), <= 0 descarta.
+  const giro = (o: Ponto, a: Ponto, b: Ponto) =>
+    (a.lng - o.lng) * (b.lat - o.lat) - (a.lat - o.lat) * (b.lng - o.lng)
+
+  const metade = (lista: Ponto[]): Ponto[] => {
+    const saida: Ponto[] = []
+    for (const pt of lista) {
+      while (saida.length >= 2 && giro(saida[saida.length - 2], saida[saida.length - 1], pt) <= 0) {
+        saida.pop()
+      }
+      saida.push(pt)
+    }
+    saida.pop() // o último repete o primeiro da outra metade
+
+    return saida
+  }
+
+  return [...metade(p), ...metade([...p].reverse())]
+}
+
 /** Ponto médio entre dois — onde nasce o marcador de inserção. */
 export function meio(a: Ponto, b: Ponto): Ponto {
   return { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 }

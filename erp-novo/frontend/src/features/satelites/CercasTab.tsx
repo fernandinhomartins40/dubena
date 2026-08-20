@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapPin, Trash2, Pencil, Plus, Save, X, Search, ChevronRight,
   Undo2, Redo2, Spline, Minimize2, Copy, CornerUpRight,
+  Wand2, Blocks, AlertTriangle, Check,
 } from 'lucide-react'
 import {
   Button, Card, CardContent, Field, Input, EmptyState, AsyncState, ConfirmDialog, toast,
@@ -9,7 +10,10 @@ import {
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { carregarGoogleMaps } from '@/lib/googleMaps'
-import { useCercas, useSalvarCerca, useExcluirCerca, useGoogleMapsKey, type Cerca } from './extraApi'
+import {
+  useCercas, useSalvarCerca, useExcluirCerca, useGoogleMapsKey,
+  useQuadraDaCerca, useAjustarCerca, useConflitosDeCerca, type Cerca,
+} from './extraApi'
 import { useEmpresa } from '@/features/empresas/api'
 import { useEditorCerca } from './useEditorCerca'
 import type { Ponto } from './editorPoligono'
@@ -51,6 +55,15 @@ export function CercasTab() {
   const [busca, setBusca] = useState('')
   const [buscando, setBuscando] = useState(false)
 
+  // Ferramentas assistidas. `modoQuadra` faz o clique no mapa fechar o
+  // quarteirao em vez de acrescentar um vertice — sao gestos incompativeis, por
+  // isso um flag e nao dois botoes que valem ao mesmo tempo.
+  const [modoQuadra, setModoQuadra] = useState(false)
+  const [verConflitos, setVerConflitos] = useState(false)
+  const quadraMut = useQuadraDaCerca()
+  const ajusteMut = useAjustarCerca()
+  const { data: conflitos, isLoading: carregandoConflitos } = useConflitosDeCerca()
+
   /**
    * Vértices das OUTRAS cercas — alvo do snap.
    *
@@ -75,6 +88,11 @@ export function CercasTab() {
   // `editor` da primeira renderização. A ref dá acesso sempre ao atual.
   const editorRef = useRef(editor)
   editorRef.current = editor
+  // O listener de clique do mapa e registrado uma unica vez e capturaria o
+  // valor da primeira renderizacao; a ref da acesso sempre ao atual.
+  const modoQuadraRef = useRef(modoQuadra)
+  modoQuadraRef.current = modoQuadra
+  const pegarQuadraRef = useRef<(p: Ponto) => void>(() => {})
 
   // 1) Carrega o SDK e cria o mapa quando há key.
   useEffect(() => {
@@ -92,6 +110,14 @@ export function CercasTab() {
         google.maps.event.addListener(gmap.current, 'click', (ev: any) => {
           if (!modoDesenho.current) return
           const ponto = { lat: ev.latLng.lat(), lng: ev.latLng.lng() }
+
+          // Modo quadra: o clique fecha o quarteirao pelas ruas em volta, em
+          // vez de acrescentar um vertice solto.
+          if (modoQuadraRef.current) {
+            pegarQuadraRef.current(ponto)
+
+            return
+          }
 
           if (!editorRef.current.ativo) {
             editorRef.current.abrir(gmap.current, [ponto], corAtual.current)
@@ -197,6 +223,61 @@ export function CercasTab() {
     setSelecionada(c.id)
   }
 
+  /**
+   * Fecha o quarteirao onde o operador clicou.
+   *
+   * Sem contorno aberto, a quadra VIRA o contorno; com contorno aberto, ela se
+   * SOMA ao que ja existe. E o que permite montar um setor clicando quadra a
+   * quadra, sem ter que decidir antes qual dos dois comportamentos se quer.
+   */
+  async function pegarQuadra(ponto: Ponto) {
+    try {
+      const quadra = await quadraMut.mutateAsync(ponto)
+      if (!quadra || quadra.length < 3) {
+        toast.error('Nao consegui fechar a quadra aqui — as ruas em volta podem nao estar mapeadas.')
+
+        return
+      }
+
+      if (!editorRef.current.ativo) {
+        editorRef.current.abrir(gmap.current, quadra, corAtual.current)
+        setTemRascunho(true)
+      } else {
+        editorRef.current.unir(quadra)
+      }
+      toast.success('Quadra adicionada — clique em outra para somar, ou ajuste os pontos.')
+    } catch {
+      toast.error('Nao foi possivel consultar a malha de ruas.')
+    }
+  }
+  pegarQuadraRef.current = pegarQuadra
+
+  /**
+   * A vareta magica: encaixa o contorno da cerca nas ruas.
+   *
+   * Abre a cerca em edicao com o traçado sugerido JA aplicado, mas nao grava —
+   * o operador confere no mapa e salva (ou cancela). Um encaixe ruim nunca
+   * entra sozinho no geofencing, e Ctrl+Z devolve o contorno original.
+   */
+  async function aplicarVareta(c: Cerca) {
+    try {
+      const ajustado = await ajusteMut.mutateAsync(c.id)
+      if (!ajustado || ajustado.length < 3) {
+        toast.error('Nao foi possivel ajustar este contorno.')
+
+        return
+      }
+
+      abrirEdicao(c)
+      // Depois de `abrirEdicao`, que ja abriu o contorno original: substituir
+      // entra como UM passo no historico, entao Ctrl+Z volta ao que era.
+      editorRef.current.substituir(ajustado)
+      toast.success('Contorno encaixado nas ruas — confira e salve, ou Ctrl+Z para voltar.')
+    } catch {
+      toast.error('Nao foi possivel ajustar o contorno.')
+    }
+  }
+
   function limparRascunho() {
     editor.fechar()
     setTemRascunho(false)
@@ -228,6 +309,7 @@ export function CercasTab() {
     limparRascunho()
     corAtual.current = CORES[0]
     modoDesenho.current = true
+    setModoQuadra(false)
   }
 
   function abrirEdicao(c: Cerca) {
@@ -290,6 +372,7 @@ export function CercasTab() {
     setEditando(null)
     setForm({ descricao: '', cor: CORES[0], cidade_id: null, cidadeLabel: null })
     modoDesenho.current = false
+    setModoQuadra(false)
   }
 
   /**
@@ -340,7 +423,18 @@ export function CercasTab() {
           <div ref={mapRef} className="h-[560px] w-full rounded-lg" />
           {erroMapa && <div className="absolute inset-0 grid place-items-center bg-card/80 p-4 text-center text-sm text-destructive">{erroMapa}</div>}
           {podeEditar && pronto && !editandoAlgo && (
-            <Button className="absolute left-3 top-3 shadow-md" onClick={iniciarDesenho}><Plus size={16} /> Desenhar cerca</Button>
+            <div className="absolute left-3 top-3 flex gap-2">
+              <Button className="shadow-md" onClick={iniciarDesenho}><Plus size={16} /> Desenhar cerca</Button>
+              {/* Comeca ja no modo quadra: o primeiro clique fecha o
+                  quarteirao em vez de largar um vertice solto. */}
+              <Button
+                variant="secondary" className="shadow-md"
+                onClick={() => { iniciarDesenho(); setModoQuadra(true) }}
+                title="Clique dentro de uma quadra e o contorno fecha pelas ruas em volta"
+              >
+                <Blocks size={16} /> Selecionar quadras
+              </Button>
+            </div>
           )}
 
           {/* Barra de ferramentas do editor: só aparece com contorno aberto. */}
@@ -353,6 +447,19 @@ export function CercasTab() {
               <Button variant="ghost" size="icon" title="Refazer (Ctrl+Y)"
                 disabled={!podeRefazer} onClick={() => editor.refazer()}>
                 <Redo2 size={16} />
+              </Button>
+              <div className="mx-1 w-px bg-border" />
+
+              {/* Modo quadra: enquanto ligado, cada clique no mapa soma um
+                  quarteirao. Fica na barra como interruptor porque o gesto
+                  muda o significado do clique, e isso precisa ficar visivel. */}
+              <Button
+                variant={modoQuadra ? 'default' : 'ghost'} size="sm" className="h-8 text-xs"
+                onClick={() => setModoQuadra((v) => !v)}
+                loading={quadraMut.isPending}
+                title="Clique dentro de uma quadra e ela e somada ao contorno"
+              >
+                <Blocks size={15} /> Quadra
               </Button>
               <div className="mx-1 w-px bg-border" />
 
@@ -396,7 +503,9 @@ export function CercasTab() {
           {/* Dica do gesto: sem isto ninguém descobre o duplo clique. */}
           {editandoAlgo && vertices >= 2 && (
             <div className="absolute right-3 top-3 rounded-md bg-card/95 px-3 py-1.5 text-[11px] text-muted-foreground shadow-md">
-              Arraste um ponto para moldar · duplo clique alterna curva e canto
+              {modoQuadra
+                ? 'Clique dentro de uma quadra para somá-la ao contorno'
+                : 'Arraste um ponto para moldar · duplo clique alterna curva e canto'}
             </div>
           )}
 
@@ -439,10 +548,26 @@ export function CercasTab() {
             {!temRascunho ? (
               <div className="space-y-1 rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">Como desenhar</p>
-                <p>1. Clique no mapa em cada esquina do contorno.</p>
-                <p>2. Arraste os pinos numerados para ajustar.</p>
-                <p>3. Arraste um ponto branco (no meio da linha) para inserir vértice.</p>
-                <p>4. Duplo clique num pino remove aquele vértice.</p>
+                {modoQuadra ? (
+                  <>
+                    <p>1. Clique DENTRO de uma quadra — o contorno fecha pelas ruas em volta.</p>
+                    <p>2. Clique em outra quadra para somá-la ao setor.</p>
+                    <p>3. Desligue “Quadra” na barra para ajustar ponto a ponto.</p>
+                    <p className="text-muted-foreground">
+                      Quadra sem ruas mapeadas não fecha — nesse trecho, desenhe à mão.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>1. Clique no mapa em cada esquina do contorno.</p>
+                    <p>2. Arraste os pinos numerados para ajustar.</p>
+                    <p>3. Arraste um ponto branco (no meio da linha) para inserir vértice.</p>
+                    <p>4. Duplo clique num pino remove aquele vértice.</p>
+                    <p className="text-muted-foreground">
+                      Ou use “Quadra” na barra para fechar quarteirões pelas ruas.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-1 rounded-md bg-secondary/60 p-3 text-xs">
@@ -493,6 +618,58 @@ export function CercasTab() {
                 </span>
               )}
             </div>
+
+            {/* Conferencia de sobreposicao. Mede AREA comum, nao vertices: duas
+                cercas vizinhas compartilham a divisa de proposito, e contar
+                vertice acusaria todo par bem desenhado. Cerca-mae englobando
+                setor tambem nao entra — e desenho deliberado. */}
+            {!carregandoConflitos && (cercas?.length ?? 0) > 1 && (
+              conflitos && conflitos.length > 0 ? (
+                <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2">
+                  <button
+                    onClick={() => setVerConflitos((v) => !v)}
+                    className="flex w-full items-center gap-2 text-left text-xs font-medium"
+                  >
+                    <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+                    <span>
+                      {conflitos.length} {conflitos.length > 1 ? 'pares se sobrepoem' : 'par se sobrepoe'}
+                    </span>
+                    <ChevronRight
+                      size={13}
+                      className={`ml-auto shrink-0 transition-transform ${verConflitos ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+                  {verConflitos && (
+                    <ul className="mt-2 space-y-1.5">
+                      {conflitos.map((k) => (
+                        <li key={`${k.a}-${k.b}`} className="text-xs">
+                          <button
+                            className="text-left hover:underline"
+                            onClick={() => {
+                              const alvo = cercas?.find((c) => c.id === k.a)
+                              if (alvo) focarCerca(alvo)
+                            }}
+                            title="Ver no mapa"
+                          >
+                            <span className="font-medium">{k.descricao_a}</span>
+                            <span className="text-muted-foreground"> x </span>
+                            <span className="font-medium">{k.descricao_b}</span>
+                            <span className="text-muted-foreground">
+                              {' '}— {Math.round(k.fracao * 100)}% de area comum
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="mb-3 flex items-center gap-2 rounded-md bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+                  <Check size={14} className="shrink-0" />
+                  Nenhuma cerca se sobrepoe.
+                </div>
+              )
+            )}
             {(cercas?.length ?? 0) > 6 && (
               <Input
                 value={filtro} onChange={(e) => setFiltro(e.target.value)}
@@ -546,6 +723,14 @@ export function CercasTab() {
                             {podeEditar && (
                               <div className="flex shrink-0">
                                 <Button variant="ghost" size="icon" title="Editar" onClick={() => abrirEdicao(c)}><Pencil size={15} /></Button>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  title="Ajustar o contorno as ruas (confira antes de salvar)"
+                                  loading={ajusteMut.isPending && ajusteMut.variables === c.id}
+                                  onClick={() => aplicarVareta(c)}
+                                >
+                                  <Wand2 size={15} />
+                                </Button>
                                 <Button variant="ghost" size="icon" title="Duplicar" onClick={() => duplicar(c)}><Copy size={15} /></Button>
                                 <Button variant="ghost" size="icon" title="Excluir" onClick={() => setExcluindo(c)}><Trash2 size={15} /></Button>
                               </div>

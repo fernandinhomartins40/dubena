@@ -113,6 +113,11 @@ return [
         // Desligado por padrão: quem liga aceita o custo da primeira apuração
         // de cada trecho novo.
         'snap_vias' => env('MONITORA_SNAP_VIAS', false),
+        // Malha viária do OpenStreetMap para as ferramentas assistidas de
+        // cerca. Gratuita e sem cota, mas é serviço comunitário: fica desligada
+        // por padrão para a suíte nunca sair para a rede, e o cache no banco
+        // evita repetir consulta.
+        'malha_viaria' => env('MONITORA_MALHA_VIARIA', false),
     ],
     'sgcasa' => [
         'url' => env('SGCASA_API_URL'),

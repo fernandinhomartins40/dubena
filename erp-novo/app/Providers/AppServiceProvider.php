@@ -27,9 +27,13 @@ use App\Domain\Mobile\Drivers\FcmV1Transport;
 use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Contracts\AjustadorDeVia;
+use App\Domain\Monitora\Contracts\MalhaViaria;
 use App\Domain\Monitora\Drivers\AjustadorCacheado;
 use App\Domain\Monitora\Drivers\FakeAjustadorDeVia;
+use App\Domain\Monitora\Drivers\FakeMalhaViaria;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
+use App\Domain\Monitora\Drivers\MalhaCacheada;
+use App\Domain\Monitora\Drivers\OverpassMalha;
 use App\Domain\Monitora\Drivers\RoadsApiAjustador;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Monitora\Drivers\TraccarDriver;
@@ -222,6 +226,18 @@ class AppServiceProvider extends ServiceProvider
                 : $this->app->make(FakeAjustadorDeVia::class);
 
             return new AjustadorCacheado($interno);
+        });
+
+        // Malha viaria (OpenStreetMap) — sustenta o fechamento de quadra e a
+        // conferencia de contorno na aba Cercas. A Roads API do Google nao
+        // serve aqui: ela encaixa linha existente, mas nao devolve a malha, e
+        // sem a malha nao ha como saber quais ruas cercam um ponto.
+        $this->app->singleton(MalhaViaria::class, function () {
+            $interno = config('services.monitora.malha_viaria')
+                ? $this->app->make(OverpassMalha::class)
+                : $this->app->make(FakeMalhaViaria::class);
+
+            return new MalhaCacheada($interno);
         });
     }
 

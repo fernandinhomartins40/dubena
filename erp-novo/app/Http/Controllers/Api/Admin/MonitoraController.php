@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Monitora\CercasInteligentesService;
 use App\Domain\Monitora\MonitoraService;
 use App\Domain\Monitora\MonitoraSyncService;
 use App\Domain\Monitora\RelatorioMonitoraService;
@@ -32,6 +33,7 @@ class MonitoraController extends Controller
         private RelatorioMonitoraService $relatorio,
         private RelatorioService $exportador,
         private ViagensService $viagens,
+        private CercasInteligentesService $inteligentes,
     ) {}
 
     public function veiculos(Request $request): JsonResponse
@@ -358,6 +360,76 @@ class MonitoraController extends Controller
         Cerca::query()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Cerca excluída.']);
+    }
+
+    /**
+     * POST /monitora/cercas/quadra — contorno do quarteirão em volta de um ponto.
+     *
+     * Sugestão, não gravação: devolve o contorno para a tela desenhar e o
+     * operador aceitar. É o "selecionar quadra" — clicar dentro e o sistema
+     * fecha pelas ruas ao redor.
+     */
+    public function quadraDaCerca(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        $d = $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+
+        $quadra = $this->inteligentes->quadra((float) $d['latitude'], (float) $d['longitude']);
+
+        if ($quadra === null) {
+            return response()->json([
+                'data' => null,
+                'message' => 'Não foi possível fechar a quadra aqui — as ruas em volta podem não estar mapeadas.',
+            ]);
+        }
+
+        return response()->json(['data' => $quadra]);
+    }
+
+    /**
+     * POST /monitora/cercas/{id}/ajustar — prévia do contorno encaixado nas ruas.
+     *
+     * A "vareta mágica". NÃO grava: devolve o traçado sugerido para a tela
+     * mostrar por cima do atual. Quem aceita salva pelo fluxo normal de edição,
+     * e assim um encaixe ruim nunca entra sozinho no geofencing.
+     */
+    public function ajustarCerca(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.edit');
+        $cerca = Cerca::query()->with('pontos')->findOrFail($id);
+
+        $contorno = $cerca->pontos->map(
+            fn ($p) => ['lat' => (float) $p->latitude, 'lng' => (float) $p->longitude]
+        )->all();
+
+        $ajustado = $this->inteligentes->ajustar($contorno);
+
+        if ($ajustado === null) {
+            return response()->json([
+                'data' => null,
+                'message' => 'Não foi possível ajustar este contorno.',
+            ]);
+        }
+
+        return response()->json(['data' => $ajustado]);
+    }
+
+    /**
+     * GET /monitora/cercas/conflitos — pares de cercas disputando território.
+     *
+     * Ignora cerca-mãe englobando setores e divisa compartilhada: nenhum dos
+     * dois é defeito. Sobra o que precisa de decisão humana.
+     */
+    public function conflitosDeCerca(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+
+        return response()->json([
+            'data' => $this->inteligentes->conflitos(Cerca::query()->with('pontos')->get()),
+        ]);
     }
 
     /**

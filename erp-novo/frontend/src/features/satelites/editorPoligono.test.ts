@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  areaKm2, meio, metrosEntre, perimetroKm, simplificar, tracado, type No, type Ponto,
+  areaKm2, cascoConvexo, meio, metrosEntre, perimetroKm, simplificar, tracado,
+  type No, type Ponto,
 } from './editorPoligono'
 
 /**
@@ -165,5 +166,47 @@ describe('meio', () => {
     const m = meio(QUADRADO[0], QUADRADO[1])
     expect(m.lng).toBeCloseTo((QUADRADO[0].lng + QUADRADO[1].lng) / 2, 9)
     expect(m.lat).toBeCloseTo(QUADRADO[0].lat, 9)
+  })
+})
+
+describe('cascoConvexo', () => {
+  it('descarta o ponto interno e mantem os quatro cantos', () => {
+    const casco = cascoConvexo([
+      { lat: 0, lng: 0 },
+      { lat: 0, lng: 2 },
+      { lat: 2, lng: 2 },
+      { lat: 2, lng: 0 },
+      // No meio: nao pode sobreviver, senao a uniao de quadras acumularia
+      // pontos internos inuteis a cada clique.
+      { lat: 1, lng: 1 },
+    ])
+
+    expect(casco).toHaveLength(4)
+    expect(casco.some((p) => p.lat === 1 && p.lng === 1)).toBe(false)
+  })
+
+  it('une duas quadras vizinhas cobrindo as duas', () => {
+    const a = [
+      { lat: 0, lng: 0 }, { lat: 0, lng: 1 }, { lat: 1, lng: 1 }, { lat: 1, lng: 0 },
+    ]
+    const b = [
+      { lat: 0, lng: 1 }, { lat: 0, lng: 2 }, { lat: 1, lng: 2 }, { lat: 1, lng: 1 },
+    ]
+
+    const uniao = cascoConvexo([...a, ...b])
+
+    // A area precisa ser a soma das duas: uniao que perde metade do territorio
+    // seria pior que nao unir.
+    const lats = uniao.map((p) => p.lat)
+    const lngs = uniao.map((p) => p.lng)
+    expect(Math.min(...lngs)).toBe(0)
+    expect(Math.max(...lngs)).toBe(2)
+    expect(Math.min(...lats)).toBe(0)
+    expect(Math.max(...lats)).toBe(1)
+  })
+
+  it('devolve o proprio conjunto quando ha tres pontos ou menos', () => {
+    const tri = [{ lat: 0, lng: 0 }, { lat: 0, lng: 1 }, { lat: 1, lng: 0 }]
+    expect(cascoConvexo(tri)).toEqual(tri)
   })
 })

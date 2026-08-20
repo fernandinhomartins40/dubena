@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import {
-  areaKm2, meio, metrosEntre, perimetroKm, simplificar, tracado, type No, type Ponto,
+  areaKm2, cascoConvexo, meio, metrosEntre, perimetroKm, simplificar, tracado,
+  type No, type Ponto,
 } from './editorPoligono'
 
 /**
@@ -398,6 +399,38 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
   }, [lerNos, aplicar])
 
   /**
+   * Substitui o contorno inteiro por outro — as ferramentas assistidas.
+   *
+   * Entra no historico como UM passo: Ctrl+Z devolve o contorno anterior
+   * inteiro, que e o que se espera de "apliquei a sugestao e nao gostei".
+   *
+   * Os nos entram como CANTO porque o contorno sugerido ja chega denso e com a
+   * forma final — quadra fechada pelas ruas, ou traçado encaixado pela Roads
+   * API. Marca-los como lisos arquearia por cima de uma geometria que ja esta
+   * certa, justamente o defeito que a ferramenta veio corrigir.
+   */
+  const substituir = useCallback((pontos: Ponto[]) => {
+    if (pontos.length < 3) return
+    aplicar(pontos.map((p) => ({ lat: p.lat, lng: p.lng, liso: false })))
+  }, [aplicar])
+
+  /**
+   * Soma um contorno ao que ja existe — montar setor clicando quadra a quadra.
+   *
+   * A uniao e feita pelo CASCO CONVEXO das duas areas. E aproximacao: um setor
+   * em L fica com o canto preenchido. Escolhida mesmo assim porque a alternativa
+   * seria trazer um clipper de poligonos inteiro para o navegador, e o operador
+   * tem os pontos na mao para corrigir o canto — enquanto uniao errada de
+   * geometria ele nao teria como consertar.
+   */
+  const unir = useCallback((pontos: Ponto[]) => {
+    if (pontos.length < 3) return
+    if (nos.current.length < 3) { substituir(pontos); return }
+    const juntos = [...lerNos().map(({ lat, lng }) => ({ lat, lng })), ...pontos]
+    aplicar(cascoConvexo(juntos).map((p) => ({ ...p, liso: false })))
+  }, [aplicar, lerNos, substituir])
+
+  /**
    * Remove nós que quase não mudam a linha.
    *
    * Só considera a posição: um nó liso removido leva junto a sua curvatura, o
@@ -425,6 +458,8 @@ export function useEditorCerca({ vizinhos, snapMetros = 30 }: Opcoes) {
     curvarTudo,
     retificarTudo,
     simplificarContorno,
+    substituir,
+    unir,
     /** Há contorno aberto para edição? */
     get ativo() { return poligono.current !== null },
   }

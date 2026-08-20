@@ -521,6 +521,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('monitora/cercas', [MonitoraController::class, 'criarCerca']);
         Route::put('monitora/cercas/{id}', [MonitoraController::class, 'atualizarCerca'])->whereNumber('id');
         Route::delete('monitora/cercas/{id}', [MonitoraController::class, 'excluirCerca'])->whereNumber('id');
+        // Ferramentas assistidas da aba Cercas. Todas SUGEREM — nenhuma grava:
+        // o operador confere no mapa e salva pelo fluxo normal de edicao.
+        Route::get('monitora/cercas/conflitos', [MonitoraController::class, 'conflitosDeCerca']);
+        Route::post('monitora/cercas/quadra', [MonitoraController::class, 'quadraDaCerca']);
+        Route::post('monitora/cercas/{id}/ajustar', [MonitoraController::class, 'ajustarCerca'])->whereNumber('id');
         Route::post('monitora/sync', [MonitoraController::class, 'sincronizar']);
 
         // ── Central de Logística (L1/L3) — fila, distribuição, bloqueio ──
