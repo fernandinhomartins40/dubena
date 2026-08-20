@@ -17,11 +17,17 @@ use Illuminate\Support\Collection;
  * lista de trechos — saiu às 08:12 da base, chegou às 08:31 no bairro tal — e
  * cada um pode ser desenhado sozinho.
  *
- * **O traçado passa pelo Google só onde precisa.** A frota tem dois perfis de
- * rastreador: o que reporta a cada 10 s deixa 80–100 m entre posições, e ali a
- * reta já segue a rua; o que reporta a cada 2 MINUTOS deixa ~937 m, e a reta
- * atravessa quadras inteiras. Só o segundo caso vai para a Roads API, sempre
- * atrás do cache de `monitora_vias_cache`.
+ * **O traçado é encaixado nas ruas pela Roads API**, sempre atrás do cache de
+ * `monitora_vias_cache`. A frota tem dois perfis de rastreador — um reporta a
+ * cada 10 s (80–100 m entre posições), outro a cada 2 MINUTOS (~937 m) — e
+ * mesmo o primeiro corta quadra em rua urbana: numa quadra de 100 m, uma reta
+ * de 120 m já atravessa. Por isso toda viagem vai para o encaixe.
+ *
+ * A ordem das etapas é o que faz funcionar, e cada inversão dela custou um
+ * diagnóstico errado: limpa o vaivém do GPS → encaixa com o dado COMPLETO (a
+ * API precisa dos vizinhos para escolher a via) → limpa o que o encaixe
+ * introduziu. Nada de reduzir pontos depois: o resultado da API é uma sequência
+ * colinear sobre a rua, e o simplificador a descartava inteira.
  *
  * O resultado é gravado em `monitora_viagens_cache`: apurar viagens varre todas
  * as posições do dia, e a mesma consulta repetida (é a tela que o dono deixa
@@ -249,19 +255,21 @@ class ViagensService
             // 95 m no traçado entregue.
             // A ORDEM importa e foi a causa dos desvios que sobravam.
             //
-            // `reduzir` rodava ANTES do encaixe, e assim eu descartava os
-            // pontos que dariam contexto à API — depois pedia que ela
-            // adivinhasse o caminho entre o que restou. Medido no trecho com o
-            // pior desvio: com as posições cruas, 14 pontos viram 114 e a
-            // posição real fica a 3 m do traçado; com o caminho já reduzido,
-            // ficava a 175 m.
+            // `reduzir` rodava ANTES do encaixe: eu descartava os pontos que
+            // dariam contexto à API e depois pedia que ela adivinhasse o
+            // caminho entre o que restou. Medido: com as posições cruas, 14
+            // pontos viram 114 e a posição real fica a 3 m do traçado; já
+            // reduzido, ficava a 175 m.
             //
-            // Agora: limpa o vaivém do GPS → encaixa nas ruas com o dado
-            // completo → limpa o que o encaixe introduziu → reduz por último,
-            // já sobre a linha certa.
-            'caminho' => $this->reduzir(
-                $this->limparVaivem($this->encaixarNasVias($this->limparVaivem($caminho)))
-            ),
+            // E `reduzir` saiu de vez do caminho encaixado. O RDP com 12 m de
+            // tolerância descarta pontos colineares — e o resultado da Roads
+            // API é exatamente isso: uma sequência de pontos sobre a reta da
+            // rua. Ele desfazia o encaixe que a chamada acabou de pagar (1.006
+            // pontos viravam 71, e a linha voltava a cortar quadra).
+            //
+            // O tamanho fica controlado pelo próprio encaixe, que já devolve o
+            // traçado da via — e pelo cache, que evita repetir a apuração.
+            'caminho' => $this->limparVaivem($this->encaixarNasVias($this->limparVaivem($caminho))),
         ];
     }
 
