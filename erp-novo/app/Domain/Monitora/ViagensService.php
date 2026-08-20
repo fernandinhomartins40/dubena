@@ -311,22 +311,16 @@ class ViagensService
             return $caminho;
         }
 
-        // Vale a pena chamar? Se o percurso inteiro já tem os pontos juntos, a
-        // linha reta entre eles segue a rua e não há o que encaixar.
-        $precisa = false;
-        for ($i = 1; $i < $total; $i++) {
-            $salto = $this->kmEntre(
-                $caminho[$i - 1]['lat'], $caminho[$i - 1]['lng'],
-                $caminho[$i]['lat'], $caminho[$i]['lng'],
-            ) * 1000;
-            if ($salto > self::SALTO_QUE_CORTA_QUARTEIRAO && $salto <= self::SALTO_SEM_SOLUCAO) {
-                $precisa = true;
-                break;
-            }
-        }
-        if (! $precisa) {
-            return $caminho;
-        }
+        // TODA viagem vai para o encaixe, sem gatilho de salto mínimo.
+        //
+        // O gatilho de 150 m era o que sobrava dos desvios: medido na frota,
+        // quase nenhuma viagem urbana tem salto desse tamanho — os maiores são
+        // 120-229 m — então quase nada era encaixado, e os desvios de até 175 m
+        // ficavam justamente ABAIXO do corte. Numa quadra de 100 m, uma reta de
+        // 120 m já atravessa.
+        //
+        // O custo é baixo porque o cache absorve: ~15 chamadas na primeira
+        // apuração de cada dia, e a revenda repete as mesmas ruas.
 
         // A viagem vai INTEIRA, em blocos contínuos — e não salto por salto.
         // Era esse o erro: mandando dois pontos isolados, a API não sabe de que

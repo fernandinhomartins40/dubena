@@ -434,12 +434,14 @@ class ViagensRotaTest extends TestCase
     }
 
     /**
-     * Trecho com salto grande e o unico que deve custar chamada.
+     * Toda viagem vai para o encaixe.
      *
-     * Onde as posicoes estao a 80 m uma da outra a reta ja segue a rua; gastar
-     * chamada ali seria pagar para consertar o que nao esta quebrado.
+     * O gatilho de salto minimo foi removido por decisao do dono: medido na
+     * frota, quase nenhuma viagem urbana tem salto acima de 150m, entao o
+     * gatilho deixava passar justamente os desvios de ate 175m que apareciam
+     * na tela. Numa quadra de 100m, uma reta de 120m ja atravessa.
      */
-    public function test_so_trechos_com_salto_grande_vao_para_a_roads_api(): void
+    public function test_toda_viagem_vai_para_o_encaixe(): void
     {
         [, $veiculo] = $this->cenario();
         $fake = new FakeAjustadorDeVia;
@@ -456,7 +458,7 @@ class ViagensRotaTest extends TestCase
 
         app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
 
-        $this->assertSame(0, $fake->chamadas, 'trecho denso nao precisa de encaixe — e chamada paga a toa');
+        $this->assertGreaterThan(0, $fake->chamadas, 'a viagem nao foi encaixada');
     }
 
     /** O salto de ~1 km (rastreador de 2 min) precisa do encaixe. */
@@ -628,8 +630,15 @@ class ViagensRotaTest extends TestCase
         unset($recebido);
     }
 
-    /** Vao enorme (horas sem sinal) nao vai para a API: o palpite arrastaria a rota errada. */
-    public function test_salto_gigante_nao_vai_para_a_api(): void
+    /**
+     * Vao enorme continua sendo enviado, mas SEM pistas inventadas.
+     *
+     * Com o gatilho removido a viagem inteira vai para a API. O que o teto de
+     * 5 km ainda protege e a densificacao: acima disso os pontos artificiais
+     * sobre a reta poderiam arrastar o resultado para a rua errada, entao o
+     * vao segue cru e a API decide o que consegue.
+     */
+    public function test_vao_gigante_nao_recebe_pistas_inventadas(): void
     {
         [, $veiculo] = $this->cenario();
         $fake = new FakeAjustadorDeVia;
@@ -643,7 +652,10 @@ class ViagensRotaTest extends TestCase
 
         app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
 
-        $this->assertSame(0, $fake->chamadas);
+        // Vai para a API (sem gatilho), mas com os 2 pontos crus: sem pistas
+        // artificiais no meio de um vao de 11 km.
+        $this->assertSame(1, $fake->chamadas);
+        $this->assertLessThanOrEqual(2, count($fake->ultimoBloco ?? [null, null]));
     }
 
     /**
