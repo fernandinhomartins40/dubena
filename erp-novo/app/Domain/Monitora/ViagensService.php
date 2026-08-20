@@ -311,59 +311,62 @@ class ViagensService
             return $caminho;
         }
 
-        $saida = [$caminho[0]];
-
+        // Vale a pena chamar? Se o percurso inteiro já tem os pontos juntos, a
+        // linha reta entre eles segue a rua e não há o que encaixar.
+        $precisa = false;
         for ($i = 1; $i < $total; $i++) {
-            $anterior = $caminho[$i - 1];
-            $atual = $caminho[$i];
-            $salto = $this->kmEntre($anterior['lat'], $anterior['lng'], $atual['lat'], $atual['lng']) * 1000;
+            $salto = $this->kmEntre(
+                $caminho[$i - 1]['lat'], $caminho[$i - 1]['lng'],
+                $caminho[$i]['lat'], $caminho[$i]['lng'],
+            ) * 1000;
+            if ($salto > self::SALTO_QUE_CORTA_QUARTEIRAO && $salto <= self::SALTO_SEM_SOLUCAO) {
+                $precisa = true;
+                break;
+            }
+        }
+        if (! $precisa) {
+            return $caminho;
+        }
 
-            // Nem toda reta longa vale uma chamada: abaixo do piso a linha ja
-            // segue a rua, e acima do teto o Google desiste e devolve a mesma
-            // reta — pagar nos dois casos e desperdicio.
-            if ($salto <= self::SALTO_QUE_CORTA_QUARTEIRAO || $salto > self::SALTO_SEM_SOLUCAO) {
-                $saida[] = $atual;
+        // A viagem vai INTEIRA, em blocos contínuos — e não salto por salto.
+        // Era esse o erro: mandando dois pontos isolados, a API não sabe de que
+        // rua o veículo veio nem para onde vai, e gruda em transversais
+        // alternadas (medido: 2 pontos devolviam 8 pulando entre ruas; os
+        // mesmos 2 com dois vizinhos devolviam 21 corretos). Contexto é o que
+        // ela precisa para escolher a via certa.
+        // Densifica antes de fatiar: um salto de 1,8 km continua sem pistas
+        // mesmo dentro de um bloco, e a API desiste dele (medido: 2 pontos
+        // devolvem 2). Os intermediários são chutes sobre a reta e servem de
+        // direção geral.
+        $comPistas = $this->densificar($caminho);
 
-                continue;
+        $saida = [];
+        foreach (array_chunk($comPistas, self::PONTOS_POR_CHAMADA) as $indice => $bloco) {
+            // Sem encaixe, volta o bloco SEM as pistas: elas são chutes sobre
+            // a reta e só existem para orientar a API. Guardá-las seria gravar
+            // posições inventadas como se o veículo tivesse passado por elas.
+            $ajustado = count($bloco) >= 2 ? $this->vias->ajustar($bloco) : null;
+            $trecho = $ajustado ?? array_values(array_filter(
+                $bloco,
+                fn ($p) => ! isset($p['pista']),
+            ));
+
+            // O primeiro ponto do bloco seguinte é a continuação do anterior:
+            // sem descartar, a emenda ganharia um ponto repetido.
+            if ($indice > 0 && $trecho !== []) {
+                array_shift($trecho);
             }
 
-            // Junta saltos consecutivos numa chamada só: num trecho de rodovia
-            // eles vêm em sequência, e uma chamada por par desperdiçaria cota.
-            $bloco = [$anterior, $atual];
-            // O bloco sera DENSIFICADO antes de ir para a API, entao o limite
-            // aqui e menor: cada salto vira varios pontos, e passar de 100 na
-            // chamada faria a API recusar tudo.
-            while ($i + 1 < $total && count($bloco) < 8) {
-                $proximo = $this->kmEntre(
-                    $caminho[$i]['lat'], $caminho[$i]['lng'],
-                    $caminho[$i + 1]['lat'], $caminho[$i + 1]['lng'],
-                ) * 1000;
-                if ($proximo <= self::SALTO_QUE_CORTA_QUARTEIRAO || $proximo > self::SALTO_SEM_SOLUCAO) {
-                    break;
-                }
-                $i++;
-                $bloco[] = $caminho[$i];
-            }
-
-            $ajustado = $this->vias->ajustar($this->densificar($bloco));
-            if ($ajustado === null) {
-                // Sem o primeiro ponto: ele já está na saída.
-                array_shift($bloco);
-                foreach ($bloco as $p) {
-                    $saida[] = $p;
-                }
-
-                continue;
-            }
-
-            // O ajustado começa no mesmo lugar do último já gravado.
-            array_shift($ajustado);
-            foreach ($ajustado as $p) {
+            foreach ($trecho as $p) {
                 $saida[] = $p;
             }
         }
 
-        return $saida;
+        // A marca de pista é interna: o que sai daqui é coordenada pura.
+        return array_map(
+            fn ($p) => ['lat' => $p['lat'], 'lng' => $p['lng']],
+            $saida,
+        );
     }
 
     /**
@@ -479,6 +482,9 @@ class ViagensService
                 $saida[] = [
                     'lat' => $a['lat'] + ($b['lat'] - $a['lat']) * $t,
                     'lng' => $a['lng'] + ($b['lng'] - $a['lng']) * $t,
+                    // Marca de ponto inventado: se o encaixe falhar, ele não
+                    // pode ficar no traçado fingindo ser posição real.
+                    'pista' => true,
                 ];
                 // A API recusa acima de 100 pontos; parar aqui e melhor que
                 // perder a chamada inteira.
