@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Monitora\Contracts\AjustadorDeVia;
+use App\Domain\Monitora\Drivers\AjustadorCacheado;
+use App\Domain\Monitora\Drivers\FakeAjustadorDeVia;
 use App\Domain\Monitora\ViagensService;
+use App\Models\Monitora\ViaCache;
 use App\Models\Empresa;
 use App\Models\Monitora\Veiculo;
 use App\Models\Monitora\ViagemCache;
@@ -427,5 +431,155 @@ class ViagensRotaTest extends TestCase
 
         $this->assertLessThan(60.0, $piorDesvio,
             "o tracado se afastou {$piorDesvio}m do percurso real — esta cortando caminho");
+    }
+
+    /**
+     * Trecho com salto grande e o unico que deve custar chamada.
+     *
+     * Onde as posicoes estao a 80 m uma da outra a reta ja segue a rua; gastar
+     * chamada ali seria pagar para consertar o que nao esta quebrado.
+     */
+    public function test_so_trechos_com_salto_grande_vao_para_a_roads_api(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        // Percurso denso: 80 m entre posicoes, nenhum salto.
+        $pontos = [];
+        $base = Carbon::parse('2026-08-10 08:00:00');
+        for ($k = 0; $k < 40; $k++) {
+            $pontos[] = [$base->copy()->addSeconds($k * 10)->format('H:i:s'),
+                -25.390 - ($k * 0.0007), -51.460, 40.0];
+        }
+        $this->posicoes($veiculo, $pontos);
+
+        app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertSame(0, $fake->chamadas, 'trecho denso nao precisa de encaixe — e chamada paga a toa');
+    }
+
+    /** O salto de ~1 km (rastreador de 2 min) precisa do encaixe. */
+    public function test_salto_grande_dispara_o_encaixe_nas_vias(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        // Duas posicoes a ~1,1 km — o caso real do veiculo que reporta a cada 2min.
+        $this->posicoes($veiculo, [
+            ['08:00:00', -25.3900, -51.4600, 40.0],
+            ['08:02:00', -25.4000, -51.4600, 40.0],
+            ['08:04:00', -25.4100, -51.4600, 40.0],
+        ]);
+
+        app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertGreaterThan(0, $fake->chamadas, 'salto de 1 km ficou como reta cortando quarteirao');
+    }
+
+    /**
+     * Falha do provedor degrada para a reta, nao quebra a apuracao.
+     *
+     * Tracado e degradacao aceitavel: distancia, horarios e paradas continuam
+     * corretos sem ele. Nao e dado financeiro para justificar fail-closed.
+     */
+    public function test_sem_encaixe_disponivel_a_viagem_continua_valida(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        $fake->resposta = null;
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        $this->posicoes($veiculo, [
+            ['08:00:00', -25.3900, -51.4600, 40.0],
+            ['08:02:00', -25.4000, -51.4600, 40.0],
+            ['08:04:00', -25.4100, -51.4600, 40.0],
+        ]);
+
+        $saida = app(ViagensService::class)->doVeiculo($veiculo, '2026-08-10', '2026-08-10');
+
+        $this->assertCount(1, $saida['viagens']);
+        $this->assertCount(3, $saida['viagens'][0]['caminho'], 'sem encaixe o caminho original tem de sobreviver');
+        $this->assertGreaterThan(2.0, $saida['viagens'][0]['distancia_km']);
+    }
+
+    /** O encaixe entra no lugar do salto — o buraco fica preenchido. */
+    public function test_encaixe_substitui_o_salto_pelo_caminho_das_ruas(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        // O provedor devolve o trecho preenchido ponto a ponto.
+        $fake->resposta = [
+            ['lat' => -25.3900, 'lng' => -51.4600],
+            ['lat' => -25.3925, 'lng' => -51.4601],
+            ['lat' => -25.3950, 'lng' => -51.4602],
+            ['lat' => -25.3975, 'lng' => -51.4601],
+            ['lat' => -25.4000, 'lng' => -51.4600],
+        ];
+        $this->app->instance(AjustadorDeVia::class, $fake);
+
+        $this->posicoes($veiculo, [
+            ['08:00:00', -25.3900, -51.4600, 40.0],
+            ['08:02:00', -25.4000, -51.4600, 40.0],
+        ]);
+
+        $caminho = app(ViagensService::class)
+            ->doVeiculo($veiculo, '2026-08-10', '2026-08-10')['viagens'][0]['caminho'];
+
+        $this->assertGreaterThan(2, count($caminho), 'o salto continuou sendo uma reta de 2 pontos');
+        // O ponto do meio devolvido pelo provedor tem de aparecer no tracado.
+        $achou = false;
+        foreach ($caminho as $p) {
+            if (abs($p['lat'] - (-25.3950)) < 1e-6) { $achou = true; break; }
+        }
+        $this->assertTrue($achou, 'o caminho das ruas nao entrou no tracado');
+    }
+
+    /**
+     * O cache e o que torna o snap-to-road viavel: a revenda repete as mesmas
+     * ruas todo dia, e trecho ja aprendido nao pode custar de novo.
+     */
+    public function test_trecho_ja_aprendido_nao_chama_o_provedor_de_novo(): void
+    {
+        [, $veiculo] = $this->cenario();
+        $fake = new FakeAjustadorDeVia;
+        $fake->resposta = [
+            ['lat' => -25.3900, 'lng' => -51.4600],
+            ['lat' => -25.3950, 'lng' => -51.4601],
+            ['lat' => -25.4000, 'lng' => -51.4600],
+        ];
+        $this->app->instance(AjustadorDeVia::class, new AjustadorCacheado($fake));
+
+        $trecho = [
+            ['lat' => -25.3900, 'lng' => -51.4600],
+            ['lat' => -25.4000, 'lng' => -51.4600],
+        ];
+        $cacheado = app(AjustadorDeVia::class);
+
+        $cacheado->ajustar($trecho);
+        $cacheado->ajustar($trecho);
+        $cacheado->ajustar($trecho);
+
+        $this->assertSame(1, $fake->chamadas, 'o mesmo trecho custou mais de uma chamada');
+        $this->assertSame(2, (int) ViaCache::query()->value('hits'));
+    }
+
+    /** Falha nao entra no cache: a proxima tentativa precisa consultar de novo. */
+    public function test_falha_do_provedor_nao_e_cacheada(): void
+    {
+        $fake = new FakeAjustadorDeVia;
+        $fake->resposta = null;
+        $cacheado = new AjustadorCacheado($fake);
+
+        $trecho = [
+            ['lat' => -25.3900, 'lng' => -51.4600],
+            ['lat' => -25.4000, 'lng' => -51.4600],
+        ];
+        $cacheado->ajustar($trecho);
+        $cacheado->ajustar($trecho);
+
+        $this->assertSame(2, $fake->chamadas);
+        $this->assertSame(0, ViaCache::query()->count());
     }
 }

@@ -109,6 +109,10 @@ return [
     // Driver de rastreamento GPS (N11/F12 — GATE). 'sgcasa' ativa o real; senão Fake.
     'monitora' => [
         'driver' => env('MONITORA_DRIVER', 'fake'),
+        // Encaixar o trajeto nas ruas via Roads API (paga, com cache no banco).
+        // Desligado por padrão: quem liga aceita o custo da primeira apuração
+        // de cada trecho novo.
+        'snap_vias' => env('MONITORA_SNAP_VIAS', false),
     ],
     'sgcasa' => [
         'url' => env('SGCASA_API_URL'),

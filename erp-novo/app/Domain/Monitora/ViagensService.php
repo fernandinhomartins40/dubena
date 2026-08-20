@@ -2,6 +2,7 @@
 
 namespace App\Domain\Monitora;
 
+use App\Domain\Monitora\Contracts\AjustadorDeVia;
 use App\Models\Monitora\Veiculo;
 use App\Models\Monitora\ViagemCache;
 use Carbon\Carbon;
@@ -27,6 +28,8 @@ use Illuminate\Support\Collection;
  */
 class ViagensService
 {
+    public function __construct(private AjustadorDeVia $vias) {}
+
     /**
      * Parada que encerra uma viagem (segundos).
      *
@@ -210,8 +213,92 @@ class ViagensService
             'origem' => ['lat' => (float) $primeiro->latitude, 'lng' => (float) $primeiro->longitude],
             'destino' => ['lat' => (float) $ultimo->latitude, 'lng' => (float) $ultimo->longitude],
             'pontos' => count($caminho),
-            'caminho' => $this->reduzir($caminho),
+            'caminho' => $this->encaixarNasVias($this->reduzir($caminho)),
         ];
+    }
+
+    /**
+     * Salto a partir do qual a reta entre duas posições vira corte de quarteirão.
+     *
+     * Medido na frota: o rastreador que reporta a cada 10 s deixa 82–104 m entre
+     * posições, e a linha reta ali segue a rua. O que reporta a cada 2 MINUTOS
+     * deixa ~937 m — quase 1 km de linha reta atravessando quadras. 150 m separa
+     * um caso do outro com folga.
+     */
+    private const SALTO_QUE_CORTA_QUARTEIRAO = 150.0;
+
+    /** Teto da Roads API por chamada. */
+    private const PONTOS_POR_CHAMADA = 100;
+
+    /**
+     * Encaixa nas ruas apenas os TRECHOS com salto grande.
+     *
+     * A Roads API cobra por chamada, e a maior parte do trajeto não precisa
+     * dela: onde as posições estão a 80 m uma da outra a reta já segue a rua.
+     * Gastar chamada no percurso inteiro seria pagar para consertar o que não
+     * está quebrado.
+     *
+     * O que sai daqui é o traçado com os buracos preenchidos; se o ajuste
+     * falhar (sem chave, API fora), devolve o original — linha reta é
+     * degradação aceitável, distância e horários não dependem disto.
+     *
+     * @param  list<array{lat:float,lng:float}>  $caminho
+     * @return list<array{lat:float,lng:float}>
+     */
+    private function encaixarNasVias(array $caminho): array
+    {
+        $total = count($caminho);
+        if ($total < 2) {
+            return $caminho;
+        }
+
+        $saida = [$caminho[0]];
+
+        for ($i = 1; $i < $total; $i++) {
+            $anterior = $caminho[$i - 1];
+            $atual = $caminho[$i];
+            $salto = $this->kmEntre($anterior['lat'], $anterior['lng'], $atual['lat'], $atual['lng']) * 1000;
+
+            if ($salto <= self::SALTO_QUE_CORTA_QUARTEIRAO) {
+                $saida[] = $atual;
+
+                continue;
+            }
+
+            // Junta saltos consecutivos numa chamada só: num trecho de rodovia
+            // eles vêm em sequência, e uma chamada por par desperdiçaria cota.
+            $bloco = [$anterior, $atual];
+            while (
+                $i + 1 < $total
+                && count($bloco) < self::PONTOS_POR_CHAMADA
+                && $this->kmEntre(
+                    $caminho[$i]['lat'], $caminho[$i]['lng'],
+                    $caminho[$i + 1]['lat'], $caminho[$i + 1]['lng'],
+                ) * 1000 > self::SALTO_QUE_CORTA_QUARTEIRAO
+            ) {
+                $i++;
+                $bloco[] = $caminho[$i];
+            }
+
+            $ajustado = $this->vias->ajustar($bloco);
+            if ($ajustado === null) {
+                // Sem o primeiro ponto: ele já está na saída.
+                array_shift($bloco);
+                foreach ($bloco as $p) {
+                    $saida[] = $p;
+                }
+
+                continue;
+            }
+
+            // O ajustado começa no mesmo lugar do último já gravado.
+            array_shift($ajustado);
+            foreach ($ajustado as $p) {
+                $saida[] = $p;
+            }
+        }
+
+        return $saida;
     }
 
     /**

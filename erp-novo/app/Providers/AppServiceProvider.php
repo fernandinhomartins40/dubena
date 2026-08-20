@@ -26,7 +26,11 @@ use App\Domain\Mobile\Drivers\FakePushTransport;
 use App\Domain\Mobile\Drivers\FcmV1Transport;
 use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
 use App\Domain\Monitora\Contracts\SgcasaDriver;
+use App\Domain\Monitora\Contracts\AjustadorDeVia;
+use App\Domain\Monitora\Drivers\AjustadorCacheado;
+use App\Domain\Monitora\Drivers\FakeAjustadorDeVia;
 use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
+use App\Domain\Monitora\Drivers\RoadsApiAjustador;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Monitora\Drivers\TraccarDriver;
 use App\Domain\Tenant\TenantContext;
@@ -205,6 +209,19 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return $this->app->make(FakeSgcasaDriver::class);
+        });
+
+        // Encaixe do trajeto nas ruas (Roads API), SEMPRE por tras do cache.
+        // Parte da frota reporta a cada 2 min — quase 1 km entre posicoes — e
+        // ligar isso em reta atravessa quarteirao. O cache e o que torna
+        // viavel: trecho ja aprendido nunca mais custa, e a revenda repete as
+        // mesmas ruas todo dia.
+        $this->app->singleton(AjustadorDeVia::class, function () {
+            $interno = config('services.monitora.snap_vias')
+                ? $this->app->make(RoadsApiAjustador::class)
+                : $this->app->make(FakeAjustadorDeVia::class);
+
+            return new AjustadorCacheado($interno);
         });
     }
 
