@@ -799,11 +799,16 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
             // F5 — extrato de remuneracao do proprio usuario (comissao/repasse).
             Route::get('extrato', [AppSolicitacaoController::class, 'extrato']);
 
+            // F8 — cupom em TEXTO para impressora termica. O servidor decide o
+            // conteudo; o app so transmite os bytes pela camada Bluetooth.
+            Route::get('pedidos/{id}/cupom', [AppSolicitacaoController::class, 'cupomPedido'])->whereNumber('id');
+
             // F6 — emissão fiscal em campo: SÓ o vendedor industrial. O papel
             // vem do vínculo do colaborador (AppAuthController::abilitiesDe).
             Route::middleware('approle:industrial')->prefix('fiscal')->group(function () {
                 Route::post('emitir', [AppFiscalController::class, 'emitir']);
                 Route::get('notas/{id}/danfe', [AppFiscalController::class, 'danfe'])->whereNumber('id');
+                Route::get('notas/{id}/cupom', [AppFiscalController::class, 'cupomNota'])->whereNumber('id');
             });
         });
     });

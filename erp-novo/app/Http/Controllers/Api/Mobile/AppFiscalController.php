@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Fiscal\CupomTextoService;
 use App\Domain\Fiscal\DanfePdfService;
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
@@ -73,6 +74,32 @@ class AppFiscalController extends Controller
         return response($danfe->gerar($nota), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="danfe-'.$nota->numero.'.pdf"',
+        ]);
+    }
+
+    /**
+     * GET /app/v1/entregador/fiscal/notas/{id}/cupom — DANFE em TEXTO (F8).
+     *
+     * Para impressora térmica: linhas de largura fixa, prontas para a camada
+     * Bluetooth do app. O servidor decide o conteúdo; o app só transmite os
+     * bytes — assim uma correção de layout não exige republicar APK.
+     *
+     * `largura` é parâmetro porque o parque tem impressoras de 32, 48 e 55
+     * colunas; o padrão é o 55 do MovelApp.
+     */
+    public function cupomNota(Request $request, int $id, CupomTextoService $cupom): JsonResponse
+    {
+        $d = $request->validate(['largura' => 'nullable|integer|min:24|max:96']);
+
+        $nota = NotaFiscal::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => [
+                'largura' => (int) ($d['largura'] ?? CupomTextoService::LARGURA_PADRAO),
+                'linhas' => $cupom->daNota($nota, (int) ($d['largura'] ?? CupomTextoService::LARGURA_PADRAO)),
+            ],
         ]);
     }
 }

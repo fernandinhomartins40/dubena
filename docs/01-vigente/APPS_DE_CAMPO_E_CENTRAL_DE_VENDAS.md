@@ -400,10 +400,17 @@ E revelou uma regra que ninguém aplicava:
 
 # PARTE II — O QUE FAZER
 
-> **Estado da implementação (2026-08-21).** F0, F1, F2, F3, F4, F6 e o backend de
-> F7 estão **implementados e testados**. Falta F5 (bloqueada por decisão de
-> negócio), a fila local do F7 no app, F8 (bloqueada pelo parque de impressoras)
-> e F9. Correções que a implementação impôs à Parte I estão marcadas em §4.8.
+> **Estado da implementação (2026-08-21).**
+>
+> | Fase | Situação |
+> |---|---|
+> | F0 ponte · F1 vínculo · F2 alçada · F3 Central · F4 solicitação · F6 NF-e | **completas** |
+> | F5 remuneração | **extrato entregue** — a pendência decide qual regra cadastrar, não impede o código |
+> | F7 offline | **backend + fila no app**; ocorrência/conclusão (multipart) seguem exigindo rede |
+> | F8 impressão | **conteúdo do cupom entregue** (`CupomTextoService`); falta a camada Bluetooth, que depende do parque |
+> | F9 desligar legados | não implementável — exige conferência em produção |
+>
+> 49 testes novos. Correções que a implementação impôs à Parte I estão em §4.8.
 
 
 ## 5. Arquitetura alvo

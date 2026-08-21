@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Fiscal\CupomTextoService;
 use App\Domain\Venda\CentralVendasService;
 use App\Domain\Venda\ExtratoRemuneracaoService;
 use App\Http\Controllers\Controller;
+use App\Models\Pedido\Pedido;
 use App\Models\Venda\PedidoSolicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -85,6 +87,32 @@ class AppSolicitacaoController extends Controller
                 $inicio,
                 $fim,
             ),
+        ]);
+    }
+
+    /**
+     * GET /app/v1/entregador/pedidos/{id}/cupom — comprovante de entrega em
+     * TEXTO, para impressora térmica (F8).
+     *
+     * Fica aqui e não no controller fiscal porque vale para TODOS os perfis: o
+     * entregador funcionário também imprime o comprovante, e emitir nota é
+     * privilégio do industrial. São coisas diferentes.
+     *
+     * Só pedido do próprio entregador: sem esse filtro, um id de outro
+     * imprimiria dados de cliente alheio.
+     */
+    public function cupomPedido(Request $request, int $id, CupomTextoService $cupom): JsonResponse
+    {
+        $d = $request->validate(['largura' => 'nullable|integer|min:24|max:96']);
+        $largura = (int) ($d['largura'] ?? CupomTextoService::LARGURA_PADRAO);
+
+        $pedido = Pedido::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('entregador_user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => ['largura' => $largura, 'linhas' => $cupom->doPedido($pedido, $largura)],
         ]);
     }
 
