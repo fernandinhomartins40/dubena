@@ -3,7 +3,9 @@
 Como absorver as operações de franqueado e industrial, e criar a **Central de
 Vendas** como módulo do `erp-novo`.
 
-Base: [`AUDITORIA_APPS_FRANQUEADO_INDUSTRIAL.md`](AUDITORIA_APPS_FRANQUEADO_INDUSTRIAL.md).
+Base: [`AUDITORIA_APPS_FRANQUEADO_INDUSTRIAL.md`](AUDITORIA_APPS_FRANQUEADO_INDUSTRIAL.md),
+[`REGRAS_NEGOCIO_APPS_LEGADO.md`](REGRAS_NEGOCIO_APPS_LEGADO.md) e
+[`CONTRATO_COMUNICACAO_APPS_LEGADO.md`](CONTRATO_COMUNICACAO_APPS_LEGADO.md).
 
 ---
 
@@ -106,6 +108,32 @@ Três observações de implementação, todas verificadas no código:
 ## Fases
 
 Cada uma entrega valor sozinha e nenhuma exige que a seguinte exista.
+
+### F0 — Camada de compatibilidade (ponte)
+
+**Vem antes de tudo**, porque hoje os dois apps legados só falam com o
+`ctrl-web`. Sem esta ponte, nenhuma fase seguinte chega ao campo.
+
+O contrato do legado diverge do ERP novo em quatro eixos
+(`CONTRATO_COMUNICACAO_APPS_LEGADO.md`):
+
+- **Envelope**: `{data,msg,status:"OK"}` com **HTTP 200 até em erro**; o ERP novo
+  devolve `{data}` e HTTP 4xx.
+- **`status:"OPS"`** — recusa de regra de negócio, tratada pelo app como resposta
+  válida (`Http.js:164`). **Não existe equivalente no ERP novo.**
+- **Transporte**: form-urlencoded, tudo POST.
+- **Tenant**: o app envia `revenda_id`; o ERP novo deriva do token.
+
+Entregar um grupo de rotas que fale o dialeto antigo, para os apps legados
+apontarem ao ERP novo **sem republicação em loja** — o que importa porque o
+`targetSdk 28` do MovelApp impede publicar na Play Store hoje.
+
+**Regra inegociável:** o adaptador aceita `revenda_id` mas **valida contra o
+token**, em vez de confiar como o legado faz (`ApiController:34` — IDOR de
+tenant). Compatibilidade de formato, não de vulnerabilidade.
+
+Definir aqui também o equivalente ao `OPS`: recusa de negócio precisa ser
+distinguível de erro técnico em toda a API, não só na ponte.
 
 ### F1 — Vínculo e perfis (fundação)
 
@@ -217,7 +245,8 @@ Enquanto isso os dois legados seguem rodando: atendem o cliente hoje, e
 ## Ordem sugerida
 
 ```
-F1 (vínculo/perfis)
+F0 (ponte de compatibilidade)   ← sem isto nada chega ao campo
+  └─► F1 (vínculo/perfis)
   └─► F2 (alçada)  ──► F3 (Central de Vendas)  ──► F4 (solicitação no app)
                                                       ↑ pendência 1
   └─► F5 (remuneração)   ← pendência 3
@@ -227,7 +256,11 @@ F7 (offline) e F8 (impressão) em paralelo — F8 travada pela pendência 2.
 F9 fecha, só após conferência.
 ```
 
-**Ponto de partida: F2.** Resolve o problema que hoje custa dinheiro sem ninguém
+**Ponto de partida: F0 se a meta é desligar o `ctrl-web`; F2 se a meta é parar
+a perda de margem.** As duas são independentes — F0 é infraestrutura de
+transição, F2 é controle de negócio.
+
+**Sobre F2:** Resolve o problema que hoje custa dinheiro sem ninguém
 ver, não depende de resposta externa, e é pré-requisito honesto de F7 — vender
 offline sem alçada seria propagar o problema.
 
@@ -249,6 +282,12 @@ offline sem alçada seria propagar o problema.
 - **Não copiar o `NfePrinterLib.jar`** sem confirmar licença de redistribuição.
 - **Não reaproveitar o `movelapp.jks`** — está versionado no SVN, ou seja,
   comprometido. Keystore novo, fora do repositório.
+- **Não replicar o IDOR de tenant na ponte.** O legado faz
+  `Empresa::find($data['revenda_id'])` sem checar o token (`ApiController:34`).
+  A ponte aceita o parâmetro por compatibilidade, mas valida.
+- **Não republicar os apps legados** para falar o dialeto novo (F0 resolve sem
+  isso). Gastaria esforço num app que será desligado — e o MovelApp nem publica
+  na Play Store hoje, com `targetSdk 28`.
 
 ---
 
