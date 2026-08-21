@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { router } from "expo-router"
 import {
     CheckCircle2, ChevronRight, Compass, MapPin, Map as MapIcon,
-    Package, PlayCircle, Truck,
+    Package, PlayCircle, Receipt, Ticket, Truck, Users,
 } from "lucide-react-native"
 import {
     Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
@@ -141,6 +141,27 @@ export default function Inicio() {
                 titulo="Missão de campo"
                 sub="Panfletagem, prospecção e vendas"
                 onPress={() => router.push("/(app)/(tabs)/missao")}
+            />
+            {/* Funções portadas dos apps legados (NFWEB e MovelApp). Ficam aqui
+                nos Atalhos e não na tab bar: ela já tem cinco áreas, e o
+                dashboard é onde o entregador começa o dia. */}
+            <Atalho
+                icone={<Users size={20} color={COLORS.primary} />}
+                titulo="Vender para um cliente"
+                sub="Buscar ou cadastrar e enviar à Central"
+                onPress={() => router.push("/(app)/clientes")}
+            />
+            <Atalho
+                icone={<Ticket size={20} color={COLORS.primary} />}
+                titulo="Verificar Vale Gás"
+                sub="Conferir o código antes de aceitar"
+                onPress={() => router.push("/(app)/vale-gas")}
+            />
+            <Atalho
+                icone={<Receipt size={20} color={COLORS.primary} />}
+                titulo="Minhas vendas"
+                sub="O que fechei no período"
+                onPress={() => router.push("/(app)/relatorio-vendas")}
             />
 
             {/* Próximas entregas */}

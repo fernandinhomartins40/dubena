@@ -7,6 +7,7 @@ use App\Domain\Venda\CargaFranqueadoService;
 use App\Domain\Venda\CentralVendasService;
 use App\Domain\Venda\ExtratoRemuneracaoService;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
 use App\Models\Pedido\Pedido;
 use App\Models\Rh\Colaborador;
 use App\Models\Venda\PedidoSolicitacao;
@@ -61,6 +62,110 @@ class AppSolicitacaoController extends Controller
         $s = $this->central->solicitar($request->user(), $d);
 
         return response()->json(['data' => $s], 201);
+    }
+
+    /**
+     * GET /app/v1/entregador/clientes — busca para vender.
+     *
+     * **Sem isto a venda em campo não existe.** O `missao/clientes` só cadastra,
+     * e exige missão ativa — o franqueado que passa na porta de um cliente fora
+     * de missão não tinha como encontrá-lo. Era o que deixava a tela de
+     * solicitação inalcançável.
+     *
+     * Busca por nome ou documento, como o `getCliente` do NFWEB. Limite de 50:
+     * a tela é de celular e o vendedor refina o termo, não rola mil linhas.
+     */
+    public function clientes(Request $request): JsonResponse
+    {
+        $d = $request->validate(['termo' => 'nullable|string|max:120']);
+        $termo = trim($d['termo'] ?? '');
+
+        $clientes = Cliente::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('ativo', true)
+            ->when($termo !== '', fn ($q) => $q->where(function ($w) use ($termo) {
+                $w->where('nome', 'like', "%{$termo}%")
+                    ->orWhere('cpf', 'like', "%{$termo}%")
+                    ->orWhere('cnpj', 'like', "%{$termo}%");
+            }))
+            ->orderBy('nome')
+            ->limit(50)
+            ->get(['id', 'nome', 'cpf', 'cnpj', 'endereco', 'numero', 'observacoes']);
+
+        return response()->json(['data' => $clientes->map(fn (Cliente $c) => [
+            'id' => $c->id,
+            'nome' => $c->nome,
+            'documento' => $c->cpf ?: ($c->cnpj ?: ''),
+            'endereco' => trim(($c->endereco ?? '').', '.($c->numero ?? ''), ', '),
+            'observacoes' => $c->observacoes ?? '',
+        ])->all()]);
+    }
+
+    /**
+     * POST /app/v1/entregador/clientes — cadastro em campo, sem exigir missão.
+     *
+     * O `missao/clientes` existente amarra o cadastro a uma atribuição de
+     * missão. O vendedor industrial e o franqueado cadastram fora disso — e
+     * obrigá-los a abrir uma missão para cadastrar seria burocracia inventada.
+     */
+    public function cadastrarCliente(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'nome' => 'required|string|max:160',
+            'cpf' => 'nullable|string|max:14',
+            'cnpj' => 'nullable|string|max:18',
+            'endereco' => 'nullable|string|max:255',
+            'numero' => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:60',
+            'ponto_referencia' => 'nullable|string|max:120',
+            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'telefone' => 'nullable|string|max:30',
+            'observacoes' => 'nullable|string|max:500',
+        ]);
+
+        $user = $request->user();
+        $fone = isset($d['telefone']) ? preg_replace('/\D/', '', $d['telefone']) : null;
+
+        // Regra herdada do NFWEB (`saveCliente:1538`): telefone já usado rejeita
+        // — é como a revenda evita dois cadastros para a mesma casa. Normalizado
+        // em PHP porque `regexp_replace` não existe no sqlite.
+        if ($fone) {
+            $duplicado = \DB::table('clientetelefones as ct')
+                ->join('clientes as cl', 'cl.id', '=', 'ct.cliente_id')
+                ->where('cl.empresa_id', $user->empresa_id)
+                ->pluck('ct.telefone')
+                ->contains(fn ($t) => preg_replace('/\D/', '', (string) $t) === $fone);
+
+            if ($duplicado) {
+                throw new \DomainException('Telefone informado já existe em outro cliente.');
+            }
+        }
+
+        $cliente = Cliente::create(array_filter([
+            'empresa_id' => $user->empresa_id,
+            'grupo_id' => $user->grupo_id,
+            'nome' => $d['nome'],
+            'cpf' => isset($d['cpf']) ? preg_replace('/\D/', '', $d['cpf']) : null,
+            'cnpj' => isset($d['cnpj']) ? preg_replace('/\D/', '', $d['cnpj']) : null,
+            'endereco' => $d['endereco'] ?? null,
+            'numero' => $d['numero'] ?? null,
+            'complemento' => $d['complemento'] ?? null,
+            'ponto_referencia' => $d['ponto_referencia'] ?? null,
+            'cidade_id' => $d['cidade_id'] ?? null,
+            'observacoes' => $d['observacoes'] ?? null,
+            'ativo' => true,
+        ], fn ($v) => $v !== null));
+
+        if ($fone) {
+            \DB::table('clientetelefones')->insert([
+                'cliente_id' => $cliente->id,
+                'telefone' => $fone,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json(['data' => ['id' => $cliente->id, 'nome' => $cliente->nome]], 201);
     }
 
     /**
@@ -145,6 +250,89 @@ class AppSolicitacaoController extends Controller
         return response()->json([
             'data' => ['largura' => $largura, 'linhas' => $cupom->doPedido($pedido, $largura)],
         ]);
+    }
+
+    /**
+     * POST /app/v1/entregador/vale-gas/verificar — valida o código do vale.
+     *
+     * Porta o `GasdeBolsoVerificacaoActivity` do MovelApp. As três recusas na
+     * ordem do legado (`ApiController::getValeGas:456`): não encontrado,
+     * cancelado, já utilizado — cancelado antes de utilizado porque é a
+     * informação acionável para o entregador.
+     */
+    public function verificarValeGas(Request $request): JsonResponse
+    {
+        $d = $request->validate(['codigo' => 'required|string|max:60']);
+
+        $vale = \App\Models\Satelite\ValeGas::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('codigo', trim($d['codigo']))
+            ->first();
+
+        if ($vale === null) {
+            throw new \DomainException('Vale Gás não encontrado.');
+        }
+
+        $situacao = mb_strtolower((string) ($vale->situacao?->value ?? $vale->situacao ?? ''));
+
+        if (str_contains($situacao, 'cancel')) {
+            throw new \DomainException('Vale Gás cancelado.');
+        }
+
+        if (str_contains($situacao, 'utilizad') || $vale->utilizado_em !== null) {
+            throw new \DomainException('Vale Gás já utilizado anteriormente.');
+        }
+
+        return response()->json(['data' => [
+            'id' => $vale->id,
+            'codigo' => $vale->codigo,
+            'valor' => (float) ($vale->valor ?? 0),
+            'validade' => optional($vale->validade)->toDateString(),
+        ]]);
+    }
+
+    /**
+     * GET /app/v1/entregador/relatorio-vendas — o que vendi no período.
+     *
+     * Porta o `pedidosReport` do NFWEB e o `getPedidosReport` do MovelApp: os
+     * dois apps têm a mesma tela, e o vendedor confere o próprio dia antes de
+     * encerrar.
+     */
+    public function relatorioVendas(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'inicio' => 'nullable|date',
+            'fim' => 'nullable|date|after_or_equal:inicio',
+        ]);
+
+        $inicio = $d['inicio'] ?? now()->startOfMonth()->toDateString();
+        $fim = $d['fim'] ?? now()->toDateString();
+        $userId = $request->user()->id;
+
+        $pedidos = Pedido::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            // Conta como "minha venda" tanto o que entreguei quanto o que
+            // atendi — os dois apps legados usam papéis diferentes para a mesma
+            // pergunta ("quanto eu fiz hoje").
+            ->where(fn ($q) => $q->where('entregador_user_id', $userId)->orWhere('atendente_user_id', $userId))
+            ->where('estoque_movimentado', true)
+            ->whereDate('datahora', '>=', $inicio)
+            ->whereDate('datahora', '<=', $fim)
+            ->with('cliente:id,nome')
+            ->orderByDesc('datahora')
+            ->get();
+
+        return response()->json(['data' => [
+            'periodo' => ['inicio' => $inicio, 'fim' => $fim],
+            'total' => round((float) $pedidos->sum('valor_venda'), 2),
+            'quantidade' => $pedidos->count(),
+            'pedidos' => $pedidos->map(fn (Pedido $p) => [
+                'id' => $p->id,
+                'cliente' => $p->cliente?->nome ?? '',
+                'datahora' => optional($p->datahora)->format('d/m/Y H:i'),
+                'valor' => (float) $p->valor_venda,
+            ])->all(),
+        ]]);
     }
 
     /** POST /app/v1/entregador/solicitacoes/{id}/cancelar — desistiu na porta. */

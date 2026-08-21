@@ -817,6 +817,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
             Route::get('extrato', [AppSolicitacaoController::class, 'extrato']);
             Route::get('estoque', [AppSolicitacaoController::class, 'estoque']);
 
+            // Telas portadas dos apps legados: busca/cadastro de cliente (o que
+            // destrava a venda em campo), vale-gas e relatorio do vendedor.
+            Route::get('clientes', [AppSolicitacaoController::class, 'clientes']);
+            Route::post('clientes', [AppSolicitacaoController::class, 'cadastrarCliente']);
+            Route::post('vale-gas/verificar', [AppSolicitacaoController::class, 'verificarValeGas']);
+            Route::get('relatorio-vendas', [AppSolicitacaoController::class, 'relatorioVendas']);
+
             // F8 — cupom em TEXTO para impressora termica. O servidor decide o
             // conteudo; o app so transmite os bytes pela camada Bluetooth.
             Route::get('pedidos/{id}/cupom', [AppSolicitacaoController::class, 'cupomPedido'])->whereNumber('id');

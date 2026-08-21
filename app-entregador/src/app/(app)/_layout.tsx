@@ -44,6 +44,10 @@ export default function AppLayout() {
             <Stack.Screen name="solicitar-venda" options={{ title: "Solicitar à Central" }} />
             <Stack.Screen name="ganhos" options={{ title: "Ganhos e mercadoria" }} />
             <Stack.Screen name="solicitacoes" options={{ title: "Minhas solicitações" }} />
+            <Stack.Screen name="clientes" options={{ title: "Buscar cliente" }} />
+            <Stack.Screen name="cliente-novo" options={{ title: "Novo cliente" }} />
+            <Stack.Screen name="vale-gas" options={{ title: "Verificar Vale Gás" }} />
+            <Stack.Screen name="relatorio-vendas" options={{ title: "Minhas vendas" }} />
         </Stack>
     )
 }

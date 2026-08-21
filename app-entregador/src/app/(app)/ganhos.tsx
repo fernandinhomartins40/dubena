@@ -27,12 +27,12 @@ export default function Ganhos() {
 
     const extrato = useQuery({
         queryKey: ["entregador", "extrato"],
-        queryFn: VendaService.MeuExtrato,
+        queryFn: () => VendaService.MeuExtrato(),
     })
 
     const estoque = useQuery({
         queryKey: ["entregador", "estoque"],
-        queryFn: VendaService.MeuEstoque,
+        queryFn: () => VendaService.MeuEstoque(),
     })
 
     const atualizar = async () => {

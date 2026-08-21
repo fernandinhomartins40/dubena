@@ -88,6 +88,61 @@ const CupomPedido = (pedidoId: number, largura?: number): Promise<{ data: { larg
         "GET",
     )
 
+export interface ClienteCampo {
+    id: number
+    nome: string
+    documento: string
+    endereco: string
+    observacoes: string
+}
+
+/** Busca de cliente — o que destrava a venda em campo. */
+const BuscarClientes = (termo?: string): Promise<{ data: ClienteCampo[] }> =>
+    Http.PrepareRequest(
+        `app/v1/entregador/clientes${termo ? `?termo=${encodeURIComponent(termo)}` : ""}`,
+        "GET",
+    )
+
+/** Cadastro em campo (sem exigir missao aberta). Passa pela fila offline. */
+const CadastrarCliente = (dados: {
+    nome: string
+    cpf?: string
+    cnpj?: string
+    endereco?: string
+    numero?: string
+    ponto_referencia?: string
+    telefone?: string
+    observacoes?: string
+}) => enviarOuEnfileirar<{ data: { id: number; nome: string } }>("app/v1/entregador/clientes", "POST", dados)
+
+export interface ValeGasVerificado {
+    id: number
+    codigo: string
+    valor: number
+    validade: string | null
+}
+
+/** Valida o vale pelo codigo de barras (porta o GasdeBolso do MovelApp). */
+const VerificarValeGas = (codigo: string): Promise<{ data: ValeGasVerificado }> =>
+    Http.PrepareRequest("app/v1/entregador/vale-gas/verificar", "POST", { codigo })
+
+export interface RelatorioVendas {
+    periodo: { inicio: string; fim: string }
+    total: number
+    quantidade: number
+    pedidos: Array<{ id: number; cliente: string; datahora: string; valor: number }>
+}
+
+/** O que vendi no periodo (porta pedidosReport do NFWEB e do MovelApp). */
+const RelatorioDeVendas = (periodo?: { inicio?: string; fim?: string }): Promise<{ data: RelatorioVendas }> => {
+    const q = new URLSearchParams()
+    if (periodo?.inicio) q.set("inicio", periodo.inicio)
+    if (periodo?.fim) q.set("fim", periodo.fim)
+    const sufixo = q.toString() ? `?${q.toString()}` : ""
+
+    return Http.PrepareRequest(`app/v1/entregador/relatorio-vendas${sufixo}`, "GET")
+}
+
 const VendaService = {
     Solicitacoes,
     Solicitar,
@@ -95,6 +150,10 @@ const VendaService = {
     MeuExtrato,
     MeuEstoque,
     CupomPedido,
+    BuscarClientes,
+    CadastrarCliente,
+    VerificarValeGas,
+    RelatorioDeVendas,
 }
 
 export default VendaService
