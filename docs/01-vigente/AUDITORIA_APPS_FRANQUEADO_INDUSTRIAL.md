@@ -42,7 +42,7 @@ contrário, é o que a torna viável, porque o vínculo já é decidido no backe
 | Cadastra cliente | não | sim (`saveCliente`) | sim (`missao/clientes`) |
 | Pendência financeira do cliente | não | sim (`getParcelasVencidasCliente`) | **não** |
 | Emite/imprime documento | DANFE + boleto (ESC/POS BT) | via JAR proprietário | **não imprime** |
-| Opera sem rede | **sim** (SQLite, 8 tabelas) | não | **não** |
+| Opera sem rede | **parcial** — leitura sim, baixa exige rede | não | **não** |
 | Vale-gás | sim (`getValeGas`) | não | sim (`missao/vale-gas`) |
 
 ### 2.1 O achado que justifica a central de vendas
@@ -161,10 +161,13 @@ existe (`estoque_movimentado`).
 1. **Impressão térmica** — inexistente no ecossistema novo. MovelApp usa ESC/POS
    por Bluetooth (padrão aberto); NFWEB usa `NfePrinterLib.jar`, **proprietário**.
    Bloqueado pela pendência do parque de impressoras.
-2. **Operação offline** — MovelApp tem SQLite de 8 tabelas e funciona sem rede.
-   O `app-entregador` **não tem AsyncStorage nem fila**: o "offline-first" citado
-   em `src/helpers/realtime.ts:15` é apenas queda para polling quando o WebSocket
-   cai. Para rota com sombra de sinal, é diferença operacional real.
+2. **Operação offline** — corrigido após leitura do código: o MovelApp é
+   offline **para leitura** (a rota carregada fica no SQLite), mas a **baixa de
+   pedido exige rede** — `PedidoStatusActivity:264` só grava no SQLite depois do
+   `status OK` do servidor, e a impressão consulta a nota antes (`nfsituacao_id=100`).
+   Ainda assim é mais resiliente que o `app-entregador`, que **não tem
+   AsyncStorage nem fila** (o "offline-first" de `src/helpers/realtime.ts:15` é só
+   queda para polling).
 3. **Alçada de desconto** — o motor existe (`PolicyEvaluator`), falta a política e
    o ponto de chamada. `PedidoService::recalcularTotais` (linha 185) hoje **soma o
    desconto dos itens sem verificar nada**.
@@ -203,11 +206,23 @@ existe (`estoque_movimentado`).
 
 ---
 
-## 8. Limite desta auditoria
+## 8. Regras de negócio
 
-Foram lidos: estrutura, rotas, contratos de entrada, schema local dos apps, e os
-pontos de decisão citados com arquivo e linha. **Não** foram lidas as ~5 mil linhas
-de regra de negócio dos dois legados. Onde se afirma "existe equivalente", trata-se
-de *capacidade*, não de *regra idêntica* — tabela de preço por segmento, condições
-de pagamento e cálculo de comissão exigem conferência linha a linha antes de
-desligar qualquer app.
+As regras de negócio dos dois apps foram extraídas linha a linha e estão em
+[`REGRAS_NEGOCIO_APPS_LEGADO.md`](REGRAS_NEGOCIO_APPS_LEGADO.md): precificação em
+três caminhos, convênio com limite por quantidade, matriz fiscal (NFC-e/NF-e/
+boleto), as 9 flags de situação do MovelApp, e o buraco de autenticação do
+`savePedido`.
+
+Os dois achados que mais pesam no acoplamento:
+
+- **`getPreco:602` — `if ($isAppNf) return $preco;`** O backend do NFWEB aceita o
+  preço que o app mandar, sem consultar tabela. É a confirmação, no servidor, do
+  preço livre visto na interface.
+- **`savePedido:329`** cria o pedido com um **usuário de sistema fixo**
+  (`DEFAULT_USER_SYSTEM`), e o `colaborador_id` vem do corpo da requisição sem
+  verificação. Quem alcança a API lança pedido em nome de qualquer vendedor.
+
+Ainda não lidos: os layouts de impressão (`NotaFiscalImpressao.java`, 2000+
+linhas; `BoletoImpressao.java`) e o cálculo de imposto do legado. Importam para a
+fase de impressão, não para o desenho da Central.

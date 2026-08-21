@@ -131,6 +131,11 @@ O motor já existe; falta ligar.
   commit).
 - **Fail-closed** — sem política cadastrada, desconto zero. É o que o `CLAUDE.md`
   manda para dinheiro.
+- **A alçada convive com três caminhos de preço já existentes no legado**
+  (`REGRAS_NEGOCIO_APPS_LEGADO.md` §1): preço de tabela, preço especial por
+  cliente (4 casos em `getPrecoEspecial`) e preço de convênio. O desconto do
+  vendedor incide **depois** desses — a política precisa saber sobre qual base
+  aplica o teto, ou um cliente com preço especial teria desconto em cascata.
 - Trilha: quem pediu, quem aprovou, quando, com qual justificativa e qual margem
   resultante.
 
@@ -175,8 +180,12 @@ O motor já existe; falta ligar.
 
 A mais delicada, porque toca consistência.
 
-- Fila local no `app-entregador` (hoje não há AsyncStorage; o MovelApp resolveu
-  com SQLite de 8 tabelas).
+- Fila local no `app-entregador` (hoje não há AsyncStorage). **Atenção:** o
+  MovelApp *não* é totalmente offline — `PedidoStatusActivity:264` só grava no
+  SQLite após `status OK` do servidor, e a impressão consulta a nota antes. Ou
+  seja, o legado é offline para **leitura da rota**, não para baixa. Copiar o
+  comportamento dele é menos ambicioso do que parecia; fazer melhor exige
+  decidir a fila de escrita, que o legado nunca teve.
 - Cache do necessário: produtos, preços, clientes da rota, situações, motivos.
 - **Idempotência**: id de operação gerado no dispositivo, para o mesmo pedido não
   entrar duas vezes quando a rede voltar.
@@ -245,10 +254,23 @@ offline sem alçada seria propagar o problema.
 
 ## Antes de executar
 
-Este plano se apoia em leitura de estrutura, rotas, contratos e pontos de decisão
-— **não** na regra de negócio linha a linha dos legados (~5 mil linhas). Antes de
-desligar qualquer app, conferir: tabela de preço por segmento, condições de
-pagamento e o cálculo de comissão em uso.
+As regras de negócio dos legados foram extraídas do código e estão em
+[`REGRAS_NEGOCIO_APPS_LEGADO.md`](REGRAS_NEGOCIO_APPS_LEGADO.md). A tabela §8
+daquele documento lista, regra a regra, o que já existe no ERP novo e o que
+precisa ser conferido antes de desligar cada app — com destaque para:
+
+- **NFC-e automática por `appnfceauto`** na condição de pagamento: não localizada
+  no ERP novo, e tem efeito fiscal (emite nota mesmo sem o vendedor pedir).
+- **Situação inicial vinda da condição de pagamento** (`pedidosituacaoappnf_id`):
+  o ERP novo recebe `pedidosituacao_id` explícito — modelo diferente.
+- **As 9 flags de situação** do MovelApp contra os 3 efeitos do `EfeitoPedido`:
+  `entrega_transferida` e `em_entrega` não têm equivalente direto.
+- **Financeiro condicionado** a condição + situação (`allwedToCreateFinanceiro`)
+  contra o modelo por efeito do ERP novo.
+
+Ainda não lidos: os layouts de impressão (`NotaFiscalImpressao.java`, 2000+ linhas;
+`BoletoImpressao.java`) e o cálculo de imposto do legado — relevantes para a fase
+de impressão (F8), não para o desenho da Central.
 
 As cinco pendências estão na auditoria. Três bloqueiam fases inteiras: solicitação
 (F4), remuneração (F5) e impressoras (F8).
