@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Entregas Gás em Casa</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Configurações</string>
+    <string name="action_import">Importar dados</string>
+    <string name="action_export">Receber pedidos</string>
+    <string name="action_print_pedido">Pedido</string>
+    <string name="action_view_pedido">Ver Pedido</string>
+    <string name="action_registration">Registrar Android</string>
+    <string name="action_print_nf">Nota Fiscal</string>
+    <string name="action_view_nf">Ver Nota Fiscal</string>
+    <string name="title_activity_import_usuario">Importação de Dados</string>
+    <string name="field_servidor">Endereço do Servidor</string>
+    <string name="field_meligue">Mensagem (Opcional)</string>
+    <string name="field_veiculo">Escolha o Veículo</string>
+    <string name="field_data_inicial">Data Inicial</string>
+    <string name="field_data_final">Data Final</string>
+    <string name="title_activity_config">Configurações</string>
+    <string name="label_android_id">Android Id:</string>
+    <string name="label_config">Configurações</string>
+    <string name="title_activity_estoque">Estoque</string>
+    <string name="title_activity_pedido">Pedido</string>
+    <string name="field_data_pedido">Data do Pedido</string>
+    <string name="field_codigo_pedido">Código do Pedido</string>
+    <string name="field_cliente_pedido">Cliente</string>
+    <string name="field_valor_pedido">Valor do Pedido</string>
+    <string name="field_endereco">Endereço</string>
+    <string name="field_complemento">Complemento</string>
+    <string name="field_bairro">Bairro</string>
+    <string name="field_ponto_referencia">Ponto de Referência</string>
+    <string name="field_observacao">Observação</string>
+    <string name="field_status">Situação</string>
+    <string name="field_quantidade">Quantidade</string>
+    <string name="field_preco">Preço</string>
+    <string name="field_quantidade_parcelas">NºParc</string>
+    <string name="field_data_parcela">1ªParc.</string>
+    <string name="field_valor">Total</string>
+    <string name="field_motivo_atraso">Informe o motivo para o atraso na entrega</string>
+    <string name="field_cartao">Informe o CV do Cartão</string>
+    <string name="field_troca">Troca</string>
+    <string name="field_valor_desconto">Desconto</string>
+    <string name="field_valor_liquido">Valor Líquido</string>
+    <string name="field_valor_mva">ICMS ST</string>
+    <string name="field_importar">Iniciar Importação de Cadastros</string>
+    <string name="field_enviarmeligue">Enviar Me Ligue</string>
+    <string name="title_activity_pedido_consulta">Consulta Pedidos</string>
+    <string name="title_activity_pedido_export">Recepção de Pedidos</string>
+    <string name="title_activity_pedido_report">Relatório de Vendas</string>
+    <string name="title_activity_nf_print">Impressão de Nota Fiscal</string>
+    <string name="title_activity_pedido_print">Impressão de Pedido</string>
+    <string name="title_activity_main">Entregas Gás em Casa</string>
+    <string name="title_activity_cadastro_import">Importação de Cadastros</string>
+    <string name="action_print_report">Imprimir</string>
+    <string name="action_view_report">Visualizar</string>
+    <string name="title_activity_pedido_status">Atualização Status Pedido</string>
+    <string name="title_activity_me_ligue">Me Ligue</string>
+    <string name="title_activity_veiculo">Alterar Placa</string>
+    <string name="title_activity_gasdebolso">Consuta Gás de Bolso</string>
+    <string name="title_activity_gasde_bolso_verificacao">Consulta de Gás de Bolso</string>
+    <string name="title_activity_register">Registrar Dispositivo no Servidor</string>
+    <string name="registering_message">Registrando dispositivo no servidor...</string>
+    <string name="gcm_send_message">Token recuperado e enviado ao servidor!</string>
+    <string name="gcm_send_message_null"></string>
+    <string name="token_error_message">Um erro ocorreu ao tentar registrar o dispositivo no servidor. Tente novamente.</string>
+    <string name="title_activity_pedido_recepcao">Recepção de Pedidos</string>
+    <string name="title_activity_main2">Entregas Gás em Casa</string>
+
+    <string name="navigation_drawer_open">Abrir Menu</string>
+    <string name="navigation_drawer_close">Fechar Menu</string>
+
+</resources>

@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ngbclear"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="br.inf.qti.movelapp.PedidoReportActivity"
+    tools:showIn="@layout/activity_pedido_report">
+
+    <LinearLayout
+        android:id="@+id/LayoutHeaderReport"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="vertical">
+
+        <androidx.gridlayout.widget.GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            app:columnCount="4">
+
+            <EditText
+                android:id="@+id/txtDataInicial"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_columnWeight="0.4"
+                android:background="@drawable/retangulo"
+                android:hint="@string/field_data_inicial"
+                android:padding="5px"
+                android:textColor="@color/ngbfont" />
+
+            <EditText
+                android:id="@+id/txtDataFinal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_columnWeight="0.4"
+                android:background="@drawable/retangulo"
+                android:hint="@string/field_data_final"
+                android:padding="5px"
+                android:layout_marginLeft="10dp"
+                android:textColor="@color/ngbfont" />
+
+            <ImageButton
+                android:id="@+id/btnAtualizarReport"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_columnWeight="0.1"
+                android:background="@null"
+                android:contentDescription="Atualizar"
+                android:gravity="left"
+                android:src="@drawable/atualizar" />
+
+            <ImageButton
+                android:id="@+id/btnPrintReport"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_columnWeight="0.1"
+                android:background="@null"
+                android:contentDescription="Atualizar"
+                android:gravity="right"
+                android:src="@drawable/imprimir"
+                android:visibility="gone"/>
+        </androidx.gridlayout.widget.GridLayout>
+
+        <LinearLayout
+            android:id="@+id/LayoutFooterReport"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:background="@drawable/retangulo"
+            android:orientation="horizontal"
+            android:scrollbars="vertical"
+            android:weightSum="1">
+
+            <LinearLayout
+                android:id="@+id/LayoutFooterReportIn1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.95"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/LayoutFooterReportIn2"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:scrollbars="vertical"
+                    android:weightSum="1">
+
+                    <TextView
+                        android:id="@+id/txtTotalQtdeReport"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.5"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtTotalTrocaReport"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.5"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/LayoutFooterReportIn3"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/LayoutFooterReportIn2"
+                    android:orientation="horizontal"
+                    android:scrollbars="vertical"
+                    android:weightSum="1">
+
+                    <TextView
+                        android:id="@+id/txtTotalValorReport"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.5"
+                        android:gravity="left"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtTotalTrocaReport1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_toEndOf="@+id/txtTotalValorReport"
+                        android:layout_toRightOf="@+id/txtTotalValorReport"
+                        android:layout_weight="0.5"
+                        android:gravity="right"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/LayoutFooterReportIn4"
+                android:layout_width="wrap_content"
+                android:layout_height="fill_parent"
+                android:layout_marginLeft="5dp"
+                android:layout_weight="0.05"
+                android:orientation="horizontal"
+                android:scrollbars="vertical"
+                android:weightSum="1">
+
+                <LinearLayout
+                    android:id="@+id/LayoutFooterReportIn5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="0.5"
+                    android:orientation="vertical"
+                    android:scrollbars="vertical"
+                    android:weightSum="1">
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/LayoutFooterReportIn6"
+                    android:layout_width="wrap_content"
+                    android:layout_height="fill_parent"
+                    android:layout_weight="0.5"
+                    android:orientation="vertical"
+                    android:scrollbars="vertical"
+                    android:weightSum="1">
+
+
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/retangulo"
+            android:orientation="horizontal"
+            android:weightSum="1">
+
+            <TextView
+                android:id="@+id/txtProdutoQuantidadeReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.1"
+                android:gravity="left"
+                android:text="Pedido"
+                android:textStyle="normal" />
+
+            <TextView
+                android:id="@+id/txtClienteCabecReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.4"
+                android:gravity="left"
+                android:text="Cliente"
+                android:textStyle="normal" />
+
+            <TextView
+                android:id="@+id/txtTrocaReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.25"
+                android:gravity="right"
+                android:text="Qtde"
+                android:textColor="#343434"
+                android:textStyle="normal" />
+
+            <TextView
+                android:id="@+id/txtValorReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.25"
+                android:gravity="right"
+                android:text="Valor"
+                android:textColor="#343434"
+                android:textStyle="normal" />
+
+        </LinearLayout>
+        <ListView
+            android:id="@+id/listItensReportVenda"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/linearLayoutListaParcelas"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/LayoutHeaderReport"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:weightSum="1">
+
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

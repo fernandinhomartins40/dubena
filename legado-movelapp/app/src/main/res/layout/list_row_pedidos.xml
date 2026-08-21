@@ -1,0 +1,44 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!-- Vencimento -->
+    <TextView
+        android:id="@+id/txtVencimento"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Vencimento"
+        android:textStyle="bold" />
+
+    <!-- Ícone urgente ao lado do vencimento -->
+    <ImageView
+        android:id="@+id/imgUrgente"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_toEndOf="@id/txtVencimento"
+        android:layout_alignBottom="@id/txtVencimento"
+        android:layout_marginStart="4dp"
+        app:srcCompat="@drawable/urgente" />
+
+    <!-- Valor alinhado à direita -->
+    <TextView
+        android:id="@+id/txtValor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignBaseline="@id/txtVencimento"
+        android:text="R$ 123,45"
+        android:textColor="#343434"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <!-- Documento abaixo do vencimento -->
+    <TextView
+        android:id="@+id/txtDocto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtVencimento"
+        android:text="Documento" />
+
+</RelativeLayout>

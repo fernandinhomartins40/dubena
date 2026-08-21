@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="br.inf.qti.movelctrl.movel.ReportImpressaoActivity" >
+
+    <item android:id="@+id/printReport"
+        android:title="@string/action_print_report"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/viewReport"
+        android:title="@string/action_view_report"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+</menu>

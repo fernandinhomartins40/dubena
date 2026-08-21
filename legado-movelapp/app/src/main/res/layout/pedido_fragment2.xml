@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <RelativeLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/LayoutHeader"
+        android:layout_alignParentTop="true"
+        android:gravity="center" >
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="3"
+            android:id="@+id/linearLayoutClasse">
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtCodigoPedido"
+                android:text="Codigo do Pedido"
+                />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtDataPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_data_pedido" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtClientePedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_cliente_pedido" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtEnderecoPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_endereco" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtComplementoPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_complemento" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtBairroPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_bairro" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtPontoReferenciaPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_ponto_referencia" />
+            <TextView
+                android:layout_width="309dp"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtStatusPedido"
+                android:layout_weight="1.03"
+                android:hint="@string/field_status" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/LayoutFooter"
+        android:layout_alignParentBottom="true"
+        android:scrollbars="vertical"
+        android:gravity="center" >
+
+        <EditText
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/txtValorTotalPedido"
+            android:layout_weight="1.03"
+            android:inputType="numberDecimal"
+            android:digits="0123456789,."
+            android:textStyle="bold"
+            android:gravity="center_horizontal"
+            />
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:weightSum="1"
+        android:layout_below="@id/LayoutHeader"
+        android:layout_above="@id/LayoutFooter"
+        android:id="@+id/linearLayout3">
+
+        <ListView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:id="@+id/listItens"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true" />
+    </LinearLayout>
+
+</RelativeLayout>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="br.inf.qti.movelapp.Main2Activity">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="10dp"
+        android:paddingTop="15dp"
+        android:theme="@style/AppTheme">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:popupTheme="@style/AppTheme.PopupOverlay">
+
+            <androidx.gridlayout.widget.GridLayout
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                app:columnCount="3">
+
+
+
+                <androidx.gridlayout.widget.GridLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_columnWeight="0.9"
+                    android:background="?attr/colorPrimary"
+                    app:columnCount="2">
+
+                    <ImageView
+                        android:id="@+id/imgLogin"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        app:layout_columnWeight="0.74"
+                        android:src="@drawable/logo" />
+
+                    <TextView
+                        android:id="@+id/txtVersionNew"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="right"
+                        android:text="1.23"
+                        android:textAlignment="center"
+                        android:textSize="10dp"
+                        app:layout_columnWeight="0.26"
+                        tools:ignore="RtlCompat" />
+
+                </androidx.gridlayout.widget.GridLayout>
+
+
+            </androidx.gridlayout.widget.GridLayout>
+
+        </androidx.appcompat.widget.Toolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <include layout="@layout/content_main2" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

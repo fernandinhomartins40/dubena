@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="br.inf.qti.movelapp">
+
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.READ_PROFILE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:name=".RegisterActivity"
+            android:label="@string/title_activity_register"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".LoginActivity"
+            android:label="@string/title_activity_login"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".PedidoConsultaActivity"
+            android:label="@string/title_activity_pedido_consulta"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".CadastroImportActivity"
+            android:label="@string/title_activity_cadastro_import"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".MeLigueActivity"
+            android:label="@string/title_activity_me_ligue"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".VeiculoActivity"
+            android:label="@string/title_activity_veiculo"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".PedidoReportActivity"
+            android:label="@string/title_activity_pedido_report"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".GasdeBolsoVerificacaoActivity"
+            android:label="@string/title_activity_gasde_bolso_verificacao"></activity>
+        <activity
+            android:name=".NotaFiscalImpressaoActivity"
+            android:label="teste"></activity>
+        <activity
+            android:name=".BoletoImpressaoActivity"
+            android:label="teste"></activity>
+        <activity
+            android:name=".PedidoPixActivity"
+            android:label="Gerar PIX"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <!-- [START gcm_listener] -->
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <!-- [END gcm_listener] -->
+
+
+        <!-- [START instanceId_listener] -->
+        <service
+            android:name=".MyFirebaseInstanceIDService"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- [END instanceId_listener] -->
+        <service
+            android:name=".RegistrationIntentService"
+            android:exported="false" />
+
+        <activity
+            android:name=".PedidoRecepcaoActivity"
+            android:label="@string/title_activity_pedido_recepcao"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".PedidoStatusActivity"
+            android:label="@string/title_activity_pedido_status"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".PedidoActivity"
+            android:label="@string/title_activity_pedido"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name=".Main2Activity"
+            android:label="@string/title_activity_main2"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:configChanges="orientation|keyboardHidden|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <receiver android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver" android:exported="true" android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+                <action android:name="com.google.android.c2dm.intent.REGISTRATION" />
+                <category android:name="${applicationId}" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

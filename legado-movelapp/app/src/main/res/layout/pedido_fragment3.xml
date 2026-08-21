@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <RelativeLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/LayoutHeader"
+        android:layout_alignParentTop="true"
+        android:gravity="center" >
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="1"
+            android:id="@+id/linearLayout">
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:weightSum="1"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/pedido_fragment3_style"
+                android:id="@+id/linearLayout_3">
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:weightSum="1"
+                    android:layout_below="@+id/txtValorTotalFechamento"
+                    android:id="@+id/linearLayout_2">
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/lblValorTotalFechamento"
+                        android:layout_marginLeft="20sp"
+                        android:layout_weight="0.25"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_valor" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/lblValorTrocaFechamento"
+                        android:layout_marginLeft="10sp"
+                        android:layout_weight="0.25"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_troca" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/lblValorMvaFechamento"
+                        android:layout_weight="0.25"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_valor_mva" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/lblValorDescontoFechamento"
+                        android:layout_weight="0.25"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_valor_desconto" />
+
+                </LinearLayout>
+
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:weightSum="1"
+                    android:layout_below="@+id/txtValorTotalFechamento"
+                    android:id="@+id/linearLayout_1">
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:gravity="center_horizontal"
+                        android:id="@+id/txtValorTotalFechamento"
+                        android:layout_weight="0.25"
+                        android:hint="@string/field_valor" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:gravity="center_horizontal"
+                        android:id="@+id/txtValorTrocaFechamento"
+                        android:layout_weight="0.25"
+                        android:hint="@string/field_troca" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/txtValorMvaFechamento"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:layout_weight="0.25"
+                        android:gravity="center_horizontal"
+                        android:hint="@string/field_valor_mva" />
+
+                    <EditText
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/txtValorDescontoFechamento"
+                        android:inputType="numberDecimal"
+                        android:digits="0123456789,."
+                        android:layout_weight="0.25"
+                        android:hint="" />
+
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:weightSum="1"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/pedido_fragment3_style"
+                android:id="@+id/linearLayout_liq">
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:weightSum="1"
+                    android:layout_below="@+id/txtValorTotalFechamento"
+                    android:id="@+id/linearLayout_liq2">
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/lblTotalLiquidoFechamento"
+                        android:layout_marginLeft="20sp"
+                        android:layout_weight="0.50"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_valor_liquido" />
+
+                    <TextView
+                        android:layout_width="fill_parent"
+                        android:layout_height="wrap_content"
+                        android:id="@+id/txtValorLiquidoFechamento"
+                        android:layout_marginLeft="10sp"
+                        android:layout_weight="0.50"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:text="@string/field_valor_liquido" />
+
+                </LinearLayout>
+
+
+            </LinearLayout>
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:weightSum="3"
+                android:layout_below="@+id/txtValorTotalFechamento"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/pedido_fragment3_style"
+                android:id="@+id/linearLayout0">
+
+                <CheckBox
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Venda a Prazo"
+                    android:layout_weight="2.3"
+                    android:id="@+id/chkPrazoFechamento" />
+
+                <EditText
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/txtQuantidadeParcelasFechamento"
+                    android:inputType="number"
+                    android:layout_weight="0.5"
+                    android:digits="0123456789"
+                    android:hint="@string/field_quantidade_parcelas" />
+
+                <ImageButton
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:id="@+id/btnCalculaParcelas"
+                    android:layout_gravity="right"
+                    android:background="@null"
+                    android:src="@drawable/calc" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="3"
+            android:layout_below="@+id/linearLayout"
+            android:layout_marginTop="3dp"
+            android:background="@drawable/pedido_fragment3_style"
+            android:id="@+id/linearLayout1">
+
+            <Spinner
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:id="@+id/spinCondicaoFechamento"
+                />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="1"
+            android:layout_marginTop="3dp"
+            android:layout_below="@+id/linearLayout1"
+            android:background="@drawable/pedido_fragment3_style"
+            android:id="@+id/linearLayoutParcela">
+
+            <EditText
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtNumeroParcelaFechamento"
+                android:layout_weight="0.0"
+                android:inputType="numberDecimal"
+                android:digits="0123456789,."
+                android:hint="@string/field_quantidade_parcelas" />
+
+            <EditText
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtDataParcelaFechamento"
+                android:layout_weight="0.5"
+                android:inputType="date"
+                android:hint="@string/field_data_parcela" />
+
+            <EditText
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/txtValorParcelaFechamento"
+                android:layout_weight="0.4"
+                android:inputType="numberDecimal"
+                android:digits="0123456789,."
+                android:hint="@string/field_data_parcela" />
+
+
+            <ImageButton
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:id="@+id/btnAddParcelas"
+                android:layout_gravity="right"
+                android:background="@null"
+                android:src="@drawable/ok" />
+        </LinearLayout>
+
+    </RelativeLayout>
+
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:weightSum="1"
+        android:layout_below="@id/LayoutHeader"
+        android:layout_above="@id/LayoutFooter"
+        android:id="@+id/linearLayoutListaParcelas">
+
+        <ListView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:id="@+id/listParcelasFechamento"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true" />
+    </LinearLayout>
+
+    <RelativeLayout
+        android:orientation="horizontal"
+        android:weightSum="1"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/LayoutFooter"
+        android:layout_alignParentBottom="true"
+        android:scrollbars="vertical">
+
+        <CheckBox
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="NF Online"
+            android:layout_weight="0.5"
+            android:id="@+id/chkNFFechamento" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/txtValorTotalParcelasFechamento"
+            android:layout_weight="0.5"
+            android:inputType="numberDecimal"
+            android:digits="0123456789,."
+            android:textStyle="bold"
+            android:text="123456"
+            android:gravity="center_horizontal"
+            android:layout_centerVertical="true"
+            android:layout_toLeftOf="@+id/btnGravarPedidoFechamento"
+            android:layout_marginRight="96dp" />
+
+        <ImageButton
+            android:layout_weight="2"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:id="@+id/btnGravarPedidoFechamento"
+            android:gravity="left"
+            android:background="@null"
+            android:src="@drawable/gravar"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true" />
+
+    </RelativeLayout>
+
+</RelativeLayout>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ngbclear"
+    android:theme="@style/AppTheme"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="br.inf.qti.movelapp.LoginActivity"
+    tools:showIn="@layout/activity_login">
+
+    <!-- Login progress -->
+    <ProgressBar
+        android:id="@+id/login_progress"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/login_form"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <androidx.gridlayout.widget.GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            >
+
+            <Space
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.1"
+                app:layout_gravity="fill_horizontal"
+                android:background="?attr/colorPrimary"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/email_login_form"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_columnWeight="0.8"
+                android:layout_marginTop="100px"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/imgLogin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:paddingBottom="100px"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
+                    android:src="@drawable/logo" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/prompt_email"
+                    android:textColor="@color/ngbfont" />
+
+                <AutoCompleteTextView
+                    android:id="@+id/email"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/retangulo"
+                    android:hint="@string/prompt_email"
+                    android:inputType="textEmailAddress"
+                    android:maxLines="1"
+                    android:padding="15px"
+                    android:textColor="@color/ngbfont" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/prompt_password"
+                    android:textColor="@color/ngbfont" />
+
+                <EditText
+                    android:id="@+id/password"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/retangulo"
+                    android:hint="@string/prompt_password"
+                    android:imeActionId="@+id/login"
+                    android:imeActionLabel="@string/action_sign_in_short"
+                    android:imeOptions="actionUnspecified"
+                    android:inputType="textPassword"
+                    android:maxLines="1"
+                    android:padding="15px"
+                    android:textColor="@color/ngbfont" />
+
+                <ImageButton
+                    android:id="@+id/email_sign_in_button"
+                    style="?android:textAppearanceSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="0.8"
+                    android:layout_gravity="fill_horizontal"
+                    android:layout_marginTop="16dp"
+                    android:background="@color/ngbclear"
+
+
+                    android:gravity="center"
+                    android:paddingTop="20dp"
+                    android:src="@drawable/login_entrar"
+                    android:text="@string/action_sign_in"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <Space
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.1"
+                app:layout_gravity="fill_horizontal"
+                android:background="?attr/colorPrimary"
+                android:gravity="center" />
+
+        </androidx.gridlayout.widget.GridLayout>
+    </ScrollView>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

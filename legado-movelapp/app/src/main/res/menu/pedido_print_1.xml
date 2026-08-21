@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="br.inf.qti.movelctrl.movel.PedidoConsultaActivity" >
+    
+    <item android:id="@+id/printPedido"
+        android:title="@string/action_print_pedido"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/viewPedido"
+        android:title="@string/action_view_pedido"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+</menu>

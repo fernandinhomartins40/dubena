@@ -1,0 +1,22 @@
+<resources>
+        <string name="title_activity_login">Credenciais</string>
+
+    <!-- Strings related to login -->
+    <string name="prompt_email">Usuário</string>
+    <string name="prompt_password">Senha</string>
+    <string name="prompt_servidor">Servidor</string>
+    <string name="prompt_cliente_id">ID. do Cliente</string>
+    <string name="prompt_revenda_id">ID. da Revenda</string>
+    <string name="prompt_descricao_android">Descrição</string>
+    <string name="action_sign_in">Entrar</string>
+    <string name="action_sign_in_short">Entrar</string>
+
+    <string name="error_invalid_email">Usuário Inválido</string>
+    <string name="error_invalid_password">Senha muito curta</string>
+    <string name="error_incorrect_password">Usuário ou senha incorretos</string>
+    <string name="error_field_required">Este campo é obrigatório</string>
+
+    <string name="confirm_registry">Usuário não encontrado. Deseja criar um novo usuário com estas credenciais?</string>
+    <string name="yes">Sim</string>
+    <string name="no">Não</string>
+</resources>

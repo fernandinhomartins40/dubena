@@ -1,0 +1,18 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="br.inf.qti.movelctrl.movel.MainActivity" >
+    
+    <item android:id="@+id/action_settings"
+        android:title="@string/action_settings"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/action_import"
+        android:title="@string/action_import"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/action_registration"
+        android:title="@string/action_registration"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+</menu>

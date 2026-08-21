@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent" android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="New Text"
+                android:textStyle="bold"
+                android:layout_weight="0.1"
+                android:id="@+id/txtPedidoReport" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="New Text"
+                android:textStyle="bold"
+                android:layout_weight="0.9"
+                android:id="@+id/txtClienteReport" />
+
+        </LinearLayout>
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:weightSum="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="New Text"
+                android:textStyle="normal"
+                android:id="@+id/txtCondicaoReport"
+                android:gravity="left"
+                android:layout_weight="0.5"/>
+
+            <TextView
+                android:id="@+id/txtQtuantidadeReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="teste"
+                android:textColor="#343434"
+                android:textStyle="normal"
+                android:layout_weight="0.25"
+                android:gravity="right"
+                />
+            <TextView
+                android:id="@+id/txtValorReport"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="teste"
+                android:textColor="#343434"
+                android:textStyle="normal"
+                android:gravity="right"
+                android:layout_weight="0.25"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</RelativeLayout>

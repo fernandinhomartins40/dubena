@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ngbclear"
+    android:theme="@style/AppTheme"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior"
+    tools:context="br.inf.qti.movelapp.Main2Activity"
+    tools:showIn="@layout/app_bar_main2">
+
+
+    <androidx.gridlayout.widget.GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="30dp"
+        tools:ignore="MissingConstraints">
+
+        <Space
+            android:layout_width="0dp"
+            app:layout_columnWeight="0.05"
+            app:layout_gravity="fill_horizontal"
+            android:gravity="center" />
+
+        <androidx.gridlayout.widget.GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_columnWeight="0.95"
+            android:background="@color/ngbclear"
+            >
+
+            <ImageButton
+                android:id="@+id/btnMeligueNew"
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.6"
+                app:layout_gravity="fill_horizontal"
+                android:background="@color/ngbclear"
+                android:gravity="center"
+                android:paddingTop="40dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/bt_contato" />
+            <Space
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.02"
+                app:layout_gravity="fill_horizontal"
+                android:gravity="center" />
+            <ImageButton
+                android:id="@+id/btnPedidoConsultaNew"
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.90"
+                app:layout_gravity="fill_horizontal"
+                android:gravity="center"
+                android:background="@color/ngbclear"
+                android:paddingTop="20dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/bt_pedidos" />
+            <Space
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.02"
+                app:layout_gravity="fill_horizontal"
+                android:gravity="center" />
+            <ImageButton
+                android:id="@+id/btnPedidoRelatorioNew"
+                android:layout_width="0dp"
+                app:layout_columnWeight="0.6"
+                app:layout_gravity="fill_horizontal"
+                android:background="@color/ngbclear"
+                android:gravity="center"
+                android:paddingTop="40dp"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/bt_relatorio" />
+        </androidx.gridlayout.widget.GridLayout>
+
+        <Space
+            android:layout_width="0dp"
+            app:layout_columnWeight="0.05"
+            app:layout_gravity="fill_horizontal"
+            android:background="?attr/colorPrimary"
+            android:gravity="center" />
+
+    </androidx.gridlayout.widget.GridLayout>
+    <androidx.gridlayout.widget.GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        tools:ignore="MissingConstraints">
+
+        <Button
+            android:id="@+id/btnVeiculoPlaca"
+            android:layout_width="150dp"
+            android:layout_height="fill_parent"
+            android:background="#AA3AC5"
+            android:gravity="center"
+            android:text="teste"
+            android:textAlignment="center"
+            android:textColor="@color/ngbfontwhite"
+            android:textSize="15dp"
+            android:textStyle="normal"
+            app:layout_gravity="center_horizontal" />
+    </androidx.gridlayout.widget.GridLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

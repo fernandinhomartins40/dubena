@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_registrar"
+            android:icon="@drawable/ic_settings_remote_black_24dp"
+            android:title="Registrar aplicativo" />
+        <item
+            android:id="@+id/nav_importar"
+            android:icon="@drawable/ic_cached_black_24dp"
+            android:title="Importar dados" />
+    </group>
+
+    <item android:title="Operações">
+        <menu>
+            <item
+                android:id="@+id/nav_contato"
+                android:icon="@drawable/ic_contact_mail_black_24dp"
+                android:title="Solicitar contato" />
+            <item
+                android:id="@+id/nav_consultar"
+                android:icon="@drawable/ic_insert_drive_file_black_24dp"
+                android:title="Consultar pedidos" />
+            <item
+                android:id="@+id/nav_historico"
+                android:icon="@drawable/ic_content_copy_black_24dp"
+                android:title="Consultar histórico" />
+            <item
+                android:id="@+id/nav_veiculo"
+                android:icon="@drawable/ic_content_copy_black_24dp"
+                android:title="Alterar Veículo" />
+        </menu>
+    </item>
+
+</menu>

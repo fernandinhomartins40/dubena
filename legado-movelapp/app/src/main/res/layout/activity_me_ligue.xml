@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:theme="@style/AppTheme"
+    tools:context="br.inf.qti.movelapp.MeLigueActivity">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/retangulo2"
+        android:paddingBottom="10dp"
+        android:paddingTop="15dp"
+        android:theme="@style/AppTheme">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#00000000"
+            app:popupTheme="@style/AppTheme.PopupOverlay">
+
+
+            <androidx.gridlayout.widget.GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/colorPrimary"
+                android:layout_marginRight="3dp"
+                app:columnCount="2">
+
+                <ImageView
+                    android:id="@+id/imgLogin"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_columnWeight="1"
+                    android:src="@drawable/logo" />
+
+                <TextView
+                    android:id="@+id/txtVersionNew"
+                    android:layout_width="0dp"
+                    android:layout_height="fill_parent"
+                    app:layout_columnWeight="0"
+                    android:gravity="right"
+                    android:text=""
+                    android:textAlignment="center"
+                    android:textSize="10dp" />
+
+            </androidx.gridlayout.widget.GridLayout>
+
+
+        </androidx.appcompat.widget.Toolbar>
+
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:gravity="center"
+            android:text="Solicitar Contato"
+            android:textAlignment="center"
+            android:textSize="14dp" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <include layout="@layout/content_me_ligue" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

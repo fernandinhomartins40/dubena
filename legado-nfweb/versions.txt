@@ -1,0 +1,3 @@
+Última compilação: 17/07/2025
+nvm/node:  v14.15.4
+java version "11.0.20" 2023-07-18 LTS

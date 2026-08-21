@@ -53,3 +53,12 @@ app-gas-em-casa/.expo/
 *.swp
 Thumbs.db
 _migra_monitora.py
+
+# Apps legados descobertos em 2026-08-20 (referencia, nao buildados aqui).
+# Segredos e caches ficam fora: google-services.json tem chave do Firebase e
+# o repo faz deploy automatico na main.
+legado-nfweb/android/app/google-services*.json
+legado-movelapp/app/google-services*.json
+legado-*/.gradle/
+legado-*/app/build/
+legado-*/android/app/debug.keystore*
