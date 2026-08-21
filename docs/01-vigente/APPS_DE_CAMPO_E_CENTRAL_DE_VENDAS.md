@@ -430,9 +430,10 @@ E revelou uma regra que ninguém aplicava:
 >
 > | Fase | Situação |
 > |---|---|
-> | F0 ponte · F1 vínculo · F2 alçada · F3 Central · F4 solicitação · F6 NF-e | **completas** |
+> | F0 ponte | **completa — 29/29 endpoints** (NFWEB 18/18, MovelApp 11/11), com teste que fixa a cobertura |
+> | F1 vínculo · F2 alçada (com CRUD e trilha) · F3 Central (em abas) · F4 solicitação (com telas no app) · F6 NF-e | **completas** |
 > | F5 remuneração e estoque | **completa** — extrato, remuneração mista (`tipo_comissao=3`) e mercadoria em poder do franqueado (consignação × compra) |
-> | F7 offline | **backend + fila no app**; ocorrência/conclusão (multipart) seguem exigindo rede |
+> | F7 offline | **completa** — fila + `useSincronizacao` (o gatilho que faltava); ocorrência/conclusão (multipart) seguem exigindo rede |
 > | F8 impressão | **conteúdo do cupom entregue** (`CupomTextoService`); falta só a camada Bluetooth **no NFWEB** — o MovelApp não imprime (§2.9) |
 > | F9 desligar legados | não implementável — exige conferência em produção |
 >
