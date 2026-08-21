@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
 use App\Http\Controllers\Api\Admin\CentralController;
+use App\Http\Controllers\Api\Admin\CentralVendasController;
 use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
@@ -56,7 +57,9 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\Mobile\AppLojaController;
+use App\Http\Controllers\Api\Mobile\AppFiscalController;
 use App\Http\Controllers\Api\Mobile\AppMissaoController;
+use App\Http\Controllers\Api\Mobile\AppSolicitacaoController;
 use App\Http\Controllers\Api\Mobile\AppPedidoController;
 use App\Http\Controllers\Api\Mobile\AppPerfilController;
 use App\Http\Controllers\Api\Mobile\MarketplaceController;
@@ -541,6 +544,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('central/config', [CentralController::class, 'config']);
         Route::put('central/config', [CentralController::class, 'salvarConfig']);
 
+        // F3 — Central de VENDAS. Irmã da central de logística acima (que
+        // distribui entrega): esta decide se vende e por quanto.
+        Route::get('central-vendas/solicitacoes', [CentralVendasController::class, 'index']);
+        Route::get('central-vendas/solicitacoes/{id}', [CentralVendasController::class, 'show'])->whereNumber('id');
+        Route::post('central-vendas/solicitacoes/{id}/aprovar', [CentralVendasController::class, 'aprovar'])->whereNumber('id');
+        Route::post('central-vendas/solicitacoes/{id}/recusar', [CentralVendasController::class, 'recusar'])->whereNumber('id');
+        Route::post('central-vendas/solicitacoes/{id}/faturar', [CentralVendasController::class, 'faturar'])->whereNumber('id');
+
         // ── Missões de campo (L7/L9) — moldes + auditoria ──
         Route::get('missoes', [MissaoController::class, 'index']);
         Route::post('missoes', [MissaoController::class, 'store']);
@@ -774,6 +785,19 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
             Route::post('missao/venda', [AppMissaoController::class, 'venderGas']);
             Route::post('missao/vale-gas', [AppMissaoController::class, 'venderValeGas']);
             Route::post('missao/clientes', [AppMissaoController::class, 'cadastrarCliente']);
+
+            // F4 — solicitação de venda à Central. O franqueado não fatura: ele
+            // pede, e a Central cria/aprova/fatura. Nada aqui move estoque.
+            Route::get('solicitacoes', [AppSolicitacaoController::class, 'index']);
+            Route::post('solicitacoes', [AppSolicitacaoController::class, 'store']);
+            Route::post('solicitacoes/{id}/cancelar', [AppSolicitacaoController::class, 'cancelar'])->whereNumber('id');
+
+            // F6 — emissão fiscal em campo: SÓ o vendedor industrial. O papel
+            // vem do vínculo do colaborador (AppAuthController::abilitiesDe).
+            Route::middleware('approle:industrial')->prefix('fiscal')->group(function () {
+                Route::post('emitir', [AppFiscalController::class, 'emitir']);
+                Route::get('notas/{id}/danfe', [AppFiscalController::class, 'danfe'])->whereNumber('id');
+            });
         });
     });
 });

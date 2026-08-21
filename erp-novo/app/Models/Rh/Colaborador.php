@@ -23,8 +23,11 @@ class Colaborador extends Model
 
     protected $fillable = [
         'empresa_id', 'grupo_id', 'cargo_id', 'user_id',
-        'nome', 'cpf', 'rg', 'data_nascimento', 'data_admissao', 'data_desligamento',
+        'nome', 'cpf', 'cnpj', 'rg', 'data_nascimento', 'data_admissao', 'data_desligamento',
         'telefone', 'entregador', 'ativo',
+        // F1 — sob qual relação trabalha (CLT, franqueado PJ, vendedor industrial).
+        // `entregador` responde "faz entrega?"; `vinculo` responde "sob qual relação".
+        'vinculo',
         // Endereço: o legado sempre teve (81 colaboradores com cidade/bairro) e
         // o formulário da SPA já enviava — faltava a coluna no destino.
         'cep', 'uf', 'cidade_id', 'bairro_id', 'rua_id', 'numero', 'complemento',
@@ -38,6 +41,7 @@ class Colaborador extends Model
             'data_desligamento' => 'date',
             'entregador' => 'boolean',
             'ativo' => 'boolean',
+            'vinculo' => \App\Domain\Rh\VinculoColaborador::class,
         ];
     }
 

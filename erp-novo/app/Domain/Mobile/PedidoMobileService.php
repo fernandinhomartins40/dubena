@@ -176,6 +176,11 @@ class PedidoMobileService
             'setor_id' => $setor->id,
             'datahora' => now(),
             'observacao' => $payload['observacao'] ?? null,
+            // F2 — o desconto daqui é do CUPOM, calculado pela cotação no servidor
+            // (o cliente nunca define preço nem desconto). Alçada é teto para o
+            // desconto que uma PESSOA concede; promoção da empresa não passa por
+            // ela. O piso `preco_venda_minimo` do produto continua valendo.
+            'desconto_aprovado' => true,
         ], $itens);
     }
 

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Mobile\ClienteAuthService;
 use App\Domain\Mobile\Exceptions\FirebaseTokenInvalido;
+use App\Domain\Rh\VinculoColaborador;
 use App\Domain\Seguranca\LoginSeguranca;
 use App\Domain\Seguranca\VerificadorDoisFatores;
+use App\Models\Rh\Colaborador;
 use App\Http\Controllers\Controller;
 use App\Models\Mobile\AppDevice;
 use App\Models\User;
@@ -114,13 +116,26 @@ class AppAuthController extends Controller
         $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
         $this->registrarDeviceDoLogin($user, $d);
 
-        // F3 (segurança): este login por e-mail/senha atende o app do ENTREGADOR —
-        // o token recebe role:entregador e não alcança as rotas do app do cliente.
-        $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'), ['role:entregador'])->plainTextToken;
+        // F3 (segurança): este login por e-mail/senha atende os apps de CAMPO —
+        // o token nunca alcança as rotas do app do cliente.
+        //
+        // F1: o papel sai do VÍNCULO do colaborador, não de um valor fixo. Um app
+        // só, três perfis: funcionário entrega, franqueado entrega e vende,
+        // industrial vende e emite nota. Quem não tem cadastro de colaborador cai
+        // em `entregador` — o comportamento de antes desta fase.
+        $abilities = $this->abilitiesDe($user);
+        $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'), $abilities)->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
+            'user' => [
+                'id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id,
+                // O app precisa saber o que pode mostrar (solicitar desconto,
+                // emitir nota); sem isto teria de inferir do papel, o que espalha
+                // regra de negócio pelo cliente.
+                'vinculo' => $this->vinculoDe($user)->value,
+                'papel' => $this->vinculoDe($user)->papelDoApp(),
+            ],
         ]);
     }
 
@@ -130,6 +145,47 @@ class AppAuthController extends Controller
      *
      * @param  array<string,mixed>  $d
      */
+    /**
+     * O vínculo do colaborador por trás do login (F1).
+     *
+     * Sem cadastro de colaborador, assume FUNCIONARIO — é o que preserva o
+     * comportamento anterior (todo login de app recebia `role:entregador`).
+     */
+    private function vinculoDe(User $user): VinculoColaborador
+    {
+        $vinculo = Colaborador::query()
+            ->where('user_id', $user->id)
+            ->value('vinculo');
+
+        if ($vinculo instanceof VinculoColaborador) {
+            return $vinculo;
+        }
+
+        return VinculoColaborador::tryFrom((string) $vinculo) ?? VinculoColaborador::FUNCIONARIO;
+    }
+
+    /**
+     * Abilities do token conforme o vínculo.
+     *
+     * Franqueado e industrial também recebem `role:entregador`: eles usam as
+     * rotas de rota/jornada/missão como qualquer um em campo, e o middleware
+     * `approle:entregador` protege esse bloco inteiro. O papel próprio é o que
+     * abre o que é exclusivo deles (solicitar desconto, emitir nota).
+     *
+     * @return list<string>
+     */
+    private function abilitiesDe(User $user): array
+    {
+        $vinculo = $this->vinculoDe($user);
+        $abilities = ['role:entregador'];
+
+        if ($vinculo !== VinculoColaborador::FUNCIONARIO) {
+            $abilities[] = 'role:'.$vinculo->papelDoApp();
+        }
+
+        return $abilities;
+    }
+
     private function registrarDeviceDoLogin(User $user, array $d): void
     {
         if (empty($d['device_id'])) {

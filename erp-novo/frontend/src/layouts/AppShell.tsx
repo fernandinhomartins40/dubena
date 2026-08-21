@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, MapPin, LogOut, Menu as MenuIcon,
   Moon, Sun, ChevronLeft, ChevronDown, Building2, Package, Wallet, Warehouse, FileText,
   UserCog, Truck, Flame, FileBarChart, ShoppingCart, Bike, Compass,
-  MessageSquareHeart, Tag, Gift, Target, ListChecks,
+  MessageSquareHeart, Tag, Gift, Target, ListChecks, BadgePercent,
   Receipt, ArrowLeftRight, FolderArchive, Building,
   CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck,
 } from 'lucide-react'
@@ -34,6 +34,7 @@ const NAV: NavItem[] = [
   { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
   { label: 'Central de Logística', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Operações' },
+  { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Operações' },
   { label: 'Missões de Campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Operações' },
   { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Operações' },
   { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Operações' },

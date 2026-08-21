@@ -32,6 +32,11 @@ final class PermissaoCatalogo
         'monitora' => ['view', 'edit'],
         // Central de Logística (L1) — fila, atribuição, redistribuição, bloqueio.
         'logistica' => ['view', 'distribuir', 'config'],
+        // Central de VENDAS (F3) — fila de solicitações do campo e a decisão sobre
+        // elas. Separada da logística: uma decide quem leva, a outra se vende e
+        // por quanto. `aprovar` e `faturar` são verbos distintos de propósito —
+        // quem libera desconto não é necessariamente quem fecha a venda.
+        'venda' => ['view', 'aprovar', 'faturar', 'alcada'],
         // Missões de campo (L7/L9) — molde, execução e auditoria.
         'missao' => ['view', 'create', 'edit', 'aprovar'],
         'colaborador' => ['view', 'create', 'edit', 'delete'],
@@ -112,6 +117,8 @@ final class PermissaoCatalogo
         'fechar' => 'Fechar',
         'estornar' => 'Estornar',
         'distribuir' => 'Distribuir entregas',
+        'faturar' => 'Faturar venda',
+        'alcada' => 'Gerir alçadas de desconto',
     ];
 
     /**
