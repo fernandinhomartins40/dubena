@@ -149,6 +149,141 @@ class PonteMovelAppController extends Controller
         return response()->json(['data' => $motivos->all()]);
     }
 
+    /** POST getEmpresas — a revenda do aparelho (o app monta o cabeçalho com ela). */
+    public function empresas(Request $request): JsonResponse
+    {
+        $empresa = \App\Models\Empresa::query()->find((int) $request->user()->empresa_id);
+
+        return response()->json(['data' => $empresa === null ? [] : [[
+            'id' => $empresa->id,
+            'nome' => $empresa->nome_fantasia ?? $empresa->razao_social,
+            'cnpj' => $empresa->cnpj,
+        ]]]);
+    }
+
+    /**
+     * POST getUsuarios — quem pode entrar neste aparelho.
+     *
+     * No legado a lista sai do SETOR do dispositivo
+     * (`ApiController::getUsuarios:71`), porque o aparelho ficava no veículo.
+     * Aqui só faz sentido devolver o próprio usuário do token: quem decide o
+     * acesso é o login, não o aparelho.
+     */
+    public function usuarios(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json(['data' => [[
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ]]]);
+    }
+
+    /**
+     * POST getValeGas — valida o código de barras do vale.
+     *
+     * Regras do legado (`ApiController::getValeGas:456`), na mesma ordem: não
+     * encontrado, cancelado, já utilizado. A ordem importa — um vale cancelado
+     * E já usado deve reportar "cancelado", que é a informação acionável.
+     */
+    public function valeGas(Request $request): JsonResponse
+    {
+        $codigo = trim((string) $request->input('valegas', ''));
+
+        if ($codigo === '') {
+            return response()->json(['message' => 'Informe o código do vale.'], 422);
+        }
+
+        $vale = \App\Models\Satelite\ValeGas::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('codigo', $codigo)
+            ->first();
+
+        if ($vale === null) {
+            return response()->json(['message' => 'Vale Gás não encontrado no banco de dados.'], 422);
+        }
+
+        $situacao = (string) ($vale->situacao?->value ?? $vale->situacao ?? '');
+
+        if (str_contains(mb_strtolower($situacao), 'cancel')) {
+            return response()->json(['message' => 'Vale Gás cancelado.'], 422);
+        }
+
+        if (str_contains(mb_strtolower($situacao), 'utilizad') || $vale->utilizado_em !== null) {
+            return response()->json(['message' => 'Vale Gás já utilizado anteriormente.'], 422);
+        }
+
+        return response()->json(['data' => [
+            'id' => $vale->id,
+            'codigo' => $vale->codigo,
+            'valor' => (float) ($vale->valor ?? 0),
+        ]]);
+    }
+
+    /** POST setVeiculoAtivo — troca o veículo do entregador (um por vez). */
+    public function setVeiculoAtivo(Request $request): JsonResponse
+    {
+        $veiculoId = (int) $request->input('veiculo_id', 0);
+        $empresaId = (int) $request->user()->empresa_id;
+
+        $colaborador = \App\Models\Rh\Colaborador::query()
+            ->where('empresa_id', $empresaId)->where('user_id', $request->user()->id)->first();
+
+        if ($colaborador === null || $veiculoId === 0) {
+            return response()->json(['message' => 'Veículo ou colaborador não encontrado.'], 422);
+        }
+
+        // Regra do legado: vincular um veículo DESVINCULA os outros do mesmo
+        // colaborador — a exclusividade é o que faz a placa da NF-e ser confiável.
+        \DB::table('veiculos')->where('empresa_id', $empresaId)
+            ->where('colaborador_id', $colaborador->id)->update(['colaborador_id' => null]);
+        \DB::table('veiculos')->where('empresa_id', $empresaId)
+            ->where('id', $veiculoId)->update(['colaborador_id' => $colaborador->id]);
+
+        return response()->json(['data' => 'OK']);
+    }
+
+    /** POST getPedidosReport — o que este entregador fechou no período. */
+    public function pedidosReport(Request $request): JsonResponse
+    {
+        $inicio = $request->input('inicio', now()->startOfMonth()->toDateString());
+        $fim = $request->input('fim', now()->toDateString());
+
+        $pedidos = Pedido::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('entregador_user_id', $request->user()->id)
+            ->where('estoque_movimentado', true)
+            // whereDate: comparar datetime com string perde o último dia
+            // (armadilha registrada no CLAUDE.md).
+            ->whereDate('datahora', '>=', $inicio)
+            ->whereDate('datahora', '<=', $fim)
+            ->with('cliente:id,nome')
+            ->orderByDesc('datahora')
+            ->get();
+
+        return response()->json(['data' => [
+            'total' => round((float) $pedidos->sum('valor_venda'), 2),
+            'quantidade' => $pedidos->count(),
+            'pedidos' => $pedidos->map(fn (Pedido $p) => [
+                'id' => $p->id,
+                'razao_social' => $p->cliente?->nome ?? '',
+                'datahora' => optional($p->datahora)->format('d/m/Y H:i'),
+                'valorvenda' => (float) $p->valor_venda,
+            ])->all(),
+        ]]);
+    }
+
+    /** POST setAndroidMensagem — confirma leitura da mensagem enviada ao aparelho. */
+    public function setAndroidMensagem(Request $request): JsonResponse
+    {
+        // O legado marcava `mensagem_lida` na tabela do dispositivo. O erp-novo
+        // não tem esse canal (a comunicação com o campo é por push), então a
+        // rota responde OK para não quebrar a tela — sem inventar um recurso que
+        // não existe do outro lado.
+        return response()->json(['data' => 'OK']);
+    }
+
     /**
      * Converte um Pedido para o formato exato que o app espera.
      *

@@ -216,4 +216,52 @@ class PonteLegadoTest extends TestCase
         $r->assertOk();
         $r->assertJsonPath('status', 'NOK');
     }
+
+    public function test_os_11_endpoints_do_movelapp_existem(): void
+    {
+        // Contrato de COBERTURA: nenhuma funcao do app pode ficar sem destino.
+        // Se alguem remover um endpoint achando que "nao e usado", isto cai.
+        $esperados = [
+            'getEmpresas', 'getPedidosMotivosAtrasos', 'getPedidosPendentes',
+            'getPedidosReport', 'getPedidosSituacoes', 'getUsuarios', 'getValeGas',
+            'getVeiculos', 'setAndroidMensagem', 'setPedidoSituacao', 'setVeiculoAtivo',
+        ];
+
+        $registrados = collect(\Illuminate\Support\Facades\Route::getRoutes()->getRoutes())
+            ->map(fn ($r) => $r->uri())
+            ->filter(fn (string $u) => str_starts_with($u, 'api/legado/') && ! str_contains($u, '/nfweb/'))
+            ->map(fn (string $u) => str_replace('api/legado/', '', $u))
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($esperados as $e) {
+            $this->assertContains($e, $registrados, "Endpoint do MovelApp ausente: {$e}");
+        }
+    }
+
+    public function test_vale_gas_inexistente_recebe_OPS(): void
+    {
+        $r = $this->comoEntregador()->postJson('/api/legado/getValeGas', ['valegas' => 'NAO-EXISTE'])
+            ->assertOk();
+
+        // Recusa de regra, nao erro tecnico: o entregador le a mensagem.
+        $r->assertJsonPath('status', 'OPS');
+    }
+
+    public function test_report_do_entregador_soma_o_periodo(): void
+    {
+        $r = $this->comoEntregador()->postJson('/api/legado/getPedidosReport', [])->assertOk();
+
+        $r->assertJsonPath('status', 'OK');
+        $this->assertSame(0, $r->json('dados.quantidade'));
+    }
+
+    public function test_empresas_devolve_a_revenda_do_token(): void
+    {
+        $r = $this->comoEntregador()->postJson('/api/legado/getEmpresas', [])->assertOk();
+
+        $r->assertJsonPath('status', 'OK');
+        $this->assertSame($this->empresa->id, $r->json('dados.0.id'));
+    }
 }

@@ -3,8 +3,11 @@ import { BadgePercent, CheckCircle2, XCircle, Receipt, ShoppingCart, TriangleAle
 import {
   Button, Card, CardContent, PageHeader, Badge, AsyncState, StatCard,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
-  Field, Input, toast, Can,
+  Field, Input, toast, Can, Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
+import { useAuth } from '@/lib/auth'
+import { PosVendaPage } from '@/features/crm/PosVendaPage'
+import { MissoesPage } from '@/features/missoes/MissoesPage'
 import { brl, dataHora } from '@/lib/format'
 import {
   useSolicitacoes, useSolicitacao, useAprovar, useRecusar, useFaturar,
@@ -22,6 +25,35 @@ import {
  * Central de Logística.
  */
 export function CentralVendasPage() {
+  const { can } = useAuth()
+
+  return (
+    <div>
+      <PageHeader
+        title="Central de Vendas"
+        subtitle="A operação do atendente: solicitações do campo, pós-venda e missões"
+      />
+
+      {/* As três frentes do atendente num lugar só. Pós-venda e missões já
+          existiam como páginas próprias e são REUSADAS aqui — duplicá-las faria
+          duas telas divergirem com o tempo. */}
+      <Tabs defaultValue="solicitacoes">
+        <TabsList>
+          <TabsTrigger value="solicitacoes">Solicitações</TabsTrigger>
+          {can('missao.view') && <TabsTrigger value="missoes">Missões</TabsTrigger>}
+          {can('posvenda.view') && <TabsTrigger value="posvenda">Pós-venda</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="solicitacoes"><FilaSolicitacoes /></TabsContent>
+        {can('missao.view') && <TabsContent value="missoes"><MissoesPage /></TabsContent>}
+        {can('posvenda.view') && <TabsContent value="posvenda"><PosVendaPage /></TabsContent>}
+      </Tabs>
+    </div>
+  )
+}
+
+/** A fila propriamente dita — o que era a página inteira antes das abas. */
+function FilaSolicitacoes() {
   const [aberta, setAberta] = useState<number | null>(null)
   const fila = useSolicitacoes('pendente')
   const solicitacoes = fila.data ?? []
@@ -29,11 +61,7 @@ export function CentralVendasPage() {
   const totalPedido = solicitacoes.reduce((acc, s) => acc + Number(s.desconto_solicitado ?? 0), 0)
 
   return (
-    <div>
-      <PageHeader
-        title="Central de Vendas"
-        subtitle="Solicitações do campo: aprovação de desconto e faturamento"
-      />
+    <div className="pt-3">
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <StatCard titulo="Aguardando decisão" valor={String(solicitacoes.length)} icon={ShoppingCart} accent="primary" />

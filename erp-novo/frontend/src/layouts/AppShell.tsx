@@ -35,6 +35,7 @@ const NAV: NavItem[] = [
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
   { label: 'Central de Logística', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Operações' },
   { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Operações' },
+  { label: 'Alçadas de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Configurações' },
   { label: 'Missões de Campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Operações' },
   { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Operações' },
   { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Operações' },

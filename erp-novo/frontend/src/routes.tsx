@@ -31,6 +31,7 @@ const GeograficoPage = lazyNamed(() => import('@/features/geografico/GeograficoP
 const PedidosPage = lazyNamed(() => import('@/features/pedidos/PedidosPage'), 'PedidosPage')
 const CentralPage = lazyNamed(() => import('@/features/central/CentralPage'), 'CentralPage')
 const CentralVendasPage = lazyNamed(() => import('@/features/central-vendas/CentralVendasPage'), 'CentralVendasPage')
+const AlcadasPage = lazyNamed(() => import('@/features/central-vendas/AlcadasPage'), 'AlcadasPage')
 const MissoesPage = lazyNamed(() => import('@/features/missoes/MissoesPage'), 'MissoesPage')
 const EstoquePage = lazyNamed(() => import('@/features/estoque/EstoquePage'), 'EstoquePage')
 const FiscalPage = lazyNamed(() => import('@/features/fiscal/FiscalPage'), 'FiscalPage')
@@ -135,6 +136,7 @@ export function AppRoutes() {
       <Route path="/pedidos" element={p(<PedidosPage />, 'pedido.view')} />
       <Route path="/central" element={p(<CentralPage />, 'logistica.view')} />
       <Route path="/central-vendas" element={p(<CentralVendasPage />, 'venda.view')} />
+      <Route path="/alcadas" element={p(<AlcadasPage />, 'venda.alcada')} />
       <Route path="/missoes" element={p(<MissoesPage />, 'missao.view')} />
       <Route path="/estoque" element={p(<EstoquePage />, 'estoque.view')} />
       <Route path="/fiscal" element={p(<FiscalPage />, 'fiscal.view')} />

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
+use App\Http\Controllers\Api\Admin\AlcadaDescontoController;
 use App\Http\Controllers\Api\Admin\CargaFranqueadoController;
 use App\Http\Controllers\Api\Admin\CentralController;
 use App\Http\Controllers\Api\Admin\CentralVendasController;
@@ -59,6 +60,7 @@ use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\Mobile\AppLojaController;
 use App\Http\Controllers\Api\Legado\PonteMovelAppController;
+use App\Http\Controllers\Api\Legado\PonteNfwebController;
 use App\Http\Controllers\Api\Mobile\AppFiscalController;
 use App\Http\Controllers\Api\Mobile\AppMissaoController;
 use App\Http\Controllers\Api\Mobile\AppSolicitacaoController;
@@ -557,6 +559,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // F5 — mercadoria em poder do franqueado (consignacao ou compra). Opera
         // o deposito/central, nao o proprio franqueado: entregar mercadoria a si
         // mesmo derrubaria a conferencia.
+        // F2 — cadastro das alcadas. Sem isto a verificacao fail-closed deixa
+        // TODO MUNDO com teto zero: a tabela sem CRUD trava o negocio.
+        Route::get('alcadas', [AlcadaDescontoController::class, 'index']);
+        Route::post('alcadas', [AlcadaDescontoController::class, 'salvar']);
+        Route::put('alcadas/{id}', [AlcadaDescontoController::class, 'salvar'])->whereNumber('id');
+        Route::delete('alcadas/{id}', [AlcadaDescontoController::class, 'destroy'])->whereNumber('id');
+
         Route::get('franqueados/{id}/estoque', [CargaFranqueadoController::class, 'emPoder'])->whereNumber('id');
         Route::post('franqueados/{id}/carga', [CargaFranqueadoController::class, 'carregar'])->whereNumber('id');
         Route::post('franqueados/{id}/devolucao', [CargaFranqueadoController::class, 'devolver'])->whereNumber('id');
@@ -848,6 +857,42 @@ Route::prefix('legado')
         Route::post('getPedidosSituacoes', [PonteMovelAppController::class, 'situacoes']);
         Route::post('getVeiculos', [PonteMovelAppController::class, 'veiculos']);
         Route::post('getPedidosMotivosAtrasos', [PonteMovelAppController::class, 'motivosAtraso']);
+        // Os 11 endpoints do MovelApp, sem exceção — o app tem de continuar
+        // inteiro depois de apontar para ca.
+        Route::post('getEmpresas', [PonteMovelAppController::class, 'empresas']);
+        Route::post('getUsuarios', [PonteMovelAppController::class, 'usuarios']);
+        Route::post('getValeGas', [PonteMovelAppController::class, 'valeGas']);
+        Route::post('setVeiculoAtivo', [PonteMovelAppController::class, 'setVeiculoAtivo']);
+        Route::post('getPedidosReport', [PonteMovelAppController::class, 'pedidosReport']);
+        Route::post('setAndroidMensagem', [PonteMovelAppController::class, 'setAndroidMensagem']);
+    });
+
+// F0 — ponte do NFWEB. Envelope `data` (Http.js:164 do app), diferente do
+// MovelApp que le `dados`. savePedido vira SOLICITACAO: a regra do cliente e que
+// o vendedor pede e a Central decide.
+Route::prefix('legado/nfweb')
+    ->middleware(['auth:sanctum', 'tenant', 'dialeto.legado:data', 'revenda.legado'])
+    ->group(function () {
+        Route::post('init', [PonteNfwebController::class, 'init']);
+        Route::post('getCliente', [PonteNfwebController::class, 'getCliente']);
+        Route::post('savePedido', [PonteNfwebController::class, 'savePedido']);
+        Route::post('getParcelasVencidasCliente', [PonteNfwebController::class, 'parcelasVencidas']);
+        Route::get('pedidoConsulta', [PonteNfwebController::class, 'pedidoConsulta']);
+        Route::get('nfeConsulta', [PonteNfwebController::class, 'nfeConsulta']);
+        Route::get('visualizarDanfe', [PonteNfwebController::class, 'visualizarDanfe']);
+        // As 18 rotas do legado, sem exceção: o app tem de continuar inteiro
+        // depois de apontar para ca.
+        Route::post('login', [PonteNfwebController::class, 'login']);
+        Route::get('getCadastros', [PonteNfwebController::class, 'getCadastros']);
+        Route::post('saveCliente', [PonteNfwebController::class, 'saveCliente']);
+        Route::post('saveClienteObs', [PonteNfwebController::class, 'saveClienteObs']);
+        Route::post('changeVeiculo', [PonteNfwebController::class, 'changeVeiculo']);
+        Route::post('changeRegistrationId', [PonteNfwebController::class, 'changeRegistrationId']);
+        Route::get('pedidosReport', [PonteNfwebController::class, 'pedidosReport']);
+        Route::get('pedidoDuplicata', [PonteNfwebController::class, 'pedidoDuplicata']);
+        Route::get('visualizarBoleto', [PonteNfwebController::class, 'visualizarBoleto']);
+        Route::get('baixarDanfe', [PonteNfwebController::class, 'baixarDanfe']);
+        Route::get('enviarEmail', [PonteNfwebController::class, 'enviarEmail']);
     });
 
 /*

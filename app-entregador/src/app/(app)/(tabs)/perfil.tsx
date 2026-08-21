@@ -7,7 +7,7 @@ import useAppStore from "@/store/appStore"
 import { fontSize, radius } from "@/styles/theme"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { router } from "expo-router"
-import { ChevronRight, LogOut, PlayCircle, PowerOff, Truck } from "lucide-react-native"
+import { ChevronRight, FileText, LogOut, PlayCircle, PowerOff, Truck, Wallet } from "lucide-react-native"
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -94,6 +94,21 @@ export default function Perfil() {
                     titulo="Veículo da jornada"
                     sub={placa ? `${placa}${jornada.data?.veiculo?.descricao ? ` · ${jornada.data.veiculo.descricao}` : ""}` : "Nenhum veículo em uso"}
                     onPress={() => (ativa ? undefined : router.push("/(app)/iniciar-jornada"))}
+                />
+                {/* F4/F5 — entradas do franqueado/industrial. Ficam no perfil
+                    porque a tab bar já tem cinco áreas e uma sexta apertaria os
+                    rótulos; quem não é franqueado simplesmente vê listas vazias. */}
+                <Linha
+                    icone={<Wallet size={20} color={COLORS.primary} />}
+                    titulo="Ganhos e mercadoria"
+                    sub="Quanto ganhei no mês e o que estou carregando"
+                    onPress={() => router.push("/(app)/ganhos")}
+                />
+                <Linha
+                    icone={<FileText size={20} color={COLORS.primary} />}
+                    titulo="Minhas solicitações"
+                    sub="O que pedi à central de vendas e no que deu"
+                    onPress={() => router.push("/(app)/solicitacoes")}
                 />
                 <Linha
                     icone={<LogOut size={20} color={COLORS.danger} />}

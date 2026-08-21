@@ -8,6 +8,7 @@ use App\Domain\Logistica\Events\PedidoEntrouNaFila;
 use App\Domain\Logistica\Jobs\AtribuirPedidoJob;
 use App\Domain\Pedido\Events\PedidoStatusAtualizado;
 use App\Domain\Venda\AlcadaDescontoService;
+use App\Models\AuditLog;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -270,6 +271,32 @@ class PedidoService
 
         if ($desc <= $r['teto'] + 0.001) {   // tolerância de arredondamento
             return;
+        }
+
+        // Trilha (F2): a RECUSA é o dado que ninguém teria de outro jeito. Pedido
+        // aprovado deixa rastro no próprio pedido; tentativa barrada some — e é
+        // justamente ela que mostra onde a margem está sendo pressionada, quem
+        // está pedindo além do teto e se a política está calibrada.
+        try {
+            AuditLog::create([
+                'empresa_id' => $produto->empresa_id,
+                'entidade' => 'alcada_desconto',
+                'entidade_id' => $r['regra_id'],
+                'acao' => 'recusado',
+                'user_id' => $usuario?->id,
+                'antes' => ['teto' => $r['teto']],
+                'depois' => [
+                    'desconto_pedido' => round($desc, 2),
+                    'produto_id' => $produto->id,
+                    'quantidade' => $qtd,
+                    'preco_unitario' => $preco,
+                ],
+                'ip' => request()?->ip(),
+                'criado_em' => now(),
+            ]);
+        } catch (\Throwable) {
+            // Trilha não pode derrubar a venda: se o log falhar, a recusa vale
+            // do mesmo jeito — ela é a regra, o registro é o acessório.
         }
 
         $sugestao = $r['permite_solicitar']

@@ -1,5 +1,6 @@
 import { COLORS } from "@/constants/app"
 import { useRastreamento } from "@/hooks/useRastreamento"
+import { useSincronizacao } from "@/hooks/useSincronizacao"
 import useAppStore from "@/store/appStore"
 import { Redirect, Stack } from "expo-router"
 
@@ -8,11 +9,16 @@ import { Redirect, Stack } from "expo-router"
  * (useRastreamento) — que só envia pings durante a jornada. As TABS são a área
  * principal; ficam empilhadas por cima só as telas de fluxo (iniciar jornada,
  * detalhe da entrega, visita/venda de missão), com header laranja da marca.
+ *
+ * F7 — `useSincronizacao` fica aqui pelo mesmo motivo do rastreamento: precisa
+ * viver enquanto o entregador estiver logado, independentemente da tela aberta.
+ * Numa tela específica, sair dela pararia de esvaziar a fila.
  */
 export default function AppLayout() {
     const token = useAppStore((s) => s.apiToken)
-    // Hook montado no topo do grupo: vive enquanto o entregador estiver logado.
+    // Hooks montados no topo do grupo: vivem enquanto o entregador estiver logado.
     useRastreamento()
+    useSincronizacao(Boolean(token))
 
     if (!token) return <Redirect href="/login" />
 
@@ -33,6 +39,11 @@ export default function AppLayout() {
             <Stack.Screen name="pedido/[id]/concluir" options={{ title: "Comprovar entrega" }} />
             <Stack.Screen name="missao-visita" options={{ title: "Registrar visita" }} />
             <Stack.Screen name="missao-venda" options={{ title: "Vender em campo" }} />
+            {/* F4/F5 — telas do franqueado/industrial. Empilhadas e nao em TAB:
+                a barra ja tem cinco areas, e uma sexta apertaria os rotulos. */}
+            <Stack.Screen name="solicitar-venda" options={{ title: "Solicitar à Central" }} />
+            <Stack.Screen name="ganhos" options={{ title: "Ganhos e mercadoria" }} />
+            <Stack.Screen name="solicitacoes" options={{ title: "Minhas solicitações" }} />
         </Stack>
     )
 }
