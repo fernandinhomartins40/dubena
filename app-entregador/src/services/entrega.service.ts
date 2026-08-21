@@ -1,4 +1,5 @@
 import Http from "@/helpers/http"
+import { enviarOuEnfileirar } from "@/helpers/envioResiliente"
 import { PedidoEntrega } from "@/types/types"
 
 /**
@@ -8,6 +9,13 @@ import { PedidoEntrega } from "@/types/types"
  *
  * Anti-IDOR: o servidor resolve o pedido por empresa + entregador do token; o app
  * só passa o id.
+ *
+ * F7 — as escritas JSON (aceitar/recusar/status) passam por `enviarOuEnfileirar`:
+ * sem sinal, ficam na fila local e vão quando a rede voltar, com chave de
+ * idempotência para não duplicarem. Ficam FORA da fila:
+ *  - `Posicao`, porque ping antigo não vale nada (poluiria o rastro);
+ *  - `Ocorrencia` e `Concluir`, que são multipart — arquivo não sobrevive à
+ *    serialização em JSON; entram numa segunda etapa, referenciando o caminho.
  */
 
 /** GET — pedidos atribuídos ao entregador autenticado. */
@@ -15,26 +23,32 @@ const Pedidos = (): Promise<PedidoEntrega[]> =>
     Http.PrepareRequest("app/v1/entregador/pedidos", "GET")
 
 /** Aceite da corrida. */
-const Aceitar = (pedidoId: number): Promise<{ id: number }> =>
-    Http.PrepareRequest(`app/v1/entregador/pedidos/${pedidoId}/aceitar`, "POST")
+const Aceitar = (pedidoId: number) =>
+    enviarOuEnfileirar<{ id: number }>(`app/v1/entregador/pedidos/${pedidoId}/aceitar`, "POST")
 
 /** Recusa — gera ocorrência e desvincula o entregador (volta para a fila). */
-const Recusar = (pedidoId: number, motivo?: string): Promise<{ ocorrencia_id: number }> =>
-    Http.PrepareRequest(`app/v1/entregador/pedidos/${pedidoId}/recusar`, "POST", {
-        motivo: motivo ?? null,
-    })
+const Recusar = (pedidoId: number, motivo?: string) =>
+    enviarOuEnfileirar<{ ocorrencia_id: number }>(
+        `app/v1/entregador/pedidos/${pedidoId}/recusar`,
+        "POST",
+        { motivo: motivo ?? null },
+    )
 
 /** Muda a situação do pedido (com geoloc opcional). */
 const AtualizarStatus = (
     pedidoId: number,
     pedidosituacaoId: number,
     coord?: { lat?: number; lng?: number },
-): Promise<{ id: number; situacao_id: number }> =>
-    Http.PrepareRequest(`app/v1/entregador/pedidos/${pedidoId}/status`, "POST", {
-        pedidosituacao_id: pedidosituacaoId,
-        lat: coord?.lat ?? null,
-        lng: coord?.lng ?? null,
-    })
+) =>
+    enviarOuEnfileirar<{ id: number; situacao_id: number }>(
+        `app/v1/entregador/pedidos/${pedidoId}/status`,
+        "POST",
+        {
+            pedidosituacao_id: pedidosituacaoId,
+            lat: coord?.lat ?? null,
+            lng: coord?.lng ?? null,
+        },
+    )
 
 /** Ping de posição (P6) — publicado nos pedidos ATIVOS do entregador. */
 const Posicao = (payload: {

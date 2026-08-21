@@ -3,6 +3,9 @@
 use App\Domain\Integracao\CredencialNaoConfiguradaException;
 use App\Domain\Tenant\TenantNotResolvedException;
 use App\Http\Middleware\AppRole;
+use App\Http\Middleware\DialetoLegado;
+use App\Http\Middleware\Idempotente;
+use App\Http\Middleware\ValidaRevendaLegado;
 use App\Http\Middleware\Permissao;
 use App\Http\Middleware\Recurso;
 use App\Http\Middleware\ResolveTenant;
@@ -44,6 +47,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'permissao' => Permissao::class,
             'recurso' => Recurso::class,
             'approle' => AppRole::class,
+            // F0 — ponte para os apps legados: traduz o envelope e confere o
+            // revenda_id contra o token. Saem quando os legados forem desligados.
+            'dialeto.legado' => DialetoLegado::class,
+            'revenda.legado' => ValidaRevendaLegado::class,
+            // F7 — reenvio da fila offline nao repete o efeito.
+            'idempotente' => Idempotente::class,
         ]);
 
         // API pura: convidado NUNCA é redirecionado para uma rota 'login' (que não

@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\Mobile\AppAuthController;
 use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\Mobile\AppLojaController;
+use App\Http\Controllers\Api\Legado\PonteMovelAppController;
 use App\Http\Controllers\Api\Mobile\AppFiscalController;
 use App\Http\Controllers\Api\Mobile\AppMissaoController;
 use App\Http\Controllers\Api\Mobile\AppSolicitacaoController;
@@ -752,7 +753,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
             Route::post('pedidos/{id}/avaliar', [AppPedidoController::class, 'avaliar'])->whereNumber('id');
         });
 
-        Route::middleware('approle:entregador')->prefix('entregador')->group(function () {
+        // F7 — `idempotente` cobre as escritas do campo: o app em rota enfileira
+        // localmente quando perde sinal, e o reenvio (com Idempotency-Key) não
+        // repete o efeito. Sem o cabeçalho, passa direto — é opt-in.
+        Route::middleware(['approle:entregador', 'idempotente'])->prefix('entregador')->group(function () {
             // Jornada (L4)
             Route::get('veiculos', [AppEntregadorController::class, 'veiculos']);
             Route::get('jornada', [AppEntregadorController::class, 'jornadaAtual']);
@@ -801,6 +805,33 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         });
     });
 });
+
+/*
+| ── F0: PONTE PARA OS APPS LEGADOS ──────────────────────────────────────────
+|
+| MovelApp e NFWEB só falam com o ctrl-web. Estas rotas reproduzem o contrato
+| dele (nome do endpoint, form-urlencoded, envelope {status, dados|data} sempre
+| em HTTP 200) para que os APKs em campo apontem ao erp-novo sem republicação —
+| o MovelApp está em targetSdk 28 e não publica na Play Store hoje.
+|
+| Duas coisas NÃO são reproduzidas, de propósito:
+|  - o IDOR de tenant (revenda_id é conferido contra o token, não obedecido);
+|  - a autorização por androidid (quem decide o que se vê é o usuário logado).
+|
+| Ponte com data para morrer: sai junto com os legados (F9).
+*/
+Route::prefix('legado')
+    // Ordem importa: `dialeto.legado` vem ANTES de `revenda.legado` para
+    // envolvê-lo — senão o 403 da revenda divergente sai cru e o app, que só
+    // entende HTTP 200, trata como falha de rede em vez de mostrar a mensagem.
+    ->middleware(['auth:sanctum', 'tenant', 'dialeto.legado:dados', 'revenda.legado'])
+    ->group(function () {
+        Route::post('getPedidosPendentes', [PonteMovelAppController::class, 'pedidosPendentes']);
+        Route::post('setPedidoSituacao', [PonteMovelAppController::class, 'setPedidoSituacao']);
+        Route::post('getPedidosSituacoes', [PonteMovelAppController::class, 'situacoes']);
+        Route::post('getVeiculos', [PonteMovelAppController::class, 'veiculos']);
+        Route::post('getPedidosMotivosAtrasos', [PonteMovelAppController::class, 'motivosAtraso']);
+    });
 
 /*
 | ── SuperAdmin (P4) — administração CROSS-TENANT da plataforma ──

@@ -372,9 +372,39 @@ Pós-venda (`CrmController::posVendaIndex/Salvar`), acerto financeiro
 (`MaloteService`), NF-e completa (`Domain/Fiscal/`), missões (`MissaoController`),
 ocorrência e conclusão (`AppEntregadorController`).
 
+### 4.8 O que a implementação corrigiu desta auditoria
+
+Escrever o código desmentiu duas afirmações feitas antes:
+
+- **O `OPS` TEM equivalente.** Estava escrito aqui que "não existe equivalente no
+  ERP novo". `bootstrap/app.php:74` já mapeia `DomainException` → 422 com o
+  comentário *"o domínio dizendo 'isto não pode'"* — exatamente a semântica de
+  recusa de negócio. A ponte F0 só precisou **traduzir** 422 → `OPS`, não criar o
+  conceito.
+
+- **Existem DOIS dialetos no legado, não um.** `customHelper::responseSuccess`
+  devolve a carga em `data` (o NFWEB lê `data`, Http.js:164), mas o
+  `ApiController` — que atende o MovelApp — devolve em **`dados`**
+  (`ApiController::getVeiculos:169`, e `CadastroImportActivity:207` lê
+  `getJSONArray("dados")`). A ponte recebe a chave por parâmetro.
+
+E revelou uma regra que ninguém aplicava:
+
+- **`preco_venda_minimo`** existe no Produto, vem migrado do legado e é exposto na
+  API, mas nenhuma regra o verificava. Virou o piso da alçada (F2) — vale
+  inclusive para desconto aprovado pela Central, porque é limite do PRODUTO, não
+  da pessoa.
+
+
 ---
 
 # PARTE II — O QUE FAZER
+
+> **Estado da implementação (2026-08-21).** F0, F1, F2, F3, F4, F6 e o backend de
+> F7 estão **implementados e testados**. Falta F5 (bloqueada por decisão de
+> negócio), a fila local do F7 no app, F8 (bloqueada pelo parque de impressoras)
+> e F9. Correções que a implementação impôs à Parte I estão marcadas em §4.8.
+
 
 ## 5. Arquitetura alvo
 
