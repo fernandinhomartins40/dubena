@@ -25,6 +25,34 @@ const LOGIN_TESTE = APP.login_teste
 const MOSTRAR_TESTE = APP.debug && !!LOGIN_TESTE.email && !!LOGIN_TESTE.senha
 
 /**
+ * Os TRES perfis de campo, criados pelo `PerfisCampoTesteSeeder` do erp-novo.
+ *
+ * A senha vem do .env (LOGIN_TESTE_SENHA) e vale para os tres — sao usuarios de
+ * homologacao. So aparecem com APP_DEBUG=true, entao o build de producao nao
+ * mostra nada disto.
+ */
+const PERFIS_TESTE = [
+    {
+        email: "entregador@teste.com",
+        senha: LOGIN_TESTE.senha,
+        rotulo: "Entrar como ENTREGADOR",
+        descricao: "Funcionário CLT · entrega, sem conceder desconto",
+    },
+    {
+        email: "franqueado@teste.com",
+        senha: LOGIN_TESTE.senha,
+        rotulo: "Entrar como FRANQUEADO",
+        descricao: "PJ · consignação, alçada 5%, comissão mista",
+    },
+    {
+        email: "industrial@teste.com",
+        senha: LOGIN_TESTE.senha,
+        rotulo: "Entrar como INDUSTRIAL",
+        descricao: "Vendedor · alçada 10% e emissão de NF-e em campo",
+    },
+]
+
+/**
  * Login do entregador (P7) — e-mail/senha do colaborador. Suporta 2FA (TOTP):
  * se o servidor responder 423 (two_factor_required), revela o campo de código.
  * O tenant é derivado do token no servidor; nada de empresa_id aqui.
@@ -131,14 +159,23 @@ export default function Login() {
 
                 {MOSTRAR_TESTE && (
                     <View style={s.testeBox}>
-                        <Text style={s.testeLabel}>Modo teste</Text>
-                        <Botao
-                            titulo="Preencher login de teste"
-                            variante="secundario"
-                            onPress={() => entrar(LOGIN_TESTE)}
-                            carregando={carregando}
-                        />
-                        <Text style={s.testeHint}>{LOGIN_TESTE.email}</Text>
+                        <Text style={s.testeLabel}>Modo teste — perfis de campo</Text>
+
+                        {/* Um botao por VINCULO: o papel do token sai do cadastro
+                            do colaborador, e cada perfil abre um conjunto
+                            diferente de funcoes. Entrar com os tres e o unico
+                            jeito de ver a diferenca no app. */}
+                        {PERFIS_TESTE.map((perfil) => (
+                            <View key={perfil.email} style={{ gap: 4 }}>
+                                <Botao
+                                    titulo={perfil.rotulo}
+                                    variante="secundario"
+                                    onPress={() => entrar({ email: perfil.email, senha: perfil.senha })}
+                                    carregando={carregando}
+                                />
+                                <Text style={s.testeHint}>{perfil.descricao}</Text>
+                            </View>
+                        ))}
                     </View>
                 )}
             </ScrollView>
