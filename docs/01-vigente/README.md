@@ -11,6 +11,10 @@ Plano e PRDs ATUAIS da modernização (SPA React + Vite + Laravel API/Sanctum).
 - **IMPL_<modulo>.md** — contrato por módulo: colunas, métodos (arquivo:linha), validações, regras,
   sub-recursos, Reorganização/UX (de-para) e Definição de Pronto (DoD).
 - **SPEC_CLIENTE.md** — spec do Cliente (1º módulo, já implementado).
+- **APPS_DE_CAMPO_E_CENTRAL_DE_VENDAS.md** — os dois apps legados (NFWEB, MovelApp),
+  suas regras de negócio e contrato de comunicação extraídos do código, e o plano da
+  Central de Vendas (F0–F9). Documento ÚNICO: auditoria e plano juntos, porque separados
+  divergiram.
 - **openapi-api-admin.yaml** — contrato OpenAPI navegável da API admin (/api/admin), por módulo (F1–F9).
 
 > "Pronto" de um módulo = DoD do seu IMPL 100% coberto (paridade + reorganização + testes).
