@@ -222,6 +222,7 @@
     "GET api/app/v1/cupom",
     "GET api/app/v1/enderecos",
     "GET api/app/v1/entregador/dashboard",
+    "GET api/app/v1/entregador/extrato",
     "GET api/app/v1/entregador/fiscal/notas/{id}/danfe",
     "GET api/app/v1/entregador/jornada",
     "GET api/app/v1/entregador/missao",

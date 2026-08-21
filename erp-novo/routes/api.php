@@ -796,6 +796,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
             Route::post('solicitacoes', [AppSolicitacaoController::class, 'store']);
             Route::post('solicitacoes/{id}/cancelar', [AppSolicitacaoController::class, 'cancelar'])->whereNumber('id');
 
+            // F5 — extrato de remuneracao do proprio usuario (comissao/repasse).
+            Route::get('extrato', [AppSolicitacaoController::class, 'extrato']);
+
             // F6 — emissão fiscal em campo: SÓ o vendedor industrial. O papel
             // vem do vínculo do colaborador (AppAuthController::abilitiesDe).
             Route::middleware('approle:industrial')->prefix('fiscal')->group(function () {
