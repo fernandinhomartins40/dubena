@@ -28,6 +28,9 @@ class Colaborador extends Model
         // F1 — sob qual relação trabalha (CLT, franqueado PJ, vendedor industrial).
         // `entregador` responde "faz entrega?"; `vinculo` responde "sob qual relação".
         'vinculo',
+        // F5 — como carrega mercadoria (consignação|compra) e o depósito que
+        // representa o que está em poder dele.
+        'modo_estoque', 'setor_estoque_id',
         // Endereço: o legado sempre teve (81 colaboradores com cidade/bairro) e
         // o formulário da SPA já enviava — faltava a coluna no destino.
         'cep', 'uf', 'cidade_id', 'bairro_id', 'rua_id', 'numero', 'complemento',
@@ -42,6 +45,7 @@ class Colaborador extends Model
             'entregador' => 'boolean',
             'ativo' => 'boolean',
             'vinculo' => \App\Domain\Rh\VinculoColaborador::class,
+            'modo_estoque' => \App\Domain\Rh\ModoEstoque::class,
         ];
     }
 

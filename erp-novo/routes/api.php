@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
+use App\Http\Controllers\Api\Admin\CargaFranqueadoController;
 use App\Http\Controllers\Api\Admin\CentralController;
 use App\Http\Controllers\Api\Admin\CentralVendasController;
 use App\Http\Controllers\Api\Admin\ChequeController;
@@ -553,6 +554,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('central-vendas/solicitacoes/{id}/recusar', [CentralVendasController::class, 'recusar'])->whereNumber('id');
         Route::post('central-vendas/solicitacoes/{id}/faturar', [CentralVendasController::class, 'faturar'])->whereNumber('id');
 
+        // F5 — mercadoria em poder do franqueado (consignacao ou compra). Opera
+        // o deposito/central, nao o proprio franqueado: entregar mercadoria a si
+        // mesmo derrubaria a conferencia.
+        Route::get('franqueados/{id}/estoque', [CargaFranqueadoController::class, 'emPoder'])->whereNumber('id');
+        Route::post('franqueados/{id}/carga', [CargaFranqueadoController::class, 'carregar'])->whereNumber('id');
+        Route::post('franqueados/{id}/devolucao', [CargaFranqueadoController::class, 'devolver'])->whereNumber('id');
+
         // ── Missões de campo (L7/L9) — moldes + auditoria ──
         Route::get('missoes', [MissaoController::class, 'index']);
         Route::post('missoes', [MissaoController::class, 'store']);
@@ -798,6 +806,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
 
             // F5 — extrato de remuneracao do proprio usuario (comissao/repasse).
             Route::get('extrato', [AppSolicitacaoController::class, 'extrato']);
+            Route::get('estoque', [AppSolicitacaoController::class, 'estoque']);
 
             // F8 — cupom em TEXTO para impressora termica. O servidor decide o
             // conteudo; o app so transmite os bytes pela camada Bluetooth.

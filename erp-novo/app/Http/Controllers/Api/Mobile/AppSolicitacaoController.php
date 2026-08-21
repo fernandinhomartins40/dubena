@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Fiscal\CupomTextoService;
+use App\Domain\Venda\CargaFranqueadoService;
 use App\Domain\Venda\CentralVendasService;
 use App\Domain\Venda\ExtratoRemuneracaoService;
 use App\Http\Controllers\Controller;
 use App\Models\Pedido\Pedido;
+use App\Models\Rh\Colaborador;
 use App\Models\Venda\PedidoSolicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,6 +89,35 @@ class AppSolicitacaoController extends Controller
                 $inicio,
                 $fim,
             ),
+        ]);
+    }
+
+    /**
+     * GET /app/v1/entregador/estoque — o que estou carregando (F5).
+     *
+     * O franqueado confere a carga no aparelho antes de sair, e acompanha o que
+     * resta durante a rota. Sem isso ele depende de contar de cabeça — e a
+     * divergência só aparece no acerto, quando já não dá para reconstituir.
+     *
+     * Sempre o próprio: o colaborador sai do `user()`, nunca de id no payload.
+     */
+    public function estoque(Request $request, CargaFranqueadoService $carga): JsonResponse
+    {
+        $colaborador = Colaborador::query()
+            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if ($colaborador === null) {
+            // Usuário de app sem cadastro de colaborador não carrega mercadoria.
+            return response()->json(['data' => ['modo_estoque' => null, 'itens' => []]]);
+        }
+
+        return response()->json([
+            'data' => [
+                'modo_estoque' => $colaborador->modo_estoque?->value,
+                'itens' => $carga->emPoder($colaborador),
+            ],
         ]);
     }
 

@@ -173,6 +173,42 @@ class ExtratoRemuneracaoTest extends TestCase
         $this->assertSame(40.0, $r['total']['total']);
     }
 
+    public function test_misto_soma_repasse_e_percentual(): void
+    {
+        // O modelo que a rede usa com franqueados: repasse por unidade E MAIS
+        // percentual sobre a venda.
+        // 2 x 100 = 200; empresa retem 70/un = 140 -> repasse 60; 5% de 200 = 10.
+        ColaboradorComissao::create([
+            'empresa_id' => $this->empresa->id, 'colaborador_id' => $this->colaborador->id,
+            'tipo_comissao' => 3, 'empresa_valor' => 70, 'percentual' => 5, 'ativo' => true,
+        ]);
+
+        $this->venda();
+        $r = $this->extrato();
+
+        $this->assertSame(60.0, $r['total']['repasse']);
+        $this->assertSame(10.0, $r['total']['percentual']);
+        $this->assertSame(70.0, $r['total']['total']);
+    }
+
+    public function test_tipos_antigos_nao_mudaram_com_a_chegada_do_misto(): void
+    {
+        // Guarda-costas: o tipo 3 e aditivo. Se alguem transformar os `elseif`
+        // do ComissaoService em `if` independentes, o tipo 2 passaria a somar um
+        // percentual que ninguem pediu — e este teste cai.
+        ColaboradorComissao::create([
+            'empresa_id' => $this->empresa->id, 'colaborador_id' => $this->colaborador->id,
+            'tipo_comissao' => 2, 'empresa_valor' => 70, 'percentual' => 5, 'ativo' => true,
+        ]);
+
+        $this->venda();
+        $r = $this->extrato();
+
+        // So o repasse: o percentual de 5 esta cadastrado mas NAO deve ser usado.
+        $this->assertSame(60.0, $r['total']['repasse']);
+        $this->assertSame(0.0, $r['total']['percentual']);
+    }
+
     public function test_a_rota_do_app_devolve_o_extrato_do_proprio_usuario(): void
     {
         ColaboradorComissao::create([

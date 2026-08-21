@@ -76,7 +76,7 @@ que visita o cliente, cadastra, tira pedido e imprime.
 | **Edita preço** | **sim, livre** | **sim, livre** | **não — servidor decide** |
 | Cadastra cliente | não | sim (`saveCliente`) | sim (`missao/clientes`) |
 | Pendência financeira do cliente | não | sim (`getParcelasVencidasCliente`) | **não** |
-| Imprime no cliente | DANFE + boleto (ESC/POS BT) | via JAR proprietário | **não** |
+| Imprime no cliente | **código morto** (§2.9) | **sim** — em uso | **não** |
 | Opera sem rede | **parcial** (§2.6) | não | **não** |
 | Vale-gás | sim (`getValeGas`) | não | sim (`missao/vale-gas`) |
 
@@ -193,6 +193,32 @@ consulta a nota antes (`NotaFiscalImpressaoActivity:120` — só imprime
 `nfsituacao_id == 100`, autorizada pela SEFAZ).
 
 **É offline para leitura da rota carregada; a baixa e a impressão exigem rede.**
+
+### 2.9 Correção: só UM dos apps imprime
+
+Este documento afirmava que "os DOIS imprimem no cliente". **Errado**, e o
+cliente corrigiu. Verificando de novo:
+
+- **MovelApp — código morto.** As classes existem (`Bluetooth.java`,
+  `ESCP.java`, `NotaFiscalImpressao.java`) e as permissões `BLUETOOTH` estão no
+  manifesto, mas as três Activities de impressão
+  (`NotaFiscalImpressaoActivity`, `BoletoImpressaoActivity`,
+  `ReportImpressaoActivity`) **não estão declaradas no AndroidManifest**. Sem
+  declaração, o Android não as abre: são código que sobrou.
+- **NFWEB — em uso.** `PedidoConsulta.js:108,132,147` chama de fato
+  `PrintDanfe.printDanfe(...)`, `PrintBoleto.printBoleto(...)` e
+  `PrintDuplicata.printDuplicata(...)`, e os módulos estão registrados via
+  `CustomPrintPackage.java`. O commit de 17/07/2025 ("Nova impressora leopardo
+  Pro Max") mexeu exatamente nesses arquivos.
+
+**O erro de método:** eu vi as classes e concluí "o app imprime", sem verificar
+se aquele código era alcançável. Existir no repositório não é o mesmo que estar
+ligado — e o manifesto é onde isso se confirma no Android.
+
+**Consequência prática:** só os vendedores do industrial (NFWEB) têm impressora
+em campo, e o cliente confirmou que alguns ainda usam. O parque continua sendo
+pendência, mas de escopo menor do que este documento sugeria.
+
 
 ### 2.7 Outras regras
 
@@ -405,9 +431,9 @@ E revelou uma regra que ninguém aplicava:
 > | Fase | Situação |
 > |---|---|
 > | F0 ponte · F1 vínculo · F2 alçada · F3 Central · F4 solicitação · F6 NF-e | **completas** |
-> | F5 remuneração | **extrato entregue** — a pendência decide qual regra cadastrar, não impede o código |
+> | F5 remuneração e estoque | **completa** — extrato, remuneração mista (`tipo_comissao=3`) e mercadoria em poder do franqueado (consignação × compra) |
 > | F7 offline | **backend + fila no app**; ocorrência/conclusão (multipart) seguem exigindo rede |
-> | F8 impressão | **conteúdo do cupom entregue** (`CupomTextoService`); falta a camada Bluetooth, que depende do parque |
+> | F8 impressão | **conteúdo do cupom entregue** (`CupomTextoService`); falta só a camada Bluetooth **no NFWEB** — o MovelApp não imprime (§2.9) |
 > | F9 desligar legados | não implementável — exige conferência em produção |
 >
 > 49 testes novos. Correções que a implementação impôs à Parte I estão em §4.8.
@@ -612,6 +638,20 @@ perda de margem.** São independentes — F0 é transição, F2 é controle de n
 
 ### 8.1 Decisões do cliente
 
+> **Respondidas em 2026-08-21** (as quatro primeiras). O que segue aberto está
+> marcado como PENDENTE.
+
+| Pergunta | Resposta | Efeito no código |
+|---|---|---|
+| Parque de impressoras | Só o NFWEB imprime; **alguns vendedores ainda usam** | camada Bluetooth segue **PENDENTE** — falta saber os modelos |
+| Como o franqueado é remunerado | **Misto** — repasse + percentual, somados | `tipo_comissao = 3` no `ComissaoService` |
+| Consignação ou compra | **Os dois**, fixo por franqueado | `colaboradores.modo_estoque` + `CargaFranqueadoService` |
+| Teto de desconto e liberação | **Teto por perfil + liberação pela Central** | já entregue: `alcada_descontos` (F2) + aprovação (F3) |
+
+**Ainda pendentes:**
+
+
+
 1. **O franqueado solicita pelo app ou por WhatsApp?** (o cliente não recordava) —
    bloqueia F4.
 2. **Quantas impressoras e quais modelos?** — bloqueia F8.
@@ -632,7 +672,9 @@ perda de margem.** São independentes — F0 é transição, F2 é controle de n
 3. **Alçada de desconto** — motor existe, falta política e ponto de chamada.
 4. **Fluxo solicitação → aprovação** — não existe. Coração da Central.
 5. **Vínculo franqueado** — busca por "franqueado" no `erp-novo`: zero ocorrências.
-6. **Estoque em poder do franqueado** — não há estoque por veículo/entregador.
+6. ~~**Estoque em poder do franqueado**~~ — **resolvido**: `colaboradores.modo_estoque`
+   (consignação | compra) + `CargaFranqueadoService`, que reusa
+   `EstoqueService::transferir` dando um setor próprio a cada franqueado.
 7. **Pendência financeira do cliente no app** — sem equivalente.
 8. **DANFE/boleto no app** — existem, só em rota admin. O item mais barato.
 
