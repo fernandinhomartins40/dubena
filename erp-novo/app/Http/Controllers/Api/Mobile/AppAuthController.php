@@ -121,9 +121,21 @@ class AppAuthController extends Controller
         //
         // F1: o papel sai do VÍNCULO do colaborador, não de um valor fixo. Um app
         // só, três perfis: funcionário entrega, franqueado entrega e vende,
-        // industrial vende e emite nota. Quem não tem cadastro de colaborador cai
-        // em `entregador` — o comportamento de antes desta fase.
-        $abilities = $this->abilitiesDe($user);
+        // industrial vende e emite nota.
+        //
+        // Exige cadastro de colaborador ATIVO: sem ele não há papel a conceder,
+        // e conceder um por default dava acesso de entregador a quem só tem
+        // conta de cliente.
+        $vinculo = $this->vinculoDe($user);
+        if ($vinculo === null) {
+            $this->seguranca->registrar($request, $email, false, 'sem_vinculo_colaborador', $user->id, $user->empresa_id);
+
+            return response()->json([
+                'message' => 'Este acesso e exclusivo para colaboradores. Use o aplicativo do cliente.',
+            ], 403);
+        }
+
+        $abilities = $this->abilitiesDe($user, $vinculo);
         $token = $user->createToken('app-'.($d['device_id'] ?? 'mobile'), $abilities)->plainTextToken;
 
         return response()->json([
@@ -133,8 +145,8 @@ class AppAuthController extends Controller
                 // O app precisa saber o que pode mostrar (solicitar desconto,
                 // emitir nota); sem isto teria de inferir do papel, o que espalha
                 // regra de negócio pelo cliente.
-                'vinculo' => $this->vinculoDe($user)->value,
-                'papel' => $this->vinculoDe($user)->papelDoApp(),
+                'vinculo' => $vinculo->value,
+                'papel' => $vinculo->papelDoApp(),
             ],
         ]);
     }
@@ -148,20 +160,25 @@ class AppAuthController extends Controller
     /**
      * O vínculo do colaborador por trás do login (F1).
      *
-     * Sem cadastro de colaborador, assume FUNCIONARIO — é o que preserva o
-     * comportamento anterior (todo login de app recebia `role:entregador`).
+     * FAIL-CLOSED: sem cadastro de colaborador, NÃO há vínculo.
+     *
+     * Antes isto caía em FUNCIONARIO por default — um login sem cadastro de
+     * colaborador recebia perfil de funcionário e as habilidades que vêm com
+     * ele. Num ponto de identidade, presumir papel por ausência é o oposto do
+     * que o resto do sistema faz ("sem credencial, não autentica").
      */
-    private function vinculoDe(User $user): VinculoColaborador
+    private function vinculoDe(User $user): ?VinculoColaborador
     {
         $vinculo = Colaborador::query()
             ->where('user_id', $user->id)
+            ->where('ativo', true)
             ->value('vinculo');
 
         if ($vinculo instanceof VinculoColaborador) {
             return $vinculo;
         }
 
-        return VinculoColaborador::tryFrom((string) $vinculo) ?? VinculoColaborador::FUNCIONARIO;
+        return VinculoColaborador::tryFrom((string) $vinculo);
     }
 
     /**
@@ -174,9 +191,18 @@ class AppAuthController extends Controller
      *
      * @return list<string>
      */
-    private function abilitiesDe(User $user): array
+    private function abilitiesDe(User $user, ?VinculoColaborador $vinculo = null): array
     {
-        $vinculo = $this->vinculoDe($user);
+        // Recebe o vínculo já resolvido pelo login (evita consultar de novo) e
+        // aceita null sem quebrar: sem vínculo, nenhuma habilidade. O login
+        // barra este caso antes, mas depender disso implicitamente é frágil —
+        // um chamador futuro não deve conseguir emitir token sem papel.
+        $vinculo ??= $this->vinculoDe($user);
+
+        if ($vinculo === null) {
+            return [];
+        }
+
         $abilities = ['role:entregador'];
 
         if ($vinculo !== VinculoColaborador::FUNCIONARIO) {

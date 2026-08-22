@@ -44,6 +44,12 @@ class MobileTest extends TestCase
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
             'email' => 'app@teste.com', 'password' => Hash::make('segredo123'), 'support' => true,
         ]);
+        // O login do app de CAMPO exige cadastro de colaborador ativo
+        // (fail-closed): sem ele nao ha papel a conceder.
+        \App\Models\Rh\Colaborador::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'user_id' => $this->user->id, 'ativo' => true,
+        ]);
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 1000, 10);
@@ -600,15 +606,38 @@ class MobileTest extends TestCase
         $this->assertDatabaseHas('clientetelefones', ['telefone' => '5542988880000']);
     }
 
-    public function test_cadastro_recusa_telefone_ja_existente(): void
+    /**
+     * Telefone ja cadastrado ADOTA o cliente existente, em vez de recusar.
+     *
+     * A regra antiga respondia 422 "ja existe um cliente com este telefone,
+     * faca login" — e era um ponto real de perda de venda: quem ja comprou
+     * pelo entregador tem o telefone na base e nao conseguia se cadastrar no
+     * app. Como o telefone AQUI ja foi verificado por SMS, bater com um
+     * cadastro existente e prova de que e a mesma pessoa: o certo e assumir
+     * aquele cadastro, com todo o historico de compra dela.
+     */
+    public function test_cadastro_com_telefone_existente_adota_o_cliente(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'nome' => 'Cliente do Entregador',
+        ]);
         ClienteTelefone::factory()->create(['cliente_id' => $cliente->id, 'telefone' => '(42) 98888-1111']);
 
         $this->postJson('/api/app/v1/cliente/cadastro', [
             'firebase_id_token' => 'fake:+5542988881111',
-            'empresa_id' => $this->empresa->id, 'nome' => 'Duplicado',
-        ])->assertStatus(422);
+            'empresa_id' => $this->empresa->id, 'nome' => 'Cliente do Entregador',
+        ])->assertSuccessful(); // 201: o LOGIN e novo, o cadastro e que foi adotado
+
+        // Nenhuma copia foi criada: o cadastro que ja existia foi reaproveitado.
+        $this->assertSame(
+            1,
+            Cliente::query()->where('empresa_id', $this->empresa->id)
+                ->where('nome', 'Cliente do Entregador')->count(),
+        );
+
+        // E o cliente ganhou o login do app, ligado ao MESMO cadastro.
+        $this->assertNotNull($cliente->fresh()->user_id);
     }
 
     public function test_perfil_get_update_delete(): void

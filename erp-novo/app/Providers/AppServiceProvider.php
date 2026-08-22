@@ -285,5 +285,28 @@ class AppServiceProvider extends ServiceProvider
             ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
         RateLimiter::for('missao-visita', fn (Request $r) => Limit::perMinute(30)
             ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
+
+        $this->registrarIdentidadeDeCliente();
+    }
+
+    /**
+     * Mantém os traços de identidade do cliente em dia, venha ele de onde vier.
+     *
+     * A porta única sincroniza o que passa por ela; isto cobre o resto (ETL,
+     * seeder, factory, edição direta). Cliente sem traço é invisível ao motor
+     * de identidade, e o próximo cadastro igual duplica sem nem ser comparado.
+     */
+    private function registrarIdentidadeDeCliente(): void
+    {
+        \App\Models\Cliente\Cliente::observe(\App\Observers\ClienteIdentidadeObserver::class);
+
+        // Telefone é traço e vive noutra tabela: sem estes dois, adicionar ou
+        // remover um número deixaria a identidade desatualizada.
+        $aoMudarTelefone = fn (\App\Models\Cliente\ClienteTelefone $t) => app(
+            \App\Observers\ClienteIdentidadeObserver::class,
+        )->telefoneAlterado($t);
+
+        \App\Models\Cliente\ClienteTelefone::created($aoMudarTelefone);
+        \App\Models\Cliente\ClienteTelefone::deleted($aoMudarTelefone);
     }
 }

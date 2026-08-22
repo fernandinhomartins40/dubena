@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Cliente\ClienteService;
+use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Relatorio\RelatorioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -65,14 +66,65 @@ class ClienteController extends Controller
         );
     }
 
-    public function store(ClienteRequest $request): JsonResponse
+    /**
+     * POST /clientes — cria OU reconhece o cliente.
+     *
+     * Passa pela porta unica de identidade: se os tracos informados batem com
+     * um cadastro existente (documento, ou telefone + nome), devolve aquele em
+     * vez de criar mais uma copia. Na duvida, cria e enfileira para revisao —
+     * o operador nunca fica travado.
+     */
+    public function store(ClienteRequest $request, IdentificarOuCriarCliente $identidade): JsonResponse
     {
         $this->autorizar($request, 'cliente.create');
 
         $dados = $this->semCamposBloqueados($request);
-        $cliente = $this->service->criar($dados);
 
-        return (new ClienteResource($cliente))->response()->setStatusCode(201);
+        $resultado = $identidade->executar(
+            (int) $request->user()->empresa_id,
+            (int) $request->user()->grupo_id,
+            $dados,
+            'admin',
+        );
+
+        $recurso = (new ClienteResource(
+            $resultado->cliente->load(['telefones', 'cidade', 'bairro', 'rua']),
+        ))->response();
+
+        // 200 quando reconheceu um cadastro que ja existia; 201 so para novo.
+        return $recurso->setStatusCode($resultado->criado ? 201 : 200)
+            ->setData(array_merge(
+                (array) $recurso->getData(true),
+                ['identificacao' => $resultado->paraArray()],
+            ));
+    }
+
+    /**
+     * GET /clientes/sugestoes — "quem pode ser esta pessoa?".
+     *
+     * Alimenta a tela de cadastro: conforme o operador digita nome e telefone,
+     * mostra os cadastros parecidos ANTES de ele criar mais um.
+     */
+    public function sugestoes(Request $request, IdentificarOuCriarCliente $identidade): JsonResponse
+    {
+        $this->autorizar($request, 'cliente.view');
+
+        $dados = $request->validate([
+            'nome' => 'nullable|string|max:200',
+            'telefone' => 'nullable|string|max:30',
+            'cpf' => 'nullable|string|max:20',
+            'cnpj' => 'nullable|string|max:20',
+            'email' => 'nullable|string|max:160',
+            'endereco' => 'nullable|string|max:200',
+            'numero' => 'nullable|string|max:20',
+            'cidade_id' => 'nullable|integer',
+        ]);
+
+        $candidatos = $identidade->sugerir((int) $request->user()->empresa_id, $dados);
+
+        return response()->json([
+            'data' => $candidatos->map(fn ($c) => $c->paraArray())->values(),
+        ]);
     }
 
     public function update(ClienteRequest $request, int $id): ClienteResource

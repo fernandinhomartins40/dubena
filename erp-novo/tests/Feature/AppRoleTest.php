@@ -51,9 +51,15 @@ class AppRoleTest extends TestCase
     /** Token Bearer REAL de entregador (login e-mail/senha do app). */
     private function tokenEntregador(): string
     {
-        User::factory()->create([
+        $user = User::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
             'email' => 'entregador@app.test', 'password' => Hash::make('segredo123'), 'ativo' => true,
+        ]);
+
+        // Pre-requisito do app de campo: colaborador ativo (fail-closed).
+        \App\Models\Rh\Colaborador::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'user_id' => $user->id, 'ativo' => true,
         ]);
 
         $resp = $this->postJson('/api/app/v1/login', [

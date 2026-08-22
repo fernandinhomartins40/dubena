@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Fiscal\CupomTextoService;
 use App\Domain\Venda\CargaFranqueadoService;
 use App\Domain\Venda\CentralVendasService;
@@ -108,7 +109,7 @@ class AppSolicitacaoController extends Controller
      * missão. O vendedor industrial e o franqueado cadastram fora disso — e
      * obrigá-los a abrir uma missão para cadastrar seria burocracia inventada.
      */
-    public function cadastrarCliente(Request $request): JsonResponse
+    public function cadastrarCliente(Request $request, IdentificarOuCriarCliente $identidade): JsonResponse
     {
         $d = $request->validate([
             'nome' => 'required|string|max:160',
@@ -126,46 +127,37 @@ class AppSolicitacaoController extends Controller
         $user = $request->user();
         $fone = isset($d['telefone']) ? preg_replace('/\D/', '', $d['telefone']) : null;
 
-        // Regra herdada do NFWEB (`saveCliente:1538`): telefone já usado rejeita
-        // — é como a revenda evita dois cadastros para a mesma casa. Normalizado
-        // em PHP porque `regexp_replace` não existe no sqlite.
-        if ($fone) {
-            $duplicado = \DB::table('clientetelefones as ct')
-                ->join('clientes as cl', 'cl.id', '=', 'ct.cliente_id')
-                ->where('cl.empresa_id', $user->empresa_id)
-                ->pluck('ct.telefone')
-                ->contains(fn ($t) => preg_replace('/\D/', '', (string) $t) === $fone);
+        // A TRAVA POR TELEFONE FOI REMOVIDA (era `DomainException` aqui).
+        //
+        // Regra herdada do NFWEB (`saveCliente:1538`): telefone repetido
+        // rejeitava o cadastro. Em campo isso ABORTAVA A VENDA, e o entregador
+        // contornava inventando outro numero — sujando a base exatamente quando
+        // ela tentava se proteger. Agora o telefone repetido e SINAL, nao trava:
+        // o motor de identidade decide entre reconhecer o cliente, criar e
+        // enfileirar para revisao, ou criar limpo.
+        $resultado = $identidade->executar(
+            (int) $user->empresa_id,
+            (int) $user->grupo_id,
+            array_filter([
+                'nome' => $d['nome'],
+                'cpf' => isset($d['cpf']) ? preg_replace('/\D/', '', $d['cpf']) : null,
+                'cnpj' => isset($d['cnpj']) ? preg_replace('/\D/', '', $d['cnpj']) : null,
+                'endereco' => $d['endereco'] ?? null,
+                'numero' => $d['numero'] ?? null,
+                'complemento' => $d['complemento'] ?? null,
+                'ponto_referencia' => $d['ponto_referencia'] ?? null,
+                'cidade_id' => $d['cidade_id'] ?? null,
+                'observacoes' => $d['observacoes'] ?? null,
+                'telefones' => $fone ? [['telefone' => $fone, 'whatsapp' => true]] : null,
+            ], fn ($v) => $v !== null),
+            'entregador',
+        );
 
-            if ($duplicado) {
-                throw new \DomainException('Telefone informado já existe em outro cliente.');
-            }
-        }
-
-        $cliente = Cliente::create(array_filter([
-            'empresa_id' => $user->empresa_id,
-            'grupo_id' => $user->grupo_id,
-            'nome' => $d['nome'],
-            'cpf' => isset($d['cpf']) ? preg_replace('/\D/', '', $d['cpf']) : null,
-            'cnpj' => isset($d['cnpj']) ? preg_replace('/\D/', '', $d['cnpj']) : null,
-            'endereco' => $d['endereco'] ?? null,
-            'numero' => $d['numero'] ?? null,
-            'complemento' => $d['complemento'] ?? null,
-            'ponto_referencia' => $d['ponto_referencia'] ?? null,
-            'cidade_id' => $d['cidade_id'] ?? null,
-            'observacoes' => $d['observacoes'] ?? null,
-            'ativo' => true,
-        ], fn ($v) => $v !== null));
-
-        if ($fone) {
-            \DB::table('clientetelefones')->insert([
-                'cliente_id' => $cliente->id,
-                'telefone' => $fone,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        return response()->json(['data' => ['id' => $cliente->id, 'nome' => $cliente->nome]], 201);
+        // 200 quando reconheceu cliente existente; 201 quando criou.
+        return response()->json(
+            ['data' => $resultado->paraArray()],
+            $resultado->criado ? 201 : 200,
+        );
     }
 
     /**

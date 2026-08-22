@@ -112,19 +112,25 @@ class VendaCampoService
      */
     public function cadastrarCliente(MissaoAtribuicao $atribuicao, array $dados): Cliente
     {
-        return $this->clientes->criar([
-            'empresa_id' => $atribuicao->empresa_id,
-            'grupo_id' => $this->grupoDa($atribuicao),
-            'nome' => $dados['nome'],
-            'endereco' => $dados['endereco'] ?? null,
-            'numero' => $dados['numero'] ?? null,
-            'cidade_id' => $dados['cidade_id'] ?? null,
-            'latitude' => $dados['lat'] ?? null,
-            'longitude' => $dados['lng'] ?? null,
-            'cliente' => true,
-            'ativo' => true,
-            'telefones' => ! empty($dados['telefone']) ? [['telefone' => $dados['telefone'], 'whatsapp' => true]] : null,
-        ]);
+        // Porta unica de identidade: em prospeccao o mesmo endereco e visitado
+        // por entregadores diferentes, e sem isto cada visita virava um cadastro.
+        $resultado = app(\App\Domain\Identidade\IdentificarOuCriarCliente::class)->executar(
+            (int) $atribuicao->empresa_id,
+            $this->grupoDa($atribuicao),
+            [
+                'nome' => $dados['nome'],
+                'endereco' => $dados['endereco'] ?? null,
+                'numero' => $dados['numero'] ?? null,
+                'cidade_id' => $dados['cidade_id'] ?? null,
+                'latitude' => $dados['lat'] ?? null,
+                'longitude' => $dados['lng'] ?? null,
+                'cliente' => true,
+                'telefones' => ! empty($dados['telefone']) ? [['telefone' => $dados['telefone'], 'whatsapp' => true]] : null,
+            ],
+            'campo',
+        );
+
+        return $resultado->cliente;
     }
 
     private function grupoDa(MissaoAtribuicao $atribuicao): int

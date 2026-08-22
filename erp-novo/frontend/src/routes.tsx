@@ -72,6 +72,7 @@ const ConfiguracoesPage = lazyNamed(() => import('@/features/configuracoes/Confi
 const AcessosPage = lazyNamed(() => import('@/features/acessos/AcessosPage'), 'AcessosPage')
 const SegurancaPage = lazyNamed(() => import('@/features/seguranca/SegurancaPage'), 'SegurancaPage')
 const AuditoriaPage = lazyNamed(() => import('@/features/auditoria/AuditoriaPage'), 'AuditoriaPage')
+const RevisoesClientesPage = lazyNamed(() => import('@/features/clientes/revisoes/RevisoesPage'), 'RevisoesClientesPage')
 const SemAcessoPage = lazyNamed(() => import('@/features/auth/SemAcessoPage'), 'SemAcessoPage')
 
 const Splash = () => <div className="h-full grid place-items-center text-muted-foreground">Carregando…</div>
@@ -124,6 +125,7 @@ export function AppRoutes() {
       {/* Cadastros */}
       <Route path="/clientes" element={p(<ClientesListPage />, 'cliente.view')} />
       <Route path="/clientes/configuracoes" element={<Navigate to="/configuracoes?tab=clientes" replace />} />
+      <Route path="/clientes/revisoes" element={p(<RevisoesClientesPage />, 'cliente.edit')} />
       <Route path="/clientes/novo" element={p(<ClienteFormPage />, 'cliente.view')} />
       <Route path="/clientes/:id" element={p(<ClienteFormPage />, 'cliente.view')} />
       <Route path="/produtos" element={p(<ProdutosListPage />, 'produto.view')} />

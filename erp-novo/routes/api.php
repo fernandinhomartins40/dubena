@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Admin\CentralVendasController;
 use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
+use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
@@ -270,6 +271,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
 
         // ── Clientes — N2 ──
         Route::get('clientes/exportar', [ClienteController::class, 'exportar']); // antes de /{id}
+        // Identidade: sugestões de "quem pode ser esta pessoa" e a fila de
+        // revisão dos pares suspeitos. ANTES de /{id} para não virarem id.
+        Route::get('clientes/sugestoes', [ClienteController::class, 'sugestoes']);
+        Route::get('clientes/revisoes', [ClienteRevisaoController::class, 'index']);
+        Route::post('clientes/revisoes/{id}/consolidar', [ClienteRevisaoController::class, 'consolidar'])->whereNumber('id');
+        Route::post('clientes/revisoes/{id}/descartar', [ClienteRevisaoController::class, 'descartar'])->whereNumber('id');
         Route::get('clientes', [ClienteController::class, 'index']);
         Route::post('clientes', [ClienteController::class, 'store']);
         Route::get('clientes/{id}', [ClienteController::class, 'show'])->whereNumber('id');

@@ -71,26 +71,31 @@ class ClienteAuthService
 
         $empresaId = (int) $dados['empresa_id'];
 
-        // Já existe cliente com esse telefone? Então é login, não cadastro.
-        if ($this->clientePorTelefone($empresaId, $telefone)) {
-            throw ValidationException::withMessages(['telefone' => 'Já existe um cliente com este telefone. Faça login.']);
-        }
-
         $grupoId = (int) Empresa::query()->whereKey($empresaId)->value('grupo_id');
 
-        $cliente = $this->clientes->criar([
-            'empresa_id' => $empresaId,
-            'grupo_id' => $grupoId,
-            'nome' => $dados['nome'],
-            'cpf' => $dados['cpf'] ?? null,
-            'email' => $dados['email'] ?? null,
-            'datanascimento' => $dados['datanascimento'] ?? null,
-            'cliente' => true,
-            'ativo' => true,
-            'telefones' => [['telefone' => $this->formatarTelefone($telefone)]],
-        ]);
+        // Nao rejeita mais telefone repetido com "faca login".
+        //
+        // O telefone JA foi verificado por SMS aqui: se ele bate com um cadastro
+        // existente, e a mesma pessoa e o certo e ADOTAR aquele cadastro — com
+        // todo o historico de compra dela — em vez de mandar o cliente embora
+        // para uma tela de login que ele pode nao conseguir usar. Era um ponto
+        // real de perda de venda: quem ja comprou pelo entregador tinha o
+        // telefone na base e nao conseguia se cadastrar no app.
+        $resultado = app(\App\Domain\Identidade\IdentificarOuCriarCliente::class)->executar(
+            $empresaId,
+            $grupoId,
+            [
+                'nome' => $dados['nome'],
+                'cpf' => $dados['cpf'] ?? null,
+                'email' => $dados['email'] ?? null,
+                'datanascimento' => $dados['datanascimento'] ?? null,
+                'cliente' => true,
+                'telefones' => [['telefone' => $this->formatarTelefone($telefone)]],
+            ],
+            'app',
+        );
 
-        return $this->garantirUsuario($cliente, $verificado['uid']);
+        return $this->garantirUsuario($resultado->cliente, $verificado['uid']);
     }
 
     /** Normaliza o E.164 do Firebase para um formato de armazenamento simples. */

@@ -29,6 +29,10 @@ class Colaborador extends Model
         // F1 — sob qual relação trabalha (CLT, franqueado PJ, vendedor industrial).
         // `entregador` responde "faz entrega?"; `vinculo` responde "sob qual relação".
         'vinculo',
+        // Uma PESSOA, dois PAPÉIS: aponta para o cadastro de cliente do próprio
+        // colaborador (ele compra como cliente, trabalha como colaborador). Não
+        // funde os registros — só declara que se trata da mesma pessoa.
+        'cliente_id',
         // F5 — como carrega mercadoria (consignação|compra) e o depósito que
         // representa o que está em poder dele.
         'modo_estoque', 'setor_estoque_id',

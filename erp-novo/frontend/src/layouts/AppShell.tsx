@@ -6,7 +6,7 @@ import {
   UserCog, Truck, Flame, FileBarChart, ShoppingCart, Bike, Compass,
   MessageSquareHeart, Tag, Gift, Target, ListChecks, BadgePercent,
   Receipt, ArrowLeftRight, FolderArchive, Building,
-  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck, History,
+  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck, History, Merge,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
 
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
+  { label: 'Cadastros a revisar', to: '/clientes/revisoes', icon: <Merge size={18} />, permission: 'cliente.edit', group: 'Cadastros' },
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
   { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },

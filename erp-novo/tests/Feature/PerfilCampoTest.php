@@ -74,13 +74,34 @@ class PerfilCampoTest extends TestCase
         $this->assertSame('franqueado', $r['user']['papel']);
     }
 
-    public function test_sem_colaborador_cai_em_funcionario(): void
+    /**
+     * FAIL-CLOSED: sem cadastro de colaborador, o app de campo RECUSA o login.
+     *
+     * Antes caia em FUNCIONARIO por default — quem tinha so conta de cliente
+     * recebia papel de entregador ao logar aqui. Presumir papel por ausencia
+     * num ponto de identidade e o oposto do resto do sistema ("sem credencial,
+     * nao autentica").
+     */
+    public function test_sem_colaborador_o_app_de_campo_recusa_o_login(): void
     {
-        // Compatibilidade: antes do F1 todo login de app recebia role:entregador.
         $this->usuarioCom(null, 'semvinculo@teste.com');
-        $r = $this->login('semvinculo@teste.com');
 
-        $this->assertSame('funcionario', $r['user']['vinculo']);
+        $this->postJson('/api/app/v1/login', [
+            'email' => 'semvinculo@teste.com', 'password' => 'segredo123',
+            'device_id' => 'dev-sem-vinculo',
+        ])->assertStatus(403);
+    }
+
+    /** Colaborador DESATIVADO tambem perde o acesso ao app de campo. */
+    public function test_colaborador_desativado_nao_entra_no_app_de_campo(): void
+    {
+        $user = $this->usuarioCom(VinculoColaborador::FUNCIONARIO, 'desativado@teste.com');
+        Colaborador::query()->where('user_id', $user->id)->update(['ativo' => false]);
+
+        $this->postJson('/api/app/v1/login', [
+            'email' => 'desativado@teste.com', 'password' => 'segredo123',
+            'device_id' => 'dev-desativado',
+        ])->assertStatus(403);
     }
 
     public function test_industrial_alcanca_a_rota_fiscal(): void

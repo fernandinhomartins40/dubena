@@ -97,7 +97,19 @@ class ClienteTest extends TestCase
         Queue::assertPushed(GeocodificarClienteJob::class);
     }
 
-    public function test_bloqueia_endereco_duplicado_na_empresa(): void
+    /**
+     * Endereco repetido NAO bloqueia mais o cadastro.
+     *
+     * A trava antiga (422 em `endereco`) recusava dois clientes no mesmo
+     * numero — mas predio, vila e condominio tem dezenas de clientes
+     * legitimos no mesmo endereco. Ela bloqueava venda real, e o operador
+     * contornava alterando o numero para conseguir concluir, corrompendo o
+     * endereco de entrega.
+     *
+     * Agora endereco repetido e SINAL para o motor de identidade (25 pontos),
+     * que sozinho nao alcanca nem a faixa de revisao.
+     */
+    public function test_endereco_repetido_nao_bloqueia_vizinhos(): void
     {
         Queue::fake();
         [$user, $empresa] = $this->suporte();
@@ -106,14 +118,15 @@ class ClienteTest extends TestCase
         Cliente::factory()->create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
             'cidade_id' => $cidade->id, 'numero' => '100', 'endereco' => 'Rua A',
+            'nome' => 'Morador do Apto 1',
         ]);
 
         $this->actingAs($user, 'sanctum')->postJson('/api/admin/clientes', [
-            'nome' => 'Duplicado',
+            'nome' => 'Morador do Apto 2',
             'cidade_id' => $cidade->id, 'numero' => '100', 'endereco' => 'Rua A',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('endereco');
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('clientes', ['nome' => 'Morador do Apto 2']);
     }
 
     public function test_atualiza_cliente_e_substitui_telefones(): void

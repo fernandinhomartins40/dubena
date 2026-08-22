@@ -22,8 +22,6 @@ class ClienteService
     /** @param array<string, mixed> $dados */
     public function criar(array $dados): Cliente
     {
-        $this->garantirEnderecoNaoDuplicado($dados);
-
         return DB::transaction(function () use ($dados) {
             $telefones = $dados['telefones'] ?? null;
             unset($dados['telefones']);
@@ -43,7 +41,6 @@ class ClienteService
     /** @param array<string, mixed> $dados */
     public function atualizar(Cliente $cliente, array $dados): Cliente
     {
-        $this->garantirEnderecoNaoDuplicado($dados, $cliente->id);
         $enderecoMudou = $this->enderecoMudou($cliente, $dados);
 
         return DB::transaction(function () use ($cliente, $dados, $enderecoMudou) {
@@ -217,26 +214,20 @@ class ClienteService
      *
      * @param array<string, mixed> $dados
      */
-    private function garantirEnderecoNaoDuplicado(array $dados, ?int $ignorarId = null): void
-    {
-        if (empty($dados['cidade_id']) || empty($dados['numero'])) {
-            return; // sem endereço suficiente, nada a checar
-        }
-
-        $existe = Cliente::query()
-            ->where('cidade_id', $dados['cidade_id'])
-            ->where('numero', $dados['numero'])
-            ->when(! empty($dados['bairro_id']), fn (Builder $q) => $q->where('bairro_id', $dados['bairro_id']))
-            ->when(! empty($dados['endereco']), fn (Builder $q) => $q->where('endereco', $dados['endereco']))
-            ->when($ignorarId, fn (Builder $q) => $q->where('id', '<>', $ignorarId))
-            ->exists();
-
-        if ($existe) {
-            throw ValidationException::withMessages([
-                'endereco' => 'Já existe um cliente cadastrado neste endereço.',
-            ]);
-        }
-    }
+    /**
+     * A TRAVA DE ENDEREÇO DUPLICADO FOI REMOVIDA (lançava ValidationException).
+     *
+     * Ela recusava o cadastro quando cidade + número (+ bairro/logradouro) já
+     * existiam. O problema: prédio, vila e condomínio têm DEZENAS de clientes
+     * legítimos no mesmo endereço — a trava bloqueava venda real, e o operador
+     * contornava alterando o número ou o logradouro, corrompendo o endereço de
+     * entrega para poder concluir a venda.
+     *
+     * Endereço repetido agora é SINAL, não barreira: vale 25 pontos no motor de
+     * identidade (`PesoTraco::ENDERECO`), que sozinho não alcança nem a faixa de
+     * revisão. Só quando somado a nome idêntico ou telefone é que aponta
+     * duplicata — e aí o par vai para decisão humana, sem travar ninguém.
+     */
 
     /** @param array<string, mixed> $dados */
     private function enderecoMudou(Cliente $cliente, array $dados): bool

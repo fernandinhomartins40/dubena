@@ -23,12 +23,23 @@ class AppAuthHardeningTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
 
-        return User::factory()->create(array_merge([
+        $user = User::factory()->create(array_merge([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
             'password' => Hash::make('senha-correta-123'),
             'ativo' => true,
         ], $attrs));
+
+        // O login do app de CAMPO exige cadastro de colaborador ativo
+        // (fail-closed): sem ele nao ha papel a conceder.
+        \App\Models\Rh\Colaborador::factory()->create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'user_id' => $user->id,
+            'ativo' => true,
+        ]);
+
+        return $user;
     }
 
     public function test_app_login_registra_sucesso_e_falha_em_login_logs(): void

@@ -103,24 +103,57 @@ class AppVendaCampoTest extends TestCase
         $this->comHeader()->postJson('/api/app/v1/entregador/clientes', [
             'nome' => 'Industria Ltda',
             'cnpj' => '12.345.678/0001-99',
+            // Minimo do cadastro: nome + (telefone OU endereco).
+            'telefone' => '4233220000',
         ])->assertCreated();
 
         $this->assertDatabaseHas('clientes', ['nome' => 'Industria Ltda', 'cnpj' => '12345678000199']);
     }
 
-    public function test_telefone_duplicado_e_recusado(): void
+    /**
+     * Telefone repetido com nome DIFERENTE nao trava mais a venda.
+     *
+     * A regra antiga (herdada do NFWEB) recusava com 422. Em campo isso
+     * abortava a venda, e o entregador contornava inventando outro numero —
+     * sujando a base justamente quando ela tentava se proteger. Familia e
+     * republica compartilham telefone de verdade: o cadastro nasce e o par vai
+     * para revisao humana.
+     */
+    public function test_telefone_repetido_com_outro_nome_cadastra_e_vai_para_revisao(): void
     {
         $this->comHeader()->postJson('/api/app/v1/entregador/clientes', [
             'nome' => 'Primeiro', 'telefone' => '42999112233',
         ])->assertCreated();
 
-        // Regra herdada do NFWEB: é como a revenda evita dois cadastros para a
-        // mesma casa. 422 = DomainException (recusa de regra).
         $this->comHeader()->postJson('/api/app/v1/entregador/clientes', [
             'nome' => 'Segundo', 'telefone' => '(42) 99911-2233',
-        ])->assertStatus(422);
+        ])->assertCreated();
 
-        $this->assertDatabaseMissing('clientes', ['nome' => 'Segundo']);
+        // A VENDA ACONTECEU: o cadastro existe.
+        $this->assertDatabaseHas('clientes', ['nome' => 'Segundo']);
+        // E o par ficou para uma pessoa decidir.
+        $this->assertDatabaseHas('cliente_revisoes', ['situacao' => 'pendente']);
+    }
+
+    /**
+     * Mesmo telefone E mesmo nome: e a mesma pessoa (escore >= 100).
+     * Reconhece o cadastro existente em vez de criar mais uma copia.
+     */
+    public function test_mesmo_telefone_e_mesmo_nome_reconhece_o_cliente(): void
+    {
+        $primeiro = $this->comHeader()->postJson('/api/app/v1/entregador/clientes', [
+            'nome' => 'Joao da Silva', 'telefone' => '42999887766',
+        ])->assertCreated()->json('data.id');
+
+        $segundo = $this->comHeader()->postJson('/api/app/v1/entregador/clientes', [
+            // Mesma pessoa, digitada de outro jeito (caixa e acento).
+            'nome' => 'JOAO DA SILVA', 'telefone' => '(42) 99988-7766',
+        ])->assertOk()->json('data');
+
+        $this->assertSame($primeiro, $segundo['id'], 'deveria reconhecer o mesmo cliente');
+        $this->assertFalse($segundo['criado']);
+        $this->assertTrue($segundo['identificado']);
+        $this->assertSame(1, \App\Models\Cliente\Cliente::query()->where('nome', 'like', '%oao da Silva%')->count());
     }
 
     public function test_vale_gas_inexistente_e_recusado(): void
