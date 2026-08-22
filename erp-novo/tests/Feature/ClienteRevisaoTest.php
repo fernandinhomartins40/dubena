@@ -111,6 +111,48 @@ class ClienteRevisaoTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    /**
+     * O endereco exibido precisa ter o LOGRADOURO, nao so o numero.
+     *
+     * Medido em producao: `clientes.endereco` esta NULL em 100% da base (0 de
+     * 55.453) — o logradouro real sempre veio da FK `rua_id`. Quem lia a coluna
+     * direto mostrava "Endereco: 587", e foi o que apareceu nesta tela, na
+     * roteirizacao, nas missoes e nos relatorios.
+     */
+    public function test_endereco_exibido_traz_o_logradouro_da_fk(): void
+    {
+        [$user, $empresa] = $this->suporte();
+
+        $cidade = \App\Models\Geografico\Cidade::factory()->create([
+            'grupo_id' => $empresa->grupo_id, 'descricao' => 'Guarapuava',
+        ]);
+        $rua = \App\Models\Geografico\Rua::query()->create([
+            'grupo_id' => $empresa->grupo_id, 'cidade_id' => $cidade->id,
+            'descricao' => 'Avenida Bandeirantes', 'ativo' => true,
+        ]);
+
+        // Nomes DIFERENTES no mesmo telefone: cai na fila de revisao (nomes
+        // iguais consolidariam sozinhos e nao haveria par para inspecionar).
+        $svc = app(IdentificarOuCriarCliente::class);
+        foreach (['Mercado Kaminski Ltda', 'Padaria do Bairro'] as $nome) {
+            $svc->executar((int) $empresa->id, (int) $empresa->grupo_id, [
+                'nome' => $nome, 'telefone' => '42988118886',
+                // `endereco` (texto) fica VAZIO de proposito: e o estado real
+                // da base — o logradouro so existe na FK.
+                'rua_id' => $rua->id, 'cidade_id' => $cidade->id, 'numero' => '587',
+            ], 'entregador');
+        }
+
+        $this->assertDatabaseHas('cliente_revisoes', ['situacao' => 'pendente']);
+
+        $dados = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/admin/clientes/revisoes')->assertOk()->json('data.0.cliente');
+
+        $this->assertNotNull($dados['endereco']);
+        $this->assertStringContainsString('Avenida Bandeirantes', $dados['endereco']);
+        $this->assertStringContainsString('587', $dados['endereco']);
+    }
+
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();

@@ -34,10 +34,16 @@ class ClienteRevisaoController extends Controller
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->when($situacao !== 'todas', fn ($q) => $q->where('situacao', $situacao))
             ->with([
-                'cliente:id,nome,cpf,cnpj,email,endereco,numero,cidade_id,ativo,created_at',
-                'candidato:id,nome,cpf,cnpj,email,endereco,numero,cidade_id,ativo,created_at',
+                // rua_id/bairro_id sao OBRIGATORIOS no select: sem a chave, o
+                // Eloquent nao resolve a relacao e o endereco sai sem o
+                // logradouro (que so existe na FK).
+                'cliente:id,nome,cpf,cnpj,email,endereco,numero,complemento,rua_id,bairro_id,cidade_id,ativo,created_at',
+                'candidato:id,nome,cpf,cnpj,email,endereco,numero,complemento,rua_id,bairro_id,cidade_id,ativo,created_at',
                 'cliente.telefones:id,cliente_id,telefone',
                 'candidato.telefones:id,cliente_id,telefone',
+                // Sem estas, o accessor de endereco dispara N+1 na listagem.
+                'cliente.rua:id,descricao', 'cliente.bairro:id,descricao', 'cliente.cidade:id,descricao',
+                'candidato.rua:id,descricao', 'candidato.bairro:id,descricao', 'candidato.cidade:id,descricao',
                 'decidiuUser:id,name',
             ])
             // Escore alto primeiro: são os mais prováveis e os que mais
@@ -173,7 +179,9 @@ class ClienteRevisaoController extends Controller
             'nome' => $c->nome,
             'documento' => $c->cpf ?: $c->cnpj,
             'email' => $c->email,
-            'endereco' => trim(($c->endereco ?? '').' '.($c->numero ?? '')) ?: null,
+            // enderecoCompleto: a coluna `endereco` esta NULL em toda a base;
+            // o logradouro real vem da FK rua_id (ver Cliente::getEnderecoCompletoAttribute).
+            'endereco' => $c->endereco_completo,
             'telefones' => $c->telefones->pluck('telefone')->values(),
             'ativo' => (bool) $c->ativo,
             'criado_em' => $c->created_at?->toIso8601String(),

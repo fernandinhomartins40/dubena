@@ -649,6 +649,9 @@ class RelatorioService
 
         return DB::table('clientes as c')
             ->leftJoin('cidades as ci', 'ci.id', '=', 'c.cidade_id')
+            // O logradouro vem da FK rua_id: a coluna `endereco` esta NULL em
+            // toda a base, e sem este join o relatorio saía só com o numero.
+            ->leftJoin('ruas as ru', 'ru.id', '=', 'c.rua_id')
             ->where('c.empresa_id', $empresaId)
             ->where('c.cliente', true)
             ->where('c.ativo', true)
@@ -657,14 +660,15 @@ class RelatorioService
                 ->orWhere('c.data_ultima_compra', '<', $corte->toDateString()))
             ->orderByRaw('c.data_ultima_compra asc nulls last')
             ->limit(5000)
-            ->get(['c.id', 'c.nome', 'c.data_ultima_compra', 'ci.descricao as cidade', 'c.endereco', 'c.numero'])
+            ->get(['c.id', 'c.nome', 'c.data_ultima_compra', 'ci.descricao as cidade', 'c.endereco', 'c.numero', 'ru.descricao as rua'])
             ->map(function ($r) {
                 $ultima = $r->data_ultima_compra !== null ? Carbon::parse($r->data_ultima_compra) : null;
 
                 return [
                     'cliente' => $r->nome,
                     'cidade' => $r->cidade ?? '',
-                    'endereco' => trim(((string) $r->endereco).' '.((string) $r->numero)),
+                    // Logradouro vem da FK rua_id; a coluna `endereco` esta vazia.
+                    'endereco' => trim(((string) ($r->endereco ?: $r->rua)).' '.((string) $r->numero)),
                     'ultima_compra' => $ultima?->format('d/m/Y') ?? 'Nunca comprou',
                     // Dias parado é o que ordena a abordagem do comercial.
                     'dias_sem_comprar' => $ultima !== null ? $ultima->diffInDays(Carbon::now()) : null,

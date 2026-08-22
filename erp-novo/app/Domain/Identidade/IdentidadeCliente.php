@@ -64,7 +64,11 @@ class IdentidadeCliente
             'cpf' => $cliente->cpf,
             'cnpj' => $cliente->cnpj,
             'email' => $cliente->email,
-            'endereco' => $cliente->endereco,
+            // A coluna `endereco` esta NULL em toda a base: o logradouro real
+            // vem da FK rua_id. Sem isto o traco de endereco virava so
+            // "cidade|numero" — e casava qualquer cliente de mesmo numero na
+            // cidade, independente da rua.
+            'endereco' => $cliente->endereco ?: $cliente->rua?->descricao,
             'numero' => $cliente->numero,
             'cidade_id' => $cliente->cidade_id,
             'telefones' => $telefones->pluck('telefone')->all(),
@@ -91,7 +95,11 @@ class IdentidadeCliente
             'cpf' => $cliente->cpf,
             'cnpj' => $cliente->cnpj,
             'email' => $cliente->email,
-            'endereco' => $cliente->endereco,
+            // A coluna `endereco` esta NULL em toda a base: o logradouro real
+            // vem da FK rua_id. Sem isto o traco de endereco virava so
+            // "cidade|numero" — e casava qualquer cliente de mesmo numero na
+            // cidade, independente da rua.
+            'endereco' => $cliente->endereco ?: $cliente->rua?->descricao,
             'numero' => $cliente->numero,
             'cidade_id' => $cliente->cidade_id,
             'telefones' => $telefones->pluck('telefone')->all(),

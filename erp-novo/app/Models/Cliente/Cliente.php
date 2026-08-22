@@ -103,6 +103,44 @@ class Cliente extends Model
         return $this->belongsTo(Rua::class);
     }
 
+    /**
+     * Endereço legível: logradouro, número, complemento, bairro e cidade.
+     *
+     * A coluna `endereco` está NULL em 100% da base (0 de 55.453 medidos em
+     * produção): o logradouro real sempre veio da FK `rua_id`. Quem lia a
+     * coluna direto exibia só o número — "Endereço: 587" — e foi assim que a
+     * tela de revisão, a roteirização, as missões e os relatórios ficaram sem
+     * o logradouro.
+     *
+     * Este accessor é o ponto único: usa o texto quando existir (cadastro
+     * antigo ou importação que preencheu) e cai na FK, que é o caso real.
+     */
+    public function getEnderecoCompletoAttribute(): ?string
+    {
+        $logradouro = $this->endereco ?: $this->rua?->descricao;
+
+        $linha = trim(($logradouro ?? '').' '.($this->numero ?? ''));
+
+        foreach ([$this->complemento, $this->bairro?->descricao, $this->cidade?->descricao] as $parte) {
+            if (filled($parte)) {
+                $linha = $linha === '' ? (string) $parte : $linha.', '.$parte;
+            }
+        }
+
+        return $linha !== '' ? $linha : null;
+    }
+
+    /**
+     * Só logradouro + número — para onde a linha completa não cabe (cupom,
+     * etiqueta, lista compacta).
+     */
+    public function getEnderecoLinhaAttribute(): ?string
+    {
+        $logradouro = $this->endereco ?: $this->rua?->descricao;
+
+        return trim(($logradouro ?? '').' '.($this->numero ?? '')) ?: null;
+    }
+
     public function tipopessoa(): BelongsTo
     {
         return $this->belongsTo(TipoPessoa::class, 'tipopessoa_id');

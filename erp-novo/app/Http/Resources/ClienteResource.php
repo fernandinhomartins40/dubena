@@ -49,6 +49,11 @@ class ClienteResource extends JsonResource
             'desativado_por_nome' => $this->whenLoaded('desativadoPor', fn () => $this->desativadoPor?->name),
             // Endereço
             'endereco' => $this->endereco,
+            // A coluna `endereco` esta NULL em toda a base: o logradouro real
+            // vem da FK rua_id. Estes dois campos entregam o endereco pronto
+            // para exibir, sem cada tela ter de remontar (e errar).
+            'endereco_completo' => $this->endereco_completo,
+            'endereco_linha' => $this->endereco_linha,
             'numero' => $this->numero,
             'complemento' => $this->complemento,
             'ponto_referencia' => $this->ponto_referencia,

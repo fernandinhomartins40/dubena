@@ -153,7 +153,8 @@ class RoteirizadorService
             'sequencia' => $seq,
             'pedido_id' => $p->id,
             'cliente' => $p->cliente?->nome,
-            'endereco' => trim(($p->cliente?->endereco ?? '').', '.($p->cliente?->numero ?? '')),
+            // Endereco completo (rua vem da FK): sem isto o entregador recebia so o numero.
+            'endereco' => $p->cliente?->endereco_completo,
             'lat' => $p->cliente?->latitude !== null ? (float) $p->cliente->latitude : null,
             'lng' => $p->cliente?->longitude !== null ? (float) $p->cliente->longitude : null,
             'distancia_trecho_km' => $trecho['distancia_km'],

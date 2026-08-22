@@ -51,9 +51,15 @@ class IdentidadeReindexar extends Command
 
         $gravados = 0;
 
-        DB::table('clientes')
-            ->when($empresa, fn ($q) => $q->where('empresa_id', $empresa))
-            ->orderBy('id')
+        DB::table('clientes as c')
+            // O logradouro vem da FK rua_id: a coluna `endereco` esta NULL em
+            // toda a base, e sem o join o traco de endereco virava apenas
+            // "cidade|numero" — casando qualquer cliente de mesmo numero na
+            // cidade, independente da rua.
+            ->leftJoin('ruas as ru', 'ru.id', '=', 'c.rua_id')
+            ->when($empresa, fn ($q) => $q->where('c.empresa_id', $empresa))
+            ->select('c.*', 'ru.descricao as rua_descricao')
+            ->orderBy('c.id')
             ->chunk($lote, function ($clientes) use (&$gravados, $telefones, $barra) {
                 $ids = collect($clientes)->pluck('id');
                 DB::table('cliente_identidades')->whereIn('cliente_id', $ids)->delete();
@@ -122,7 +128,9 @@ class IdentidadeReindexar extends Command
             $tracos[] = ['telefone', $fone];
         }
 
-        $endereco = NormalizadorTexto::endereco($c->endereco ?? null, $c->numero ?? null);
+        $endereco = NormalizadorTexto::endereco(
+            ($c->endereco ?: ($c->rua_descricao ?? null)), $c->numero ?? null,
+        );
         if ($endereco !== '' && ! empty($c->cidade_id)) {
             $tracos[] = ['endereco', $c->cidade_id.'|'.$endereco];
         }

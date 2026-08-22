@@ -178,7 +178,7 @@ class MissaoService
         return [
             'cliente_id' => $c->id,
             'nome' => $c->nome,
-            'endereco' => trim(($c->endereco ?? '').', '.($c->numero ?? '')),
+            'endereco' => $c->endereco_completo,
             'lat' => (float) $c->latitude,
             'lng' => (float) $c->longitude,
             'distancia_m' => round($candidato['dist']),
