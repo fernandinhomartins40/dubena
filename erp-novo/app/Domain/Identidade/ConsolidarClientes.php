@@ -126,6 +126,48 @@ class ConsolidarClientes
                 'cliente' => 'Este cadastro já foi consolidado em outro.',
             ]);
         }
+
+        // O PRINCIPAL também não pode ser um cadastro já absorvido.
+        //
+        // Medido na primeira execução em produção: em 2.760 fusões, 20 caíram
+        // aqui. A ordem faz a diferença — o cliente 63305 foi absorvido por
+        // 52609 às 20:10:38 e, 25 segundos depois, recebeu 68564 como se ainda
+        // fosse um cadastro válido. Os pedidos de 68564 foram remapeados para
+        // um cadastro DESATIVADO, ficando invisíveis na lista.
+        //
+        // Recusar aqui é o certo: quem chamou deve refazer a fusão apontando
+        // para o vencedor final (`principalDe()` resolve a cadeia).
+        if (ClienteVinculo::query()->where('cliente_id', $principal->id)->exists()) {
+            throw ValidationException::withMessages([
+                'cliente' => 'O cadastro escolhido como principal já foi consolidado em outro. '
+                    .'Refaça apontando para o cadastro final.',
+            ]);
+        }
+    }
+
+    /**
+     * Resolve a cadeia de consolidações até o cadastro que sobreviveu.
+     *
+     * Se A foi absorvido por B e B por C, o cliente real de A é C. Sem isto,
+     * quem seguir o vínculo uma vez só para num cadastro desativado.
+     */
+    public function principalDe(int $clienteId, int $limite = 10): int
+    {
+        $atual = $clienteId;
+
+        // O limite evita laço infinito se algum dado ficar circular — é uma
+        // salvaguarda, não um caso esperado.
+        for ($i = 0; $i < $limite; $i++) {
+            $proximo = ClienteVinculo::query()->where('cliente_id', $atual)->value('principal_id');
+
+            if ($proximo === null) {
+                return $atual;
+            }
+
+            $atual = (int) $proximo;
+        }
+
+        return $atual;
     }
 
     /**

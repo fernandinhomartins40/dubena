@@ -352,6 +352,52 @@ class IdentidadeClienteTest extends TestCase
         app(ConsolidarClientes::class)->executar($c, $b, 100);
     }
 
+    /**
+     * O PRINCIPAL tambem nao pode ser um cadastro ja absorvido.
+     *
+     * Medido na primeira execucao em producao: em 2.760 fusoes, 20 caíram
+     * neste caso. O cliente 63305 foi absorvido por 52609 e, 25 segundos
+     * depois, recebeu 68564 como se ainda fosse valido — 18 pedidos foram
+     * remapeados para um cadastro DESATIVADO e sumiram da lista.
+     */
+    public function test_nao_consolida_tendo_como_principal_um_ja_absorvido(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $this->actingAs($user, 'sanctum');
+
+        $base = ['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id];
+        $a = Cliente::factory()->create($base + ['nome' => 'Cadastro A']);
+        $b = Cliente::factory()->create($base + ['nome' => 'Cadastro B']);
+        $c = Cliente::factory()->create($base + ['nome' => 'Cadastro C']);
+
+        // B foi absorvido por A.
+        app(ConsolidarClientes::class)->executar($a, $b, 100);
+
+        // Agora B nao pode receber C: B ja nao e um cadastro valido.
+        $this->expectException(ValidationException::class);
+        app(ConsolidarClientes::class)->executar($b, $c, 100);
+    }
+
+    /** A cadeia A→B→C resolve ate o cadastro que realmente sobreviveu. */
+    public function test_principal_de_resolve_a_cadeia_ate_o_sobrevivente(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $this->actingAs($user, 'sanctum');
+
+        $base = ['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id];
+        $final = Cliente::factory()->create($base + ['nome' => 'Sobrevivente']);
+        $meio = Cliente::factory()->create($base + ['nome' => 'Intermediario']);
+        $ponta = Cliente::factory()->create($base + ['nome' => 'Ponta']);
+
+        $servico = app(ConsolidarClientes::class);
+        $servico->executar($meio, $ponta, 100);   // ponta -> meio
+        $servico->executar($final, $meio, 100);   // meio  -> final
+
+        // Seguir o vinculo uma vez so pararia no `meio`, que esta desativado.
+        $this->assertSame($final->id, $servico->principalDe($ponta->id));
+        $this->assertSame($final->id, $servico->principalDe($meio->id));
+    }
+
     /** Um cadastro absorvido não pode voltar como candidato. */
     public function test_cadastro_absorvido_nao_aparece_como_candidato(): void
     {
