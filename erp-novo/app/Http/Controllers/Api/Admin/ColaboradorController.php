@@ -26,7 +26,8 @@ class ColaboradorController extends Controller
         $q = trim((string) $request->query('q', ''));
 
         $page = Colaborador::query()
-            ->with('cargo:id,descricao')
+            ->with(['cargo:id,descricao', 'desativadoPor:id,name'])
+            ->tap(fn (Builder $b) => $this->filtrarSituacao($b, $request))
             ->when($q !== '', fn (Builder $b) => $b->where('nome', 'ilike', '%'.$q.'%'))
             ->orderBy('nome')
             ->paginate(20);
@@ -86,12 +87,51 @@ class ColaboradorController extends Controller
         return response()->json(['data' => $this->linha($this->service->atualizar($colaborador, $this->validar($request)))]);
     }
 
+    /**
+     * DELETE /colaboradores/{id} — DESATIVA (não apaga).
+     *
+     * Apagar era especialmente destrutivo aqui: todas as sub-tabelas de RH
+     * (família, recessos, comissões, exames, turnos, ponto) são
+     * cascadeOnDelete, e nenhuma FK segurava a operação.
+     */
     public function destroy(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'colaborador.delete');
-        $this->service->excluir(Colaborador::query()->findOrFail($id));
 
-        return response()->json(['message' => 'Colaborador excluído.']);
+        $motivo = $request->validate(['motivo' => 'nullable|string|max:255'])['motivo'] ?? null;
+
+        $colaborador = $this->service->desativar(
+            Colaborador::query()->findOrFail($id), $motivo, $request->user()?->id,
+        );
+
+        return response()->json([
+            'message' => 'Colaborador desativado. O histórico foi preservado.',
+            'data' => $this->linha($colaborador),
+        ]);
+    }
+
+    /** POST /colaboradores/{id}/reativar */
+    public function reativar(Request $request, int $id): JsonResponse
+    {
+        // Mesma permissão de desativar: quem tira da lista pode devolver.
+        $this->autorizar($request, 'colaborador.delete');
+
+        $colaborador = $this->service->reativar(Colaborador::query()->findOrFail($id));
+
+        return response()->json([
+            'message' => 'Colaborador reativado.',
+            'data' => $this->linha($colaborador),
+        ]);
+    }
+
+    /** Default 'ativos' — ver ClienteController::filtrarSituacao. */
+    private function filtrarSituacao(Builder $b, Request $request): void
+    {
+        match ((string) $request->query('situacao', 'ativos')) {
+            'inativos' => $b->where('ativo', false),
+            'todos' => null,
+            default => $b->where(fn (Builder $w) => $w->where('ativo', true)->orWhereNull('ativo')),
+        };
     }
 
     // ── Sub-recursos ──
@@ -322,6 +362,12 @@ class ColaboradorController extends Controller
             // O formulario de edicao le `cargo_label` para exibir o valor ja
             // escolhido: o AsyncSelect so busca a lista quando o popover abre.
             'cargo_label' => $c->cargo?->descricao,
+            // Situacao do cadastro. Sem isto a lista nao tinha como distinguir
+            // ativo de desativado — e o operador marcava o estado no NOME.
+            'ativo' => (bool) $c->ativo,
+            'desativado_em' => $c->desativado_em?->toDateTimeString(),
+            'motivo_desativacao' => $c->motivo_desativacao,
+            'desativado_por_nome' => $c->relationLoaded('desativadoPor') ? $c->desativadoPor?->name : null,
         ];
     }
 

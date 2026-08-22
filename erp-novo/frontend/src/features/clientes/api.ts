@@ -11,8 +11,16 @@ export interface ClienteListItem {
   uf: string | null
   cliente: number
   fornecedor: number
-  ativo: number | null
+  // O Resource devolve boolean (nao 0/1): comparar com 0 nunca dava verdadeiro,
+  // e era por isso que o badge "inativo" jamais aparecia na lista.
+  ativo: boolean
+  desativado_em: string | null
+  motivo_desativacao: string | null
+  desativado_por_nome: string | null
 }
+
+/** Filtro da lista. 'ativos' e o default do backend. */
+export type SituacaoCliente = 'ativos' | 'inativos' | 'todos'
 
 export interface ClienteForm {
   // Dados gerais
@@ -55,10 +63,10 @@ interface Paginated<T> {
   meta: { current_page: number; last_page: number; per_page: number; total: number }
 }
 
-export function useClientes(q: string, page: number) {
+export function useClientes(q: string, page: number, situacao: SituacaoCliente = 'ativos') {
   return useQuery<Paginated<ClienteListItem>>({
-    queryKey: ['clientes', q, page],
-    queryFn: async () => (await api.get('/clientes', { params: { q, page } })).data,
+    queryKey: ['clientes', q, page, situacao],
+    queryFn: async () => (await api.get('/clientes', { params: { q, page, situacao } })).data,
     placeholderData: (prev) => prev,
   })
 }
@@ -141,10 +149,24 @@ export function usePrecos(clienteId: number) {
   return useQuery({ queryKey: ['cli-precos', clienteId], queryFn: async () => (await api.get(`/clientes/${clienteId}/precos`)).data.data })
 }
 
-export function useExcluirCliente() {
+/**
+ * Desativa o cliente (ativo = false). O endpoint continua sendo DELETE porque e
+ * a acao "excluir" da tela, mas nada e apagado: pedidos e titulos seguem ligados
+ * ao cadastro. O backend recusa se houver pedido ou parcela em aberto.
+ */
+export function useDesativarCliente() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: number) => (await api.delete(`/clientes/${id}`)).data,
+    mutationFn: async ({ id, motivo }: { id: number; motivo?: string }) =>
+      (await api.delete(`/clientes/${id}`, { data: { motivo } })).data,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clientes'] }); qc.invalidateQueries({ queryKey: ['dashboard-resumo'] }) },
+  })
+}
+
+export function useReativarCliente() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => (await api.post(`/clientes/${id}/reativar`)).data,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['clientes'] }); qc.invalidateQueries({ queryKey: ['dashboard-resumo'] }) },
   })
 }

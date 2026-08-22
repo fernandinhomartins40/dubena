@@ -43,6 +43,7 @@ class Cliente extends Model
         return [
             'datanascimento' => 'date',
             'data_ultima_compra' => 'date',
+            'desativado_em' => 'datetime',
             'indicador_ie' => 'integer',
             'cliente' => 'boolean',
             'fornecedor' => 'boolean',
@@ -79,6 +80,12 @@ class Cliente extends Model
     public function precos(): HasMany
     {
         return $this->hasMany(ClientePreco::class);
+    }
+
+    /** Quem tirou este cadastro da lista de ativos (trilha da desativacao). */
+    public function desativadoPor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'desativado_por');
     }
 
     public function cidade(): BelongsTo

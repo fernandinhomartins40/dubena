@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Plus, MoreHorizontal, Pencil, Trash2, Users, ArrowLeft, Save, Settings } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Ban, RotateCcw, Users, ArrowLeft, Save, Settings } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, AsyncSelect, SearchBar,
+  Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, Textarea, AsyncSelect, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   ConfirmDialog, toast,
@@ -11,7 +11,11 @@ import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { useBusca } from '@/lib/useBusca'
 import { data as fmtData } from '@/lib/format'
-import { useColaboradores, useColaborador, useSalvarColaborador, useExcluirColaborador, type Colaborador } from './api'
+import {
+  useColaboradores, useColaborador, useSalvarColaborador,
+  useDesativarColaborador, useReativarColaborador,
+  type Colaborador, type SituacaoColaborador,
+} from './api'
 import { FamiliaTab } from './tabs/FamiliaTab'
 import { RecessosTab } from './tabs/RecessosTab'
 import { ComissoesTab } from './tabs/ComissoesTab'
@@ -23,14 +27,51 @@ export function ColaboradoresListPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
   const { busca, setBusca, q, page, setPage, submit } = useBusca()
-  const { data, isLoading, isFetching } = useColaboradores(q, page)
-  const excluir = useExcluirColaborador()
+  const [situacao, setSituacao] = useState<SituacaoColaborador>('ativos')
+  const { data, isLoading, isFetching } = useColaboradores(q, page, situacao)
+  const desativar = useDesativarColaborador()
+  const reativar = useReativarColaborador()
   const [del, setDel] = useState<Colaborador | null>(null)
+  const [motivo, setMotivo] = useState('')
+  const [reat, setReat] = useState<Colaborador | null>(null)
+
+  function trocarAba(valor: string) {
+    setSituacao(valor as SituacaoColaborador)
+    setPage(1) // a pagina atual pode nao existir na outra aba
+  }
 
   const columns: Column<Colaborador>[] = [
-    { key: 'nome', header: 'Nome', cell: (c) => <div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0"><Users size={16} /></div><div><div className="font-medium">{c.nome} {c.datadesligamento && <Badge variant="secondary">desligado</Badge>}</div>{c.cargo && <div className="text-xs text-muted-foreground">{c.cargo}</div>}</div></div> },
+    {
+      key: 'nome', header: 'Nome', cell: (c) => (
+        <div className="flex items-center gap-3">
+          <div className="grid size-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0"><Users size={16} /></div>
+          <div>
+            <div className="font-medium flex items-center gap-2">
+              {c.nome}
+              {/* Desligado e desativado sao coisas diferentes: o primeiro e fato
+                  trabalhista, o segundo e o cadastro fora da lista. */}
+              {c.datadesligamento && <Badge variant="secondary">desligado</Badge>}
+              {!c.ativo && <Badge variant="secondary">desativado</Badge>}
+            </div>
+            {c.cargo && <div className="text-xs text-muted-foreground">{c.cargo}</div>}
+          </div>
+        </div>
+      ),
+    },
     { key: 'cpf', header: 'CPF', cell: (c) => <span className="text-muted-foreground tabular-nums">{c.cpf || '—'}</span> },
-    { key: 'adm', header: 'Admissão', cell: (c) => fmtData(c.dataadmissao) },
+    ...(situacao === 'ativos'
+      ? [{ key: 'adm', header: 'Admissão', cell: (c: Colaborador) => fmtData(c.dataadmissao) }]
+      : [{
+          key: 'desativacao', header: 'Desativado em',
+          cell: (c: Colaborador) => c.desativado_em ? (
+            <div className="min-w-0">
+              <div className="tabular-nums">{fmtData(c.desativado_em)}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {[c.desativado_por_nome, c.motivo_desativacao].filter(Boolean).join(' · ') || '—'}
+              </div>
+            </div>
+          ) : <span className="text-muted-foreground">—</span>,
+        }]),
     {
       key: 'acoes', header: '', align: 'right', width: 'w-16', cell: (c) => (
         <div onClick={(e) => e.stopPropagation()} className="flex justify-end">
@@ -38,7 +79,14 @@ export function ColaboradoresListPage() {
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal size={18} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {can('colaborador.edit') && <DropdownMenuItem onClick={() => navigate(`/colaboradores/${c.id}`)}><Pencil /> Editar</DropdownMenuItem>}
-              {can('colaborador.delete') && (<><DropdownMenuSeparator /><DropdownMenuItem destructive onClick={() => setDel(c)}><Trash2 /> Excluir</DropdownMenuItem></>)}
+              {can('colaborador.delete') && (
+                <>
+                  <DropdownMenuSeparator />
+                  {c.ativo
+                    ? <DropdownMenuItem destructive onClick={() => { setDel(c); setMotivo('') }}><Ban /> Desativar</DropdownMenuItem>
+                    : <DropdownMenuItem onClick={() => setReat(c)}><RotateCcw /> Reativar</DropdownMenuItem>}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -47,21 +95,56 @@ export function ColaboradoresListPage() {
   ]
   return (
     <div>
-      <PageHeader title="Colaboradores" subtitle={data ? `${data.meta.total} colaboradores` : 'Carregando…'}
+      <PageHeader title="Colaboradores" subtitle={data ? `${data.meta.total} ${situacao === 'inativos' ? 'desativados' : 'colaboradores'}` : 'Carregando…'}
         action={<div className="flex gap-2">
           {can('colaborador.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=colaboradores')}><Settings size={16} /> Configurações</Button>}
           {can('colaborador.create') && <Button onClick={() => navigate('/colaboradores/novo')}><Plus size={16} /> Novo colaborador</Button>}
         </div>} />
+      <Tabs value={situacao} onValueChange={trocarAba}>
+        <TabsList>
+          <TabsTrigger value="ativos">Ativos</TabsTrigger>
+          <TabsTrigger value="inativos">Desativados</TabsTrigger>
+          <TabsTrigger value="todos">Todos</TabsTrigger>
+        </TabsList>
+      </Tabs>
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar por nome…" />
       <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(c) => c.id} onRowClick={can('colaborador.edit') ? (c) => navigate(`/colaboradores/${c.id}`) : undefined}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
-        empty={<EmptyState icon={<Users />} title="Nenhum colaborador" />} />
+        empty={<EmptyState icon={<Users />}
+          title={situacao === 'inativos' ? 'Nenhum colaborador desativado' : 'Nenhum colaborador'}
+          description={situacao === 'inativos' ? 'Colaboradores desativados aparecem aqui e podem ser reativados.' : undefined} />} />
+
       <ConfirmDialog
-        open={!!del} onOpenChange={(o) => !o && setDel(null)}
-        title="Excluir colaborador"
-        description={<>Excluir <strong>{del?.nome}</strong>?</>}
-        loading={excluir.isPending}
-        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+        open={!!del} onOpenChange={(o) => { if (!o) { setDel(null); setMotivo('') } }}
+        title="Desativar colaborador"
+        confirmLabel="Desativar"
+        description={<><strong>{del?.nome}</strong> sai da lista de ativos, mas <strong>nada é apagado</strong>: família, recessos, comissões, exames, turnos e ponto continuam registrados. Pode ser reativado na aba “Desativados”.</>}
+        loading={desativar.isPending}
+        onConfirm={async () => {
+          try {
+            await desativar.mutateAsync({ id: del!.id, motivo: motivo.trim() || undefined })
+            toast.success('Colaborador desativado. O histórico foi preservado.')
+            setDel(null); setMotivo('')
+          } catch (e: any) {
+            toast.error(e?.response?.data?.errors?.colaborador?.[0] ?? e?.response?.data?.message ?? 'Erro.')
+          }
+        }}
+      >
+        <Field label="Motivo (opcional)" hint="Ex.: desligado, cadastro duplicado, mudou de função.">
+          <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={255} placeholder="Por que este cadastro está sendo desativado?" />
+        </Field>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!reat} onOpenChange={(o) => !o && setReat(null)}
+        title="Reativar colaborador" confirmLabel="Reativar" variant="default"
+        description={<>Devolver <strong>{reat?.nome}</strong> à lista de ativos?</>}
+        loading={reativar.isPending}
+        onConfirm={async () => {
+          try { await reativar.mutateAsync(reat!.id); toast.success('Colaborador reativado.') }
+          catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
+          finally { setReat(null) }
+        }}
       />
     </div>
   )

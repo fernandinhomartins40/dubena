@@ -42,11 +42,18 @@ class Colaborador extends Model
             'data_nascimento' => 'date',
             'data_admissao' => 'date',
             'data_desligamento' => 'date',
+            'desativado_em' => 'datetime',
             'entregador' => 'boolean',
             'ativo' => 'boolean',
             'vinculo' => \App\Domain\Rh\VinculoColaborador::class,
             'modo_estoque' => \App\Domain\Rh\ModoEstoque::class,
         ];
+    }
+
+    /** Quem tirou este cadastro da lista de ativos (trilha da desativacao). */
+    public function desativadoPor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'desativado_por');
     }
 
     public function cidade(): BelongsTo

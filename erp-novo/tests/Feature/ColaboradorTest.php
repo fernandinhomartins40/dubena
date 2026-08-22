@@ -121,4 +121,58 @@ class ColaboradorTest extends TestCase
         $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/pontos")
             ->assertOk()->assertJsonCount(1, 'data');
     }
+
+    /**
+     * "Excluir" DESATIVA. Aqui o delete fisico era o mais destrutivo do sistema:
+     * TODAS as sub-tabelas de RH sao cascadeOnDelete e nenhuma FK segurava a
+     * operacao — apagar levava junto o historico trabalhista.
+     */
+    public function test_excluir_colaborador_desativa_e_preserva_historico(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $colab = Colaborador::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => true,
+        ]);
+        $colab->familias()->create(['nome' => 'Filho']);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson("/api/admin/colaboradores/{$colab->id}", ['motivo' => 'Desligado'])
+            ->assertOk()
+            ->assertJsonPath('data.ativo', false);
+
+        $this->assertDatabaseHas('colaboradores', [
+            'id' => $colab->id, 'ativo' => false, 'motivo_desativacao' => 'Desligado',
+        ]);
+        $this->assertDatabaseCount('colaborador_familias', 1); // nada de cascade
+    }
+
+    public function test_lista_colaboradores_filtra_por_situacao(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $base = ['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id];
+        $ativo = Colaborador::factory()->create($base + ['ativo' => true]);
+        $inativo = Colaborador::factory()->create($base + ['ativo' => false]);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/colaboradores')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $ativo->id);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/colaboradores?situacao=inativos')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $inativo->id);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/colaboradores?situacao=todos')
+            ->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_reativar_colaborador(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $colab = Colaborador::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => false,
+        ]);
+
+        $this->actingAs($user, 'sanctum')->postJson("/api/admin/colaboradores/{$colab->id}/reativar")
+            ->assertOk()->assertJsonPath('data.ativo', true);
+
+        $this->assertDatabaseHas('colaboradores', ['id' => $colab->id, 'ativo' => true, 'desativado_em' => null]);
+    }
 }

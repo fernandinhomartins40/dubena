@@ -55,14 +55,24 @@ class AppPerfilController extends Controller
         return response()->json(['data' => ['id' => $cliente->id, 'nome' => $cliente->nome]]);
     }
 
-    /** DELETE /app/v1/perfil — exclui a conta do cliente (e revoga os tokens). */
+    /**
+     * DELETE /app/v1/perfil — encerra a conta do cliente e revoga os tokens.
+     *
+     * DESATIVA em vez de apagar. Apagar era inviável de qualquer forma: com
+     * pedido no histórico, pedidos.cliente_id (restrictOnDelete) derrubava o
+     * request com erro 500 — o titular pedia a exclusão e recebia falha.
+     *
+     * A desativação aqui NÃO passa pela trava de pendência financeira: o
+     * titular tem direito de encerrar a conta, e o título em aberto continua
+     * existindo e cobrável pelo ERP.
+     */
     public function excluirConta(Request $request, ClienteService $clientes): JsonResponse
     {
         $cliente = $this->clienteDoUsuario($request);
         $user = $request->user();
 
-        $clientes->excluir($cliente);
-        $user->tokens()->delete();
+        $clientes->encerrarPeloTitular($cliente);
+        $user->tokens()->delete(); // revoga o acesso imediatamente
 
         return response()->json(['data' => ['excluido' => true]]);
     }

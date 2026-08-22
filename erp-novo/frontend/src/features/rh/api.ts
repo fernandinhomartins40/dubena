@@ -4,9 +4,21 @@ import { api } from '@/lib/api'
 interface Paginated<T> { data: T[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }
 
 // ---- RH / Colaboradores ----
-export interface Colaborador { id: number; nome: string; cpf: string | null; dataadmissao: string | null; datadesligamento: string | null; cargo: string | null }
-export function useColaboradores(q: string, page: number) {
-  return useQuery<Paginated<Colaborador>>({ queryKey: ['colab', q, page], queryFn: async () => (await api.get('/colaboradores', { params: { q, page } })).data, placeholderData: (p) => p })
+export interface Colaborador {
+  id: number; nome: string; cpf: string | null; dataadmissao: string | null
+  datadesligamento: string | null; cargo: string | null
+  // Situacao do CADASTRO — distinta do desligamento, que e fato trabalhista.
+  ativo: boolean
+  desativado_em: string | null
+  motivo_desativacao: string | null
+  desativado_por_nome: string | null
+}
+
+/** Filtro da lista. 'ativos' e o default do backend. */
+export type SituacaoColaborador = 'ativos' | 'inativos' | 'todos'
+
+export function useColaboradores(q: string, page: number, situacao: SituacaoColaborador = 'ativos') {
+  return useQuery<Paginated<Colaborador>>({ queryKey: ['colab', q, page, situacao], queryFn: async () => (await api.get('/colaboradores', { params: { q, page, situacao } })).data, placeholderData: (p) => p })
 }
 export function useColaborador(id: number | null) {
   return useQuery({ queryKey: ['colab', id], queryFn: async () => (await api.get(`/colaboradores/${id}`)).data.data, enabled: id !== null })
@@ -18,9 +30,20 @@ export function useSalvarColaborador() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['colab'] }),
   })
 }
-export function useExcluirColaborador() {
+/**
+ * Desativa o colaborador (ativo = false). O DELETE nao apaga: familia, recessos,
+ * comissoes, exames, turnos e ponto sao cascadeOnDelete e sumiriam junto.
+ */
+export function useDesativarColaborador() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: async (id: number) => (await api.delete(`/colaboradores/${id}`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['colab'] }) })
+  return useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo?: string }) => (await api.delete(`/colaboradores/${id}`, { data: { motivo } })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['colab'] }),
+  })
+}
+export function useReativarColaborador() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (id: number) => (await api.post(`/colaboradores/${id}/reativar`)).data, onSuccess: () => qc.invalidateQueries({ queryKey: ['colab'] }) })
 }
 export const useFamilia = (id: number) => useQuery<any[]>({ queryKey: ['colab-fam', id], queryFn: async () => (await api.get(`/colaboradores/${id}/familia`)).data.data })
 export function useAddFamilia(id: number) {

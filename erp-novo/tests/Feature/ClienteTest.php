@@ -173,16 +173,85 @@ class ClienteTest extends TestCase
             ->assertJsonCount(1, 'data.dependentes');
     }
 
-    public function test_excluir_cliente_remove_subrelacoes(): void
+    /**
+     * "Excluir" DESATIVA e PRESERVA tudo. O comportamento anterior (delete
+     * fisico + cascade nas sub-relacoes) destruia dados: com pedido o Postgres
+     * recusava e o operador renomeava o cadastro para "FULANO - EXCLUIDO";
+     * sem pedido, telefones e enderecos sumiam junto.
+     */
+    public function test_excluir_cliente_desativa_e_preserva_subrelacoes(): void
     {
         [$user, $empresa] = $this->suporte();
-        $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => true]);
         $cliente->telefones()->create(['telefone' => 'x']);
 
-        $this->actingAs($user, 'sanctum')->deleteJson("/api/admin/clientes/{$cliente->id}")->assertOk();
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson("/api/admin/clientes/{$cliente->id}", ['motivo' => 'Mudou de cidade'])
+            ->assertOk()
+            ->assertJsonPath('data.ativo', false);
 
-        $this->assertDatabaseMissing('clientes', ['id' => $cliente->id]);
-        $this->assertDatabaseCount('clientetelefones', 0);
+        $this->assertDatabaseHas('clientes', ['id' => $cliente->id, 'ativo' => false, 'motivo_desativacao' => 'Mudou de cidade']);
+        $this->assertDatabaseCount('clientetelefones', 1); // nada de cascade
+        $this->assertSame($user->id, $cliente->fresh()->desativado_por);
+    }
+
+    /** Desativado sai do default da lista, mas aparece em `situacao=inativos`. */
+    public function test_lista_mostra_apenas_ativos_por_padrao(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $base = ['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id];
+        $ativo = Cliente::factory()->create($base + ['nome' => 'Ana Ativa', 'ativo' => true]);
+        $inativo = Cliente::factory()->create($base + ['nome' => 'Bruno Inativo', 'ativo' => false]);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/clientes')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ativo->id);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/clientes?situacao=inativos')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $inativo->id);
+
+        $this->actingAs($user, 'sanctum')->getJson('/api/admin/clientes?situacao=todos')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_reativar_devolve_cliente_a_lista(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'ativo' => false, 'motivo_desativacao' => 'engano',
+        ]);
+
+        $this->actingAs($user, 'sanctum')->postJson("/api/admin/clientes/{$cliente->id}/reativar")
+            ->assertOk()
+            ->assertJsonPath('data.ativo', true);
+
+        // A trilha e limpa: reativado nao pode parecer desativado.
+        $this->assertDatabaseHas('clientes', ['id' => $cliente->id, 'ativo' => true, 'desativado_em' => null, 'motivo_desativacao' => null]);
+    }
+
+    /** A trava que impede a desativacao virar sumico de divida. */
+    public function test_nao_desativa_cliente_com_pedido_em_aberto(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => true]);
+
+        $situacao = \App\Models\Pedido\PedidoSituacao::query()->create([
+            'grupo_id' => $empresa->grupo_id, 'descricao' => 'Em aberto', 'efeito' => 'PENDENTE',
+        ]);
+        \App\Models\Pedido\Pedido::query()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
+        ]);
+
+        $this->actingAs($user, 'sanctum')->deleteJson("/api/admin/clientes/{$cliente->id}")
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('clientes', ['id' => $cliente->id, 'ativo' => true]);
     }
 
     public function test_sem_permissao_recebe_403(): void

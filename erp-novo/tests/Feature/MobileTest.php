@@ -627,7 +627,9 @@ class MobileTest extends TestCase
 
         $this->actingAs($this->user, 'sanctum')->deleteJson('/api/app/v1/perfil')
             ->assertOk()->assertJsonPath('data.excluido', true);
-        $this->assertDatabaseMissing('clientes', ['id' => $cliente->id]);
+        // Encerrar a conta DESATIVA: o historico de pedidos do titular continua
+        // existindo, e o vinculo com o usuario do app e cortado.
+        $this->assertDatabaseHas('clientes', ['id' => $cliente->id, 'ativo' => false, 'user_id' => null]);
     }
 
     public function test_multiplos_enderecos_com_favorito_unico(): void

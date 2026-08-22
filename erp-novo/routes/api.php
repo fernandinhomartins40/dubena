@@ -266,6 +266,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('clientes/{id}', [ClienteController::class, 'show'])->whereNumber('id');
         Route::put('clientes/{id}', [ClienteController::class, 'update'])->whereNumber('id');
         Route::delete('clientes/{id}', [ClienteController::class, 'destroy'])->whereNumber('id');
+        // Reativacao: o DELETE acima desativa; este devolve a lista de ativos.
+        Route::post('clientes/{id}/reativar', [ClienteController::class, 'reativar'])->whereNumber('id');
 
         // Sub-recursos do cliente.
         Route::get('clientes/{id}/telefones', [ClienteTelefoneController::class, 'index'])->whereNumber('id');
@@ -673,6 +675,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('colaboradores/{id}', [ColaboradorController::class, 'show'])->whereNumber('id');
         Route::put('colaboradores/{id}', [ColaboradorController::class, 'update'])->whereNumber('id');
         Route::delete('colaboradores/{id}', [ColaboradorController::class, 'destroy'])->whereNumber('id');
+        Route::post('colaboradores/{id}/reativar', [ColaboradorController::class, 'reativar'])->whereNumber('id');
         Route::get('colaboradores/{id}/familia', [ColaboradorController::class, 'familia'])->whereNumber('id');
         Route::post('colaboradores/{id}/familia', [ColaboradorController::class, 'addFamilia'])->whereNumber('id');
         Route::delete('colaboradores/{id}/familia/{famId}', [ColaboradorController::class, 'delFamilia'])->whereNumber(['id', 'famId']);

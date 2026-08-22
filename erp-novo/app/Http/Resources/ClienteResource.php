@@ -42,6 +42,11 @@ class ClienteResource extends JsonResource
             'nfemite' => (bool) $this->nfemite,
             'gasdopovo' => (bool) $this->gasdopovo,
             'ativo' => (bool) $this->ativo,
+            // Trilha da desativacao: a lista mostra desde quando e por que
+            // o cadastro saiu dos ativos, para nao virar inativo anonimo.
+            'desativado_em' => $this->desativado_em?->toDateTimeString(),
+            'motivo_desativacao' => $this->motivo_desativacao,
+            'desativado_por_nome' => $this->whenLoaded('desativadoPor', fn () => $this->desativadoPor?->name),
             // Endereço
             'endereco' => $this->endereco,
             'numero' => $this->numero,

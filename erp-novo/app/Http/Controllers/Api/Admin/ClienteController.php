@@ -38,6 +38,8 @@ class ClienteController extends Controller
         $q = trim((string) $request->query('q', ''));
 
         $clientes = Cliente::query()
+            ->tap(fn (Builder $b) => $this->filtrarSituacao($b, $request))
+            ->with('desativadoPor:id,name')
             ->when($q !== '', function (Builder $b) use ($q) {
                 $b->where(function (Builder $w) use ($q) {
                     $w->where('nome', 'ilike', '%'.$q.'%')
@@ -93,6 +95,7 @@ class ClienteController extends Controller
         $this->autorizar($request, 'cliente.export');
 
         $linhas = Cliente::query()
+            ->tap(fn (Builder $b) => $this->filtrarSituacao($b, $request))
             ->orderBy('nome')
             ->get(['id', 'nome', 'fantasia', 'cpf', 'cnpj', 'email', 'ativo'])
             ->map(fn (Cliente $c) => [
@@ -120,12 +123,61 @@ class ClienteController extends Controller
         );
     }
 
+    /**
+     * DELETE /clientes/{id} — DESATIVA o cliente (não apaga).
+     *
+     * O verbo continua DELETE porque é a ação de "excluir" da tela; o efeito é
+     * ativo = false. Apagar de verdade destruiria o histórico de pedidos e a
+     * rastreabilidade fiscal — e era o que empurrava o operador a renomear o
+     * cadastro para "FULANO - EXCLUIDO".
+     */
     public function destroy(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'cliente.delete');
 
-        $this->service->excluir(Cliente::query()->findOrFail($id));
+        $motivo = $request->validate([
+            'motivo' => 'nullable|string|max:255',
+        ])['motivo'] ?? null;
 
-        return response()->json(['message' => 'Cliente excluído.']);
+        $cliente = $this->service->desativar(
+            Cliente::query()->findOrFail($id), $motivo, $request->user()?->id,
+        );
+
+        return response()->json([
+            'message' => 'Cliente desativado. O histórico foi preservado.',
+            'data' => new ClienteResource($cliente),
+        ]);
+    }
+
+    /** POST /clientes/{id}/reativar — devolve o cliente à lista de ativos. */
+    public function reativar(Request $request, int $id): JsonResponse
+    {
+        // Mesma permissão de desativar: quem tira da lista pode devolver.
+        $this->autorizar($request, 'cliente.delete');
+
+        $cliente = $this->service->reativar(Cliente::query()->findOrFail($id));
+
+        return response()->json([
+            'message' => 'Cliente reativado.',
+            'data' => new ClienteResource($cliente),
+        ]);
+    }
+
+    /**
+     * Filtro de situação da lista. O DEFAULT é 'ativos': mostrar desativados
+     * junto dos ativos é o que fazia a lista virar um depósito e levava o
+     * operador a marcar o estado no próprio nome do cliente.
+     */
+    private function filtrarSituacao(Builder $b, Request $request): void
+    {
+        $situacao = (string) $request->query('situacao', 'ativos');
+
+        match ($situacao) {
+            'inativos' => $b->where('ativo', false),
+            'todos' => null,
+            // Cadastro antigo pode ter `ativo` NULL (migrado do legado sem o
+            // campo): tratar NULL como ativo, senão ele sumiria da lista.
+            default => $b->where(fn (Builder $w) => $w->where('ativo', true)->orWhereNull('ativo')),
+        };
     }
 }
