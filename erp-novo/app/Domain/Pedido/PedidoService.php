@@ -152,19 +152,54 @@ class PedidoService
 
     private function baixarEstoque(Pedido $pedido, ?int $userId): void
     {
+        $mercadorias = $this->itensComEstoque($pedido);
+
+        // Pedido SÓ de serviço/taxa (uma manutenção avulsa, por exemplo) não
+        // precisa de setor: não há armazém envolvido. Exigi-lo travaria a venda.
+        if ($mercadorias === []) {
+            return;
+        }
+
         if (! $pedido->setor_id) {
             throw ValidationException::withMessages(['setor_id' => 'Defina o setor para baixar o estoque.']);
         }
-        foreach ($pedido->itens as $item) {
+
+        foreach ($mercadorias as $item) {
             $this->estoque->saida($pedido->setor_id, $item->produto_id, (float) $item->quantidade, 'pedido', $pedido->id, $userId);
         }
     }
 
     private function devolverEstoque(Pedido $pedido, ?int $userId): void
     {
-        foreach ($pedido->itens as $item) {
+        foreach ($this->itensComEstoque($pedido) as $item) {
             $this->estoque->entrada($pedido->setor_id, $item->produto_id, (float) $item->quantidade, null, 'pedido-cancelado', $pedido->id, $userId);
         }
+    }
+
+    /**
+     * Só os itens que são MERCADORIA — os que existem no armazém.
+     *
+     * Antes disto o estoque era baixado para TODOS os itens, sem perguntar a
+     * natureza. Medido em produção: o item "Manutenção e Instalação" ficou com
+     * saldo de −2 unidades — baixa de algo que nunca entrou e nunca vai entrar.
+     * Serviço e taxa aparecem no pedido, no cupom e no financeiro; no armazém,
+     * não.
+     *
+     * @return list<\App\Models\Pedido\PedidoItem>
+     */
+    private function itensComEstoque(Pedido $pedido): array
+    {
+        // `load` explícito: sem a relação carregada, `$item->produto` viria
+        // nulo e o fallback trataria SERVIÇO como mercadoria — exatamente o
+        // bug que este método existe para corrigir, só que silencioso.
+        $pedido->loadMissing('itens.produto:id,natureza');
+
+        return $pedido->itens
+            // Item sem produto (dado inconsistente) é tratado como mercadoria:
+            // errar baixando é recuperável, errar NÃO baixando some com o saldo.
+            ->filter(fn ($item) => $item->produto?->natureza?->movimentaEstoque() ?? true)
+            ->values()
+            ->all();
     }
 
     /** @param list<array<string,mixed>> $itens */

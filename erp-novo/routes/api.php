@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
+use App\Http\Controllers\Api\Admin\TaxaEntregaController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
@@ -565,6 +566,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::delete('central/entregadores/{id}/bloquear', [CentralController::class, 'desbloquear'])->whereNumber('id');
         Route::get('central/config', [CentralController::class, 'config']);
         Route::put('central/config', [CentralController::class, 'salvarConfig']);
+
+        // Taxas de entrega: quanto cobrar e quanto custa. `simular` vem antes
+        // de /{id} para não ser capturado como id.
+        Route::get('taxas-entrega', [TaxaEntregaController::class, 'index']);
+        Route::get('taxas-entrega/simular', [TaxaEntregaController::class, 'simular']);
+        Route::post('taxas-entrega', [TaxaEntregaController::class, 'store']);
+        Route::put('taxas-entrega/{id}', [TaxaEntregaController::class, 'update'])->whereNumber('id');
+        Route::delete('taxas-entrega/{id}', [TaxaEntregaController::class, 'destroy'])->whereNumber('id');
 
         // F3 — Central de VENDAS. Irmã da central de logística acima (que
         // distribui entrega): esta decide se vende e por quanto.

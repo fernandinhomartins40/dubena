@@ -44,6 +44,9 @@ class ProdutoRequest extends FormRequest
     {
         return [
             'descricao' => 'required|string|max:255',
+            // produto | servico | taxa. Governa estoque e fiscal: servico nao
+            // movimenta armazem e nao exige NCM (ver NaturezaItem).
+            'natureza' => 'nullable|in:produto,servico,taxa',
             'produtoclasse_id' => 'nullable|integer|exists:produtoclasses,id',
             'unidademedida_id' => 'nullable|integer|exists:unidadesmedida,id',
             'vasilhame_retornavel' => 'nullable|boolean',

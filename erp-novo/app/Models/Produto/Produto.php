@@ -24,6 +24,8 @@ class Produto extends Model
     protected $fillable = [
         'empresa_id', 'grupo_id',
         'descricao', 'produtoclasse_id', 'grupo_fiscal_id', 'unidademedida_id',
+        // produto | servico | taxa — governa estoque e fiscal (ver NaturezaItem).
+        'natureza',
         'vasilhame_retornavel', 'produto_retornavel_id', 'ativo', 'envia_app_nf',
         'dias_giro', 'observacao',
         'preco_venda', 'preco_venda_minimo', 'custo_medio', 'custo_frete',
@@ -38,6 +40,7 @@ class Produto extends Model
     protected function casts(): array
     {
         return [
+            'natureza' => \App\Domain\Produto\NaturezaItem::class,
             'vasilhame_retornavel' => 'boolean',
             'ativo' => 'boolean',
             'envia_app_nf' => 'boolean',

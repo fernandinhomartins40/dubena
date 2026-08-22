@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Badge, PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
 import { CadastroApoioTab } from '@/features/cadastros/CadastroApoioTab'
 import { ConfigGlobalTab } from './ConfigGlobalTab'
+import { TaxasEntregaTab } from './taxas-entrega/TaxasEntregaTab'
 
 const ABAS = ['geral', 'clientes', 'financeiro', 'colaboradores'] as const
 
@@ -24,9 +25,13 @@ export function ConfiguracoesPage() {
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
           <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
           <TabsTrigger value="colaboradores">Colaboradores</TabsTrigger>
+          <TabsTrigger value="entrega">Entrega</TabsTrigger>
         </TabsList>
 
         <TabsContent value="geral"><ConfigGlobalTab /></TabsContent>
+
+        {/* Taxas de entrega: quanto cobrar e quanto custa por bairro/distancia. */}
+        <TabsContent value="entrega"><TaxasEntregaTab /></TabsContent>
 
         <TabsContent value="clientes">
           <Tabs defaultValue="segmentos">

@@ -17,6 +17,10 @@ class ProdutoResource extends JsonResource
         return [
             'id' => $this->id,
             'descricao' => $this->descricao,
+            // A tela precisa saber a natureza para esconder estoque/NCM de
+            // servico e taxa, que nao tem armazem nem classificacao fiscal.
+            'natureza' => $this->natureza?->value ?? 'produto',
+            'natureza_rotulo' => $this->natureza?->rotulo() ?? 'Produto',
             'produtoclasse_id' => $this->produtoclasse_id,
             'unidademedida_id' => $this->unidademedida_id,
             'vasilhame_retornavel' => (bool) $this->vasilhame_retornavel,
