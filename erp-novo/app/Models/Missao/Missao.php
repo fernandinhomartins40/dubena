@@ -2,6 +2,7 @@
 
 namespace App\Models\Missao;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Monitora\Cerca;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Missao extends Model
 {
-    use BelongsToTenant;
+    use Auditavel, BelongsToTenant;
 
     protected $table = 'missoes';
 

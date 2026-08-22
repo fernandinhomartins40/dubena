@@ -2,6 +2,7 @@
 
 namespace App\Models\Rh;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Colaborador extends Model
 {
-    use BelongsToTenant;
+    use Auditavel, BelongsToTenant;
     use HasFactory;
 
     protected $table = 'colaboradores';

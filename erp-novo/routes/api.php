@@ -209,6 +209,15 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Auditoria de segurança (A6) ──
         Route::get('auditoria/eventos', [AuditoriaController::class, 'eventos']);
         Route::get('auditoria/logins', [AuditoriaController::class, 'logins']);
+        // Trilha de ações (quem fez o quê). `opcoes` e `clientes` vêm ANTES de
+        // `registro/{entidade}` para não serem capturados como entidade.
+        Route::get('auditoria/trilha', [AuditoriaController::class, 'trilha']);
+        Route::get('auditoria/opcoes', [AuditoriaController::class, 'opcoes']);
+        Route::get('auditoria/clientes', [AuditoriaController::class, 'buscarClientes']);
+        // A entidade aceita underscore (`notas_fiscais`); o controller ainda
+        // valida contra o catálogo, então isto é só a primeira barreira.
+        Route::get('auditoria/registro/{entidade}/{id}', [AuditoriaController::class, 'registro'])
+            ->whereNumber('id')->where('entidade', '[a-z_]+');
 
         // Usuários da empresa ativa + atribuição de papéis + reset de senha.
         Route::get('usuarios', [UsuarioController::class, 'index']);

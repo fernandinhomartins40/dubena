@@ -2,6 +2,7 @@
 
 namespace App\Models\Satelite;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
 use App\Models\Produto\Produto;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comodato extends Model
 {
-    use BelongsToTenant;
+    use Auditavel, BelongsToTenant;
     use HasFactory;
 
     protected $table = 'comodatos';

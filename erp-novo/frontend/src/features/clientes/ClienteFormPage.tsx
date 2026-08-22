@@ -11,6 +11,8 @@ import { HistoricoTab } from './HistoricoTab'
 import { InteracoesTab } from './InteracoesTab'
 import { ConvenioTab } from './ConvenioTab'
 import { PrecosTab } from './PrecosTab'
+import { AuditoriaTab } from './AuditoriaTab'
+import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { useCliente, useSalvarCliente, type ClienteForm } from './api'
 
@@ -31,6 +33,7 @@ const INDICADOR_IE = [
 export function ClienteFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { can } = useAuth()
   const editId = id && id !== 'novo' ? Number(id) : null
   const { data: existente } = useCliente(editId)
   const salvar = useSalvarCliente()
@@ -90,6 +93,9 @@ export function ClienteFormPage() {
           {editId && <TabsTrigger value="interacoes">Interações</TabsTrigger>}
           {editId && <TabsTrigger value="convenio">Convênio</TabsTrigger>}
           {editId && <TabsTrigger value="precos">Preços</TabsTrigger>}
+          {/* Trilha do CADASTRO (quem alterou/desativou) — distinta da aba
+              "Histórico", que lista as compras. Só com auditoria.view. */}
+          {editId && can('auditoria.view') && <TabsTrigger value="auditoria">Auditoria</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="dados">
@@ -170,6 +176,7 @@ export function ClienteFormPage() {
         {editId && <TabsContent value="interacoes"><Card><CardContent className="pt-6"><InteracoesTab clienteId={editId} /></CardContent></Card></TabsContent>}
         {editId && <TabsContent value="convenio"><Card><CardContent className="pt-6"><ConvenioTab clienteId={editId} /></CardContent></Card></TabsContent>}
         {editId && <TabsContent value="precos"><PrecosTab clienteId={editId} /></TabsContent>}
+        {editId && can('auditoria.view') && <TabsContent value="auditoria"><AuditoriaTab clienteId={editId} /></TabsContent>}
       </Tabs>
     </div>
   )

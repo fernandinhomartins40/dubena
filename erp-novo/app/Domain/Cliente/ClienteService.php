@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cliente;
 
+use App\Domain\Auditoria\RegistroAcao;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Builder;
@@ -92,6 +93,10 @@ class ClienteService
             'motivo_desativacao' => $motivo,
         ])->save();
 
+        // Ação semântica ALÉM do update automático do trait: sem ela, desativar
+        // e corrigir o CEP viram a mesma linha "clientes/atualizado" na trilha.
+        app(RegistroAcao::class)->registrar($cliente, 'desativou', $motivo);
+
         return $cliente->refresh();
     }
 
@@ -112,6 +117,10 @@ class ClienteService
             'motivo_desativacao' => 'Conta encerrada pelo titular no aplicativo.',
         ])->save();
 
+        // Verbo próprio: encerramento pelo TITULAR não é decisão do operador, e
+        // a trilha precisa distinguir os dois (um é LGPD, o outro é gestão).
+        app(RegistroAcao::class)->registrar($cliente, 'encerrou_conta', 'Solicitado pelo titular no aplicativo.');
+
         return $cliente->refresh();
     }
 
@@ -121,12 +130,20 @@ class ClienteService
      */
     public function reativar(Cliente $cliente): Cliente
     {
+        // O motivo da desativação some do cadastro ao reativar; guardá-lo na
+        // trilha é o que preserva por que ele tinha saído da lista.
+        $motivoAnterior = $cliente->motivo_desativacao;
+
         $cliente->forceFill([
             'ativo' => true,
             'desativado_em' => null,
             'desativado_por' => null,
             'motivo_desativacao' => null,
         ])->save();
+
+        app(RegistroAcao::class)->registrar($cliente, 'reativou', null, [
+            'desativado_antes_por_motivo' => $motivoAnterior,
+        ]);
 
         return $cliente->refresh();
     }

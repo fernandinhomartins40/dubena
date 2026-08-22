@@ -2,6 +2,7 @@
 
 namespace App\Models\Venda;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Domain\Venda\SituacaoSolicitacao;
 use App\Models\Cliente\Cliente;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PedidoSolicitacao extends Model
 {
-    use BelongsToTenant;
+    use Auditavel, BelongsToTenant;
 
     protected $table = 'pedido_solicitacoes';
 

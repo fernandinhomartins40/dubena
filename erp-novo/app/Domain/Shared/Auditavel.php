@@ -45,8 +45,18 @@ trait Auditavel
             property_exists($this, 'auditExcluir') ? $this->auditExcluir : [],
             // nunca registra valores de campos criptografados (segredos).
             method_exists($this, 'getCasts')
-                ? array_keys(array_filter($this->getCasts(), fn ($c) => $c === 'encrypted'))
+                ? array_keys(array_filter($this->getCasts(), fn ($c) => $c === 'encrypted'
+                    || str_starts_with((string) $c, 'encrypted:')
+                    // `hashed` (senha) NÃO é `encrypted`, e sem esta linha o
+                    // hash da senha entraria na trilha ao auditar `users`.
+                    || $c === 'hashed'))
                 : [],
+            // Blindagem por NOME, para o model que guarda segredo em coluna sem
+            // cast. A trilha é lida por gente do negócio: nada aqui pode ser
+            // material de invasão se a tela vazar.
+            ['password', 'password_confirmation', 'remember_token',
+                'two_factor_secret', 'two_factor_recovery_codes',
+                'api_token', 'token', 'secret', 'client_secret'],
         );
 
         AuditLog::create([

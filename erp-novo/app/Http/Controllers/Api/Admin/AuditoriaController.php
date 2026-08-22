@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Auditoria\CatalogoAuditoria;
+use App\Domain\Auditoria\ConsultaTrilha;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\Cliente\Cliente;
+use App\Models\User;
 use App\Models\LoginLog;
 use App\Models\SecurityEvent;
 use Illuminate\Http\JsonResponse;
@@ -79,5 +84,145 @@ class AuditoriaController extends Controller
                 'total' => $logs->total(),
             ],
         ]);
+    }
+
+    /**
+     * GET /auditoria/trilha — LINHA DO TEMPO GERAL das ações do sistema.
+     *
+     * É a resposta a "quem tomou esta decisão". Filtros: entidade, ação, autor,
+     * período; `cliente_id` recorta a trilha de um cliente específico.
+     */
+    public function trilha(Request $request, ConsultaTrilha $trilha): JsonResponse
+    {
+        $this->autorizar($request, 'auditoria.view');
+
+        $filtros = $request->validate([
+            'entidade' => 'nullable|string|max:80',
+            'entidade_id' => 'nullable|integer',
+            'acao' => 'nullable|string|max:30',
+            'user_id' => 'nullable|integer',
+            'inicio' => 'nullable|date',
+            'fim' => 'nullable|date',
+            'apenas_sensiveis' => 'nullable|boolean',
+            'cliente_id' => 'nullable|integer',
+        ]);
+
+        // Busca por cliente: atalho para (entidade=clientes + id), que e o
+        // recorte mais pedido — "o que aconteceu com este cliente".
+        if ($clienteId = $filtros['cliente_id'] ?? null) {
+            $filtros['entidade'] = 'clientes';
+            $filtros['entidade_id'] = $clienteId;
+        }
+        unset($filtros['cliente_id']);
+
+        $pagina = $trilha->geral((int) $request->user()->empresa_id, $filtros);
+
+        return response()->json([
+            'data' => collect($pagina->items())->map(fn (AuditLog $l) => $trilha->apresentar($l))->values(),
+            'meta' => [
+                'current_page' => $pagina->currentPage(),
+                'last_page' => $pagina->lastPage(),
+                'per_page' => $pagina->perPage(),
+                'total' => $pagina->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /auditoria/registro/{entidade}/{id} — trilha de UM registro, com o
+     * resumo por tipo de ação que a tela usa para agrupar a linha do tempo.
+     */
+    public function registro(Request $request, string $entidade, int $id, ConsultaTrilha $trilha): JsonResponse
+    {
+        $this->autorizar($request, 'auditoria.view');
+
+        // Só entidades do catálogo: sem isto, o parâmetro de rota viraria um
+        // seletor livre de tabela vindo do cliente.
+        abort_unless(array_key_exists($entidade, CatalogoAuditoria::ENTIDADES), 404);
+
+        $empresaId = (int) $request->user()->empresa_id;
+        $pagina = $trilha->doRegistro($empresaId, $entidade, $id);
+
+        return response()->json([
+            'data' => collect($pagina->items())->map(fn (AuditLog $l) => $trilha->apresentar($l))->values(),
+            'resumo' => $trilha->resumoPorAcao($empresaId, $entidade, $id),
+            'entidade_rotulo' => CatalogoAuditoria::rotuloEntidade($entidade),
+            'meta' => [
+                'current_page' => $pagina->currentPage(),
+                'last_page' => $pagina->lastPage(),
+                'total' => $pagina->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /auditoria/opcoes — alimenta os selects da tela com entidades, ações
+     * e autores que REALMENTE aparecem na trilha desta empresa.
+     *
+     * Listar o catálogo inteiro ofereceria filtros que não devolvem nada.
+     */
+    public function opcoes(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'auditoria.view');
+        $empresaId = (int) $request->user()->empresa_id;
+
+        $entidades = AuditLog::query()->where('empresa_id', $empresaId)
+            ->distinct()->orderBy('entidade')->pluck('entidade')
+            ->map(fn (string $e) => ['valor' => $e, 'rotulo' => CatalogoAuditoria::rotuloEntidade($e)]);
+
+        $acoes = AuditLog::query()->where('empresa_id', $empresaId)
+            ->distinct()->orderBy('acao')->pluck('acao')
+            ->map(fn (string $a) => [
+                'valor' => $a,
+                'rotulo' => CatalogoAuditoria::rotuloAcao($a),
+                'sensivel' => CatalogoAuditoria::acaoSensivel($a),
+            ]);
+
+        $autores = User::query()
+            ->whereIn('id', AuditLog::query()->where('empresa_id', $empresaId)
+                ->whereNotNull('user_id')->distinct()->pluck('user_id'))
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $u) => ['valor' => $u->id, 'rotulo' => $u->name]);
+
+        return response()->json(['data' => [
+            'entidades' => $entidades,
+            'acoes' => $acoes,
+            'autores' => $autores,
+        ]]);
+    }
+
+    /**
+     * GET /auditoria/clientes?q= — busca de cliente para o filtro da tela.
+     *
+     * Endpoint próprio (em vez de reusar /clientes) porque aqui a busca precisa
+     * alcançar TAMBÉM o cliente desativado — que é justamente sobre quem mais
+     * se pergunta "quem desativou, quando e por quê".
+     */
+    public function buscarClientes(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'auditoria.view');
+        $q = trim((string) $request->query('q', ''));
+
+        // `ilike` é do Postgres (produção) e o sqlite da suíte não o conhece;
+        // no sqlite, LIKE já é case-insensitive para ASCII.
+        $like = Cliente::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+        $clientes = Cliente::query()
+            ->when($q !== '', fn ($b) => $b->where(fn ($w) => $w
+                ->where('nome', $like, '%'.$q.'%')
+                ->orWhere('fantasia', $like, '%'.$q.'%')
+                ->orWhere('cpf', $like, '%'.$q.'%')
+                ->orWhere('cnpj', $like, '%'.$q.'%')))
+            ->orderBy('nome')
+            ->limit(20)
+            ->get(['id', 'nome', 'fantasia', 'cpf', 'cnpj', 'ativo']);
+
+        return response()->json(['data' => $clientes->map(fn (Cliente $c) => [
+            'id' => $c->id,
+            'nome' => $c->nome,
+            'documento' => $c->cpf ?: $c->cnpj,
+            'ativo' => (bool) $c->ativo,
+        ])]);
     }
 }

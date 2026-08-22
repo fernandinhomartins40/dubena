@@ -6,7 +6,7 @@ import {
   UserCog, Truck, Flame, FileBarChart, ShoppingCart, Bike, Compass,
   MessageSquareHeart, Tag, Gift, Target, ListChecks, BadgePercent,
   Receipt, ArrowLeftRight, FolderArchive, Building,
-  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck,
+  CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck, History,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -64,6 +64,7 @@ const NAV: NavItem[] = [
 
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
   { label: 'Acessos', to: '/acessos', icon: <ShieldCheck size={18} />, permission: 'usuario.view', group: 'Administração' },
+  { label: 'Histórico de ações', to: '/auditoria', icon: <History size={18} />, permission: 'auditoria.view', group: 'Administração' },
   { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração' },
 ]
 

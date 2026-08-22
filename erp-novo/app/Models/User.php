@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Shared\Auditavel;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Domain\Saas\LicencaService;
 use Database\Factories\UserFactory;
@@ -16,6 +17,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    use Auditavel;
+
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 

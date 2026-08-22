@@ -2,6 +2,7 @@
 
 namespace App\Domain\Rh;
 
+use App\Domain\Auditoria\RegistroAcao;
 use App\Models\Rh\Colaborador;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -54,17 +55,25 @@ class ColaboradorService
             'motivo_desativacao' => $motivo,
         ])->save();
 
+        app(RegistroAcao::class)->registrar($colaborador, 'desativou', $motivo);
+
         return $colaborador->refresh();
     }
 
     public function reativar(Colaborador $colaborador): Colaborador
     {
+        $motivoAnterior = $colaborador->motivo_desativacao;
+
         $colaborador->forceFill([
             'ativo' => true,
             'desativado_em' => null,
             'desativado_por' => null,
             'motivo_desativacao' => null,
         ])->save();
+
+        app(RegistroAcao::class)->registrar($colaborador, 'reativou', null, [
+            'desativado_antes_por_motivo' => $motivoAnterior,
+        ]);
 
         return $colaborador->refresh();
     }

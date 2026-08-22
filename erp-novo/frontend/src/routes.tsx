@@ -71,6 +71,7 @@ const EmpresaFormPage = lazyNamed(() => import('@/features/empresas/EmpresaFormP
 const ConfiguracoesPage = lazyNamed(() => import('@/features/configuracoes/ConfiguracoesPage'), 'ConfiguracoesPage')
 const AcessosPage = lazyNamed(() => import('@/features/acessos/AcessosPage'), 'AcessosPage')
 const SegurancaPage = lazyNamed(() => import('@/features/seguranca/SegurancaPage'), 'SegurancaPage')
+const AuditoriaPage = lazyNamed(() => import('@/features/auditoria/AuditoriaPage'), 'AuditoriaPage')
 const SemAcessoPage = lazyNamed(() => import('@/features/auth/SemAcessoPage'), 'SemAcessoPage')
 
 const Splash = () => <div className="h-full grid place-items-center text-muted-foreground">Carregando…</div>
@@ -179,6 +180,7 @@ export function AppRoutes() {
       <Route path="/empresas/:id" element={p(<EmpresaFormPage />, 'empresa.view')} />
       <Route path="/configuracoes" element={p(<ConfiguracoesPage />, 'grupo.view')} />
       <Route path="/acessos" element={p(<AcessosPage />, 'usuario.view')} />
+      <Route path="/auditoria" element={p(<AuditoriaPage />, 'auditoria.view')} />
       <Route path="/seguranca" element={p(<SegurancaPage />)} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,6 +2,7 @@
 
 namespace App\Models\Pedido;
 
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Produto\Produto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PedidoItem extends Model
 {
-    use BelongsToTenant;
+    use Auditavel, BelongsToTenant;
 
     /** @var array<string,string> FK => tabela do pai (herança de empresa_id na criação sem tenant ativo). */
     protected $tenantParent = ['pedido_id' => 'pedidos'];
