@@ -69,8 +69,23 @@ class ExtratoRemuneracaoService
             return $vazio;
         }
 
+        // O colaborador POR TRÁS do usuário: a regra de comissão é dele, não da
+        // empresa. Sem este filtro o extrato pegava a primeira regra que casasse
+        // por produto/setor — de QUALQUER colaborador — e pagava o percentual de
+        // outra pessoa. O bug só apareceu contra a base real, onde há centenas de
+        // regras; num banco de teste com uma regra só, passava despercebido.
+        $colaboradorId = \App\Models\Rh\Colaborador::withoutTenant()
+            ->where('empresa_id', $empresaId)
+            ->where('user_id', $userId)
+            ->value('id');
+
+        if ($colaboradorId === null) {
+            return $vazio;
+        }
+
         $regras = ColaboradorComissao::withoutTenant()
             ->where('empresa_id', $empresaId)
+            ->where('colaborador_id', $colaboradorId)
             ->where('ativo', true)
             ->with('excecoes')
             ->get();

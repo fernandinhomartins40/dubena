@@ -224,4 +224,46 @@ class ExtratoRemuneracaoTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.total.total', 20);
     }
+
+    public function test_nao_usa_a_regra_de_outro_colaborador(): void
+    {
+        // BUG REAL encontrado contra a base de producao: o extrato buscava as
+        // regras da EMPRESA e pegava a primeira que casasse por produto/setor —
+        // de qualquer colaborador. Um franqueado via a comissao calculada pela
+        // regra de outra pessoa. Num banco de teste com uma regra so, passava.
+        \App\Models\Rh\ColaboradorComissao::create([
+            'empresa_id' => $this->empresa->id,
+            'colaborador_id' => \App\Models\Rh\Colaborador::factory()->create([
+                'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+                'nome' => 'Outro colaborador',
+            ])->id,
+            'tipo_comissao' => 1, 'percentual' => 50, 'ativo' => true,
+        ]);
+
+        ColaboradorComissao::create([
+            'empresa_id' => $this->empresa->id, 'colaborador_id' => $this->colaborador->id,
+            'tipo_comissao' => 1, 'percentual' => 10, 'ativo' => true,
+        ]);
+
+        $this->venda();   // 2 x 100 = 200
+
+        // 10% dele, nao os 50% do outro.
+        $this->assertSame(20.0, $this->extrato()['total']['total']);
+    }
+
+    public function test_sem_colaborador_o_extrato_vem_vazio(): void
+    {
+        // Usuario de app sem cadastro de colaborador nao tem regra de comissao —
+        // e melhor devolver zero que somar a regra de alguem.
+        $avulso = User::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+        ]);
+
+        $r = app(ExtratoRemuneracaoService::class)->doColaborador(
+            (int) $this->empresa->id, (int) $avulso->id,
+            now()->startOfMonth()->toDateString(), now()->toDateString(),
+        );
+
+        $this->assertSame(0.0, $r['total']['total']);
+    }
 }
