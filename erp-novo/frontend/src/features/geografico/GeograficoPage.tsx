@@ -12,6 +12,7 @@ import {
   type Cidade, type Bairro, type Rua, type Regiao,
   type ParInconsistente, type TipoInconsistencia,
 } from './api'
+import { ImportacaoTab } from './ImportacaoTab'
 
 export function GeograficoPage() {
   return (
@@ -23,12 +24,14 @@ export function GeograficoPage() {
           <TabsTrigger value="bairros">Bairros</TabsTrigger>
           <TabsTrigger value="ruas">Ruas</TabsTrigger>
           <TabsTrigger value="regioes">Regiões</TabsTrigger>
+          <TabsTrigger value="importacao">Catálogo IBGE</TabsTrigger>
           <TabsTrigger value="inconsistencias">Inconsistências</TabsTrigger>
         </TabsList>
         <TabsContent value="cidades"><CidadesTab /></TabsContent>
         <TabsContent value="bairros"><BairrosTab /></TabsContent>
         <TabsContent value="ruas"><RuasTab /></TabsContent>
         <TabsContent value="regioes"><RegioesTab /></TabsContent>
+        <TabsContent value="importacao"><ImportacaoTab /></TabsContent>
         <TabsContent value="inconsistencias"><InconsistenciasTab /></TabsContent>
       </Tabs>
     </div>
@@ -192,6 +195,7 @@ function RuasTab() {
   const columns: Column<Rua>[] = [
     { key: 'descricao', header: 'Rua', cell: (r) => <span className="font-medium">{r.descricao} {r.ativo === 0 && <Badge variant="secondary">inativa</Badge>}</span> },
     { key: 'cidade', header: 'Cidade', cell: (r) => <span className="text-muted-foreground">{r.cidade ?? '—'}</span> },
+    { key: 'bairro', header: 'Bairro', cell: (r) => <span className="text-muted-foreground">{r.bairro?.descricao ?? '—'}</span> },
     { key: 'cep', header: 'CEP', cell: (r) => <span className="text-muted-foreground tabular-nums">{r.cep || '—'}</span> },
     acoesCol<Rua>((r) => { setEdit(r); setEditCidadeLabel(r.cidade) }, setDel),
   ]

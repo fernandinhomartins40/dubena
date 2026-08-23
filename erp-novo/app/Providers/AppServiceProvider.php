@@ -3,12 +3,17 @@
 namespace App\Providers;
 
 use App\Domain\Cobranca\Contracts\BoletoDriver;
+use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Drivers\CaixaBoletoDriver;
 use App\Domain\Cobranca\Drivers\FakeBoletoDriver;
+use App\Domain\Cobranca\Drivers\FakePixDriver;
 use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
+use App\Domain\Geografico\Contracts\FonteLogradouros;
+use App\Domain\Geografico\Drivers\ViaCepFonte;
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Logistica\Contracts\MatrizDistancia;
 use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Logistica\Drivers\GoogleMatrizDriver;
@@ -25,9 +30,9 @@ use App\Domain\Mobile\Drivers\FakePagamentoDriver;
 use App\Domain\Mobile\Drivers\FakePushTransport;
 use App\Domain\Mobile\Drivers\FcmV1Transport;
 use App\Domain\Mobile\Drivers\KreaitFirebaseVerifier;
-use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Contracts\AjustadorDeVia;
 use App\Domain\Monitora\Contracts\MalhaViaria;
+use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Domain\Monitora\Drivers\AjustadorCacheado;
 use App\Domain\Monitora\Drivers\FakeAjustadorDeVia;
 use App\Domain\Monitora\Drivers\FakeMalhaViaria;
@@ -38,8 +43,12 @@ use App\Domain\Monitora\Drivers\RoadsApiAjustador;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Monitora\Drivers\TraccarDriver;
 use App\Domain\Tenant\TenantContext;
+use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteTelefone;
+use App\Observers\ClienteIdentidadeObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -60,9 +69,9 @@ class AppServiceProvider extends ServiceProvider
      * Espelha o comportamento já correto do PIX (PixWebhookController, que
      * rejeita em produção sem segredo).
      *
-     * @param  string  $config    chave em config/services.php (ex.: 'services.firebase.driver')
-     * @param  string[]  $reais   valores que ativam um driver de verdade
-     * @param  string  $envVar    nome da env var, citado na mensagem de erro
+     * @param  string  $config  chave em config/services.php (ex.: 'services.firebase.driver')
+     * @param  string[]  $reais  valores que ativam um driver de verdade
+     * @param  string  $envVar  nome da env var, citado na mensagem de erro
      *
      * @throws \RuntimeException em produção quando o driver não é real
      */
@@ -129,11 +138,11 @@ class AppServiceProvider extends ServiceProvider
         // resolve a credencial pela EMPRESA DO RECURSO e é fail-closed com driver
         // real sem credencial da empresa. Driver desconhecido = erro ALTO (jamais
         // degradar silenciosamente para o fake achando que cobra de verdade).
-        $this->app->bind(\App\Domain\Cobranca\Contracts\PixDriver::class, function () {
+        $this->app->bind(PixDriver::class, function () {
             $driver = (string) config('services.pix.driver', 'fake');
 
             return match ($driver) {
-                'fake' => $this->app->make(\App\Domain\Cobranca\Drivers\FakePixDriver::class),
+                'fake' => $this->app->make(FakePixDriver::class),
                 // PSPs reais entram aqui na homologação (ex.: 'itau' => ItauPixDriver).
                 default => throw new \RuntimeException("PIX_DRIVER '{$driver}' não implementado — recuse a subir assim em vez de fingir cobrança com o fake."),
             };
@@ -148,12 +157,19 @@ class AppServiceProvider extends ServiceProvider
         // tenant ANTES de resolver (TenantAwareJob::aplicarTenant) ou chame
         // IntegracaoTenant::googleMapsKey($grupoId) explícito (ex.: GeocodificarClienteJob).
         $this->app->bind(MatrizDistancia::class, function () {
-            $key = $this->app->make(\App\Domain\Integracao\IntegracaoTenant::class)->googleMapsKey();
+            $key = $this->app->make(IntegracaoTenant::class)->googleMapsKey();
 
             return $key
                 ? new GoogleMatrizDriver(new GoogleRoutesDriver((string) $key), $this->app->make(HaversineDriver::class))
                 : $this->app->make(HaversineDriver::class);
         });
+
+        // Fonte de logradouros para a importação geográfica. A base de CEP é a
+        // fonte CERTA para enumerar ruas — o Google Maps não tem endpoint que
+        // liste os logradouros de um município, e os termos dele proíbem
+        // armazenar o conteúdo fora de um mapa Google. Não usa credencial, então
+        // o driver real é o default; o Fake é injetado pelo teste.
+        $this->app->bind(FonteLogradouros::class, ViaCepFonte::class);
 
         // Traçado da rota pelas ruas (L6 — GATE Google Routes) com CACHE
         // PERSISTENTE (rotas_cache): 1 chamada Google por par de células (~100 m),
@@ -161,7 +177,7 @@ class AppServiceProvider extends ServiceProvider
         // GRUPO ativo (fallback env). Sem key, o cache ainda serve trajetos já
         // aprendidos; o resto sai em linha reta.
         $this->app->bind(TracadorRota::class, function () {
-            $key = $this->app->make(\App\Domain\Integracao\IntegracaoTenant::class)->googleMapsKey();
+            $key = $this->app->make(IntegracaoTenant::class)->googleMapsKey();
 
             return new TracadorRotaCacheado(
                 $key ? new GoogleRoutesDriver((string) $key) : new SemTracado,
@@ -206,7 +222,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             if ($this->app->isProduction()) {
-                \Illuminate\Support\Facades\Log::warning(
+                Log::warning(
                     'MONITORA_DRIVER não é "traccar" nem "sgcasa" em produção: o rastreamento GPS usará o driver FAKE.',
                     ['driver' => $driver],
                 );
@@ -298,15 +314,15 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registrarIdentidadeDeCliente(): void
     {
-        \App\Models\Cliente\Cliente::observe(\App\Observers\ClienteIdentidadeObserver::class);
+        Cliente::observe(ClienteIdentidadeObserver::class);
 
         // Telefone é traço e vive noutra tabela: sem estes dois, adicionar ou
         // remover um número deixaria a identidade desatualizada.
-        $aoMudarTelefone = fn (\App\Models\Cliente\ClienteTelefone $t) => app(
-            \App\Observers\ClienteIdentidadeObserver::class,
+        $aoMudarTelefone = fn (ClienteTelefone $t) => app(
+            ClienteIdentidadeObserver::class,
         )->telefoneAlterado($t);
 
-        \App\Models\Cliente\ClienteTelefone::created($aoMudarTelefone);
-        \App\Models\Cliente\ClienteTelefone::deleted($aoMudarTelefone);
+        ClienteTelefone::created($aoMudarTelefone);
+        ClienteTelefone::deleted($aoMudarTelefone);
     }
 }

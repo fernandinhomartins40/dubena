@@ -8,7 +8,17 @@ export interface Paginated<T> {
 
 export interface Cidade { id: number; descricao: string; uf: string; cod_ibge: number; grupo_id: number | null }
 export interface Bairro { id: number; descricao: string; cidade_id: number; cidade: string | null }
-export interface Rua { id: number; descricao: string; cidade_id: number; cidade: string | null; cep: string | null; ativo: number }
+export interface Rua {
+  id: number
+  descricao: string
+  cidade_id: number
+  cidade: string | null
+  /** Vínculo que o legado tinha e o schema novo havia perdido; preenchido pela importação. */
+  bairro_id: number | null
+  bairro: { id: number; descricao: string } | null
+  cep: string | null
+  ativo: number
+}
 export interface Regiao { id: number; descricao: string; ativo: number }
 
 /** Hook genérico de lista paginada para uma entidade geográfica. */
@@ -40,6 +50,99 @@ export function useExcluirGeo(entidade: string) {
   return useMutation({
     mutationFn: async (id: number) => (await api.delete(`/geo/${entidade}/${id}`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: [`geo-${entidade}`] }),
+  })
+}
+
+// ── Catálogo oficial do IBGE ─────────────────────────────────────────────────
+// Cidade nova passa a ser SELECIONADA daqui. Digitar o código à mão produziu,
+// na base real, código inventado, zerado e o código de outra cidade — e ele vai
+// para o XML da NF-e, onde errado significa rejeição da SEFAZ.
+
+export interface MunicipioIbge { cod_ibge: number; nome: string; uf: string }
+
+export function useMunicipiosIbge(q: string, uf: string) {
+  return useQuery<{ data: MunicipioIbge[] }>({
+    queryKey: ['municipios-ibge', q, uf],
+    queryFn: async () => (await api.get('/municipios-ibge', { params: { q, uf } })).data,
+    // Só busca com 2+ letras: a lista nacional tem 5.570 municípios.
+    enabled: q.trim().length >= 2 || uf !== '',
+  })
+}
+
+export function useAdotarMunicipio() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (cod_ibge: number) => (await api.post('/municipios-ibge/adotar', { cod_ibge })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['geo-cidades'] })
+      qc.invalidateQueries({ queryKey: ['ibge-conciliacao'] })
+    },
+  })
+}
+
+export interface Divergencia {
+  cidade_id: number
+  cidade: string
+  uf: string
+  cod_ibge_atual: number | null
+  cod_ibge_correto: number | null
+  nome_oficial: string | null
+  criterio: 'nome' | 'codigo_uf_divergente' | 'sem_correspondencia'
+}
+
+export function useConciliacaoIbge() {
+  return useQuery<{ data: Divergencia[] }>({
+    queryKey: ['ibge-conciliacao'],
+    queryFn: async () => (await api.get('/municipios-ibge/conciliacao')).data,
+  })
+}
+
+export function useAplicarConciliacao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await api.post('/municipios-ibge/conciliacao/aplicar')).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ibge-conciliacao'] })
+      qc.invalidateQueries({ queryKey: ['geo-cidades'] })
+    },
+  })
+}
+
+// ── Importação de logradouros (base de CEP) ──────────────────────────────────
+
+export interface Importacao {
+  id: number
+  cidade_id: number
+  cidade: string | null
+  uf: string | null
+  situacao: 'processando' | 'concluida' | 'falhou'
+  ruas_criadas: number
+  bairros_criados: number
+  ruas_atualizadas: number
+  consultas: number
+  /** Ramos que continuaram no teto da fonte: a importação pode estar incompleta. */
+  termos_truncados: number
+  erro: string | null
+  criado_em: string
+}
+
+export function useImportacoes() {
+  const { data } = useQuery<{ data: Importacao[] }>({
+    queryKey: ['logradouro-importacoes'],
+    queryFn: async () => (await api.get('/logradouros/importacoes')).data,
+    // Enquanto houver importação em curso, acompanha sozinho: a varredura leva
+    // minutos e o operador não deveria ter que recarregar a página.
+    refetchInterval: (query) =>
+      query.state.data?.data.some((i) => i.situacao === 'processando') ? 5000 : false,
+  })
+  return data?.data ?? []
+}
+
+export function useImportarLogradouros() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (cidade_id: number) => (await api.post('/logradouros/importacoes', { cidade_id })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['logradouro-importacoes'] }),
   })
 }
 

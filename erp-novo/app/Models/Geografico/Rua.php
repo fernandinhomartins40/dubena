@@ -17,7 +17,7 @@ class Rua extends Model
 
     protected $table = 'ruas';
 
-    protected $fillable = ['grupo_id', 'cidade_id', 'descricao', 'cep', 'ativo'];
+    protected $fillable = ['grupo_id', 'cidade_id', 'bairro_id', 'descricao', 'cep', 'ativo'];
 
     protected function casts(): array
     {
@@ -27,5 +27,17 @@ class Rua extends Model
     public function cidade(): BelongsTo
     {
         return $this->belongsTo(Cidade::class);
+    }
+
+    /**
+     * Bairro do logradouro — vínculo que o legado tinha e o schema novo perdeu.
+     *
+     * Sem ele, rua e bairro são listas paralelas penduradas na cidade e não há
+     * como preencher o bairro a partir da rua escolhida. Nullable: as ruas
+     * cadastradas antes da importação não têm o dado.
+     */
+    public function bairro(): BelongsTo
+    {
+        return $this->belongsTo(Bairro::class);
     }
 }

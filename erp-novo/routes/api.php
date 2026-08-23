@@ -1,12 +1,12 @@
 <?php
 
 use App\Domain\Tenant\TenantContext;
+use App\Http\Controllers\Api\Admin\AlcadaDescontoController;
 use App\Http\Controllers\Api\Admin\AssinaturaController;
 use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
 use App\Http\Controllers\Api\Admin\CadastroApoioController;
 use App\Http\Controllers\Api\Admin\CaixaController;
-use App\Http\Controllers\Api\Admin\AlcadaDescontoController;
 use App\Http\Controllers\Api\Admin\CargaFranqueadoController;
 use App\Http\Controllers\Api\Admin\CentralController;
 use App\Http\Controllers\Api\Admin\CentralVendasController;
@@ -14,7 +14,6 @@ use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
 use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
-use App\Http\Controllers\Api\Admin\TaxaEntregaController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
@@ -33,13 +32,13 @@ use App\Http\Controllers\Api\Admin\FiscalConfigController;
 use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
+use App\Http\Controllers\Api\Admin\ImportacaoLogradouroController;
 use App\Http\Controllers\Api\Admin\LookupController;
-use App\Http\Controllers\Api\Admin\MaloteController;
-use App\Http\Controllers\Api\Admin\TelefoniaController;
-use App\Http\Controllers\Api\PabxWebhookController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
+use App\Http\Controllers\Api\Admin\MaloteController;
 use App\Http\Controllers\Api\Admin\MissaoController;
 use App\Http\Controllers\Api\Admin\MonitoraController;
+use App\Http\Controllers\Api\Admin\MunicipioIbgeController;
 use App\Http\Controllers\Api\Admin\NfEntradaController;
 use App\Http\Controllers\Api\Admin\NotaFiscalController;
 use App\Http\Controllers\Api\Admin\PagamentoController;
@@ -53,22 +52,25 @@ use App\Http\Controllers\Api\Admin\RegiaoController;
 use App\Http\Controllers\Api\Admin\RelatorioController;
 use App\Http\Controllers\Api\Admin\SateliteStatusController;
 use App\Http\Controllers\Api\Admin\SetorController;
+use App\Http\Controllers\Api\Admin\TaxaEntregaController;
+use App\Http\Controllers\Api\Admin\TelefoniaController;
 use App\Http\Controllers\Api\Admin\UsuarioController;
 use App\Http\Controllers\Api\Admin\ValeGasController;
 use App\Http\Controllers\Api\Admin\VeiculoController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
-use App\Http\Controllers\Api\Mobile\AppAuthController;
-use App\Http\Controllers\Api\Mobile\AppEntregadorController;
-use App\Http\Controllers\Api\Mobile\AppLojaController;
 use App\Http\Controllers\Api\Legado\PonteMovelAppController;
 use App\Http\Controllers\Api\Legado\PonteNfwebController;
+use App\Http\Controllers\Api\Mobile\AppAuthController;
+use App\Http\Controllers\Api\Mobile\AppEntregadorController;
 use App\Http\Controllers\Api\Mobile\AppFiscalController;
+use App\Http\Controllers\Api\Mobile\AppLojaController;
 use App\Http\Controllers\Api\Mobile\AppMissaoController;
-use App\Http\Controllers\Api\Mobile\AppSolicitacaoController;
 use App\Http\Controllers\Api\Mobile\AppPedidoController;
 use App\Http\Controllers\Api\Mobile\AppPerfilController;
+use App\Http\Controllers\Api\Mobile\AppSolicitacaoController;
 use App\Http\Controllers\Api\Mobile\MarketplaceController;
+use App\Http\Controllers\Api\PabxWebhookController;
 use App\Http\Controllers\Api\PixWebhookController;
 use App\Http\Controllers\Api\SegurancaController;
 use App\Http\Controllers\Api\SuperAdmin\AuthController as SuperAdminAuthController;
@@ -263,6 +265,19 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('cadastros/{tipo}', [CadastroApoioController::class, 'store']);
         Route::put('cadastros/{tipo}/{id}', [CadastroApoioController::class, 'update'])->whereNumber('id');
         Route::delete('cadastros/{tipo}/{id}', [CadastroApoioController::class, 'destroy'])->whereNumber('id');
+
+        // ── Catálogo oficial do IBGE ──
+        // Cidade nova entra por AQUI: nome e código vêm do catálogo, não da
+        // digitação. O cod_ibge vira cMun na NF-e — errado, é rejeição da SEFAZ.
+        Route::get('municipios-ibge', [MunicipioIbgeController::class, 'index']);
+        Route::post('municipios-ibge/adotar', [MunicipioIbgeController::class, 'adotar']);
+        Route::get('municipios-ibge/conciliacao', [MunicipioIbgeController::class, 'conciliacao']);
+        Route::post('municipios-ibge/conciliacao/aplicar', [MunicipioIbgeController::class, 'aplicarConciliacao']);
+
+        // ── Importação de logradouros (base de CEP) ──
+        Route::get('logradouros/importacoes', [ImportacaoLogradouroController::class, 'index']);
+        Route::post('logradouros/importacoes', [ImportacaoLogradouroController::class, 'store']);
+        Route::get('logradouros/importacoes/{id}', [ImportacaoLogradouroController::class, 'show'])->whereNumber('id');
 
         // ── Geográfico (cidades/bairros/ruas) — N2 ──
         Route::get('geo/{entidade}', [GeoController::class, 'index']);

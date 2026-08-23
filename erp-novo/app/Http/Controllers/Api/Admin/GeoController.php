@@ -11,6 +11,7 @@ use App\Models\Geografico\Rua;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Geográfico (cidades/bairros/ruas) — N2. Base do endereço do cliente.
@@ -34,8 +35,8 @@ class GeoController extends Controller
         ],
         'ruas' => [
             'model' => Rua::class,
-            'regras' => ['descricao' => 'required|string|max:255', 'cidade_id' => 'required|integer|exists:cidades,id', 'cep' => 'nullable|string|max:10', 'ativo' => 'nullable|boolean'],
-            'filtros' => ['cidade_id'],
+            'regras' => ['descricao' => 'required|string|max:255', 'cidade_id' => 'required|integer|exists:cidades,id', 'bairro_id' => 'nullable|integer|exists:bairros,id', 'cep' => 'nullable|string|max:10', 'ativo' => 'nullable|boolean'],
+            'filtros' => ['cidade_id', 'bairro_id'],
         ],
     ];
 
@@ -43,9 +44,19 @@ class GeoController extends Controller
     {
         $cfg = $this->cfg($request, $entidade, 'cliente.view');
 
+        // sqlite (suíte de testes) não tem `ilike`; Postgres precisa dele para
+        // a busca ser insensível a caixa.
+        $like = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
         $query = $cfg['model']::query()
-            ->when(trim((string) $request->query('q', '')), fn (Builder $b, $q) => $b->where('descricao', 'ilike', '%'.$q.'%'))
+            ->when(trim((string) $request->query('q', '')), fn (Builder $b, $q) => $b->where('descricao', $like, '%'.$q.'%'))
             ->orderBy('descricao');
+
+        // Rua carrega o bairro: é o vínculo que permite preencher o bairro a
+        // partir da rua escolhida no endereço.
+        if ($entidade === 'ruas') {
+            $query->with('bairro:id,descricao');
+        }
 
         foreach ($cfg['filtros'] as $filtro) {
             $valor = $request->query($filtro);
