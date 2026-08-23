@@ -50,6 +50,8 @@ class LogradourosImportar extends Command
 
         $this->info("Varrendo logradouros de {$cidade->descricao}/{$cidade->uf}…");
         $this->line('A fonte limita os resultados por consulta; termos que batem o teto são refinados automaticamente.');
+        $this->line('A varredura leva minutos. Se for por SSH, rode desacoplado da sessão (docker exec -d / nohup):');
+        $this->line('uma desconexão mata o processo e a transação inteira é desfeita — nada é gravado pela metade.');
 
         $barra = $this->output->createProgressBar();
         $barra->setFormat(' %current% consultas | %message%');

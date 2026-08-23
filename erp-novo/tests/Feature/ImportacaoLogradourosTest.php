@@ -11,8 +11,10 @@ use App\Models\Empresa;
 use App\Models\Estado;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
+use App\Models\Geografico\ImportacaoLogradouro;
 use App\Models\Geografico\Rua;
 use App\Models\User;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -188,6 +190,56 @@ class ImportacaoLogradourosTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/admin/logradouros/importacoes', ['cidade_id' => $cidade->id])
             ->assertStatus(409);
+    }
+
+    public function test_falha_da_fonte_so_marca_falhou_na_ultima_tentativa(): void
+    {
+        $cidade = $this->cidade();
+
+        $registro = ImportacaoLogradouro::create([
+            'grupo_id' => $cidade->grupo_id,
+            'cidade_id' => $cidade->id,
+            'fonte' => 'viacep',
+            'situacao' => 'processando',
+        ]);
+
+        $importador = $this->mock(ImportarLogradouros::class);
+        $importador->shouldReceive('varrer')->andThrow(new \RuntimeException('rede caiu'));
+
+        // 1ª tentativa: o registro TEM de continuar 'processando', senão a
+        // guarda do handle aborta a retentativa e o $tries = 2 vira decoração.
+        $job = new ImportarLogradourosJob($registro->id);
+        $job->job = $this->tentativa(1);
+
+        try {
+            $job->handle($importador);
+        } catch (\RuntimeException) {
+            // Relançar é o que faz a fila reagendar.
+        }
+
+        $this->assertSame('processando', $registro->refresh()->situacao);
+
+        // Última tentativa: aí sim registra a falha, senão a tela mostraria
+        // "processando" para sempre.
+        $job->job = $this->tentativa(2);
+
+        try {
+            $job->handle($importador);
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertSame('falhou', $registro->refresh()->situacao);
+        $this->assertStringContainsString('rede caiu', (string) $registro->erro);
+    }
+
+    /** Job da fila fingindo estar na N-ésima tentativa. */
+    private function tentativa(int $n): Job
+    {
+        $fake = \Mockery::mock(Job::class);
+        $fake->shouldReceive('attempts')->andReturn($n);
+        $fake->shouldReceive('getConnectionName')->andReturn('sync');
+
+        return $fake;
     }
 
     public function test_fonte_ignora_termo_curto_demais_para_a_api(): void

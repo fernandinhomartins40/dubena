@@ -29,9 +29,19 @@ class ImportarLogradourosJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    /** Uma tentativa: a varredura é cara e o algoritmo é idempotente — quem
-     *  decide repetir é o operador, vendo o resultado. */
-    public int $tries = 1;
+    /**
+     * Duas tentativas.
+     *
+     * A varredura é longa (centenas de requisições a um serviço de terceiros) e
+     * a falha típica é de rede no meio do caminho — com uma tentativa só, isso
+     * jogaria fora todo o trabalho já feito. A gravação é idempotente, então
+     * repetir é seguro: a segunda passada completa o que faltou sem duplicar.
+     * Não vai além de 2 para não martelar a fonte quando ela está fora do ar.
+     */
+    public int $tries = 2;
+
+    /** Espera antes da retentativa: se a fonte oscilou, insistir na hora repete a falha. */
+    public array $backoff = [120];
 
     /** Cidade grande com muito refino leva minutos; o teto evita o job eterno. */
     public int $timeout = 1800;
@@ -75,10 +85,17 @@ class ImportarLogradourosJob implements ShouldQueue
                 'erro' => $e->getMessage(),
             ]);
 
-            $registro->forceFill([
-                'situacao' => 'falhou',
-                'erro' => mb_substr($e->getMessage(), 0, 500),
-            ])->save();
+            // Só marca 'falhou' na ÚLTIMA tentativa: marcar antes faria a guarda
+            // do topo (situacao !== 'processando') abortar a retentativa, e o
+            // $tries = 2 viraria decoração.
+            if ($this->attempts() >= $this->tries) {
+                $registro->forceFill([
+                    'situacao' => 'falhou',
+                    'erro' => mb_substr($e->getMessage(), 0, 500),
+                ])->save();
+            }
+
+            throw $e;
         }
     }
 
