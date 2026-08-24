@@ -516,6 +516,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('comodatos/vigilancia', [ComodatoController::class, 'vigilancia']);
         Route::get('comodatos/vigilancia/{cliente}', [ComodatoController::class, 'historicoVigilancia'])->whereNumber('cliente');
         Route::put('comodatos/config', [ComodatoController::class, 'salvarConfig']);
+        Route::get('comodatos/vinculos', [ComodatoController::class, 'vinculos']);
+        Route::put('comodatos/vinculos/{produto}', [ComodatoController::class, 'salvarVinculo'])
+            ->whereNumber('produto');
         // Extrato + versoes do contrato: e o que revela a devolucao parcial.
         Route::get('comodatos/{id}', [ComodatoController::class, 'show'])->whereNumber('id');
         // Contrato (item 20): o documento que protege o patrimonio da revenda.

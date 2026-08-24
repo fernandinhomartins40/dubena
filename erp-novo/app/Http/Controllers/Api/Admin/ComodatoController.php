@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Satelite\ComodatoPdfService;
 use App\Domain\Satelite\ComodatoService;
+use App\Domain\Satelite\VinculoVasilhame;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Produto\Produto;
 use App\Models\Satelite\Comodato;
 use App\Models\Satelite\ComodatoAvaliacao;
 use App\Models\Satelite\ComodatoConfig;
@@ -280,6 +282,120 @@ class ComodatoController extends Controller
         );
 
         return response()->json(['data' => $config]);
+    }
+
+    /**
+     * GET /comodatos/vinculos — o pareamento casco ↔ gás, para conferência.
+     *
+     * A vigilância inteira depende deste par: sem ele não há como perguntar
+     * "o cliente com 13 vasilhames P13 comprou quanto de P13?". A inferência
+     * acerta o caso comum, mas um par errado aqui acusa de desvio um cliente
+     * que compra normal — por isso a lista existe para ser conferida por gente.
+     */
+    public function vinculos(Request $request, VinculoVasilhame $vinculo): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        $empresaId = (int) $request->user()->empresa_id;
+
+        $catalogo = Produto::query()
+            ->where('ativo', true)
+            ->where('empresa_id', $empresaId)
+            ->get();
+
+        $linhas = $catalogo
+            ->filter(fn (Produto $p) => $vinculo->ehVasilhame($p))
+            ->map(function (Produto $p) use ($vinculo, $catalogo) {
+                $sugeridos = $vinculo->conteudosDe($p, $catalogo);
+
+                return [
+                    'id' => $p->id,
+                    'descricao' => $p->descricao,
+                    'capacidade' => $vinculo->capacidade($p->descricao),
+                    'produto_retornavel_id' => $p->produto_retornavel_id === null
+                        ? null
+                        : (int) $p->produto_retornavel_id,
+                    'sugeridos' => $sugeridos,
+                    // Em posse hoje: dimensiona o estrago de um par errado.
+                    // Duas somas em vez de uma expressão porque `coalesce` dentro
+                    // de sum() se comporta diferente entre sqlite e Postgres.
+                    'em_comodato' => $this->emComodato($p->id),
+                ];
+            })
+            ->sortByDesc('em_comodato')
+            ->values();
+
+        // Só os candidatos a conteúdo — a lista do seletor.
+        $conteudos = $catalogo
+            ->filter(fn (Produto $p) => $vinculo->ehConteudo($p) && ! $vinculo->ehVasilhame($p))
+            ->map(fn (Produto $p) => [
+                'id' => $p->id,
+                'descricao' => $p->descricao,
+                'capacidade' => $vinculo->capacidade($p->descricao),
+            ])
+            ->sortBy('descricao')
+            ->values();
+
+        return response()->json(['data' => $linhas, 'conteudos' => $conteudos]);
+    }
+
+    /** Vasilhames deste produto ainda em poder de clientes. */
+    private function emComodato(int $produtoId): float
+    {
+        $base = Comodato::query()
+            ->where('produto_id', $produtoId)
+            ->whereIn('situacao', ['ATIVO', 'PARCIAL']);
+
+        return round(
+            (float) (clone $base)->sum('quantidade')
+                - (float) (clone $base)->sum('quantidade_devolvida'),
+            3,
+        );
+    }
+
+    /**
+     * PUT /comodatos/vinculos/{produto} — confirma ou corrige um par.
+     *
+     * `null` desfaz o vínculo: é a saída para o caso ambíguo que a heurística
+     * não deve adivinhar sozinha.
+     */
+    public function salvarVinculo(Request $request, int $produto): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.config');
+
+        $d = $request->validate([
+            'produto_retornavel_id' => 'nullable|integer|exists:produtos,id',
+        ]);
+
+        $empresaId = (int) $request->user()->empresa_id;
+
+        $vasilhame = Produto::query()
+            ->where('empresa_id', $empresaId)
+            ->findOrFail($produto);
+
+        $conteudoId = $d['produto_retornavel_id'] ?? null;
+
+        if ($conteudoId !== null) {
+            // O par não atravessa empresa. `exists:produtos,id` sozinho deixaria
+            // apontar para o produto de outro tenant — o consumo seria medido
+            // contra um id que nunca aparece nos pedidos daqui, dando giro zero
+            // e alerta falso contra a carteira inteira.
+            $conteudo = Produto::query()
+                ->where('empresa_id', $empresaId)
+                ->find($conteudoId);
+
+            if ($conteudo === null) {
+                return response()->json([
+                    'message' => 'O produto de recarga precisa ser da mesma empresa.',
+                ], 422);
+            }
+        }
+
+        $vasilhame->forceFill(['produto_retornavel_id' => $conteudoId])->save();
+
+        return response()->json(['data' => $vasilhame->only([
+            'id', 'descricao', 'produto_retornavel_id',
+        ])]);
     }
 
     /** POST /comodatos/{id}/reemitir — versão nova sem mexer em saldo. */

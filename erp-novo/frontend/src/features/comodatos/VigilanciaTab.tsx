@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Gauge, TrendingDown, Users, AlertTriangle, PackageCheck } from 'lucide-react'
+import { Gauge, TrendingDown, Users, AlertTriangle, PackageCheck, SlidersHorizontal } from 'lucide-react'
 import {
-  Badge, Card, CardContent, StatCard, AsyncState, type Column, DataTable,
+  Badge, Button, Can, Card, CardContent, StatCard, AsyncState, type Column, DataTable,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui'
 import { data as fmtData } from '@/lib/format'
 import { useVigilancia, useHistoricoVigilancia, type Avaliacao } from './api'
+import { ConfigVigilanciaDialog } from './ConfigVigilanciaDialog'
 
 /**
  * Painel de giro: o vasilhame emprestado está rodando aqui?
@@ -20,6 +21,7 @@ import { useVigilancia, useHistoricoVigilancia, type Avaliacao } from './api'
 export function VigilanciaTab() {
   const { data, isLoading, error } = useVigilancia()
   const [detalhe, setDetalhe] = useState<Avaliacao | null>(null)
+  const [regua, setRegua] = useState(false)
 
   const linhas = data?.data ?? []
   const criticos = linhas.filter((a) => a.classificacao === 'CRITICO')
@@ -76,10 +78,18 @@ export function VigilanciaTab() {
 
       {data?.config && (
         <Card>
-          <CardContent className="p-3 text-xs text-muted-foreground">
-            Janela de {data.config.dias_janela} dias · alerta abaixo de {data.config.giro_minimo}x ·
-            crítico abaixo de {data.config.giro_critico}x · queda de {data.config.queda_atencao}% contra o
-            próprio histórico · comodatos a partir de {data.config.posse_minima_vigiada} vasilhames.
+          <CardContent className="flex items-start justify-between gap-3 p-3">
+            <p className="text-xs text-muted-foreground">
+              Janela de {data.config.dias_janela} dias · alerta abaixo de {data.config.giro_minimo}x ·
+              crítico abaixo de {data.config.giro_critico}x · queda de {data.config.queda_atencao}% contra o
+              próprio histórico · comodatos a partir de {data.config.posse_minima_vigiada} vasilhames.
+              {!data.config.ativo && ' · VIGILÂNCIA DESLIGADA'}
+            </p>
+            <Can permission="comodato.config">
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setRegua(true)}>
+                <SlidersHorizontal size={15} /> Ajustar régua
+              </Button>
+            </Can>
           </CardContent>
         </Card>
       )}
@@ -96,6 +106,8 @@ export function VigilanciaTab() {
       </AsyncState>
 
       <HistoricoDialog avaliacao={detalhe} onOpenChange={(v) => !v && setDetalhe(null)} />
+
+      <ConfigVigilanciaDialog config={data?.config} open={regua} onOpenChange={setRegua} />
     </div>
   )
 }

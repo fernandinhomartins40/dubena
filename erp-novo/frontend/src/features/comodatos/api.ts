@@ -150,6 +150,39 @@ export function useSalvarConfigVigilancia() {
   })
 }
 
+/** Um vasilhame e o produto que o enche — o par que sustenta a vigilância. */
+export interface Vinculo {
+  id: number; descricao: string; capacidade: string | null
+  produto_retornavel_id: number | null
+  sugeridos: number[]
+  em_comodato: number
+}
+
+export interface ConteudoDisponivel {
+  id: number; descricao: string; capacidade: string | null
+}
+
+export const useVinculos = () =>
+  useQuery<{ data: Vinculo[]; conteudos: ConteudoDisponivel[] }>({
+    queryKey: ['comodatos', 'vinculos'],
+    queryFn: async () => (await api.get('/comodatos/vinculos')).data,
+  })
+
+export function useSalvarVinculo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: number; produto_retornavel_id: number | null }) =>
+      (await api.put(`/comodatos/vinculos/${v.id}`, {
+        produto_retornavel_id: v.produto_retornavel_id,
+      })).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comodatos', 'vinculos'] })
+      // A régua mudou de base: a vigilância precisa ser relida.
+      qc.invalidateQueries({ queryKey: ['comodatos', 'vigilancia'] })
+    },
+  })
+}
+
 /** Acrescenta vasilhames ao MESMO comodato e reemite o contrato. */
 export function useAcrescentarComodato() {
   const qc = useQueryClient()

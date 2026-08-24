@@ -11,6 +11,7 @@ import { DevolucaoDialog } from './DevolucaoDialog'
 import { ComodatoDetalhe } from './ComodatoDetalhe'
 import { AjustarComodatoDialog } from './AjustarComodatoDialog'
 import { VigilanciaTab } from './VigilanciaTab'
+import { VinculosTab } from './VinculosTab'
 
 /** Situações que encerram o comodato — nenhuma delas descreve posse vigente. */
 const ENCERRADAS = ['DEVOLVIDO', 'ENCERRADO', 'CANCELADO']
@@ -91,6 +92,7 @@ export function ComodatoPage() {
         <TabsList>
           <TabsTrigger value="lista">Comodatos</TabsTrigger>
           <TabsTrigger value="vigilancia">Vigilância</TabsTrigger>
+          <TabsTrigger value="vinculos">Vínculos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lista">
@@ -106,6 +108,10 @@ export function ComodatoPage() {
 
         <TabsContent value="vigilancia">
           <VigilanciaTab />
+        </TabsContent>
+
+        <TabsContent value="vinculos">
+          <VinculosTab />
         </TabsContent>
       </Tabs>
 
