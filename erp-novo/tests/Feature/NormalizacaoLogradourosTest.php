@@ -174,6 +174,39 @@ class NormalizacaoLogradourosTest extends TestCase
         );
     }
 
+    /**
+     * Caso pego aplicando em produção (Turvo): "Das araucária" perdia
+     * "RUA DAS ARAUCARIAS" — as partículas saem, sobra um token de cada lado, e
+     * a regra "token único exige exato" rejeitava o plural. Pior: casava com
+     * "VILA ARAUCARIA", que é outra via.
+     */
+    public function test_plural_e_a_mesma_via_e_vence_o_homonimo_de_outra_rua(): void
+    {
+        $cidade = $this->cidade();
+        $certa = $this->oficial('RUA', 'DAS ARAUCARIAS', 'CENTRO');
+        $this->oficial('VILA', 'ARAUCARIA', 'FAXINAL');
+        $this->rua($cidade, 'Das araucária');
+
+        $analise = app(NormalizarLogradouros::class)->analisar($cidade);
+
+        $this->assertSame('provavel', $analise[0]['situacao']);
+        $this->assertSame(
+            $certa->id,
+            $analise[0]['oficial']->id,
+            'Deveria escolher DAS ARAUCARIAS, não a VILA ARAUCARIA.',
+        );
+    }
+
+    public function test_plural_nao_afrouxa_o_criterio_de_token_unico(): void
+    {
+        // A exceção do plural vale só para "s"/"es" no FIM. Letra trocada no
+        // meio continua separando nomes próprios distintos.
+        $this->assertLessThan(
+            NormalizarLogradouros::LIMIAR_PROVAVEL,
+            NormalizadorTexto::similaridadeLogradouro('Rua Matinhos', 'ESTRADA DE PATINHOS'),
+        );
+    }
+
     public function test_reconhece_rua_que_bate_exatamente(): void
     {
         $cidade = $this->cidade();

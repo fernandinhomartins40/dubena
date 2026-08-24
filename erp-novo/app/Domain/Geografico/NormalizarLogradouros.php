@@ -195,11 +195,24 @@ class NormalizarLogradouros
         $melhor = null;
         $escore = 0.0;
 
+        // Desempate: entre dois oficiais de mesmo escore, vence o de chave mais
+        // PARECIDA em texto. Medido em produção: "Das araucária" empatava em
+        // 1.0 com "DAS ARAUCARIAS" (a via certa) e "VILA ARAUCARIA" (outra
+        // via), e sem critério a escolha era a ordem do banco.
+        $proximidade = -1;
+
         foreach ($oficiais as $o) {
             $s = NormalizadorTexto::similaridadeLogradouro($chave, $o->nome_busca);
 
-            if ($s > $escore) {
+            if ($s < $escore) {
+                continue;
+            }
+
+            $p = similar_text($chave, $o->nome_busca);
+
+            if ($s > $escore || $p > $proximidade) {
                 $escore = $s;
+                $proximidade = $p;
                 $melhor = $o;
             }
         }

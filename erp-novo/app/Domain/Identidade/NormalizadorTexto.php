@@ -363,7 +363,7 @@ final class NormalizadorTexto
                 // Tolera a letra trocada do erro de digitação ("Seetembro"),
                 // que é justamente o caso que queremos pegar.
                 $casa = $exigirExato
-                    ? $token === $outro
+                    ? ($token === $outro || self::mesmoTokenNoPlural($token, $outro))
                     : ($token === $outro || self::tokenParecido($token, $outro));
 
                 if ($casa) {
@@ -418,6 +418,29 @@ final class NormalizadorTexto
         }
 
         return levenshtein($a, $b) <= 1;
+    }
+
+    /**
+     * A mesma palavra no singular e no plural.
+     *
+     * Exceção deliberada ao "via de um token exige exato": medido em produção,
+     * "Das araucária" perdia "RUA DAS ARAUCARIAS" (as partículas saem e sobra
+     * um token de cada lado) e casava com "VILA ARAUCARIA", que é outra via.
+     *
+     * Plural é a MESMA palavra, ao contrário de "matinhos"/"patinhos", onde a
+     * letra trocada é interna e separa dois nomes próprios. Por isso a
+     * diferença só vale no FIM da palavra e só para "s"/"es".
+     */
+    private static function mesmoTokenNoPlural(string $a, string $b): bool
+    {
+        $menor = strlen($a) <= strlen($b) ? $a : $b;
+        $maior = strlen($a) <= strlen($b) ? $b : $a;
+
+        if (strlen($menor) < 4 || ! str_starts_with($maior, $menor)) {
+            return false;
+        }
+
+        return in_array(substr($maior, strlen($menor)), ['s', 'es'], true);
     }
 
     /**
