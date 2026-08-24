@@ -268,4 +268,92 @@ final class NormalizadorTexto
 
         return trim($l.' '.$n);
     }
+
+    /**
+     * Tipos de logradouro removidos da chave de busca.
+     *
+     * São o que MAIS varia na digitação ("R.", "RUA", "Av", "AVENIDA") e não
+     * distinguem uma via da outra.
+     *
+     * @var list<string>
+     */
+    private const TIPOS_LOGRADOURO = [
+        'rua', 'avenida', 'travessa', 'alameda', 'praca', 'rodovia', 'estrada',
+        'largo', 'viela', 'via', 'passagem', 'ladeira', 'servidao', 'quadra',
+        'conjunto', 'vila', 'jardim', 'parque', 'nucleo', 'chacara', 'colonia',
+        'linha', 'ramal', 'trevo', 'anel', 'eixo', 'marginal', 'complexo',
+        // Abreviaturas: o operador digita "R. das Flores" e "Av. Brasil" tanto
+        // quanto por extenso. A pontuação já virou espaço em basico(), então
+        // o que sobra é a letra solta.
+        'r', 'av', 'tv', 'al', 'pc', 'rod', 'est', 'pca', 'trav', 'lgo',
+    ];
+
+    /**
+     * Romanos usuais em nome de via → dígito.
+     *
+     * "Avenida XV de Novembro" e "Avenida Quinze de Novembro" são a MESMA via —
+     * na base real de Guarapuava as duas grafias coexistem.
+     *
+     * @var array<string,string>
+     */
+    private const ROMANOS = [
+        'ii' => '2', 'iii' => '3', 'iv' => '4', 'v' => '5', 'vi' => '6',
+        'vii' => '7', 'viii' => '8', 'ix' => '9', 'x' => '10', 'xi' => '11',
+        'xii' => '12', 'xiii' => '13', 'xiv' => '14', 'xv' => '15',
+        'xvi' => '16', 'xvii' => '17', 'xviii' => '18', 'xix' => '19',
+        'xx' => '20', 'xxi' => '21', 'xxv' => '25', 'xxx' => '30',
+    ];
+
+    /**
+     * Numerais por extenso → dígito.
+     *
+     * Ruas de data estão entre as mais comuns do país e aparecem das duas
+     * formas: o CNEFE grava "7 DE SETEMBRO", o operador digita "Sete de
+     * Setembro". Sem unificar, justamente essas nunca casariam.
+     *
+     * @var array<string,string>
+     */
+    private const EXTENSO = [
+        'um' => '1', 'primeiro' => '1', 'dois' => '2', 'tres' => '3', 'quatro' => '4',
+        'cinco' => '5', 'seis' => '6', 'sete' => '7', 'oito' => '8', 'nove' => '9',
+        'dez' => '10', 'onze' => '11', 'doze' => '12', 'treze' => '13', 'quatorze' => '14',
+        'catorze' => '14', 'quinze' => '15', 'dezesseis' => '16', 'dezessete' => '17',
+        'dezoito' => '18', 'dezenove' => '19', 'vinte' => '20', 'trinta' => '30',
+    ];
+
+    /**
+     * Chave canônica do NOME de um logradouro, para casar o cadastro manual com
+     * o oficial do CNEFE.
+     *
+     * Precisa produzir EXATAMENTE o mesmo resultado que `normalizar()` do
+     * `scripts/cnefe_importar.py` — as duas pontas alimentam a mesma coluna
+     * `nome_busca`, e qualquer divergência faria a busca não encontrar nada.
+     *
+     * Difere de `endereco()`: aqui não entra número (é o nome da VIA, não de um
+     * ponto nela) e a lista de tipos é a completa do CNEFE.
+     */
+    public static function logradouro(?string $texto): string
+    {
+        $t = self::basico($texto);
+
+        if ($t === '') {
+            return '';
+        }
+
+        foreach (self::TIPOS_LOGRADOURO as $tipo) {
+            if (str_starts_with($t, $tipo.' ')) {
+                $t = substr($t, strlen($tipo) + 1);
+                break;
+            }
+        }
+
+        // "i" fica FORA dos romanos de propósito: viraria "1" e destruiria
+        // qualquer nome que o contenha isolado.
+        $partes = array_map(
+            fn (string $p): string => self::EXTENSO[$p] ?? self::ROMANOS[$p] ?? $p,
+            explode(' ', trim($t)),
+        );
+
+        return trim(implode(' ', $partes));
+    }
 }

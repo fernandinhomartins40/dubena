@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\ImportacaoLogradouroController;
+use App\Http\Controllers\Api\Admin\LogradouroOficialController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
 use App\Http\Controllers\Api\Admin\MaloteController;
@@ -273,6 +274,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::post('municipios-ibge/adotar', [MunicipioIbgeController::class, 'adotar']);
         Route::get('municipios-ibge/conciliacao', [MunicipioIbgeController::class, 'conciliacao']);
         Route::post('municipios-ibge/conciliacao/aplicar', [MunicipioIbgeController::class, 'aplicarConciliacao']);
+
+        // ── Logradouros oficiais (CNEFE/IBGE) ──
+        // Autocompletar do endereço e normalização do que foi digitado à mão.
+        Route::get('logradouros-oficiais/sugerir', [LogradouroOficialController::class, 'sugerir']);
+        Route::get('logradouros-oficiais/divergencias', [LogradouroOficialController::class, 'divergencias']);
+        Route::get('logradouros-oficiais/municipios', [LogradouroOficialController::class, 'municipios']);
+        Route::post('logradouros-oficiais/normalizar', [LogradouroOficialController::class, 'normalizar']);
+        Route::get('logradouros-oficiais', [LogradouroOficialController::class, 'index']);
 
         // ── Importação de logradouros (base de CEP) ──
         Route::get('logradouros/importacoes', [ImportacaoLogradouroController::class, 'index']);
