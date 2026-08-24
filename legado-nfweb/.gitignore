@@ -39,7 +39,10 @@ yarn-error.log
 buck-out/
 \.buckd/
 *.keystore
-!debug.keystore
+# O `!debug.keystore` do boilerplate React Native foi REMOVIDO: ele anulava a
+# regra da raiz (`legado-*/android/app/debug.keystore*`), porque o .gitignore
+# mais proximo do arquivo vence. Keystore de debug e artefato de build local,
+# gerado por quem compila — nao versionamos nenhum keystore aqui.
 
 # fastlane
 #
