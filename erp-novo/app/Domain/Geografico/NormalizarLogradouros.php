@@ -114,7 +114,7 @@ class NormalizarLogradouros
         foreach ($this->oficiaisDe($codIbge) as $o) {
             $escore = $o->nome_busca === $chave
                 ? 1.0
-                : NormalizadorTexto::similaridadeNome($chave, $o->nome_busca);
+                : NormalizadorTexto::similaridadeLogradouro($chave, $o->nome_busca);
 
             if ($escore >= self::LIMIAR_PROVAVEL) {
                 $sugestoes[] = ['oficial' => $o, 'similaridade' => $escore];
@@ -196,7 +196,7 @@ class NormalizarLogradouros
         $escore = 0.0;
 
         foreach ($oficiais as $o) {
-            $s = NormalizadorTexto::similaridadeNome($chave, $o->nome_busca);
+            $s = NormalizadorTexto::similaridadeLogradouro($chave, $o->nome_busca);
 
             if ($s > $escore) {
                 $escore = $s;

@@ -322,6 +322,110 @@ final class NormalizadorTexto
     ];
 
     /**
+     * Semelhança entre NOMES DE VIA. Não use `similaridadeNome` para isto.
+     *
+     * `similaridadeNome` mede a sobreposição sobre o MENOR conjunto de tokens,
+     * porque para PESSOA informar menos é legítimo ("Gabriel Niczay" é o mesmo
+     * "Gabriel Niczay Ferreira"). Para logradouro essa regra produz absurdos
+     * medidos na base real de Guarapuava:
+     *
+     *   "Rua Santo André"           → "RUA JOSE DOS SANTOS ANDRADE"   100%
+     *   "Rua Sonia Maria Sampaio…"  → "RUA MARIO ZENI"                100%
+     *   "Travessa Mato Grosso do Sul" → "RUA MATO GROSSO"             100%
+     *
+     * São vias DIFERENTES: "Mato Grosso do Sul" não é "Mato Grosso", e um
+     * subconjunto de tokens não indica a mesma rua. Aqui a medida é sobre a
+     * UNIÃO (índice de Jaccard): quem tem tokens a mais está falando de outra
+     * coisa, não informando menos.
+     */
+    public static function similaridadeLogradouro(?string $a, ?string $b): float
+    {
+        // Partículas fora: "Carla Selhorst DE Souza" e "Carla Selhorst Souza"
+        // são a mesma via, e o "de" sobrando penalizaria o par sem motivo.
+        $ta = self::tokensDeVia($a);
+        $tb = self::tokensDeVia($b);
+
+        if ($ta === [] || $tb === []) {
+            return 0.0;
+        }
+
+        $casados = 0;
+        $restantes = $tb;
+
+        foreach ($ta as $token) {
+            foreach ($restantes as $i => $outro) {
+                // Tolera a letra trocada do erro de digitação ("Seetembro"),
+                // que é justamente o caso que queremos pegar.
+                if ($token === $outro || self::tokenParecido($token, $outro)) {
+                    $casados++;
+                    unset($restantes[$i]);
+                    break;
+                }
+            }
+        }
+
+        // União, não o menor: token sobrando PENALIZA.
+        $uniao = count($ta) + count($tb) - $casados;
+
+        $similaridade = $uniao > 0 ? $casados / $uniao : 0.0;
+
+        // Um token só casando é evidência fraca — "Brasil" bate com toda via que
+        // contenha "Brasil". Só vale quando os DOIS lados têm um token apenas
+        // (aí é a mesma via escrita com tipos diferentes: "Rua Brasil"/"Av
+        // Brasil"), o caso real das duplicatas da base.
+        if ($casados === 1 && (count($ta) > 1 || count($tb) > 1)) {
+            return min($similaridade, 0.5);
+        }
+
+        return $similaridade;
+    }
+
+    /**
+     * Tokens iguais a menos de uma letra — cobre o erro de digitação
+     * ("seetembro" × "setembro", "rossoni" × "rossini") sem casar palavras
+     * genuinamente distintas.
+     */
+    private static function tokenParecido(string $a, string $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        if (abs(strlen($a) - strlen($b)) > 1) {
+            return false;
+        }
+
+        // Token de 3 letras só casa por troca do ÚLTIMO caractere — cobre a
+        // grafia variante do sobrenome ("Lis"/"Liz", "Luis"/"Luiz") sem casar
+        // palavras curtas genuinamente distintas ("sul"/"sol").
+        if (strlen($a) === 3 && strlen($b) === 3) {
+            return substr($a, 0, 2) === substr($b, 0, 2);
+        }
+
+        // Abaixo de 4 letras (e tamanhos diferentes) a coincidência é provável.
+        if (strlen($a) < 4 || strlen($b) < 4) {
+            return false;
+        }
+
+        return levenshtein($a, $b) <= 1;
+    }
+
+    /**
+     * Tokens significativos de um nome de via: sem partículas e sem repetição.
+     *
+     * @return list<string>
+     */
+    private static function tokensDeVia(?string $texto): array
+    {
+        $tokens = array_filter(
+            explode(' ', self::logradouro($texto)),
+            fn (string $t): bool => $t !== '' && ! in_array($t, self::PARTICULAS, true),
+        );
+
+        return array_values(array_unique($tokens));
+    }
+
+    /**
      * Chave canônica do NOME de um logradouro, para casar o cadastro manual com
      * o oficial do CNEFE.
      *

@@ -98,6 +98,54 @@ class NormalizacaoLogradourosTest extends TestCase
         );
     }
 
+    /**
+     * Casos colhidos da PRIMEIRA execução em produção, que reprovou o critério
+     * inicial: `similaridadeNome` mede sobreposição sobre o MENOR conjunto
+     * (correto para pessoa, onde informar menos é legítimo) e por isso deu 100%
+     * para vias claramente distintas.
+     */
+    public function test_nao_confunde_vias_distintas_de_nome_parecido(): void
+    {
+        $falsos = [
+            ['Rua Santo Andre', 'RUA JOSE DOS SANTOS ANDRADE'],
+            ['Rua Sonia Maria Sampaio Szeremeta', 'RUA MARIO ZENI'],
+            // "Mato Grosso do Sul" NÃO é "Mato Grosso".
+            ['Travessa Mato Grosso do Sul', 'RUA MATO GROSSO'],
+            ['Rua Maria Eleni da Silva Virmond', 'RUA MARIO VIRMOND'],
+            ['Rua Sao Jose', 'COMUNIDADE VILAREJO SAO JOSE'],
+            ['Rua Santo Inacio', 'RUA SANTA INES'],
+        ];
+
+        foreach ($falsos as [$cadastrado, $oficial]) {
+            $this->assertLessThan(
+                NormalizarLogradouros::LIMIAR_PROVAVEL,
+                NormalizadorTexto::similaridadeLogradouro($cadastrado, $oficial),
+                "Não deveria propor '{$oficial}' para '{$cadastrado}'.",
+            );
+        }
+    }
+
+    /** Os pares que SÃO a mesma via e precisam continuar sendo propostos. */
+    public function test_reconhece_variacoes_da_mesma_via(): void
+    {
+        $verdadeiros = [
+            ['Rua Sete de Seetembro', 'RUA SETE DE SETEMBRO'],   // digitação
+            ['Rua Alcides Rossoni', 'RUA ALCIDES ROSSINI'],      // digitação
+            ['Rua Dario Borges de Lis', 'RUA DARIO BORGES DE LIZ'], // grafia S/Z
+            ['Rua Carla Selhorst de Souza', 'RUA CARLA SELHORST SOUZA'], // partícula
+            ['Avenida Brasil', 'RUA BRASIL'],                    // só o tipo muda
+            ['Rua Dez de Setembro', 'RUA 10 DE SETEMBRO'],       // extenso/dígito
+        ];
+
+        foreach ($verdadeiros as [$cadastrado, $oficial]) {
+            $this->assertGreaterThanOrEqual(
+                NormalizarLogradouros::LIMIAR_PROVAVEL,
+                NormalizadorTexto::similaridadeLogradouro($cadastrado, $oficial),
+                "Deveria propor '{$oficial}' para '{$cadastrado}'.",
+            );
+        }
+    }
+
     public function test_reconhece_rua_que_bate_exatamente(): void
     {
         $cidade = $this->cidade();
