@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Plus, PackageCheck, Undo2, FileSignature } from 'lucide-react'
+import { Plus, PackageCheck, Undo2, FileSignature, SlidersHorizontal } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect, Can,
-  ResourceList, FormDialog, toast,
+  ResourceList, FormDialog, toast, Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
 import { data as fmtData } from '@/lib/format'
 import { useComodatos, useCriarComodato, abrirContratoComodato, type Comodato } from './api'
 import { mensagemDeErroBlob } from '@/lib/pdf'
 import { DevolucaoDialog } from './DevolucaoDialog'
 import { ComodatoDetalhe } from './ComodatoDetalhe'
+import { AjustarComodatoDialog } from './AjustarComodatoDialog'
+import { VigilanciaTab } from './VigilanciaTab'
 
 /** Situações que encerram o comodato — nenhuma delas descreve posse vigente. */
 const ENCERRADAS = ['DEVOLVIDO', 'ENCERRADO', 'CANCELADO']
@@ -22,6 +24,7 @@ export function ComodatoPage() {
   const [prodLabel, setProdLabel] = useState('')
   const [aDevolver, setADevolver] = useState<Comodato | null>(null)
   const [detalhe, setDetalhe] = useState<number | null>(null)
+  const [aAjustar, setAAjustar] = useState<{ comodato: Comodato; modo: 'acrescentar' | 'renovar' } | null>(null)
 
   function abrir() { setForm({ quantidade: 1 }); setClienteLabel(''); setProdLabel(''); setOpen(true) }
 
@@ -66,6 +69,12 @@ export function ComodatoPage() {
               <FileSignature size={15} /> Contrato
             </Button>
             <Can permission="comodato.edit">
+              <Button
+                variant="ghost" size="sm" title="Acrescentar itens ou renovar"
+                onClick={() => setAAjustar({ comodato: v, modo: 'acrescentar' })}
+              >
+                <SlidersHorizontal size={15} />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setADevolver(v)}>
                 <Undo2 size={15} /> Devolver
               </Button>
@@ -78,14 +87,27 @@ export function ComodatoPage() {
 
   return (
     <>
-      <ResourceList
-        title="Comodatos"
-        subtitle="Vasilhames emprestados a clientes"
-        action={<Can permission="comodato.edit"><Button onClick={abrir}><Plus size={16} /> Novo comodato</Button></Can>}
-        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
-        onRowClick={(v) => setDetalhe(v.id)}
-        emptyIcon={<PackageCheck />} emptyTitle="Nenhum comodato"
-      />
+      <Tabs defaultValue="lista" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="lista">Comodatos</TabsTrigger>
+          <TabsTrigger value="vigilancia">Vigilância</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lista">
+          <ResourceList
+            title="Comodatos"
+            subtitle="Vasilhames emprestados a clientes"
+            action={<Can permission="comodato.edit"><Button onClick={abrir}><Plus size={16} /> Novo comodato</Button></Can>}
+            columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+            onRowClick={(v) => setDetalhe(v.id)}
+            emptyIcon={<PackageCheck />} emptyTitle="Nenhum comodato"
+          />
+        </TabsContent>
+
+        <TabsContent value="vigilancia">
+          <VigilanciaTab />
+        </TabsContent>
+      </Tabs>
 
       <FormDialog
         open={open} onOpenChange={setOpen}
@@ -116,6 +138,11 @@ export function ComodatoPage() {
 
       <DevolucaoDialog comodato={aDevolver} onOpenChange={(v) => !v && setADevolver(null)} />
       <ComodatoDetalhe id={detalhe} onOpenChange={(v) => !v && setDetalhe(null)} />
+      <AjustarComodatoDialog
+        comodato={aAjustar?.comodato ?? null}
+        modo={aAjustar?.modo ?? 'acrescentar'}
+        onOpenChange={(v) => !v && setAAjustar(null)}
+      />
     </>
   )
 }

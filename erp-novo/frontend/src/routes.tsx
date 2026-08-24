@@ -38,6 +38,7 @@ const FiscalPage = lazyNamed(() => import('@/features/fiscal/FiscalPage'), 'Fisc
 const CupomPage = lazyNamed(() => import('@/features/gestao/CupomPage'), 'CupomPage')
 const ValeGasPage = lazyNamed(() => import('@/features/valegas/ValeGasPage'), 'ValeGasPage')
 const ComodatoPage = lazyNamed(() => import('@/features/comodatos/ComodatoPage'), 'ComodatoPage')
+const AlertasPage = lazyNamed(() => import('@/features/alertas/AlertasPage'), 'AlertasPage')
 
 // Financeiro
 const FinanceiroPage = lazyNamed(() => import('@/features/financeiro/FinanceiroPage'), 'FinanceiroPage')
@@ -146,6 +147,7 @@ export function AppRoutes() {
       <Route path="/cupons-fiscais" element={p(<CupomPage />, 'cupomfiscal.view')} />
       <Route path="/vale-gas" element={p(<ValeGasPage />, 'valegas.view')} />
       <Route path="/comodatos" element={p(<ComodatoPage />, 'comodato.view')} />
+      <Route path="/alertas" element={p(<AlertasPage />, 'alerta.view')} />
 
       {/* Financeiro */}
       <Route path="/financeiro" element={p(<FinanceiroPage />, 'financeiro.view')} />

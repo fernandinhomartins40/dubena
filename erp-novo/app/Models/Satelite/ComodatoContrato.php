@@ -28,6 +28,10 @@ class ComodatoContrato extends Model
 
     public const REEMISSAO = 'REEMISSAO';
 
+    public const ACRESCIMO = 'ACRESCIMO';
+
+    public const RENOVACAO = 'RENOVACAO';
+
     protected $table = 'comodato_contratos';
 
     protected $fillable = [

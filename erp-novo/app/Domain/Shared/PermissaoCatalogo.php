@@ -32,7 +32,11 @@ final class PermissaoCatalogo
         // recebida: o vasilhame volta a constar em poder do cliente e o estoque
         // é baixado de novo. Quem registra a entrega no balcão não precisa
         // poder anulá-la.
-        'comodato' => ['view', 'edit', 'estornar'],
+        'comodato' => ['view', 'edit', 'estornar', 'config'],
+        // Central de alertas -- fila de averiguacao. `triar` e separado de `view`
+        // porque encerrar um alerta de suspeita de desvio patrimonial e decisao,
+        // nao consulta: quem ignora precisa responder por isso.
+        'alerta' => ['view', 'triar'],
         'monitora' => ['view', 'edit'],
         // Central de Logística (L1) — fila, atribuição, redistribuição, bloqueio.
         'logistica' => ['view', 'distribuir', 'config'],
@@ -123,6 +127,7 @@ final class PermissaoCatalogo
         'distribuir' => 'Distribuir entregas',
         'faturar' => 'Faturar venda',
         'alcada' => 'Gerir alçadas de desconto',
+        'triar' => 'Triar alertas',
     ];
 
     /**

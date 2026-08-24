@@ -7,6 +7,7 @@ import {
   MessageSquareHeart, Tag, Gift, Target, ListChecks, BadgePercent,
   Receipt, ArrowLeftRight, FolderArchive, Building,
   CreditCard, HandCoins, PackageCheck, Handshake, Navigation, Settings, ShieldCheck, History, Merge,
+  ShieldAlert,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { label: 'Cupons SAT/CFe', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Operações' },
   { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'valegas.view', group: 'Operações' },
   { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Operações' },
+  { label: 'Alertas', to: '/alertas', icon: <ShieldAlert size={18} />, permission: 'alerta.view', group: 'Operações' },
 
   { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
   { label: 'Cartões', to: '/cartoes', icon: <CreditCard size={18} />, permission: 'cartao.view', group: 'Financeiro' },

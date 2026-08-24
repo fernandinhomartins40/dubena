@@ -165,21 +165,36 @@ class ComodatoPdfService
             return '';
         }
 
-        $texto = $versao->motivo === ComodatoContrato::DEVOLUCAO_PARCIAL
-            ? sprintf(
+        $texto = match ($versao->motivo) {
+            ComodatoContrato::DEVOLUCAO_PARCIAL => sprintf(
                 'Esta é a versão %d do contrato nº %d, emitida após devolução parcial de %s '
                 .'unidade(s). As quantidades acima já refletem o abatimento; a versão anterior '
                 .'fica sem efeito a partir desta data.',
                 $versao->versao,
                 $versao->comodato_id,
                 $this->num((float) ($versao->movimento?->quantidade ?? 0)),
-            )
-            : sprintf(
+            ),
+            ComodatoContrato::ACRESCIMO => sprintf(
+                'Esta é a versão %d do contrato nº %d, emitida após acréscimo de %s unidade(s) '
+                .'ao comodato. As quantidades acima já incluem o acréscimo; a versão anterior '
+                .'fica sem efeito a partir desta data.',
+                $versao->versao,
+                $versao->comodato_id,
+                $this->num((float) ($versao->movimento?->quantidade ?? 0)),
+            ),
+            ComodatoContrato::RENOVACAO => sprintf(
+                'Esta é a versão %d do contrato nº %d, emitida na renovação do comodato. '
+                .'A versão anterior fica sem efeito a partir desta data.',
+                $versao->versao,
+                $versao->comodato_id,
+            ),
+            default => sprintf(
                 'Esta é a versão %d do contrato nº %d, reemitida em substituição à anterior, '
                 .'que fica sem efeito a partir desta data.',
                 $versao->versao,
                 $versao->comodato_id,
-            );
+            ),
+        };
 
         return '<p style="margin:6px 0 0;padding:6px;background:#f1f5f9;'
             .'border-left:3px solid #64748b;font-size:9px;text-align:justify">'

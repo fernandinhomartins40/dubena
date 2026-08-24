@@ -41,3 +41,9 @@ Schedule::command('ibpt:atualizar')->monthlyOn(1, '05:00')->withoutOverlapping()
 // Missões de campo (L7) — a cada 10 min atribui missões aos entregadores ociosos
 // (em jornada, sem entregas há mais de `ociosidade_min` da config da empresa).
 Schedule::command('logistica:gerar-missoes')->everyTenMinutes()->withoutOverlapping();
+
+// Vigilância do comodato — segunda 04:00. Semanal e não diária de propósito: o
+// giro se mede em janela de 180 dias, e a variação de um dia para o outro é
+// ruído. Rodar de madrugada porque varre o histórico de pedidos de cada cliente
+// com comodato.
+Schedule::command('comodato:vigiar --aplicar')->weeklyOn(1, '04:00')->withoutOverlapping();

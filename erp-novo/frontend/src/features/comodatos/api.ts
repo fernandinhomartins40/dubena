@@ -106,3 +106,73 @@ export const abrirContratoComodato = (id: number, versao?: number) =>
 /** Recibo da devolução: a prova, para o cliente, de que ele entregou. */
 export const abrirReciboDevolucao = (id: number, movimento: number) =>
   abrirPdf(`/comodatos/${id}/movimentos/${movimento}/recibo`)
+
+/** A foto do giro de um cliente com comodato. */
+export interface Avaliacao {
+  id: number; cliente_id: number; referencia: string
+  em_posse: string; comprado_janela: string; dias_janela: number
+  pedidos_janela: number; giro: string
+  baseline_giro: string | null; variacao: string | null
+  dias_sem_compra: number | null
+  classificacao: 'OK' | 'ATENCAO' | 'CRITICO'
+  motivo: string | null
+  cliente?: { id: number; nome: string }
+}
+
+export interface VigilanciaConfig {
+  dias_janela: number; giro_minimo: number; giro_critico: number
+  queda_atencao: number; queda_critica: number
+  dias_sem_compra_alerta: number; posse_minima_vigiada: number
+  dias_aviso_vencimento: number; ativo: boolean
+}
+
+/** Painel de giro: lê a última avaliação de cada cliente (o cálculo é do cron). */
+export const useVigilancia = (classificacao?: string) =>
+  useQuery<{ data: Avaliacao[]; config: VigilanciaConfig }>({
+    queryKey: ['comodatos', 'vigilancia', classificacao],
+    queryFn: async () =>
+      (await api.get('/comodatos/vigilancia', { params: { classificacao } })).data,
+  })
+
+/** Série histórica de um cliente — mostra a evolução, não só o retrato. */
+export const useHistoricoVigilancia = (clienteId: number | null) =>
+  useQuery<Avaliacao[]>({
+    queryKey: ['comodatos', 'vigilancia', 'historico', clienteId],
+    queryFn: async () => (await api.get(`/comodatos/vigilancia/${clienteId}`)).data.data,
+    enabled: clienteId !== null,
+  })
+
+export function useSalvarConfigVigilancia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (c: VigilanciaConfig) => (await api.put('/comodatos/config', c)).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['comodatos', 'vigilancia'] }),
+  })
+}
+
+/** Acrescenta vasilhames ao MESMO comodato e reemite o contrato. */
+export function useAcrescentarComodato() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: number; quantidade: number; observacao?: string }) =>
+      (await api.post(`/comodatos/${v.id}/acrescentar`, {
+        quantidade: v.quantidade, observacao: v.observacao,
+      })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['comodatos'] }),
+  })
+}
+
+/** Renova o vencimento e emite a versão nova do contrato. */
+export function useRenovarComodato() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: {
+      id: number; data_vencimento: string
+      nome_representante?: string; cpf_representante?: string
+    }) => (await api.post(`/comodatos/${v.id}/renovar`, v)).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comodatos'] })
+      qc.invalidateQueries({ queryKey: ['alertas'] })
+    },
+  })
+}

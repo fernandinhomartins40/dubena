@@ -7,6 +7,8 @@ use App\Domain\Satelite\ComodatoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\Comodato;
+use App\Models\Satelite\ComodatoAvaliacao;
+use App\Models\Satelite\ComodatoConfig;
 use App\Models\Satelite\ComodatoContrato;
 use App\Models\Satelite\ComodatoMovimento;
 use Illuminate\Http\JsonResponse;
@@ -166,6 +168,118 @@ class ComodatoController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="devolucao-'.$mov->id.'.pdf"',
         ]);
+    }
+
+    /**
+     * POST /comodatos/{id}/acrescentar — mais vasilhames no MESMO comodato.
+     *
+     * Sem isto o operador criava um comodato novo, e o cliente ficava com dois
+     * contratos para a mesma relação.
+     */
+    public function acrescentar(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.edit');
+        $d = $request->validate([
+            'quantidade' => 'required|numeric|gt:0',
+            'observacao' => 'nullable|string|max:255',
+        ]);
+
+        $comodato = Comodato::query()->findOrFail($id);
+
+        return response()->json([
+            'data' => $this->service->acrescentar(
+                $comodato, (float) $d['quantidade'], $request->user()->id, $d['observacao'] ?? null,
+            ),
+        ]);
+    }
+
+    /** POST /comodatos/{id}/renovar — novo vencimento + contrato reemitido. */
+    public function renovar(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.edit');
+        $d = $request->validate([
+            'data_vencimento' => 'required|date',
+            'nome_representante' => 'nullable|string|max:255',
+            'cpf_representante' => 'nullable|string|max:14',
+            'rg_representante' => 'nullable|string|max:20',
+        ]);
+
+        $comodato = Comodato::query()->findOrFail($id);
+
+        return response()->json([
+            'data' => $this->service->renovar($comodato, $d['data_vencimento'], $request->user()->id, $d),
+        ], 201);
+    }
+
+    /**
+     * GET /comodatos/vigilancia — o painel de giro por cliente.
+     *
+     * Lê a última avaliação de cada cliente; não recalcula. O cálculo é do cron
+     * — fazer na requisição varreria o histórico de pedidos a cada F5.
+     */
+    public function vigilancia(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        $empresaId = (int) $request->user()->empresa_id;
+
+        $ultimas = ComodatoAvaliacao::query()
+            ->with('cliente:id,nome')
+            ->where('empresa_id', $empresaId)
+            ->whereIn('id', function ($q) use ($empresaId) {
+                $q->selectRaw('max(id)')
+                    ->from('comodato_avaliacoes')
+                    ->where('empresa_id', $empresaId)
+                    ->groupBy('cliente_id');
+            })
+            ->when($request->query('classificacao'), fn ($b, $c) => $b->where('classificacao', $c))
+            ->orderByRaw("case classificacao when 'CRITICO' then 1 when 'ATENCAO' then 2 else 3 end")
+            ->orderByDesc('em_posse')
+            ->get();
+
+        return response()->json([
+            'data' => $ultimas,
+            'config' => ComodatoConfig::daEmpresa($empresaId),
+        ]);
+    }
+
+    /** GET /comodatos/vigilancia/{cliente} — a série histórica de um cliente. */
+    public function historicoVigilancia(Request $request, int $cliente): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        return response()->json([
+            'data' => ComodatoAvaliacao::query()
+                ->where('cliente_id', $cliente)
+                ->orderByDesc('referencia')
+                ->limit(24)
+                ->get(),
+        ]);
+    }
+
+    /** PUT /comodatos/config — a régua da vigilância. */
+    public function salvarConfig(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.config');
+
+        $d = $request->validate([
+            'dias_janela' => 'required|integer|min:30|max:730',
+            'giro_minimo' => 'required|numeric|min:0|max:999',
+            'giro_critico' => 'required|numeric|min:0|max:999',
+            'queda_atencao' => 'required|numeric|min:1|max:100',
+            'queda_critica' => 'required|numeric|min:1|max:100',
+            'dias_sem_compra_alerta' => 'required|integer|min:7|max:730',
+            'posse_minima_vigiada' => 'required|numeric|min:1',
+            'dias_aviso_vencimento' => 'required|integer|min:1|max:365',
+            'ativo' => 'boolean',
+        ]);
+
+        $config = ComodatoConfig::updateOrCreate(
+            ['empresa_id' => $request->user()->empresa_id],
+            array_merge($d, ['grupo_id' => $request->user()->grupo_id]),
+        );
+
+        return response()->json(['data' => $config]);
     }
 
     /** POST /comodatos/{id}/reemitir — versão nova sem mexer em saldo. */

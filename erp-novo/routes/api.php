@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
+use App\Http\Controllers\Api\Admin\AlertaController;
 use App\Http\Controllers\Api\Admin\ComodatoController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConfigGlobalController;
@@ -511,6 +512,10 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Comodato — N8 ──
         Route::get('comodatos', [ComodatoController::class, 'index']);
         Route::post('comodatos', [ComodatoController::class, 'store']);
+        // Vigilancia: o vasilhame emprestado esta rodando aqui ou na concorrencia?
+        Route::get('comodatos/vigilancia', [ComodatoController::class, 'vigilancia']);
+        Route::get('comodatos/vigilancia/{cliente}', [ComodatoController::class, 'historicoVigilancia'])->whereNumber('cliente');
+        Route::put('comodatos/config', [ComodatoController::class, 'salvarConfig']);
         // Extrato + versoes do contrato: e o que revela a devolucao parcial.
         Route::get('comodatos/{id}', [ComodatoController::class, 'show'])->whereNumber('id');
         // Contrato (item 20): o documento que protege o patrimonio da revenda.
@@ -518,6 +523,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         Route::get('comodatos/{id}/contrato', [ComodatoController::class, 'contrato'])->whereNumber('id');
         Route::post('comodatos/{id}/devolver', [ComodatoController::class, 'devolver'])->whereNumber('id');
         Route::post('comodatos/{id}/reemitir', [ComodatoController::class, 'reemitir'])->whereNumber('id');
+        // Ajuste de itens: acrescentar vasilhames ao MESMO comodato (antes exigia
+        // abrir outro) e renovar o vencimento -- ambos reemitem o contrato.
+        Route::post('comodatos/{id}/acrescentar', [ComodatoController::class, 'acrescentar'])->whereNumber('id');
+        Route::post('comodatos/{id}/renovar', [ComodatoController::class, 'renovar'])->whereNumber('id');
+        // -- Central de alertas -- fila de averiguacao da equipe --
+        Route::get('alertas', [AlertaController::class, 'index']);
+        Route::post('alertas/{id}/assumir', [AlertaController::class, 'assumir'])->whereNumber('id');
+        Route::post('alertas/{id}/encerrar', [AlertaController::class, 'encerrar'])->whereNumber('id');
         Route::post('comodatos/{id}/contratos/{contrato}/assinado', [ComodatoController::class, 'marcarAssinado'])
             ->whereNumber('id')->whereNumber('contrato');
         // Recibo da devolucao: a prova, para o CLIENTE, de que ele entregou.

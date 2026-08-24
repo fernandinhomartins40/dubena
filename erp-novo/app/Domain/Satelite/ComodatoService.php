@@ -191,6 +191,64 @@ class ComodatoService
     }
 
     /**
+     * ACRESCENTA vasilhames a um comodato existente.
+     *
+     * O caso real: o cliente cresceu e pediu mais 5 botijões. Antes disso, a
+     * única saída era criar um comodato novo — o cliente ficava com dois
+     * contratos para a mesma relação, e o total em poder dele só aparecia
+     * somando registros na mão.
+     *
+     * Aumenta a quantidade contratada, baixa o estoque da diferença e reemite o
+     * contrato com o total atualizado.
+     */
+    public function acrescentar(
+        Comodato $comodato,
+        float $quantidade,
+        ?int $userId = null,
+        ?string $observacao = null,
+    ): Comodato {
+        if ($quantidade <= 0) {
+            throw ValidationException::withMessages(['quantidade' => 'Quantidade deve ser positiva.']);
+        }
+
+        if (in_array((string) $comodato->situacao, ['CANCELADO', 'ENCERRADO', 'DEVOLVIDO'], true)) {
+            throw ValidationException::withMessages([
+                'quantidade' => 'Comodato encerrado não recebe acréscimo. Abra um comodato novo.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($comodato, $quantidade, $userId, $observacao) {
+            if ($comodato->setor_id) {
+                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-acrescimo', $comodato->id, $userId);
+            }
+
+            $saldo = round($this->emPosse($comodato) + $quantidade, 3);
+
+            // A quantidade CONTRATADA cresce; a devolvida não se mexe. Somar no
+            // lugar errado faria o saldo bater e o contrato mentir.
+            $comodato->update([
+                'quantidade' => round((float) $comodato->quantidade + $quantidade, 3),
+                'situacao' => (float) $comodato->quantidade_devolvida > 0 ? 'PARCIAL' : 'ATIVO',
+                'data_devolucao' => null,
+            ]);
+
+            $movimento = $this->registrarMovimento(
+                $comodato->refresh(),
+                ComodatoMovimento::EMPRESTIMO,
+                $quantidade,
+                $saldo,
+                now()->toDateString(),
+                $userId,
+                observacao: $observacao ?? 'Acréscimo ao comodato',
+            );
+
+            $this->emitirContrato($comodato->refresh(), ComodatoContrato::ACRESCIMO, $movimento, $userId);
+
+            return $comodato->refresh();
+        });
+    }
+
+    /**
      * Emite uma versão do contrato SEM mexer em saldo — para quando os dados do
      * cliente ou do signatário mudam e o papel precisa ser refeito.
      */
@@ -203,6 +261,46 @@ class ComodatoService
         }
 
         return DB::transaction(fn () => $this->emitirContrato($comodato, ComodatoContrato::REEMISSAO, null, $userId));
+    }
+
+    /**
+     * RENOVA o comodato: nova data de vencimento e contrato reemitido.
+     *
+     * O alerta de vencimento pede uma decisão — renovar ou recolher. Renovar
+     * sem reemitir o papel deixaria o cliente com um contrato vencido na gaveta
+     * e a revenda sem instrumento para reaver o vasilhame, que é exatamente o
+     * risco que o alerta aponta.
+     *
+     * @param  array<string,mixed>  $dadosSignatario  nome/cpf/rg do representante, quando mudaram
+     */
+    public function renovar(
+        Comodato $comodato,
+        string $novoVencimento,
+        ?int $userId = null,
+        array $dadosSignatario = [],
+    ): ComodatoContrato {
+        if ($this->emPosse($comodato) <= self::EPSILON) {
+            throw ValidationException::withMessages([
+                'comodato' => 'Não há vasilhame em poder do comodatário — nada a renovar.',
+            ]);
+        }
+
+        if (strtotime($novoVencimento) <= strtotime(now()->toDateString())) {
+            throw ValidationException::withMessages([
+                'data_vencimento' => 'O novo vencimento precisa ser futuro.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($comodato, $novoVencimento, $userId, $dadosSignatario) {
+            $comodato->update(array_merge(
+                array_intersect_key($dadosSignatario, array_flip([
+                    'nome_representante', 'cpf_representante', 'rg_representante',
+                ])),
+                ['data_vencimento' => $novoVencimento],
+            ));
+
+            return $this->emitirContrato($comodato->refresh(), ComodatoContrato::RENOVACAO, null, $userId);
+        });
     }
 
     /** Registra que a via assinada voltou — contrato sem assinatura não protege nada. */
