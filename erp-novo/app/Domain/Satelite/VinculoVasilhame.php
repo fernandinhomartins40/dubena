@@ -125,6 +125,11 @@ class VinculoVasilhame
         $catalogo ??= Produto::query()->where('ativo', true)->get();
 
         return $catalogo
+            // O par tem que ser da MESMA empresa. Sem isto o "Vasilha P13" da
+            // empresa 140 casava com o "Glp P13" da empresa 2 — um produto que
+            // jamais aparece nos pedidos dela. O consumo daria zero e todo
+            // cliente com comodato dessas empresas viraria alerta crítico falso.
+            ->filter(fn (Produto $p) => (int) $p->empresa_id === (int) $vasilhame->empresa_id)
             ->filter(fn (Produto $p) => $this->ehConteudo($p) && ! $this->ehVasilhame($p))
             ->filter(function (Produto $p) use ($capacidade) {
                 // `tipo_glp` é mais confiável que o texto quando existe: é campo

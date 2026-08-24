@@ -379,4 +379,33 @@ class ComodatoVigilanciaTest extends TestCase
         $this->assertSame(1, $r['vinculados']);
         $this->assertSame($this->gas->id, (int) $this->vasilhame->refresh()->produto_retornavel_id);
     }
+
+    /**
+     * O par não atravessa empresa.
+     *
+     * Medido em produção: o "Vasilha P13" das empresas 114-117 e 140 casava com
+     * o "Glp P13" da empresa 2. O consumo seria medido contra um produto que
+     * nunca aparece nos pedidos daquela empresa — giro zero para todos, e a base
+     * inteira delas viraria alerta crítico falso.
+     */
+    public function test_vinculo_nao_cruza_empresa(): void
+    {
+        $outraEmpresa = Empresa::factory()->create(['grupo_id' => $this->empresa->grupo_id]);
+
+        $vasilhameVizinho = Produto::create([
+            'empresa_id' => $outraEmpresa->id,
+            'grupo_id' => $outraEmpresa->grupo_id,
+            'descricao' => 'Vasilha P13 Kg',
+            'ativo' => true,
+        ]);
+
+        $vinculo = app(VinculoVasilhame::class);
+
+        // O gás compatível existe, mas é da empresa do setUp — não serve.
+        $this->assertNotContains($this->gas->id, $vinculo->conteudosDe($vasilhameVizinho));
+        $this->assertSame([], $vinculo->conteudosDe($vasilhameVizinho));
+
+        $vinculo->aplicar();
+        $this->assertNull($vasilhameVizinho->refresh()->produto_retornavel_id);
+    }
 }

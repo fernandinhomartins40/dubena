@@ -55,7 +55,13 @@ class VigilanciaComodatoService
         $config = ComodatoConfig::daEmpresa($empresaId);
         $referencia ??= now();
 
-        $catalogo = Produto::query()->where('ativo', true)->get();
+        // Catálogo da empresa avaliada, não o global: o produto que enche o
+        // vasilhame de um tenant nunca é o de outro, e carregar todos só
+        // convidaria o par a cruzar a fronteira.
+        $catalogo = Produto::query()
+            ->where('ativo', true)
+            ->where('empresa_id', $empresaId)
+            ->get();
         $resultado = [];
 
         foreach ($this->clientesComComodato($empresaId, $config) as $linha) {
