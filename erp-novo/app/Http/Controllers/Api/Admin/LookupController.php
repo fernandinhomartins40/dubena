@@ -88,9 +88,18 @@ class LookupController extends Controller
         [$tabela, $colLabel, $escopo] = self::MAPA[$tipo];
         $user = $request->user();
 
+        // Recorte por pai (ex.: ?cidade_id= em bairros/ruas). Sem isto o select
+        // de bairro de uma rua ofereceria bairros de QUALQUER cidade — e a base
+        // tem "Centro" em 35 cidades diferentes, todos indistinguíveis na lista.
+        $cidadeId = $request->query('cidade_id');
+
         $rows = DB::table($tabela)
             ->when($escopo === 'grupo' && $user?->grupo_id, fn ($b) => $b->where('grupo_id', $user->grupo_id))
             ->when($escopo === 'empresa' && $user?->empresa_id, fn ($b) => $b->where('empresa_id', $user->empresa_id))
+            ->when(
+                $cidadeId !== null && $cidadeId !== '' && Schema::hasColumn($tabela, 'cidade_id'),
+                fn ($b) => $b->where('cidade_id', (int) $cidadeId),
+            )
             ->when(Schema::hasColumn($tabela, 'ativo'), fn ($b) => $b->where('ativo', true))
             ->when($q !== '', fn ($b) => $b->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']))
             ->orderBy($colLabel)

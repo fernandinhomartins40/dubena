@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Search, MapPin, CheckCircle2, AlertTriangle } from 'lucide-react'
 import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
@@ -14,11 +14,47 @@ import {
 } from './api'
 import { ImportacaoTab } from './ImportacaoTab'
 
+/**
+ * Cidade selecionada, compartilhada entre as abas.
+ *
+ * Bairro e rua só existem DENTRO de uma cidade — a tabela tem `cidade_id`
+ * obrigatório. Antes, cada aba tinha seu próprio filtro começando vazio, então
+ * a lista abria misturando todas as cidades: "Centro" aparecia 35 vezes (uma
+ * por cidade) sem nada que as distinguisse, e o filtro escolhido numa aba se
+ * perdia ao trocar para a outra. A cidade agora é o CONTEXTO da página, não um
+ * filtro opcional de cada aba.
+ */
+const CidadeCtx = createContext<{
+  id: number | null
+  label: string | null
+  definir: (id: number | null, label: string | null) => void
+  /** Seleciona a cidade E vai para a aba do conteúdo dela, em um clique. */
+  abrir: (c: { id: number; descricao: string }, aba: 'bairros' | 'ruas') => void
+}>({ id: null, label: null, definir: () => {}, abrir: () => {} })
+
+const useCidadeSelecionada = () => useContext(CidadeCtx)
+
 export function GeograficoPage() {
+  const [aba, setAba] = useState('cidades')
+  const [cidade, setCidade] = useState<{ id: number | null; label: string | null }>({ id: null, label: null })
+
+  const ctx = {
+    id: cidade.id,
+    label: cidade.label,
+    definir: (id: number | null, label: string | null) => setCidade({ id, label }),
+    abrir: (c: { id: number; descricao: string }, destino: 'bairros' | 'ruas') => {
+      setCidade({ id: c.id, label: c.descricao })
+      setAba(destino)
+    },
+  }
+
+  // Só as abas que listam conteúdo DE uma cidade usam o seletor.
+  const dependeDeCidade = aba === 'bairros' || aba === 'ruas'
+
   return (
-    <div>
+    <CidadeCtx.Provider value={ctx}>
       <PageHeader title="Geográfico" subtitle="Cidades, bairros, ruas e regiões usados em endereços e entregas" />
-      <Tabs defaultValue="cidades">
+      <Tabs value={aba} onValueChange={setAba}>
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="cidades">Cidades</TabsTrigger>
           <TabsTrigger value="bairros">Bairros</TabsTrigger>
@@ -27,6 +63,9 @@ export function GeograficoPage() {
           <TabsTrigger value="importacao">Catálogo IBGE</TabsTrigger>
           <TabsTrigger value="inconsistencias">Inconsistências</TabsTrigger>
         </TabsList>
+
+        {dependeDeCidade && <BarraCidade />}
+
         <TabsContent value="cidades"><CidadesTab /></TabsContent>
         <TabsContent value="bairros"><BairrosTab /></TabsContent>
         <TabsContent value="ruas"><RuasTab /></TabsContent>
@@ -34,7 +73,36 @@ export function GeograficoPage() {
         <TabsContent value="importacao"><ImportacaoTab /></TabsContent>
         <TabsContent value="inconsistencias"><InconsistenciasTab /></TabsContent>
       </Tabs>
-    </div>
+    </CidadeCtx.Provider>
+  )
+}
+
+/** Seletor de cidade que vale para as abas de bairros e ruas. */
+function BarraCidade() {
+  const { id, label, definir } = useCidadeSelecionada()
+
+  return (
+    <Card className="mt-4 flex flex-wrap items-center gap-3 p-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <MapPin size={16} className="text-muted-foreground" />
+        Cidade
+      </div>
+      <div className="w-64">
+        <AsyncSelect endpoint="/lookups/cidades" value={id} valueLabel={label}
+          placeholder="Escolha a cidade" onChange={(v, opt) => definir(v, opt?.label ?? null)} />
+      </div>
+      {id !== null && (
+        <Button variant="ghost" size="sm" onClick={() => definir(null, null)}>Ver todas</Button>
+      )}
+      {id === null ? (
+        <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500">
+          <AlertTriangle size={13} />
+          Mostrando <strong>todas as cidades juntas</strong> — nomes como "Centro" se repetem em dezenas delas.
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">Listando apenas o que pertence a esta cidade.</p>
+      )}
+    </Card>
   )
 }
 
@@ -85,6 +153,7 @@ function ConfirmDelete({ open, nome, tipo, loading, onClose, onConfirm }: {
 
 // =================== CIDADES ===================
 function CidadesTab() {
+  const { abrir } = useCidadeSelecionada()
   const [q, setQ] = useState(''); const [uf, setUf] = useState(''); const [page, setPage] = useState(1)
   const { data, isLoading, isFetching } = useCidades(q, uf, page)
   const salvar = useSalvarGeo('cidades'); const excluir = useExcluirGeo('cidades')
@@ -104,6 +173,17 @@ function CidadesTab() {
     { key: 'descricao', header: 'Cidade', cell: (c) => <span className="font-medium">{c.descricao} {c.grupo_id === null && <Badge variant="secondary">global</Badge>}</span> },
     { key: 'uf', header: 'UF', align: 'center', width: 'w-16', cell: (c) => c.uf },
     { key: 'ibge', header: 'Cód. IBGE', align: 'right', cell: (c) => <span className="tabular-nums text-muted-foreground">{c.cod_ibge}</span> },
+    {
+      // Atalho para o conteúdo da cidade: sem ele, ver os bairros de uma cidade
+      // exigia trocar de aba e reencontrá-la no seletor.
+      key: 'conteudo', header: '', align: 'right', width: 'w-40',
+      cell: (c) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="sm" onClick={() => abrir(c, 'bairros')}>Bairros</Button>
+          <Button variant="ghost" size="sm" onClick={() => abrir(c, 'ruas')}>Ruas</Button>
+        </div>
+      ),
+    },
     acoesCol<Cidade>((c) => { setEdit(c); setUfLabel(c.uf) }, setDel),
   ]
 
@@ -135,12 +215,17 @@ function CidadesTab() {
 
 // =================== BAIRROS ===================
 function BairrosTab() {
-  const [q, setQ] = useState(''); const [cidadeId, setCidadeId] = useState<number | null>(null); const [cidadeLabel, setCidadeLabel] = useState<string | null>(null); const [page, setPage] = useState(1)
+  const { id: cidadeId, label: cidadeLabel } = useCidadeSelecionada()
+  const [q, setQ] = useState(''); const [page, setPage] = useState(1)
   const { data, isLoading, isFetching } = useBairros(q, cidadeId, page)
   const salvar = useSalvarGeo('bairros'); const excluir = useExcluirGeo('bairros')
   const [edit, setEdit] = useState<Partial<Bairro> | null>(null)
   const [editCidadeLabel, setEditCidadeLabel] = useState<string | null>(null)
   const [del, setDel] = useState<Bairro | null>(null)
+
+  // Trocar de cidade tem de voltar à primeira página: a página 7 da cidade
+  // anterior quase sempre nem existe na nova, e a lista abriria vazia.
+  useEffect(() => { setPage(1) }, [cidadeId])
 
   async function onSalvar() {
     if (!edit?.descricao?.trim() || !edit?.cidade_id) { toast.error('Descrição e cidade são obrigatórios.'); return }
@@ -150,19 +235,23 @@ function BairrosTab() {
 
   const columns: Column<Bairro>[] = [
     { key: 'descricao', header: 'Bairro', cell: (b) => <span className="font-medium">{b.descricao}</span> },
-    { key: 'cidade', header: 'Cidade', cell: (b) => <span className="text-muted-foreground">{b.cidade ?? '—'}</span> },
+    // A coluna Cidade só faz sentido quando a lista mistura cidades; com uma
+    // cidade escolhida ela repetiria o mesmo valor em todas as linhas.
+    ...(cidadeId === null
+      ? [{ key: 'cidade', header: 'Cidade', cell: (b: Bairro) => <span className="text-muted-foreground">{b.cidade ?? '—'}</span> } as Column<Bairro>]
+      : []),
     acoesCol<Bairro>((b) => { setEdit(b); setEditCidadeLabel(b.cidade) }, setDel),
   ]
 
   return (
     <>
-      <Toolbar q={q} setQ={(v) => { setPage(1); setQ(v) }} onNovo={() => { setEdit({}); setEditCidadeLabel(null) }} placeholder="Buscar bairro…">
-        <div className="w-56"><AsyncSelect endpoint="/lookups/cidades" value={cidadeId} valueLabel={cidadeLabel} placeholder="Filtrar cidade"
-          onChange={(id, opt) => { setPage(1); setCidadeId(id); setCidadeLabel(opt?.label ?? null) }} /></div>
-      </Toolbar>
+      <Toolbar q={q} setQ={(v) => { setPage(1); setQ(v) }}
+        onNovo={() => { setEdit({ cidade_id: cidadeId ?? undefined }); setEditCidadeLabel(cidadeLabel) }}
+        placeholder={cidadeId !== null ? `Buscar bairro em ${cidadeLabel}…` : 'Buscar bairro…'} />
       <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(b) => b.id} onRowClick={(b) => { setEdit(b); setEditCidadeLabel(b.cidade) }}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
-        empty={<EmptyState icon={<MapPin />} title="Nenhum bairro" />} />
+        empty={<EmptyState icon={<MapPin />} title="Nenhum bairro"
+          description={cidadeLabel ? `Nenhum bairro cadastrado em ${cidadeLabel}.` : undefined} />} />
 
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
         title={edit?.id ? 'Editar bairro' : 'Novo bairro'} loading={salvar.isPending} onConfirm={onSalvar}>
@@ -179,45 +268,70 @@ function BairrosTab() {
 
 // =================== RUAS ===================
 function RuasTab() {
-  const [q, setQ] = useState(''); const [cidadeId, setCidadeId] = useState<number | null>(null); const [cidadeLabel, setCidadeLabel] = useState<string | null>(null); const [page, setPage] = useState(1)
+  const { id: cidadeId, label: cidadeLabel } = useCidadeSelecionada()
+  const [q, setQ] = useState(''); const [page, setPage] = useState(1)
   const { data, isLoading, isFetching } = useRuas(q, cidadeId, page)
   const salvar = useSalvarGeo('ruas'); const excluir = useExcluirGeo('ruas')
   const [edit, setEdit] = useState<Partial<Rua> | null>(null)
   const [editCidadeLabel, setEditCidadeLabel] = useState<string | null>(null)
+  const [editBairroLabel, setEditBairroLabel] = useState<string | null>(null)
   const [del, setDel] = useState<Rua | null>(null)
+
+  useEffect(() => { setPage(1) }, [cidadeId])
 
   async function onSalvar() {
     if (!edit?.descricao?.trim() || !edit?.cidade_id) { toast.error('Descrição e cidade são obrigatórios.'); return }
-    try { await salvar.mutateAsync({ id: edit.id, descricao: edit.descricao, cidade_id: edit.cidade_id, cep: edit.cep ?? null, ativo: edit.ativo !== 0 }); toast.success('Rua salva.'); setEdit(null) }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao salvar.') }
+    try {
+      await salvar.mutateAsync({
+        id: edit.id, descricao: edit.descricao, cidade_id: edit.cidade_id,
+        bairro_id: edit.bairro_id ?? null, cep: edit.cep ?? null, ativo: edit.ativo !== 0,
+      })
+      toast.success('Rua salva.'); setEdit(null)
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao salvar.') }
   }
 
   const columns: Column<Rua>[] = [
     { key: 'descricao', header: 'Rua', cell: (r) => <span className="font-medium">{r.descricao} {r.ativo === 0 && <Badge variant="secondary">inativa</Badge>}</span> },
-    { key: 'cidade', header: 'Cidade', cell: (r) => <span className="text-muted-foreground">{r.cidade ?? '—'}</span> },
+    ...(cidadeId === null
+      ? [{ key: 'cidade', header: 'Cidade', cell: (r: Rua) => <span className="text-muted-foreground">{r.cidade ?? '—'}</span> } as Column<Rua>]
+      : []),
     { key: 'bairro', header: 'Bairro', cell: (r) => <span className="text-muted-foreground">{r.bairro?.descricao ?? '—'}</span> },
     { key: 'cep', header: 'CEP', cell: (r) => <span className="text-muted-foreground tabular-nums">{r.cep || '—'}</span> },
-    acoesCol<Rua>((r) => { setEdit(r); setEditCidadeLabel(r.cidade) }, setDel),
+    acoesCol<Rua>((r) => { setEdit(r); setEditCidadeLabel(r.cidade); setEditBairroLabel(r.bairro?.descricao ?? null) }, setDel),
   ]
 
   return (
     <>
-      <Toolbar q={q} setQ={(v) => { setPage(1); setQ(v) }} onNovo={() => { setEdit({ ativo: 1 }); setEditCidadeLabel(null) }} placeholder="Buscar rua…">
-        <div className="w-56"><AsyncSelect endpoint="/lookups/cidades" value={cidadeId} valueLabel={cidadeLabel} placeholder="Filtrar cidade"
-          onChange={(id, opt) => { setPage(1); setCidadeId(id); setCidadeLabel(opt?.label ?? null) }} /></div>
-      </Toolbar>
-      <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(r) => r.id} onRowClick={(r) => { setEdit(r); setEditCidadeLabel(r.cidade) }}
+      <Toolbar q={q} setQ={(v) => { setPage(1); setQ(v) }}
+        onNovo={() => { setEdit({ ativo: 1, cidade_id: cidadeId ?? undefined }); setEditCidadeLabel(cidadeLabel); setEditBairroLabel(null) }}
+        placeholder={cidadeId !== null ? `Buscar rua em ${cidadeLabel}…` : 'Buscar rua…'} />
+      <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(r) => r.id}
+        onRowClick={(r) => { setEdit(r); setEditCidadeLabel(r.cidade); setEditBairroLabel(r.bairro?.descricao ?? null) }}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
-        empty={<EmptyState icon={<MapPin />} title="Nenhuma rua" />} />
+        empty={<EmptyState icon={<MapPin />} title="Nenhuma rua"
+          description={cidadeLabel ? `Nenhuma rua cadastrada em ${cidadeLabel}.` : undefined} />} />
 
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}
         title={edit?.id ? 'Editar rua' : 'Nova rua'} loading={salvar.isPending} onConfirm={onSalvar}>
         <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Cidade" required><AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
-            onChange={(id, opt) => { setEdit((s) => ({ ...s, cidade_id: id ?? undefined })); setEditCidadeLabel(opt?.label ?? null) }} /></Field>
-          <Field label="CEP"><Input value={edit?.cep ?? ''} maxLength={9} onChange={(e) => setEdit((s) => ({ ...s, cep: e.target.value }))} /></Field>
+          <Field label="Cidade" required>
+            <AsyncSelect endpoint="/lookups/cidades" value={edit?.cidade_id ?? null} valueLabel={editCidadeLabel}
+              onChange={(id, opt) => {
+                // Trocar a cidade invalida o bairro: ele pertence à cidade
+                // anterior e deixá-lo gravaria uma rua com bairro de outra cidade.
+                setEdit((s) => ({ ...s, cidade_id: id ?? undefined, bairro_id: null }))
+                setEditCidadeLabel(opt?.label ?? null)
+                setEditBairroLabel(null)
+              }} />
+          </Field>
+          <Field label="Bairro" hint={edit?.cidade_id ? undefined : 'Escolha a cidade primeiro.'}>
+            <AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: edit?.cidade_id }}
+              disabled={!edit?.cidade_id} value={edit?.bairro_id ?? null} valueLabel={editBairroLabel}
+              onChange={(id, opt) => { setEdit((s) => ({ ...s, bairro_id: id })); setEditBairroLabel(opt?.label ?? null) }} />
+          </Field>
         </div>
+        <Field label="CEP"><Input value={edit?.cep ?? ''} maxLength={9} onChange={(e) => setEdit((s) => ({ ...s, cep: e.target.value }))} /></Field>
         <CheckboxField label="Ativa" checked={edit?.ativo !== 0} onChange={(b) => setEdit((s) => ({ ...s, ativo: b ? 1 : 0 }))} />
       </FormDialog>
 

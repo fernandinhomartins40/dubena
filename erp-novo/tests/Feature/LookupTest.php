@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Empresa;
 use App\Models\Estado;
+use App\Models\Geografico\Bairro;
+use App\Models\Geografico\Cidade;
 use App\Models\Produto\Produto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,6 +39,31 @@ class LookupTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['data' => [['id', 'label']]])
             ->assertJsonPath('data.0.label', 'Botijão P13');
+    }
+
+    public function test_lookup_de_bairros_recorta_pela_cidade(): void
+    {
+        $u = $this->user();
+        Estado::firstOrCreate(['uf' => 'PR'], ['descricao' => 'Paraná', 'cod_ibge' => 41]);
+
+        $guarapuava = Cidade::factory()->create(['grupo_id' => $u->grupo_id, 'descricao' => 'Guarapuava', 'uf' => 'PR']);
+        $curitiba = Cidade::factory()->create(['grupo_id' => $u->grupo_id, 'descricao' => 'Curitiba', 'uf' => 'PR']);
+
+        // "Centro" existe em 35 cidades da base real: sem o recorte, o select
+        // de bairro ofereceria todos eles, indistinguíveis na lista.
+        Bairro::create(['grupo_id' => $u->grupo_id, 'cidade_id' => $guarapuava->id, 'descricao' => 'Centro', 'ativo' => true]);
+        Bairro::create(['grupo_id' => $u->grupo_id, 'cidade_id' => $curitiba->id, 'descricao' => 'Centro', 'ativo' => true]);
+
+        $this->actingAs($u, 'sanctum')
+            ->getJson('/api/admin/lookups/bairros?cidade_id='.$guarapuava->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        // Sem o parâmetro o comportamento antigo é preservado (lista tudo).
+        $this->actingAs($u, 'sanctum')
+            ->getJson('/api/admin/lookups/bairros')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
     }
 
     public function test_lookup_estatico_parentescos(): void
