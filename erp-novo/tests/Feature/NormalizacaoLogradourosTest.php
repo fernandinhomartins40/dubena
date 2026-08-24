@@ -114,6 +114,8 @@ class NormalizacaoLogradourosTest extends TestCase
             ['Rua Maria Eleni da Silva Virmond', 'RUA MARIO VIRMOND'],
             ['Rua Sao Jose', 'COMUNIDADE VILAREJO SAO JOSE'],
             ['Rua Santo Inacio', 'RUA SANTA INES'],
+            // Duas cidades do Paraná separadas por uma letra — não é digitação.
+            ['Rua Matinhos', 'ESTRADA DE PATINHOS'],
         ];
 
         foreach ($falsos as [$cadastrado, $oficial]) {
@@ -135,6 +137,7 @@ class NormalizacaoLogradourosTest extends TestCase
             ['Rua Carla Selhorst de Souza', 'RUA CARLA SELHORST SOUZA'], // partícula
             ['Avenida Brasil', 'RUA BRASIL'],                    // só o tipo muda
             ['Rua Dez de Setembro', 'RUA 10 DE SETEMBRO'],       // extenso/dígito
+            ['Rua Alvorada', 'RUA DA ALVORADA'],                 // artigo a mais
         ];
 
         foreach ($verdadeiros as [$cadastrado, $oficial]) {
@@ -144,6 +147,31 @@ class NormalizacaoLogradourosTest extends TestCase
                 "Deveria propor '{$oficial}' para '{$cadastrado}'.",
             );
         }
+    }
+
+    /**
+     * Troca deliberada: via de UM token só não tolera letra trocada.
+     *
+     * O custo de errar é assimétrico. Renomear "Rua Matinhos" para "Patinhos"
+     * corrompe o endereço de clientes reais; deixar "Barueri"/"BAURUERI" sem
+     * proposta apenas mantém o que já existe. Sem um segundo token para
+     * corroborar, uma letra separa coisas legítimas — então exigimos exato.
+     */
+    public function test_via_de_um_token_exige_nome_exato(): void
+    {
+        // Erro de digitação real, mas de token único: fica de fora, e isso é
+        // intencional — o par acima ("Matinhos"/"Patinhos") é indistinguível
+        // deste pelo mesmo critério.
+        $this->assertLessThan(
+            NormalizarLogradouros::LIMIAR_PROVAVEL,
+            NormalizadorTexto::similaridadeLogradouro('Rua Barueri', 'RUA BAURUERI'),
+        );
+
+        // Com dois tokens, a corroboração existe e a letra trocada é aceita.
+        $this->assertGreaterThanOrEqual(
+            NormalizarLogradouros::LIMIAR_PROVAVEL,
+            NormalizadorTexto::similaridadeLogradouro('Rua Alcides Rossoni', 'RUA ALCIDES ROSSINI'),
+        );
     }
 
     public function test_reconhece_rua_que_bate_exatamente(): void

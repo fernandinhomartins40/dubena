@@ -349,6 +349,12 @@ final class NormalizadorTexto
             return 0.0;
         }
 
+        // Via de nome curto (um token de cada lado) NÃO tolera letra trocada: aí
+        // não há um segundo token para corroborar, e uma letra separa coisas
+        // reais. Medido em produção: "Rua Matinhos" × "ESTRADA DE PATINHOS" são
+        // duas cidades do Paraná, não um erro de digitação.
+        $exigirExato = count($ta) === 1 && count($tb) === 1;
+
         $casados = 0;
         $restantes = $tb;
 
@@ -356,7 +362,11 @@ final class NormalizadorTexto
             foreach ($restantes as $i => $outro) {
                 // Tolera a letra trocada do erro de digitação ("Seetembro"),
                 // que é justamente o caso que queremos pegar.
-                if ($token === $outro || self::tokenParecido($token, $outro)) {
+                $casa = $exigirExato
+                    ? $token === $outro
+                    : ($token === $outro || self::tokenParecido($token, $outro));
+
+                if ($casa) {
                     $casados++;
                     unset($restantes[$i]);
                     break;
