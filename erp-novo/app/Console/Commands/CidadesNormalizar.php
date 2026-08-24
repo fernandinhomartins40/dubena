@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Geografico\ColisaoDeNome;
 use App\Domain\Geografico\NormalizarCidades;
 use App\Models\Cliente\Cliente;
 use Illuminate\Console\Command;
@@ -139,12 +140,35 @@ class CidadesNormalizar extends Command
         }
 
         $corrigidas = 0;
+        $colisoes = [];
+
         foreach ($por['nome_divergente'] as $i) {
-            $normalizador->corrigirNome($i['cidade'], $i['oficial']);
-            $corrigidas++;
+            try {
+                $normalizador->corrigirNome($i['cidade'], $i['oficial']);
+                $corrigidas++;
+            } catch (ColisaoDeNome $e) {
+                // Uma colisão não pode abortar as outras correções: cada cidade
+                // é independente, e as que dão para acertar devem ser acertadas.
+                $colisoes[] = $e;
+            }
         }
 
         $this->info("{$corrigidas} nome(s) corrigido(s). Os ids não mudaram — nenhum cliente trocou de cidade.");
+
+        if ($colisoes !== []) {
+            $this->newLine();
+            $this->line('<comment>Não corrigidas — o nome oficial já pertence a outro registro:</comment>');
+            $this->table(
+                ['Manter', 'Duplicata', 'Nome oficial', 'Clientes na duplicata'],
+                array_map(fn (ColisaoDeNome $c) => [
+                    "#{$c->existente->id} {$c->existente->descricao}",
+                    "#{$c->cidade->id} {$c->cidade->descricao}",
+                    $c->oficial->nome.'/'.$c->oficial->uf,
+                    $this->clientes($c->cidade->id),
+                ], $colisoes),
+            );
+            $this->line('São a mesma cidade em dois registros. A fusão move clientes entre eles — decisão do dono.');
+        }
 
         return self::SUCCESS;
     }

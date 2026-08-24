@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Geografico\ColisaoDeNome;
 use App\Domain\Geografico\NormalizarCidades;
 use App\Models\Empresa;
 use App\Models\Estado;
@@ -170,6 +171,61 @@ class NormalizacaoCidadesTest extends TestCase
         $this->assertSame('PR', $cidade->uf);
         $this->assertSame(4104204, $cidade->cod_ibge);
         $this->assertSame(4104204, $cidade->municipio_ibge);
+    }
+
+    /**
+     * Caso pego APLICANDO em produção, não pelos testes: corrigir a grafia
+     * esbarra em `cidades_grupo_id_descricao_uf_unique` quando o nome oficial
+     * já pertence a outro registro.
+     */
+    public function test_corrigir_nome_recusa_quando_colide_com_outro_registro(): void
+    {
+        $e = $this->ambiente();
+        // Os dois registros reais: um com a grafia certa, outro com o erro.
+        $certa = $this->cidade($e, 'Coronel Vivida', 'PR', 4106506, 4106506);
+        $errada = $this->cidade($e, 'CORENEL VIVIDA', 'PR', 4106506, 4106506);
+
+        $normalizador = app(NormalizarCidades::class);
+        $oficial = MunicipioIbge::query()->find(4106506);
+
+        $this->assertNotNull($normalizador->colideCom($errada, $oficial));
+
+        try {
+            $normalizador->corrigirNome($errada, $oficial);
+            $this->fail('Deveria ter recusado a correção.');
+        } catch (ColisaoDeNome $exc) {
+            $this->assertSame($certa->id, $exc->existente->id);
+        }
+
+        // O registro não pode ter sido tocado.
+        $this->assertSame('CORENEL VIVIDA', $errada->refresh()->descricao);
+    }
+
+    public function test_correcao_de_uma_cidade_nao_impede_as_outras(): void
+    {
+        $e = $this->ambiente();
+        $this->cidade($e, 'Coronel Vivida', 'PR', 4106506, 4106506);
+        $colidente = $this->cidade($e, 'CORENEL VIVIDA', 'PR', 4106506, 4106506);
+        $livre = $this->cidade($e, 'MATELANDIA', 'PR', 4115606, 4115606);
+
+        $normalizador = app(NormalizarCidades::class);
+        $corrigidas = 0;
+
+        foreach ($normalizador->analisar() as $i) {
+            if ($i['situacao'] !== 'nome_divergente') {
+                continue;
+            }
+            try {
+                $normalizador->corrigirNome($i['cidade'], $i['oficial']);
+                $corrigidas++;
+            } catch (ColisaoDeNome) {
+                // Uma colisão não pode abortar as demais.
+            }
+        }
+
+        $this->assertSame(1, $corrigidas);
+        $this->assertSame('Matelândia', $livre->refresh()->descricao);
+        $this->assertSame('CORENEL VIVIDA', $colidente->refresh()->descricao);
     }
 
     public function test_duplicatas_excluem_distritos(): void

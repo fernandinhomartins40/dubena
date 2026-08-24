@@ -155,15 +155,46 @@ class NormalizarCidades
      *
      * O id não muda: 44 mil clientes apontam para `cidades.id` e recriar o
      * registro apagaria o endereço deles. Só o texto exibido é acertado.
+     *
+     * @throws ColisaoDeNome quando já existe outra cidade do grupo com o nome
+     *                       oficial — ver o porquê em `colideCom()`.
      */
     public function corrigirNome(Cidade $cidade, MunicipioIbge $oficial): void
     {
+        $colidente = $this->colideCom($cidade, $oficial);
+
+        if ($colidente !== null) {
+            throw new ColisaoDeNome($cidade, $colidente, $oficial);
+        }
+
         DB::transaction(fn () => $cidade->forceFill([
             'descricao' => $oficial->nome,
             'uf' => $oficial->uf,
             'cod_ibge' => $oficial->cod_ibge,
             'municipio_ibge' => $oficial->cod_ibge,
         ])->save());
+    }
+
+    /**
+     * Já existe OUTRA cidade do grupo com o nome oficial?
+     *
+     * Descoberto aplicando em produção: corrigir "CORENEL VIVIDA" para "Coronel
+     * Vivida" esbarra em `cidades_grupo_id_descricao_uf_unique`, porque o
+     * registro #622 já tem exatamente esse nome.
+     *
+     * A colisão não é obstáculo a contornar — é a DUPLICATA se revelando. Os
+     * dois registros são a mesma cidade, e o que falta não é renomear, é
+     * decidir qual sobrevive e para onde vão os clientes do outro. Fundir é
+     * decisão humana, então aqui apenas recusamos com a informação completa.
+     */
+    public function colideCom(Cidade $cidade, MunicipioIbge $oficial): ?Cidade
+    {
+        return Cidade::withoutGrupo()
+            ->where('grupo_id', $cidade->grupo_id)
+            ->where('descricao', $oficial->nome)
+            ->where('uf', $oficial->uf)
+            ->where('id', '!=', $cidade->id)
+            ->first();
     }
 
     /**
