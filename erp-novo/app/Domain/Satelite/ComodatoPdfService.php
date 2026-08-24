@@ -5,6 +5,8 @@ namespace App\Domain\Satelite;
 use App\Domain\Shared\PdfService;
 use App\Models\Empresa;
 use App\Models\Satelite\Comodato;
+use App\Models\Satelite\ComodatoContrato;
+use App\Models\Satelite\ComodatoMovimento;
 
 /**
  * Contrato de comodato de vasilhame (item 20 da triagem).
@@ -32,11 +34,21 @@ class ComodatoPdfService
     /**
      * Gera o contrato de um comodato.
      *
+     * Passando uma `$versao`, os números impressos vêm CONGELADOS dela — é
+     * assim que a via 1 continua dizendo "5 botijões" depois de o cliente
+     * devolver 2. Sem versão, imprime o estado atual (comportamento antigo,
+     * ainda usado por comodato do legado, que não tem versão nenhuma).
+     *
      * @throws \DomainException se o comodato já estiver encerrado
      */
-    public function contrato(Comodato $comodato): string
+    public function contrato(Comodato $comodato, ?ComodatoContrato $versao = null): string
     {
-        $this->exigirImprimivel($comodato);
+        // Reimpressão de uma versão JÁ EMITIDA não passa pelo guarda: o
+        // documento existiu, foi assinado, e negar a segunda via apagaria a
+        // prova de uma posse que era real na data da emissão.
+        if ($versao === null) {
+            $this->exigirImprimivel($comodato);
+        }
 
         $comodato->loadMissing(['cliente.telefones', 'produto']);
         $empresa = Empresa::query()->find($comodato->empresa_id);
@@ -44,8 +56,8 @@ class ComodatoPdfService
         $cliente = $comodato->cliente;
         $doc = (string) ($cliente?->cnpj ?: $cliente?->cpf ?: '');
 
-        $qtd = (float) $comodato->quantidade;
-        $devolvida = (float) $comodato->quantidade_devolvida;
+        $qtd = (float) ($versao->quantidade_contratada ?? $comodato->quantidade);
+        $devolvida = (float) ($versao->quantidade_devolvida ?? $comodato->quantidade_devolvida);
         $pendente = round($qtd - $devolvida, 3);
 
         $identificacao = $this->pdf->campos([
@@ -84,7 +96,10 @@ class ComodatoPdfService
         $datas = $this->pdf->campos([
             'Data do empréstimo' => $comodato->data_emprestimo?->format('d/m/Y') ?? '',
             'Situação' => (string) $comodato->situacao,
-            'Contrato nº' => (string) $comodato->id,
+            'Contrato nº' => $versao !== null
+                ? sprintf('%d — versão %d', $comodato->id, $versao->versao)
+                : (string) $comodato->id,
+            'Emitido em' => $versao?->created_at?->format('d/m/Y H:i'),
         ]);
 
         $corpo = '<h2 style="font-size:11px;margin:10px 0 4px">1. Partes</h2>'
@@ -93,6 +108,7 @@ class ComodatoPdfService
             .'<h2 style="font-size:11px;margin:10px 0 4px">2. Objeto do comodato</h2>'
             .$objeto
             .$datas
+            .$this->notaDeVersao($versao)
             .'<h2 style="font-size:11px;margin:10px 0 4px">3. Cláusulas</h2>'
             .$this->clausulas()
             .$this->duasAssinaturas();
@@ -113,12 +129,19 @@ class ComodatoPdfService
      * o vasilhame e deve devolvê-lo. Imprimir isso depois da devolução total
      * criaria documento afirmando uma posse que não existe — que o cliente
      * poderia ser cobrado com base nela.
+     *
+     * `ENCERRADO` está na lista porque o ETL trouxe 745 comodatos do legado com
+     * essa situação, que o código não conhecia. Barrar só `DEVOLVIDO` deixava
+     * todos os 745 imprimindo contrato de posse encerrada — exatamente o risco
+     * que este guarda existe para evitar.
      */
     private function exigirImprimivel(Comodato $comodato): void
     {
-        if ($comodato->situacao === 'DEVOLVIDO') {
+        $encerradas = ['DEVOLVIDO', 'ENCERRADO', 'CANCELADO'];
+
+        if (in_array((string) $comodato->situacao, $encerradas, true)) {
             throw new \DomainException(
-                'Comodato já devolvido não gera contrato: o documento afirmaria uma posse que não existe mais.'
+                'Comodato encerrado não gera contrato: o documento afirmaria uma posse que não existe mais.'
             );
         }
 
@@ -127,6 +150,100 @@ class ComodatoPdfService
         if ($pendente <= 0) {
             throw new \DomainException('Não há vasilhame em poder do comodatário — nada a contratar.');
         }
+    }
+
+    /**
+     * Explica no papel por que existe uma versão 2.
+     *
+     * Sem isso o cliente recebe um contrato com número menor que o assinado
+     * antes e não tem como saber que é o mesmo empréstimo com devolução
+     * abatida — a leitura natural seria "emprestaram menos do que combinamos".
+     */
+    private function notaDeVersao(?ComodatoContrato $versao): string
+    {
+        if ($versao === null || $versao->motivo === ComodatoContrato::EMISSAO_INICIAL) {
+            return '';
+        }
+
+        $texto = $versao->motivo === ComodatoContrato::DEVOLUCAO_PARCIAL
+            ? sprintf(
+                'Esta é a versão %d do contrato nº %d, emitida após devolução parcial de %s '
+                .'unidade(s). As quantidades acima já refletem o abatimento; a versão anterior '
+                .'fica sem efeito a partir desta data.',
+                $versao->versao,
+                $versao->comodato_id,
+                $this->num((float) ($versao->movimento?->quantidade ?? 0)),
+            )
+            : sprintf(
+                'Esta é a versão %d do contrato nº %d, reemitida em substituição à anterior, '
+                .'que fica sem efeito a partir desta data.',
+                $versao->versao,
+                $versao->comodato_id,
+            );
+
+        return '<p style="margin:6px 0 0;padding:6px;background:#f1f5f9;'
+            .'border-left:3px solid #64748b;font-size:9px;text-align:justify">'
+            .e($texto).'</p>';
+    }
+
+    /**
+     * Recibo de devolução — a prova, para o CLIENTE, de que ele entregou.
+     *
+     * O contrato protege a revenda; este documento protege quem devolveu. Sem
+     * ele o cliente sai da entrega sem nada na mão, e uma cobrança futura pelo
+     * vasilhame vira palavra contra palavra.
+     */
+    public function reciboDevolucao(ComodatoMovimento $movimento): string
+    {
+        if ($movimento->tipo !== ComodatoMovimento::DEVOLUCAO) {
+            throw new \DomainException('Só devolução gera recibo.');
+        }
+
+        $comodato = $movimento->comodato;
+        $comodato->loadMissing(['cliente', 'produto']);
+        $empresa = Empresa::query()->find($comodato->empresa_id);
+        $cliente = $comodato->cliente;
+
+        $corpo = '<p style="margin:0 0 8px;text-align:justify">'
+            .'A REVENDA declara ter <strong>RECEBIDO</strong> do comodatário abaixo '
+            .'identificado o(s) vasilhame(s) descrito(s), objeto do contrato de comodato '
+            .'nº '.e((string) $comodato->id).'.</p>'
+            .$this->pdf->campos([
+                'Comodatário' => (string) ($cliente?->nome ?? ''),
+                'CPF / CNPJ' => $this->documento((string) ($cliente?->cnpj ?: $cliente?->cpf ?: '')),
+                'Recibo nº' => (string) $movimento->id,
+            ])
+            .$this->pdf->itens(
+                ['Produto', 'Devolvido agora', 'Ainda em poder do comodatário'],
+                [[
+                    (string) ($comodato->produto->descricao ?? ''),
+                    $this->num((float) $movimento->quantidade),
+                    $this->num((float) $movimento->saldo_apos),
+                ]],
+            )
+            .$this->pdf->campos([
+                'Data da devolução' => $movimento->data?->format('d/m/Y') ?? '',
+                'Recebido por' => (string) ($movimento->usuario?->name ?? ''),
+                'Observação' => $movimento->observacao,
+            ])
+            // O saldo remanescente é a informação que evita a briga seguinte: o
+            // cliente precisa sair sabendo quantos ainda estão com ele.
+            .($movimento->saldo_apos > 0
+                ? '<p style="margin:8px 0 0;padding:6px;background:#fef3c7;border-left:3px solid #d97706;'
+                    .'font-size:9px">Permanecem <strong>'.e($this->num((float) $movimento->saldo_apos))
+                    .'</strong> unidade(s) em poder do comodatário, regidas pela versão vigente do contrato.</p>'
+                : '<p style="margin:8px 0 0;padding:6px;background:#dcfce7;border-left:3px solid #16a34a;'
+                    .'font-size:9px">Devolução <strong>integral</strong>: o comodato está encerrado e '
+                    .'nada mais é devido quanto ao vasilhame.</p>')
+            .$this->duasAssinaturas();
+
+        return $this->pdf->documento('Recibo de Devolução de Vasilhame', $corpo, [
+            'empresa' => (string) ($empresa->razao_social ?? ''),
+            'cnpj' => (string) ($empresa->cnpj ?? ''),
+            'endereco' => $this->enderecoDa($empresa),
+            'rodape' => 'Via do comodatário. Este documento comprova a devolução descrita acima '
+                .'e não é recibo de pagamento nem nota fiscal.',
+        ]);
     }
 
     private function partes(?Empresa $empresa): string

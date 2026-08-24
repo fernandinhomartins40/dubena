@@ -28,7 +28,11 @@ final class PermissaoCatalogo
         'fiscal' => ['view', 'edit', 'emitir'],
         'convenio' => ['view', 'edit'],
         'valegas' => ['view', 'edit'],
-        'comodato' => ['view', 'edit'],
+        // `estornar` é separado de `edit` porque desfaz uma devolução JÁ
+        // recebida: o vasilhame volta a constar em poder do cliente e o estoque
+        // é baixado de novo. Quem registra a entrega no balcão não precisa
+        // poder anulá-la.
+        'comodato' => ['view', 'edit', 'estornar'],
         'monitora' => ['view', 'edit'],
         // Central de Logística (L1) — fila, atribuição, redistribuição, bloqueio.
         'logistica' => ['view', 'distribuir', 'config'],

@@ -7,6 +7,8 @@ use App\Domain\Satelite\ComodatoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Satelite\Comodato;
+use App\Models\Satelite\ComodatoContrato;
+use App\Models\Satelite\ComodatoMovimento;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +27,7 @@ class ComodatoController extends Controller
 
         $rows = Comodato::query()->with(['cliente:id,nome', 'produto:id,descricao'])
             ->when($request->query('situacao'), fn ($b, $s) => $b->where('situacao', $s))
+            ->when($request->query('cliente_id'), fn ($b, $c) => $b->where('cliente_id', $c))
             ->orderByDesc('data_emprestimo')->get();
 
         return response()->json(['data' => $rows]);
@@ -39,6 +42,10 @@ class ComodatoController extends Controller
             'setor_id' => 'nullable|integer|exists:setores,id',
             'quantidade' => 'required|numeric|gt:0',
             'data_emprestimo' => 'nullable|date',
+            'nome_representante' => 'nullable|string|max:255',
+            'cpf_representante' => 'nullable|string|max:14',
+            'rg_representante' => 'nullable|string|max:20',
+            'data_vencimento' => 'nullable|date',
         ]);
         $d['empresa_id'] = $request->user()->empresa_id;
         $d['grupo_id'] = $request->user()->grupo_id;
@@ -47,7 +54,46 @@ class ComodatoController extends Controller
     }
 
     /**
+     * GET /comodatos/{id} — o comodato com extrato e versões do contrato.
+     *
+     * É o que a gaveta de detalhe consome: sem o extrato o operador não tem como
+     * ver que houve devolução parcial, nem qual versão do contrato está valendo.
+     */
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        $comodato = Comodato::query()->with(['cliente:id,nome', 'produto:id,descricao'])->findOrFail($id);
+
+        $movimentos = ComodatoMovimento::query()
+            ->where('comodato_id', $comodato->id)
+            ->with('usuario:id,name')
+            ->orderByDesc('id')
+            ->get();
+
+        // Quais devoluções já foram anuladas — a tela precisa saber para não
+        // oferecer "estornar" duas vezes na mesma linha.
+        $estornados = $movimentos
+            ->whereNotNull('estorna_id')
+            ->pluck('estorna_id')
+            ->all();
+
+        return response()->json(['data' => [
+            'comodato' => $comodato,
+            'em_posse' => $this->service->emPosse($comodato),
+            'movimentos' => $movimentos->map(fn ($m) => array_merge($m->toArray(), [
+                'estornado' => in_array($m->id, $estornados, true),
+            ])),
+            'contratos' => $this->service->contratos($comodato),
+        ]]);
+    }
+
+    /**
      * GET /comodatos/{id}/contrato — o documento que protege o vasilhame.
+     *
+     * Sem `?versao=`, imprime a versão VIGENTE (a última emitida). Com, imprime
+     * aquela versão como ela foi emitida — é assim que se tira segunda via do
+     * papel que o cliente assinou antes da devolução parcial.
      *
      * Permissao de leitura: imprimir nao altera nada. Quem consulta o comodato
      * precisa poder gerar o contrato para colher a assinatura.
@@ -58,21 +104,116 @@ class ComodatoController extends Controller
 
         $comodato = Comodato::query()->findOrFail($id);
 
-        return response($pdf->contrato($comodato), 200, [
+        $versao = $this->versaoPedida($request, $comodato);
+
+        return response($pdf->contrato($comodato, $versao), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="comodato-'.$comodato->id.'.pdf"',
+            'Content-Disposition' => 'inline; filename="comodato-'.$comodato->id
+                .($versao !== null ? '-v'.$versao->versao : '').'.pdf"',
         ]);
     }
 
-    /** POST /comodatos/{id}/devolver */
+    /** POST /comodatos/{id}/devolver — parcial ou total. */
     public function devolver(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'comodato.edit');
-        $d = $request->validate(['quantidade' => 'required|numeric|gt:0']);
+        $d = $request->validate([
+            'quantidade' => 'required|numeric|gt:0',
+            'data' => 'nullable|date',
+            'observacao' => 'nullable|string|max:255',
+        ]);
 
         $comodato = Comodato::query()->findOrFail($id);
-        $atualizado = $this->service->devolver($comodato, (float) $d['quantidade'], $request->user()->id);
+        $atualizado = $this->service->devolver(
+            $comodato,
+            (float) $d['quantidade'],
+            $request->user()->id,
+            $d['data'] ?? null,
+            $d['observacao'] ?? null,
+        );
 
         return response()->json(['data' => $atualizado]);
+    }
+
+    /**
+     * POST /comodatos/{id}/movimentos/{movimento}/estornar — desfaz uma
+     * devolução lançada errada.
+     */
+    public function estornar(Request $request, int $id, int $movimento): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.estornar');
+        $d = $request->validate(['observacao' => 'nullable|string|max:255']);
+
+        $mov = ComodatoMovimento::query()
+            ->where('comodato_id', $id)
+            ->findOrFail($movimento);
+
+        return response()->json([
+            'data' => $this->service->estornar($mov, $request->user()->id, $d['observacao'] ?? null),
+        ]);
+    }
+
+    /** GET /comodatos/{id}/movimentos/{movimento}/recibo — prova da entrega, para o cliente. */
+    public function recibo(Request $request, int $id, int $movimento, ComodatoPdfService $pdf): \Illuminate\Http\Response
+    {
+        $this->autorizar($request, 'comodato.view');
+
+        $mov = ComodatoMovimento::query()
+            ->where('comodato_id', $id)
+            ->findOrFail($movimento);
+
+        return response($pdf->reciboDevolucao($mov), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="devolucao-'.$mov->id.'.pdf"',
+        ]);
+    }
+
+    /** POST /comodatos/{id}/reemitir — versão nova sem mexer em saldo. */
+    public function reemitir(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.edit');
+
+        $comodato = Comodato::query()->findOrFail($id);
+
+        return response()->json([
+            'data' => $this->service->reemitirContrato($comodato, $request->user()->id),
+        ], 201);
+    }
+
+    /** POST /comodatos/{id}/contratos/{contrato}/assinado — a via assinada voltou. */
+    public function marcarAssinado(Request $request, int $id, int $contrato): JsonResponse
+    {
+        $this->autorizar($request, 'comodato.edit');
+
+        $versao = ComodatoContrato::query()
+            ->where('comodato_id', $id)
+            ->findOrFail($contrato);
+
+        return response()->json(['data' => $this->service->marcarAssinado($versao)]);
+    }
+
+    /**
+     * Versão a imprimir: a pedida, ou a vigente.
+     *
+     * Devolve null quando o comodato não tem versão nenhuma — o caso dos 975
+     * migrados do legado, que imprimem do estado atual como sempre imprimiram.
+     */
+    private function versaoPedida(Request $request, Comodato $comodato): ?ComodatoContrato
+    {
+        $pedida = $request->query('versao');
+
+        if ($pedida !== null) {
+            return ComodatoContrato::query()
+                ->where('comodato_id', $comodato->id)
+                ->where('versao', (int) $pedida)
+                ->with('movimento')
+                ->firstOrFail();
+        }
+
+        return ComodatoContrato::query()
+            ->where('comodato_id', $comodato->id)
+            ->with('movimento')
+            ->orderByDesc('versao')
+            ->first();
     }
 }

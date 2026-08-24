@@ -511,9 +511,20 @@ Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function ()
         // ── Comodato — N8 ──
         Route::get('comodatos', [ComodatoController::class, 'index']);
         Route::post('comodatos', [ComodatoController::class, 'store']);
+        // Extrato + versoes do contrato: e o que revela a devolucao parcial.
+        Route::get('comodatos/{id}', [ComodatoController::class, 'show'])->whereNumber('id');
         // Contrato (item 20): o documento que protege o patrimonio da revenda.
+        // `?versao=N` tira segunda via da versao assinada antes da devolucao.
         Route::get('comodatos/{id}/contrato', [ComodatoController::class, 'contrato'])->whereNumber('id');
         Route::post('comodatos/{id}/devolver', [ComodatoController::class, 'devolver'])->whereNumber('id');
+        Route::post('comodatos/{id}/reemitir', [ComodatoController::class, 'reemitir'])->whereNumber('id');
+        Route::post('comodatos/{id}/contratos/{contrato}/assinado', [ComodatoController::class, 'marcarAssinado'])
+            ->whereNumber('id')->whereNumber('contrato');
+        // Recibo da devolucao: a prova, para o CLIENTE, de que ele entregou.
+        Route::get('comodatos/{id}/movimentos/{movimento}/recibo', [ComodatoController::class, 'recibo'])
+            ->whereNumber('id')->whereNumber('movimento');
+        Route::post('comodatos/{id}/movimentos/{movimento}/estornar', [ComodatoController::class, 'estornar'])
+            ->whereNumber('id')->whereNumber('movimento');
 
         // ── Fiscal (NF-e/NFC-e/CF-e) — N9 ──
         Route::get('fiscal/config', [ConfigFiscalController::class, 'show']);
