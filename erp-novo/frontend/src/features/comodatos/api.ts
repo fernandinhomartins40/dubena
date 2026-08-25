@@ -187,11 +187,21 @@ export function useSalvarVinculo() {
 export function useAcrescentarComodato() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { id: number; quantidade: number; observacao?: string }) =>
+    mutationFn: async (v: {
+      id: number; quantidade: number; observacao?: string
+      // Outro tipo de vasilhame para o mesmo cliente. O backend soma na linha
+      // daquele produto se ela existir, ou abre uma nova herdando o acordo.
+      produto_id?: number | null
+    }) =>
       (await api.post(`/comodatos/${v.id}/acrescentar`, {
         quantidade: v.quantidade, observacao: v.observacao,
+        produto_id: v.produto_id ?? undefined,
       })).data.data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['comodatos'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['comodatos'] })
+      // Pode ter nascido comodato de outro produto: a vigilância mede posse.
+      qc.invalidateQueries({ queryKey: ['comodatos', 'vigilancia'] })
+    },
   })
 }
 

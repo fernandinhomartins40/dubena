@@ -6,6 +6,7 @@ use App\Domain\Estoque\EstoqueService;
 use App\Models\Satelite\Comodato;
 use App\Models\Satelite\ComodatoContrato;
 use App\Models\Satelite\ComodatoMovimento;
+use App\Models\Produto\Produto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -245,6 +246,77 @@ class ComodatoService
             $this->emitirContrato($comodato->refresh(), ComodatoContrato::ACRESCIMO, $movimento, $userId);
 
             return $comodato->refresh();
+        });
+    }
+
+    /**
+     * Acrescenta um vasilhame de OUTRO tipo à relação com o mesmo cliente.
+     *
+     * O comodato continua sendo um por produto — é essa linha que a vigilância
+     * por giro usa para achar o par casco↔gás, e misturar tipos num registro só
+     * tornaria o consumo impossível de medir por capacidade.
+     *
+     * O que muda é o gesto do operador: ele não precisa mais sair da tela e
+     * abrir um comodato do zero. Se já existe linha ativa daquele produto para
+     * o cliente, ela cresce; se não existe, nasce uma — herdando setor, datas e
+     * signatário da relação que já estava em curso, porque é o mesmo acordo.
+     */
+    public function acrescentarProduto(
+        Comodato $referencia,
+        int $produtoId,
+        float $quantidade,
+        ?int $userId = null,
+        ?string $observacao = null,
+    ): Comodato {
+        if ($quantidade <= 0) {
+            throw ValidationException::withMessages(['quantidade' => 'Quantidade deve ser positiva.']);
+        }
+
+        // O produto tem que ser da mesma empresa da relação. `exists:produtos,id`
+        // na validação aceitaria o id de outro tenant — e o comodato nasceria
+        // apontando para um vasilhame que não é desta revenda.
+        $produto = Produto::query()
+            ->where('empresa_id', $referencia->empresa_id)
+            ->find($produtoId);
+
+        if ($produto === null) {
+            throw ValidationException::withMessages([
+                'produto_id' => 'O vasilhame precisa ser da mesma empresa do comodato.',
+            ]);
+        }
+
+        // Mesmo produto: é acréscimo simples na própria linha.
+        if ((int) $referencia->produto_id === $produtoId) {
+            return $this->acrescentar($referencia, $quantidade, $userId, $observacao);
+        }
+
+        return DB::transaction(function () use ($referencia, $produtoId, $quantidade, $userId, $observacao) {
+            $existente = Comodato::query()
+                ->where('cliente_id', $referencia->cliente_id)
+                ->where('produto_id', $produtoId)
+                ->whereIn('situacao', ['ATIVO', 'PARCIAL'])
+                ->first();
+
+            if ($existente !== null) {
+                return $this->acrescentar($existente, $quantidade, $userId, $observacao);
+            }
+
+            return $this->emprestar([
+                'empresa_id' => $referencia->empresa_id,
+                'grupo_id' => $referencia->grupo_id,
+                'cliente_id' => $referencia->cliente_id,
+                'produto_id' => $produtoId,
+                'setor_id' => $referencia->setor_id,
+                'quantidade' => $quantidade,
+                // O acordo é o mesmo: quem assinou e até quando vale seguem da
+                // relação em curso. Deixar em branco faria o contrato novo sair
+                // sem signatário e sem vencimento — e o de vencimento nasceria
+                // já disparando alerta.
+                'nome_representante' => $referencia->nome_representante,
+                'cpf_representante' => $referencia->cpf_representante,
+                'rg_representante' => $referencia->rg_representante,
+                'data_vencimento' => $referencia->data_vencimento?->toDateString(),
+            ], $userId);
         });
     }
 

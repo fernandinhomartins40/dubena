@@ -184,15 +184,23 @@ class ComodatoController extends Controller
         $d = $request->validate([
             'quantidade' => 'required|numeric|gt:0',
             'observacao' => 'nullable|string|max:255',
+            // Omitido = acréscimo no mesmo vasilhame (comportamento anterior).
+            // Informado = o cliente passou a ter também outro tipo, e o service
+            // decide entre somar na linha existente ou abrir a do produto novo.
+            'produto_id' => 'nullable|integer',
         ]);
 
         $comodato = Comodato::query()->findOrFail($id);
 
-        return response()->json([
-            'data' => $this->service->acrescentar(
-                $comodato, (float) $d['quantidade'], $request->user()->id, $d['observacao'] ?? null,
-            ),
-        ]);
+        $alvo = $this->service->acrescentarProduto(
+            $comodato,
+            (int) ($d['produto_id'] ?? $comodato->produto_id),
+            (float) $d['quantidade'],
+            $request->user()->id,
+            $d['observacao'] ?? null,
+        );
+
+        return response()->json(['data' => $alvo->load(['cliente', 'produto'])]);
     }
 
     /** POST /comodatos/{id}/renovar — novo vencimento + contrato reemitido. */

@@ -83,14 +83,43 @@ class ComodatoPdfService
             'Vencimento' => $comodato->data_vencimento?->format('d/m/Y'),
         ]);
 
+        // A linha deste comodato sempre vem dos números pedidos (congelados da
+        // versão, quando há). As demais entram do estado atual — é a foto da
+        // relação na hora da emissão, e é isso que o comodatário assina.
+        $linhas = [[
+            (string) ($comodato->produto->descricao ?? ''),
+            $this->num($qtd),
+            $this->num($devolvida),
+            $this->num($pendente),
+        ]];
+
+        $totalEmPosse = $pendente;
+
+        foreach ($this->outrosDoCliente($comodato) as $irmao) {
+            $irmaoPendente = round(
+                (float) $irmao->quantidade - (float) $irmao->quantidade_devolvida,
+                3,
+            );
+
+            $linhas[] = [
+                (string) ($irmao->produto->descricao ?? ''),
+                $this->num((float) $irmao->quantidade),
+                $this->num((float) $irmao->quantidade_devolvida),
+                $this->num($irmaoPendente),
+            ];
+
+            $totalEmPosse = round($totalEmPosse + $irmaoPendente, 3);
+        }
+
+        // O total só aparece quando há mais de um item: numa linha só ele
+        // repetiria o número logo acima e sujaria o documento.
+        if (count($linhas) > 1) {
+            $linhas[] = ['TOTAL', '', '', $this->num($totalEmPosse)];
+        }
+
         $objeto = $this->pdf->itens(
             ['Produto', 'Quantidade emprestada', 'Já devolvida', 'Em poder do comodatário'],
-            [[
-                (string) ($comodato->produto->descricao ?? ''),
-                $this->num($qtd),
-                $this->num($devolvida),
-                $this->num($pendente),
-            ]],
+            $linhas,
         );
 
         $datas = $this->pdf->campos([
@@ -120,6 +149,41 @@ class ComodatoPdfService
             'rodape' => 'Via da revenda. O comodatário recebe cópia idêntica assinada. '
                 .'Este documento não é recibo de pagamento nem nota fiscal.',
         ]);
+    }
+
+    /**
+     * Os demais vasilhames que o MESMO cliente tem em comodato vigente.
+     *
+     * O contrato descreve a relação, não o registro: um cliente com P13 e P20
+     * assina um papel que lista os dois. Manter um comodato por produto é o que
+     * permite à vigilância medir giro por capacidade; consolidar acontece só
+     * aqui, na impressão.
+     *
+     * Filtra por `empresa_id` explicitamente — o cliente pode ser atendido por
+     * mais de uma empresa do grupo, e o contrato de uma jamais pode listar o
+     * vasilhame que está emprestado pela outra.
+     */
+    private function outrosDoCliente(Comodato $comodato)
+    {
+        if ($comodato->cliente_id === null) {
+            return collect();
+        }
+
+        return Comodato::query()
+            ->with('produto')
+            ->where('empresa_id', $comodato->empresa_id)
+            ->where('cliente_id', $comodato->cliente_id)
+            ->where('id', '!=', $comodato->id)
+            ->whereIn('situacao', ['ATIVO', 'PARCIAL'])
+            // Sem saldo em poder do cliente não há posse a contratar, mesmo que
+            // a situação ainda não tenha sido fechada.
+            ->get()
+            ->filter(fn (Comodato $c) => round(
+                (float) $c->quantidade - (float) $c->quantidade_devolvida,
+                3,
+            ) > 0.0001)
+            ->sortByDesc(fn (Comodato $c) => (float) $c->quantidade - (float) $c->quantidade_devolvida)
+            ->values();
     }
 
     /**
