@@ -17,8 +17,14 @@ class Comodato extends Model
 
     protected $table = 'comodatos';
 
+    /** Nós emprestamos ao cliente — o vasilhame é nosso e deve voltar. */
+    public const CONCEDIDO = 'CONCEDIDO';
+
+    /** A distribuidora emprestou para nós — o vasilhame é dela, nós devemos. */
+    public const RECEBIDO = 'RECEBIDO';
+
     protected $fillable = [
-        'empresa_id', 'grupo_id', 'cliente_id', 'produto_id', 'setor_id',
+        'empresa_id', 'grupo_id', 'cliente_id', 'produto_id', 'setor_id', 'sentido',
         'quantidade', 'quantidade_devolvida', 'situacao', 'data_emprestimo', 'data_devolucao',
         // Quem assinou o contrato — o ComodatoPdfService imprime, e contrato
         // sem signatário não vale como documento.
@@ -34,6 +40,24 @@ class Comodato extends Model
             'data_devolucao' => 'date',
             'data_vencimento' => 'date',
         ];
+    }
+
+    /**
+     * O que a revenda emprestou e tem a receber de volta.
+     *
+     * É o escopo da vigilância e das estatísticas de patrimônio na rua: cobrar
+     * giro de quem nos empresta não faz sentido, e contar o casco da
+     * distribuidora como "em poder de clientes" inverte o sinal da conta.
+     */
+    public function scopeConcedidos($q)
+    {
+        return $q->where('sentido', self::CONCEDIDO);
+    }
+
+    /** O que a revenda deve devolver à distribuidora. */
+    public function scopeRecebidos($q)
+    {
+        return $q->where('sentido', self::RECEBIDO);
     }
 
     public function cliente(): BelongsTo

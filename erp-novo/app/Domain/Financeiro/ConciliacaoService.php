@@ -3,6 +3,8 @@
 namespace App\Domain\Financeiro;
 
 use App\Models\Caixa\ContaMovimento;
+use App\Models\Caixa\Conta;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Carbon;
 
 /**
@@ -28,11 +30,16 @@ class ConciliacaoService
      *   resumo: array{ofx:int, erp:int, conciliados:int}
      * }
      */
-    public function conciliar(int $contaId, string $ofxConteudo, string $inicio, string $fim, int $toleranciaDias = 2): array
+    public function conciliar(int $contaId, int $empresaId, string $ofxConteudo, string $inicio, string $fim, int $toleranciaDias = 2): array
     {
+        if (! Conta::withoutTenant()->whereKey($contaId)->where('empresa_id', $empresaId)->exists()) {
+            throw ValidationException::withMessages(['conta_id' => 'Conta invalida para a empresa ativa.']);
+        }
+
         $transacoes = $this->ofx->transacoes($ofxConteudo);
 
-        $movimentos = ContaMovimento::query()
+        $movimentos = ContaMovimento::withoutTenant()
+            ->where('empresa_id', $empresaId)
             ->where('conta_id', $contaId)
             ->whereBetween('datahora', [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()])
             ->get()
@@ -66,7 +73,7 @@ class ConciliacaoService
         // As pendentes são as que o operador teria de classificar à mão — é
         // exatamente nelas que a regra economiza trabalho (T4.2). As já
         // conciliadas não precisam: elas casaram com um movimento existente.
-        $ofxPendentes = $this->regras->aplicar($contaId, $ofxPendentes);
+        $ofxPendentes = $this->regras->aplicar($contaId, $empresaId, $ofxPendentes);
 
         return [
             'conciliados' => $conciliados,

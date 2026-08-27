@@ -66,6 +66,28 @@ class CaixaTest extends TestCase
         $this->assertEqualsWithDelta(200, $resp->firstWhere('id', $b->id)['saldoatual'], 0.001);
     }
 
+    public function test_transferencia_via_api_recusa_conta_de_outro_tenant(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $svc = app(CaixaService::class);
+        $origem = $svc->criarConta([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+            'descricao' => 'Origem', 'saldo_inicial' => 500,
+        ]);
+        $outra = Empresa::factory()->create();
+        $destino = $svc->criarConta([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'descricao' => 'Destino alheio', 'saldo_inicial' => 0,
+        ]);
+
+        $this->actingAs($user, 'sanctum')->postJson('/api/admin/caixa/transferencias', [
+            'conta_origem_id' => $origem->id, 'conta_destino_id' => $destino->id, 'valor' => 200,
+        ])->assertStatus(422);
+
+        $this->assertEqualsWithDelta(500, (float) $origem->refresh()->saldo_atual, 0.001);
+        $this->assertEqualsWithDelta(0, (float) $destino->refresh()->saldo_atual, 0.001);
+    }
+
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();

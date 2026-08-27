@@ -103,8 +103,8 @@ class F07FinanceiroCaixaChequeTest extends TestCase
     {
         [$user, $empresa] = $this->suporte();
         $conta = $this->conta($empresa, 0);
-        app(CaixaService::class)->abrir($conta->id);   // abre (cria fechamento)
-        app(CaixaService::class)->fechar($conta->id);  // e fecha o caixa
+        app(CaixaService::class)->abrir($conta->id, $empresa->id);   // abre (cria fechamento)
+        app(CaixaService::class)->fechar($conta->id, $empresa->id);  // e fecha o caixa
 
         // Lançamento normal recusaria; lancar-fechado é autorizado.
         $this->actingAs($user, 'sanctum')->postJson("/api/admin/caixa/{$conta->id}/lancar-fechado", [

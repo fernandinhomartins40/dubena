@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Logistica\CentralService;
 use App\Domain\Logistica\DistribuidorService;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Logistica\LogisticaConfig;
@@ -23,13 +24,14 @@ class CentralController extends Controller
     public function __construct(
         private CentralService $central,
         private DistribuidorService $distribuidor,
+        private TenantContext $tenant,
     ) {}
 
     /** GET /central/fila — pedidos pendentes (bandeja de distribuição). */
     public function fila(Request $request): JsonResponse
     {
         $this->autorizar($request, 'logistica.view');
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
 
         $pedidos = $this->central->filaDistribuicao($empresaId, [
             'incluir_atribuidos' => $request->boolean('incluir_atribuidos'),
@@ -55,7 +57,7 @@ class CentralController extends Controller
     {
         $this->autorizar($request, 'logistica.view');
 
-        return response()->json(['data' => $this->central->entregadores((int) $request->user()->empresa_id)]);
+        return response()->json(['data' => $this->central->entregadores($this->tenant->requireEmpresaId())]);
     }
 
     /** GET /central/pedidos/{id}/sugestoes — ranking de entregadores (L3). */
@@ -79,6 +81,7 @@ class CentralController extends Controller
 
         $pedido = $this->central->atribuir(
             $this->pedido($request, $id),
+            $this->tenant->requireEmpresaId(),
             (int) $d['entregador_user_id'],
             $d['veiculo_id'] ?? null,
             (int) $request->user()->id,
@@ -100,6 +103,7 @@ class CentralController extends Controller
 
         $pedido = $this->central->redistribuir(
             $this->pedido($request, $id),
+            $this->tenant->requireEmpresaId(),
             (int) $d['entregador_user_id'],
             (int) $request->user()->id,
             $d['motivo'] ?? null,
@@ -138,7 +142,7 @@ class CentralController extends Controller
         ]);
 
         $bloqueio = $this->central->bloquearEntregador(
-            (int) $request->user()->empresa_id,
+            $this->tenant->requireEmpresaId(),
             $id,
             (int) $request->user()->id,
             $d['motivo'] ?? null,
@@ -152,7 +156,7 @@ class CentralController extends Controller
     public function desbloquear(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'logistica.distribuir');
-        $this->central->desbloquearEntregador((int) $request->user()->empresa_id, $id);
+        $this->central->desbloquearEntregador($this->tenant->requireEmpresaId(), $id);
 
         return response()->json(['message' => 'Entregador desbloqueado.']);
     }
@@ -161,7 +165,7 @@ class CentralController extends Controller
     public function config(Request $request): JsonResponse
     {
         $this->autorizar($request, 'logistica.view');
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
         $config = LogisticaConfig::query()->firstOrCreate(['empresa_id' => $empresaId]);
 
         return response()->json(['data' => $config]);
@@ -180,7 +184,7 @@ class CentralController extends Controller
             'ociosidade_min' => 'nullable|integer|min:1|max:480',
         ]);
 
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
         $config = LogisticaConfig::query()->updateOrCreate(['empresa_id' => $empresaId], $d);
 
         return response()->json(['data' => $config]);
@@ -190,7 +194,7 @@ class CentralController extends Controller
     private function pedido(Request $request, int $id): Pedido
     {
         return Pedido::query()
-            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->findOrFail($id);
     }
 }

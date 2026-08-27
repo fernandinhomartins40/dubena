@@ -4,11 +4,13 @@ namespace App\Domain\Cobranca;
 
 use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Events\PixConfirmado;
+use App\Domain\Financeiro\BaixaService;
 use App\Domain\Integracao\CredencialNaoConfiguradaException;
 use App\Domain\Integracao\IntegracaoTenant;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Pedido\Pedido;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -28,8 +30,9 @@ use Illuminate\Validation\ValidationException;
 class PixService
 {
     public function __construct(
-        private PixDriver $driver,
+        private Container $container,
         private IntegracaoTenant $integracao,
+        private BaixaService $baixas,
     ) {}
 
     /** Cria uma cobrança PIX imediata para uma parcela. */
@@ -96,13 +99,18 @@ class PixService
      */
     private function emitirNoPsp(int $empresaId, string $txid, float $valor, int $expiraSegundos): array
     {
+        // O webhook também usa este service, mas não emite cobrança. Resolver o
+        // driver somente nesta porta impede que uma configuração de emissão
+        // inválida derrube a autenticação/processamento de notificações já
+        // recebidas, sem permitir que o Fake seja usado para cobrar em produção.
+        $driver = $this->container->make(PixDriver::class);
         $credencial = $this->integracao->pix($empresaId) ?? [];
 
-        if ($this->driver->nome() !== 'fake' && ! $this->integracao->pixConfigurado($empresaId)) {
+        if ($driver->nome() !== 'fake' && ! $this->integracao->pixConfigurado($empresaId)) {
             throw CredencialNaoConfiguradaException::pix($empresaId);
         }
 
-        return $this->driver->criarCobranca(
+        return $driver->criarCobranca(
             ['txid' => $txid, 'valor' => $valor, 'expira_segundos' => $expiraSegundos],
             $credencial,
         );
@@ -173,11 +181,13 @@ class PixService
 
             // Baixa a parcela vinculada.
             if ($cobranca->financeiroparcela_id) {
-                FinanceiroParcela::query()->whereKey($cobranca->financeiroparcela_id)->where('baixado', false)->update([
-                    'baixado' => true,
-                    'valor_efetivado' => $valorPago,
-                    'datahora_baixa' => now(),
-                ]);
+                $this->baixas->baixar(
+                    (int) $cobranca->financeiroparcela_id,
+                    (int) $cobranca->empresa_id,
+                    $valorPago,
+                    'pix',
+                    reentregaIdempotente: true,
+                );
             }
 
             $confirmadaAgora = true;

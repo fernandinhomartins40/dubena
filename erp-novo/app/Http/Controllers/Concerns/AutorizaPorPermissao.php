@@ -34,6 +34,20 @@ trait AutorizaPorPermissao
     }
 
     /**
+     * Autoriza a chave na empresa indicada pelo recurso/rota, sem depender da
+     * empresa ambiente usada pelo Gate. Útil em portas administrativas que
+     * recebem `{empresa}`: a permissão da empresa A não pode autorizar B.
+     */
+    protected function autorizarNaEmpresa(Request $request, string $chave, int $empresaId): void
+    {
+        $user = $request->user();
+        if ($user === null || ! $user->temPermissao($chave, $empresaId)) {
+            $this->registrarNegacao($request, $chave);
+            abort(403, 'Sem permissão.');
+        }
+    }
+
+    /**
      * Autoriza considerando o RECURSO (ABAC — A4): além do RBAC, aplica o escopo
      * hierárquico (A3) e as condições de atributo (limite/ownership/horário).
      * Use quando a decisão depende do dado (ex.: aprovar pedido até um limite,

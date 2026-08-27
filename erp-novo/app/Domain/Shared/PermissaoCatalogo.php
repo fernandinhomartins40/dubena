@@ -96,6 +96,8 @@ final class PermissaoCatalogo
         'cliente.campo.credito_saldo.view' => 'Cliente — Ver saldo de crédito',
         'cliente.campo.convenio_limite.view' => 'Cliente — Ver limite de convênio',
         'cliente.campo.convenio_limite.edit' => 'Cliente — Editar limite de convênio',
+        'produto.campo.custo.view' => 'Produto — Ver custos',
+        'produto.campo.custo.edit' => 'Produto — Editar custos',
         // Export/import.
         'cliente.export' => 'Cliente — Exportar',
         'produto.export' => 'Produto — Exportar',

@@ -2,11 +2,12 @@
 
 namespace App\Models\Fiscal;
 
-use App\Domain\Shared\Auditavel;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\SituacaoNota;
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
+use App\Models\Empresa;
 use App\Models\Pedido\Pedido;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -52,6 +53,11 @@ class NotaFiscal extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function empresa(): BelongsTo
+    {
+        return $this->belongsTo(Empresa::class);
     }
 
     public function pedido(): BelongsTo

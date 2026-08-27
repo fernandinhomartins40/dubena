@@ -105,7 +105,7 @@ class CentralServiceTest extends TestCase
     {
         $pedido = $this->pedidoPendente();
 
-        $this->central->atribuir($pedido, $this->entregador->id, null, $this->operador->id);
+        $this->central->atribuir($pedido, $this->empresaId, $this->entregador->id, null, $this->operador->id);
 
         $this->assertSame($this->entregador->id, $pedido->refresh()->entregador_user_id);
         $this->assertDatabaseHas('pedido_atribuicoes', [
@@ -121,8 +121,8 @@ class CentralServiceTest extends TestCase
         $pedido = $this->pedidoPendente();
         $outro = User::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
 
-        $this->central->atribuir($pedido, $this->entregador->id);
-        $this->central->redistribuir($pedido, $outro->id, $this->operador->id, 'Trocou de rota');
+        $this->central->atribuir($pedido, $this->empresaId, $this->entregador->id);
+        $this->central->redistribuir($pedido, $this->empresaId, $outro->id, $this->operador->id, 'Trocou de rota');
 
         $this->assertSame($outro->id, $pedido->refresh()->entregador_user_id);
         $trilha = PedidoAtribuicao::where('pedido_id', $pedido->id)->where('acao', 'redistribuir')->first();
@@ -137,7 +137,34 @@ class CentralServiceTest extends TestCase
         $this->central->bloquearEntregador($this->empresaId, $this->entregador->id, $this->operador->id, 'Fora do ar');
 
         $this->expectException(ValidationException::class);
-        $this->central->atribuir($pedido, $this->entregador->id);
+        $this->central->atribuir($pedido, $this->empresaId, $this->entregador->id);
+    }
+
+    public function test_atribuicao_recusa_entregador_de_outra_empresa(): void
+    {
+        $pedido = $this->pedidoPendente();
+        $alheio = User::factory()->create();
+
+        try {
+            $this->central->atribuir($pedido, $this->empresaId, $alheio->id);
+            $this->fail('Atribuicao intertenant deveria ser recusada.');
+        } catch (ValidationException) {
+            $this->assertNull($pedido->refresh()->entregador_user_id);
+            $this->assertDatabaseMissing('pedido_atribuicoes', ['pedido_id' => $pedido->id]);
+        }
+    }
+
+    public function test_atribuicao_recusa_pedido_de_empresa_diferente_da_esperada(): void
+    {
+        $pedido = $this->pedidoPendente();
+        $outraEmpresa = \App\Models\Empresa::factory()->create();
+        $entregadorOutra = User::factory()->create([
+            'empresa_id' => $outraEmpresa->id,
+            'grupo_id' => $outraEmpresa->grupo_id,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->central->atribuir($pedido, $outraEmpresa->id, $entregadorOutra->id);
     }
 
     public function test_desbloquear_permite_atribuir_de_novo(): void
@@ -146,7 +173,7 @@ class CentralServiceTest extends TestCase
         $this->central->bloquearEntregador($this->empresaId, $this->entregador->id, $this->operador->id, 'x');
         $this->central->desbloquearEntregador($this->empresaId, $this->entregador->id);
 
-        $this->central->atribuir($pedido, $this->entregador->id);
+        $this->central->atribuir($pedido, $this->empresaId, $this->entregador->id);
         $this->assertSame($this->entregador->id, $pedido->refresh()->entregador_user_id);
     }
 
@@ -154,8 +181,8 @@ class CentralServiceTest extends TestCase
     {
         $p1 = $this->pedidoPendente();
         $p2 = $this->pedidoPendente();
-        $this->central->atribuir($p1, $this->entregador->id);
-        $this->central->atribuir($p2, $this->entregador->id);
+        $this->central->atribuir($p1, $this->empresaId, $this->entregador->id);
+        $this->central->atribuir($p2, $this->empresaId, $this->entregador->id);
 
         $carga = $this->central->cargaPorEntregador($this->empresaId);
 

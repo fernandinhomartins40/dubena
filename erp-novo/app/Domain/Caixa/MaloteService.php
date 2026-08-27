@@ -183,7 +183,7 @@ class MaloteService
                 ]);
             }
 
-            $this->caixa->baixarTitulos($conta, $itens, $userId);
+            $this->caixa->baixarTitulos($conta, $itens, $empresaId, $userId);
 
             return [
                 'baixadas' => count($itens),

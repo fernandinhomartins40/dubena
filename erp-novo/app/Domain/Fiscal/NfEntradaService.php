@@ -114,6 +114,7 @@ class NfEntradaService
                         (float) $item->valor_unitario,
                         'nf-entrada',
                         $nota->id,
+                        empresaEsperada: (int) $nota->empresa_id,
                     );
                 }
             }

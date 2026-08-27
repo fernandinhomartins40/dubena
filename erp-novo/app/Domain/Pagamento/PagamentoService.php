@@ -35,6 +35,7 @@ class PagamentoService
             $liquido = round($bruto * (1 - $taxa / 100), 2);
 
             $trans = CartaoTransacao::create([
+                'empresa_id' => $dados['empresa_id'],
                 'pedido_id' => $dados['pedido_id'] ?? null,
                 'conta_id' => $dados['conta_id'] ?? null,
                 'bandeira' => $dados['bandeira'] ?? null,
@@ -49,7 +50,7 @@ class PagamentoService
             ]);
 
             if (! empty($dados['conta_id'])) {
-                $this->caixa->movimentar((int) $dados['conta_id'], $liquido, 'CARTAO', [
+                $this->caixa->movimentar((int) $dados['conta_id'], $liquido, 'CARTAO', (int) $dados['empresa_id'], [
                     'descricao' => 'Cartão '.($dados['bandeira'] ?? '').' NSU '.($dados['nsu'] ?? ''),
                     'origem' => 'cartao_transacao',
                     'origem_id' => $trans->id,
@@ -90,7 +91,7 @@ class PagamentoService
             $beneficio->update(['situacao' => 'utilizado', 'pedido_id' => $pedidoId]);
 
             if ($contaId) {
-                $this->caixa->movimentar($contaId, (float) $beneficio->valor, 'GASDOPOVO', [
+                $this->caixa->movimentar($contaId, (float) $beneficio->valor, 'GASDOPOVO', (int) $beneficio->empresa_id, [
                     'descricao' => 'Gás do Povo — benefício #'.$beneficio->id,
                     'origem' => 'gasdopovo_beneficio',
                     'origem_id' => $beneficio->id,

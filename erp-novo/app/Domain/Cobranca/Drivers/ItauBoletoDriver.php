@@ -6,6 +6,7 @@ use App\Domain\Cobranca\Cnab\CnabHelper;
 use App\Domain\Cobranca\Cnab\ContaCobranca;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Models\Cobranca\Boleto;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Driver real Itaú (341) — CNAB400 (F08).
@@ -21,28 +22,51 @@ class ItauBoletoDriver extends CnabDriverBase
         return 341;
     }
 
-    protected function nossoNumero(Boleto $boleto, ContaCobranca $conta): string
+    protected function nossoNumero(int $sequencial, ContaCobranca $conta): string
     {
         // Itaú: nosso número = 8 dígitos (sequencial). DAC calculado à parte.
-        return CnabHelper::numero((int) $boleto->id, 8);
+        return CnabHelper::numero($sequencial, 8);
+    }
+
+    protected function sequencialDoNossoNumero(string $nossoNumero, ContaCobranca $conta): ?int
+    {
+        $numero = preg_replace('/\D/', '', $nossoNumero);
+
+        return strlen($numero) === 8 ? (int) $numero : null;
+    }
+
+    protected function limiteSequencial(): int
+    {
+        return 99999999;
+    }
+
+    protected function carteiraNormalizada(ContaCobranca $conta): string
+    {
+        if (! ctype_digit($conta->carteira) || strlen($conta->carteira) > 3) {
+            throw ValidationException::withMessages([
+                'cobranca' => 'Carteira Itau deve conter no maximo 3 digitos.',
+            ]);
+        }
+
+        return CnabHelper::numero($conta->carteira, 3);
     }
 
     /** DAC do nosso número (módulo 10 sobre agência+conta+carteira+NN). */
-    private function dacNossoNumero(Boleto $boleto, ContaCobranca $conta): int
+    private function dacNossoNumero(string $nossoNumero, ContaCobranca $conta): int
     {
         $base = CnabHelper::numero($conta->agencia, 4)
             .CnabHelper::numero($conta->conta, 5)
             .CnabHelper::numero($conta->carteira, 3)
-            .$this->nossoNumero($boleto, $conta);
+            .$nossoNumero;
 
         return CnabHelper::modulo10($base);
     }
 
-    protected function campoLivre(Boleto $boleto, ContaCobranca $conta): string
+    protected function campoLivre(Boleto $boleto, ContaCobranca $conta, string $nossoNumero): string
     {
         $carteira = CnabHelper::numero($conta->carteira, 3);
-        $nn = $this->nossoNumero($boleto, $conta);
-        $dacNn = CnabHelper::numero($this->dacNossoNumero($boleto, $conta), 1);
+        $nn = $nossoNumero;
+        $dacNn = CnabHelper::numero($this->dacNossoNumero($nn, $conta), 1);
         $ag = CnabHelper::numero($conta->agencia, 4);
         $cc = CnabHelper::numero($conta->conta, 5);
         $dacAgCc = CnabHelper::numero(CnabHelper::modulo10($ag.$cc), 1);
@@ -53,7 +77,12 @@ class ItauBoletoDriver extends CnabDriverBase
     public function linhaRemessa(Boleto $boleto): string
     {
         $conta = ContaCobranca::daEmpresa((int) $boleto->empresa_id, $this->bancoCodigo());
-        $nn = $boleto->nosso_numero ?: $this->nossoNumero($boleto, $conta);
+        $nn = $boleto->nosso_numero;
+        if (! is_string($nn) || $this->sequencialDoNossoNumero($nn, $conta) === null) {
+            throw ValidationException::withMessages([
+                'nosso_numero' => 'Boleto Itau sem nosso-numero valido para a carteira configurada.',
+            ]);
+        }
 
         // Registro detalhe tipo 1 (CNAB400) resumido com campos essenciais por posição.
         return '1'                                                  // 1 tipo de registro
@@ -61,9 +90,10 @@ class ItauBoletoDriver extends CnabDriverBase
             .CnabHelper::numero($conta->conta, 5)                   // 6-10 conta
             .CnabHelper::numero($conta->carteira, 3)                // 11-13 carteira
             .CnabHelper::numero($nn, 8)                             // 14-21 nosso número
-            .CnabHelper::texto((string) $boleto->id, 25)           // 22-46 uso da empresa (id p/ casamento)
-            .$boleto->vencimento->format('dmy')                    // 47-52 vencimento
-            .CnabHelper::valor((float) $boleto->valor, 13);        // 53-65 valor
+            .str_repeat(' ', 16)                                   // 22-37 campos intermediários
+            .CnabHelper::texto((string) $boleto->id, 25)           // 38-62 uso da empresa (id p/ casamento)
+            .$boleto->vencimento->format('dmy')                    // 63-68 vencimento (linha resumida)
+            .CnabHelper::valor((float) $boleto->valor, 13);        // 69-81 valor (linha resumida)
     }
 
     protected function mapaOcorrencias(): array
@@ -93,5 +123,13 @@ class ItauBoletoDriver extends CnabDriverBase
         }
 
         return round((int) $raw / 100, 2);
+    }
+
+    public function boletoIdRetorno(string $linha): ?int
+    {
+        // Itau CNAB400: "Uso da Empresa" nas posicoes 38-62.
+        $id = trim(substr($linha, 37, 25));
+
+        return $id !== '' && ctype_digit($id) && (int) $id > 0 ? (int) $id : null;
     }
 }

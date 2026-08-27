@@ -6,6 +6,7 @@ use App\Domain\Cobranca\Cnab\CnabHelper;
 use App\Domain\Cobranca\Cnab\ContaCobranca;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Models\Cobranca\Boleto;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Driver real Caixa Econômica Federal (104) — SIGCB / CNAB240 (F08).
@@ -21,20 +22,46 @@ class CaixaBoletoDriver extends CnabDriverBase
         return 104;
     }
 
-    protected function nossoNumero(Boleto $boleto, ContaCobranca $conta): string
+    protected function nossoNumero(int $sequencial, ContaCobranca $conta): string
     {
         // Caixa: 17 posições = carteira(2) + sequencial(15). Aqui o sequencial é o id.
         $carteira = CnabHelper::numero($conta->carteira ?: '14', 2);
-        $seq = CnabHelper::numero((int) $boleto->id, 15);
+        $seq = CnabHelper::numero($sequencial, 15);
 
         return $carteira.$seq;
     }
 
-    protected function campoLivre(Boleto $boleto, ContaCobranca $conta): string
+    protected function sequencialDoNossoNumero(string $nossoNumero, ContaCobranca $conta): ?int
+    {
+        $numero = preg_replace('/\D/', '', $nossoNumero);
+        if (strlen($numero) !== 17 || substr($numero, 0, 2) !== CnabHelper::numero($conta->carteira ?: '14', 2)) {
+            return null;
+        }
+
+        return (int) substr($numero, 2);
+    }
+
+    protected function limiteSequencial(): int
+    {
+        return 999999999999999;
+    }
+
+    protected function carteiraNormalizada(ContaCobranca $conta): string
+    {
+        if (! ctype_digit($conta->carteira) || strlen($conta->carteira) > 2) {
+            throw ValidationException::withMessages([
+                'cobranca' => 'Carteira Caixa deve conter no maximo 2 digitos.',
+            ]);
+        }
+
+        return CnabHelper::numero($conta->carteira, 2);
+    }
+
+    protected function campoLivre(Boleto $boleto, ContaCobranca $conta, string $nossoNumero): string
     {
         // SIGCB: convênio(6) + NN: 17 dígitos do nosso número split conforme manual.
         $convenio = CnabHelper::numero($conta->convenio, 6);
-        $nn = $this->nossoNumero($boleto, $conta); // 17
+        $nn = $nossoNumero; // 17
 
         // Estrutura SIGCB do campo livre (25):
         // convenio(6) + NN[3..5](3) + const1('1') + NN[6..8](3) + const2('4') + NN[9..17](9) + DV(2)
@@ -52,9 +79,14 @@ class CaixaBoletoDriver extends CnabDriverBase
     {
         // Segmento P (240) resumido com os campos essenciais em posição fixa.
         // (cabeçalhos de arquivo/lote são montados pelo serviço ao concatenar; aqui
-        // entregamos a linha do título, identificável no retorno pelo nosso número.)
+        // entregamos a linha do título com "Seu Número" em sua posição oficial.)
         $conta = ContaCobranca::daEmpresa((int) $boleto->empresa_id, $this->bancoCodigo());
-        $nn = $boleto->nosso_numero ?: $this->nossoNumero($boleto, $conta);
+        $nn = $boleto->nosso_numero;
+        if (! is_string($nn) || $this->sequencialDoNossoNumero($nn, $conta) === null) {
+            throw ValidationException::withMessages([
+                'nosso_numero' => 'Boleto Caixa sem nosso-numero valido para a carteira configurada.',
+            ]);
+        }
 
         return CnabHelper::numero($this->bancoCodigo(), 3)        // 1-3 banco
             .'P'                                                   // 4 segmento
@@ -62,7 +94,8 @@ class CaixaBoletoDriver extends CnabDriverBase
             .CnabHelper::numero($nn, 17)                           // 11-27 nosso número
             .CnabHelper::valor((float) $boleto->valor, 15)         // 28-42 valor
             .$boleto->vencimento->format('dmY')                    // 43-50 vencimento
-            .CnabHelper::texto((string) $boleto->id, 25);          // 51-75 uso da empresa (id p/ casamento)
+            .str_repeat(' ', 12)                                   // 51-62 campos intermediários
+            .CnabHelper::texto((string) $boleto->id, 11);          // 63-73 Seu Número (id p/ casamento)
     }
 
     protected function mapaOcorrencias(): array
@@ -92,5 +125,13 @@ class CaixaBoletoDriver extends CnabDriverBase
         }
 
         return round((int) $raw / 100, 2);
+    }
+
+    public function boletoIdRetorno(string $linha): ?int
+    {
+        // SIGCB CNAB240, segmento T: "Seu Numero" nas posicoes 59-69.
+        $id = trim(substr($linha, 58, 11));
+
+        return $id !== '' && ctype_digit($id) && (int) $id > 0 ? (int) $id : null;
     }
 }

@@ -16,14 +16,38 @@ Uso:
 """
 import argparse
 import io
+import os
 import sys
 
 import psycopg2
 import pymysql
 
-MYSQL = dict(host="127.0.0.1", port=53306, user="root", password="dubena",
-             database="monitora", charset="utf8mb4")
-PG_DSN = "host=127.0.0.1 port=55432 dbname=erp_novo user=postgres password=dubena"
+def require_env(name):
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Variavel obrigatoria ausente: {name}")
+    return value
+
+
+def require_write_unfrozen():
+    freeze = os.environ.get("SAAS_FREEZE_MIGRATION_WRITES", "true").strip().lower()
+    if freeze not in {"0", "false", "no"}:
+        raise RuntimeError(
+            "Migracao GPS bloqueada por SAAS_FREEZE_MIGRATION_WRITES; "
+            "conclua o mapeamento explicito device->empresa antes de liberar."
+        )
+
+
+require_write_unfrozen()
+MYSQL = dict(
+    host=require_env("MONITORA_MYSQL_HOST"),
+    port=int(os.environ.get("MONITORA_MYSQL_PORT", "3306")),
+    user=require_env("MONITORA_MYSQL_USER"),
+    password=require_env("MONITORA_MYSQL_PASSWORD"),
+    database=require_env("MONITORA_MYSQL_DATABASE"),
+    cursorclass=pymysql.cursors.SSCursor,
+)
+PG_DSN = require_env("ETL_PG_DSN")
 
 LOTE = 100000
 
@@ -38,53 +62,6 @@ def mapa_veiculos(pg, my):
     pcur.execute(
         "SELECT id, imei, empresa_id FROM monitora_veiculos WHERE imei IS NOT NULL")
     return {str(imei).strip(): (vid, emp) for vid, imei, emp in pcur.fetchall()}
-
-
-def criar_veiculos_orfaos(pg, my, mapa):
-    """Cria veiculo-marcador para device que emitiu posicao e nao tem cadastro.
-
-    Ha rastreadores em `positions` que nunca entraram em `veiculos` (1,1M de
-    posicoes num deles). Sem um veiculo a que prender, essas posicoes seriam
-    perdidas -- entao cria-se um cadastro identificado pelo proprio device,
-    inativo, para o usuario nomear depois.
-    """
-    cur = my.cursor()
-    cur.execute("SELECT DISTINCT deviceid FROM positions WHERE deviceid IS NOT NULL")
-    devices = {str(d[0]).strip() for d in cur.fetchall() if str(d[0]).strip()}
-    faltantes = sorted(devices - set(mapa))
-    if not faltantes:
-        return 0
-
-    pcur = pg.cursor()
-    # Herdam a empresa que ja concentra a frota migrada.
-    pcur.execute("""SELECT empresa_id, grupo_id FROM monitora_veiculos
-                    GROUP BY empresa_id, grupo_id ORDER BY COUNT(*) DESC LIMIT 1""")
-    linha = pcur.fetchone()
-    if linha is None:
-        return 0
-    empresa, grupo = linha
-
-    pcur.execute("SELECT COALESCE(MAX(id), 0) FROM monitora_veiculos")
-    proximo = pcur.fetchone()[0]
-
-    novos = []
-    for dev in faltantes:
-        proximo += 1
-        novos.append((proximo, empresa, grupo, f"SEM-CAD-{dev}"[:10], dev,
-                      f"Rastreador {dev} sem cadastro de veiculo no legado"))
-        mapa[dev] = (proximo, empresa)
-
-    pcur.executemany(
-        """INSERT INTO monitora_veiculos
-           (id, empresa_id, grupo_id, placa, imei, descricao, ativo,
-            created_at, updated_at)
-           VALUES (%s, %s, %s, %s, %s, %s, false, NOW(), NOW())""",
-        novos,
-    )
-    pcur.execute("""SELECT setval(pg_get_serial_sequence('monitora_veiculos','id'),
-                    COALESCE((SELECT MAX(id) FROM monitora_veiculos), 1))""")
-    pg.commit()
-    return len(novos)
 
 
 def main():
@@ -102,10 +79,6 @@ def main():
         print("Nenhum veiculo casado entre legado e ERP novo. "
               "Rode o MonitoraMigrator antes (etl:run monitora).")
         return 1
-    criados = criar_veiculos_orfaos(pg, my, mapa)
-    if criados:
-        print(f"{criados} veiculo(s)-marcador criado(s) para rastreador sem "
-              f"cadastro no legado.")
     print(f"{len(mapa)} device(s) casado(s) com veiculo do ERP novo.")
 
     onde = ""

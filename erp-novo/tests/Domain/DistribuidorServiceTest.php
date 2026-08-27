@@ -116,7 +116,8 @@ class DistribuidorServiceTest extends TestCase
         $a = $this->entregadorEmJornada(-25.390, -51.460);
         $b = $this->entregadorEmJornada(-25.390, -51.460);
         // 'a' já tem 1 pedido ativo → 'b' (carga 0) deve vir na frente.
-        $this->central->atribuir($this->pedidoPara(-25.390, -51.460), $a->id);
+        $pedido = $this->pedidoPara(-25.390, -51.460);
+        $this->central->atribuir($pedido, (int) $pedido->empresa_id, $a->id);
 
         $ranking = $this->dist->ranquear($this->pedidoPara(-25.390, -51.460));
 

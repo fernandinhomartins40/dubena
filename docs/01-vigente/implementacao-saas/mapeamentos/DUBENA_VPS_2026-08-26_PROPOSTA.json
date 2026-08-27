@@ -1,0 +1,42 @@
+{
+  "tenants": [
+    {
+      "legal_name": "Distribuidora Dubena Ltda",
+      "document": "04190715000105",
+      "classification_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2",
+      "companies": [
+        { "empresa_id": 2, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 114, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 115, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 116, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 117, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 134, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 135, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 136, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 137, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 138, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" },
+        { "empresa_id": 140, "ownership_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:grupo-2" }
+      ],
+      "memberships": [
+        {
+          "user_id": 3,
+          "membership_role": "OWNER",
+          "approval_evidence_ref": "operator-declaration-2026-08-26; vps-readonly-2026-08-26:usuario-3",
+          "grants": [
+            { "empresa_id": 2, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 114, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 115, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 116, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 117, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 134, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 135, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 136, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 137, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 138, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" },
+            { "empresa_id": 140, "can_read": true, "can_operate": true, "grant_evidence_ref": "operator-declaration-2026-08-26" }
+          ]
+        }
+      ]
+    }
+  ]
+}

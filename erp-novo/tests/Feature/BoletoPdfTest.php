@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Domain\Cobranca\CodigoBarrasI25;
+use App\Domain\Cobranca\BoletoPdfService;
 use App\Models\Cliente\Cliente;
 use App\Models\Cobranca\Boleto;
 use App\Models\Empresa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * GATE da T4.6 — impressão do boleto, o bloqueante das saídas impressas.
@@ -103,6 +105,28 @@ class BoletoPdfTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->get("/api/admin/boletos/{$boleto->id}/pdf")
             ->assertOk();
+    }
+
+    public function test_pdf_nao_imprime_cliente_de_outra_empresa(): void
+    {
+        [, $empresa] = $this->suporte();
+        $outra = Empresa::factory()->create();
+        $clienteAlheio = Cliente::create([
+            'empresa_id' => $outra->id,
+            'grupo_id' => $outra->grupo_id,
+            'nome' => 'CLIENTE ALHEIO SIGILOSO',
+            'cliente' => true,
+            'ativo' => true,
+        ]);
+        $boleto = $this->boleto($empresa, ['cliente_id' => $clienteAlheio->id]);
+
+        Pdf::shouldReceive('loadHTML')->once()->withArgs(
+            fn (string $html) => ! str_contains($html, 'CLIENTE ALHEIO SIGILOSO')
+        )->andReturnSelf();
+        Pdf::shouldReceive('setPaper')->once()->andReturnSelf();
+        Pdf::shouldReceive('output')->once()->andReturn('%PDF-test');
+
+        $this->assertSame('%PDF-test', app(BoletoPdfService::class)->gerar($boleto));
     }
 
     // ─────────────────── Código de barras I2of5 ───────────────────

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domain\Tenant\TenantContext;
 use App\Models\Empresa;
+use App\Models\LoginLog;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -104,16 +105,30 @@ class AuditoriaSegurancaTest extends TestCase
         $this->assertContains('papel.criado', array_column($data, 'tipo'));
     }
 
-    public function test_login_aparece_no_historico_de_logins(): void
+    public function test_historico_exibe_somente_logins_atribuidos_a_empresa(): void
     {
         [$user, $empresa] = $this->adminCom(['auditoria.view']);
-        // Uma tentativa falha (registra login_log).
-        $this->postJson('/api/login', ['email' => 'x@y.com', 'password' => 'errada'])->assertStatus(401);
+        LoginLog::query()->create([
+            'empresa_id' => $empresa->id, 'email' => 'da-empresa@example.test',
+            'ip' => '127.0.0.1', 'sucesso' => false, 'motivo' => 'credenciais',
+        ]);
+        LoginLog::query()->create([
+            'empresa_id' => null, 'email' => 'pre-tenant@example.test',
+            'ip' => '198.51.100.1', 'sucesso' => false, 'motivo' => 'credenciais',
+        ]);
+        $outra = Empresa::factory()->create();
+        LoginLog::query()->create([
+            'empresa_id' => $outra->id, 'email' => 'outra-empresa@example.test',
+            'ip' => '203.0.113.1', 'sucesso' => false, 'motivo' => 'credenciais',
+        ]);
 
         $data = $this->actingAs($user, 'sanctum')->getJson('/api/admin/auditoria/logins?apenas_falhas=1')
             ->assertOk()->json('data');
 
-        $this->assertContains('x@y.com', array_column($data, 'email'));
+        $emails = array_column($data, 'email');
+        $this->assertContains('da-empresa@example.test', $emails);
+        $this->assertNotContains('pre-tenant@example.test', $emails);
+        $this->assertNotContains('outra-empresa@example.test', $emails);
     }
 
     /** Helper: usuário com auditoria.view na MESMA empresa (para ler histórico). */

@@ -216,11 +216,9 @@ return new class extends Migration
                  )"
             );
 
-            try {
+            if (DB::selectOne("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app') AS present")->present) {
                 DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON {$tabela} TO erp_app");
                 DB::statement("GRANT USAGE, SELECT ON SEQUENCE {$tabela}_id_seq TO erp_app");
-            } catch (Throwable) {
-                // Role inexistente (dev/CI): segue.
             }
         }
     }

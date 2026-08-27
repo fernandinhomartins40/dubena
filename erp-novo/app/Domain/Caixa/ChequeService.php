@@ -2,7 +2,9 @@
 
 namespace App\Domain\Caixa;
 
+use App\Domain\Financeiro\BaixaService;
 use App\Models\Caixa\Cheque;
+use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -13,7 +15,10 @@ use Illuminate\Validation\ValidationException;
  */
 class ChequeService
 {
-    public function __construct(private CaixaService $caixa) {}
+    public function __construct(
+        private CaixaService $caixa,
+        private BaixaService $baixas,
+    ) {}
 
     /** @param array<string,mixed> $dados */
     public function criar(array $dados): Cheque
@@ -59,7 +64,7 @@ class ChequeService
                 if (! $contaId) {
                     throw ValidationException::withMessages(['conta_id' => 'Informe a conta para compensar o cheque.']);
                 }
-                $this->caixa->movimentar($contaId, (float) $cheque->valor, CaixaService::AJUSTE, [
+                $this->caixa->movimentar($contaId, (float) $cheque->valor, CaixaService::AJUSTE, (int) $cheque->empresa_id, [
                     'origem' => 'cheque', 'origem_id' => $cheque->id,
                     'descricao' => "Compensação do cheque #{$cheque->numero}", 'user_id' => $userId,
                 ]);
@@ -82,7 +87,7 @@ class ChequeService
      *
      * @return array{cheque: Cheque, troco: float}
      */
-    public function encontroDeContas(Cheque $cheque, float $valorCompromisso, ?int $financeiroParcelaId = null, ?int $userId = null): array
+    public function encontroDeContas(Cheque $cheque, int $empresaId, float $valorCompromisso, ?int $financeiroParcelaId = null, ?int $userId = null): array
     {
         if ($cheque->especie !== 'R') {
             throw ValidationException::withMessages(['cheque' => 'Só cheques recebidos entram em encontro de contas.']);
@@ -93,14 +98,31 @@ class ChequeService
             ]);
         }
 
-        return DB::transaction(function () use ($cheque, $valorCompromisso, $financeiroParcelaId) {
+        return DB::transaction(function () use ($cheque, $empresaId, $valorCompromisso, $financeiroParcelaId) {
+            $cheque = Cheque::withoutTenant()
+                ->whereKey($cheque->getKey())
+                ->where('empresa_id', $empresaId)
+                ->lockForUpdate()
+                ->first();
+            if (! $cheque) {
+                throw ValidationException::withMessages(['cheque' => 'Cheque invalido para a empresa ativa.']);
+            }
+            if ($cheque->especie !== 'R' || ! $cheque->situacao->podeIrPara(SituacaoCheque::REPASSADO)) {
+                throw ValidationException::withMessages(['cheque' => 'Cheque nao pode ser usado no encontro de contas.']);
+            }
+
             if ($financeiroParcelaId) {
-                DB::table('financeiroparcelas')->where('id', $financeiroParcelaId)->update([
-                    'baixado' => true,
-                    'valor_efetivado' => round(min((float) $cheque->valor, $valorCompromisso), 2),
-                    'datahora_baixa' => now(),
-                    'updated_at' => now(),
-                ]);
+                $parcela = FinanceiroParcela::withoutTenant()
+                    ->whereKey($financeiroParcelaId)
+                    ->where('empresa_id', $empresaId)
+                    ->lockForUpdate()
+                    ->first();
+                $valorAplicado = round(min((float) $cheque->valor, $valorCompromisso), 2);
+                if (! $parcela || $parcela->baixado || $valorAplicado < round((float) $parcela->valor, 2)) {
+                    throw ValidationException::withMessages(['financeiro_parcela_id' => 'Parcela invalida, ja baixada ou sem cobertura integral.']);
+                }
+
+                $this->baixas->baixar($parcela->id, $empresaId, $valorAplicado, 'cheque');
             }
 
             $cheque->update(['situacao' => SituacaoCheque::REPASSADO->value]);

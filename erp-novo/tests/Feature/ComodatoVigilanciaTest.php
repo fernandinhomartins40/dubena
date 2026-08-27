@@ -89,13 +89,14 @@ class ComodatoVigilanciaTest extends TestCase
         ]);
     }
 
-    private function comodato(Cliente $c, float $qtd): Comodato
+    private function comodato(Cliente $c, float $qtd, string $sentido = Comodato::CONCEDIDO): Comodato
     {
         return app(ComodatoService::class)->emprestar([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'cliente_id' => $c->id,
             'produto_id' => $this->vasilhame->id,
+            'sentido' => $sentido,
             'quantidade' => $qtd,
         ], $this->user->id);
     }
@@ -209,7 +210,7 @@ class ComodatoVigilanciaTest extends TestCase
     public function test_fornecedor_nunca_e_vigiado(): void
     {
         $f = $this->cliente('SUPERGASBRAS ENERGIA LTDA', fornecedor: true);
-        $this->comodato($f, 5633);
+        $this->comodato($f, 5633, Comodato::RECEBIDO);
 
         $a = app(VigilanciaComodatoService::class)->avaliarEmpresa($this->empresa->id);
 

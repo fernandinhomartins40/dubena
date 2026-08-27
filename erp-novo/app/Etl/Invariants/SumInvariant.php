@@ -23,8 +23,7 @@ final class SumInvariant implements Invariant
         private string $colunaNova,
         private float $tolerancia = 0.01,
         private ?\Closure $somaLegadoCustom = null,
-    ) {
-    }
+    ) {}
 
     public function nome(): string
     {
@@ -33,13 +32,18 @@ final class SumInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
-        // Conexão indisponível (dev/CI): não se aplica. Conexão disponível com a
+        // Conexão indisponível torna o gate inconclusivo. Conexão disponível com a
         // TABELA ausente é FALHA — nome errado ou espelho incompleto silenciaria
         // a própria checagem (auditoria 2026-08-14).
         try {
             $temTabela = $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado);
-        } catch (\Throwable) {
-            return InvariantResult::ok($this->nome(), 'legado indisponível — não se aplica');
+        } catch (\Throwable $e) {
+            return InvariantResult::falha(
+                $this->nome(),
+                'legado indisponível; verificação inconclusiva: '.$e->getMessage(),
+                -1,
+                -1,
+            );
         }
 
         if (! $temTabela) {

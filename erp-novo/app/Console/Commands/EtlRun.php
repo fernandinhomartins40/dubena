@@ -2,10 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Saas\TransformationFreeze;
+use App\Domain\Saas\TransformationFrozenException;
 use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Runner do ETL (migração legado → novo).
@@ -26,8 +29,24 @@ class EtlRun extends Command
 
     protected $description = 'Executa a migração de dados do banco legado para o schema novo (ETL).';
 
-    public function handle(): int
+    public function handle(TransformationFreeze $freeze): int
     {
+        if (! $this->option('dry-run')) {
+            try {
+                $freeze->assertMigrationWritesAllowed();
+            } catch (TransformationFrozenException $e) {
+                $this->error($e->getMessage());
+
+                return self::FAILURE;
+            }
+
+            if (app()->isProduction() && ! $this->option('check')) {
+                $this->error('ETL de producao exige --check; carga sem invariantes e bloqueada.');
+
+                return self::FAILURE;
+            }
+        }
+
         if (($erro = $this->travaPosCutover()) !== null) {
             $this->error($erro);
 
@@ -138,7 +157,16 @@ class EtlRun extends Command
      */
     private function travaPosCutover(): ?string
     {
-        if ($this->option('dry-run') || $this->option('eu-sei-o-que-estou-fazendo')) {
+        if ($this->option('dry-run')) {
+            return null;
+        }
+
+        if ($this->option('eu-sei-o-que-estou-fazendo')) {
+            Log::critical('Override manual da trava pos-cutover solicitado no ETL.', [
+                'ambiente' => app()->environment(),
+                'migrador' => $this->argument('migrator'),
+            ]);
+
             return null;
         }
 
@@ -152,7 +180,8 @@ class EtlRun extends Command
             $maxLegado = $this->maiorIdDoLegado('pedidos');
 
             if ($maxLegado === null) {
-                return null;   // sem legado acessível: não dá para afirmar nada
+                return 'RECARGA BLOQUEADA: origem legado/tabela pedidos indisponível; '
+                    .'não é possível provar que o cutover ainda não ocorreu.';
             }
 
             $nascidosAqui = (int) $novo->table('pedidos')->where('id', '>', $maxLegado)->count();
@@ -164,15 +193,11 @@ class EtlRun extends Command
             return "RECARGA BLOQUEADA: existem {$nascidosAqui} pedido(s) criados NESTE sistema "
                 ."(id > {$maxLegado}, a faixa do legado).
 "
-                ."  O cutover ja aconteceu. Re-rodar o ETL sobrescreveria, via upsert por id, 
-"
-                ."  toda edicao feita aqui sobre linhas herdadas — sem erro e sem log.
-"
+                .'  O cutover ja aconteceu. Re-rodar o ETL sobrescreveria, via upsert por id, '
+                ."toda edicao feita aqui sobre linhas herdadas — sem erro e sem log.\n"
                 .'  Se ainda assim for necessario, use --eu-sei-o-que-estou-fazendo (e tenha backup).';
-        } catch (\Throwable) {
-            // Falha ao inspecionar não pode virar bloqueio: em dev/CI o legado
-            // costuma estar ausente, e travar aí impediria o uso normal.
-            return null;
+        } catch (\Throwable $e) {
+            return 'RECARGA BLOQUEADA: falha ao inspecionar o estado de cutover: '.$e->getMessage();
         }
     }
 

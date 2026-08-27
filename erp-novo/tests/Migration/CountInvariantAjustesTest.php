@@ -4,6 +4,7 @@ namespace Tests\Migration;
 
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
+use App\Models\Grupo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -49,7 +50,7 @@ class CountInvariantAjustesTest extends TestCase
     /** Cria origem e destino com N e M linhas, usando uma tabela real do schema novo. */
     private function popular(int $origem, int $destino): void
     {
-        $grupo = \App\Models\Grupo::create(['descricao' => 'G', 'ativo' => true]);
+        $grupo = Grupo::create(['descricao' => 'G', 'ativo' => true]);
         // `cidades.uf` referencia `estados.uf`.
         DB::table('estados')->insertOrIgnore([
             'id' => 41, 'uf' => 'PR', 'descricao' => 'Paraná', 'cod_ibge' => 41,
@@ -126,5 +127,14 @@ class CountInvariantAjustesTest extends TestCase
 
         $this->assertFalse($r->ok);
         $this->assertStringContainsString('NÃO existe no legado', $r->mensagem);
+    }
+
+    public function test_origem_inacessivel_e_inconclusiva_e_falha(): void
+    {
+        $ctx = new MigrationContext(conexaoLegado: 'conexao_que_nao_existe');
+        $r = (new CountInvariant($ctx, 'cidades', 'cidades'))->verificar();
+
+        $this->assertFalse($r->ok);
+        $this->assertStringContainsString('inconclusiva', $r->mensagem);
     }
 }

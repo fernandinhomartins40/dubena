@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Domain\Acesso\CamposPermitidos;
 use App\Models\Produto\Produto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,7 +15,7 @@ class ProdutoResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        return [
+        $dados = [
             'id' => $this->id,
             'descricao' => $this->descricao,
             // A tela precisa saber a natureza para esconder estoque/NCM de
@@ -76,6 +77,12 @@ class ProdutoResource extends JsonResource
                 'p_orig' => $o->p_orig !== null ? (float) $o->p_orig : null,
             ])),
         ];
+
+        if (! app(CamposPermitidos::class)->pode($request->user(), 'produto', 'custo', 'view')) {
+            unset($dados['customedio'], $dados['custofrete'], $dados['custo_medio'], $dados['custo_frete']);
+        }
+
+        return $dados;
     }
 
     private function num(mixed $v): ?float

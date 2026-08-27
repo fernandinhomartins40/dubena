@@ -15,12 +15,12 @@ use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 /**
- * FASE 1 do PLANO_SEGURANCA_MULTITENANT_APPS — webhook PIX FAIL-CLOSED em produção.
+ * FASE 1 do PLANO_SEGURANCA_MULTITENANT_APPS — webhook PIX sempre FAIL-CLOSED.
  *
  * Ameaça coberta: o cliente gera o PIX do próprio pedido (conhece txid e valor) e
- * chama o webhook público ele mesmo → pedido "pago" sem pagamento. Em produção,
- * NENHUM segredo verificável = 401 sempre; empresa com PIX próprio não herda o
- * HMAC do env. Em dev/homolog/CI o comportamento permissivo é preservado.
+ * chama o webhook público ele mesmo → pedido "pago" sem pagamento. Em qualquer
+ * ambiente, NENHUM segredo verificável = 401; empresa com PIX próprio não herda
+ * o HMAC do env.
  */
 class PixWebhookFailClosedTest extends TestCase
 {
@@ -156,14 +156,19 @@ class PixWebhookFailClosedTest extends TestCase
         ])->assertStatus(401);
     }
 
-    // ── Dev/CI: comportamento permissivo preservado (regressão) ────────────────
+    // ── Dev/CI: endpoint público também permanece fail-closed ─────────────────
 
-    public function test_fora_de_producao_sem_segredo_continua_processando(): void
+    public function test_fora_de_producao_sem_segredo_rejeita_auto_confirmacao(): void
     {
         [, $cobranca] = $this->cobranca();
         config(['services.pix.webhook_secret' => null, 'services.pix.webhook_hmac_secret' => null]);
 
         $this->postWebhook(json_encode(['txid' => $cobranca->txid, 'valor' => 80.0]))
-            ->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
+            ->assertStatus(401);
+
+        $this->assertSame(
+            SituacaoPix::ATIVA,
+            PixCobranca::withoutTenant()->find($cobranca->id)->situacao,
+        );
     }
 }

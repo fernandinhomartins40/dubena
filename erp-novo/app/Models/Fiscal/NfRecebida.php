@@ -20,6 +20,9 @@ class NfRecebida extends Model
         'financeiro_id', 'xml',
     ];
 
+    /** O XML fiscal bruto nunca faz parte da serialização genérica da nota. */
+    protected $hidden = ['xml'];
+
     protected function casts(): array
     {
         return [

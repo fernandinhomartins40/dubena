@@ -42,12 +42,13 @@ class CargaFranqueadoService
     {
         $modo = $this->modoDe($colaborador);
         $destino = $this->setorDo($colaborador);
+        $empresaId = (int) $colaborador->empresa_id;
 
         if ($itens === []) {
             throw ValidationException::withMessages(['itens' => 'Informe ao menos um item.']);
         }
 
-        DB::transaction(function () use ($setorOrigem, $destino, $itens, $userId) {
+        DB::transaction(function () use ($setorOrigem, $destino, $itens, $userId, $empresaId) {
             foreach ($itens as $i) {
                 $this->estoque->transferir(
                     $setorOrigem,
@@ -55,6 +56,7 @@ class CargaFranqueadoService
                     (int) $i['produto_id'],
                     (float) $i['quantidade'],
                     $userId,
+                    $empresaId,
                 );
             }
         });
@@ -88,8 +90,9 @@ class CargaFranqueadoService
         }
 
         $origem = $this->setorDo($colaborador);
+        $empresaId = (int) $colaborador->empresa_id;
 
-        DB::transaction(function () use ($origem, $setorDeposito, $itens, $userId) {
+        DB::transaction(function () use ($origem, $setorDeposito, $itens, $userId, $empresaId) {
             foreach ($itens as $i) {
                 $this->estoque->transferir(
                     $origem,
@@ -97,6 +100,7 @@ class CargaFranqueadoService
                     (int) $i['produto_id'],
                     (float) $i['quantidade'],
                     $userId,
+                    $empresaId,
                 );
             }
         });

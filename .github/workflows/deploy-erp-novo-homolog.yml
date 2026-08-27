@@ -1,16 +1,10 @@
 name: Deploy erp-novo (HOMOLOGAÇÃO)
 
-# Deploy do backend reescrito (erp-novo) em ambiente de HOMOLOGAÇÃO na VPS.
-# Roda no mesmo self-hosted runner do ctrl-web, mas em ambiente ISOLADO:
-# rede/containers/volumes próprios, banco Postgres próprio, porta 3120.
-# NÃO toca a produção do legado (princípio #1 do plano de reescrita).
 on:
-  push:
+  workflow_run:
+    workflows: ['CI erp-novo (backend reescrito)']
+    types: [completed]
     branches: [main]
-    paths:
-      - 'erp-novo/**'
-      - '.github/workflows/deploy-erp-novo-homolog.yml'
-  workflow_dispatch:        # permite disparar manualmente (homolog sob demanda)
 
 concurrency:
   group: deploy-erp-novo-homolog
@@ -18,217 +12,72 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: self-hosted     # roda DENTRO da VPS (sem SSH)
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: self-hosted
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: erp-novo
+    env:
+      ENV_HOMOLOG: /opt/dubena-env/erp-novo-homolog.env
+      RELEASES_DIR: /opt/dubena-releases
+      RELEASE_ID: ${{ github.event.workflow_run.head_sha }}
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
 
     steps:
-      - name: Corrigir permissões do workspace (antes do checkout)
-        # Containers rodam como root e podem deixar storage/cache com dono root,
-        # impedindo o checkout de limpar (EACCES). Um container root reverte o dono.
-        working-directory: .
-        run: |
-          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine:3 \
-            sh -c "chown -R $(id -u):$(id -g) /ws 2>/dev/null || true" || true
+      - name: Checkout exato da release aprovada
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          clean: false
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Restaurar .env de homologação (persistido fora do checkout)
+      - name: Validar ambiente e autenticar no GHCR
         run: |
-          # O checkout limpa não-rastreados; o .env (segredos) fica em
-          # /opt/dubena-env/ e é copiado a cada deploy. Crie-o uma vez na VPS
-          # a partir de erp-novo/.env.homolog.example.
-          if [ ! -f /opt/dubena-env/erp-novo-homolog.env ]; then
-            echo "ERRO: /opt/dubena-env/erp-novo-homolog.env não existe na VPS." >&2
-            exit 1
-          fi
-          cp /opt/dubena-env/erp-novo-homolog.env .env
+          test -r "$ENV_HOMOLOG" || { echo "env de homologação ausente" >&2; exit 78; }
+          echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-      - name: Restaurar .env do OUTRO app do monorepo (evita derrubá-lo)
-        working-directory: .
+      - name: Resolver e registrar o manifesto imutável
         run: |
-          # MONOREPO + WORKSPACE COMPARTILHADO: ver comentário equivalente em
-          # deploy-ctrl-web.yml. O `git clean -ffdx` do checkout apaga o
-          # ctrl-web/.env (ignorado), que este workflow não restaura. O container
-          # do ctrl-web continua no ar com a config antiga, mas o próximo
-          # `docker compose up` dele falha por env_file ausente e os volumes
-          # (vendor/storage) desanexam → 500 em todo o ERP. Restaurar o .env do
-          # vizinho mantém os dois deploys independentes.
-          if [ -f /opt/dubena-env/ctrl-web.env ]; then
-            cp /opt/dubena-env/ctrl-web.env ctrl-web/.env
-            echo "ctrl-web/.env restaurado (preservado do git clean)."
-          else
-            echo "AVISO: /opt/dubena-env/ctrl-web.env ausente — não restaurado." >&2
-          fi
+          set -eu
+          app_tag="${REGISTRY_PREFIX}/erpnovo-app:${RELEASE_ID}"
+          web_tag="${REGISTRY_PREFIX}/erpnovo-web:${RELEASE_ID}"
+          app_digest=$(docker buildx imagetools inspect "$app_tag" | awk '/^Digest:/ {print $2; exit}')
+          web_digest=$(docker buildx imagetools inspect "$web_tag" | awk '/^Digest:/ {print $2; exit}')
+          case "$app_digest:$web_digest" in sha256:*:sha256:*) ;; *) exit 1;; esac
+          APP_IMAGE="${app_tag}@${app_digest}"
+          WEB_IMAGE="${web_tag}@${web_digest}"
+          mkdir -p "$RELEASES_DIR"
+          umask 022
+          manifest_tmp="${RELEASES_DIR}/${RELEASE_ID}.env.tmp"
+          printf 'RELEASE_ID=%s\nAPP_IMAGE=%s\nWEB_IMAGE=%s\n' \
+            "$RELEASE_ID" "$APP_IMAGE" "$WEB_IMAGE" > "$manifest_tmp"
+          mv "$manifest_tmp" "${RELEASES_DIR}/${RELEASE_ID}.env"
+          echo "APP_IMAGE=$APP_IMAGE" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
 
-      - name: Build da SPA a partir do fonte (FE-5 — não confia no public/app commitado)
-        working-directory: erp-novo/frontend
+      - name: Pull, migration pelo owner e promoção sem rebuild
         run: |
-          # A SPA passa a ser buildada NO DEPLOY, direto do fonte, em vez de
-          # depender do public/app versionado (que exigia lembrar de rodar o build
-          # a cada mudança de UI). Em Docker efêmero p/ não exigir Node no runner.
-          docker run --rm -v "$PWD/..":/app -w /app/frontend node:20-alpine \
-            sh -c "npm ci && npm run build"
+          sh docker/compose-homolog.sh pull
+          sh docker/compose-homolog.sh run --rm app \
+            php artisan migrate --force --database=pgsql_owner
+          sh docker/compose-homolog.sh up -d --no-build --remove-orphans
 
-      - name: Criar mountpoints de vendor/ e storage/ (exigidos pelo bind)
+      - name: Provar digest executado e health
         run: |
-          # Ver comentário em deploy-ctrl-web.yml: o volume nomeado só monta se o
-          # diretório existir no bind do checkout. Aqui a árvore de storage/
-          # sobrevive ao `git clean` por acaso — o repo rastreia os .gitignore
-          # padrão do Laravel dentro dela —, mas vendor/ não é rastreado. Criar
-          # explicitamente remove a dependência desse efeito colateral.
-          mkdir -p vendor storage bootstrap/cache
-
-      - name: Build e subida dos containers
-        run: |
-          docker compose -f docker-compose.homolog.yml build
-          docker compose -f docker-compose.homolog.yml up -d --force-recreate
-          # Aguarda o container app ficar estável (entrypoint sobe o php-fpm sozinho).
-          for i in $(seq 1 15); do
-            st=$(docker inspect -f '{{.State.Status}}' erpnovo-app 2>/dev/null || echo none)
-            [ "$st" = "running" ] && break
-            echo "aguardando erpnovo-app ($st)..."; sleep 3
-          done
-          [ "$st" = "running" ] || { echo "erpnovo-app não subiu (status=$st)" >&2; exit 1; }
-
-      - name: Verificar que os volumes montaram de fato
-        run: |
-          # Ver comentário equivalente em deploy-ctrl-web.yml: um container pode
-          # ficar "Up" com volumes desanexados (docker inspect mostra o mount,
-          # mas ele não existe dentro do container). Sem vendor/ o PHP nem
-          # inicializa e sem storage/logs/ o erro não é registrado em lugar algum.
-          for p in /var/www/storage /var/www/vendor; do
-            if ! docker compose -f docker-compose.homolog.yml exec -T app \
-                 grep -q " $p " /proc/mounts; then
-              echo "ERRO: volume não montado em $p — abortando." >&2
-              docker compose -f docker-compose.homolog.yml exec -T app cat /proc/mounts >&2 || true
-              exit 1
-            fi
-            echo "mount OK: $p"
-          done
-
-      - name: Aguardar o Postgres aceitar conexão
-        run: |
-          # O --force-recreate reinicia o db; o migrate falha se rodar antes de aceitar.
-          for i in $(seq 1 30); do
-            if docker compose -f docker-compose.homolog.yml exec -T db pg_isready -U "${DB_USERNAME:-erp}" >/dev/null 2>&1; then
-              echo "Postgres pronto."; break
-            fi
-            echo "aguardando Postgres ($i)..."; sleep 2
-          done
-
-      - name: Instalar dependências (composer, do lock)
-        run: |
-          # IDEMPOTENTE: o volume app_vendor persiste entre deploys; instala/atualiza
-          # sempre (garante vendor presente mesmo se um deploy anterior falhou).
-          # RETRY 3x: logo após o --force-recreate a rede/DNS do container pode não
-          # estar pronta e o composer falha DEIXANDO O VENDOR VAZIO (2 deploys
-          # seguidos quebraram assim, com recuperação manual). Rodar manualmente
-          # minutos depois sempre funcionou — é flakiness de pós-recreate.
-          ok=0
-          for tent in 1 2 3; do
-            if docker compose -f docker-compose.homolog.yml exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app \
-              composer install --no-interaction --prefer-dist --no-progress --no-dev \
-              --no-scripts --optimize-autoloader; then
-              ok=1; break
-            fi
-            echo "composer install falhou (tentativa $tent) — aguardando para tentar de novo…" >&2
-            sleep 15
-          done
-          [ "$ok" = "1" ] || { echo "composer install falhou nas 3 tentativas" >&2; exit 1; }
-          # Garante o autoload (falha explícita se o vendor não populou — evita 500 silencioso).
-          docker compose -f docker-compose.homolog.yml exec -T app test -f vendor/autoload.php
-
-      - name: Garantir estrutura de storage (volume sobe vazio)
-        run: |
-          docker compose -f docker-compose.homolog.yml exec -T app sh -c '
-            mkdir -p storage/framework/cache storage/framework/sessions \
-                     storage/framework/views storage/logs storage/app/public \
-                     bootstrap/cache &&
-            chown -R www-data:www-data storage bootstrap/cache'
-
-      - name: App key, migrations, cache
-        run: |
-          docker compose -f docker-compose.homolog.yml exec -T app sh -c \
-            'grep -q "^APP_KEY=base64:" .env || php artisan key:generate --force'
-          # Migrations rodam com a conexão de OWNER (cria tabelas/policies/roles).
-          # O RUNTIME usa a role restrita erp_app (NOSUPERUSER/NOBYPASSRLS) p/ a RLS
-          # valer. DB_OWNER_* cai no DB_USERNAME se não definido (seguro por padrão).
-          docker compose -f docker-compose.homolog.yml exec -T app php artisan migrate --force --database=pgsql_owner
-          # Limpa caches antes; config:cache por último (SPA é estática, não depende disto).
-          docker compose -f docker-compose.homolog.yml exec -T app php artisan optimize:clear
-          docker compose -f docker-compose.homolog.yml exec -T app php artisan config:cache
-
-      - name: Seed base — DeploySeeder (idempotente, todo deploy)
-        run: |
-          # Sempre roda: admin/empresa + RBAC (catálogo de permissões atualizado;
-          # chaves novas entram automaticamente). Para adicionar futuros seeders
-          # idempotentes ao deploy, edite database/seeders/DeploySeeder.php — NÃO
-          # é preciso mexer neste workflow.
-          docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan db:seed --class='Database\Seeders\DeploySeeder' --force
-
-      - name: Seed massa demo (Guarapuava) — quando o banco ainda não está populado
-        run: |
-          # A massa demo (200 clientes/500 pedidos) NÃO é idempotente por volume.
-          # Roda quando há POUCOS clientes (<=50): cobre o 1º deploy e também o caso
-          # de só haver resíduo de seeds antigos. Acima disso considera-se populado e
-          # pula. Mesmo limiar do guard interno do seeder (nunca duplica os 200).
-          clientes=$(docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan tinker --execute='echo \App\Models\Cliente\Cliente::withoutTenant()->count();' 2>/dev/null | tr -dc '0-9')
-          clientes=${clientes:-0}
-          echo "Clientes existentes: $clientes"
-          if [ "$clientes" -gt 50 ]; then
-            echo "Banco já populado ($clientes clientes) — pulando massa demo."
-          else
-            echo "Banco com poucos dados ($clientes) — populando massa demo de Guarapuava."
-            docker compose -f docker-compose.homolog.yml exec -T app \
-              php artisan db:seed --class='Database\Seeders\DemoGuarapuavaSeeder' --force
-          fi
-
-      - name: Seed marketplace demo (F7) — idempotente, todo deploy
-        run: |
-          # Garante matriz + "Unidade Batel" aderidas ao marketplace (geoloc/raio/
-          # cerca + produtos da 2ª revenda). IDEMPOTENTE — roda mesmo em banco
-          # populado, onde a massa demo acima é pulada.
-          docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan db:seed --class='Database\Seeders\MarketplaceDemoSeeder' --force
-
-      - name: Normalizar dono do storage (www-data) — após os artisan
-        run: |
-          # Os artisan acima rodam como ROOT (docker exec); o php-fpm é www-data.
-          docker compose -f docker-compose.homolog.yml exec -T app \
-            sh -c 'chown -R www-data:www-data storage bootstrap/cache'
-
-      - name: Portão de prontidão (golive:check — informativo em homolog)
-        run: |
-          # Não bloqueia a homologação (gates fiscais/cobrança ficam em Fake aqui),
-          # mas imprime o estado da RLS/role restrita (MT-1/2), da infra assíncrona
-          # (worker/scheduler/Reverb — PF-5/6/8) e dos certificados. Serve de
-          # checklist visível a cada deploy. Em produção plena, use --strict e trate
-          # a saída ≠0 como bloqueio.
-          docker compose -f docker-compose.homolog.yml exec -T app \
-            php artisan golive:check || true
-
-      - name: Health check (landing / + API /novo/up + SPA /novo/app, porta 3120)
-        run: |
-          # API sob /novo (o nginx do container faz strip → /up) com retry.
-          api=000
-          for i in $(seq 1 10); do
+          set -eu
+          esperado_app=$(docker image inspect "$APP_IMAGE" --format '{{.Id}}')
+          esperado_web=$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')
+          test "$(docker inspect erpnovo-app --format '{{.Image}}')" = "$esperado_app"
+          test "$(docker inspect erpnovo-web --format '{{.Image}}')" = "$esperado_web"
+          for attempt in $(seq 1 15); do
             api=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/up || echo 000)
-            [ "$api" = "200" ] && break
-            echo "aguardando /novo/up ($api)..."; sleep 3
+            spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/app/ || echo 000)
+            [ "$api:$spa" = '200:200' ] && exit 0
+            echo "health tentativa ${attempt}: api=${api}, spa=${spa}"
+            sleep 4
           done
-          # Landing na raiz exata (monorepo: servida pelo container).
-          land=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/ || echo 000)
-          # SPA estática sob /novo/app (deve responder 200 com o index.html).
-          spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/app/ || echo 000)
-          echo "HTTP /: $land | /novo/up: $api | /novo/app/: $spa"
-          if [ "$api" != "200" ] || [ "$spa" != "200" ] || [ "$land" != "200" ]; then
-            echo "Health check falhou (/=$land /novo/up=$api /novo/app=$spa)" >&2
-            docker compose -f docker-compose.homolog.yml logs --tail=50 app web >&2 || true
-            exit 1
-          fi
+          sh docker/compose-homolog.sh logs --tail=80 app web >&2
+          exit 1

@@ -15,6 +15,11 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class ConsultaTrilha
 {
+    /** @var list<string> */
+    private const CAMPOS_CUSTO_PRODUTO = [
+        'custo_medio', 'custo_frete', 'customedio', 'custofrete',
+    ];
+
     /**
      * Linha do tempo geral, com filtros opcionais.
      *
@@ -94,7 +99,7 @@ class ConsultaTrilha
      *
      * @return array<string, mixed>
      */
-    public function apresentar(AuditLog $log): array
+    public function apresentar(AuditLog $log, bool $mostrarCusto = true): array
     {
         $depois = $log->depois ?? [];
 
@@ -115,8 +120,27 @@ class ConsultaTrilha
             'autor_id' => $log->user_id,
             'ip' => $log->ip,
             'criado_em' => $log->criado_em?->toIso8601String(),
-            'alteracoes' => $this->diff($log),
+            'alteracoes' => $this->diff($log, $mostrarCusto),
         ];
+    }
+
+    /**
+     * Payload técnico usado pelo relatório legado, sanitizado na leitura. A
+     * trilha armazenada permanece completa para observadores autorizados.
+     *
+     * @return array{antes: array<string,mixed>, depois: array<string,mixed>}
+     */
+    public function valoresBrutos(AuditLog $log, bool $mostrarCusto = true): array
+    {
+        $antes = $log->antes ?? [];
+        $depois = $log->depois ?? [];
+
+        if (! $mostrarCusto) {
+            $antes = $this->removerCustos($antes);
+            $depois = $this->removerCustos($depois);
+        }
+
+        return ['antes' => $antes, 'depois' => $depois];
     }
 
     /**
@@ -124,13 +148,21 @@ class ConsultaTrilha
      *
      * @return list<array{campo: string, rotulo: string, de: mixed, para: mixed}>
      */
-    private function diff(AuditLog $log): array
+    private function diff(AuditLog $log, bool $mostrarCusto): array
     {
         $antes = $log->antes ?? [];
         $depois = $log->depois ?? [];
 
+        if (! $mostrarCusto) {
+            $antes = $this->removerCustos($antes);
+            $depois = $this->removerCustos($depois);
+        }
+
         // Chaves de controle da ação semântica não são "campos alterados".
         $ignorar = array_merge(CatalogoAuditoria::CAMPOS_OCULTOS, ['motivo', 'alvo']);
+        if (! $mostrarCusto) {
+            $ignorar = array_merge($ignorar, self::CAMPOS_CUSTO_PRODUTO);
+        }
 
         $campos = array_diff(
             array_unique(array_merge(array_keys($antes), array_keys($depois))),
@@ -158,6 +190,24 @@ class ConsultaTrilha
         }
 
         return $saida;
+    }
+
+    /** @param array<string,mixed> $dados @return array<string,mixed> */
+    private function removerCustos(array $dados): array
+    {
+        foreach ($dados as $chave => $valor) {
+            if (is_string($chave) && in_array($chave, self::CAMPOS_CUSTO_PRODUTO, true)) {
+                unset($dados[$chave]);
+
+                continue;
+            }
+
+            if (is_array($valor)) {
+                $dados[$chave] = $this->removerCustos($valor);
+            }
+        }
+
+        return $dados;
     }
 
     /**

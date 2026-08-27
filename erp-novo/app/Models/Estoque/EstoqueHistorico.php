@@ -24,6 +24,9 @@ class EstoqueHistorico extends Model
         'custo_unitario', 'saldo_resultante', 'origem', 'origem_id', 'user_id',
     ];
 
+    /** Custo só pode sair por um presenter que aplique field-level. */
+    protected $hidden = ['custo_unitario'];
+
     protected function casts(): array
     {
         return [

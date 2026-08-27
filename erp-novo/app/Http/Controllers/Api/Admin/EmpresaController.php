@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Empresa\EnderecoEmpresaSync;
+use App\Domain\Saas\TransformationFreeze;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -21,6 +22,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class EmpresaController extends Controller
 {
     use AutorizaPorPermissao;
+
+    public function __construct(private TransformationFreeze $freeze) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -41,18 +44,18 @@ class EmpresaController extends Controller
 
     public function show(Request $request, int $id): EmpresaResource
     {
-        $this->autorizar($request, 'empresa.view');
+        $empresa = $this->empresaAcessivel($request, $id);
+        $this->autorizarNaEmpresa($request, 'empresa.view', $id);
 
         return new EmpresaResource(
-            $this->doGrupo($request)
-                ->with(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao'])
-                ->findOrFail($id),
+            $empresa->load(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao']),
         );
     }
 
     public function store(EmpresaRequest $request): JsonResponse
     {
         $this->autorizar($request, 'empresa.create');
+        $this->freeze->assertCompanyCreationAllowed();
 
         // O texto do endereço é derivado das FKs: a DANFE imprime a string, e
         // sem isto ela sairia vazia mesmo com a cidade escolhida no formulário.
@@ -68,9 +71,9 @@ class EmpresaController extends Controller
 
     public function update(EmpresaRequest $request, int $id): EmpresaResource
     {
-        $this->autorizar($request, 'empresa.edit');
+        $empresa = $this->empresaAcessivel($request, $id, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $id);
 
-        $empresa = $this->doGrupo($request)->findOrFail($id);
         $empresa->update(app(EnderecoEmpresaSync::class)->aplicar($request->validated()));
 
         return new EmpresaResource(
@@ -80,9 +83,10 @@ class EmpresaController extends Controller
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        $this->autorizar($request, 'empresa.delete');
+        $empresa = $this->empresaAcessivel($request, $id, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.delete', $id);
 
-        $this->doGrupo($request)->findOrFail($id)->delete();
+        $empresa->delete();
 
         return response()->json(['message' => 'Empresa excluída.']);
     }
@@ -127,5 +131,19 @@ class EmpresaController extends Controller
         $user = $request->user();
 
         return (int) ($user->empresa?->grupo_id ?? $user->grupo_id);
+    }
+
+    private function empresaAcessivel(Request $request, int $id, bool $exigirAtiva = false): Empresa
+    {
+        $empresa = $this->doGrupo($request)->findOrFail($id);
+        $user = $request->user();
+
+        abort_unless($user !== null && $user->podeAcessarEmpresa($id), 404);
+
+        if ($exigirAtiva && ! $user->support) {
+            abort_unless(app(TenantContext::class)->empresaId() === $id, 404);
+        }
+
+        return $empresa;
     }
 }

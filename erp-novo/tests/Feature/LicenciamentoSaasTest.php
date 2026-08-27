@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Domain\Saas\LicencaService;
-use App\Domain\Saas\RecursoCatalogo;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Empresa;
 use App\Models\Saas\Assinatura;
@@ -16,8 +15,8 @@ use Tests\TestCase;
 
 /**
  * P2 — Camada SaaS: planos, assinaturas, feature-flags e o middleware `recurso:`.
- * Cobre a resolução de recursos efetivos (plano + overrides), o fail-open para
- * empresas sem assinatura, o enforcement 402 por rota e o /me com features.
+ * Cobre a resolução fail-closed de recursos efetivos (plano + overrides), o
+ * enforcement 402 por rota e o /me com features.
  */
 class LicenciamentoSaasTest extends TestCase
 {
@@ -52,13 +51,20 @@ class LicenciamentoSaasTest extends TestCase
         return $plano;
     }
 
-    public function test_empresa_sem_assinatura_tem_tudo_liberado_failopen(): void
+    public function test_empresa_sem_assinatura_nao_tem_recursos(): void
     {
         $licenca = app(LicencaService::class);
 
-        $this->assertTrue($licenca->recursoHabilitado('marketplace'));
-        $this->assertEqualsCanonicalizing(RecursoCatalogo::chaves(), $licenca->recursosEfetivos());
-        $this->assertFalse($licenca->assinaturaAtiva()); // mas NÃO há assinatura vigente
+        $this->assertFalse($licenca->recursoHabilitado('marketplace'));
+        $this->assertSame([], $licenca->recursosEfetivos());
+        $this->assertFalse($licenca->assinaturaAtiva());
+    }
+
+    public function test_sem_tenant_nao_libera_catalogo_inteiro(): void
+    {
+        app(TenantContext::class)->clear();
+
+        $this->assertSame([], app(LicencaService::class)->recursosEfetivos());
     }
 
     public function test_assinatura_vigente_libera_apenas_os_recursos_do_plano(): void
@@ -93,6 +99,20 @@ class LicenciamentoSaasTest extends TestCase
         $this->assertFalse($licenca->assinaturaAtiva());
         $this->assertFalse($licenca->recursoHabilitado('marketplace'));
         $this->assertSame([], $licenca->recursosEfetivos());
+    }
+
+    public function test_override_positivo_pode_liberar_recurso_sem_assinatura(): void
+    {
+        RecursoOverride::query()->create([
+            'empresa_id' => $this->empresa->id,
+            'recurso_chave' => 'marketplace',
+            'habilitado' => true,
+        ]);
+
+        $licenca = app(LicencaService::class);
+        $licenca->invalidar($this->empresa->id);
+
+        $this->assertSame(['marketplace'], $licenca->recursosEfetivos());
     }
 
     public function test_override_liga_e_desliga_recurso_sobre_o_plano(): void

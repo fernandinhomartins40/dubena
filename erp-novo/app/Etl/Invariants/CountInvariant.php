@@ -38,8 +38,7 @@ final class CountInvariant implements Invariant
         private Closure|int $descartesEsperados = 0,
         private ?string $whereLegado = null,
         private Closure|int $acrescimosEsperados = 0,
-    ) {
-    }
+    ) {}
 
     public function nome(): string
     {
@@ -48,8 +47,7 @@ final class CountInvariant implements Invariant
 
     public function verificar(): InvariantResult
     {
-        // Conexão do legado indisponível (dev/CI sem dump): não há o que
-        // comparar — a invariante não se aplica.
+        // Sem a origem não existe prova: o gate fica inconclusivo e deve falhar.
         //
         // MAS: conexão disponível com a TABELA ausente é FALHA, não skip.
         // Foi exatamente assim que módulos inteiros migraram "0 linhas com
@@ -57,10 +55,12 @@ final class CountInvariant implements Invariant
         // espelho incompleto silenciava a própria checagem que o detectaria.
         try {
             $temTabela = $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado);
-        } catch (\Throwable) {
-            return InvariantResult::ok(
+        } catch (\Throwable $e) {
+            return InvariantResult::falha(
                 $this->nome(),
-                'legado indisponível — não se aplica'
+                'legado indisponível; verificação inconclusiva: '.$e->getMessage(),
+                -1,
+                -1,
             );
         }
 

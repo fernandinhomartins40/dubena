@@ -97,20 +97,33 @@ certbot --nginx -d erp.gasemcasa.com.br
 
 > Pré-requisito: o DNS dos domínios deve apontar para o IP da VPS antes do certbot.
 
-## Passo 4 — Deploy
+## Passo 4 — Build, homologação e produção
 
-A partir daí, **todo push na `main`** que altere uma pasta dispara o workflow
-correspondente (`.github/workflows/deploy-*.yml`), que roda **dentro da VPS**:
-build → `up -d` → composer/migrate → health check na porta interna.
+O `erp-novo` não é mais reconstruído na VPS. Um push em `main` executa o CI
+SQLite/frontend e o gate PostgreSQL/RLS com owner e runtime separados. Somente
+depois de todos passarem, o job `build-release`:
 
-Disparo manual: aba **Actions** do GitHub → workflow → *Run workflow*.
+1. constrói app e web uma vez;
+2. publica no GHCR com provenance e SBOM;
+3. bloqueia vulnerabilidade crítica corrigível;
+4. grava as referências exatas `@sha256` como artefato.
+
+O workflow de homologação é disparado pelo sucesso desse CI, resolve os digests
+publicados e registra `/opt/dubena-releases/<sha-completo>.env`. Ele executa a
+migration pela conexão owner e sobe com `--no-build`.
+
+Produção é exclusivamente manual. Em **Actions → Deploy erp-novo (PRODUÇÃO)**,
+informe `PRODUCAO`, o SHA completo homologado e um SHA anterior explícito para
+rollback. O workflow exige ambos os manifestos, faz backup, promove exatamente
+os mesmos digests e comprova digest em execução, gate estrito e health. Não há
+opção de pular backup nem seleção implícita de rollback.
 
 ---
 
 ## Notas de arquitetura
 - Cada app expõe **só** `127.0.0.1:PORTA` (não fica público) — o Nginx do host é o
   único ponto de entrada TLS, igual às outras ~30 apps da VPS.
-- Os `docker-compose.prod.yml` montam volumes para `storage` e `vendor` persistirem
-  entre deploys; o banco persiste em volume nomeado.
+- Somente `storage` e cache persistem; código, `vendor/` e `public/` pertencem à
+  imagem imutável da release.
 - Segredos **nunca** entram no GitHub (workflow exige `.env` pré-existente na VPS).
 - **ctrl-web já roda em PostgreSQL** (Fase 3); api/monitoramento em MySQL.

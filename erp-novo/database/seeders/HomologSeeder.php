@@ -150,7 +150,16 @@ class HomologSeeder extends Seeder
                 // Só dá entrada inicial se ainda não houver saldo (idempotência).
                 if (EstoqueSaldo::withoutTenant()
                     ->where('setor_id', $setor->id)->where('produto_id', $p->id)->doesntExist()) {
-                    $estoque->entrada($setor->id, $p->id, 500, (float) $p->custo_medio, 'seed-inicial', null, null);
+                    $estoque->entrada(
+                        $setor->id,
+                        $p->id,
+                        500,
+                        (float) $p->custo_medio,
+                        'seed-inicial',
+                        null,
+                        null,
+                        $this->empresa->id,
+                    );
                 }
             }
         }
@@ -244,14 +253,18 @@ class HomologSeeder extends Seeder
                 'descricao' => 'Caixa Geral',
                 'saldo_inicial' => 1000.00,
             ]);
-            $svc->abrir($conta->id);
+            $svc->abrir($conta->id, $this->empresa->id);
 
             // Baixa algumas parcelas a receber geradas pelos pedidos (entra no caixa).
             FinanceiroParcela::query()
                 ->whereHas('financeiro', fn ($q) => $q->where('pagarreceber', 'R')->where('cancelado', false))
                 ->where('baixado', false)
                 ->limit(10)->get()
-                ->each(fn ($parcela) => $svc->baixarParcela($conta->id, $parcela->id));
+                ->each(fn ($parcela) => $svc->baixarParcela(
+                    $conta->id,
+                    $parcela->id,
+                    $this->empresa->id,
+                ));
         }
     }
 

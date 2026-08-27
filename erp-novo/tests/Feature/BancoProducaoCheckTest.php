@@ -21,18 +21,16 @@ use Tests\TestCase;
  */
 class BancoProducaoCheckTest extends TestCase
 {
-    public function test_comando_existe_e_roda(): void
+    public function test_comando_existe_e_falha_fechado_fora_do_postgres(): void
     {
-        $this->assertSame(0, Artisan::call('banco:producao-check'));
+        $this->assertSame(1, Artisan::call('banco:producao-check'));
     }
 
-    public function test_fora_do_postgres_o_portao_nao_opina(): void
+    public function test_fora_do_postgres_o_portao_e_inconclusivo(): void
     {
         Artisan::call('banco:producao-check');
 
-        // Em sqlite (CI/dev) o portão não faz sentido: avisa e libera, em vez
-        // de reprovar um ambiente que nunca será produção.
-        $this->assertStringContainsString('não é PostgreSQL', Artisan::output());
+        $this->assertStringContainsString('PORTÃO INCONCLUSIVO', Artisan::output());
     }
 
     public function test_tem_a_flag_pos_etl_documentada(): void

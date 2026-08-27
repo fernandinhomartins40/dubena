@@ -58,11 +58,25 @@ class CaixaServiceTest extends TestCase
     public function test_invariante_soma_movimentos_igual_saldo_atual(): void
     {
         $conta = $this->conta(100);
-        $this->caixa->movimentar($conta->id, 250, CaixaService::AJUSTE);
-        $this->caixa->movimentar($conta->id, -75.50, CaixaService::AJUSTE);
+        $this->caixa->movimentar($conta->id, 250, CaixaService::AJUSTE, $this->empresa->id);
+        $this->caixa->movimentar($conta->id, -75.50, CaixaService::AJUSTE, $this->empresa->id);
 
         $this->assertEqualsWithDelta(274.50, (float) $conta->refresh()->saldo_atual, 0.001);
         $this->assertSaldoConsistente($conta);
+    }
+
+    public function test_porta_de_movimento_recusa_conta_de_outra_empresa(): void
+    {
+        $outraEmpresa = Empresa::factory()->create();
+        $contaAlheia = $this->caixa->criarConta([
+            'empresa_id' => $outraEmpresa->id,
+            'grupo_id' => $outraEmpresa->grupo_id,
+            'descricao' => 'Conta alheia',
+            'saldo_inicial' => 100,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->caixa->movimentar($contaAlheia->id, 50, CaixaService::AJUSTE, $this->empresa->id);
     }
 
     public function test_baixa_de_parcela_a_receber_com_juros_e_multa(): void
@@ -75,7 +89,7 @@ class CaixaServiceTest extends TestCase
         $parcela = $f->parcelas->first();
 
         // recebe com 5 de juros + 2 de multa - 1 de desconto = 106 líquido.
-        $mov = $this->caixa->baixarParcela($conta->id, $parcela->id, juros: 5, multa: 2, desconto: 1);
+        $mov = $this->caixa->baixarParcela($conta->id, $parcela->id, $this->empresa->id, juros: 5, multa: 2, desconto: 1);
 
         $this->assertEqualsWithDelta(106, (float) $mov->valor, 0.001);
         $this->assertEqualsWithDelta(106, (float) $conta->refresh()->saldo_atual, 0.001);
@@ -92,7 +106,7 @@ class CaixaServiceTest extends TestCase
             'pagarreceber' => 'P', 'valor' => 200,
         ]);
 
-        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id);
+        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id, $this->empresa->id);
 
         $this->assertEqualsWithDelta(300, (float) $conta->refresh()->saldo_atual, 0.001); // 500 - 200
         $this->assertSaldoConsistente($conta);
@@ -102,10 +116,10 @@ class CaixaServiceTest extends TestCase
     {
         $conta = $this->conta(0);
         $f = $this->financeiro->criar(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'pagarreceber' => 'R', 'valor' => 50]);
-        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id);
+        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id, $this->empresa->id);
 
         $this->expectException(ValidationException::class);
-        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id);
+        $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id, $this->empresa->id);
     }
 
     public function test_transferencia_preserva_o_total_entre_contas(): void
@@ -113,7 +127,7 @@ class CaixaServiceTest extends TestCase
         $origem = $this->conta(1000);
         $destino = $this->conta(0);
 
-        $this->caixa->transferir($origem->id, $destino->id, 400);
+        $this->caixa->transferir($origem->id, $destino->id, 400, $this->empresa->id);
 
         $this->assertEqualsWithDelta(600, (float) $origem->refresh()->saldo_atual, 0.001);
         $this->assertEqualsWithDelta(400, (float) $destino->refresh()->saldo_atual, 0.001);
@@ -121,15 +135,35 @@ class CaixaServiceTest extends TestCase
         $this->assertSaldoConsistente($destino);
     }
 
+    public function test_transferencia_recusa_conta_de_outra_empresa_antes_de_movimentar(): void
+    {
+        $origem = $this->conta(1000);
+        $outraEmpresa = Empresa::factory()->create();
+        $destino = $this->caixa->criarConta([
+            'empresa_id' => $outraEmpresa->id,
+            'grupo_id' => $outraEmpresa->grupo_id,
+            'descricao' => 'Conta alheia',
+            'saldo_inicial' => 0,
+        ]);
+
+        try {
+            $this->caixa->transferir($origem->id, $destino->id, 400, $this->empresa->id);
+            $this->fail('Transferência cross-tenant deveria falhar.');
+        } catch (ValidationException) {
+            $this->assertEqualsWithDelta(1000, (float) $origem->refresh()->saldo_atual, 0.001);
+            $this->assertEqualsWithDelta(0, (float) $destino->refresh()->saldo_atual, 0.001);
+        }
+    }
+
     public function test_estorno_reverte_saldo_e_reabre_parcela(): void
     {
         $conta = $this->conta(0);
         $f = $this->financeiro->criar(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'pagarreceber' => 'R', 'valor' => 100]);
-        $mov = $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id);
+        $mov = $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id, $this->empresa->id);
 
         $this->assertEqualsWithDelta(100, (float) $conta->refresh()->saldo_atual, 0.001);
 
-        $this->caixa->estornar($mov->id);
+        $this->caixa->estornar($mov->id, $this->empresa->id);
 
         $this->assertEqualsWithDelta(0, (float) $conta->refresh()->saldo_atual, 0.001);
         $this->assertFalse($f->parcelas->first()->refresh()->baixado);
@@ -139,11 +173,11 @@ class CaixaServiceTest extends TestCase
     public function test_abrir_e_fechar_caixa_registra_saldos(): void
     {
         $conta = $this->conta(100);
-        $abertura = $this->caixa->abrir($conta->id);
+        $abertura = $this->caixa->abrir($conta->id, $this->empresa->id);
         $this->assertEqualsWithDelta(100, (float) $abertura->saldo_inicial, 0.001);
 
-        $this->caixa->movimentar($conta->id, 50, CaixaService::AJUSTE);
-        $fechamento = $this->caixa->fechar($conta->id);
+        $this->caixa->movimentar($conta->id, 50, CaixaService::AJUSTE, $this->empresa->id);
+        $fechamento = $this->caixa->fechar($conta->id, $this->empresa->id);
 
         $this->assertEqualsWithDelta(150, (float) $fechamento->saldo_final, 0.001);
         $this->assertFalse($fechamento->aberto);

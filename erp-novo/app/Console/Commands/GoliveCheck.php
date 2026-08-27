@@ -45,7 +45,7 @@ class GoliveCheck extends Command
         $this->newLine();
         $this->line("Resultado: {$this->fail} FALHA(s), {$this->warn} aviso(s).");
 
-        $strict = (bool) $this->option('strict');
+        $strict = (bool) $this->option('strict') || app()->isProduction();
         if ($this->fail > 0 || ($strict && $this->warn > 0)) {
             $this->error('PORTÃO FECHADO — resolva os itens acima antes do go-live'.($strict ? ' (modo strict).' : '.'));
 
@@ -174,6 +174,31 @@ class GoliveCheck extends Command
         $cobranca = (string) config('services.cobranca.driver');
         $this->item("Gate cobrança (COBRANCA_DRIVER={$cobranca})", in_array($cobranca, ['caixa', 'itau'], true),
             'Boleto em modo Fake — não gera CNAB real', aviso: true);
+
+        $pix = (string) config('services.pix.driver', 'fake');
+        $pixHabilitado = (bool) config('services.pix.enabled', false);
+
+        if ($pix === 'fake') {
+            $this->item(
+                "Gate PIX (PIX_DRIVER={$pix}, PIX_ENABLED=".($pixHabilitado ? 'true' : 'false').')',
+                false,
+                $pixHabilitado
+                    ? 'PIX habilitado com driver Fake — geraria uma cobrança sintética sem pagamento real'
+                    : 'driver Fake permitido apenas em dev/CI; configure um PSP real implementado antes de habilitar em produção',
+                aviso: ! $pixHabilitado,
+            );
+
+            return;
+        }
+
+        // Neste build, somente o fake de dev/CI está implementado. Um nome de PSP
+        // desconhecido não pode contar como gate real: o container também recusará
+        // resolvê-lo, em vez de degradar silenciosamente para uma cobrança sintética.
+        $this->item(
+            "Gate PIX (PIX_DRIVER={$pix})",
+            false,
+            "driver '{$pix}' não implementado neste build",
+        );
     }
 
     private function verificarConfigPorEmpresa(): void

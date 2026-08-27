@@ -45,6 +45,8 @@ class PagamentoController extends Controller
             'valor_bruto' => 'required|numeric|gt:0',
             'taxa_percentual' => 'nullable|numeric|min:0|max:100',
         ]);
+        $d['empresa_id'] = app(TenantContext::class)->empresaId();
+        abort_if($d['empresa_id'] === null, 403, 'Tenant não resolvido.');
 
         return response()->json(['data' => $this->service->registrarCartao($d)], 201);
     }

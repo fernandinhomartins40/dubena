@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Cobranca\BoletoPdfService;
 use App\Domain\Cobranca\BoletoService;
 use App\Domain\Cobranca\SituacaoBoleto;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
@@ -24,7 +25,7 @@ class BoletoController extends Controller
     use AutorizaPorPermissao;
     use PaginaListagem;
 
-    public function __construct(private BoletoService $service) {}
+    public function __construct(private BoletoService $service, private TenantContext $tenant) {}
 
     /**
      * GET /boletos/{id}/pdf — imprime o boleto (T4.6).
@@ -40,7 +41,10 @@ class BoletoController extends Controller
     {
         $this->autorizar($request, 'financeiro.view');
 
-        $boleto = Boleto::query()->findOrFail($id);
+        $boleto = Boleto::withoutTenant()
+            ->whereKey($id)
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
+            ->firstOrFail();
 
         return response($pdf->gerar($boleto), 200, [
             'Content-Type' => 'application/pdf',
@@ -80,7 +84,11 @@ class BoletoController extends Controller
         $this->autorizar($request, 'financeiro.edit');
         $d = $request->validate(['parcela_id' => 'required|integer|exists:financeiroparcelas,id']);
 
-        $parcela = FinanceiroParcela::query()->with('financeiro')->findOrFail($d['parcela_id']);
+        $parcela = FinanceiroParcela::withoutTenant()
+            ->whereKey($d['parcela_id'])
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
+            ->with('financeiro')
+            ->firstOrFail();
         $boleto = $this->service->gerarParaParcela($parcela);
 
         return response()->json(['data' => $boleto], 201);
@@ -91,8 +99,11 @@ class BoletoController extends Controller
     {
         $this->autorizar($request, 'financeiro.edit');
 
-        $boletos = Boleto::query()->where('situacao', SituacaoBoleto::PENDENTE->value)->get();
-        $remessa = $this->service->gerarRemessa($boletos, (int) $request->user()->empresa_id);
+        $boletos = Boleto::withoutTenant()
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
+            ->where('situacao', SituacaoBoleto::PENDENTE->value)
+            ->get();
+        $remessa = $this->service->gerarRemessa($boletos, $this->tenant->requireEmpresaId());
 
         return response()->json(['data' => $remessa], 201);
     }
@@ -117,7 +128,7 @@ class BoletoController extends Controller
         }
         abort_if(empty($linhas), 422, 'Envie o retorno (linhas ou arquivo).');
 
-        $n = $this->service->processarRetorno($linhas);
+        $n = $this->service->processarRetorno($linhas, $this->tenant->requireEmpresaId());
 
         return response()->json(['message' => "Retorno processado: {$n} ocorrência(s).", 'processadas' => $n]);
     }
@@ -134,7 +145,10 @@ class BoletoController extends Controller
     public function baixarRemessa(Request $request, int $id): StreamedResponse
     {
         $this->autorizar($request, 'financeiro.view');
-        $remessa = RemessaCnab::query()->findOrFail($id); // tenant-scoped
+        $remessa = RemessaCnab::withoutTenant()
+            ->whereKey($id)
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
+            ->firstOrFail();
 
         abort_unless($remessa->arquivo && Storage::disk('local')->exists($remessa->arquivo), 404, 'Arquivo da remessa não encontrado.');
 

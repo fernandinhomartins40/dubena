@@ -34,4 +34,7 @@ interface BoletoDriver
      * @return array{codigo:string, descricao:string, valor:?float, situacao:string}
      */
     public function interpretarRetorno(string $linha): array;
+
+    /** Extrai de posicao fixa o identificador local devolvido pelo banco. */
+    public function boletoIdRetorno(string $linha): ?int;
 }

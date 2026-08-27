@@ -2,20 +2,23 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\SpedContribuicoesService;
 use App\Domain\Fiscal\SpedFiscalService;
+use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Fiscal\CartaCorrecao;
+use App\Models\Fiscal\ConfigFiscal;
 use App\Models\Fiscal\InutilizacaoFiscal;
+use App\Models\Fiscal\NfImposto;
 use App\Models\Fiscal\NotaFiscal;
-use App\Models\Pedido\Pedido;
+use App\Models\Fiscal\OperacaoFiscal;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\User;
-use App\Domain\Pedido\EfeitoPedido;
-use App\Domain\Pedido\PedidoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -41,13 +44,40 @@ class FaseF09FiscalTest extends TestCase
     {
         $situacao = PedidoSituacao::factory()->create(['grupo_id' => $empresa->grupo_id, 'efeito' => EfeitoPedido::PENDENTE]);
         $produto = Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'preco_venda' => 100, 'ncm' => '27111910']);
+        ConfigFiscal::withoutTenant()->firstOrCreate(
+            ['empresa_id' => $empresa->id],
+            ['ambiente' => 2, 'serie_nfe' => 1, 'serie_nfce' => 1, 'regime_tributario' => 1],
+        );
+        $operacao = OperacaoFiscal::withoutGrupo()->create([
+            'grupo_id' => $empresa->grupo_id,
+            'descricao' => 'Venda tributada '.uniqid(),
+            'cfop' => '5102',
+            'ativo' => true,
+        ]);
+        DB::table('produto_operacao_fiscal')->insert([
+            'operacao_fiscal_id' => $operacao->id,
+            'produto_id' => $produto->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        NfImposto::withoutTenant()->create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'operacao_fiscal_id' => $operacao->id,
+            'cst_icms' => '00', 'aliq_icms' => 18, 'perc_bc_icms' => 100,
+            'cst_pis' => '01', 'aliq_pis' => 1.65, 'perc_bc_pis' => 100,
+            'cst_cofins' => '01', 'aliq_cofins' => 7.6, 'perc_bc_cofins' => 100,
+            'pf_cst_icms' => '00', 'pf_aliq_icms' => 18, 'pf_perc_bc_icms' => 100,
+            'pf_cst_pis' => '01', 'pf_aliq_pis' => 1.65, 'pf_perc_bc_pis' => 100,
+            'pf_cst_cofins' => '01', 'pf_aliq_cofins' => 7.6, 'pf_perc_bc_cofins' => 100,
+        ]);
         $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $pedido = app(PedidoService::class)->criar([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ], [['produto_id' => $produto->id, 'quantidade' => 3]]);
 
-        return app(\App\Domain\Fiscal\FiscalService::class)->emitirDoPedido($pedido, ModeloDocumento::NFE);
+        return app(FiscalService::class)->emitirDoPedido($pedido, ModeloDocumento::NFE);
     }
 
     // ── Inutilização de faixa ──

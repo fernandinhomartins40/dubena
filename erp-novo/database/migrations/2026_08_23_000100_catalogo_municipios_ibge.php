@@ -81,10 +81,8 @@ return new class extends Migration
             return;
         }
 
-        try {
+        if (DB::selectOne("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app') AS present")->present) {
             DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON municipios_ibge TO erp_app');
-        } catch (Throwable) {
-            // Role inexistente (dev/CI): segue. O golive:check cobra em produção.
         }
     }
 };

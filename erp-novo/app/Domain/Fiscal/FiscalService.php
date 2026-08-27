@@ -20,18 +20,6 @@ use Illuminate\Validation\ValidationException;
  */
 class FiscalService
 {
-    /**
-     * Fallback de quando o item não tem regra na matriz — é exatamente o que o
-     * serviço fazia para TODO item antes da matriz existir. Mantido para não
-     * quebrar a emissão de quem ainda não cadastrou/migrou a tributação.
-     */
-    private const TRIBUTACAO_PADRAO = [
-        'cst_icms' => '00',
-        'aliq_icms' => 18.0,
-        'aliq_pis' => 1.65,
-        'aliq_cofins' => 7.6,
-    ];
-
     public function __construct(
         private CalculoImpostoService $imposto,
         private SefazDriver $sefaz,
@@ -45,9 +33,8 @@ class FiscalService
      *
      * A tributação sai da MATRIZ migrada do legado (nf_impostos/nf_imposto_estados),
      * resolvida por operação fiscal × grupo fiscal do produto × UF origem→destino ×
-     * consumidor final. Sem regra cadastrada para o item, cai no padrão histórico
-     * (CST 00 / 18% / PIS 1,65 / COFINS 7,6) — o comportamento anterior — e o
-     * chamador é avisado pelo campo `sem_regra_fiscal` da nota.
+     * consumidor final. Sem operação ou regra cadastrada, falha fechado: emitir
+     * com tributação inventada é mais grave do que impedir o faturamento.
      *
      * @param  int|null  $operacaoFiscalId  operação fiscal (natureza/CFOP) da venda;
      *                                      null usa a operação habilitada do produto.
@@ -94,15 +81,29 @@ class FiscalService
                     (int) $pedido->empresa_id,
                     $grupoFiscal,
                 );
-                $regra = $operacao === null ? null : $this->tributacao->regraPara(
+                if ($operacao === null) {
+                    throw ValidationException::withMessages([
+                        'operacao_fiscal' => "Produto #{$produto->id} sem operação fiscal habilitada.",
+                    ]);
+                }
+
+                $regra = $this->tributacao->regraPara(
                     (int) $pedido->empresa_id,
                     $operacao,
                     $grupoFiscal,
                 );
+                if (! $regra) {
+                    throw ValidationException::withMessages([
+                        'imposto' => "Produto #{$produto->id} sem regra na matriz tributária para a operação fiscal #{$operacao}.",
+                    ]);
+                }
 
-                $tributos = $regra
-                    ? $this->tributacao->resolver($regra, $ufEmitente, $ufDestino, $consumidorFinal)
-                    : self::TRIBUTACAO_PADRAO;
+                $tributos = $this->tributacao->resolver(
+                    $regra,
+                    $ufEmitente,
+                    $ufDestino,
+                    $consumidorFinal,
+                );
 
                 $imp = $this->imposto->calcular(array_merge($tributos, [
                     'quantidade' => (float) $item->quantidade,
@@ -119,8 +120,8 @@ class FiscalService
                     'valor_unitario' => $item->preco_unitario,
                     'valor_total' => $valorTotal,
                     'desconto' => $item->desconto,
-                    'cfop' => $this->cfopDe($operacao, $ufEmitente, $ufDestino),
-                    'cst_icms' => $tributos['cst_icms'] ?? '00',
+                    'cfop' => $this->cfopDe($operacao, $pedido->grupo_id, $ufEmitente, $ufDestino),
+                    'cst_icms' => $tributos['cst_icms'],
                 ], $imp->toArray()));
 
                 $totais['prod'] += $valorTotal;
@@ -306,13 +307,18 @@ class FiscalService
      * interno (5xxx) e a venda interestadual usa a família 6xxx — a mesma
      * conversão que o legado faz na emissão.
      */
-    private function cfopDe(?int $operacaoId, string $ufEmitente, string $ufDestino): string
+    private function cfopDe(int $operacaoId, int $grupoId, string $ufEmitente, string $ufDestino): string
     {
-        $cfop = $operacaoId === null
-            ? null
-            : DB::table('operacoes_fiscais')->where('id', $operacaoId)->value('cfop');
-
-        $cfop = (string) ($cfop ?: '5102');
+        $cfop = DB::table('operacoes_fiscais')
+            ->where('id', $operacaoId)
+            ->where('grupo_id', $grupoId)
+            ->where('ativo', true)
+            ->value('cfop');
+        if (! is_string($cfop) || ! preg_match('/^[1-7][0-9]{3}$/', $cfop)) {
+            throw ValidationException::withMessages([
+                'cfop' => "Operação fiscal #{$operacaoId} sem CFOP válido.",
+            ]);
+        }
 
         if ($ufEmitente !== '' && $ufDestino !== '' && $ufEmitente !== $ufDestino
             && str_starts_with($cfop, '5')) {
@@ -324,11 +330,20 @@ class FiscalService
 
     private function serie(int $empresaId, ModeloDocumento $modelo): int
     {
-        $config = ConfigFiscal::query()->where('empresa_id', $empresaId)->first();
+        $config = ConfigFiscal::withoutTenant()->where('empresa_id', $empresaId)->first();
         if (! $config) {
-            return 1;
+            throw ValidationException::withMessages([
+                'config_fiscal' => 'Configuração fiscal não cadastrada para a empresa.',
+            ]);
         }
 
-        return $modelo === ModeloDocumento::NFCE ? $config->serie_nfce : $config->serie_nfe;
+        $serie = $modelo === ModeloDocumento::NFCE ? $config->serie_nfce : $config->serie_nfe;
+        if ((int) $serie <= 0) {
+            throw ValidationException::withMessages([
+                'serie' => 'Série fiscal inválida para o modelo solicitado.',
+            ]);
+        }
+
+        return (int) $serie;
     }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Fiscal\NfEntradaService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Fiscal\NfRecebida;
+use App\Models\Fiscal\NfRecebidaItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +23,10 @@ class NfEntradaController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private NfEntradaService $service) {}
+    public function __construct(
+        private NfEntradaService $service,
+        private CamposPermitidos $campos,
+    ) {}
 
     /** GET /fiscal/nf-entrada — lista as NFs recebidas da empresa ativa. */
     public function index(Request $request): JsonResponse
@@ -36,7 +41,9 @@ class NfEntradaController extends Controller
             ->paginate(20);
 
         return response()->json([
-            'data' => $notas->items(),
+            'data' => collect($notas->items())
+                ->map(fn (NfRecebida $nota) => $this->apresentar($request, $nota))
+                ->all(),
             'meta' => [
                 'current_page' => $notas->currentPage(),
                 'last_page' => $notas->lastPage(),
@@ -52,7 +59,7 @@ class NfEntradaController extends Controller
         $this->autorizar($request, 'fiscal.view');
         $nota = NfRecebida::query()->with('itens')->findOrFail($id);
 
-        return response()->json(['data' => $nota]);
+        return response()->json(['data' => $this->apresentar($request, $nota)]);
     }
 
     /**
@@ -79,7 +86,7 @@ class NfEntradaController extends Controller
             $xml,
         );
 
-        return response()->json(['data' => $nota], 201);
+        return response()->json(['data' => $this->apresentar($request, $nota)], 201);
     }
 
     /**
@@ -89,6 +96,11 @@ class NfEntradaController extends Controller
     public function processar(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'fiscal.emitir');
+        abort_unless(
+            $this->campos->pode($request->user(), 'produto', 'custo', 'edit'),
+            403,
+            'Sem permissão para alterar custo de produto.',
+        );
         $d = $request->validate([
             'setor_id' => 'required|integer|exists:setores,id',
         ]);
@@ -96,7 +108,37 @@ class NfEntradaController extends Controller
         // findOrFail é tenant-scoped: só processa NF da empresa ativa.
         $nota = NfRecebida::query()->with('itens')->findOrFail($id);
         $nota = $this->service->processar($nota, (int) $d['setor_id']);
+        $nota->loadMissing('itens');
 
-        return response()->json(['data' => $nota]);
+        return response()->json(['data' => $this->apresentar($request, $nota)]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function apresentar(Request $request, NfRecebida $nota): array
+    {
+        $dados = $nota->toArray();
+
+        if (! $nota->relationLoaded('itens')) {
+            return $dados;
+        }
+
+        $mostrarCusto = $this->campos->pode($request->user(), 'produto', 'custo', 'view');
+        $dados['itens'] = $nota->itens
+            ->map(function (NfRecebidaItem $item) use ($mostrarCusto): array {
+                $dadosItem = $item->toArray();
+                if ($mostrarCusto) {
+                    $dadosItem['valor_unitario'] = $item->getAttribute('valor_unitario') === null
+                        ? null
+                        : (float) $item->getAttribute('valor_unitario');
+                }
+
+                return $dadosItem;
+            })
+            ->values()
+            ->all();
+
+        return $dados;
     }
 }

@@ -17,11 +17,6 @@ use App\Models\Saas\RecursoOverride;
  *   3. assinatura vigente         → recursos do plano LIGADOS;
  *   4. nada disso                 → recurso DESLIGADO.
  *
- * "Fail-open" controlado: se NÃO existe NENHUMA assinatura para a empresa (cliente
- * legado/pré-SaaS, ou ambiente sem o seeder de planos), a plataforma libera tudo —
- * para não quebrar instalações existentes ao introduzir o licenciamento. A partir
- * do momento em que a empresa tem uma assinatura, a licença passa a valer.
- *
  * Cacheado por tenant (TenantCache) — invalidar ao mudar plano/assinatura/override.
  */
 class LicencaService
@@ -54,8 +49,7 @@ class LicencaService
     {
         $empresaId ??= $this->tenant->empresaId();
         if ($empresaId === null) {
-            // Sem tenant resolvido (CLI/ETL): sem restrição de licença.
-            return RecursoCatalogo::chaves();
+            return [];
         }
 
         return $this->cache->remember("licenca:recursos:{$empresaId}", self::CACHE_TTL,
@@ -80,12 +74,6 @@ class LicencaService
             ->pluck('habilitado', 'recurso_chave'); // chave => bool
 
         $assinatura = $this->assinaturaVigente($empresaId);
-
-        // Fail-open: empresa SEM nenhuma assinatura → libera tudo (compat pré-SaaS).
-        $temAlgumaAssinatura = Assinatura::withoutTenant()->where('empresa_id', $empresaId)->exists();
-        if (! $temAlgumaAssinatura && $overrides->isEmpty()) {
-            return RecursoCatalogo::chaves();
-        }
 
         // Base: recursos do plano da assinatura vigente (vazio se não vigente).
         $base = $assinatura

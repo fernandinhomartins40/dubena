@@ -19,7 +19,7 @@ class CutoverCheck extends Command
 
     public function handle(): int
     {
-        $ctx = new MigrationContext();
+        $ctx = new MigrationContext;
         $ok = 0;
         $falhas = 0;
 
@@ -44,6 +44,12 @@ class CutoverCheck extends Command
 
         $this->newLine();
         $this->line("Invariantes: {$ok} OK, {$falhas} falha(s).");
+
+        if ($ok + $falhas === 0) {
+            $this->error('PORTÃO FECHADO — nenhuma invariante obrigatória foi executada.');
+
+            return self::FAILURE;
+        }
 
         if ($falhas > 0) {
             $this->error('PORTÃO FECHADO — não faça o cutover até zerar as falhas.');

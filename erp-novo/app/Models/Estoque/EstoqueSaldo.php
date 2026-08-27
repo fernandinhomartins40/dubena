@@ -24,6 +24,9 @@ class EstoqueSaldo extends Model
         'quantidade', 'quantidade_minima', 'quantidade_maxima', 'custo_medio',
     ];
 
+    /** Custo só pode sair por uma projeção autorizada. */
+    protected $hidden = ['custo_medio'];
+
     protected function casts(): array
     {
         return [

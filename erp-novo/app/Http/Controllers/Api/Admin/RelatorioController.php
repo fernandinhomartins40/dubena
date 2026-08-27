@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Acesso\CamposPermitidos;
+use App\Domain\Auditoria\ConsultaTrilha;
 use App\Domain\Relatorio\RelatorioService;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
@@ -17,14 +20,18 @@ class RelatorioController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private RelatorioService $service) {}
+    public function __construct(
+        private RelatorioService $service,
+        private CamposPermitidos $campos,
+        private TenantContext $tenant,
+    ) {}
 
     /** GET /dashboard/resumo — contadores da home da SPA. */
     public function dashboardResumo(Request $request): JsonResponse
     {
         // Sem permissão específica: o dashboard é a home de qualquer usuário logado.
         return response()->json(
-            $this->service->dashboardResumo((int) $request->user()->empresa_id),
+            $this->service->dashboardResumo($this->empresaId()),
         );
     }
 
@@ -33,7 +40,7 @@ class RelatorioController extends Controller
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
 
-        return response()->json(['data' => $this->service->vendas($request->user()->empresa_id, $d['inicio'], $d['fim'])]);
+        return response()->json(['data' => $this->service->vendas($this->empresaId(), $d['inicio'], $d['fim'])]);
     }
 
     public function financeiro(Request $request): JsonResponse
@@ -41,7 +48,7 @@ class RelatorioController extends Controller
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
 
-        return response()->json(['data' => $this->service->financeiro($request->user()->empresa_id, $d['inicio'], $d['fim'])]);
+        return response()->json(['data' => $this->service->financeiro($this->empresaId(), $d['inicio'], $d['fim'])]);
     }
 
     public function dre(Request $request): JsonResponse
@@ -49,14 +56,14 @@ class RelatorioController extends Controller
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
 
-        return response()->json(['data' => $this->service->dre($request->user()->empresa_id, $d['inicio'], $d['fim'])]);
+        return response()->json(['data' => $this->service->dre($this->empresaId(), $d['inicio'], $d['fim'])]);
     }
 
     public function estoqueBaixo(Request $request): Response
     {
         $this->autorizar($request, 'relatorio.view');
 
-        $linhas = $this->service->estoqueBaixo($request->user()->empresa_id);
+        $linhas = $this->service->estoqueBaixo($this->empresaId());
 
         return $this->exportar($request, $linhas, 'estoque-baixo', 'Estoque abaixo do mínimo');
     }
@@ -65,7 +72,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
-        $linhas = $this->service->fechamentosCaixa($request->user()->empresa_id, $d['inicio'], $d['fim']);
+        $linhas = $this->service->fechamentosCaixa($this->empresaId(), $d['inicio'], $d['fim']);
 
         return $this->exportar($request, $linhas, 'fechamentos-caixa', 'Fechamentos de caixa');
     }
@@ -75,7 +82,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
         $mes = (int) ($request->query('mes') ?: now()->month);
-        $linhas = $this->service->clientesAniversariantes($request->user()->empresa_id, $mes);
+        $linhas = $this->service->clientesAniversariantes($this->empresaId(), $mes);
 
         return $this->exportar($request, $linhas, 'aniversariantes', "Aniversariantes (mês {$mes})");
     }
@@ -84,7 +91,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
-        $linhas = $this->service->valeGas($request->user()->empresa_id, $d['inicio'], $d['fim']);
+        $linhas = $this->service->valeGas($this->empresaId(), $d['inicio'], $d['fim']);
 
         return $this->exportar($request, $linhas, 'vale-gas', 'Vale-gás por situação');
     }
@@ -92,7 +99,7 @@ class RelatorioController extends Controller
     public function comodatos(Request $request): Response
     {
         $this->autorizar($request, 'relatorio.view');
-        $linhas = $this->service->comodatos($request->user()->empresa_id);
+        $linhas = $this->service->comodatos($this->empresaId());
 
         return $this->exportar($request, $linhas, 'comodatos', 'Comodatos em aberto');
     }
@@ -101,7 +108,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
-        $linhas = $this->service->comissoes($request->user()->empresa_id, $d['inicio'], $d['fim']);
+        $linhas = $this->service->comissoes($this->empresaId(), $d['inicio'], $d['fim']);
 
         return $this->exportar($request, $linhas, 'comissoes', 'Comissões por colaborador');
     }
@@ -110,7 +117,7 @@ class RelatorioController extends Controller
     {
         $this->autorizar($request, 'relatorio.view');
         $d = $this->periodo($request);
-        $linhas = $this->service->movimentacaoCaixa($request->user()->empresa_id, $d['inicio'], $d['fim']);
+        $linhas = $this->service->movimentacaoCaixa($this->empresaId(), $d['inicio'], $d['fim']);
 
         return $this->exportar($request, $linhas, 'movimentacao-caixa', 'Movimentação de caixa');
     }
@@ -189,7 +196,7 @@ class RelatorioController extends Controller
         [$metodo, $precisaPeriodo, $precisaMes, $titulo] = $cfg;
         $extras = $cfg[4] ?? [];
 
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->empresaId();
         $args = [$empresaId];
         if ($precisaPeriodo) {
             $d = $this->periodo($request);
@@ -231,12 +238,12 @@ class RelatorioController extends Controller
      * GET /relatorios/auditoria — trilha de auditoria (F11) da empresa ativa, com
      * filtros opcionais por entidade/ação/período. Paginada.
      */
-    public function auditoria(Request $request): JsonResponse
+    public function auditoria(Request $request, ConsultaTrilha $trilha): JsonResponse
     {
         $this->autorizar($request, 'relatorio.view');
 
         $logs = AuditLog::query()
-            ->where('empresa_id', (int) $request->user()->empresa_id)
+            ->where('empresa_id', $this->empresaId())
             ->when($request->query('entidade'), fn ($q, $e) => $q->where('entidade', $e))
             ->when($request->query('acao'), fn ($q, $a) => $q->where('acao', $a))
             ->when($request->query('inicio'), fn ($q, $i) => $q->where('criado_em', '>=', $i.' 00:00:00'))
@@ -244,17 +251,22 @@ class RelatorioController extends Controller
             ->orderByDesc('id')
             ->paginate(50);
 
-        $data = collect($logs->items())->map(fn (AuditLog $l) => [
-            'id' => $l->id,
-            'entidade' => $l->entidade,
-            'entidade_id' => $l->entidade_id,
-            'acao' => $l->acao,
-            'user_id' => $l->user_id,
-            'antes' => $l->antes,
-            'depois' => $l->depois,
-            'ip' => $l->ip,
-            'criado_em' => $l->criado_em?->toIso8601String(),
-        ]);
+        $mostrarCusto = $this->campos->pode($request->user(), 'produto', 'custo', 'view');
+        $data = collect($logs->items())->map(function (AuditLog $l) use ($trilha, $mostrarCusto) {
+            $valores = $trilha->valoresBrutos($l, $mostrarCusto);
+
+            return [
+                'id' => $l->id,
+                'entidade' => $l->entidade,
+                'entidade_id' => $l->entidade_id,
+                'acao' => $l->acao,
+                'user_id' => $l->user_id,
+                'antes' => $valores['antes'],
+                'depois' => $valores['depois'],
+                'ip' => $l->ip,
+                'criado_em' => $l->criado_em?->toIso8601String(),
+            ];
+        });
 
         return response()->json([
             'data' => $data,
@@ -273,5 +285,10 @@ class RelatorioController extends Controller
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',
         ]);
+    }
+
+    private function empresaId(): int
+    {
+        return $this->tenant->requireEmpresaId();
     }
 }

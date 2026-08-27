@@ -62,8 +62,8 @@ class CobrancaTest extends TestCase
         $parcela = $this->parcela($empresa, 75);
         $cobranca = app(PixService::class)->criarCobranca($parcela);
 
-        // Sem segredo configurado, o webhook aceita (ambiente de teste).
-        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 75.00])
+        config()->set('services.pix.webhook_secret', 'segredo-de-teste');
+        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 75.00], ['X-Webhook-Token' => 'segredo-de-teste'])
             ->assertOk()
             ->assertJsonPath('situacao', 'CONCLUIDA');
 
@@ -74,8 +74,9 @@ class CobrancaTest extends TestCase
     {
         [, $empresa] = $this->suporte();
         $cobranca = app(PixService::class)->criarCobranca($this->parcela($empresa, 75));
+        config()->set('services.pix.webhook_secret', 'segredo-de-teste');
 
-        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 10.00])
+        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 10.00], ['X-Webhook-Token' => 'segredo-de-teste'])
             ->assertStatus(422);
     }
 
@@ -126,13 +127,13 @@ class CobrancaTest extends TestCase
         ], $corpo)->assertStatus(401);
     }
 
-    public function test_webhook_hmac_desligado_e_noop(): void
+    public function test_webhook_sem_hmac_aceita_chamador_autenticado_na_camada1(): void
     {
-        // Sem PIX_WEBHOOK_HMAC_SECRET, o corpo sem assinatura passa (camada 1 só).
+        config()->set('services.pix.webhook_secret', 'segredo-de-teste');
         [, $empresa] = $this->suporte();
         $cobranca = app(PixService::class)->criarCobranca($this->parcela($empresa, 75));
 
-        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 75.00])
+        $this->postJson('/api/pix/webhook', ['txid' => $cobranca->txid, 'valor' => 75.00], ['X-Webhook-Token' => 'segredo-de-teste'])
             ->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
     }
 

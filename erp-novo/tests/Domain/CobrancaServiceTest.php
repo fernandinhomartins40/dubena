@@ -62,6 +62,19 @@ class CobrancaServiceTest extends TestCase
         $this->assertEquals(SituacaoBoleto::REGISTRADO, $b1->refresh()->situacao);
     }
 
+    public function test_remessa_recusa_boleto_de_outra_empresa(): void
+    {
+        $outra = Empresa::factory()->create();
+        $financeiro = app(FinanceiroService::class)->criar([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'pagarreceber' => 'R', 'valor' => 100,
+        ]);
+        $boletoAlheio = app(BoletoService::class)->gerarParaParcela($financeiro->parcelas->first());
+
+        $this->expectException(ValidationException::class);
+        app(BoletoService::class)->gerarRemessa([$boletoAlheio], $this->empresa->id);
+    }
+
     public function test_retorno_de_liquidacao_baixa_a_parcela(): void
     {
         $svc = app(BoletoService::class);
@@ -71,11 +84,69 @@ class CobrancaServiceTest extends TestCase
 
         // Linha de retorno fake: nosso_numero presente + código 06 (liquidação) + valor.
         $linha = $boleto->nosso_numero.' 06|100.00';
-        $n = $svc->processarRetorno([$linha]);
+        $n = $svc->processarRetorno([$linha], $this->empresa->id);
 
         $this->assertEquals(1, $n);
         $this->assertEquals(SituacaoBoleto::LIQUIDADO, $boleto->refresh()->situacao);
         $this->assertTrue($parcela->refresh()->baixado);
+    }
+
+    public function test_retorno_nao_casa_substring_nem_boleto_de_outra_empresa(): void
+    {
+        $outra = Empresa::factory()->create();
+        $financeiro = app(FinanceiroService::class)->criar([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'pagarreceber' => 'R', 'valor' => 100,
+        ]);
+        $boletoAlheio = app(BoletoService::class)->gerarParaParcela($financeiro->parcelas->first());
+
+        $linha = $boletoAlheio->nosso_numero.' 06|100.00';
+        $n = app(BoletoService::class)->processarRetorno([$linha], $this->empresa->id);
+
+        $this->assertSame(0, $n);
+        $this->assertFalse($financeiro->parcelas->first()->refresh()->baixado);
+        $this->assertSame(0, $boletoAlheio->ocorrencias()->count());
+    }
+
+    public function test_reprocessar_retorno_nao_sobrescreve_primeira_baixa(): void
+    {
+        $svc = app(BoletoService::class);
+        $parcela = $this->parcela(100);
+        $boleto = $svc->gerarParaParcela($parcela);
+
+        $svc->processarRetorno([$boleto->nosso_numero.' 06|100.00'], $this->empresa->id);
+        $primeiraBaixa = $parcela->refresh()->datahora_baixa;
+
+        $this->travel(5)->minutes();
+        $svc->processarRetorno([$boleto->nosso_numero.' 06|90.00'], $this->empresa->id);
+
+        $parcela->refresh();
+        $this->assertEquals($primeiraBaixa, $parcela->datahora_baixa);
+        $this->assertEqualsWithDelta(100, (float) $parcela->valor_efetivado, 0.001);
+    }
+
+    public function test_pagamento_pix_seguido_de_retorno_cnab_nao_sobrescreve_a_baixa(): void
+    {
+        $parcela = $this->parcela(100);
+        $boleto = app(BoletoService::class)->gerarParaParcela($parcela);
+        $pix = app(PixService::class)->criarCobranca($parcela);
+
+        app(PixService::class)->processarWebhook([
+            'txid' => $pix->txid,
+            'valor' => 100.00,
+            'e2eid' => 'E-PAGAMENTO-ORIGINAL',
+        ]);
+        $primeiraBaixa = $parcela->refresh()->datahora_baixa;
+
+        $this->travel(5)->minutes();
+        app(BoletoService::class)->processarRetorno([
+            $boleto->nosso_numero.' 06|90.00',
+        ], $this->empresa->id);
+
+        $parcela->refresh();
+        $this->assertEquals($primeiraBaixa, $parcela->datahora_baixa);
+        $this->assertEqualsWithDelta(100, (float) $parcela->valor_efetivado, 0.001);
+        $this->assertEquals(SituacaoBoleto::LIQUIDADO, $boleto->refresh()->situacao);
     }
 
     public function test_pix_cobranca_gera_txid_e_copia_e_cola(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Produto\ProdutoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -19,7 +20,10 @@ class ProdutoController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private ProdutoService $service) {}
+    public function __construct(
+        private ProdutoService $service,
+        private CamposPermitidos $campos,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -47,7 +51,7 @@ class ProdutoController extends Controller
     {
         $this->autorizar($request, 'produto.create');
 
-        $produto = $this->service->criar($request->validated());
+        $produto = $this->service->criar($this->dadosPermitidos($request));
 
         return (new ProdutoResource($produto))->response()->setStatusCode(201);
     }
@@ -58,7 +62,7 @@ class ProdutoController extends Controller
 
         $produto = Produto::query()->findOrFail($id);
 
-        return new ProdutoResource($this->service->atualizar($produto, $request->validated()));
+        return new ProdutoResource($this->service->atualizar($produto, $this->dadosPermitidos($request)));
     }
 
     public function destroy(Request $request, int $id): JsonResponse
@@ -68,5 +72,16 @@ class ProdutoController extends Controller
         $this->service->excluir(Produto::query()->findOrFail($id));
 
         return response()->json(['message' => 'Produto excluído.']);
+    }
+
+    /** @return array<string,mixed> */
+    private function dadosPermitidos(ProdutoRequest $request): array
+    {
+        $dados = $request->validated();
+        if (! $this->campos->pode($request->user(), 'produto', 'custo', 'edit')) {
+            unset($dados['custo_medio'], $dados['custo_frete']);
+        }
+
+        return $dados;
     }
 }

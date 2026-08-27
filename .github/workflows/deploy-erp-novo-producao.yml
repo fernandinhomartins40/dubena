@@ -1,227 +1,120 @@
 name: Deploy erp-novo (PRODUÇÃO)
 
-# Deploy de PRODUÇÃO do erp-novo (T3.6 do PLANO_PRODUCAO).
-#
-# Não existia workflow de produção — só o de homologação. As diferenças aqui não
-# são estilísticas; cada uma corrige um achado da auditoria:
-#
-#   1. GATILHO MANUAL com confirmação digitada. O de homolog dispara em todo
-#      push na main; produção não pode subir por acidente de merge.
-#   2. BACKUP OBRIGATÓRIO ANTES DE TUDO. Falha no backup = deploy abortado.
-#      Migrations rodam com --force e não havia snapshot prévio (Auditoria §7.6).
-#   3. IMAGEM TAGGEADA POR SHA. Sem isso não existe rollback.
-#   4. `golive:check --strict` BLOQUEANTE. No homolog (linha 214) a saída do
-#      portão é descartada com um operador de shell, tornando-o decorativo — o
-#      próprio comentário daquele arquivo admite isso.
-#   5. NENHUM SEEDER DEMO. Só o DeploySeeder (T3.7).
-#   6. route:cache e view:cache além do config:cache (Auditoria §7.4.4).
 on:
   workflow_dispatch:
     inputs:
       confirmacao:
-        description: 'Digite PRODUCAO para confirmar o deploy'
+        description: 'Digite PRODUCAO para confirmar'
         required: true
-        default: ''
-      pular_backup:
-        description: 'Pular o backup (SOMENTE se acabou de rodar um manualmente)'
-        type: boolean
-        default: false
+      release_id:
+        description: 'SHA completo já aprovado em homologação'
+        required: true
+      rollback_release:
+        description: 'Release anterior, obrigatória para rollback automático'
+        required: true
 
 concurrency:
   group: deploy-erp-novo-producao
-  cancel-in-progress: false     # nunca cancelar um deploy de produção no meio
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: self-hosted
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: erp-novo
-
     env:
-      COMPOSE: docker-compose.producao.yml
       ENV_PRODUCAO: /opt/dubena-env/erp-novo-producao.env
+      RELEASES_DIR: /opt/dubena-releases
+      RELEASE_ID: ${{ inputs.release_id }}
+      ROLLBACK_RELEASE: ${{ inputs.rollback_release }}
+      DEPLOY_ACTOR: ${{ github.actor }}
 
     steps:
-      - name: Exigir confirmação explícita
+      - name: Validar autorização e releases
         working-directory: .
         run: |
-          if [ "${{ inputs.confirmacao }}" != "PRODUCAO" ]; then
-            echo "::error::Confirmação inválida. Digite PRODUCAO para deployar." >&2
-            exit 1
-          fi
-          echo "Confirmado por ${{ github.actor }}."
-
-      - name: Corrigir permissões do workspace (antes do checkout)
-        working-directory: .
-        # `continue-on-error` em vez de `|| true`: containers rodam como root e
-        # podem deixar storage/cache com dono root, impedindo o checkout de
-        # limpar. Se a correção falhar, o checkout dirá — e o motivo fica
-        # visível no log, em vez de ser engolido pelo shell.
-        continue-on-error: true
-        run: |
-          docker run --rm -v "$GITHUB_WORKSPACE":/ws alpine:3 \
-            sh -c "chown -R $(id -u):$(id -g) /ws 2>/dev/null"
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Definir a tag da imagem (SHA curto)
-        working-directory: .
-        run: echo "GIT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-
-      - name: Verificar que o .env de produção existe
-        run: |
-          if [ ! -f "$ENV_PRODUCAO" ]; then
-            echo "::error::$ENV_PRODUCAO não existe na VPS." >&2
-            echo "Crie-o a partir de erp-novo/.env.production.example." >&2
-            exit 1
-          fi
-          # Conferência de sanidade: um .env de homolog copiado por engano para
-          # produção deixaria APP_DEBUG=true e drivers em fake.
-          grep -q '^APP_ENV=production' "$ENV_PRODUCAO" \
-            || { echo "::error::APP_ENV não é production em $ENV_PRODUCAO" >&2; exit 1; }
-          grep -q '^APP_DEBUG=false' "$ENV_PRODUCAO" \
-            || { echo "::error::APP_DEBUG precisa ser false em produção" >&2; exit 1; }
-          cp "$ENV_PRODUCAO" .env
-
-      - name: Restaurar .env do OUTRO app do monorepo (evita derrubá-lo)
-        working-directory: .
-        run: |
-          # MONOREPO + WORKSPACE COMPARTILHADO: o `git clean -ffdx` do checkout
-          # apaga o ctrl-web/.env (ignorado). Sem restaurá-lo, o próximo deploy
-          # do vizinho falha por env_file ausente e os volumes desanexam.
-          if [ -f /opt/dubena-env/ctrl-web.env ]; then
-            cp /opt/dubena-env/ctrl-web.env ctrl-web/.env
-          fi
-
-      # ── BACKUP ANTES DE QUALQUER ESCRITA ────────────────────────────────
-      - name: Backup pré-deploy (T3.4) — falha aqui ABORTA o deploy
-        if: ${{ !inputs.pular_backup }}
-        working-directory: .
-        run: |
-          # A rede de segurança tem de existir ANTES de migrations rodarem com
-          # --force. Se o backup falha, não há para onde voltar — então o deploy
-          # não começa.
-          bash deploy/backup/backup.sh
-          echo "Backup concluído."
-
-      - name: Build da SPA a partir do fonte
-        working-directory: erp-novo/frontend
-        run: |
-          docker run --rm -v "$PWD/..":/app -w /app/frontend node:20-alpine \
-            sh -c "npm ci && npm run build"
-
-      - name: Build da imagem taggeada por SHA
-        run: |
-          # A tag por SHA é o que torna o rollback possível (deploy/rollback.sh).
-          docker compose -f "$COMPOSE" build
-          docker tag "erpnovo-app:${GIT_SHA}" "erpnovo-app:producao-atual"
-          echo "Imagem: erpnovo-app:${GIT_SHA}"
-
-      - name: Subir os containers
-        run: |
-          docker compose -f "$COMPOSE" up -d --remove-orphans
-          for i in $(seq 1 20); do
-            st=$(docker inspect -f '{{.State.Status}}' erpnovo-prod-app 2>/dev/null || echo none)
-            [ "$st" = "running" ] && break
-            echo "aguardando erpnovo-prod-app ($st)..."; sleep 3
+          set -eu
+          [ '${{ inputs.confirmacao }}' = PRODUCAO ] || exit 78
+          for release in "$RELEASE_ID" "$ROLLBACK_RELEASE"; do
+            case "$release" in *[!0-9a-f]*|'') exit 78;; esac
+            [ "${#release}" -eq 40 ] || exit 78
           done
-          [ "$st" = "running" ] || { echo "::error::app não subiu (status=$st)" >&2; exit 1; }
+          [ "$RELEASE_ID" != "$ROLLBACK_RELEASE" ] || exit 78
+          test -r "${RELEASES_DIR}/${RELEASE_ID}.env"
+          test -r "${RELEASES_DIR}/${ROLLBACK_RELEASE}.env"
 
-      - name: Aguardar o Postgres aceitar conexão
-        run: |
-          for i in $(seq 1 30); do
-            if docker compose -f "$COMPOSE" exec -T db pg_isready >/dev/null 2>&1; then
-              echo "Postgres pronto."; break
-            fi
-            echo "aguardando Postgres ($i)..."; sleep 2
-          done
+      - name: Checkout exato da release homologada
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_id }}
+          clean: false
 
-      - name: Instalar dependências (composer, do lock, sem dev)
+      - name: Carregar manifesto e validar ambiente
         run: |
-          # --no-dev em produção: pacotes de desenvolvimento não vão para o ar.
-          for tentativa in 1 2 3; do
-            if docker compose -f "$COMPOSE" exec -T app \
-                 composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader; then
-              break
-            fi
-            echo "composer falhou (tentativa $tentativa); aguardando..." >&2
-            sleep 10
-          done
-          docker compose -f "$COMPOSE" exec -T app test -f vendor/autoload.php \
-            || { echo "::error::vendor ausente após o composer" >&2; exit 1; }
+          set -eu
+          test -r "$ENV_PRODUCAO" || exit 78
+          grep -qx 'APP_ENV=production' "$ENV_PRODUCAO"
+          grep -qx 'APP_DEBUG=false' "$ENV_PRODUCAO"
+          manifest="${RELEASES_DIR}/${RELEASE_ID}.env"
+          grep -qx "RELEASE_ID=${RELEASE_ID}" "$manifest"
+          APP_IMAGE=$(sed -n 's/^APP_IMAGE=//p' "$manifest")
+          WEB_IMAGE=$(sed -n 's/^WEB_IMAGE=//p' "$manifest")
+          echo "APP_IMAGE=$APP_IMAGE" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
 
-      - name: Migrations (pelo OWNER, nunca pela role restrita de runtime)
+      - name: Backup obrigatório antes de qualquer escrita
+        working-directory: .
+        run: bash deploy/backup/backup.sh
+
+      - name: Pull e migration pela imagem homologada
         run: |
-          # `pgsql_owner` é o dono do schema. O runtime usa `erp_app`
-          # (NOSUPERUSER NOBYPASSRLS) — superuser IGNORA RLS, e é a RLS que
-          # isola os dados entre empresas.
-          docker compose -f "$COMPOSE" exec -T app \
+          sh docker/compose-production.sh pull
+          sh docker/compose-production.sh run --rm app \
             php artisan migrate --force --database=pgsql_owner
 
-      - name: Seeds de produção — SOMENTE o DeploySeeder (T3.7)
+      - name: Promover os mesmos bytes sem rebuild
+        id: promote
         run: |
-          # Nenhum seeder de demonstração roda aqui. DemoGuarapuavaSeeder e
-          # MarketplaceDemoSeeder também abortam sozinhos em produção, mas a
-          # ausência do passo é a primeira linha de defesa.
-          docker compose -f "$COMPOSE" exec -T app \
-            php artisan db:seed --class='Database\Seeders\DeploySeeder' --force
+          echo 'started=true' >> "$GITHUB_OUTPUT"
+          sh docker/compose-production.sh up -d --no-build --remove-orphans
 
-      - name: Otimizar caches (config + rotas + views)
+      - name: Caches, gate estrito, digest e health
         run: |
-          # O workflow de homolog só faz config:cache. route:cache e view:cache
-          # também importam em produção (Auditoria §7.4.4).
-          docker compose -f "$COMPOSE" exec -T app php artisan optimize:clear
-          docker compose -f "$COMPOSE" exec -T app php artisan config:cache
-          docker compose -f "$COMPOSE" exec -T app php artisan route:cache
-          docker compose -f "$COMPOSE" exec -T app php artisan view:cache
-
-      - name: Normalizar dono do storage (www-data)
-        run: |
-          # Os artisan acima rodam como root (docker exec); o php-fpm é www-data.
-          docker compose -f "$COMPOSE" exec -T app \
-            chown -R www-data:www-data storage bootstrap/cache
-
-      # ── PORTÃO — bloqueante, ao contrário do homolog ────────────────────
-      - name: golive:check --strict (BLOQUEANTE)
-        run: |
-          # No workflow de homolog a saída deste comando é descartada, o que o
-          # torna meramente informativo.
-          # Aqui a saída != 0 reprova o deploy e dispara o rollback abaixo.
-          docker compose -f "$COMPOSE" exec -T app php artisan golive:check --strict
-
-      - name: Health check
-        run: |
-          for i in $(seq 1 10); do
+          set -eu
+          sh docker/compose-production.sh exec -T app php artisan optimize
+          sh docker/compose-production.sh exec -T app php artisan golive:check --strict
+          esperado_app=$(docker image inspect "$APP_IMAGE" --format '{{.Id}}')
+          esperado_web=$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')
+          test "$(docker inspect erpnovo-prod-app --format '{{.Image}}')" = "$esperado_app"
+          test "$(docker inspect erpnovo-prod-web --format '{{.Image}}')" = "$esperado_web"
+          for attempt in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3130/up || echo 000)
-            [ "$code" = "200" ] && { echo "health OK"; exit 0; }
-            echo "aguardando health ($code)..."; sleep 5
+            [ "$code" = 200 ] && break
+            echo "health tentativa ${attempt}: ${code}"
+            sleep 5
           done
-          echo "::error::health check não respondeu 200" >&2
-          exit 1
+          [ "$code" = 200 ]
+          ln -sfn "${RELEASES_DIR}/${RELEASE_ID}.env" "${RELEASES_DIR}/production-current.env"
 
-      # ── ROLLBACK AUTOMÁTICO ────────────────────────────────────────────
-      - name: Rollback automático se algo acima falhou
-        if: failure()
+      - name: Rollback automático para digest anterior
+        if: failure() && steps.promote.outputs.started == 'true'
         working-directory: .
         run: |
-          echo "::warning::Deploy falhou — tentando rollback para a imagem anterior."
-          # `rollback.sh` sem argumento volta para a tag imediatamente anterior.
-          bash deploy/rollback.sh || \
-            echo "::error::ROLLBACK FALHOU — intervenção manual necessária. Ver deploy/backup/README_RESTORE.md" >&2
+          RELEASES_DIR="$RELEASES_DIR" ENV_PRODUCAO="$ENV_PRODUCAO" \
+            bash deploy/rollback.sh "$ROLLBACK_RELEASE"
 
-      - name: Resumo
+      - name: Resumo auditável
         if: always()
         working-directory: .
+        env:
+          DEPLOY_RESULT: ${{ job.status }}
         run: |
-          {
-            echo "## Deploy de produção"
-            echo ""
-            echo "- **SHA:** \`${GIT_SHA:-?}\`"
-            echo "- **Por:** ${{ github.actor }}"
-            echo "- **Resultado:** ${{ job.status }}"
-            echo ""
-            echo "Rollback: \`bash deploy/rollback.sh <sha>\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          # shellcheck disable=SC2016
+          printf '## Deploy produção\n- Release: `%s`\n- Rollback: `%s`\n- Ator: %s\n- Resultado: %s\n' \
+            "$RELEASE_ID" "$ROLLBACK_RELEASE" "$DEPLOY_ACTOR" "$DEPLOY_RESULT" \
+            >> "$GITHUB_STEP_SUMMARY"

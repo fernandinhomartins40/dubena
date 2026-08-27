@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Auditoria\CatalogoAuditoria;
 use App\Domain\Auditoria\ConsultaTrilha;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Cliente\Cliente;
-use App\Models\User;
 use App\Models\LoginLog;
 use App\Models\SecurityEvent;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,12 +25,19 @@ class AuditoriaController extends Controller
 {
     use AutorizaPorPermissao;
 
+    public function __construct(
+        private CamposPermitidos $campos,
+        private TenantContext $tenant,
+    ) {}
+
     /** Eventos de segurança (papel/usuário/2fa/403…), paginados e filtráveis. */
     public function eventos(Request $request): JsonResponse
     {
         $this->autorizar($request, 'auditoria.view');
+        $empresaId = $this->tenant->requireEmpresaId();
 
         $eventos = SecurityEvent::query()
+            ->where('empresa_id', $empresaId)
             ->with('user:id,name')
             ->when($request->query('tipo'), fn ($q, $t) => $q->where('tipo', $t))
             ->when($request->query('inicio'), fn ($q, $i) => $q->where('criado_em', '>=', $i.' 00:00:00'))
@@ -59,12 +68,12 @@ class AuditoriaController extends Controller
     {
         $this->autorizar($request, 'auditoria.view');
 
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
 
         $logs = LoginLog::query()
-            // login_logs não é tenant-scoped (pré-login); filtra pela empresa do
-            // usuário OU pelos logins sem empresa atribuída do mesmo período.
-            ->where(fn ($q) => $q->where('empresa_id', $empresaId)->orWhereNull('empresa_id'))
+            // Contenção F0-04/A-12.17: evento pré-login sem owner não pertence a
+            // tenant algum. Ele fica restrito à futura auditoria de plataforma.
+            ->where('empresa_id', $empresaId)
             ->when($request->boolean('apenas_falhas'), fn ($q) => $q->where('sucesso', false))
             ->orderByDesc('id')
             ->paginate(50);
@@ -115,10 +124,12 @@ class AuditoriaController extends Controller
         }
         unset($filtros['cliente_id']);
 
-        $pagina = $trilha->geral((int) $request->user()->empresa_id, $filtros);
+        $pagina = $trilha->geral($this->tenant->requireEmpresaId(), $filtros);
+        $mostrarCusto = $this->campos->pode($request->user(), 'produto', 'custo', 'view');
 
         return response()->json([
-            'data' => collect($pagina->items())->map(fn (AuditLog $l) => $trilha->apresentar($l))->values(),
+            'data' => collect($pagina->items())
+                ->map(fn (AuditLog $l) => $trilha->apresentar($l, $mostrarCusto))->values(),
             'meta' => [
                 'current_page' => $pagina->currentPage(),
                 'last_page' => $pagina->lastPage(),
@@ -140,11 +151,13 @@ class AuditoriaController extends Controller
         // seletor livre de tabela vindo do cliente.
         abort_unless(array_key_exists($entidade, CatalogoAuditoria::ENTIDADES), 404);
 
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
         $pagina = $trilha->doRegistro($empresaId, $entidade, $id);
+        $mostrarCusto = $this->campos->pode($request->user(), 'produto', 'custo', 'view');
 
         return response()->json([
-            'data' => collect($pagina->items())->map(fn (AuditLog $l) => $trilha->apresentar($l))->values(),
+            'data' => collect($pagina->items())
+                ->map(fn (AuditLog $l) => $trilha->apresentar($l, $mostrarCusto))->values(),
             'resumo' => $trilha->resumoPorAcao($empresaId, $entidade, $id),
             'entidade_rotulo' => CatalogoAuditoria::rotuloEntidade($entidade),
             'meta' => [
@@ -164,7 +177,7 @@ class AuditoriaController extends Controller
     public function opcoes(Request $request): JsonResponse
     {
         $this->autorizar($request, 'auditoria.view');
-        $empresaId = (int) $request->user()->empresa_id;
+        $empresaId = $this->tenant->requireEmpresaId();
 
         $entidades = AuditLog::query()->where('empresa_id', $empresaId)
             ->distinct()->orderBy('entidade')->pluck('entidade')
@@ -203,12 +216,14 @@ class AuditoriaController extends Controller
     {
         $this->autorizar($request, 'auditoria.view');
         $q = trim((string) $request->query('q', ''));
+        $empresaId = $this->tenant->requireEmpresaId();
 
         // `ilike` é do Postgres (produção) e o sqlite da suíte não o conhece;
         // no sqlite, LIKE já é case-insensitive para ASCII.
         $like = Cliente::query()->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
         $clientes = Cliente::query()
+            ->where('empresa_id', $empresaId)
             ->when($q !== '', fn ($b) => $b->where(fn ($w) => $w
                 ->where('nome', $like, '%'.$q.'%')
                 ->orWhere('fantasia', $like, '%'.$q.'%')

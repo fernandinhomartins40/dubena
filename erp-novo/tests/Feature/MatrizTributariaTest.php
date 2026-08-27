@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Fiscal\ResolucaoTributariaService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Fiscal\ConfigFiscal;
 use App\Models\Fiscal\MalhaFiscal;
 use App\Models\Fiscal\NfImposto;
 use App\Models\Fiscal\NfImpostoEstado;
@@ -36,6 +38,13 @@ class MatrizTributariaTest extends TestCase
     private function cenario(string $ufEmpresa = 'PR'): array
     {
         $empresa = Empresa::factory()->create(['uf' => $ufEmpresa]);
+        ConfigFiscal::withoutTenant()->create([
+            'empresa_id' => $empresa->id,
+            'ambiente' => 2,
+            'serie_nfe' => 1,
+            'serie_nfce' => 1,
+            'regime_tributario' => 1,
+        ]);
 
         $operacao = OperacaoFiscal::withoutGrupo()->create([
             'grupo_id' => $empresa->grupo_id,
@@ -219,7 +228,7 @@ class MatrizTributariaTest extends TestCase
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ], [['produto_id' => $c['produto']->id, 'quantidade' => 2]]);
 
-        $nota = app(\App\Domain\Fiscal\FiscalService::class)
+        $nota = app(FiscalService::class)
             ->montarDoPedido($pedido, ModeloDocumento::NFE);
 
         $item = $nota->itens->first();
@@ -257,7 +266,7 @@ class MatrizTributariaTest extends TestCase
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ], [['produto_id' => $c['produto']->id, 'quantidade' => 1]]);
 
-        $nota = app(\App\Domain\Fiscal\FiscalService::class)
+        $nota = app(FiscalService::class)
             ->montarDoPedido($pedido, ModeloDocumento::NFE);
 
         $item = $nota->itens->first();
@@ -265,8 +274,8 @@ class MatrizTributariaTest extends TestCase
         $this->assertSame(7.0, (float) $item->aliq_icms);
     }
 
-    // ── 9) Sem regra cadastrada, mantém o padrão histórico (não quebra) ──
-    public function test_sem_regra_cai_no_padrao_anterior(): void
+    // ── 9) Sem regra cadastrada, falha fechado e não deixa rascunho órfão ──
+    public function test_sem_regra_falha_sem_criar_nota(): void
     {
         $c = $this->cenario('PR');
         // nenhuma regra criada de propósito
@@ -282,10 +291,14 @@ class MatrizTributariaTest extends TestCase
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ], [['produto_id' => $c['produto']->id, 'quantidade' => 1]]);
 
-        $nota = app(\App\Domain\Fiscal\FiscalService::class)
-            ->montarDoPedido($pedido, ModeloDocumento::NFE);
+        try {
+            app(FiscalService::class)
+                ->montarDoPedido($pedido, ModeloDocumento::NFE);
+            $this->fail('A emissão aceitou produto sem regra tributária.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('imposto', $e->errors());
+        }
 
-        $this->assertSame('00', $nota->itens->first()->cst_icms);
-        $this->assertSame(18.0, (float) $nota->itens->first()->aliq_icms);
+        $this->assertDatabaseCount('notas_fiscais', 0);
     }
 }

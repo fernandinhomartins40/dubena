@@ -55,8 +55,8 @@ class ConciliacaoTest extends TestCase
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'descricao' => 'Banco', 'saldo_inicial' => 0,
         ]);
         // 2 movimentos no ERP.
-        $caixa->movimentar($conta->id, 150.00, CaixaService::AJUSTE, ['origem' => 't', 'datahora' => '2026-06-10 09:00:00']);
-        $caixa->movimentar($conta->id, 30.00, CaixaService::AJUSTE, ['origem' => 't', 'datahora' => '2026-06-12 09:00:00']);
+        $caixa->movimentar($conta->id, 150.00, CaixaService::AJUSTE, $empresa->id, ['origem' => 't', 'datahora' => '2026-06-10 09:00:00']);
+        $caixa->movimentar($conta->id, 30.00, CaixaService::AJUSTE, $empresa->id, ['origem' => 't', 'datahora' => '2026-06-12 09:00:00']);
 
         // OFX: 150 (casa) + 999 (só no banco).
         $ofx = $this->ofx([
@@ -64,7 +64,7 @@ class ConciliacaoTest extends TestCase
             ['tipo' => 'CREDIT', 'data' => '20260615', 'valor' => '999.00', 'id' => 'B2', 'memo' => 'Outro'],
         ]);
 
-        $r = app(ConciliacaoService::class)->conciliar($conta->id, $ofx, '2026-06-01', '2026-06-30');
+        $r = app(ConciliacaoService::class)->conciliar($conta->id, $empresa->id, $ofx, '2026-06-01', '2026-06-30');
 
         $this->assertSame(1, $r['resumo']['conciliados']);
         $this->assertCount(1, $r['ofx_pendentes']);   // o 999

@@ -93,6 +93,7 @@ class RegraExtratoTest extends TestCase
 
         $resultado = app(ConciliacaoService::class)->conciliar(
             $conta->id,
+            (int) $conta->empresa_id,
             $this->ofx('PIX RECEBIDO DE JOAO DA SILVA'),
             '2026-08-01',
             '2026-08-31',
@@ -115,7 +116,7 @@ class RegraExtratoTest extends TestCase
         [, , $conta] = $this->cenario();
 
         $resultado = app(ConciliacaoService::class)->conciliar(
-            $conta->id, $this->ofx('TARIFA BANCARIA'), '2026-08-01', '2026-08-31',
+            $conta->id, (int) $conta->empresa_id, $this->ofx('TARIFA BANCARIA'), '2026-08-01', '2026-08-31',
         );
 
         // Sem regras, a tela segue funcionando exatamente como antes.
@@ -130,7 +131,7 @@ class RegraExtratoTest extends TestCase
         $this->regra($conta, 'PIX RECEBIDO', ContaExtratoAcao::LANCAR);
 
         $service = app(RegraExtratoService::class);
-        $regras = $service->regrasDaConta($conta->id);
+        $regras = $service->regrasDaConta($conta->id, (int) $conta->empresa_id);
 
         // O texto do MEMO varia entre bancos: comparar cru faria a mesma regra
         // falhar em metade dos extratos.
@@ -148,7 +149,7 @@ class RegraExtratoTest extends TestCase
         $this->regra($conta, 'PIX RECEBIDO ALUGUEL', ContaExtratoAcao::LANCAR, ['plano_conta_id' => 20]);
 
         $service = app(RegraExtratoService::class);
-        $casada = $service->casar('PIX RECEBIDO ALUGUEL SALA 3', $service->regrasDaConta($conta->id));
+        $casada = $service->casar('PIX RECEBIDO ALUGUEL SALA 3', $service->regrasDaConta($conta->id, (int) $conta->empresa_id));
 
         // Sem o desempate por comprimento, a regra genérica engoliria todas as
         // específicas e classificaria tudo no mesmo plano de contas.
@@ -162,7 +163,7 @@ class RegraExtratoTest extends TestCase
         $this->regra($conta, 'PAGAMENTO', ContaExtratoAcao::LANCAR, ['plano_conta_id' => 99, 'prioridade' => 5]);
 
         $service = app(RegraExtratoService::class);
-        $casada = $service->casar('PAGAMENTO FORNECEDOR XYZ LTDA', $service->regrasDaConta($conta->id));
+        $casada = $service->casar('PAGAMENTO FORNECEDOR XYZ LTDA', $service->regrasDaConta($conta->id, (int) $conta->empresa_id));
 
         $this->assertSame(99, $casada?->plano_conta_id, 'prioridade explícita tem de vencer');
     }
@@ -180,7 +181,25 @@ class RegraExtratoTest extends TestCase
         $service = app(RegraExtratoService::class);
 
         // "PIX RECEBIDO" significa coisas diferentes em contas diferentes.
-        $this->assertNull($service->casar('PIX RECEBIDO', $service->regrasDaConta($conta->id)));
+        $this->assertNull($service->casar('PIX RECEBIDO', $service->regrasDaConta($conta->id, (int) $conta->empresa_id)));
+    }
+
+    public function test_conta_de_outra_empresa_nao_fornece_regras_ao_owner_esperado(): void
+    {
+        [, $empresa, $conta] = $this->cenario();
+        $this->regra($conta, 'PIX RECEBIDO', ContaExtratoAcao::LANCAR);
+        $outra = Empresa::factory()->create();
+
+        $this->assertSame([], app(RegraExtratoService::class)->regrasDaConta($conta->id, $outra->id));
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(ConciliacaoService::class)->conciliar(
+            $conta->id,
+            $outra->id,
+            $this->ofx('PIX RECEBIDO'),
+            '2026-08-01',
+            '2026-08-31',
+        );
     }
 
     public function test_regra_inativa_e_ignorada(): void
@@ -189,7 +208,7 @@ class RegraExtratoTest extends TestCase
         $this->regra($conta, 'PIX RECEBIDO', ContaExtratoAcao::LANCAR, ['ativo' => false]);
 
         $service = app(RegraExtratoService::class);
-        $this->assertNull($service->casar('PIX RECEBIDO', $service->regrasDaConta($conta->id)));
+        $this->assertNull($service->casar('PIX RECEBIDO', $service->regrasDaConta($conta->id, (int) $conta->empresa_id)));
     }
 
     public function test_sinal_vem_do_extrato_e_nao_da_regra(): void
@@ -198,7 +217,7 @@ class RegraExtratoTest extends TestCase
         $this->regra($conta, 'TARIFA', ContaExtratoAcao::LANCAR_BAIXAR);
 
         $resultado = app(ConciliacaoService::class)->conciliar(
-            $conta->id, $this->ofx('TARIFA DE MANUTENCAO', '-45.90'), '2026-08-01', '2026-08-31',
+            $conta->id, (int) $conta->empresa_id, $this->ofx('TARIFA DE MANUTENCAO', '-45.90'), '2026-08-01', '2026-08-31',
         );
 
         // Valor negativo é SAÍDA, independentemente do que a regra diga.

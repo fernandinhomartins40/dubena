@@ -3,12 +3,14 @@
 namespace App\Domain\Cobranca;
 
 use App\Domain\Cobranca\Contracts\BoletoDriver;
+use App\Domain\Financeiro\BaixaService;
 use App\Models\Cobranca\Boleto;
 use App\Models\Cobranca\RemessaCnab;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /**
  * BoletoService (N7 — GATE bancário). Orquestra geração, remessa CNAB e retorno,
@@ -17,9 +19,10 @@ use Illuminate\Support\Facades\Storage;
  */
 class BoletoService
 {
-    public function __construct(private BoletoDriver $driver)
-    {
-    }
+    public function __construct(
+        private BoletoDriver $driver,
+        private BaixaService $baixas,
+    ) {}
 
     /** Gera um boleto para uma parcela de financeiro. */
     public function gerarParaParcela(FinanceiroParcela $parcela): Boleto
@@ -46,13 +49,29 @@ class BoletoService
     /**
      * Gera o arquivo de remessa CNAB a partir de boletos pendentes.
      *
-     * @param Collection<int,Boleto>|list<Boleto> $boletos
+     * @param  Collection<int,Boleto>|list<Boleto>  $boletos
      */
     public function gerarRemessa(iterable $boletos, int $empresaId): RemessaCnab
     {
-        $boletos = collect($boletos);
+        $ids = collect($boletos)->map(fn (Boleto $boleto) => $boleto->getKey());
 
-        return DB::transaction(function () use ($boletos, $empresaId) {
+        if ($empresaId <= 0 || $ids->isEmpty() || $ids->contains(null) || $ids->uniqueStrict()->count() !== $ids->count()) {
+            throw ValidationException::withMessages(['boletos' => 'Informe boletos validos e sem duplicidade para a empresa ativa.']);
+        }
+
+        return DB::transaction(function () use ($ids, $empresaId) {
+            $boletos = Boleto::withoutTenant()
+                ->where('empresa_id', $empresaId)
+                ->where('banco_codigo', $this->driver->bancoCodigo())
+                ->where('situacao', SituacaoBoleto::PENDENTE->value)
+                ->whereIn('id', $ids)
+                ->lockForUpdate()
+                ->get();
+
+            if ($boletos->count() !== $ids->count()) {
+                throw ValidationException::withMessages(['boletos' => 'A remessa aceita somente boletos pendentes da empresa e banco ativos.']);
+            }
+
             $numero = (int) (RemessaCnab::withoutTenant()->where('empresa_id', $empresaId)->max('numero_remessa') ?? 0) + 1;
 
             // Conteúdo CNAB real (uma linha por boleto). Em produção o banco recebe
@@ -74,6 +93,7 @@ class BoletoService
 
             // Os boletos da remessa passam a REGISTRADO (enviados ao banco).
             Boleto::withoutTenant()->whereIn('id', $boletos->pluck('id'))
+                ->where('empresa_id', $empresaId)
                 ->where('situacao', SituacaoBoleto::PENDENTE->value)
                 ->update(['situacao' => SituacaoBoleto::REGISTRADO->value]);
 
@@ -85,11 +105,15 @@ class BoletoService
      * Processa um arquivo de retorno CNAB (linhas), atualizando situação e
      * registrando ocorrências. Liquidação confirma a parcela.
      *
-     * @param list<string> $linhas
+     * @param  list<string>  $linhas
      * @return int nº de ocorrências processadas
      */
-    public function processarRetorno(array $linhas): int
+    public function processarRetorno(array $linhas, int $empresaId): int
     {
+        if ($empresaId <= 0) {
+            throw ValidationException::withMessages(['empresa_id' => 'Empresa ativa obrigatoria para processar o retorno.']);
+        }
+
         $processadas = 0;
 
         foreach ($linhas as $linha) {
@@ -98,14 +122,24 @@ class BoletoService
             }
             $oc = $this->driver->interpretarRetorno($linha);
 
-            // Casa a ocorrência ao boleto pelo nosso número embutido na linha (fake:
-            // procura por qualquer boleto cujo nosso_numero apareça na linha).
-            $boleto = $this->localizarBoleto($linha);
-            if (! $boleto) {
+            // O driver extrai o identificador somente do campo posicional do seu
+            // layout. A consulta exata também exige empresa e banco ativos.
+            $boletoId = $this->driver->boletoIdRetorno($linha);
+            if ($boletoId === null) {
                 continue;
             }
 
-            DB::transaction(function () use ($boleto, $oc) {
+            $processada = DB::transaction(function () use ($boletoId, $empresaId, $oc) {
+                $boleto = Boleto::withoutTenant()
+                    ->whereKey($boletoId)
+                    ->where('empresa_id', $empresaId)
+                    ->where('banco_codigo', $this->driver->bancoCodigo())
+                    ->lockForUpdate()
+                    ->first();
+                if (! $boleto) {
+                    return false;
+                }
+
                 $boleto->ocorrencias()->create([
                     'codigo' => $oc['codigo'],
                     'descricao' => $oc['descricao'],
@@ -116,23 +150,20 @@ class BoletoService
 
                 // Liquidação → baixa a parcela do financeiro.
                 if ($oc['situacao'] === SituacaoBoleto::LIQUIDADO->value && $boleto->financeiroparcela_id) {
-                    FinanceiroParcela::query()->whereKey($boleto->financeiroparcela_id)->update([
-                        'baixado' => true,
-                        'valor_efetivado' => $oc['valor'] ?? $boleto->valor,
-                        'datahora_baixa' => now(),
-                    ]);
+                    $this->baixas->baixar(
+                        (int) $boleto->financeiroparcela_id,
+                        $empresaId,
+                        (float) ($oc['valor'] ?? $boleto->valor),
+                        'cnab',
+                        reentregaIdempotente: true,
+                    );
                 }
+
+                return true;
             });
-            $processadas++;
+            $processadas += $processada ? 1 : 0;
         }
 
         return $processadas;
-    }
-
-    private function localizarBoleto(string $linha): ?Boleto
-    {
-        return Boleto::withoutTenant()->get()->first(
-            fn (Boleto $b) => $b->nosso_numero && str_contains($linha, $b->nosso_numero),
-        );
     }
 }

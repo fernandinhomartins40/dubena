@@ -6,6 +6,7 @@ use App\Domain\Shared\PermissaoCatalogo;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Permission;
+use App\Models\Produto\Produto;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,7 @@ class FieldLevelTest extends TestCase
         $this->assertContains('cliente.campo.credito_limite.view', $chaves);
         $this->assertContains('cliente.export', $chaves);
         $this->assertContains('relatorio.dre.view', $chaves);
+        $this->assertContains('produto.campo.custo.view', $chaves);
     }
 
     public function test_campo_sensivel_oculto_sem_permissao_de_ver(): void
@@ -133,5 +135,45 @@ class FieldLevelTest extends TestCase
 
         [$comExport] = $this->userCom(['cliente.export']);
         $this->actingAs($comExport, 'sanctum')->get('/api/admin/clientes/exportar')->assertOk();
+    }
+
+    public function test_custo_do_produto_fica_oculto_sem_permissao_granular(): void
+    {
+        [$user, $empresa] = $this->userCom(['produto.view']);
+        $produto = Produto::factory()->create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'preco_venda' => 100,
+            'custo_medio' => 60,
+            'custo_frete' => 5,
+        ]);
+
+        $resposta = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/admin/produtos/{$produto->id}")
+            ->assertOk();
+
+        $resposta->assertJsonMissingPath('data.customedio');
+        $resposta->assertJsonMissingPath('data.custo_medio');
+        $resposta->assertJsonPath('data.precovenda', 100);
+    }
+
+    public function test_custo_do_produto_exige_permissao_para_editar(): void
+    {
+        [$user, $empresa] = $this->userCom(['produto.edit']);
+        $produto = Produto::factory()->create([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'descricao' => 'Produto protegido',
+            'custo_medio' => 60,
+        ]);
+
+        $this->actingAs($user, 'sanctum')->putJson("/api/admin/produtos/{$produto->id}", [
+            'descricao' => 'Produto renomeado',
+            'customedio' => 1,
+        ])->assertOk();
+
+        $produto->refresh();
+        $this->assertSame('Produto renomeado', $produto->descricao);
+        $this->assertSame(60.0, (float) $produto->custo_medio);
     }
 }

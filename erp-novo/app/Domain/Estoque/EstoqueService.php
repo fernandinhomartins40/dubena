@@ -8,6 +8,7 @@ use App\Models\Estoque\EstoqueInventario;
 use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
 use App\Models\Estoque\Setor;
+use App\Models\Produto\Produto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -46,6 +47,7 @@ class EstoqueService
         ?string $origem = null,
         ?int $origemId = null,
         ?int $userId = null,
+        ?int $empresaEsperada = null,
     ): EstoqueHistorico {
         if ($quantidade == 0.0) {
             throw ValidationException::withMessages(['quantidade' => 'Quantidade não pode ser zero.']);
@@ -53,12 +55,12 @@ class EstoqueService
 
         // empresa_id derivado do setor (não depende do TenantContext: o service é
         // chamado via HTTP, testes e ETL). Garante a coerência do escopo.
-        $empresaId = (int) Setor::withoutTenant()->whereKey($setorId)->value('empresa_id');
+        $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
 
         return DB::transaction(function () use ($setorId, $produtoId, $quantidade, $tipo, $custoUnitario, $origem, $origemId, $userId, $empresaId) {
             // Lock pessimista do saldo (cria se não existir) — base anti-corrida.
             $saldo = EstoqueSaldo::withoutTenant()
-                ->where('setor_id', $setorId)->where('produto_id', $produtoId)
+                ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
                 ->lockForUpdate()->first();
 
             if (! $saldo) {
@@ -105,14 +107,14 @@ class EstoqueService
         });
     }
 
-    public function entrada(int $setorId, int $produtoId, float $qtd, ?float $custo = null, ?string $origem = null, ?int $origemId = null, ?int $userId = null): EstoqueHistorico
+    public function entrada(int $setorId, int $produtoId, float $qtd, ?float $custo = null, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null): EstoqueHistorico
     {
-        return $this->movimentar($setorId, $produtoId, abs($qtd), self::ENTRADA, $custo, $origem, $origemId, $userId);
+        return $this->movimentar($setorId, $produtoId, abs($qtd), self::ENTRADA, $custo, $origem, $origemId, $userId, $empresaEsperada);
     }
 
-    public function saida(int $setorId, int $produtoId, float $qtd, ?string $origem = null, ?int $origemId = null, ?int $userId = null): EstoqueHistorico
+    public function saida(int $setorId, int $produtoId, float $qtd, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null): EstoqueHistorico
     {
-        return $this->movimentar($setorId, $produtoId, -abs($qtd), self::SAIDA, null, $origem, $origemId, $userId);
+        return $this->movimentar($setorId, $produtoId, -abs($qtd), self::SAIDA, null, $origem, $origemId, $userId, $empresaEsperada);
     }
 
     /**
@@ -120,7 +122,7 @@ class EstoqueService
      *
      * @return array{saida: EstoqueHistorico, entrada: EstoqueHistorico}
      */
-    public function transferir(int $setorOrigem, int $setorDestino, int $produtoId, float $qtd, ?int $userId = null): array
+    public function transferir(int $setorOrigem, int $setorDestino, int $produtoId, float $qtd, ?int $userId = null, ?int $empresaEsperada = null): array
     {
         if ($setorOrigem === $setorDestino) {
             throw ValidationException::withMessages(['setor_destino' => 'Setores de origem e destino devem ser diferentes.']);
@@ -128,18 +130,18 @@ class EstoqueService
 
         // F05 — transferência só DENTRO da mesma empresa: mover estoque entre
         // empresas diferentes violaria o isolamento de tenant (e o patrimônio).
-        $empOrigem = (int) Setor::withoutTenant()->whereKey($setorOrigem)->value('empresa_id');
+        $empOrigem = $this->validarParEstoque($setorOrigem, $produtoId, $empresaEsperada);
         $empDestino = (int) Setor::withoutTenant()->whereKey($setorDestino)->value('empresa_id');
-        if ($empOrigem === 0 || $empDestino === 0 || $empOrigem !== $empDestino) {
+        if ($empDestino === 0 || $empOrigem !== $empDestino) {
             throw ValidationException::withMessages(['setor_destino' => 'Transferência só é permitida entre setores da mesma empresa.']);
         }
 
-        return DB::transaction(function () use ($setorOrigem, $setorDestino, $produtoId, $qtd, $userId) {
-            $origem = EstoqueSaldo::withoutTenant()->where('setor_id', $setorOrigem)->where('produto_id', $produtoId)->first();
+        return DB::transaction(function () use ($setorOrigem, $setorDestino, $produtoId, $qtd, $userId, $empOrigem) {
+            $origem = EstoqueSaldo::withoutTenant()->where('empresa_id', $empOrigem)->where('setor_id', $setorOrigem)->where('produto_id', $produtoId)->first();
             $custo = $origem ? (float) $origem->custo_medio : null;
 
-            $saidaMov = $this->movimentar($setorOrigem, $produtoId, -abs($qtd), self::TRANSFERENCIA, null, 'transferencia', $setorDestino, $userId);
-            $entradaMov = $this->movimentar($setorDestino, $produtoId, abs($qtd), self::TRANSFERENCIA, $custo, 'transferencia', $setorOrigem, $userId);
+            $saidaMov = $this->movimentar($setorOrigem, $produtoId, -abs($qtd), self::TRANSFERENCIA, null, 'transferencia', $setorDestino, $userId, $empOrigem);
+            $entradaMov = $this->movimentar($setorDestino, $produtoId, abs($qtd), self::TRANSFERENCIA, $custo, 'transferencia', $setorOrigem, $userId, $empOrigem);
 
             return ['saida' => $saidaMov, 'entrada' => $entradaMov];
         });
@@ -149,11 +151,13 @@ class EstoqueService
      * Acerto/inventário: ajusta o saldo para a quantidade CONTADA, gerando o
      * movimento de diferença (mantém o histórico auditável).
      */
-    public function acertar(int $setorId, int $produtoId, float $quantidadeContada, ?int $userId = null): ?EstoqueHistorico
+    public function acertar(int $setorId, int $produtoId, float $quantidadeContada, ?int $userId = null, ?int $empresaEsperada = null): ?EstoqueHistorico
     {
-        return DB::transaction(function () use ($setorId, $produtoId, $quantidadeContada, $userId) {
+        $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
+
+        return DB::transaction(function () use ($setorId, $produtoId, $quantidadeContada, $userId, $empresaId) {
             $saldo = EstoqueSaldo::withoutTenant()
-                ->where('setor_id', $setorId)->where('produto_id', $produtoId)
+                ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
                 ->lockForUpdate()->first();
 
             $atual = $saldo ? (float) $saldo->quantidade : 0.0;
@@ -163,7 +167,7 @@ class EstoqueService
                 return null; // nada a ajustar
             }
 
-            return $this->movimentar($setorId, $produtoId, $diferenca, self::INVENTARIO, null, 'acerto', null, $userId);
+            return $this->movimentar($setorId, $produtoId, $diferenca, self::INVENTARIO, null, 'acerto', null, $userId, $empresaId);
         });
     }
 
@@ -171,16 +175,16 @@ class EstoqueService
      * Fecha o período de um setor×produto: registra saldo inicial/final.
      * O saldo final é o saldo atual; o inicial é o final do fechamento anterior.
      */
-    public function fechar(int $setorId, int $produtoId, string $dataFechamento): EstoqueFechamento
+    public function fechar(int $setorId, int $produtoId, string $dataFechamento, ?int $empresaEsperada = null): EstoqueFechamento
     {
-        $empresaId = (int) Setor::withoutTenant()->whereKey($setorId)->value('empresa_id');
+        $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
 
         return DB::transaction(function () use ($setorId, $produtoId, $dataFechamento, $empresaId) {
-            $saldo = EstoqueSaldo::withoutTenant()->where('setor_id', $setorId)->where('produto_id', $produtoId)->first();
+            $saldo = EstoqueSaldo::withoutTenant()->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)->first();
             $saldoFinal = $saldo ? (float) $saldo->quantidade : 0.0;
 
             $anterior = EstoqueFechamento::withoutTenant()
-                ->where('setor_id', $setorId)->where('produto_id', $produtoId)
+                ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
                 ->orderByDesc('data_fechamento')->first();
             $saldoInicial = $anterior ? (float) $anterior->saldo_final : 0.0;
 
@@ -197,9 +201,12 @@ class EstoqueService
     }
 
     /** Saldo derivado do histórico (a fonte da verdade) — usado em testes/invariantes. */
-    public function saldoDerivado(int $setorId, int $produtoId): float
+    public function saldoDerivado(int $setorId, int $produtoId, ?int $empresaEsperada = null): float
     {
+        $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
+
         return (float) EstoqueHistorico::withoutTenant()
+            ->where('empresa_id', $empresaId)
             ->where('setor_id', $setorId)->where('produto_id', $produtoId)
             ->sum('quantidade');
     }
@@ -209,17 +216,20 @@ class EstoqueService
      * para a quantidade contada (gera o movimento de diferença → saldo auditável).
      * Grava a quantidade do sistema no momento e marca o inventário como efetivado.
      */
-    public function efetivarInventario(EstoqueInventario $inventario, ?int $userId = null): EstoqueInventario
+    public function efetivarInventario(EstoqueInventario $inventario, ?int $userId = null, ?int $empresaEsperada = null): EstoqueInventario
     {
+        if ($empresaEsperada !== null && (int) $inventario->empresa_id !== $empresaEsperada) {
+            throw ValidationException::withMessages(['inventario' => 'Inventario invalido para a empresa ativa.']);
+        }
         if ($inventario->situacao === 'efetivado') {
             return $inventario;
         }
 
         return DB::transaction(function () use ($inventario, $userId) {
             foreach ($inventario->itens as $item) {
-                $sistema = $this->saldoDerivado($inventario->setor_id, $item->produto_id);
+                $sistema = $this->saldoDerivado($inventario->setor_id, $item->produto_id, (int) $inventario->empresa_id);
                 $item->update(['quantidade_sistema' => $sistema]);
-                $this->acertar($inventario->setor_id, $item->produto_id, (float) $item->quantidade_contada, $userId);
+                $this->acertar($inventario->setor_id, $item->produto_id, (float) $item->quantidade_contada, $userId, (int) $inventario->empresa_id);
             }
 
             $inventario->update(['situacao' => 'efetivado']);
@@ -232,8 +242,11 @@ class EstoqueService
      * Atende uma requisição (C11): transfere a quantidade do setor de origem para o
      * de destino (via transferir → mantém o saldo auditável) e marca como atendida.
      */
-    public function atenderRequisicao(EstoqueRequisicao $req, ?int $userId = null): EstoqueRequisicao
+    public function atenderRequisicao(EstoqueRequisicao $req, ?int $userId = null, ?int $empresaEsperada = null): EstoqueRequisicao
     {
+        if ($empresaEsperada !== null && (int) $req->empresa_id !== $empresaEsperada) {
+            throw ValidationException::withMessages(['requisicao' => 'Requisicao invalida para a empresa ativa.']);
+        }
         if ($req->situacao !== 'pendente') {
             throw ValidationException::withMessages(['requisicao' => 'Requisição já processada.']);
         }
@@ -242,10 +255,24 @@ class EstoqueService
         }
 
         return DB::transaction(function () use ($req, $userId) {
-            $this->transferir($req->setor_origem_id, $req->setor_destino_id, $req->produto_id, (float) $req->quantidade, $userId);
+            $this->transferir($req->setor_origem_id, $req->setor_destino_id, $req->produto_id, (float) $req->quantidade, $userId, (int) $req->empresa_id);
             $req->update(['situacao' => 'atendida']);
 
             return $req->refresh();
         });
+    }
+
+    private function validarParEstoque(int $setorId, int $produtoId, ?int $empresaEsperada): int
+    {
+        $empresaId = (int) Setor::withoutTenant()->whereKey($setorId)->value('empresa_id');
+        $valido = $empresaId > 0
+            && ($empresaEsperada === null || $empresaId === $empresaEsperada)
+            && Produto::withoutTenant()->whereKey($produtoId)->where('empresa_id', $empresaId)->exists();
+
+        if (! $valido) {
+            throw ValidationException::withMessages(['estoque' => 'Setor ou produto invalido para a empresa ativa.']);
+        }
+
+        return $empresaId;
     }
 }

@@ -128,13 +128,16 @@ class RelatorioTest extends TestCase
         $this->assertStringStartsWith('%PDF', $pdf->getContent());
     }
 
-    public function test_cutover_check_apos_etl_libera_portao(): void
+    public function test_cutover_check_apos_etl_parcial_permanece_fechado(): void
     {
-        // Sem dados, o portão FECHA (ex.: estados=0). Após o ETL (semente de estados),
-        // e como os demais migrators não têm legado disponível (invariantes vazias),
-        // o portão LIBERA.
-        $this->artisan('etl:run')->assertExitCode(0);
-        $this->artisan('cutover:check')->assertExitCode(0);
+        config()->set('saas_transformation.freeze.migration_writes', false);
+
+        // Sem dados, o portão FECHA (ex.: estados=0). Este teste exercita apenas
+        // a semente autônoma de estados. A origem legado está deliberadamente
+        // ausente no ambiente de teste, portanto o bypass precisa ser explícito;
+        // a carga geral sem origem continua falhando fechado.
+        $this->artisan('etl:run estados --eu-sei-o-que-estou-fazendo')->assertExitCode(0);
+        $this->artisan('cutover:check')->assertExitCode(1);
     }
 
     public function test_cutover_check_fecha_sem_dados(): void

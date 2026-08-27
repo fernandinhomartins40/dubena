@@ -85,6 +85,29 @@ class EstoqueMultiTenantTest extends TestCase
         $this->svc->transferir($setorA->id, $setorB->id, $prodA->id, 10);
     }
 
+    public function test_movimento_recusa_setor_de_empresa_diferente_da_esperada(): void
+    {
+        [$empA] = $this->tenant();
+        [$empB, $setorB, $prodB] = $this->tenant();
+
+        try {
+            $this->svc->entrada($setorB->id, $prodB->id, 10, 5, empresaEsperada: $empA->id);
+            $this->fail('Movimento intertenant deveria ser recusado.');
+        } catch (ValidationException) {
+            $this->assertSame(0, EstoqueHistorico::withoutTenant()->where('empresa_id', $empB->id)->count());
+            $this->assertSame(0, EstoqueSaldo::withoutTenant()->where('empresa_id', $empB->id)->count());
+        }
+    }
+
+    public function test_movimento_recusa_produto_de_outra_empresa(): void
+    {
+        [$empA, $setorA] = $this->tenant();
+        [, , $prodB] = $this->tenant();
+
+        $this->expectException(ValidationException::class);
+        $this->svc->entrada($setorA->id, $prodB->id, 10, 5, empresaEsperada: $empA->id);
+    }
+
     public function test_transferencia_dentro_da_empresa_preserva_total(): void
     {
         [$empresa, $setor1, $produto] = $this->tenant();

@@ -69,8 +69,9 @@ class ResolveTenant
      * (persistem na conexão), então numa conexão reutilizada (pooling, ou a conexão
      * única dos testes) o tenant de uma requisição vazaria para a próxima operação
      * na mesma conexão. Zerar aqui garante que, fora de uma requisição resolvida,
-     * a RLS "não filtra" (comportamento de CLI/ETL) em vez de aplicar um tenant
-     * obsoleto. NO-OP fora do pgsql.
+     * a RLS negue acesso em vez de aplicar um tenant obsoleto. CLI/ETL de
+     * plataforma usam uma conexão privilegiada explícita; runtime é fail-closed.
+     * NO-OP fora do pgsql.
      */
     public function terminate(Request $request, Response $response): void
     {

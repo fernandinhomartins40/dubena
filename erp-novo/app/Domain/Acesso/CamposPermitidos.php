@@ -3,6 +3,7 @@
 namespace App\Domain\Acesso;
 
 use App\Domain\Shared\PermissaoCatalogo;
+use App\Domain\Tenant\TenantContext;
 use App\Models\User;
 
 /**
@@ -20,6 +21,8 @@ use App\Models\User;
  */
 class CamposPermitidos
 {
+    public function __construct(private TenantContext $tenant) {}
+
     /**
      * Remove do array de saída os campos que o usuário não pode VER.
      *
@@ -68,6 +71,7 @@ class CamposPermitidos
             return true; // campo não controlado
         }
 
-        return $user !== null && $user->temPermissao($chave);
+        return $user !== null
+            && $user->temPermissao($chave, $this->tenant->empresaId() ?? (int) $user->empresa_id);
     }
 }

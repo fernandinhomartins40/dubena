@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Fiscal\DanfePdfService;
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\IbptService;
@@ -16,6 +17,7 @@ use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * Notas fiscais (NF-e/NFC-e/CF-e) — N9. Emissão a partir do pedido, cancelamento.
@@ -26,7 +28,10 @@ class NotaFiscalController extends Controller
     use AutorizaPorPermissao;
     use PaginaListagem;
 
-    public function __construct(private FiscalService $service) {}
+    public function __construct(
+        private FiscalService $service,
+        private CamposPermitidos $campos,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -67,7 +72,7 @@ class NotaFiscalController extends Controller
      * porque imprimir não emite nem altera nada: quem consulta a nota precisa
      * poder imprimir o papel dela.
      */
-    public function danfe(Request $request, int $id, DanfePdfService $danfe): \Illuminate\Http\Response
+    public function danfe(Request $request, int $id, DanfePdfService $danfe): Response
     {
         $this->autorizar($request, 'fiscal.view');
 
@@ -155,6 +160,11 @@ class NotaFiscalController extends Controller
     public function sped(Request $request, SpedFiscalService $sped): JsonResponse
     {
         $this->autorizar($request, 'fiscal.view');
+        abort_unless(
+            $this->campos->pode($request->user(), 'produto', 'custo', 'view'),
+            403,
+            'Sem permissão para visualizar custo do produto.',
+        );
         $d = $request->validate([
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',

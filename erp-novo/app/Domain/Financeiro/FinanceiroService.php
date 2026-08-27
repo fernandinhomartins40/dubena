@@ -83,7 +83,12 @@ class FinanceiroService
             return null;
         }
 
-        $existente = Financeiro::query()->where('origem', 'pedido')->where('origem_id', $pedido->id)->where('cancelado', false)->first();
+        $existente = Financeiro::query()
+            ->where('empresa_id', $pedido->empresa_id)
+            ->where('origem', 'pedido')
+            ->where('origem_id', $pedido->id)
+            ->where('cancelado', false)
+            ->first();
         if ($existente) {
             return $existente; // já gerado
         }
@@ -114,6 +119,7 @@ class FinanceiroService
     public function estornarDoPedido(Pedido $pedido): void
     {
         Financeiro::query()
+            ->where('empresa_id', $pedido->empresa_id)
             ->where('origem', 'pedido')->where('origem_id', $pedido->id)->where('cancelado', false)
             ->get()
             ->each(fn (Financeiro $f) => $this->cancelar($f));
@@ -136,14 +142,41 @@ class FinanceiroService
      */
     public function agrupar(iterable $titulos, array $dadosAgrupador, int $numParcelas = 1): Financeiro
     {
-        $titulos = collect($titulos);
-        if ($titulos->isEmpty()) {
+        $ids = collect($titulos)->map(fn (Financeiro $titulo) => $titulo->getKey());
+        if ($ids->isEmpty()) {
             throw ValidationException::withMessages(['titulos' => 'Informe ao menos um título para agrupar.']);
         }
 
-        $total = round((float) $titulos->sum('valor'), 2);
+        $empresaId = (int) ($dadosAgrupador['empresa_id'] ?? 0);
+        if ($empresaId <= 0 || $ids->contains(null) || $ids->uniqueStrict()->count() !== $ids->count()) {
+            throw ValidationException::withMessages([
+                'titulos' => 'Agrupamento exige títulos normais, em aberto, da mesma empresa, cliente e natureza.',
+            ]);
+        }
 
-        return DB::transaction(function () use ($titulos, $dadosAgrupador, $total, $numParcelas) {
+        return DB::transaction(function () use ($ids, $empresaId, $dadosAgrupador, $numParcelas) {
+            // Releitura autoritativa + lock evita confiar em models desatualizados
+            // e impede duas consolidacoes concorrentes dos mesmos titulos.
+            $titulos = Financeiro::withoutTenant()
+                ->where('empresa_id', $empresaId)
+                ->whereIn('id', $ids)
+                ->lockForUpdate()
+                ->get();
+
+            $clientes = $titulos->pluck('cliente_id')->uniqueStrict();
+            $sentidos = $titulos->pluck('pagarreceber')->uniqueStrict();
+            $invalidos = $titulos->count() !== $ids->count()
+                || $titulos->contains(fn (Financeiro $t) => $t->cancelado
+                    || $t->agrupamento_status !== AgrupamentoStatus::NORMAL
+                    || $t->parcelas()->where('baixado', true)->exists());
+
+            if ($invalidos || $clientes->count() !== 1 || $sentidos->count() !== 1) {
+                throw ValidationException::withMessages([
+                    'titulos' => 'Agrupamento exige titulos normais, em aberto, da mesma empresa, cliente e natureza.',
+                ]);
+            }
+
+            $total = round((float) $titulos->sum('valor'), 2);
             $agrupador = $this->criar(array_merge($dadosAgrupador, [
                 'valor' => $total,
                 'agrupamento_status' => AgrupamentoStatus::AGRUPADOR->value,
@@ -168,7 +201,10 @@ class FinanceiroService
         }
 
         DB::transaction(function () use ($agrupador) {
-            Financeiro::query()->where('agrupador_id', $agrupador->id)->update([
+            Financeiro::query()
+                ->where('empresa_id', $agrupador->empresa_id)
+                ->where('agrupador_id', $agrupador->id)
+                ->update([
                 'agrupamento_status' => AgrupamentoStatus::NORMAL->value,
                 'agrupador_id' => null,
             ]);

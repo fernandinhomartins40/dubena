@@ -46,7 +46,10 @@ class BoletoPdfService
             : null;
 
         $cliente = $boleto->cliente_id !== null
-            ? \App\Models\Cliente\Cliente::withoutTenant()->find($boleto->cliente_id)
+            ? \App\Models\Cliente\Cliente::withoutTenant()
+                ->whereKey($boleto->cliente_id)
+                ->where('empresa_id', $boleto->empresa_id)
+                ->first()
             : null;
 
         $valor = 'R$ '.number_format((float) $boleto->valor, 2, ',', '.');

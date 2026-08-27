@@ -49,9 +49,9 @@ class BancoProducaoCheck extends Command
         $this->newLine();
 
         if (DB::connection()->getDriverName() !== 'pgsql') {
-            $this->warn('Banco não é PostgreSQL — este portão só faz sentido em produção.');
+            $this->error('PORTÃO INCONCLUSIVO — banco não é PostgreSQL; o gate de produção exige PostgreSQL real.');
 
-            return self::SUCCESS;
+            return self::FAILURE;
         }
 
         $this->verificarVazio();

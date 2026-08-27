@@ -527,7 +527,8 @@ class MobileTest extends TestCase
             ->assertOk()->assertJsonPath('data.pago', false);
 
         // Webhook do PSP confirma o pagamento (valor bate).
-        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 100, 'e2eid' => 'E123'])
+        config()->set('services.pix.webhook_secret', 'segredo-de-teste');
+        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 100, 'e2eid' => 'E123'], ['X-Webhook-Token' => 'segredo-de-teste'])
             ->assertOk()->assertJsonPath('situacao', 'CONCLUIDA');
 
         // Agora o status do pedido aparece pago.
@@ -548,7 +549,9 @@ class MobileTest extends TestCase
         $txid = $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pix")->json('data.txid');
 
         // Valor pago (50) difere do cobrado (100) → rejeitado (anti-fraude S3).
-        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 50])->assertStatus(422);
+        config()->set('services.pix.webhook_secret', 'segredo-de-teste');
+        $this->postJson('/api/pix/webhook', ['txid' => $txid, 'valor' => 50], ['X-Webhook-Token' => 'segredo-de-teste'])
+            ->assertStatus(422);
 
         $this->actingAs($this->user, 'sanctum')->getJson("/api/app/v1/pedidos/{$pedidoId}/pix/status")
             ->assertOk()->assertJsonPath('data.pago', false);

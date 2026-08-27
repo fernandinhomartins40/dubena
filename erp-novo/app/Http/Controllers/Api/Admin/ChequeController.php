@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\ChequeService;
 use App\Domain\Caixa\SituacaoCheque;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Caixa\Cheque;
@@ -17,7 +18,7 @@ class ChequeController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private ChequeService $service) {}
+    public function __construct(private ChequeService $service, private TenantContext $tenant) {}
 
     public function recebidos(Request $request): JsonResponse
     {
@@ -92,6 +93,7 @@ class ChequeController extends Controller
 
         $resultado = $this->service->encontroDeContas(
             Cheque::query()->findOrFail($id),
+            $this->tenant->requireEmpresaId(),
             (float) $d['valor_compromisso'],
             $d['financeiro_parcela_id'] ?? null,
             $request->user()->id,

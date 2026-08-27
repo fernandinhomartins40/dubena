@@ -25,6 +25,7 @@ Thumbs.db
 
 # SPA buildada no deploy (FE-5) — não versionar o artefato de build.
 /public/app
+/release-artifacts
 
 # Cache do Python dos scripts de importacao — artefato local.
 __pycache__/

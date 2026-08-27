@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
 use App\Models\Grupo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,6 +15,12 @@ use Tests\TestCase;
 class EmpresaTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('saas_transformation.freeze.company_creation', false);
+    }
 
     private function usuarioSuporte(): array
     {
@@ -74,6 +81,19 @@ class EmpresaTest extends TestCase
         $this->assertEquals($outra->id, $user->fresh()->empresa_id);
     }
 
+    public function test_freeze_saas_bloqueia_criacao_de_empresa(): void
+    {
+        [$user] = $this->usuarioSuporte();
+        config()->set('saas_transformation.freeze.company_creation', true);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/empresas', ['razao_social' => 'Revenda bloqueada', 'uf' => 'SP'])
+            ->assertStatus(423)
+            ->assertJsonPath('operation', 'company_creation');
+
+        $this->assertDatabaseMissing('empresas', ['razao_social' => 'Revenda bloqueada']);
+    }
+
     public function test_nao_acessa_empresa_de_outro_grupo(): void
     {
         [$user] = $this->usuarioSuporte();
@@ -98,16 +118,37 @@ class EmpresaTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->putJson("/api/admin/empresas/{$empresa->id}/config", [
                 'tempoentrega' => 30,
-                'validaatraso' => true,
+                'valida_atraso' => true,
             ])
             ->assertOk()
             ->assertJsonPath('data.tempoentrega', 30)
-            ->assertJsonPath('data.validaatraso', true);
+            ->assertJsonPath('data.valida_atraso', true);
 
         $this->assertDatabaseHas('empresa_configs', [
             'empresa_id' => $empresa->id,
             'tempoentrega' => 30,
         ]);
+    }
+
+    public function test_config_generica_nao_sobrescreve_integracoes_ou_segredos(): void
+    {
+        [$user, $empresa] = $this->usuarioSuporte();
+        EmpresaConfig::query()->create([
+            'empresa_id' => $empresa->id,
+            'dados' => ['integracoes' => ['pix' => ['client_secret' => 'cifrado-original']]],
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/admin/empresas/{$empresa->id}/config", [
+                'integracoes' => ['pix' => ['client_secret' => 'texto-invasor']],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('config');
+
+        $this->assertSame(
+            'cifrado-original',
+            EmpresaConfig::query()->where('empresa_id', $empresa->id)->value('dados')['integracoes']['pix']['client_secret'],
+        );
     }
 
     public function test_senha_mestra_define_e_exige_atual_para_trocar(): void

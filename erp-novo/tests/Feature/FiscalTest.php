@@ -11,11 +11,15 @@ use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
+use App\Models\Fiscal\ConfigFiscal;
+use App\Models\Fiscal\NfImposto;
+use App\Models\Fiscal\OperacaoFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -27,8 +31,11 @@ class FiscalTest extends TestCase
     use RefreshDatabase;
 
     private Empresa $empresa;
+
     private Setor $setor;
+
     private Produto $produto;
+
     private Cliente $cliente;
 
     protected function setUp(): void
@@ -38,6 +45,49 @@ class FiscalTest extends TestCase
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         $this->cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        ConfigFiscal::withoutTenant()->create([
+            'empresa_id' => $this->empresa->id,
+            'ambiente' => 2,
+            'serie_nfe' => 1,
+            'serie_nfce' => 1,
+            'regime_tributario' => 1,
+        ]);
+        $operacao = OperacaoFiscal::withoutGrupo()->create([
+            'grupo_id' => $this->empresa->grupo_id,
+            'descricao' => 'Venda tributada',
+            'cfop' => '5102',
+            'ativo' => true,
+        ]);
+        DB::table('produto_operacao_fiscal')->insert([
+            'operacao_fiscal_id' => $operacao->id,
+            'produto_id' => $this->produto->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        NfImposto::withoutTenant()->create([
+            'empresa_id' => $this->empresa->id,
+            'grupo_id' => $this->empresa->grupo_id,
+            'operacao_fiscal_id' => $operacao->id,
+            'grupo_fiscal_id' => null,
+            'cst_icms' => '00',
+            'aliq_icms' => 18,
+            'perc_bc_icms' => 100,
+            'cst_pis' => '01',
+            'aliq_pis' => 1.65,
+            'perc_bc_pis' => 100,
+            'cst_cofins' => '01',
+            'aliq_cofins' => 7.6,
+            'perc_bc_cofins' => 100,
+            'pf_cst_icms' => '00',
+            'pf_aliq_icms' => 18,
+            'pf_perc_bc_icms' => 100,
+            'pf_cst_pis' => '01',
+            'pf_aliq_pis' => 1.65,
+            'pf_perc_bc_pis' => 100,
+            'pf_cst_cofins' => '01',
+            'pf_aliq_cofins' => 7.6,
+            'pf_perc_bc_cofins' => 100,
+        ]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 1000, 10);
     }
 

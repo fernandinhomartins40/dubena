@@ -24,8 +24,25 @@ import sys
 import psycopg2
 
 ORA = os.environ.get("ORA_CONTAINER", "dubena-ora")
-ORA_CONN = "CTRL2QTI/dubena@localhost/XE"
-PG_DSN = "host=127.0.0.1 port=55432 dbname=erp_novo user=postgres password=dubena"
+def require_env(name):
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Variavel obrigatoria ausente: {name}")
+    return value
+
+
+def require_write_unfrozen():
+    freeze = os.environ.get("SAAS_FREEZE_MIGRATION_WRITES", "true").strip().lower()
+    if freeze not in {"0", "false", "no"}:
+        raise RuntimeError(
+            "Espelhamento bloqueado por SAAS_FREEZE_MIGRATION_WRITES; "
+            "conclua o plano SaaS antes de liberar escrita."
+        )
+
+
+require_write_unfrozen()
+ORA_CONN = require_env("ORACLE_CONNECTION")
+PG_DSN = require_env("ETL_PG_DSN")
 
 SEP = "~|~"
 MARCA = "#### DADOS ####"
@@ -268,7 +285,10 @@ def colunas(tabela):
             continue
         base = tipo.split("(")[0].strip()
         if base in IGNORA or nome in IGNORA_COLUNAS:
-            continue
+            raise RuntimeError(
+                f"{tabela}.{nome} ({base}) nao possui transporte fiel; "
+                "recusado em vez de omitir dado bruto"
+            )
         pg = "timestamp" if base.startswith("TIMESTAMP") else TIPOS.get(base)
         if pg:
             cols.append((nome, pg, base))
@@ -281,17 +301,16 @@ def expr(nome, base):
     if base == "DATE" or base.startswith("TIMESTAMP"):
         txt = f"TO_CHAR({nome},'YYYY-MM-DD HH24:MI:SS')"
     elif base in ("CLOB", "NCLOB", "LONG"):
-        # A concatenacao inteira da linha nao pode passar de 4000 chars
-        # (ORA-01489), entao cada texto longo entra limitado. Campos assim no
-        # legado sao observacao/logo em base64 -- nao alimentam o ETL.
-        txt = f"TO_CHAR(SUBSTR({nome},1,200))"
+        raise RuntimeError(
+            f"Coluna {nome} e {base}; o transporte sqlplus atual nao preserva LOB integral"
+        )
     elif base in ("NUMBER", "FLOAT", "BINARY_FLOAT", "BINARY_DOUBLE"):
         # TM9 evita notacao cientifica e o '.5' sem zero a esquerda
         txt = f"TRIM(TO_CHAR({nome},'TM9'))"
     else:
-        # idem ORA-01489: campos texto muito largos (observacoes de 1024+)
-        # entram limitados para a linha concatenada caber em 4000 chars.
-        txt = f"SUBSTR({nome},1,500)"
+        # Nao truncar silenciosamente a copia bruta. Se a linha exceder o
+        # limite do sqlplus, a tabela falha sem substituir a copia anterior.
+        txt = nome
     # Tabulacao/nova-linha DENTRO do dado quebrariam o COPY em formato text
     # (ha nomes de rua no legado com TAB no meio). A limpeza envolve o texto ja
     # truncado, e o TRANSLATE cobre os tres caracteres de uma vez.
@@ -316,9 +335,10 @@ def espelha(pg, tabela_ora, destino):
         return 0
 
     cur = pg.cursor()
+    staging = f"__stage_{destino}_{os.getpid()}"
     defs = ", ".join(f'"{n.lower()}" {t}' for n, t, _b in cols)
-    cur.execute(f'DROP TABLE IF EXISTS legado."{destino}"')
-    cur.execute(f'CREATE TABLE legado."{destino}" ({defs})')
+    cur.execute(f'DROP TABLE IF EXISTS legado."{staging}"')
+    cur.execute(f'CREATE TABLE legado."{staging}" ({defs})')
     pg.commit()
 
     lista_sel = f"||'{SEP}'||".join(expr(n, b) for n, _t, b in cols)
@@ -343,8 +363,7 @@ def espelha(pg, tabela_ora, destino):
            f"{corpo}\nAS c FROM {tabela_ora};\nEXIT;\n")
     saida_ddl = sqlplus(ddl)
     if "SP2-" in saida_ddl or "ORA-" in saida_ddl:
-        print("   ERRO ao criar view:", saida_ddl.strip()[:200])
-        return 0
+        raise RuntimeError("Falha ao criar view Oracle: " + saida_ddl.strip()[:200])
 
     total = 0
     ini = 0
@@ -389,7 +408,7 @@ def espelha(pg, tabela_ora, destino):
         if n:
             buf.seek(0)
             cur.copy_expert(
-                f'COPY legado."{destino}" ({colunas_pg}) FROM STDIN WITH (FORMAT text)',
+                f'COPY legado."{staging}" ({colunas_pg}) FROM STDIN WITH (FORMAT text)',
                 buf,
             )
             pg.commit()
@@ -407,23 +426,33 @@ def espelha(pg, tabela_ora, destino):
 
     sqlplus(f"DROP VIEW {view};\nEXIT;\n")
 
-    if descartadas:
-        print(f"   AVISO: {descartadas} linha(s) descartada(s) por formato")
-    if esperado >= 0 and total != esperado:
-        # Divergencia aqui e FALHA, nao ruido: significa dado que ficou para
-        # tras. Marcado como ERRO para nao se perder no meio do log.
-        print(f"   ERRO: espelho INCOMPLETO — origem={esperado} destino={total} "
-              f"(faltam {esperado - total})")
+    if esperado < 0:
+        raise RuntimeError("Nao foi possivel contar a tabela Oracle")
+    if descartadas or total != esperado:
+        raise RuntimeError(
+            f"Espelho incompleto: origem={esperado} destino={total} "
+            f"descartadas={descartadas}"
+        )
+
+    # A copia boa so e substituida depois da reconciliacao. DROP+RENAME ficam
+    # na mesma transacao: qualquer falha preserva a tabela anterior.
+    cur.execute(f'DROP TABLE IF EXISTS legado."{destino}"')
+    cur.execute(f'ALTER TABLE legado."{staging}" RENAME TO "{destino}"')
+    pg.commit()
     return total
 
 
 def main():
     alvos = [a.lower() for a in sys.argv[1:]]
+    desconhecidos = sorted(set(alvos) - {v.lower() for v in MAPA.values()})
+    if desconhecidos:
+        raise RuntimeError("Tabela(s) fora do MAPA: " + ", ".join(desconhecidos))
     pg = psycopg2.connect(PG_DSN)
     pg.cursor().execute("CREATE SCHEMA IF NOT EXISTS legado")
     pg.commit()
 
     total = 0
+    falhas = []
     for tabela_ora, destino in MAPA.items():
         if alvos and destino not in alvos:
             continue
@@ -435,9 +464,17 @@ def main():
         except Exception as e:
             pg.rollback()
             print(f"   ERRO: {str(e)[:300]}")
+            falhas.append(destino)
+            cur = pg.cursor()
+            cur.execute(f'DROP TABLE IF EXISTS legado."__stage_{destino}_{os.getpid()}"')
+            pg.commit()
 
     print(f"\nTotal espelhado: {total} linhas")
+    if falhas:
+        print("Falharam: " + ", ".join(falhas), file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

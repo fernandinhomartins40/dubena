@@ -2,11 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Etl\Contracts\Migrator;
+use App\Etl\Migrators\EstadosMigrator;
+use App\Etl\Support\MigrationContext;
+use App\Etl\Support\MigrationResult;
 use App\Jobs\ExecutarMigracaoJob;
+use App\Models\Empresa;
 use App\Models\Migracao\Migracao;
 use App\Models\Migracao\MigracaoDescarte;
 use App\Models\Saas\PlatformAdmin;
 use App\Models\User;
+use App\Services\Migracao\MigracaoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
@@ -26,6 +32,12 @@ use Tests\TestCase;
 class MigracaoFerramentaTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('saas_transformation.freeze.migration_writes', false);
+    }
 
     private function token(): string
     {
@@ -103,7 +115,7 @@ class MigracaoFerramentaTest extends TestCase
     public function test_mapeamento_valido_e_gravado(): void
     {
         $token = $this->token();
-        $empresa = \App\Models\Empresa::factory()->create();
+        $empresa = Empresa::factory()->create();
         $id = $this->withToken($token)
             ->postJson('/api/superadmin/migracoes', $this->payload())
             ->json('data.id');
@@ -146,6 +158,87 @@ class MigracaoFerramentaTest extends TestCase
 
         $this->withToken($token)->postJson("/api/superadmin/migracoes/{$id}/executar")->assertStatus(202);
         $this->withToken($token)->postJson("/api/superadmin/migracoes/{$id}/executar")->assertStatus(409);
+    }
+
+    public function test_retomada_com_migrador_desconhecido_e_recusada(): void
+    {
+        Queue::fake();
+        $token = $this->token();
+        $id = $this->withToken($token)
+            ->postJson('/api/superadmin/migracoes', $this->payload())
+            ->json('data.id');
+
+        $this->withToken($token)
+            ->postJson("/api/superadmin/migracoes/{$id}/executar", [
+                'apenas' => ['nome-digitado-errado'],
+            ])
+            ->assertStatus(422);
+
+        Queue::assertNothingPushed();
+        $this->assertSame(Migracao::STATUS_PENDENTE, Migracao::find($id)->status);
+    }
+
+    public function test_etapa_com_excecao_impede_status_concluida(): void
+    {
+        $this->app->instance(EstadosMigrator::class, new class implements Migrator
+        {
+            public function nome(): string
+            {
+                return 'estados';
+            }
+
+            public function dependeDe(): array
+            {
+                return [];
+            }
+
+            public function migrar(MigrationContext $ctx): MigrationResult
+            {
+                throw new \RuntimeException('falha deterministica da etapa');
+            }
+
+            public function invariantes(): array
+            {
+                return [];
+            }
+        });
+
+        $migracao = Migracao::create([
+            'descricao' => 'Teste de falha parcial',
+            'origem_tipo' => 'erp_pg',
+            'config' => $this->payload()['config'],
+            'status' => Migracao::STATUS_PENDENTE,
+        ]);
+
+        try {
+            (new ExecutarMigracaoJob($migracao->id, ['estados']))->handle(app(MigracaoService::class));
+            $this->fail('O job deveria propagar a falha da etapa.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('estados', $e->getMessage());
+        }
+
+        $migracao->refresh();
+        $this->assertSame(Migracao::STATUS_FALHOU, $migracao->status);
+        $this->assertLessThan(100, $migracao->progresso);
+        $this->assertSame('falha deterministica da etapa', $migracao->resultado['estados']['erro']);
+    }
+
+    public function test_freeze_saas_bloqueia_execucao_sem_enfileirar(): void
+    {
+        Queue::fake();
+        config()->set('saas_transformation.freeze.migration_writes', true);
+        $token = $this->token();
+        $id = $this->withToken($token)
+            ->postJson('/api/superadmin/migracoes', $this->payload())
+            ->json('data.id');
+
+        $this->withToken($token)
+            ->postJson("/api/superadmin/migracoes/{$id}/executar")
+            ->assertStatus(423)
+            ->assertJsonPath('operation', 'migration_writes');
+
+        Queue::assertNothingPushed();
+        $this->assertSame(Migracao::STATUS_PENDENTE, Migracao::find($id)->status);
     }
 
     public function test_conectar_em_origem_inacessivel_responde_erro_tratado(): void

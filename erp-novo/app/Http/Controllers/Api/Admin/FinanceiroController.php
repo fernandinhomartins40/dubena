@@ -6,10 +6,12 @@ use App\Domain\Financeiro\ConciliacaoContabilService;
 use App\Domain\Financeiro\ConciliacaoService;
 use App\Domain\Financeiro\ContaExtratoAcao;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Models\Caixa\Conta;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +24,7 @@ class FinanceiroController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private FinanceiroService $service) {}
+    public function __construct(private FinanceiroService $service, private TenantContext $tenant) {}
 
     /** GET /financeiro/lancamentos?pagarreceber=&status=&q= (parcelas) */
     public function lancamentos(Request $request): JsonResponse
@@ -193,7 +195,9 @@ class FinanceiroController extends Controller
     {
         $this->autorizar($request, 'financeiro.view');
         $d = $request->validate([
-            'conta_id' => 'required|integer|exists:contas,id',
+            'conta_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('contas', 'id')->where(
+                fn ($query) => $query->where('empresa_id', $this->tenant->requireEmpresaId())
+            )],
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',
             'ofx' => 'nullable|string',
@@ -205,7 +209,7 @@ class FinanceiroController extends Controller
             $ofx = (string) file_get_contents($request->file('arquivo')->getRealPath());
         }
 
-        $resultado = $service->conciliar((int) $d['conta_id'], $ofx ?? '', $d['inicio'], $d['fim']);
+        $resultado = $service->conciliar((int) $d['conta_id'], $this->tenant->requireEmpresaId(), $ofx ?? '', $d['inicio'], $d['fim']);
 
         return response()->json(['data' => $resultado]);
     }
@@ -224,8 +228,10 @@ class FinanceiroController extends Controller
     public function extratoRegras(Request $request, int $contaId): JsonResponse
     {
         $this->autorizar($request, 'financeiro.view');
+        $this->contaAtiva($contaId);
 
-        $regras = \App\Models\Financeiro\ContaExtratoRegra::query()
+        $regras = \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)
             ->orderByDesc('prioridade')
             ->orderBy('descricao')
@@ -244,9 +250,12 @@ class FinanceiroController extends Controller
     public function criarExtratoRegra(Request $request, int $contaId): JsonResponse
     {
         $this->autorizar($request, 'financeiro.edit');
+        $this->contaAtiva($contaId);
 
         $dados = $this->validarExtratoRegra($request);
         $dados['conta_id'] = $contaId;
+        $dados['empresa_id'] = $this->tenant->requireEmpresaId();
+        $dados['grupo_id'] = $this->tenant->requireGrupoId();
 
         $regra = \App\Models\Financeiro\ContaExtratoRegra::query()->create($dados);
 
@@ -257,9 +266,11 @@ class FinanceiroController extends Controller
     public function atualizarExtratoRegra(Request $request, int $contaId, int $id): JsonResponse
     {
         $this->autorizar($request, 'financeiro.edit');
+        $this->contaAtiva($contaId);
 
         // findOrFail escopado pela conta: o id vem do cliente.
-        $regra = \App\Models\Financeiro\ContaExtratoRegra::query()
+        $regra = \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)->findOrFail($id);
 
         $regra->update($this->validarExtratoRegra($request));
@@ -271,8 +282,10 @@ class FinanceiroController extends Controller
     public function excluirExtratoRegra(Request $request, int $contaId, int $id): JsonResponse
     {
         $this->autorizar($request, 'financeiro.edit');
+        $this->contaAtiva($contaId);
 
-        \App\Models\Financeiro\ContaExtratoRegra::query()
+        \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)->findOrFail($id)->delete();
 
         return response()->json(['data' => ['excluido' => true]]);
@@ -322,12 +335,20 @@ class FinanceiroController extends Controller
         ]);
 
         $resultado = $service->conciliar(
-            (int) $request->user()->empresa_id,
+            $this->tenant->requireEmpresaId(),
             $d['inicio'],
             $d['fim'],
             $d['tipo'] ?? 'R',
         );
 
         return response()->json(['data' => $resultado]);
+    }
+
+    private function contaAtiva(int $contaId): Conta
+    {
+        return Conta::withoutTenant()
+            ->whereKey($contaId)
+            ->where('empresa_id', $this->tenant->requireEmpresaId())
+            ->firstOrFail();
     }
 }

@@ -6,6 +6,7 @@ use App\Domain\Financeiro\AgrupamentoStatus;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Models\Empresa;
 use App\Models\Financeiro\Financeiro;
+use App\Models\Pedido\Pedido;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -89,6 +90,53 @@ class FinanceiroServiceTest extends TestCase
         $this->assertEquals(AgrupamentoStatus::NORMAL, $t1->refresh()->agrupamento_status);
         $this->assertNull($t1->agrupador_id);
         $this->assertTrue($agrupador->refresh()->cancelado);
+    }
+
+    public function test_agrupar_recusa_titulo_de_outra_empresa(): void
+    {
+        $proprio = $this->service->criar($this->dados(100));
+        $outra = Empresa::factory()->create();
+        $alheio = $this->service->criar([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'pagarreceber' => 'R', 'descricao' => 'Alheio', 'valor' => 50,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->service->agrupar([$proprio, $alheio], $this->dados(0));
+    }
+
+    public function test_agrupar_recusa_clientes_ou_naturezas_diferentes(): void
+    {
+        $receber = $this->service->criar($this->dados(100));
+        $pagar = $this->service->criar($this->dados(50, ['pagarreceber' => 'P']));
+
+        $this->expectException(ValidationException::class);
+        $this->service->agrupar([$receber, $pagar], $this->dados(0));
+    }
+
+    public function test_estorno_de_pedido_nao_cancela_titulo_homonimo_de_outra_empresa(): void
+    {
+        $outra = Empresa::factory()->create();
+        $pedido = new Pedido;
+        $pedido->forceFill([
+            'id' => 987654,
+            'empresa_id' => $this->empresa->id,
+            'grupo_id' => $this->empresa->grupo_id,
+        ]);
+
+        $proprio = $this->service->criar($this->dados(100, [
+            'origem' => 'pedido', 'origem_id' => $pedido->id,
+        ]));
+        $alheio = $this->service->criar([
+            'empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id,
+            'pagarreceber' => 'R', 'descricao' => 'Alheio', 'valor' => 50,
+            'origem' => 'pedido', 'origem_id' => $pedido->id,
+        ]);
+
+        $this->service->estornarDoPedido($pedido);
+
+        $this->assertTrue($proprio->refresh()->cancelado);
+        $this->assertFalse($alheio->refresh()->cancelado);
     }
 
     public function test_reparcelar_cria_novo_titulo_com_saldo_em_aberto(): void

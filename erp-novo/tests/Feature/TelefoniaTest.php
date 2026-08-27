@@ -207,6 +207,7 @@ class TelefoniaTest extends TestCase
     {
         [, $empresa] = $this->cenario();
         config(['services.pabx.webhook_secret' => 'segredo-real']);
+        config(['services.pabx.empresa_id' => $empresa->id]);
 
         $this->postJson('/api/pabx/chamada',
             ['empresa_id' => $empresa->id, 'telefone' => '4299602233'],
@@ -219,6 +220,7 @@ class TelefoniaTest extends TestCase
         [, $empresa] = $this->cenario();
         $maria = $this->cliente($empresa, 'Maria', '(42) 99960-2233');
         config(['services.pabx.webhook_secret' => 'segredo-real']);
+        config(['services.pabx.empresa_id' => $empresa->id]);
 
         $this->postJson('/api/pabx/chamada',
             ['empresa_id' => $empresa->id, 'telefone' => '42999602233', 'ramal' => '201'],
@@ -228,6 +230,23 @@ class TelefoniaTest extends TestCase
             ->assertJsonPath('data.clientes.0.nome', 'Maria');
 
         $this->assertSame(1, ChamadaEntrante::count());
+    }
+
+    public function test_webhook_nao_usa_segredo_global_em_outra_empresa(): void
+    {
+        [, $empresa] = $this->cenario();
+        $outra = Empresa::factory()->create();
+        config([
+            'services.pabx.webhook_secret' => 'segredo-real',
+            'services.pabx.empresa_id' => $empresa->id,
+        ]);
+
+        $this->postJson('/api/pabx/chamada',
+            ['empresa_id' => $outra->id, 'telefone' => '42999602233'],
+            ['X-Pabx-Token' => 'segredo-real'],
+        )->assertStatus(401);
+
+        $this->assertSame(0, ChamadaEntrante::count());
     }
 
     // ── API do operador ──────────────────────────────────────────────────────

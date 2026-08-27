@@ -57,7 +57,7 @@ class ComodatoService
             ]));
 
             if ($comodato->setor_id) {
-                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $qtd, 'comodato', $comodato->id, $userId);
+                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $qtd, 'comodato', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
 
             $movimento = $this->registrarMovimento(
@@ -114,7 +114,7 @@ class ComodatoService
 
         return DB::transaction(function () use ($comodato, $quantidade, $userId, $data, $observacao, $pendente) {
             if ($comodato->setor_id) {
-                $this->estoque->entrada($comodato->setor_id, $comodato->produto_id, $quantidade, null, 'comodato-devolucao', $comodato->id, $userId);
+                $this->estoque->entrada($comodato->setor_id, $comodato->produto_id, $quantidade, null, 'comodato-devolucao', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
 
             $saldo = round($pendente - $quantidade, 3);
@@ -165,7 +165,7 @@ class ComodatoService
 
         return DB::transaction(function () use ($comodato, $movimento, $quantidade, $userId, $observacao) {
             if ($comodato->setor_id) {
-                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-estorno', $comodato->id, $userId);
+                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-estorno', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
 
             $saldo = round($this->emPosse($comodato) + $quantidade, 3);
@@ -220,7 +220,7 @@ class ComodatoService
 
         return DB::transaction(function () use ($comodato, $quantidade, $userId, $observacao) {
             if ($comodato->setor_id) {
-                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-acrescimo', $comodato->id, $userId);
+                $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-acrescimo', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
 
             $saldo = round($this->emPosse($comodato) + $quantidade, 3);
@@ -294,6 +294,9 @@ class ComodatoService
             $existente = Comodato::query()
                 ->where('cliente_id', $referencia->cliente_id)
                 ->where('produto_id', $produtoId)
+                // Concedido e recebido são contas opostas com o mesmo parceiro:
+                // somar um no outro faria o saldo se anular em vez de crescer.
+                ->where('sentido', $referencia->sentido)
                 ->whereIn('situacao', ['ATIVO', 'PARCIAL'])
                 ->first();
 
@@ -307,6 +310,7 @@ class ComodatoService
                 'cliente_id' => $referencia->cliente_id,
                 'produto_id' => $produtoId,
                 'setor_id' => $referencia->setor_id,
+                'sentido' => $referencia->sentido,
                 'quantidade' => $quantidade,
                 // O acordo é o mesmo: quem assinou e até quando vale seguem da
                 // relação em curso. Deixar em branco faria o contrato novo sair

@@ -3,6 +3,7 @@
 namespace App\Domain\Fiscal;
 
 use App\Models\Fiscal\NotaFiscal;
+use Illuminate\Validation\ValidationException;
 use NFePHP\NFe\Make;
 
 /**
@@ -29,6 +30,7 @@ class XmlNfeBuilder
     public function montar(NotaFiscal $nota, array $emitente, array $destinatario): Make
     {
         $nota->loadMissing('itens');
+        $this->validarSnapshotTributario($nota);
         $make = new Make;
 
         $this->infNFe($make);
@@ -47,6 +49,35 @@ class XmlNfeBuilder
         return $make;
     }
 
+    /**
+     * O schema atual ainda não persiste a decisão fiscal completa. Até existir
+     * o snapshot versionado da F5, a emissão real deve falhar fechado em vez de
+     * reconstruir tributos pela regra vigente ou inventar valores padrão.
+     */
+    private function validarSnapshotTributario(NotaFiscal $nota): void
+    {
+        $obrigatorios = [
+            'origem_icms', 'modalidade_bc_icms', 'cst_pis', 'bc_pis',
+            'cst_cofins', 'bc_cofins', 'bc_icms_st', 'aliq_icms_st',
+            'valor_icms_st', 'perc_red_bc', 'perc_red_bc_st',
+            'bc_fcp', 'aliq_fcp', 'valor_fcp', 'valor_difal_dest',
+            'valor_difal_remet', 'valor_fcp_difal',
+        ];
+
+        foreach ($nota->itens as $item) {
+            $ausentes = array_values(array_filter(
+                $obrigatorios,
+                fn (string $campo): bool => ! array_key_exists($campo, $item->getAttributes()),
+            ));
+            if ($ausentes !== []) {
+                throw ValidationException::withMessages([
+                    'snapshot_fiscal' => 'Emissão real bloqueada: item #'.(int) $item->numero_item
+                        .' não possui snapshot tributário completo ('.implode(', ', $ausentes).').',
+                ]);
+            }
+        }
+    }
+
     private function infNFe(Make $make): void
     {
         $std = new \stdClass;
@@ -57,20 +88,20 @@ class XmlNfeBuilder
     private function ide(Make $make, NotaFiscal $nota, array $emitente): void
     {
         $std = new \stdClass;
-        $std->cUF = (int) ($emitente['cuf'] ?? 35);          // código IBGE da UF
-        $std->natOp = $emitente['natureza_operacao'] ?? 'VENDA';
+        $std->cUF = (int) $emitente['cuf'];
+        $std->natOp = $emitente['natureza_operacao'];
         $std->mod = (int) $nota->modelo->value;               // 55 / 65
         $std->serie = (int) $nota->serie;
         $std->nNF = (int) $nota->numero;
         $std->dhEmi = ($nota->emitida_em ?? now())->format('Y-m-d\TH:i:sP');
         $std->tpNF = $nota->tipo === 'E' ? 0 : 1;             // 0=entrada,1=saída
-        $std->idDest = (int) ($emitente['id_dest'] ?? 1);    // 1=interna
-        $std->cMunFG = (int) ($emitente['cod_municipio'] ?? 0);
+        $std->idDest = (int) $emitente['id_dest'];
+        $std->cMunFG = (int) $emitente['cod_municipio'];
         $std->tpImp = 1;
         $std->tpEmis = 1;
-        $std->tpAmb = (int) ($emitente['ambiente'] ?? 2);    // 2=homologação
+        $std->tpAmb = (int) $emitente['ambiente'];
         $std->finNFe = 1;
-        $std->indFinal = (int) ($emitente['consumidor_final'] ?? 1);
+        $std->indFinal = (int) $emitente['consumidor_final'];
         $std->indPres = 1;
         $std->procEmi = 0;
         $std->verProc = 'erp-novo';
@@ -80,10 +111,10 @@ class XmlNfeBuilder
     private function emit(Make $make, array $e): void
     {
         $std = new \stdClass;
-        $std->xNome = $e['razao_social'] ?? '';
+        $std->xNome = $e['razao_social'];
         $std->xFant = $e['nome_fantasia'] ?? null;
-        $std->IE = $e['ie'] ?? null;
-        $std->CRT = (int) ($e['crt'] ?? 3);                  // 3=regime normal
+        $std->IE = $e['ie'];
+        $std->CRT = (int) $e['crt'];
         if (! empty($e['cnpj'])) {
             $std->CNPJ = $e['cnpj'];
         } else {
@@ -92,13 +123,13 @@ class XmlNfeBuilder
         $make->tagemit($std);
 
         $end = new \stdClass;
-        $end->xLgr = $e['logradouro'] ?? 'N/I';
-        $end->nro = $e['numero'] ?? 'S/N';
-        $end->xBairro = $e['bairro'] ?? 'N/I';
-        $end->cMun = (int) ($e['cod_municipio'] ?? 0);
-        $end->xMun = $e['municipio'] ?? 'N/I';
-        $end->UF = $e['uf'] ?? 'SP';
-        $end->CEP = $e['cep'] ?? null;
+        $end->xLgr = $e['logradouro'];
+        $end->nro = $e['numero'];
+        $end->xBairro = $e['bairro'];
+        $end->cMun = (int) $e['cod_municipio'];
+        $end->xMun = $e['municipio'];
+        $end->UF = $e['uf'];
+        $end->CEP = $e['cep'];
         $make->tagenderEmit($end);
     }
 
@@ -147,9 +178,9 @@ class XmlNfeBuilder
         // ICMS (grupo conforme CST; aqui o caso geral tributado/00).
         $icms = new \stdClass;
         $icms->item = $n;
-        $icms->orig = 0;
-        $icms->CST = $item->cst_icms ?? '00';
-        $icms->modBC = 3;
+        $icms->orig = (int) $item->origem_icms;
+        $icms->CST = $item->cst_icms;
+        $icms->modBC = (int) $item->modalidade_bc_icms;
         $icms->vBC = (float) $item->bc_icms;
         $icms->pICMS = (float) $item->aliq_icms;
         $icms->vICMS = (float) $item->valor_icms;
@@ -158,16 +189,16 @@ class XmlNfeBuilder
         // PIS/COFINS (CST tributado por percentual).
         $pis = new \stdClass;
         $pis->item = $n;
-        $pis->CST = '01';
-        $pis->vBC = (float) $item->valor_total;
+        $pis->CST = $item->cst_pis;
+        $pis->vBC = (float) $item->bc_pis;
         $pis->pPIS = (float) $item->aliq_pis;
         $pis->vPIS = (float) $item->valor_pis;
         $make->tagPIS($pis);
 
         $cofins = new \stdClass;
         $cofins->item = $n;
-        $cofins->CST = '01';
-        $cofins->vBC = (float) $item->valor_total;
+        $cofins->CST = $item->cst_cofins;
+        $cofins->vBC = (float) $item->bc_cofins;
         $cofins->pCOFINS = (float) $item->aliq_cofins;
         $cofins->vCOFINS = (float) $item->valor_cofins;
         $make->tagCOFINS($cofins);

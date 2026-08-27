@@ -46,8 +46,8 @@ class CaixaRegrasC4Test extends TestCase
             'saldo_inicial' => 100,
         ]);
         if (! $aberta) {
-            $this->caixa->abrir($conta->id);   // registra o fechamento aberto
-            $this->caixa->fechar($conta->id);  // …para poder fechar de verdade
+            $this->caixa->abrir($conta->id, $this->empresa->id);   // registra o fechamento aberto
+            $this->caixa->fechar($conta->id, $this->empresa->id);  // …para poder fechar de verdade
         }
 
         return $conta->refresh();
@@ -58,14 +58,14 @@ class CaixaRegrasC4Test extends TestCase
         $conta = $this->conta(aberta: false);
 
         $this->expectException(ValidationException::class);
-        $this->caixa->movimentar($conta->id, 50, CaixaService::AJUSTE, ['origem' => 'teste']);
+        $this->caixa->movimentar($conta->id, 50, CaixaService::AJUSTE, $this->empresa->id, ['origem' => 'teste']);
     }
 
     public function test_lancamento_em_caixa_fechado_autorizado_e_permitido(): void
     {
         $conta = $this->conta(aberta: false);
 
-        $mov = $this->caixa->lancarEmCaixaFechado($conta->id, 50, CaixaService::AJUSTE, ['origem' => 'retroativo']);
+        $mov = $this->caixa->lancarEmCaixaFechado($conta->id, 50, CaixaService::AJUSTE, $this->empresa->id, ['origem' => 'retroativo']);
 
         $this->assertEqualsWithDelta(150.0, (float) $conta->refresh()->saldo_atual, 0.001);
         $this->assertSame(CaixaService::AJUSTE, $mov->tipo);
@@ -74,12 +74,12 @@ class CaixaRegrasC4Test extends TestCase
     public function test_estorno_funciona_com_caixa_fechado(): void
     {
         $conta = $this->conta(aberta: true);
-        $mov = $this->caixa->movimentar($conta->id, 30, CaixaService::AJUSTE, ['origem' => 'x']);
-        $this->caixa->abrir($conta->id);
-        $this->caixa->fechar($conta->id);
+        $mov = $this->caixa->movimentar($conta->id, 30, CaixaService::AJUSTE, $this->empresa->id, ['origem' => 'x']);
+        $this->caixa->abrir($conta->id, $this->empresa->id);
+        $this->caixa->fechar($conta->id, $this->empresa->id);
 
         // Estorno é correção: não pode ser bloqueado pelo caixa fechado.
-        $this->caixa->estornar($mov->id);
+        $this->caixa->estornar($mov->id, $this->empresa->id);
 
         $this->assertEqualsWithDelta(100.0, (float) $conta->refresh()->saldo_atual, 0.001);
     }
@@ -102,7 +102,7 @@ class CaixaRegrasC4Test extends TestCase
             $parcelas[] = ['parcela_id' => $fin->parcelas->first()->id];
         }
 
-        $movimentos = $this->caixa->baixarTitulos($conta->id, $parcelas);
+        $movimentos = $this->caixa->baixarTitulos($conta->id, $parcelas, $this->empresa->id);
 
         $this->assertCount(3, $movimentos);
         // 100 inicial + 100 + 200 + 300 = 700.
@@ -119,6 +119,6 @@ class CaixaRegrasC4Test extends TestCase
     {
         $conta = $this->conta();
         $this->expectException(ValidationException::class);
-        $this->caixa->baixarTitulos($conta->id, []);
+        $this->caixa->baixarTitulos($conta->id, [], $this->empresa->id);
     }
 }

@@ -21,6 +21,9 @@ class NfRecebidaItem extends Model
         'ncm', 'cfop', 'quantidade', 'valor_unitario', 'valor_total',
     ];
 
+    /** Custo de aquisição: liberado somente por apresentador autorizado. */
+    protected $hidden = ['valor_unitario'];
+
     protected function casts(): array
     {
         return [

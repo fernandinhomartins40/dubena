@@ -64,4 +64,12 @@ class FakeBoletoDriver implements BoletoDriver
             'situacao' => $situacao,
         ];
     }
+
+    public function boletoIdRetorno(string $linha): ?int
+    {
+        // Harness: os 11 primeiros caracteres sao o nosso numero baseado no id.
+        $id = substr($linha, 0, 11);
+
+        return ctype_digit($id) && (int) $id > 0 ? (int) $id : null;
+    }
 }

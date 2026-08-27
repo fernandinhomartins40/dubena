@@ -165,14 +165,14 @@ class PedidoService
         }
 
         foreach ($mercadorias as $item) {
-            $this->estoque->saida($pedido->setor_id, $item->produto_id, (float) $item->quantidade, 'pedido', $pedido->id, $userId);
+            $this->estoque->saida($pedido->setor_id, $item->produto_id, (float) $item->quantidade, 'pedido', $pedido->id, $userId, (int) $pedido->empresa_id);
         }
     }
 
     private function devolverEstoque(Pedido $pedido, ?int $userId): void
     {
         foreach ($this->itensComEstoque($pedido) as $item) {
-            $this->estoque->entrada($pedido->setor_id, $item->produto_id, (float) $item->quantidade, null, 'pedido-cancelado', $pedido->id, $userId);
+            $this->estoque->entrada($pedido->setor_id, $item->produto_id, (float) $item->quantidade, null, 'pedido-cancelado', $pedido->id, $userId, (int) $pedido->empresa_id);
         }
     }
 

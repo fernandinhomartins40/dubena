@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Cobranca\Contracts\PixDriver;
+use App\Domain\Cobranca\Drivers\FakePixDriver;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Cliente\Cliente;
 use App\Models\Cobranca\PixCobranca;
@@ -85,6 +86,31 @@ class PixDriverTest extends TestCase
             ->assertCreated();
 
         $this->assertNotEmpty($r->json('data.copia_e_cola'));
+    }
+
+    public function test_producao_recusa_resolver_driver_pix_fake(): void
+    {
+        $this->app['env'] = 'production';
+        config(['services.pix.driver' => 'fake']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('PIX_DRIVER=fake é proibido em produção');
+
+        app(PixDriver::class);
+    }
+
+    public function test_producao_recusa_uso_direto_do_driver_pix_fake(): void
+    {
+        $this->app['env'] = 'production';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('FakePixDriver é proibido em produção');
+
+        (new FakePixDriver)->criarCobranca([
+            'txid' => 'txid-de-teste',
+            'valor' => 10.0,
+            'expira_segundos' => 300,
+        ], []);
     }
 
     public function test_driver_real_sem_credencial_da_empresa_responde_503(): void

@@ -18,12 +18,10 @@ use Illuminate\Support\Facades\Log;
  * registra que a `APP_KEY` do legado **vazou no repositório**. O plano é
  * explícito: *"com autenticação — não repita o `sha1(APP_KEY)` do legado"*.
  *
- * Aqui o segredo é uma variável própria (`PABX_WEBHOOK_SECRET`), comparada com
- * `hash_equals` (tempo constante), e **sem ela configurada o endpoint recusa
- * tudo**. Isso é deliberado e diferente do webhook PIX, que tolera segredo
- * vazio: o PIX tem duas outras camadas (HMAC do corpo + validação de estado
- * contra o PSP), e este não tem nenhuma. Um endpoint público que grava linha no
- * banco sem segredo é convite a inundar a fila do atendimento.
+ * Contenção F0-04/A-12.5: o segredo da instalação é amarrado à empresa indicada
+ * por `PABX_EMPRESA_ID`; sem ambos configurados o endpoint recusa tudo. Assim, o
+ * detentor do segredo não escolhe outro tenant no corpo. A substituição canônica
+ * será uma IntegrationAccount por owner, com rotação e healthcheck.
  */
 class PabxWebhookController extends Controller
 {
@@ -34,9 +32,10 @@ class PabxWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         $segredo = (string) config('services.pabx.webhook_secret', '');
+        $empresaConfigurada = (int) config('services.pabx.empresa_id', 0);
 
-        if ($segredo === '') {
-            Log::warning('pabx: webhook chamado sem PABX_WEBHOOK_SECRET configurado — recusado');
+        if ($segredo === '' || $empresaConfigurada <= 0) {
+            Log::warning('pabx: webhook sem segredo ou owner configurado — recusado');
 
             return response()->json(['message' => 'Integração de telefonia não configurada.'], 503);
         }
@@ -48,15 +47,24 @@ class PabxWebhookController extends Controller
         }
 
         $d = $request->validate([
-            'empresa_id' => 'required|integer|exists:empresas,id',
+            'empresa_id' => 'required|integer',
             'telefone' => 'required|string|max:30',
             'ramal' => 'nullable|string|max:20',
         ]);
 
-        $empresa = Empresa::query()->find((int) $d['empresa_id']);
+        if ((int) $d['empresa_id'] !== $empresaConfigurada) {
+            Log::warning('pabx: tentativa de usar segredo em empresa não vinculada', [
+                'empresa_id' => (int) $d['empresa_id'],
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['message' => 'Não autorizado.'], 401);
+        }
+
+        $empresa = Empresa::query()->findOrFail($empresaConfigurada);
 
         $r = $this->service->receber(
-            (int) $d['empresa_id'],
+            $empresaConfigurada,
             $empresa?->grupo_id !== null ? (int) $empresa->grupo_id : null,
             $d['telefone'],
             $d['ramal'] ?? null,

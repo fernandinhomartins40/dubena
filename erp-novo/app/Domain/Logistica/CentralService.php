@@ -28,7 +28,6 @@ use Illuminate\Validation\ValidationException;
 class CentralService
 {
     public function __construct(
-        private JornadaService $jornadas,
         private PushService $push,
     ) {}
 
@@ -98,17 +97,35 @@ class CentralService
      * Atribui o pedido a um entregador (opcionalmente com veículo). Registra a
      * trilha, dispara push e emite o evento de tempo real.
      */
-    public function atribuir(Pedido $pedido, int $entregadorUserId, ?int $veiculoId = null, ?int $operadorUserId = null, bool $automatico = false, ?string $motivo = null): Pedido
+    public function atribuir(Pedido $pedido, int $empresaId, int $entregadorUserId, ?int $veiculoId = null, ?int $operadorUserId = null, bool $automatico = false, ?string $motivo = null): Pedido
     {
-        $this->garantirDisponivel($pedido->empresa_id, $entregadorUserId);
+        $this->garantirDisponivel($empresaId, $entregadorUserId);
 
         // Veículo: o informado, senão o da jornada ativa do entregador.
-        $veiculoId ??= $this->jornadas->jornadaAtiva($entregadorUserId)?->veiculo_id;
+        $veiculoId ??= Jornada::withoutTenant()
+            ->where('empresa_id', $empresaId)
+            ->where('entregador_user_id', $entregadorUserId)
+            ->where('status', 'ativa')
+            ->latest('iniciada_em')
+            ->value('veiculo_id');
 
-        $de = $pedido->entregador_user_id;
-        $acao = $de === null ? 'atribuir' : 'redistribuir';
+        if ($veiculoId !== null && ! \App\Models\Monitora\Veiculo::withoutTenant()
+            ->whereKey($veiculoId)->where('empresa_id', $empresaId)->where('ativo', true)->exists()) {
+            throw ValidationException::withMessages(['veiculo_id' => 'Veiculo invalido para a empresa ativa.']);
+        }
 
-        $atualizado = DB::transaction(function () use ($pedido, $entregadorUserId, $veiculoId, $operadorUserId, $automatico, $motivo, $de, $acao) {
+        [$atualizado, $de] = DB::transaction(function () use ($pedido, $empresaId, $entregadorUserId, $veiculoId, $operadorUserId, $automatico, $motivo) {
+            $pedido = Pedido::withoutTenant()
+                ->whereKey($pedido->getKey())
+                ->where('empresa_id', $empresaId)
+                ->lockForUpdate()
+                ->first();
+            if (! $pedido) {
+                throw ValidationException::withMessages(['pedido' => 'Pedido invalido para a empresa ativa.']);
+            }
+
+            $de = $pedido->entregador_user_id;
+            $acao = $de === null ? 'atribuir' : 'redistribuir';
             $pedido->forceFill([
                 'entregador_user_id' => $entregadorUserId,
                 'veiculo_id' => $veiculoId,
@@ -126,7 +143,7 @@ class CentralService
                 'motivo' => $motivo,
             ]);
 
-            return $pedido->refresh();
+            return [$pedido->refresh(), $de];
         });
 
         // Push ao entregador (fora da transação).
@@ -141,9 +158,9 @@ class CentralService
     }
 
     /** Redistribui para outro entregador (troca com histórico e motivo). */
-    public function redistribuir(Pedido $pedido, int $novoEntregadorUserId, ?int $operadorUserId = null, ?string $motivo = null): Pedido
+    public function redistribuir(Pedido $pedido, int $empresaId, int $novoEntregadorUserId, ?int $operadorUserId = null, ?string $motivo = null): Pedido
     {
-        return $this->atribuir($pedido, $novoEntregadorUserId, null, $operadorUserId, false, $motivo ?? 'Redistribuição manual');
+        return $this->atribuir($pedido, $empresaId, $novoEntregadorUserId, null, $operadorUserId, false, $motivo ?? 'Redistribuição manual');
     }
 
     /** Bloqueia um entregador (não recebe novas atribuições até `ate`). */
@@ -195,6 +212,11 @@ class CentralService
     /** Garante que o entregador está apto (não bloqueado). */
     private function garantirDisponivel(int $empresaId, int $entregadorUserId): void
     {
+        $entregador = User::query()->whereKey($entregadorUserId)->where('ativo', true)->first();
+        if (! $entregador || ! $entregador->podeAcessarEmpresa($empresaId)) {
+            throw ValidationException::withMessages(['entregador' => 'Entregador inválido para a empresa ativa.']);
+        }
+
         if (in_array($entregadorUserId, $this->entregadoresBloqueados($empresaId), true)) {
             throw ValidationException::withMessages(['entregador' => 'Entregador bloqueado para distribuição.']);
         }

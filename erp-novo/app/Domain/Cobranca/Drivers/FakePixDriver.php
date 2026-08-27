@@ -18,6 +18,12 @@ class FakePixDriver implements PixDriver
 
     public function criarCobranca(array $dados, array $credencial): array
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException(
+                'FakePixDriver é proibido em produção — nenhuma cobrança PIX sintética foi criada.',
+            );
+        }
+
         $txid = (string) $dados['txid'];
         $valor = (float) $dados['valor'];
 

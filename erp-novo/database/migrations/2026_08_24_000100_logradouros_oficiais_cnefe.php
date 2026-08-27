@@ -94,17 +94,11 @@ return new class extends Migration
             return;
         }
 
-        foreach (['logradouros_oficiais', 'importacoes_cnefe'] as $tabela) {
-            try {
+        if (DB::selectOne("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'erp_app') AS present")->present) {
+            foreach (['logradouros_oficiais', 'importacoes_cnefe'] as $tabela) {
                 DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON {$tabela} TO erp_app");
-            } catch (Throwable) {
-                // Role inexistente (dev/CI): segue. O golive:check cobra em produção.
             }
-        }
-
-        try {
             DB::statement('GRANT USAGE, SELECT ON SEQUENCE logradouros_oficiais_id_seq TO erp_app');
-        } catch (Throwable) {
         }
     }
 };

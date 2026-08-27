@@ -10,9 +10,10 @@ use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
 use App\Domain\Cobranca\SituacaoBoleto;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Models\Cobranca\Boleto;
-use App\Models\EmpresaConfig;
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -54,7 +55,7 @@ class CnabBoletoTest extends TestCase
         [$empresa] = $this->empresaComCobranca(104);
         $boleto = $this->boletoDe($empresa, 150.00);
 
-        $dados = (new CaixaBoletoDriver)->gerar($boleto);
+        $dados = app(CaixaBoletoDriver::class)->gerar($boleto);
 
         $this->assertSame(44, strlen(preg_replace('/\D/', '', $dados['codigo_barras'])));
         $this->assertStringStartsWith('104', $dados['codigo_barras']);
@@ -67,11 +68,45 @@ class CnabBoletoTest extends TestCase
         [$empresa] = $this->empresaComCobranca(341);
         $boleto = $this->boletoDe($empresa, 99.90);
 
-        $dados = (new ItauBoletoDriver)->gerar($boleto);
+        $dados = app(ItauBoletoDriver::class)->gerar($boleto);
 
         $this->assertSame(44, strlen(preg_replace('/\D/', '', $dados['codigo_barras'])));
         $this->assertStringStartsWith('341', $dados['codigo_barras']);
         $this->assertSame(47, strlen(preg_replace('/\D/', '', $dados['linha_digitavel'])));
+    }
+
+    public function test_drivers_extraem_identificador_dos_campos_oficiais_de_retorno(): void
+    {
+        $caixa = str_repeat(' ', 240);
+        $caixa = substr_replace($caixa, str_pad('123', 11), 58, 11);
+        $itau = str_repeat(' ', 400);
+        $itau = substr_replace($itau, str_pad('456', 25), 37, 25);
+
+        $this->assertSame(123, app(CaixaBoletoDriver::class)->boletoIdRetorno($caixa));
+        $this->assertSame(456, app(ItauBoletoDriver::class)->boletoIdRetorno($itau));
+    }
+
+    public function test_nosso_numero_tem_sequencia_independente_por_empresa_banco_e_carteira(): void
+    {
+        $this->app->bind(BoletoDriver::class, CaixaBoletoDriver::class);
+        [$empresaA] = $this->empresaComCobranca(104);
+        [$empresaB] = $this->empresaComCobranca(104);
+
+        $primeiroA = app(BoletoService::class)->gerarParaParcela($this->parcelaDa($empresaA));
+        $segundoA = app(BoletoService::class)->gerarParaParcela($this->parcelaDa($empresaA));
+        $primeiroB = app(BoletoService::class)->gerarParaParcela($this->parcelaDa($empresaB));
+
+        $this->assertSame('14000000000000001', $primeiroA->nosso_numero);
+        $this->assertSame('14000000000000002', $segundoA->nosso_numero);
+        $this->assertSame('14000000000000001', $primeiroB->nosso_numero);
+        $this->assertDatabaseHas('sequencias', [
+            'chave' => "boleto:empresa:{$empresaA->id}:banco:104:carteira:14",
+            'valor' => 2,
+        ]);
+        $this->assertDatabaseHas('sequencias', [
+            'chave' => "boleto:empresa:{$empresaB->id}:banco:104:carteira:14",
+            'valor' => 1,
+        ]);
     }
 
     // ── Fluxo ponta-a-ponta com driver real (Caixa): gerar → remessa → retorno ──
@@ -96,8 +131,8 @@ class CnabBoletoTest extends TestCase
         $this->assertSame(SituacaoBoleto::REGISTRADO->value, $boleto->refresh()->situacao->value);
 
         // Retorno CNAB240 Caixa: ocorrência 06 (liquidação) na posição correta + NN.
-        $linha = $this->linhaRetornoCaixa($boleto->nosso_numero, '06', 200.00);
-        $n = $service->processarRetorno([$linha]);
+        $linha = $this->linhaRetornoCaixa($boleto, '06', 200.00);
+        $n = $service->processarRetorno([$linha], $empresa->id);
 
         $this->assertSame(1, $n);
         $this->assertSame(SituacaoBoleto::LIQUIDADO->value, $boleto->refresh()->situacao->value);
@@ -130,7 +165,7 @@ class CnabBoletoTest extends TestCase
                 'convenio' => '123456', 'cedente_nome' => 'Empresa Teste', 'cedente_documento' => '12345678000199',
             ]]],
         ]);
-        $user = $comUser ? \App\Models\User::factory()->create([
+        $user = $comUser ? User::factory()->create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
         ]) : null;
 
@@ -148,16 +183,26 @@ class CnabBoletoTest extends TestCase
         ]);
     }
 
+    private function parcelaDa(Empresa $empresa): FinanceiroParcela
+    {
+        return app(FinanceiroService::class)->criar([
+            'empresa_id' => $empresa->id,
+            'grupo_id' => $empresa->grupo_id,
+            'pagarreceber' => 'R',
+            'valor' => 100,
+        ])->parcelas->first();
+    }
+
     /** Monta uma linha de retorno CNAB240 Caixa com ocorrência e valor nas posições do driver. */
-    private function linhaRetornoCaixa(string $nossoNumero, string $ocorrencia, float $valor): string
+    private function linhaRetornoCaixa(Boleto $boleto, string $ocorrencia, float $valor): string
     {
         $linha = str_repeat(' ', 240);
         // Ocorrência nas posições 16-17 (0-based 15).
         $linha = substr_replace($linha, str_pad($ocorrencia, 2, '0', STR_PAD_LEFT), 15, 2);
         // Valor 15 dígitos nas posições 82-96 (0-based 81).
         $linha = substr_replace($linha, str_pad((string) (int) round($valor * 100), 15, '0', STR_PAD_LEFT), 81, 15);
-        // Nosso número em algum lugar da linha para o casamento (str_contains).
-        $linha = substr_replace($linha, $nossoNumero, 40, strlen($nossoNumero));
+        // "Seu Número" devolvido pela CAIXA nas posições 59-69.
+        $linha = substr_replace($linha, str_pad((string) $boleto->id, 11), 58, 11);
 
         return $linha;
     }

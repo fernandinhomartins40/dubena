@@ -20,26 +20,24 @@ final class NumeroSequencialService
      * Retorna o próximo número de uma sequência identificada por $chave
      * (ex.: "nfe:empresa:12:serie:1"). Incrementa atomicamente.
      */
-    public function proximo(string $chave): int
+    public function proximo(string $chave, int $minimoAtual = 0): int
     {
-        return DB::transaction(function () use ($chave) {
+        return DB::transaction(function () use ($chave, $minimoAtual) {
+            // Duas requisicoes podem tentar criar a mesma chave ao mesmo tempo.
+            // A UNIQUE + insert idempotente cria o ponto de lock sem gerar 500.
+            DB::table('sequencias')->insertOrIgnore([
+                'chave' => $chave,
+                'valor' => max(0, $minimoAtual),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             $linha = DB::table('sequencias')
                 ->where('chave', $chave)
                 ->lockForUpdate()
                 ->first();
 
-            if ($linha === null) {
-                DB::table('sequencias')->insert([
-                    'chave' => $chave,
-                    'valor' => 1,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                return 1;
-            }
-
-            $proximo = (int) $linha->valor + 1;
+            $proximo = max((int) $linha->valor, $minimoAtual) + 1;
             DB::table('sequencias')->where('chave', $chave)->update([
                 'valor' => $proximo,
                 'updated_at' => now(),

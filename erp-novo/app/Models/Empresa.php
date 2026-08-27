@@ -23,6 +23,10 @@ class Empresa extends Model
     use Auditavel;
     use HasFactory;
 
+    public const OWNERSHIP_UNRESOLVED = 'OWNERSHIP_UNRESOLVED';
+
+    public const OWNERSHIP_APPROVED = 'OWNERSHIP_APPROVED';
+
     protected $table = 'empresas';
 
     protected $fillable = [

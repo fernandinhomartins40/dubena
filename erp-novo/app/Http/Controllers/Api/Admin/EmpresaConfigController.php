@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\CertificadoService;
+use App\Domain\Integracao\IntegracaoTenant;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
@@ -12,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Configuração da empresa — N1.
@@ -29,10 +32,45 @@ class EmpresaConfigController extends Controller
         'email_from_address', 'email_from_name', 'email_encryption',
     ];
 
+    /**
+     * Contenção F0-04/A-12.4: somente configuração operacional plana. Segredos
+     * e blocos estruturados possuem endpoints próprios, write-only e cifrados.
+     * F2/F6 substituirão esta lista por catálogo/capabilities versionados.
+     *
+     * @var list<string>
+     */
+    private const DADOS_EDITAVEIS = [
+        'planoconta_id', 'centrocusto_id', 'pc_receita_desconto_id', 'pc_receita_juro_id',
+        'pc_despesa_desconto_id', 'pc_despesa_juro_id', 'cc_receita_juro_id',
+        'cc_receita_desconto_id', 'cc_despesa_juro_id', 'cc_despesa_desconto_id',
+        'ccfrete_id', 'pcfrete_id', 'frete_modalidade', 'setor_principal_id',
+        'pedido_status_padrao', 'pedido_emite_nfce', 'pedido_valida_cartao',
+        'pedido_valida_cartao_dias', 'pedido_controla_tempo_ligacoes', 'operacao_disk',
+        'pedido_operacao_id', 'nf_operacao_id', 'nfce_cliente_id', 'presenca_comprador',
+        'transportador_padrao_id', 'quantidade_padrao', 'permite_estoque_negativo',
+        'valida_coordenadas_entrega', 'valida_atraso', 'valida_pix_entrega',
+        'dias_trabalhados_semana', 'dias_inativo_compra', 'tela_controla_km',
+        'impressao_automatica', 'impressao_vias_pedido', 'percentual_encargos',
+        'percentual_provisao_devedores', 'percentual_remuneracao_capital',
+        'percentual_distribuicao_resultado', 'fator_potencial_venda', 'maloteconta_id',
+        'conta_check_troco', 'ccvalegas_id', 'pcvalegas_id', 'android_utiliza',
+        'android_envia_todos', 'valida_gas_bolso', 'mensagem_gas_bolso',
+        'mensagem_duplicata', 'appnf_pedido_operacao_id', 'appnf_presenca_comprador',
+        'appnf_frete_modalidade', 'appnf_transportador_id', 'appnf_conta_id',
+        'convenio_conta_id', 'convenio_nf_operacao_id', 'convenio_cc_id',
+        'convenio_pc_id', 'convenio_ccfrete_id', 'convenio_pcfrete_id',
+        'convenio_setor_id', 'convenio_veiculo_id', 'convenio_condicaopagamento_id',
+        'convenio_presenca_comprador', 'convenio_frete_modalidade',
+        'convenio_transportador_id', 'gp_produto_id', 'valorfretegp', 'ccfretegp_id',
+        'pcfretegp_id', 'gp_condicaopagamento_frete_id', 'gp_condicaopagamento_id',
+        'setor_ressarcimento_id', 'operacao_ressarcimento_id', 'email_assunto',
+        'email_corpo', 'email_requer_autenticacao', 'email_requer_tls',
+    ];
+
     public function show(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.view');
         $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
 
         $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
 
@@ -41,11 +79,25 @@ class EmpresaConfigController extends Controller
 
     public function update(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
-        $entrada = $request->all();
-        unset($entrada['senha_mestra'], $entrada['tem_senhamestre'], $entrada['empresa_id'], $entrada['id']);
+        $permitidas = array_merge(self::COLUNAS, self::DADOS_EDITAVEIS);
+        $inesperadas = array_diff(array_keys($request->all()), $permitidas);
+        if ($inesperadas !== []) {
+            throw ValidationException::withMessages([
+                'config' => 'Chaves não permitidas no endpoint genérico: '.implode(', ', $inesperadas).'.',
+            ]);
+        }
+
+        $entrada = $request->only($permitidas);
+        foreach ($entrada as $chave => $valor) {
+            if (is_array($valor) || is_object($valor)) {
+                throw ValidationException::withMessages([
+                    $chave => 'Configuração estruturada deve usar seu endpoint específico.',
+                ]);
+            }
+        }
 
         $colunas = array_intersect_key($entrada, array_flip(self::COLUNAS));
         $dados = array_diff_key($entrada, array_flip(self::COLUNAS));
@@ -61,8 +113,8 @@ class EmpresaConfigController extends Controller
     /** PUT /empresas/{id}/config/senha-mestra */
     public function senhaMestra(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
         $data = $request->validate([
             'senha_atual' => 'nullable|string',
@@ -84,8 +136,8 @@ class EmpresaConfigController extends Controller
     /** GET /empresas/{id}/certificado — status do A1 (sem segredos). */
     public function certificadoStatus(Request $request, int $empresaId, CertificadoService $service): JsonResponse
     {
-        $this->autorizar($request, 'empresa.view');
         $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
         $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
 
         return response()->json(['data' => $service->status($config)]);
@@ -94,8 +146,8 @@ class EmpresaConfigController extends Controller
     /** POST /empresas/{id}/certificado — upload do A1 (multipart: certificado + senha). */
     public function uploadCertificado(Request $request, int $empresaId, CertificadoService $service): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
         $request->validate([
             // Só PKCS#12 (.pfx/.p12): filtro barato de extensão (S-3). A prova real
@@ -116,8 +168,8 @@ class EmpresaConfigController extends Controller
     /** PUT /empresas/{id}/nfce-token — CSC da NFC-e (id + token, token encriptado). */
     public function nfceToken(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
         $d = $request->validate([
             'nfce_csc_id' => 'required|string|max:10',
@@ -136,8 +188,8 @@ class EmpresaConfigController extends Controller
     /** POST /empresas/{id}/config/testar-email — envia um e-mail de teste via SMTP da empresa. */
     public function testarEmail(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
         $d = $request->validate([
             'to' => 'required|email',
@@ -187,8 +239,8 @@ class EmpresaConfigController extends Controller
      */
     public function integracoes(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
         $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
         $int = ($config->dados['integracoes'] ?? []);
 
@@ -221,8 +273,8 @@ class EmpresaConfigController extends Controller
      */
     public function salvarIntegracoes(Request $request, int $empresaId): JsonResponse
     {
-        $this->autorizar($request, 'empresa.edit');
-        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
 
         $d = $request->validate([
             'pix' => 'sometimes|array',
@@ -244,12 +296,12 @@ class EmpresaConfigController extends Controller
         $int = $dados['integracoes'] ?? [];
 
         if (array_key_exists('pix', $d)) {
-            $int['pix'] = \App\Domain\Integracao\IntegracaoTenant::cifrarBloco(
+            $int['pix'] = IntegracaoTenant::cifrarBloco(
                 $d['pix'], ['client_secret', 'webhook_hmac_secret'], is_array($int['pix'] ?? null) ? $int['pix'] : [],
             );
         }
         if (array_key_exists('cartao', $d)) {
-            $int['cartao'] = \App\Domain\Integracao\IntegracaoTenant::cifrarBloco(
+            $int['cartao'] = IntegracaoTenant::cifrarBloco(
                 $d['cartao'], ['token'], is_array($int['cartao'] ?? null) ? $int['cartao'] : [],
             );
         }
@@ -280,11 +332,18 @@ class EmpresaConfigController extends Controller
         return array_merge($dados, $base);
     }
 
-    private function empresaDoGrupo(Request $request, int $empresaId): Empresa
+    private function empresaDoGrupo(Request $request, int $empresaId, bool $exigirAtiva = false): Empresa
     {
         $user = $request->user();
         $grupo = (int) ($user->empresa?->grupo_id ?? $user->grupo_id);
 
-        return Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
+        $empresa = Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
+        abort_unless($user->podeAcessarEmpresa($empresaId), 404);
+
+        if ($exigirAtiva && ! $user->support) {
+            abort_unless(app(TenantContext::class)->empresaId() === $empresaId, 404);
+        }
+
+        return $empresa;
     }
 }

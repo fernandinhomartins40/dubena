@@ -43,6 +43,7 @@ use App\Domain\Monitora\Drivers\RoadsApiAjustador;
 use App\Domain\Monitora\Drivers\SgcasaHttpDriver;
 use App\Domain\Monitora\Drivers\TraccarDriver;
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteTelefone;
 use App\Observers\ClienteIdentidadeObserver;
@@ -100,6 +101,7 @@ class AppServiceProvider extends ServiceProvider
         // TenantContext único por ciclo de requisição (substitui Session('empresa_padrao')).
         // O middleware ResolveTenant popula; Services/Models/Scopes injetam o MESMO objeto.
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
+        $this->app->scoped(TenantEnvelopeRuntime::class, fn () => new TenantEnvelopeRuntime);
 
         // Driver de boleto (N7/F08 — GATE bancário). COBRANCA_DRIVER seleciona o
         // CNAB real por banco: 'caixa' (104) ou 'itau' (341); qualquer outro valor
@@ -129,9 +131,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Driver de pagamento online (N10/F12 — GATE Rede). PAGAMENTO_DRIVER=erede
         // ativa o real (eRede + PV/token); qualquer outro valor mantém o Fake.
-        $this->app->bind(PagamentoDriver::class, fn () => config('services.pagamento.driver') === 'erede'
-            ? $this->app->make(EredeDriver::class)
-            : $this->app->make(FakePagamentoDriver::class));
+        $this->app->bind(PagamentoDriver::class, function () {
+            $this->exigirDriverReal('services.pagamento.driver', ['erede'], 'PAGAMENTO_DRIVER');
+
+            return config('services.pagamento.driver') === 'erede'
+                ? $this->app->make(EredeDriver::class)
+                : $this->app->make(FakePagamentoDriver::class);
+        });
 
         // Driver PIX (F6 — GATE bancário). PIX_DRIVER seleciona o PSP real na
         // homologação; default 'fake' (BR Code sintético, dev/CI). O PixService
@@ -140,6 +146,12 @@ class AppServiceProvider extends ServiceProvider
         // degradar silenciosamente para o fake achando que cobra de verdade).
         $this->app->bind(PixDriver::class, function () {
             $driver = (string) config('services.pix.driver', 'fake');
+
+            if ($driver === 'fake' && $this->app->isProduction()) {
+                throw new \RuntimeException(
+                    'PIX_DRIVER=fake é proibido em produção — configure um PSP real implementado ou mantenha o PIX desabilitado.',
+                );
+            }
 
             return match ($driver) {
                 'fake' => $this->app->make(FakePixDriver::class),

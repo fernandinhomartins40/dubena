@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
+use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Contracts\PushTransport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,6 +69,7 @@ class FaseF1SegurancaTest extends TestCase
             'fcm' => [PushTransport::class, 'services.fcm.driver', 'FCM_DRIVER'],
             'fiscal' => [SefazDriver::class, 'services.fiscal.driver', 'FISCAL_DRIVER'],
             'cobranca' => [BoletoDriver::class, 'services.cobranca.driver', 'COBRANCA_DRIVER'],
+            'pagamento' => [PagamentoDriver::class, 'services.pagamento.driver', 'PAGAMENTO_DRIVER'],
         ];
     }
 

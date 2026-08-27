@@ -6,7 +6,9 @@ use App\Domain\Cobranca\Cnab\CnabHelper;
 use App\Domain\Cobranca\Cnab\ContaCobranca;
 use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Cobranca\SituacaoBoleto;
+use App\Domain\Shared\NumeroSequencialService;
 use App\Models\Cobranca\Boleto;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Base dos drivers de boleto REAIS (F08). Implementa o que é comum entre bancos:
@@ -24,10 +26,18 @@ abstract class CnabDriverBase implements BoletoDriver
     abstract public function bancoCodigo(): int;
 
     /** Campo livre (25 posições) do código de barras, específico do banco. */
-    abstract protected function campoLivre(Boleto $boleto, ContaCobranca $conta): string;
+    public function __construct(private NumeroSequencialService $sequencias) {}
+
+    abstract protected function campoLivre(Boleto $boleto, ContaCobranca $conta, string $nossoNumero): string;
 
     /** Nosso número (sem DV) calculado conforme o banco. */
-    abstract protected function nossoNumero(Boleto $boleto, ContaCobranca $conta): string;
+    abstract protected function nossoNumero(int $sequencial, ContaCobranca $conta): string;
+
+    abstract protected function sequencialDoNossoNumero(string $nossoNumero, ContaCobranca $conta): ?int;
+
+    abstract protected function limiteSequencial(): int;
+
+    abstract protected function carteiraNormalizada(ContaCobranca $conta): string;
 
     /** Uma linha de remessa (CNAB do banco) para o boleto. */
     abstract public function linhaRemessa(Boleto $boleto): string;
@@ -38,14 +48,38 @@ abstract class CnabDriverBase implements BoletoDriver
     public function gerar(Boleto $boleto): array
     {
         $conta = ContaCobranca::daEmpresa((int) $boleto->empresa_id, $this->bancoCodigo());
-        $nosso = $this->nossoNumero($boleto, $conta);
-        $codigoBarras = $this->montarCodigoBarras($boleto, $conta);
+        $carteira = $this->carteiraNormalizada($conta);
+        $maiorExistente = Boleto::withoutTenant()
+            ->where('empresa_id', $boleto->empresa_id)
+            ->where('banco_codigo', $this->bancoCodigo())
+            ->where('carteira', $carteira)
+            ->whereNotNull('nosso_numero')
+            ->pluck('nosso_numero')
+            ->map(fn ($numero) => $this->sequencialDoNossoNumero((string) $numero, $conta))
+            ->filter(fn ($numero) => $numero !== null)
+            ->max() ?? 0;
+
+        $chave = sprintf(
+            'boleto:empresa:%d:banco:%03d:carteira:%s',
+            $boleto->empresa_id,
+            $this->bancoCodigo(),
+            $carteira,
+        );
+        $sequencial = $this->sequencias->proximo($chave, (int) $maiorExistente);
+        if ($sequencial > $this->limiteSequencial()) {
+            throw ValidationException::withMessages([
+                'nosso_numero' => 'A sequencia de nosso-numero esgotou o limite do banco/carteira.',
+            ]);
+        }
+
+        $nosso = $this->nossoNumero($sequencial, $conta);
+        $codigoBarras = $this->montarCodigoBarras($boleto, $conta, $nosso);
 
         return [
             'nosso_numero' => $nosso,
             'linha_digitavel' => CnabHelper::linhaDigitavel($codigoBarras),
             'codigo_barras' => $codigoBarras,
-            'carteira' => $conta->carteira,
+            'carteira' => $carteira,
         ];
     }
 
@@ -53,12 +87,12 @@ abstract class CnabDriverBase implements BoletoDriver
      * Código de barras (44): banco(3) moeda(1) DV(1) fator(4) valor(10) campoLivre(25).
      * O DV geral (posição 5) é módulo 11 sobre os 43 dígitos restantes.
      */
-    protected function montarCodigoBarras(Boleto $boleto, ContaCobranca $conta): string
+    protected function montarCodigoBarras(Boleto $boleto, ContaCobranca $conta, string $nossoNumero): string
     {
         $banco = CnabHelper::numero($this->bancoCodigo(), 3);
         $fator = CnabHelper::fatorVencimento($boleto->vencimento->format('Y-m-d'));
         $valor = CnabHelper::valor((float) $boleto->valor, 10);
-        $livre = CnabHelper::numero($this->campoLivre($boleto, $conta), 25);
+        $livre = CnabHelper::numero($this->campoLivre($boleto, $conta, $nossoNumero), 25);
 
         $semDv = $banco.self::MOEDA.$fator.$valor.$livre; // 43 dígitos
         $dv = CnabHelper::modulo11($semDv, 9, true);

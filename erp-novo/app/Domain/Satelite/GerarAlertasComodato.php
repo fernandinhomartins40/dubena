@@ -137,6 +137,10 @@ class GerarAlertasComodato
         return Comodato::query()
             ->with('cliente:id,nome')
             ->where('empresa_id', $empresaId)
+            // Só o que a revenda emprestou. O contrato do casco RECEBIDO da
+            // distribuidora também vence, mas a providência é outra — quem deve
+            // devolver somos nós, e cobrar o fornecedor não faz sentido.
+            ->concedidos()
             ->whereIn('situacao', ['ATIVO', 'PARCIAL'])
             ->whereNotNull('data_vencimento')
             ->whereDate('data_vencimento', '<=', $referencia->copy()->addDays($config->dias_aviso_vencimento))

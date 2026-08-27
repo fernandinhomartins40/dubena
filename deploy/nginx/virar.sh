@@ -104,6 +104,7 @@ amarelo "virando de '${ATUAL}' para '${ALVO}'…"
 #    quer estar editando nada.
 install -m 0644 "${DIR_CONF}/${VHOST}.legado.conf" "${SITES_AVAILABLE}/${VHOST}.legado.conf"
 install -m 0644 "${DIR_CONF}/${VHOST}.novo.conf"   "${SITES_AVAILABLE}/${VHOST}.novo.conf"
+install -m 0644 "${DIR_CONF}/erpnovo-proxy-params.conf" "/etc/nginx/erpnovo-proxy-params.conf"
 
 # 2) Guarda o vhost atual antes de trocar. Se ele foi editado à mão na VPS
 #    (estado "arquivo comum"), esta cópia é a única forma de recuperá-lo.

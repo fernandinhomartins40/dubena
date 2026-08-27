@@ -3,6 +3,8 @@
 namespace App\Domain\Acesso;
 
 use App\Domain\Tenant\TenantContext;
+use App\Models\Organizacao\Departamento;
+use App\Models\Organizacao\SetorOrg;
 use App\Models\PermissionCondition;
 use App\Models\Role;
 use App\Models\User;
@@ -104,6 +106,7 @@ class PolicyEvaluator
         $rSetor = $this->attr($recurso, 'setor_id');
         $rDepto = $this->attr($recurso, 'departamento_id');
         $rUnidade = $this->attr($recurso, 'unidade_id');
+        $herdaFilhos = (bool) $pivot->herda_filhos;
 
         // Escopo de setor: o mais específico. Casa direto pelo setor.
         if ($setor !== null) {
@@ -116,13 +119,22 @@ class PolicyEvaluator
                 return true;
             }
 
-            // herda_filhos: um recurso de setor abaixo deste depto também é coberto.
-            return false;
+            return $herdaFilhos
+                && $rSetor !== null
+                && $this->setorPertenceAoDepartamento((int) $rSetor, (int) $depto);
         }
 
         // Escopo de unidade.
         if ($unidade !== null) {
-            return $rUnidade !== null && (int) $rUnidade === (int) $unidade;
+            if ($rUnidade !== null && (int) $rUnidade === (int) $unidade) {
+                return true;
+            }
+            if (! $herdaFilhos) {
+                return false;
+            }
+
+            return ($rDepto !== null && $this->departamentoPertenceAUnidade((int) $rDepto, (int) $unidade))
+                || ($rSetor !== null && $this->setorPertenceAUnidade((int) $rSetor, (int) $unidade));
         }
 
         return true;
@@ -137,7 +149,12 @@ class PolicyEvaluator
         // Carrega as condições ativas dos papéis concedentes para esta permissão.
         $roleIds = $papeis->pluck('id')->all();
 
-        $condicoes = PermissionCondition::query()
+        if ($empresaId === null) {
+            return false;
+        }
+
+        $condicoes = PermissionCondition::withoutTenant()
+            ->where('empresa_id', $empresaId)
             ->where('ativo', true)
             ->whereIn('role_id', $roleIds)
             ->whereHas('permission', fn ($q) => $q->where('chave', $ability))
@@ -163,7 +180,7 @@ class PolicyEvaluator
             'limite' => $this->avaliarLimite($p, $recurso),
             'ownership' => $this->avaliarOwnership($p, $recurso),
             'horario' => $this->avaliarHorario($p),
-            default => true, // tipo desconhecido não bloqueia (forward-compatible)
+            default => false,
         };
     }
 
@@ -172,12 +189,12 @@ class PolicyEvaluator
     {
         $campo = $p['campo'] ?? 'valor';
         $max = $p['valor_max'] ?? null;
-        if ($max === null) {
-            return true;
+        if (! is_numeric($max)) {
+            return false;
         }
         $valor = $this->attr($recurso, $campo);
 
-        return $valor === null || (float) $valor <= (float) $max;
+        return is_numeric($valor) && (float) $valor <= (float) $max;
     }
 
     /** @param array<string,mixed> $p @param array<string,mixed>|Model $recurso */
@@ -187,8 +204,7 @@ class PolicyEvaluator
         $userId = auth()->id();
         $dono = $this->attr($recurso, $campoDono);
 
-        // Sem dono no recurso → não bloqueia (a condição não se aplica a este recurso).
-        return $dono === null || (int) $dono === (int) $userId;
+        return $userId !== null && $dono !== null && (int) $dono === (int) $userId;
     }
 
     /** @param array<string,mixed> $p */
@@ -196,8 +212,10 @@ class PolicyEvaluator
     {
         $de = $p['de'] ?? null;   // 'HH:MM'
         $ate = $p['ate'] ?? null; // 'HH:MM'
-        if ($de === null || $ate === null) {
-            return true;
+        if (! is_string($de) || ! is_string($ate)
+            || ! preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $de)
+            || ! preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $ate)) {
+            return false;
         }
         $agora = now()->format('H:i');
 
@@ -221,5 +239,49 @@ class PolicyEvaluator
         }
 
         return $recurso[$chave] ?? null;
+    }
+
+    private function setorPertenceAoDepartamento(int $setorId, int $departamentoId): bool
+    {
+        $empresaId = $this->tenant->empresaId();
+        if ($empresaId === null) {
+            return false;
+        }
+
+        return SetorOrg::withoutTenant()
+            ->whereKey($setorId)
+            ->where('empresa_id', $empresaId)
+            ->where('departamento_id', $departamentoId)
+            ->exists();
+    }
+
+    private function departamentoPertenceAUnidade(int $departamentoId, int $unidadeId): bool
+    {
+        $empresaId = $this->tenant->empresaId();
+        if ($empresaId === null) {
+            return false;
+        }
+
+        return Departamento::withoutTenant()
+            ->whereKey($departamentoId)
+            ->where('empresa_id', $empresaId)
+            ->where('unidade_id', $unidadeId)
+            ->exists();
+    }
+
+    private function setorPertenceAUnidade(int $setorId, int $unidadeId): bool
+    {
+        $empresaId = $this->tenant->empresaId();
+        if ($empresaId === null) {
+            return false;
+        }
+
+        return SetorOrg::withoutTenant()
+            ->whereKey($setorId)
+            ->where('setores_org.empresa_id', $empresaId)
+            ->whereHas('departamento', fn ($q) => $q
+                ->where('empresa_id', $empresaId)
+                ->where('unidade_id', $unidadeId))
+            ->exists();
     }
 }

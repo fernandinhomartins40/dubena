@@ -31,13 +31,13 @@ class RegraExtratoService
      * @param  list<array<string,mixed>>  $linhas  transações do OfxParser
      * @return list<array<string,mixed>>  as mesmas linhas, com `sugestao`
      */
-    public function aplicar(int $contaId, array $linhas): array
+    public function aplicar(int $contaId, int $empresaId, array $linhas): array
     {
         if ($linhas === []) {
             return [];
         }
 
-        $regras = $this->regrasDaConta($contaId);
+        $regras = $this->regrasDaConta($contaId, $empresaId);
         if ($regras === []) {
             // Sem regras cadastradas, devolve as linhas intactas: a tela segue
             // funcionando exatamente como antes.
@@ -83,9 +83,10 @@ class RegraExtratoService
      *
      * @return list<ContaExtratoRegra>
      */
-    public function regrasDaConta(int $contaId): array
+    public function regrasDaConta(int $contaId, int $empresaId): array
     {
-        return ContaExtratoRegra::query()
+        return ContaExtratoRegra::withoutTenant()
+            ->where('empresa_id', $empresaId)
             ->where('conta_id', $contaId)
             ->where('ativo', true)
             ->get()

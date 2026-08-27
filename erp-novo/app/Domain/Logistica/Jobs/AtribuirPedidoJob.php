@@ -60,6 +60,7 @@ class AtribuirPedidoJob implements ShouldQueue
 
         $central->atribuir(
             $pedido,
+            $this->empresaId,
             (int) $melhor['entregador_user_id'],
             $melhor['veiculo_id'] ?? null,
             null,

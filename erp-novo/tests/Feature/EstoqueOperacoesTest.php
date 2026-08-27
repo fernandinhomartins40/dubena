@@ -92,4 +92,20 @@ class EstoqueOperacoesTest extends TestCase
 
         $this->assertEqualsWithDelta(100.0, (float) $resp->json('data.saldo_final'), 0.001);
     }
+
+    public function test_entrada_recusa_setor_e_produto_de_outra_empresa(): void
+    {
+        $outra = Empresa::factory()->create();
+        $setorAlheio = Setor::factory()->create(['empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id]);
+        $produtoAlheio = Produto::factory()->create(['empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id]);
+
+        $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/admin/estoque/entrada', [
+                'setor_id' => $setorAlheio->id,
+                'produto_id' => $produtoAlheio->id,
+                'quantidade' => 10,
+            ])->assertUnprocessable();
+
+        $this->assertSame(0, EstoqueSaldo::withoutGlobalScopes()->where('empresa_id', $outra->id)->count());
+    }
 }

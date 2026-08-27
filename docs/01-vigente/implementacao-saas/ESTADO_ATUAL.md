@@ -1,0 +1,253 @@
+# Estado atual — transformação SaaS
+
+**Objetivo durável:** ativo  
+**Estado:** IMPLEMENTANDO  
+**Fase:** F0 — Contenção, inventário vivo e decisões  
+**Último microlote concluído:** F0-05.07/08 — PostgreSQL/RLS e reprodutibilidade  
+**Microlote parcial:** F0-03 — segredos removidos do código; rotação externa pendente  
+**Microlote em andamento:** F0-05A — anel externo de build/deploy  
+**Última atualização:** 2026-08-26 10:15 (America/Sao_Paulo)
+
+## Referências obrigatórias
+
+- `docs/01-vigente/PLANO_TRANSFORMACAO_SAAS.md`
+- `docs/01-vigente/PROCEDIMENTO_EXECUCAO_CONTINUA_SAAS.md`
+- método, Volume 15 e achados listados em F0
+
+## Estado do workspace antes da implementação
+
+Alterações preexistentes que não podem ser incorporadas, sobrescritas ou revertidas sem prova de autoria:
+
+- cinco arquivos modificados de comodato em `erp-novo/app/`;
+- migration nova `erp-novo/database/migrations/2026_08_27_000100_comodato_sentido.php`;
+- teste novo `erp-novo/tests/Feature/ComodatoSentidoTest.php`;
+- `erp-novo/perda.sql`;
+- documentos da auditoria e plano ainda não rastreados.
+
+`ctrl-web/` permanece fora do escopo de alteração.
+
+## Atualização de retomada — 2026-08-26 10:45 (America/Sao_Paulo)
+
+- F0-05A foi concluído localmente: ver `F0_05A_ANELEXTERNO_BUILD_DEPLOY.md`.
+- O próximo microlote é F0-06, catálogo vivo reexecutável.
+- A promoção/rollback remotos continuam pendentes de uma release e ambiente
+  autorizados; não são considerados aprovados por inferência.
+
+## Atualização de retomada — 2026-08-26 11:05 (America/Sao_Paulo)
+
+- F0-06 concluído: ver `F0_06_CATALOGO_VIVO.md` e `CATALOGO_VIVO.json`.
+- Próximo microlote: F0-07, baseline particionado e classificação explícita de
+  falhas/skips antes do gate F0.
+
+## Atualização de retomada — 2026-08-26 11:25 (America/Sao_Paulo)
+
+- F0-07 concluído: suíte integral com 1.287 passes, 3.883 assertions, 8 skips
+  e zero falhas; ver `F0_07_BASELINE.md`.
+- Gate F0 ainda não aprovado: F0-03 requer rotação/revogação externa real e
+  F0-01 requer decisão formal de titularidade/controlador. O ensaio remoto de
+  promoção/rollback também permanece pendente.
+- Não iniciar F1 até essas pendências serem resolvidas e registradas.
+
+## Atualização de retomada — 2026-08-26 11:35 (America/Sao_Paulo)
+
+- F0-01 ganhou marcação técnica `OWNERSHIP_UNRESOLVED`; ver
+  `F0_01_OWNERSHIP_UNRESOLVED.md`. Não houve inferência de titularidade.
+- O único bloqueio material do gate F0 é agora F0-03: rotação/revogação externa
+  de segredos conhecidos. O ensaio remoto de promoção/rollback também segue
+  pendente, sem ser declarado aprovado.
+- Enquanto não existir prova externa de rotação, preservar o freeze e não
+  iniciar alterações fundacionais de F1.
+
+## Atualizacao de retomada - 2026-08-26 12:05 (America/Sao_Paulo)
+
+- F1-01 concluido como schema sombra; ver `F1_01_SCHEMA_RAIZ.md`.
+- Foram criadas contas, memberships, vinculo tenant-empresa, grants e vinculo
+  comercial separado, todos vazios e sem backfill legado.
+- Proximo microlote: F1-02, classificacao verificavel de 100% do catalogo.
+- F0-03 (rotacao externa) e o ensaio remoto continuam pendencias externas;
+  eles nao autorizam inferencia, cutover ou declaracao de gate aprovado.
+
+## Atualizacao de retomada - 2026-08-26 12:15 (America/Sao_Paulo)
+
+- F1-02 ganhou o validador fail-closed e o manifesto inicialmente vazio; ver
+  `F1_02_CLASSIFICACAO_TABELAS.md`.
+- A classificacao de 100% ainda nao foi declarada: o proximo lote deve decidir
+  tabelas por dominio a partir do catalogo PostgreSQL e do codigo consumidor,
+  preenchendo owner e justificativa verificaveis.
+
+## Atualizacao de retomada - 2026-08-26 12:45 (America/Sao_Paulo)
+
+- F1-02 concluido e confirmado no PostgreSQL descartavel: o manifesto cobre
+  100% das tabelas do catalogo efetivo; ver `F1_02_CLASSIFICACAO_TABELAS.md`.
+- A prova corrigiu migrations que deixavam transacao PostgreSQL abortada ao
+  tentar GRANT para `erp_app` inexistente. A role agora e verificada antes do
+  GRANT, preservando o comportamento de producao e a reproducibilidade local.
+- Proximo microlote: F1-03, expansao aditiva de chaves por agregados, sem
+  backfill inferido e sem cutover de runtime.
+
+## Atualizacao de retomada - 2026-08-26 13:15 (America/Sao_Paulo)
+
+- F1-03 iniciou a expansao aditiva nos grants; F1-04/F1-05 receberam
+  `TenantEnvelope` e resolver fail-closed. Ver `F1_03_05_CHAVES_ENVELOPE_FAIL_CLOSED.md`.
+- O middleware legado permanece sem switch por decisao explicita: nao existem
+  ainda vinculos de titularidade aprovados para as empresas atuais. O proximo
+  passo seguro e expandir chaves por agregados, nao simular o mapeamento.
+
+## Atualizacao de retomada - 2026-08-26 13:35 (America/Sao_Paulo)
+
+- F1-03 expandiu `tenant_account_id` para todas as 151 tabelas COMPANY, com FK
+  e indice, ainda nullable e sem backfill. O teste do manifesto conferiu todas
+  as colunas (155 assertions no arquivo de fronteira).
+- O proximo microlote desbloqueado e F1-06: funcoes SQL canonicas e policies
+  sombra baseadas no TenantEnvelope; elas nao substituirao as policies legadas
+  antes da conversao aprovada de F1-10.
+
+## Atualizacao de retomada - 2026-08-26 14:00 (America/Sao_Paulo)
+
+- F1-06 criou e provou as funcoes RLS canonicas em PostgreSQL descartavel; sem
+  contexto, leitura e operacao retornaram negadas. Ver `F1_06_RLS_CANONICA.md`.
+- F1-07 e o proximo microlote: jobs precisam carregar/validar/limpar o novo
+  envelope, substituindo o no-op legado de `TenantAwareJob`.
+
+## Atualizacao de retomada - 2026-08-26 14:25 (America/Sao_Paulo)
+
+- F1-07 recebeu runtime/trait de envelope com limpeza em finally; F1-08 recebeu
+  trigger PostgreSQL que recusou grant cruzado em prova real; F1-09 recebeu
+  staging catalogado com TTL e purge. Ver `F1_07_09_JOBS_STAGING_INTEGRIDADE.md`.
+- Proximo microlote: F1-10, importador de mapeamento aprovado. Nenhuma empresa
+  existente sera vinculada antes de existir evidencia documental externa.
+
+## Atualizacao de retomada - 2026-08-26 14:45 (America/Sao_Paulo)
+
+- F1-10 ganhou `saas:tenant:importar`: preview por padrão e apply somente para
+  JSON documental completo. Ver `F1_10_IMPORTACAO_TITULARIDADE.md`.
+- A dependencia externa restante para o switch é a decisao jurídica/arquivo de
+  titularidade das empresas. Até recebê-la, o workspace segue com schema,
+  envelope, RLS sombra, integridade, staging e importador preparados, sem
+  promoção fraudulenta de `grupo_id` a tenant.
+
+## Atualizacao de retomada - 2026-08-26 15:00 (America/Sao_Paulo)
+
+- O middleware de cutover HTTP foi preparado como alias `tenant.saas` e passou
+  no teste; ele não foi anexado às rotas antes de F1-10 aplicar mapping aprovado.
+- O próximo passo externo exato continua sendo fornecer o JSON documental para
+  `saas:tenant:importar` e revisar o dry-run antes de `--apply`.
+
+## Checkpoint bloqueado - 2026-08-26 15:10 (America/Sao_Paulo)
+
+- Todas as frentes locais seguras de F1 foram preparadas e testadas: schema,
+  classificação, chaves, envelope, resolver, funções RLS, integridade, staging,
+  importador e middleware de cutover.
+- O bloqueio repetido é externo: falta o mapeamento jurídico/documental que
+  vincula cada empresa Dubena a seu controlador. Não existe fonte local lícita
+  para substituir essa decisão por `grupo_id`, CNPJ, usuário padrão ou maioria
+  de dados.
+- Retomada exata: fornecer o JSON documentado para
+  `php artisan saas:tenant:importar <arquivo>`, executar o dry-run, revisar os
+  totais, autorizar `--apply`, habilitar `tenant.saas`, converter os jobs que
+  ainda usam IDs legados e recertificar o gate F1 em PostgreSQL/runtime role.
+
+## Limite/janela
+
+- Em 2026-08-25 16:39 (America/Sao_Paulo), três subagentes de implementação
+  retornaram o limite real `try again at 9:26 PM`. Não reenviar tarefas a
+  subagentes antes de **2026-08-25 21:26 America/Sao_Paulo**.
+- A causa operacional observada foi duplicação de contexto e releitura ampla.
+  O procedimento agora impõe modo serial econômico, sem força-tarefa por padrão.
+- Última consulta do objetivo: 1.982.225 tokens acumulados e 6.971 segundos de execução; saldo restante não exposto (`remainingTokens: null`).
+- Em 2026-08-25 12:48 (America/Sao_Paulo), dois subagentes receberam do serviço o limite real: `try again at 4:17 PM`.
+- `resume_after` verificável para capacidade de subagentes: **2026-08-25 16:17 America/Sao_Paulo**.
+- A sessão principal permaneceu operacional e continua o trabalho localmente; não há razão para esperar ocioso.
+- Se a execução principal também for interrompida, retomar após 16:17 lendo este arquivo. Não criar outro temporizador sem nova informação real.
+
+## Próximo passo exato
+
+1. não repetir os cross-scans: seus relatórios finais já confirmaram os riscos e são a fonte de entrada do microlote;
+2. INF-01–09 foram aprovados; executar F0-05A sobre workflow, TLS/proxy, migrations, health e vulnerabilidades sem reconstruir os artefatos já validados;
+3. usar somente leitura integral dos arquivos diretamente alterados e testes focais; não executar nova suíte integral antes do gate F0-04;
+4. manter como baseline formal da suíte integral: 1.258 passes, 7 skips e 5 falhas, sendo quatro de comodato e uma expectativa antiga de ETL; esta última foi corrigida e passou isoladamente (1 teste/2 assertions);
+5. iniciar F0-05 (infraestrutura fail-closed) somente depois do gate documental do F0-04;
+6. manter T-02.05 pendente até uma execução PostgreSQL real com role restrita.
+
+## Atualizacao de retomada - 2026-08-26 15:25 (America/Sao_Paulo)
+
+- Foi criado o portao somente-leitura `saas:f1:pre-cutover-check`; ele exige
+  PostgreSQL efetivo e falha fechado quando faltam funcoes RLS, chaves COMPANY,
+  TenantCompany APPROVED ou ownership aprovado. Ele nao habilita rotas nem
+  certifica o gate F1 completo.
+- As pendencias, a sequencia documental e a lista de conversoes posteriores
+  estao consolidadas em `MEMORIA_RETOMADA_F1.md`, para que a retomada nao
+  dependa da memoria da conversa.
+- Proximo trabalho seguro: testar o novo portao e manter a preparacao local;
+  o switch e a conversao dos jobs de negocio continuam dependentes do mapping
+  juridico/documental aprovado.
+
+### Validacao do microlote
+
+- Testes focais `SaasF1PreCutoverCheckTest`, `TenantMappingImporterTest` e
+  `TenantBoundarySchemaTest`: 8 testes/168 assertions aprovados.
+- Pint e `git diff --check` dos arquivos do microlote aprovados.
+
+## Atualizacao de retomada - 2026-08-26 16:05 (America/Sao_Paulo)
+
+- Analise somente-leitura da VPS confirmou a topologia `erpnovo` em
+  homologacao e que a migration raiz de tenant ainda nao esta no banco remoto.
+  Nenhum deploy, dado ou configuracao remota foi alterado.
+- A decisao operacional fornecida pelo usuario foi registrada como proposta de
+  dry-run: Grupo Dubena (11 empresas) vira um unico TenantAccount; Grupo Padrao
+  (empresa 139) continua fora por ser teste; Vilso (user 3) recebe papel OWNER
+  e grants explicitos. Ver `ANALISE_VPS_DUBENA_2026-08-26.md` e
+  `mapeamentos/DUBENA_VPS_2026-08-26_PROPOSTA.json`.
+- JSON validado: 1 tenant, 11 empresas, 1 membership e 11 grants. O proximo
+  passo de escrita continua condicionado ao deploy versionado das migrations
+  para `main`, seguido de dry-run e revisao do importador no banco alvo.
+
+## Testes executados neste checkpoint
+
+F0-01/F0-02: 32 testes aprovados, 94 assertions, zero falha. Ver `F0_01_02_DECISOES_E_FREEZE.md`.
+
+F0-03: AST Python aprovado; 1 teste/11 assertions aprovado. Ver `F0_03_SEGREDOS.md`.
+
+F0-04A: 85 testes passaram na execução conjunta; a única falha era o nome incorreto de um enum no novo assert. Após correção, o arquivo afetado passou com 7 testes/12 assertions. Ver `F0_04A_PIX_E_PAGAMENTO_FAIL_CLOSED.md`.
+
+F0-04B: 36 testes/99 assertions aprovados. Ver `F0_04B_CONFIG_E_PABX.md`.
+
+F0-04C: 20 testes/56 assertions aprovados. Ver `F0_04C_LOGINS_E_CAIXA.md`.
+
+F0-04D: 42 testes/91 assertions aprovados. Ver `F0_04D_PORTA_CAIXA_OWNER.md`.
+
+F0-04E: 31 testes/84 assertions aprovados. Ver `F0_04E_FINANCEIRO_E_CNAB_OWNER.md`.
+
+F0-04F: 140 testes/333 assertions aprovados. Ver `F0_04F_ESTOQUE_LOGISTICA_CHEQUE_EXTRATO.md`.
+
+F0-04G: 30 testes/110 assertions aprovados após correção dos consumidores atingidos. A suíte integral registrou 1.240 passes, 5 skips PostgreSQL e 4 falhas finais, todas no baseline conhecido de comodato. Ver `F0_04G_FISCAL_FAIL_CLOSED.md`.
+
+F0-04H: 39 testes/106 assertions na validação dirigida e 83 testes/237 assertions na validação ampliada, sem falhas. Ver `F0_04H_LICENCA_ABAC_CUSTO.md`.
+
+F0-04I: 64 testes/152 assertions na validação dirigida e 135 testes/329 assertions na validação ampliada, sem falhas. Ver `F0_04I_COBRANCA_E_BAIXA_UNICA.md`.
+
+F0-04J: 42 testes/116 assertions na validação ampliada, 5 skips exclusivamente PostgreSQL/RLS, além da prova isolada de falha parcial com 1 teste/4 assertions. Ver `F0_04J_ETL_CUTOVER_FAIL_CLOSED.md`.
+
+F0-04K: 21 testes/48 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04K_PIX_FAKE_PRODUCAO.md`.
+
+F0-04L: 33 testes/123 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04L_EMPRESA_ALVO_IDOR.md`.
+
+F0-04M: 29 testes/93 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04M_CUSTO_ESTOQUE.md`.
+
+F0-04N: 26 testes/107 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04N_CUSTO_AUDITORIA.md`.
+
+F0-04O1: 23 testes/64 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04O1_CUSTO_COMODATO.md`.
+
+F0-04O2: 12 testes/192 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04O2_CUSTO_SPED.md`.
+
+F0-04O3: 11 testes/50 assertions aprovados; Pint e `git diff --check` aprovados. Ver `F0_04O3_CUSTO_NF_ENTRADA.md`.
+
+F0-04P: 22 testes/112 assertions no conjunto focal final; `RelatorioTest` completo também aprovado; Pint e `git diff --check` aprovados. Ver `F0_04P_EMPRESA_ATIVA.md` e `F0_04_GATE_CONTENCOES.md`.
+
+F0-05.01/02: targets frontend/runtime/web construídos; conteúdo obrigatório e `php artisan about` aprovados; Nginx válido; manifesto de `public/` idêntico entre app/web. Ver `F0_05_01_02_IMAGEM_PUBLIC.md`.
+
+F0-05.03/04/05: entrypoint e Compose fail-closed aprovados; Redis real negou anônimo e aceitou autenticado; segredo não apareceu no render. Ver `F0_05_03_05_AMBIENTE_APPKEY_REDIS.md`.
+
+F0-05.06/09: Reverb incompleto bloqueado; contrato completo aprovado; OPcache `Off` em produção e `On` em homologação. Ver `F0_05_06_09_REVERB_OPCACHE.md`.
+
+F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e zero skip; contexto ausente passou a negar; bases/imagens/promoção/rollback usam digest e SBOM foi gerado. Ver `F0_05_07_08_POSTGRESQL_RLS_E_REPRODUTIBILIDADE.md`.

@@ -185,13 +185,13 @@ config reprovar. O ctrl-web continua de pé em `/legado/`.
 **Primeiros 15 minutos:**
 ```bash
 curl -sf https://gasemcasa.com/novo/up
-docker compose -f erp-novo/docker-compose.producao.yml logs --tail=100 app
-docker compose -f erp-novo/docker-compose.producao.yml logs --tail=100 queue
+(cd erp-novo && sh docker/compose-production.sh logs --tail=100 app)
+(cd erp-novo && sh docker/compose-production.sh logs --tail=100 queue)
 ```
 
 **Primeira hora** — os 8 agendamentos rodaram?
 ```bash
-docker compose -f erp-novo/docker-compose.producao.yml logs scheduler | grep -c "pix:expirar"   # > 0
+(cd erp-novo && sh docker/compose-production.sh logs scheduler) | grep -c "pix:expirar"   # > 0
 psql -Atc "SELECT count(*) FROM failed_jobs WHERE failed_at > now() - interval '1 hour';"        # 0
 ```
 
@@ -237,7 +237,7 @@ defasado demais e cada nível fica mais caro.
 *Gatilho:* o deploy do novo quebrou, mas os dados estão bons.
 
 ```bash
-bash deploy/rollback.sh <sha-anterior>
+bash deploy/rollback.sh <release-id-anterior>
 ```
 
 *Restrição:* só funciona se as migrations do deploy revertido forem aditivas.

@@ -29,6 +29,12 @@ class EtlTravaPosCutoverTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config()->set('saas_transformation.freeze.migration_writes', false);
+    }
+
     public function test_dry_run_nunca_e_bloqueado(): void
     {
         // Simular não grava nada — bloquear seria impedir justamente a
@@ -39,15 +45,25 @@ class EtlTravaPosCutoverTest extends TestCase
         $this->assertStringNotContainsString('RECARGA BLOQUEADA', Artisan::output());
     }
 
-    public function test_sem_legado_acessivel_nao_trava(): void
+    public function test_sem_legado_acessivel_bloqueia_escrita_inconclusiva(): void
     {
-        // Sem a origem, não há faixa de ids com que comparar: afirmar "o
-        // cutover aconteceu" seria chute. Em dev/CI o legado não existe, e
-        // travar aqui quebraria o fluxo normal de trabalho.
         $codigo = Artisan::call('etl:run', ['migrator' => 'estados']);
 
-        $this->assertSame(0, $codigo);
-        $this->assertStringNotContainsString('RECARGA BLOQUEADA', Artisan::output());
+        $this->assertSame(1, $codigo);
+        $this->assertStringContainsString('RECARGA BLOQUEADA', Artisan::output());
+    }
+
+    public function test_producao_exige_check_para_escrita(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+
+        $codigo = Artisan::call('etl:run', [
+            'migrator' => 'estados',
+            '--eu-sei-o-que-estou-fazendo' => true,
+        ]);
+
+        $this->assertSame(1, $codigo);
+        $this->assertStringContainsString('exige --check', Artisan::output());
     }
 
     public function test_flag_de_escape_existe_e_esta_documentada(): void

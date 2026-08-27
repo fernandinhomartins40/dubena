@@ -4,6 +4,7 @@ namespace App\Domain\Satelite;
 
 use App\Models\Cliente\Cliente;
 use App\Models\Produto\Produto;
+use App\Models\Satelite\Comodato;
 use App\Models\Satelite\ComodatoAvaliacao;
 use App\Models\Satelite\ComodatoConfig;
 use Illuminate\Support\Carbon;
@@ -93,7 +94,13 @@ class VigilanciaComodatoService
             ->join('clientes as cl', 'cl.id', '=', 'c.cliente_id')
             ->where('c.empresa_id', $empresaId)
             ->whereIn('c.situacao', ['ATIVO', 'PARCIAL'])
-            ->where(fn ($q) => $q->where('cl.fornecedor', false)->orWhereNull('cl.fornecedor'))
+            // O que decide é o SENTIDO do comodato, não a flag `fornecedor` do
+            // cadastro. Medido em produção: 42 comodatos estavam fora da
+            // vigilância por essa flag, e 38 daqueles clientes compraram no
+            // último ano — são clientes comuns que um dia emitiram nota para a
+            // revenda (`RESIDENCIAL VÓ ZULMA`, `EDIFÍCIO MILANO`, restaurantes).
+            // Filtrar por ela cegava a vigilância para 6.255 vasilhames.
+            ->where('c.sentido', Comodato::CONCEDIDO)
             ->get(['c.cliente_id', 'c.produto_id', 'c.quantidade', 'c.quantidade_devolvida', 'c.data_emprestimo']);
 
         return $linhas

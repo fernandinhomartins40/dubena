@@ -2,6 +2,7 @@
 
 namespace App\Services\Migracao;
 
+use App\Domain\Saas\TransformationFreeze;
 use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
 use App\Models\Migracao\Migracao;
@@ -26,6 +27,8 @@ use Illuminate\Support\Facades\DB;
  */
 class MigracaoService
 {
+    public function __construct(private TransformationFreeze $freeze) {}
+
     /** Tipos de origem suportados => conexão do ETL que os lê. */
     public const ORIGENS = [
         'erp_pg' => 'legado',
@@ -114,18 +117,34 @@ class MigracaoService
      */
     public function executar(Migracao $migracao, array $apenas = [], bool $dryRun = false): array
     {
-        $conexao = $this->configurarConexao($migracao);
+        if (! $dryRun) {
+            $this->freeze->assertMigrationWritesAllowed();
+        }
 
         $migradores = MigratorRegistry::resolved();
         if ($apenas !== []) {
+            $nomes = array_map(fn ($m) => $m->nome(), $migradores);
+            $desconhecidos = array_values(array_diff($apenas, $nomes));
+            if ($desconhecidos !== []) {
+                throw new \InvalidArgumentException(
+                    'Migrador(es) desconhecido(s): '.implode(', ', $desconhecidos),
+                );
+            }
+
             $migradores = array_values(array_filter(
                 $migradores,
                 fn ($m) => in_array($m->nome(), $apenas, true)
             ));
         }
+        if ($migradores === []) {
+            throw new \RuntimeException('Nenhum migrador selecionado; a execucao nao pode concluir vazia.');
+        }
+
+        $conexao = $this->configurarConexao($migracao);
 
         $ctx = new MigrationContext(dryRun: $dryRun, conexaoLegado: $conexao);
         $resultado = [];
+        $falhas = [];
         $total = max(count($migradores), 1);
 
         foreach ($migradores as $i => $m) {
@@ -161,10 +180,23 @@ class MigracaoService
                     'lidos' => 0, 'gravados' => 0, 'pulados' => 0,
                     'erro' => mb_substr($e->getMessage(), 0, 500),
                 ];
+                $falhas[] = $m->nome();
             }
         }
 
-        $migracao->update(['progresso' => 100, 'etapa_atual' => null]);
+        if ($falhas !== []) {
+            $migracao->update([
+                'resultado' => $resultado,
+                'progresso' => min(99, (int) $migracao->progresso),
+                'etapa_atual' => null,
+            ]);
+
+            throw new \RuntimeException(
+                'Migracao incompleta; falharam as etapas: '.implode(', ', $falhas),
+            );
+        }
+
+        $migracao->update(['progresso' => 100, 'etapa_atual' => null, 'resultado' => $resultado]);
 
         return $resultado;
     }

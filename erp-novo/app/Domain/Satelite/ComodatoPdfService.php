@@ -174,6 +174,10 @@ class ComodatoPdfService
             ->where('empresa_id', $comodato->empresa_id)
             ->where('cliente_id', $comodato->cliente_id)
             ->where('id', '!=', $comodato->id)
+            // Um contrato descreve uma direção de obrigação. Misturar o que
+            // emprestamos com o que devemos ao mesmo parceiro produziria um
+            // papel que afirma duas dívidas opostas na mesma tabela.
+            ->where('sentido', $comodato->sentido)
             ->whereIn('situacao', ['ATIVO', 'PARCIAL'])
             // Sem saldo em poder do cliente não há posse a contratar, mesmo que
             // a situação ainda não tenha sido fechada.

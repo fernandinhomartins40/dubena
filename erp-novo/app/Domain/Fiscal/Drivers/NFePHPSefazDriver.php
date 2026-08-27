@@ -4,7 +4,9 @@ namespace App\Domain\Fiscal\Drivers;
 
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\XmlNfeBuilder;
+use App\Models\Empresa;
 use App\Models\EmpresaConfig;
+use App\Models\Fiscal\ConfigFiscal;
 use App\Models\Fiscal\NotaFiscal;
 use Illuminate\Support\Facades\Storage;
 use NFePHP\Common\Certificate;
@@ -114,45 +116,36 @@ class NFePHPSefazDriver implements SefazDriver
     /** Tools a partir só do empresa_id (inutilização não tem nota associada). */
     private function toolsDaEmpresa(int $empresaId): Tools
     {
-        $config = EmpresaConfig::query()->where('empresa_id', $empresaId)->firstOrFail();
-        if (! $config->cert_path || ! Storage::disk('local')->exists($config->cert_path)) {
-            throw new \RuntimeException('Certificado A1 não configurado para esta empresa (Fase C2).');
-        }
-        $empresa = \App\Models\Empresa::query()->find($empresaId);
-        $certificate = Certificate::readPfx(Storage::disk('local')->get($config->cert_path), (string) $config->cert_senha);
+        [$empresa, $fiscal, $certificado] = $this->configuracoesDaEmpresa($empresaId);
+        $certificate = $this->certificado($empresa, $certificado);
 
         return new Tools(json_encode([
             'atualizacao' => now()->toDateString(),
-            'tpAmb' => 2,
-            'razaosocial' => $empresa?->razao_social ?? '',
-            'cnpj' => preg_replace('/\D/', '', (string) ($empresa?->cnpj ?? '')),
-            'siglaUF' => $empresa?->uf ?? 'SP',
+            'tpAmb' => (int) $fiscal->ambiente,
+            'razaosocial' => $empresa->razao_social,
+            'cnpj' => $this->digitos($empresa->cnpj),
+            'siglaUF' => strtoupper((string) $empresa->uf),
             'schemes' => 'PL_009_V4',
             'versao' => '4.00',
-        ]), $certificate);
+        ], JSON_THROW_ON_ERROR), $certificate);
     }
 
     /** Instancia Tools com o certificado A1 do tenant e a config da SEFAZ. */
     private function tools(NotaFiscal $nota): Tools
     {
-        $config = EmpresaConfig::query()->where('empresa_id', $nota->empresa_id)->firstOrFail();
-        if (! $config->cert_path || ! Storage::disk('local')->exists($config->cert_path)) {
-            throw new \RuntimeException('Certificado A1 não configurado para esta empresa (Fase C2).');
-        }
-
-        $pfx = Storage::disk('local')->get($config->cert_path);
-        $certificate = Certificate::readPfx($pfx, (string) $config->cert_senha);
+        [$empresa, , $config] = $this->configuracoesDaEmpresa((int) $nota->empresa_id);
+        $certificate = $this->certificado($empresa, $config);
 
         $emit = $this->dadosEmitente($nota);
         $configJson = json_encode([
             'atualizacao' => now()->toDateString(),
-            'tpAmb' => (int) ($emit['ambiente'] ?? 2),
-            'razaosocial' => $emit['razao_social'] ?? '',
-            'cnpj' => $emit['cnpj'] ?? '',
-            'siglaUF' => $emit['uf'] ?? 'SP',
+            'tpAmb' => (int) $emit['ambiente'],
+            'razaosocial' => $emit['razao_social'],
+            'cnpj' => $emit['cnpj'],
+            'siglaUF' => $emit['uf'],
             'schemes' => 'PL_009_V4',
             'versao' => '4.00',
-        ]);
+        ], JSON_THROW_ON_ERROR);
 
         return new Tools($configJson, $certificate);
     }
@@ -160,15 +153,106 @@ class NFePHPSefazDriver implements SefazDriver
     /** @return array<string,mixed> */
     private function dadosEmitente(NotaFiscal $nota): array
     {
+        $nota->loadMissing('empresa.cidadeCadastro.municipio', 'cliente');
         $empresa = $nota->empresa;
+        if (! $empresa || (int) $empresa->id !== (int) $nota->empresa_id) {
+            throw new \RuntimeException('Empresa emitente não pertence à nota fiscal.');
+        }
 
-        return [
-            'razao_social' => $empresa?->razao_social,
-            'nome_fantasia' => $empresa?->nome_fantasia,
-            'cnpj' => preg_replace('/\D/', '', (string) ($empresa?->cnpj ?? '')),
-            'uf' => $empresa?->uf ?? 'SP',
-            'ambiente' => 2,
+        $fiscal = ConfigFiscal::withoutTenant()
+            ->where('empresa_id', $nota->empresa_id)
+            ->firstOrFail();
+        $municipio = $empresa->cidadeCadastro?->municipio;
+        $uf = strtoupper((string) $empresa->uf);
+        $ufDestino = strtoupper((string) ($nota->cliente?->uf ?? ''));
+        $natureza = trim((string) $nota->getAttribute('natureza_operacao'));
+
+        $dados = [
+            'razao_social' => trim((string) $empresa->razao_social),
+            'nome_fantasia' => $empresa->nome_fantasia,
+            'cnpj' => $this->digitos($empresa->cnpj),
+            'ie' => trim((string) $empresa->inscricao_estadual),
+            'uf' => $uf,
+            'ambiente' => (int) $fiscal->ambiente,
+            'crt' => (int) $fiscal->regime_tributario,
+            'logradouro' => trim((string) $empresa->endereco),
+            'numero' => trim((string) $empresa->numero),
+            'bairro' => trim((string) $empresa->bairro),
+            'cep' => $this->digitos($empresa->cep),
+            'municipio' => trim((string) ($municipio?->nome ?? '')),
+            'cod_municipio' => (int) ($municipio?->cod_ibge ?? 0),
+            'cuf' => (int) ($municipio?->cod_uf ?? 0),
+            'natureza_operacao' => $natureza,
+            'id_dest' => $ufDestino === $uf ? 1 : 2,
+            'consumidor_final' => blank($nota->cliente?->cnpj) ? 1 : 0,
         ];
+
+        $erros = [];
+        foreach (['razao_social', 'ie', 'logradouro', 'numero', 'bairro', 'municipio', 'natureza_operacao'] as $campo) {
+            if ($dados[$campo] === '') {
+                $erros[] = $campo;
+            }
+        }
+        if (strlen($dados['cnpj']) !== 14) {
+            $erros[] = 'cnpj';
+        }
+        if (strlen($dados['cep']) !== 8) {
+            $erros[] = 'cep';
+        }
+        if (! preg_match('/^[A-Z]{2}$/', $uf) || $ufDestino === '') {
+            $erros[] = 'uf';
+        }
+        if ($dados['cod_municipio'] < 1000000 || $dados['cuf'] <= 0 || strtoupper((string) ($municipio?->uf ?? '')) !== $uf) {
+            $erros[] = 'municipio_ibge';
+        }
+        if (! in_array($dados['ambiente'], [1, 2], true)) {
+            $erros[] = 'ambiente';
+        }
+        if (! in_array($dados['crt'], [1, 2, 3, 4], true)) {
+            $erros[] = 'regime_tributario';
+        }
+        if ($erros !== []) {
+            throw new \RuntimeException('Cadastro fiscal incompleto da empresa: '.implode(', ', array_unique($erros)).'.');
+        }
+
+        return $dados;
+    }
+
+    /** @return array{0:Empresa,1:ConfigFiscal,2:EmpresaConfig} */
+    private function configuracoesDaEmpresa(int $empresaId): array
+    {
+        $empresa = Empresa::query()->findOrFail($empresaId);
+        $fiscal = ConfigFiscal::withoutTenant()->where('empresa_id', $empresaId)->firstOrFail();
+        if (! in_array((int) $fiscal->ambiente, [1, 2], true)) {
+            throw new \RuntimeException('Ambiente fiscal inválido para esta empresa.');
+        }
+        $certificado = EmpresaConfig::query()->where('empresa_id', $empresaId)->firstOrFail();
+
+        return [$empresa, $fiscal, $certificado];
+    }
+
+    private function certificado(Empresa $empresa, EmpresaConfig $config): Certificate
+    {
+        if (! $config->cert_path || ! Storage::disk('local')->exists($config->cert_path)) {
+            throw new \RuntimeException('Certificado A1 não configurado para esta empresa (Fase C2).');
+        }
+        if ($config->cert_validade && $config->cert_validade->isPast()) {
+            throw new \RuntimeException('Certificado A1 expirado para esta empresa.');
+        }
+        $cnpj = $this->digitos($empresa->cnpj);
+        if ($config->cert_cnpj && $this->digitos($config->cert_cnpj) !== $cnpj) {
+            throw new \RuntimeException('Certificado A1 pertence a outro CNPJ.');
+        }
+
+        return Certificate::readPfx(
+            Storage::disk('local')->get($config->cert_path),
+            (string) $config->cert_senha,
+        );
+    }
+
+    private function digitos(mixed $valor): string
+    {
+        return preg_replace('/\D/', '', (string) $valor) ?? '';
     }
 
     /** @return array<string,mixed> */

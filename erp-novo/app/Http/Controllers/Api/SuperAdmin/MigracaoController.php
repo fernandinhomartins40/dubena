@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\SuperAdmin;
 
+use App\Domain\Saas\TransformationFreeze;
+use App\Etl\MigratorRegistry;
 use App\Http\Controllers\Controller;
 use App\Jobs\ExecutarMigracaoJob;
 use App\Models\Migracao\Migracao;
@@ -9,6 +11,7 @@ use App\Services\Migracao\MigracaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -20,7 +23,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MigracaoController extends Controller
 {
-    public function __construct(private MigracaoService $service) {}
+    public function __construct(
+        private MigracaoService $service,
+        private TransformationFreeze $freeze,
+    ) {}
 
     /** GET /superadmin/migracoes */
     public function index(): JsonResponse
@@ -153,6 +159,8 @@ class MigracaoController extends Controller
     /** POST /superadmin/migracoes/{id}/executar — enfileira a carga. */
     public function executar(Request $request, int $id): JsonResponse
     {
+        $this->freeze->assertMigrationWritesAllowed();
+
         $migracao = Migracao::findOrFail($id);
 
         if ($migracao->emAndamento()) {
@@ -161,7 +169,11 @@ class MigracaoController extends Controller
 
         $dados = $request->validate([
             'apenas' => ['nullable', 'array'],
-            'apenas.*' => ['string', 'max:50'],
+            'apenas.*' => [
+                'string',
+                'max:50',
+                Rule::in(array_map(fn ($m) => $m->nome(), MigratorRegistry::resolved())),
+            ],
         ]);
 
         $migracao->update([

@@ -1,7 +1,9 @@
 <?php
 
 use App\Domain\Integracao\CredencialNaoConfiguradaException;
+use App\Domain\Saas\TransformationFrozenException;
 use App\Domain\Tenant\TenantNotResolvedException;
+use App\Domain\Tenant\TenantAccessDeniedException;
 use App\Http\Middleware\AppRole;
 use App\Http\Middleware\DialetoLegado;
 use App\Http\Middleware\Idempotente;
@@ -9,6 +11,7 @@ use App\Http\Middleware\ValidaRevendaLegado;
 use App\Http\Middleware\Permissao;
 use App\Http\Middleware\Recurso;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\ResolveTenantEnvelope;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -44,6 +47,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // entregador e vice-versa. Staff stateful (SPA) não é afetado.
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'tenant.saas' => ResolveTenantEnvelope::class,
             'permissao' => Permissao::class,
             'recurso' => Recurso::class,
             'approle' => AppRole::class,
@@ -73,6 +77,23 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TenantNotResolvedException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 409);
+            }
+        });
+
+        $exceptions->render(function (TenantAccessDeniedException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 403);
+            }
+        });
+
+        // F0: the operation exists but is intentionally locked until the
+        // corresponding SaaS transformation gate has been approved.
+        $exceptions->render(function (TransformationFrozenException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'operation' => $e->operation,
+                ], 423);
             }
         });
 

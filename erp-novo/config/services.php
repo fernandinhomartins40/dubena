@@ -160,6 +160,7 @@ return [
      */
     'pabx' => [
         'webhook_secret' => env('PABX_WEBHOOK_SECRET', ''),
+        'empresa_id' => env('PABX_EMPRESA_ID'),
     ],
 
 ];

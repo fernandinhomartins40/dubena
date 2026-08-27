@@ -2,6 +2,7 @@
 
 namespace App\Models\Produto;
 
+use App\Domain\Produto\NaturezaItem;
 use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,10 +38,13 @@ class Produto extends Model
         'nfe_vcide', 'pgni', 'pgnn', 'pglp',
     ];
 
+    /** Custos só saem por ProdutoResource/presenter com autorização field-level. */
+    protected $hidden = ['custo_medio', 'custo_frete'];
+
     protected function casts(): array
     {
         return [
-            'natureza' => \App\Domain\Produto\NaturezaItem::class,
+            'natureza' => NaturezaItem::class,
             'vasilhame_retornavel' => 'boolean',
             'ativo' => 'boolean',
             'envia_app_nf' => 'boolean',

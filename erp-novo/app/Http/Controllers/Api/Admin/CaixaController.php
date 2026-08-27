@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\CaixaService;
+use App\Domain\Tenant\TenantContext;
 use App\Domain\Shared\PdfService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
@@ -122,7 +123,9 @@ class CaixaController extends Controller
         Conta::query()->findOrFail($contaId);
         $d = $request->validate(['datahoraabertura' => 'nullable|date']);
 
-        $f = $this->service->abrir($contaId, $d['datahoraabertura'] ?? null, $request->user()->id);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $f = $this->service->abrir($contaId, $empresaId, $d['datahoraabertura'] ?? null, $request->user()->id);
 
         return response()->json(['data' => $f], 201);
     }
@@ -133,7 +136,9 @@ class CaixaController extends Controller
         Conta::query()->findOrFail($contaId);
         $d = $request->validate(['datahorafechamento' => 'nullable|date']);
 
-        $f = $this->service->fechar($contaId, $d['datahorafechamento'] ?? null);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $f = $this->service->fechar($contaId, $empresaId, $d['datahorafechamento'] ?? null);
 
         return response()->json(['data' => $f]);
     }
@@ -153,7 +158,9 @@ class CaixaController extends Controller
         $valor = (float) FinanceiroParcela::query()->whereKey($d['parcela_id'])->value('valor');
         $this->autorizarRecurso($request, 'financeiro.baixar', ['valor' => $valor]);
 
-        $mov = $this->service->baixarParcela($contaId, $d['parcela_id'], (float) ($d['juros'] ?? 0), (float) ($d['multa'] ?? 0), (float) ($d['desconto'] ?? 0), $request->user()->id);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $mov = $this->service->baixarParcela($contaId, $d['parcela_id'], $empresaId, (float) ($d['juros'] ?? 0), (float) ($d['multa'] ?? 0), (float) ($d['desconto'] ?? 0), $request->user()->id);
 
         return response()->json(['data' => $mov], 201);
     }
@@ -174,7 +181,9 @@ class CaixaController extends Controller
             'itens.*.desconto' => 'nullable|numeric|gte:0',
         ]);
 
-        $movs = $this->service->baixarTitulos($contaId, $d['itens'], $request->user()->id);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $movs = $this->service->baixarTitulos($contaId, $d['itens'], $empresaId, $request->user()->id);
 
         return response()->json(['data' => $movs], 201);
     }
@@ -195,7 +204,9 @@ class CaixaController extends Controller
             'datahora' => 'nullable|date',
         ]);
 
-        $mov = $this->service->lancarEmCaixaFechado($contaId, (float) $d['valor'], $d['tipo'], [
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $mov = $this->service->lancarEmCaixaFechado($contaId, (float) $d['valor'], $d['tipo'], $empresaId, [
             'descricao' => $d['descricao'] ?? 'Lançamento em caixa fechado',
             'datahora' => $d['datahora'] ?? null,
             'origem' => 'lancamento-fechado',
@@ -214,7 +225,16 @@ class CaixaController extends Controller
             'valor' => 'required|numeric|gt:0',
         ]);
 
-        $res = $this->service->transferir($d['conta_origem_id'], $d['conta_destino_id'], $d['valor'], $request->user()->id);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+
+        $res = $this->service->transferir(
+            $d['conta_origem_id'],
+            $d['conta_destino_id'],
+            $d['valor'],
+            $empresaId,
+            $request->user()->id,
+        );
 
         return response()->json(['data' => $res], 201);
     }
@@ -232,7 +252,9 @@ class CaixaController extends Controller
             'valor' => abs((float) $movimento->valor),
         ]);
 
-        $mov = $this->service->estornar($movimentoId, $request->user()->id);
+        $empresaId = app(TenantContext::class)->empresaId();
+        abort_if($empresaId === null, 403, 'Tenant não resolvido.');
+        $mov = $this->service->estornar($movimentoId, $empresaId, $request->user()->id);
 
         return response()->json(['data' => $mov], 201);
     }

@@ -50,6 +50,45 @@ class GoliveCheckTest extends TestCase
             ->expectsOutputToContain('modo strict');
     }
 
+    public function test_pix_habilitado_com_driver_fake_e_falha_critica(): void
+    {
+        config([
+            'app.debug' => false,
+            'services.pix.enabled' => true,
+            'services.pix.driver' => 'fake',
+        ]);
+        Empresa::factory()->create();
+
+        $this->artisan('golive:check')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('PIX habilitado com driver Fake');
+    }
+
+    public function test_pix_driver_desconhecido_e_falha_critica(): void
+    {
+        config([
+            'app.debug' => false,
+            'services.pix.enabled' => false,
+            'services.pix.driver' => 'psp-inexistente',
+        ]);
+        Empresa::factory()->create();
+
+        $this->artisan('golive:check')
+            ->assertExitCode(1)
+            ->expectsOutputToContain("driver 'psp-inexistente' não implementado");
+    }
+
+    public function test_producao_e_estrita_sem_depender_da_opcao_humana(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+        config(['app.debug' => false, 'services.fiscal.driver' => 'fake', 'services.cobranca.driver' => 'fake']);
+        Empresa::factory()->create();
+
+        $this->artisan('golive:check')
+            ->assertExitCode(1)
+            ->expectsOutputToContain('modo strict');
+    }
+
     public function test_certificado_ausente_falha_quando_fiscal_real(): void
     {
         // Gate fiscal real + empresa sem certificado → FAIL (bloqueia).
