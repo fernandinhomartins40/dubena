@@ -6,6 +6,10 @@ use App\Domain\Logistica\CentralService;
 use App\Domain\Logistica\DistribuidorService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelopeDispatch;
+use App\Domain\Tenant\TenantEnvelopeJob;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
+use App\Domain\Tenant\TenantEnvelope;
 use App\Models\Logistica\LogisticaConfig;
 use App\Models\Pedido\Pedido;
 use Illuminate\Bus\Queueable;
@@ -25,7 +29,7 @@ use Illuminate\Support\Facades\Log;
  */
 class AtribuirPedidoJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, TenantEnvelopeJob;
 
     public int $tries = 2;
 
@@ -35,9 +39,28 @@ class AtribuirPedidoJob implements ShouldQueue
     /** Distribuição consulta base e calcula rota: limite generoso, mas limite. */
     public int $timeout = 90;
 
-    public function __construct(public int $pedidoId, public int $empresaId, public int $grupoId) {}
+    public function __construct(public int $pedidoId, public int $empresaId, public int $grupoId)
+    {
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+        }
+    }
 
-    public function handle(CentralService $central, DistribuidorService $distribuidor, TenantContext $tenant): void
+    public function handle(CentralService $central, DistribuidorService $distribuidor, TenantContext $tenant, ?TenantEnvelopeRuntime $runtime = null): void
+    {
+        if ($this->tenantEnvelopePayload !== null) {
+            $this->withinTenantEnvelope($runtime ?? app(TenantEnvelopeRuntime::class), function () use ($central, $distribuidor, $tenant): void {
+                TenantEnvelope::fromPayload($this->tenantEnvelopePayload)->requireOperation($this->empresaId);
+                $this->executar($central, $distribuidor, $tenant);
+            });
+
+            return;
+        }
+
+        $this->executar($central, $distribuidor, $tenant);
+    }
+
+    private function executar(CentralService $central, DistribuidorService $distribuidor, TenantContext $tenant): void
     {
         $tenant->set($this->empresaId, $this->grupoId);
 
