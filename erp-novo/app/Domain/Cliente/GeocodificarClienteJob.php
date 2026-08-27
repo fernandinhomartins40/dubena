@@ -2,6 +2,10 @@
 
 namespace App\Domain\Cliente;
 
+use App\Domain\Tenant\TenantEnvelope;
+use App\Domain\Tenant\TenantEnvelopeDispatch;
+use App\Domain\Tenant\TenantEnvelopeJob;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\Cliente\Cliente;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,7 +25,7 @@ class GeocodificarClienteJob implements ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
-    use SerializesModels;
+    use SerializesModels, TenantEnvelopeJob;
 
     public int $tries = 3;
 
@@ -33,11 +37,34 @@ class GeocodificarClienteJob implements ShouldQueue
 
     public function __construct(public int $clienteId)
     {
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+        }
     }
 
-    public function handle(): void
+    public function handle(?TenantEnvelopeRuntime $runtime = null): void
     {
-        $cliente = Cliente::withoutTenant()->find($this->clienteId);
+        if ($this->tenantEnvelopePayload !== null) {
+            $this->withinTenantEnvelope($runtime ?? app(TenantEnvelopeRuntime::class), fn (): mixed => $this->executarComEnvelope());
+
+            return;
+        }
+
+        $this->executar();
+    }
+
+    private function executarComEnvelope(): void
+    {
+        $envelope = TenantEnvelope::fromPayload($this->tenantEnvelopePayload);
+        $envelope->requireOperation($envelope->activeEmpresaId);
+        $this->executar($envelope->activeEmpresaId);
+    }
+
+    private function executar(?int $empresaId = null): void
+    {
+        $cliente = Cliente::withoutTenant()
+            ->when($empresaId !== null, fn ($query) => $query->where('empresa_id', $empresaId))
+            ->find($this->clienteId);
         if (! $cliente || ! $this->temEnderecoSuficiente($cliente)) {
             return;
         }
