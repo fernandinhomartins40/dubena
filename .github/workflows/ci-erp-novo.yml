@@ -12,6 +12,7 @@ on:
       - 'erp-novo/**'
       - 'deploy/nginx/**'
       - 'deploy/rollback.sh'
+      - 'docs/01-vigente/implementacao-saas/CATALOGO_VIVO.json'
       - '.github/workflows/ci-erp-novo.yml'
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - 'erp-novo/**'
       - 'deploy/nginx/**'
       - 'deploy/rollback.sh'
+      - 'docs/01-vigente/implementacao-saas/CATALOGO_VIVO.json'
       - '.github/workflows/ci-erp-novo.yml'
   workflow_dispatch:
 
