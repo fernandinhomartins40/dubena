@@ -51,11 +51,11 @@ class SaasF1PreCutoverCheck extends Command
             }
         }
 
-        $unmappedCompanies = (int) $connection->scalar(
+        $unmappedLegacyCompanies = (int) $connection->scalar(
             "select count(*) from empresas e left join tenant_companies tc on tc.empresa_id = e.id and tc.status = 'APPROVED' where tc.id is null"
         );
-        $unresolvedOwnership = (int) $connection->scalar(
-            "select count(*) from empresas where ownership_status is distinct from 'OWNERSHIP_APPROVED'"
+        $approvedLinksWithoutOwnership = (int) $connection->scalar(
+            "select count(*) from tenant_companies tc join empresas e on e.id = tc.empresa_id where tc.status = 'APPROVED' and e.ownership_status is distinct from 'OWNERSHIP_APPROVED'"
         );
         $companyTablesWithoutKey = $this->companyTablesWithoutTenantKey($connection);
 
@@ -65,17 +65,21 @@ class SaasF1PreCutoverCheck extends Command
         if ($companyTablesWithoutKey !== []) {
             $this->error('Tabelas COMPANY sem tenant_account_id: '.implode(', ', $companyTablesWithoutKey));
         }
-        if ($unmappedCompanies > 0 || $unresolvedOwnership > 0) {
-            $this->error("Mapeamento documental ainda pendente: {$unmappedCompanies} empresa(s) sem TenantCompany APPROVED; {$unresolvedOwnership} sem ownership aprovado.");
+        if ($approvedLinksWithoutOwnership > 0) {
+            $this->error("Fronteira inconsistente: {$approvedLinksWithoutOwnership} vinculo(s) TenantCompany APPROVED sem ownership aprovado.");
         }
 
-        if ($missingFunctions !== [] || $companyTablesWithoutKey !== [] || $unmappedCompanies > 0 || $unresolvedOwnership > 0) {
+        if ($missingFunctions !== [] || $companyTablesWithoutKey !== [] || $approvedLinksWithoutOwnership > 0) {
             $this->error('PRE-CUTOVER F1 BLOQUEADO — execute somente o dry-run/importador documental; nao habilite tenant.saas.');
 
             return self::FAILURE;
         }
 
         $this->warn('Pre-requisitos estruturais aprovados. O gate F1 ainda exige policies canonicas com role runtime, negações cruzadas e worker sequencial.');
+
+        if ($unmappedLegacyCompanies > 0) {
+            $this->warn("{$unmappedLegacyCompanies} empresa(s) legada(s) sem TenantCompany APPROVED permanecem fora da fronteira SaaS e devem ser negadas pelo resolver.");
+        }
 
         return self::SUCCESS;
     }
