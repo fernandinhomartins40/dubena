@@ -20,7 +20,7 @@ class CanonicalTenantRlsMigrationTest extends TestCase
 
     public function test_vinculos_de_empresa_da_fronteira_recebem_policy_canonica(): void
     {
-        $source = file_get_contents(base_path('database/migrations/2026_08_29_000700_protect_tenant_boundary_company_links.php'));
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_000700_protect_tenant_boundary_company_links.php');
 
         $this->assertStringContainsString("'tenant_companies', 'tenant_company_grants'", $source);
         $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $source);
