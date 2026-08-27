@@ -1,0 +1,52 @@
+# F1-10 — configuração legada por grupo com ponte documental
+
+**Estado:** implementado e validado localmente; não aplicado nem promovido em homologação.
+
+## Recorte
+
+`pedidosituacoes`, `pedidooperacoes` e `pedido_motivos_atraso` são cadastros
+legados compartilhados por `grupo_id`, usados por pedidos de várias empresas.
+Eles foram classificados como `COMPANY`, mas não têm `empresa_id`; portanto não
+podem receber tenant por inferência de grupo, usuário, volume de linhas ou pela
+cópia Dubena.
+
+## Desenho implementado
+
+- `tenant_legacy_group_scopes` exige `tenant_account_id`, `grupo_id` único,
+  status aprovado, data e `evidence_ref`.
+- O importador aceita `legacy_group_scopes` somente quando o JSON contém a
+  evidência e o tenant já declara uma empresa aprovada naquele grupo. O grupo
+  ainda não determina o tenant: a declaração documental é obrigatória.
+- O comando `saas:tenant:proteger-configuracao-grupo --apply` preenche as três
+  tabelas somente via essa ponte aprovada, recusa qualquer linha sem ponte ou
+  divergência prévia e então instala RLS `ENABLE + FORCE`. A migration de
+  deploy cria somente a estrutura/funções: ela nunca oculta dados por antecipação.
+- As policies exigem igualdade do tenant canônico e grant de leitura/operação
+  da membership na empresa do grupo configurado. O grupo é um escopo de
+  compatibilidade do cadastro, não uma identidade SaaS.
+- Novas escritas dos três modelos copiam `tenant_account_id` exclusivamente do
+  `TenantEnvelopeRuntime` ativo. Sem envelope, a policy não libera escrita
+  quando o enforcement estiver ligado.
+
+## Não feito deliberadamente
+
+- Não foi criado nenhum `TenantLegacyGroupScope` a partir da cópia Dubena.
+- Não houve backfill remoto, alteração de `grupo_id`, nem conversão de outras
+  tabelas sem `empresa_id`.
+- Não há prova PostgreSQL/runtime role deste recorte: os containers locais
+  disponíveis pertencem a outro projeto (`m2-*`) e não foram usados.
+
+## Validação local
+
+`php artisan test --filter='TenantMappingImporterTest|LegacyGroupConfigurationMigrationTest|TableClassificationManifestTest|TenantBoundarySchemaTest|TenantEnvelopeRuntimeTest|ResolveTenantEnvelopeMiddlewareTest'`
+
+Resultado: **18 testes, 193 assertions, aprovados**. Os dois avisos de metadata
+PHPUnit preexistentes foram emitidos, sem falha.
+
+## Próximo passo exato
+
+Após deploy em homologação, executar preview de um JSON documental que inclua
+`legacy_group_scopes`, revisar a evidência, aplicar o JSON e só então executar
+`saas:tenant:proteger-configuracao-grupo --apply`. Em seguida, recertificar
+PostgreSQL e a role `erp_app`, incluindo leitura, escrita cruzada, ausência de
+contexto e dois jobs sequenciais.

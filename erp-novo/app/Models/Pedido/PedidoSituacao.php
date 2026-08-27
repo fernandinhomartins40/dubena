@@ -18,7 +18,7 @@ class PedidoSituacao extends Model
 
     protected $table = 'pedidosituacoes';
 
-    protected $fillable = ['grupo_id', 'descricao', 'efeito', 'cor', 'padrao_tela_pedido', 'ordem', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'efeito', 'cor', 'padrao_tela_pedido', 'ordem', 'ativo'];
 
     protected function casts(): array
     {

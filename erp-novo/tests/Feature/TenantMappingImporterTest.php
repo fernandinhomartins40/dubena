@@ -38,7 +38,7 @@ class TenantMappingImporterTest extends TestCase
         ];
         $importer = app(TenantMappingImporter::class);
 
-        $this->assertSame(['tenants' => 1, 'companies' => 1, 'memberships' => 1, 'grants' => 1], $importer->preview($plan));
+        $this->assertSame(['tenants' => 1, 'companies' => 1, 'memberships' => 1, 'grants' => 1, 'legacy_group_scopes' => 0], $importer->preview($plan));
         $this->assertDatabaseCount('tenant_accounts', 0);
 
         $importer->apply($plan);
@@ -88,5 +88,45 @@ class TenantMappingImporterTest extends TestCase
 
         $this->assertDatabaseHas('tenant_memberships', ['user_id' => $member->id, 'membership_role' => 'MEMBER']);
         $this->assertDatabaseCount('tenant_company_grants', 2);
+    }
+
+    public function test_importa_ponte_de_grupo_somente_com_empresa_aprovada_e_evidencia(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $plan = [
+            'tenants' => [[
+                'legal_name' => 'Conta com configuracao compartilhada',
+                'classification_evidence_ref' => 'legal-doc-1',
+                'companies' => [['empresa_id' => $empresa->id, 'ownership_evidence_ref' => 'legal-doc-2']],
+                'legacy_group_scopes' => [[
+                    'grupo_id' => $empresa->grupo_id,
+                    'evidence_ref' => 'config-scope-doc-1',
+                ]],
+            ]],
+        ];
+
+        $importer = app(TenantMappingImporter::class);
+        $this->assertSame(1, $importer->preview($plan)['legacy_group_scopes']);
+        $importer->apply($plan);
+
+        $this->assertDatabaseHas('tenant_legacy_group_scopes', [
+            'grupo_id' => $empresa->grupo_id,
+            'status' => 'APPROVED',
+            'evidence_ref' => 'config-scope-doc-1',
+        ]);
+    }
+
+    public function test_recusa_ponte_de_grupo_duplicada_em_vez_de_escolher_tenant_por_inferencia(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $tenant = [
+            'legal_name' => 'Conta com grupo declarado',
+            'classification_evidence_ref' => 'legal-doc-1',
+            'companies' => [['empresa_id' => $empresa->id, 'ownership_evidence_ref' => 'legal-doc-2']],
+            'legacy_group_scopes' => [['grupo_id' => $empresa->grupo_id, 'evidence_ref' => 'config-scope-doc-1']],
+        ];
+
+        $this->expectException(InvalidArgumentException::class);
+        app(TenantMappingImporter::class)->preview(['tenants' => [$tenant, $tenant]]);
     }
 }

@@ -39,6 +39,11 @@ class TenantAccount extends Model
         return $this->hasMany(TenantCompany::class);
     }
 
+    public function legacyGroupScopes(): HasMany
+    {
+        return $this->hasMany(TenantLegacyGroupScope::class);
+    }
+
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Empresa::class, 'tenant_companies')->withTimestamps();

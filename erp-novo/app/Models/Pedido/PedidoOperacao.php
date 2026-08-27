@@ -13,7 +13,7 @@ class PedidoOperacao extends Model
 
     protected $table = 'pedidooperacoes';
 
-    protected $fillable = ['grupo_id', 'descricao', 'convenio', 'gasbolso', 'disk', 'venda_direta', 'pdv', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'convenio', 'gasbolso', 'disk', 'venda_direta', 'pdv', 'ativo'];
 
     protected function casts(): array
     {

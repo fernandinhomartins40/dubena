@@ -325,3 +325,22 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Testes focais aprovados: `RelatorioTest` (2 testes/3 assertions) e
   `PushAssincronoTest` (4 testes/7 assertions). `erp-novo/perda.sql` segue
   preexistente e intocado.
+
+## Atualizacao de retomada - 2026-08-27 (configuracao group-scoped)
+
+- `pedidosituacoes`, `pedidooperacoes` e `pedido_motivos_atraso` receberam
+  ponte documental `tenant_legacy_group_scopes`: ela e unica por grupo, exige
+  evidencia e uma empresa ja aprovada naquele tenant. Nenhum grupo da copia foi
+  promovido automaticamente a tenant.
+- A migration de deploy cria somente a ponte/funcoes. O comando explicito
+  `saas:tenant:proteger-configuracao-grupo --apply` preenche chaves e instala
+  RLS apenas se nao restar nenhuma linha sem ponte documental. Novas escritas
+  leem a chave somente do `TenantEnvelopeRuntime` ativo. Ver
+  `F1_10_CONFIGURACAO_GRUPO_EXPLICITA.md`.
+- Validacao local: 18 testes/193 assertions aprovados; `git diff --check`
+  aprovado. A prova PostgreSQL/runtime role e o preview documental em
+  homologacao permanecem pendentes antes de declarar este recorte concluido.
+- Proximo microlote: repetir esse padrao para os demais COMPANY sem
+  `empresa_id`, agrupados por agregado e somente apos leitura de seus modelos,
+  migrations e consumidores diretos. `erp-novo/perda.sql` continua preexistente
+  e intocado.

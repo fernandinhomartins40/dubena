@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\Saas\TenantAccount;
 use App\Models\Saas\TenantCompany;
 use App\Models\Saas\TenantCompanyGrant;
+use App\Models\Saas\TenantLegacyGroupScope;
 use App\Models\Saas\TenantMembership;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ use InvalidArgumentException;
 /** F1-10: aplica somente mapeamento documental explícito. */
 final class TenantMappingImporter
 {
-    /** @param array<string, mixed> $plan @return array{tenants:int,companies:int,memberships:int,grants:int} */
+    /** @param array<string, mixed> $plan @return array{tenants:int,companies:int,memberships:int,grants:int,legacy_group_scopes:int} */
     public function preview(array $plan): array
     {
         $tenants = $plan['tenants'] ?? null;
@@ -22,8 +23,9 @@ final class TenantMappingImporter
             throw new InvalidArgumentException('O mapeamento exige ao menos um tenant explícito.');
         }
 
-        $summary = ['tenants' => 0, 'companies' => 0, 'memberships' => 0, 'grants' => 0];
+        $summary = ['tenants' => 0, 'companies' => 0, 'memberships' => 0, 'grants' => 0, 'legacy_group_scopes' => 0];
         $mappedCompanies = [];
+        $mappedGroups = [];
         foreach ($tenants as $tenant) {
             if (! is_array($tenant) || trim((string) ($tenant['legal_name'] ?? '')) === '' || trim((string) ($tenant['classification_evidence_ref'] ?? '')) === '') {
                 throw new InvalidArgumentException('Tenant sem nome jurídico ou evidência de classificação.');
@@ -45,6 +47,23 @@ final class TenantMappingImporter
                 $mappedCompanies[$empresaId] = true;
                 $tenantCompanyIds[$empresaId] = true;
                 $summary['companies']++;
+            }
+            foreach (($tenant['legacy_group_scopes'] ?? []) as $scope) {
+                $grupoId = (int) ($scope['grupo_id'] ?? 0);
+                $evidence = trim((string) ($scope['evidence_ref'] ?? ''));
+                $empresaDoGrupo = Empresa::query()
+                    ->whereIn('id', array_keys($tenantCompanyIds))
+                    ->where('grupo_id', $grupoId)
+                    ->exists();
+                if ($grupoId <= 0
+                    || $evidence === ''
+                    || ! $empresaDoGrupo
+                    || isset($mappedGroups[$grupoId])
+                    || TenantLegacyGroupScope::where('grupo_id', $grupoId)->exists()) {
+                    throw new InvalidArgumentException('Ponte de grupo sem evidÃªncia ou sem empresa aprovada daquele tenant no grupo declarado.');
+                }
+                $mappedGroups[$grupoId] = true;
+                $summary['legacy_group_scopes']++;
             }
             foreach (($tenant['memberships'] ?? []) as $membership) {
                 $userId = (int) ($membership['user_id'] ?? 0);
@@ -68,7 +87,7 @@ final class TenantMappingImporter
         return $summary;
     }
 
-    /** @param array<string, mixed> $plan @return array{tenants:int,companies:int,memberships:int,grants:int} */
+    /** @param array<string, mixed> $plan @return array{tenants:int,companies:int,memberships:int,grants:int,legacy_group_scopes:int} */
     public function apply(array $plan): array
     {
         $summary = $this->preview($plan);
@@ -93,6 +112,15 @@ final class TenantMappingImporter
                         'ownership_evidence_ref' => $companyData['ownership_evidence_ref'],
                     ]);
                     $empresa->forceFill(['ownership_status' => Empresa::OWNERSHIP_APPROVED])->save();
+                }
+                foreach (($tenantData['legacy_group_scopes'] ?? []) as $scopeData) {
+                    TenantLegacyGroupScope::create([
+                        'tenant_account_id' => $tenant->id,
+                        'grupo_id' => $scopeData['grupo_id'],
+                        'status' => TenantLegacyGroupScope::STATUS_APPROVED,
+                        'approved_at' => now(),
+                        'evidence_ref' => $scopeData['evidence_ref'],
+                    ]);
                 }
                 foreach (($tenantData['memberships'] ?? []) as $membershipData) {
                     $membership = TenantMembership::create([

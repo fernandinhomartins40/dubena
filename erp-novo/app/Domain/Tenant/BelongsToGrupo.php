@@ -18,12 +18,22 @@ trait BelongsToGrupo
     public static function bootBelongsToGrupo(): void
     {
         $context = app(TenantContext::class);
+        $runtime = app(TenantEnvelopeRuntime::class);
 
         static::addGlobalScope(new GrupoScope($context));
 
-        static::creating(function (Model $model) use ($context) {
+        static::creating(function (Model $model) use ($context, $runtime) {
             if ($context->grupoId() !== null && empty($model->getAttribute('grupo_id'))) {
                 $model->setAttribute('grupo_id', $context->grupoId());
+            }
+
+            // Somente modelos que declararam a chave SaaS participam da ponte.
+            // O valor vem do envelope em execucao, nunca de input do request ou
+            // do grupo legado.
+            if (in_array('tenant_account_id', $model->getFillable(), true)
+                && empty($model->getAttribute('tenant_account_id'))
+                && $runtime->current() !== null) {
+                $model->setAttribute('tenant_account_id', $runtime->current()->tenantAccountId);
             }
         });
     }
@@ -38,9 +48,7 @@ trait BelongsToGrupo
 /** Global scope: aplica `where grupo_id = <grupo ativo>` quando há tenant. */
 class GrupoScope implements Scope
 {
-    public function __construct(private TenantContext $context)
-    {
-    }
+    public function __construct(private TenantContext $context) {}
 
     public function apply(Builder $builder, Model $model): void
     {

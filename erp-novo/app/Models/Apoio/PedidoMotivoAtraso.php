@@ -10,7 +10,7 @@ class PedidoMotivoAtraso extends CadastroApoio
 {
     protected $table = 'pedido_motivos_atraso';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo'];
 
     protected function casts(): array
     {

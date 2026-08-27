@@ -43,6 +43,7 @@ class TableClassificationManifestTest extends TestCase
             'tenant_memberships',
             'tenant_companies',
             'tenant_company_grants',
+            'tenant_legacy_group_scopes',
             'tenant_network_links',
         ]);
 
