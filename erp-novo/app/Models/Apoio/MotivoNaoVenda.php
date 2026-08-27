@@ -11,7 +11,7 @@ class MotivoNaoVenda extends CadastroApoio
 {
     protected $table = 'motivos_nao_venda';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo'];
 
     protected function casts(): array
     {

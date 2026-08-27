@@ -18,6 +18,9 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
 
         $protector = file_get_contents(dirname(__DIR__, 2).'/app/Domain/Tenant/TenantLegacyGroupConfigurationProtector.php');
         $this->assertStringContainsString('configuracao(oes) sem ponte documental aprovada', $protector);
+        $this->assertStringContainsString("'clientecontatotipos'", $protector);
+        $this->assertStringContainsString("'clientecontatosituacoes'", $protector);
+        $this->assertStringContainsString("'motivos_nao_venda'", $protector);
         $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $protector);
         $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $protector);
 

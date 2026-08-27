@@ -10,6 +10,10 @@ Eles foram classificados como `COMPANY`, mas não têm `empresa_id`; portanto n�
 podem receber tenant por inferência de grupo, usuário, volume de linhas ou pela
 cópia Dubena.
 
+O mesmo contrato foi estendido a `motivos_nao_venda`, `clientecontatotipos` e
+`clientecontatosituacoes`: eles configuram ações de pedido/atendimento e são
+referenciados por pedidos e interações de clientes, sem `empresa_id` próprio.
+
 ## Desenho implementado
 
 - `tenant_legacy_group_scopes` exige `tenant_account_id`, `grupo_id` único,
@@ -43,6 +47,10 @@ cópia Dubena.
 
 Resultado: **18 testes, 193 assertions, aprovados**. Os dois avisos de metadata
 PHPUnit preexistentes foram emitidos, sem falha.
+
+Para a extensão dos três cadastros de atendimento, `MotivosPedidoTest`,
+`TenantMappingImporterTest` e os testes de migration aprovaram **12 testes, 39
+assertions**.
 
 Em PostgreSQL 15 descartável, o gate `RlsCoberturaTest` também passou com a
 role `erp_app` (`rolsuper=false`, `rolbypassrls=false`): **6 testes, 352

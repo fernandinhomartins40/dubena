@@ -10,6 +10,9 @@ final class TenantLegacyGroupConfigurationProtector
 {
     /** @var list<string> */
     private const TABLES = [
+        'clientecontatosituacoes',
+        'clientecontatotipos',
+        'motivos_nao_venda',
         'pedido_motivos_atraso',
         'pedidooperacoes',
         'pedidosituacoes',

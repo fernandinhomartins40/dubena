@@ -372,3 +372,16 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Proximo microlote seguro: inventariar o agregado `CadastroApoio` restante e
   separar cadastros de plataforma daqueles que realmente precisam da ponte
   documental, sem promover `grupo_id` ou dados Dubena a regra SaaS.
+
+## Atualizacao de retomada - 2026-08-27 (apoio operacional por grupo)
+
+- O protetor documental agora tambem cobre `motivos_nao_venda`,
+  `clientecontatotipos` e `clientecontatosituacoes`. Os modelos gravam
+  `tenant_account_id` somente a partir do envelope ativo.
+- Estes tres cadastros configuram pedido/atendimento e possuem FKs diretas de
+  negocio; continuam sem conversao automatica. O comando explicito recusa a
+  protecao se qualquer linha nao possuir ponte documental aprovada.
+- Validacao local: `LegacyGroupConfigurationMigrationTest`,
+  `TenantMappingImporterTest` e `MotivosPedidoTest`: 12 testes/39 assertions
+  aprovados. Proximo passo: CI/deploy desta extensao e depois o proximo grupo
+  de cadastros COMPANY sem `empresa_id`.
