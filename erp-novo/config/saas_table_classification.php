@@ -91,10 +91,12 @@ $register([
 ], 'DERIVED', 'Domain Data Lifecycle', 'Projecao/cache reconstruivel; deve ter origem catalogada, TTL ou mecanismo de recomposicao antes do cutover.');
 
 $register([
+        '_bkp_autocadastro_20260820',
         'importacoes_cnefe',
         'importacoes_logradouro',
         'migracao_descartes',
         'migracoes',
+        'tenant_staging_artifacts',
 ], 'STAGING', 'Data Migration Operations', 'Entrada ou descarte operacional temporario; exige owner, TTL e policy de staging em F1-09.');
 
 $register([
