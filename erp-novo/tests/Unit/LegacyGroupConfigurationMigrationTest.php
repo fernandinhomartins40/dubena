@@ -20,5 +20,9 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
         $this->assertStringContainsString('configuracao(oes) sem ponte documental aprovada', $protector);
         $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $protector);
         $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $protector);
+
+        $scopePolicy = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001200_protect_tenant_legacy_group_scopes.php');
+        $this->assertStringContainsString('ALTER TABLE tenant_legacy_group_scopes ENABLE ROW LEVEL SECURITY', $scopePolicy);
+        $this->assertStringContainsString('WITH CHECK (false)', $scopePolicy);
     }
 }

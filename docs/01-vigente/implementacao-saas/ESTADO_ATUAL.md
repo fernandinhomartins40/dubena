@@ -344,3 +344,19 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `empresa_id`, agrupados por agregado e somente apos leitura de seus modelos,
   migrations e consumidores diretos. `erp-novo/perda.sql` continua preexistente
   e intocado.
+
+## Atualizacao de retomada - 2026-08-27 (gate PostgreSQL recuperado)
+
+- A CI `test-postgres` falhava antes do recorte novo porque a migration
+  `2026_06_27_000200_f1_monitora_tipos_e_campos` tentava recriar
+  `monitora_veiculo_tipos`, ja presente no schema inicial. A migration agora
+  reconhece a tabela existente; teste de regressao adicionado.
+- `tenant_legacy_group_scopes` recebeu policy propria com `ENABLE + FORCE`:
+  runtime le apenas sua conta e `WITH CHECK (false)` nega escrita. O importador
+  documental continua usando `pgsql_owner`.
+- Prova em PostgreSQL 15 descartavel, banco criado do zero: todas as migrations
+  aplicadas; `RlsCoberturaTest --fail-on-skipped` aprovou 6 testes/352
+  assertions. Role `erp_app`: `rolsuper=false`, `rolbypassrls=false`.
+- Proximo passo: push do reparo, acompanhar CI e somente apos deploy executar
+  qualquer preview documental em homologacao. `erp-novo/perda.sql` segue fora
+  dos commits.

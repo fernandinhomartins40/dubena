@@ -13,7 +13,8 @@ cópia Dubena.
 ## Desenho implementado
 
 - `tenant_legacy_group_scopes` exige `tenant_account_id`, `grupo_id` único,
-  status aprovado, data e `evidence_ref`.
+  status aprovado, data e `evidence_ref`; possui RLS próprio, permite ao runtime
+  ler apenas a própria conta e nega escrita.
 - O importador aceita `legacy_group_scopes` somente quando o JSON contém a
   evidência e o tenant já declara uma empresa aprovada naquele grupo. O grupo
   ainda não determina o tenant: a declaração documental é obrigatória.
@@ -42,6 +43,12 @@ cópia Dubena.
 
 Resultado: **18 testes, 193 assertions, aprovados**. Os dois avisos de metadata
 PHPUnit preexistentes foram emitidos, sem falha.
+
+Em PostgreSQL 15 descartável, o gate `RlsCoberturaTest` também passou com a
+role `erp_app` (`rolsuper=false`, `rolbypassrls=false`): **6 testes, 352
+assertions, zero skips**. Durante essa prova foi corrigida uma migration legada
+que recriava `monitora_veiculo_tipos`, já criada no schema inicial; a guarda
+`Schema::hasTable()` impede que ela bloqueie a cadeia de migrations.
 
 ## Próximo passo exato
 

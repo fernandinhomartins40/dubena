@@ -23,16 +23,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('monitora_veiculo_tipos', function (Blueprint $t) {
-            $t->id();
-            $t->foreignId('grupo_id')->constrained('grupos')->cascadeOnDelete();
-            $t->string('descricao');
-            $t->string('icone')->nullable();                  // URL/nome do ícone no mapa
-            $t->unsignedSmallInteger('velocidade_maxima')->nullable(); // km/h (relatório de excesso)
-            $t->boolean('ativo')->default(true);
-            $t->timestamps();
-            $t->index(['grupo_id', 'ativo']);
-        });
+        if (! Schema::hasTable('monitora_veiculo_tipos')) {
+            Schema::create('monitora_veiculo_tipos', function (Blueprint $t) {
+                $t->id();
+                $t->foreignId('grupo_id')->constrained('grupos')->cascadeOnDelete();
+                $t->string('descricao');
+                $t->string('icone')->nullable();                  // URL/nome do ícone no mapa
+                $t->unsignedSmallInteger('velocidade_maxima')->nullable(); // km/h (relatório de excesso)
+                $t->boolean('ativo')->default(true);
+                $t->timestamps();
+                $t->index(['grupo_id', 'ativo']);
+            });
+        }
 
         Schema::table('monitora_veiculos', function (Blueprint $t) {
             $t->foreignId('tipo_id')->nullable()->after('descricao')->constrained('monitora_veiculo_tipos')->nullOnDelete();
