@@ -63,6 +63,23 @@ final class TenantEnvelopeRuntime
             'app.tenant_account_id', (string) $envelope->tenantAccountId,
             'app.tenant_membership_id', (string) $envelope->tenantMembershipId,
         ]);
+
+        // Compatibilidade transitória: o grupo vem da empresa ativa já
+        // autorizada pela policy canônica, nunca de sessão, payload legado ou
+        // escolha por maioria. Assim tabelas ainda group-scoped continuam
+        // fechadas durante a conversão sem transformar grupo em tenant SaaS.
+        $grupoId = DB::table('empresas')
+            ->where('id', $envelope->activeEmpresaId)
+            ->value('grupo_id');
+        if (! is_numeric($grupoId) || (int) $grupoId <= 0) {
+            throw new TenantAccessDeniedException('Empresa ativa aprovada sem grupo legado válido.');
+        }
+
+        DB::statement('SELECT set_config(?, ?, false), set_config(?, ?, false), set_config(?, ?, false)', [
+            'app.empresa_id', (string) $envelope->activeEmpresaId,
+            'app.grupo_id', (string) $grupoId,
+            'app.empresas_visiveis', implode(',', $envelope->readableEmpresaIds),
+        ]);
     }
 
     private function clearDatabaseContext(): void
@@ -71,7 +88,7 @@ final class TenantEnvelopeRuntime
             return;
         }
 
-        DB::statement("SELECT set_config('app.tenant_account_id', '', false), set_config('app.tenant_membership_id', '', false)");
+        DB::statement("SELECT set_config('app.tenant_account_id', '', false), set_config('app.tenant_membership_id', '', false), set_config('app.empresa_id', '', false), set_config('app.grupo_id', '', false), set_config('app.empresas_visiveis', '', false)");
     }
 
     private function applyAuthenticatedUser(int $userId): void

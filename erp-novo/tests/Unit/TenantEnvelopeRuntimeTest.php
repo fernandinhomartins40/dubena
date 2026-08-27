@@ -33,4 +33,15 @@ class TenantEnvelopeRuntimeTest extends TestCase
 
         $this->assertNull($runtime->current());
     }
+
+    public function test_runtime_deriva_grupo_da_empresa_ativa_em_vez_de_receber_grupo_no_envelope(): void
+    {
+        $source = file_get_contents(app_path('Domain/Tenant/TenantEnvelopeRuntime.php'));
+
+        $this->assertStringContainsString("DB::table('empresas')", $source);
+        $this->assertStringContainsString("->where('id', \$envelope->activeEmpresaId)", $source);
+        $this->assertStringContainsString("'app.grupo_id'", $source);
+        $this->assertStringContainsString("'app.empresas_visiveis'", $source);
+        $this->assertStringNotContainsString('grupoId', file_get_contents(app_path('Domain/Tenant/TenantEnvelope.php')));
+    }
 }
