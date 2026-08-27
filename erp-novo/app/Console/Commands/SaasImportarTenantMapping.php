@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Tenant\TenantMappingImporter;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use JsonException;
 
 class SaasImportarTenantMapping extends Command
@@ -15,6 +16,8 @@ class SaasImportarTenantMapping extends Command
     public function handle(TenantMappingImporter $importer): int
     {
         $path = (string) $this->argument('input');
+        $previousConnection = DB::getDefaultConnection();
+        DB::setDefaultConnection('pgsql_owner');
         try {
             $plan = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
             $summary = $this->option('apply') ? $importer->apply($plan) : $importer->preview($plan);
@@ -22,6 +25,8 @@ class SaasImportarTenantMapping extends Command
             $this->error($exception->getMessage());
 
             return self::FAILURE;
+        } finally {
+            DB::setDefaultConnection($previousConnection);
         }
         $this->info(($this->option('apply') ? 'Aplicado' : 'Dry-run válido').': '.json_encode($summary));
 
