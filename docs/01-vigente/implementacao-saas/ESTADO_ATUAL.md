@@ -177,6 +177,17 @@ Alterações preexistentes que não podem ser incorporadas, sobrescritas ou reve
 - O proximo microlote de F1 e converter os jobs legados que ainda recebem IDs
   de empresa sem serializar e restaurar `TenantEnvelope`.
 
+## Atualizacao de retomada - 2026-08-27 (memberships da copia)
+
+- Na copia de homologacao, o mapping conservador baseado em `empresa_user` foi
+  validado em dry-run (80 memberships e 141 grants) e aplicado pelo comando
+  versionado `saas:tenant:importar-memberships`.
+- A verificacao posterior encontrou 81 memberships e 152 grants no total,
+  incluindo Vilso como OWNER; nenhum grant aponta para TenantCompany fora de
+  status APPROVED. O pre-check remoto voltou a retornar exit 0.
+- Esse mapping e adaptador da copia Dubena, nao regra do kernel SaaS. A empresa
+  legada nao vinculada permanece fora da fronteira e o resolver deve nega-la.
+
 ## Limite/janela
 
 - Em 2026-08-25 16:39 (America/Sao_Paulo), três subagentes de implementação
