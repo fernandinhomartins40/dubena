@@ -312,3 +312,16 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Proximo microlote: tratar as tabelas COMPANY sem `empresa_id` sem inferir
   tenant por `grupo_id`, e converter os jobs cron/ETL que hoje nao tem ator
   tenant declarado. Nao declarar F1 concluida antes dessa recertificacao.
+
+## Atualizacao de retomada - 2026-08-27 (jobs sem envelope)
+
+- O `PushService` deixou de promover chamadas de console a job de plataforma
+  automaticamente. Opt-out de plataforma agora precisa ser declarado pelo
+  chamador, e nunca e inferido pelo ambiente de execucao.
+- `notify:alertas` falha fechado quando o enforcement SaaS esta ativo: o cron
+  nao pode escolher um usuario/membership em nome da empresa nem ler dados de
+  negocio sem envelope. A identidade de automacao e seus grants continuam uma
+  decisao explicita do proximo recorte.
+- Testes focais aprovados: `RelatorioTest` (2 testes/3 assertions) e
+  `PushAssincronoTest` (4 testes/7 assertions). `erp-novo/perda.sql` segue
+  preexistente e intocado.

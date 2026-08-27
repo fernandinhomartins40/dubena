@@ -155,6 +155,13 @@ class RelatorioTest extends TestCase
         Queue::assertPushed(NotificarEstoqueBaixoJob::class);
     }
 
+    public function test_notify_alertas_nega_cron_sem_identidade_saas_explicita(): void
+    {
+        config()->set('saas_transformation.enforcement.tenant_envelope', true);
+
+        $this->artisan('notify:alertas')->assertExitCode(1);
+    }
+
     public function test_relatorio_sem_permissao_403(): void
     {
         $user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => false]);

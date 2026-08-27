@@ -23,7 +23,6 @@ class PushService
     /** Enfileira push para todos os devices ativos de um usuário. @return int tokens enfileirados */
     public function paraUsuario(int $userId, string $titulo, string $corpo, array $dados = [], bool $platformJob = false): int
     {
-        $platformJob = $platformJob || app()->runningInConsole();
         $tokens = AppDevice::query()
             ->where('user_id', $userId)->where('ativo', true)
             ->whereNotNull('push_token')->pluck('push_token')->all();

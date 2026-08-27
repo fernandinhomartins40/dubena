@@ -18,6 +18,12 @@ class NotifyAlertas extends Command
 
     public function handle(): int
     {
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            $this->error('notify:alertas exige uma identidade de automação com membership/grant explícitos; o cron não pode assumir papel de plataforma.');
+
+            return self::FAILURE;
+        }
+
         $empresas = Empresa::query()->where('ativo', true)->pluck('id');
 
         foreach ($empresas as $empresaId) {
