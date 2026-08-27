@@ -75,8 +75,8 @@ class RlsCoberturaTest extends TestCase
 
     public function test_rls_nega_select_e_update_cross_tenant_no_banco(): void
     {
-        [$empresaA, $empresaB, $clienteA, $clienteB] = $this->cenarioRls();
-        $this->setTenantBanco($empresaA);
+        [$empresaA, $empresaB, $clienteA, $clienteB, $contextoA] = $this->cenarioRls();
+        $this->setTenantBanco($contextoA);
 
         $ids = DB::table('clientes')->orderBy('id')->pluck('id')->all();
         $this->assertSame([$clienteA->id], $ids);
@@ -90,8 +90,8 @@ class RlsCoberturaTest extends TestCase
 
     public function test_rls_nega_insert_cross_tenant_no_banco(): void
     {
-        [$empresaA, $empresaB] = $this->cenarioRls();
-        $this->setTenantBanco($empresaA);
+        [$empresaA, $empresaB, , , $contextoA] = $this->cenarioRls();
+        $this->setTenantBanco($contextoA);
         $dados = Cliente::factory()->make([
             'empresa_id' => $empresaB->id,
             'grupo_id' => $empresaB->grupo_id,
@@ -176,7 +176,7 @@ class RlsCoberturaTest extends TestCase
             ->all();
     }
 
-    /** @return array{Empresa,Empresa,Cliente,Cliente} */
+    /** @return array{Empresa,Empresa,Cliente,Cliente,array{tenant_account_id:int,tenant_membership_id:int}} */
     private function cenarioRls(): array
     {
         $owner = DB::connection('pgsql_owner');
@@ -198,12 +198,49 @@ class RlsCoberturaTest extends TestCase
             'grupo_id' => $grupoB, 'razao_social' => 'Empresa RLS B',
             'ativo' => true, 'created_at' => $agora, 'updated_at' => $agora,
         ]);
+        $tenantAId = $owner->table('tenant_accounts')->insertGetId([
+            'legal_name' => 'Tenant RLS A '.fake()->uuid(), 'status' => 'ACTIVE',
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $tenantBId = $owner->table('tenant_accounts')->insertGetId([
+            'legal_name' => 'Tenant RLS B '.fake()->uuid(), 'status' => 'ACTIVE',
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $userAId = $owner->table('users')->insertGetId([
+            'name' => 'Usuario RLS A '.fake()->uuid(), 'email' => fake()->unique()->safeEmail(),
+            'password' => '$2y$12$rlsRuntimeOnlyNotARealPasswordHash000000000000000000000',
+            'empresa_id' => $empresaAId, 'grupo_id' => $grupoA, 'ativo' => true,
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $membershipAId = $owner->table('tenant_memberships')->insertGetId([
+            'tenant_account_id' => $tenantAId, 'user_id' => $userAId, 'status' => 'ACTIVE',
+            'approved_at' => $agora, 'approval_evidence_ref' => 'rls-a',
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $companyAId = $owner->table('tenant_companies')->insertGetId([
+            'tenant_account_id' => $tenantAId, 'empresa_id' => $empresaAId, 'status' => 'APPROVED',
+            'approved_at' => $agora, 'ownership_evidence_ref' => 'rls-a',
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $companyBId = $owner->table('tenant_companies')->insertGetId([
+            'tenant_account_id' => $tenantBId, 'empresa_id' => $empresaBId, 'status' => 'APPROVED',
+            'approved_at' => $agora, 'ownership_evidence_ref' => 'rls-b',
+            'created_at' => $agora, 'updated_at' => $agora,
+        ]);
+        $owner->table('tenant_company_grants')->insert([
+            'tenant_membership_id' => $membershipAId, 'tenant_account_id' => $tenantAId,
+            'tenant_company_id' => $companyAId, 'empresa_id' => $empresaAId,
+            'can_read' => true, 'can_operate' => true, 'approved_at' => $agora,
+            'grant_evidence_ref' => 'rls-a', 'created_at' => $agora, 'updated_at' => $agora,
+        ]);
         $clienteAId = $owner->table('clientes')->insertGetId([
             'empresa_id' => $empresaAId, 'grupo_id' => $grupoA,
+            'tenant_account_id' => $tenantAId,
             'nome' => 'Cliente RLS A', 'created_at' => $agora, 'updated_at' => $agora,
         ]);
         $clienteBId = $owner->table('clientes')->insertGetId([
             'empresa_id' => $empresaBId, 'grupo_id' => $grupoB,
+            'tenant_account_id' => $tenantBId,
             'nome' => 'Cliente RLS B', 'created_at' => $agora, 'updated_at' => $agora,
         ]);
 
@@ -220,15 +257,18 @@ class RlsCoberturaTest extends TestCase
         $clienteB->id = $clienteBId;
         $clienteB->exists = true;
 
-        return [$empresaA, $empresaB, $clienteA, $clienteB];
+        return [$empresaA, $empresaB, $clienteA, $clienteB, [
+            'tenant_account_id' => $tenantAId,
+            'tenant_membership_id' => $membershipAId,
+        ]];
     }
 
-    private function setTenantBanco(?Empresa $empresa): void
+    /** @param array{tenant_account_id:int,tenant_membership_id:int}|null $contexto */
+    private function setTenantBanco(?array $contexto): void
     {
-        DB::select('SELECT set_config(?, ?, false), set_config(?, ?, false), set_config(?, ?, false)', [
-            'app.empresa_id', $empresa ? (string) $empresa->id : '',
-            'app.grupo_id', $empresa ? (string) $empresa->grupo_id : '',
-            'app.empresas_visiveis', $empresa ? (string) $empresa->id : '',
+        DB::select('SELECT set_config(?, ?, false), set_config(?, ?, false)', [
+            'app.tenant_account_id', $contexto ? (string) $contexto['tenant_account_id'] : '',
+            'app.tenant_membership_id', $contexto ? (string) $contexto['tenant_membership_id'] : '',
         ]);
     }
 }

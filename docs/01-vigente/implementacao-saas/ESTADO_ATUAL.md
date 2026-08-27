@@ -292,3 +292,23 @@ F0-05.03/04/05: entrypoint e Compose fail-closed aprovados; Redis real negou an�
 F0-05.06/09: Reverb incompleto bloqueado; contrato completo aprovado; OPcache `Off` em produção e `On` em homologação. Ver `F0_05_06_09_REVERB_OPCACHE.md`.
 
 F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e zero skip; contexto ausente passou a negar; bases/imagens/promoção/rollback usam digest e SBOM foi gerado. Ver `F0_05_07_08_POSTGRESQL_RLS_E_REPRODUTIBILIDADE.md`.
+
+## Atualizacao de retomada - 2026-08-27 (RLS canonica COMPANY)
+
+- O microlote F1-06/F1-10 iniciou a conversao efetiva das policies somente nas
+  tabelas COMPANY que possuem `empresa_id`. A migration
+  `2026_08_29_000800_backfill_and_protect_company_tenant_keys.php` preenche
+  `tenant_account_id` exclusivamente pelo `TenantCompany APPROVED`, recusa
+  divergencia preexistente e instala policy canonica de leitura/escrita.
+- Prova em PostgreSQL 16 descartavel: migration aplicada com `pgsql_owner`;
+  `RlsCoberturaTest` com a role `erp_app` aprovou 6 testes/350 assertions, sem
+  skip. O ensaio de backfill confirmou que uma linha sem chave recebeu o tenant
+  exatamente do vinculo aprovado.
+- A role runtime da homologacao foi conferida somente-leitura: `erp_app`,
+  `rolsuper=false`, `rolbypassrls=false`. App e worker estao no release
+  `15e247a`; o pre-cutover remoto continua aprovado, mas ele nao substitui o
+  gate F1 completo.
+- Arquivo preexistente intocavel: `erp-novo/perda.sql`.
+- Proximo microlote: tratar as tabelas COMPANY sem `empresa_id` sem inferir
+  tenant por `grupo_id`, e converter os jobs cron/ETL que hoje nao tem ator
+  tenant declarado. Nao declarar F1 concluida antes dessa recertificacao.
