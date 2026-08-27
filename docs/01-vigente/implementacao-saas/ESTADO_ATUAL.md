@@ -360,3 +360,15 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Proximo passo: push do reparo, acompanhar CI e somente apos deploy executar
   qualquer preview documental em homologacao. `erp-novo/perda.sql` segue fora
   dos commits.
+
+## Atualizacao de retomada - 2026-08-27 (deploy F1 group-scoped)
+
+- CI e deploy de homologacao aprovados no SHA `4f4390c`
+  (`fix(ci): make postgres migration chain idempotent`).
+- A release criou somente a estrutura, funcoes e policy da ponte. Ela nao criou
+  `tenant_legacy_group_scopes`, nao fez backfill e nao substituiu as policies
+  das configuracoes legadas: essas acoes continuam condicionadas ao JSON
+  documental e ao comando explicito de protecao.
+- Proximo microlote seguro: inventariar o agregado `CadastroApoio` restante e
+  separar cadastros de plataforma daqueles que realmente precisam da ponte
+  documental, sem promover `grupo_id` ou dados Dubena a regra SaaS.
