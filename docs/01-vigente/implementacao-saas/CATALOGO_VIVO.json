@@ -7,6 +7,28 @@
     },
     "schema": [
         {
+            "name": "_bkp_autocadastro_20260820",
+            "owner": "postgres",
+            "rls_enabled": false,
+            "rls_forced": false,
+            "columns": [
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "id", "data_type": "bigint", "is_nullable": "NO", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "empresa_id", "data_type": "bigint", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "grupo_id", "data_type": "bigint", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "placa", "data_type": "character varying", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "descricao", "data_type": "character varying", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "imei", "data_type": "character varying", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "ativo", "data_type": "boolean", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "created_at", "data_type": "timestamp without time zone", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "updated_at", "data_type": "timestamp without time zone", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "tipo_id", "data_type": "bigint", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "motorista", "data_type": "character varying", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "km_atual", "data_type": "numeric", "is_nullable": "YES", "column_default": null},
+                {"table_name": "_bkp_autocadastro_20260820", "column_name": "deviceid", "data_type": "character varying", "is_nullable": "YES", "column_default": null}
+            ],
+            "policies": []
+        },
+        {
             "name": "agencias",
             "owner": "postgres",
             "rls_enabled": true,
@@ -19652,6 +19674,24 @@
                     "with_check": "((NULLIF(current_setting('app.empresa_id'::text, true), ''::text) IS NOT NULL) AND (empresa_id = (NULLIF(current_setting('app.empresa_id'::text, true), ''::text))::integer))"
                 }
             ]
+        },
+        {
+            "name": "tenant_staging_artifacts",
+            "owner": "postgres",
+            "rls_enabled": false,
+            "rls_forced": false,
+            "columns": [
+                {"table_name": "tenant_staging_artifacts", "column_name": "id", "data_type": "bigint", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "tenant_account_id", "data_type": "bigint", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "owner", "data_type": "character varying", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "purpose", "data_type": "character varying", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "payload", "data_type": "json", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "expires_at", "data_type": "timestamp without time zone", "is_nullable": "NO", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "purged_at", "data_type": "timestamp without time zone", "is_nullable": "YES", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "created_at", "data_type": "timestamp without time zone", "is_nullable": "YES", "column_default": null},
+                {"table_name": "tenant_staging_artifacts", "column_name": "updated_at", "data_type": "timestamp without time zone", "is_nullable": "YES", "column_default": null}
+            ],
+            "policies": []
         }
     ],
     "models": [
