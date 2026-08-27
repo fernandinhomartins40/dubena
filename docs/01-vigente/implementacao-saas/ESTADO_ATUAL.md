@@ -166,6 +166,17 @@ Alterações preexistentes que não podem ser incorporadas, sobrescritas ou reve
   inventariar e converter os jobs legados que ainda carregam IDs sem
   TenantEnvelope. O gate F1 continua aberto.
 
+## Atualizacao de retomada - 2026-08-27 (pre-check remoto)
+
+- O commit `88b45fd` foi implantado em homologacao. O comando somente-leitura
+  `saas:f1:pre-cutover-check --connection=pgsql_owner` retornou exit 0.
+- A verificacao comprovou schema e funcoes estruturais da fronteira aprovada.
+  Uma empresa legada sem `TenantCompany APPROVED` foi apenas reportada como
+  fora da fronteira SaaS; ela nao foi classificada, vinculada ou tratada por
+  regra especifica do produto.
+- O proximo microlote de F1 e converter os jobs legados que ainda recebem IDs
+  de empresa sem serializar e restaurar `TenantEnvelope`.
+
 ## Limite/janela
 
 - Em 2026-08-25 16:39 (America/Sao_Paulo), três subagentes de implementação
