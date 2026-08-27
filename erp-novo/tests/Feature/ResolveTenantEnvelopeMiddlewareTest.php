@@ -37,4 +37,16 @@ class ResolveTenantEnvelopeMiddlewareTest extends TestCase
         $this->getJson('/_f1-envelope')->assertOk()->assertJson(['tenant_account_id' => $tenant->id]);
         $this->assertNull(app(TenantEnvelopeRuntime::class)->current());
     }
+
+    public function test_flag_desligada_preserva_rota_autenticada_sem_mapping_saas(): void
+    {
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+
+        Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas'])->get('/_f1-envelope-disabled', fn () => response()->json(['ok' => true]));
+        Sanctum::actingAs($user);
+
+        $this->getJson('/_f1-envelope-disabled')->assertOk()->assertJson(['ok' => true]);
+    }
 }
