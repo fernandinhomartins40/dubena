@@ -3,7 +3,10 @@
 namespace App\Domain\Mobile\Jobs;
 
 use App\Domain\Mobile\Contracts\PushTransport;
-use App\Domain\Tenant\TenantAwareJob;
+use App\Domain\Tenant\TenantAccessDeniedException;
+use App\Domain\Tenant\TenantEnvelopeDispatch;
+use App\Domain\Tenant\TenantEnvelopeJob;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +28,7 @@ use Illuminate\Support\Facades\Log;
  */
 class EnviarPushJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, TenantAwareJob;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, TenantEnvelopeJob;
 
     /** @var int tentativas antes de falhar (entrega de push é best-effort). */
     public int $tries = 3;
@@ -42,18 +45,32 @@ class EnviarPushJob implements ShouldQueue
         public string $titulo,
         public string $corpo,
         public array $dados = [],
+        public bool $platformJob = false,
     ) {
-        $this->capturarTenant();
+        if (config('saas_transformation.enforcement.tenant_envelope') && ! $this->platformJob) {
+            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+        }
     }
 
     /** Uma chamada de push pendurada não pode segurar o worker. */
     public int $timeout = 60;
 
-    public function handle(PushTransport $transport): void
+    public function handle(PushTransport $transport, ?TenantEnvelopeRuntime $runtime = null): void
     {
-        $this->aplicarTenant();
+        if ($this->tenantEnvelopePayload !== null) {
+            $this->withinTenantEnvelope($runtime ?? app(TenantEnvelopeRuntime::class), fn (): mixed => $transport->enviar($this->tokens, $this->titulo, $this->corpo, $this->dados));
 
+            return;
+        }
+        if (config('saas_transformation.enforcement.tenant_envelope') && ! $this->platformJob) {
+            throw new TenantAccessDeniedException('Push de negocio sem TenantEnvelope serializado.');
+        }
         $transport->enviar($this->tokens, $this->titulo, $this->corpo, $this->dados);
+    }
+
+    public static function forPlatform(array $tokens, string $titulo, string $corpo, array $dados = []): self
+    {
+        return new self($tokens, $titulo, $corpo, $dados, true);
     }
 
     /**

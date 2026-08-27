@@ -21,13 +21,14 @@ use App\Models\Mobile\AppDevice;
 class PushService
 {
     /** Enfileira push para todos os devices ativos de um usuário. @return int tokens enfileirados */
-    public function paraUsuario(int $userId, string $titulo, string $corpo, array $dados = []): int
+    public function paraUsuario(int $userId, string $titulo, string $corpo, array $dados = [], bool $platformJob = false): int
     {
+        $platformJob = $platformJob || app()->runningInConsole();
         $tokens = AppDevice::query()
             ->where('user_id', $userId)->where('ativo', true)
             ->whereNotNull('push_token')->pluck('push_token')->all();
 
-        return $this->enviar($tokens, $titulo, $corpo, $dados);
+        return $this->enviar($tokens, $titulo, $corpo, $dados, $platformJob);
     }
 
     /**
@@ -36,14 +37,16 @@ class PushService
      * @param  list<string>  $tokens
      * @return int tokens enfileirados
      */
-    public function enviar(array $tokens, string $titulo, string $corpo, array $dados = []): int
+    public function enviar(array $tokens, string $titulo, string $corpo, array $dados = [], bool $platformJob = false): int
     {
         $tokens = array_values(array_filter($tokens));
         if (empty($tokens)) {
             return 0;
         }
 
-        EnviarPushJob::dispatch($tokens, $titulo, $corpo, $dados);
+        dispatch($platformJob
+            ? EnviarPushJob::forPlatform($tokens, $titulo, $corpo, $dados)
+            : new EnviarPushJob($tokens, $titulo, $corpo, $dados));
 
         return count($tokens);
     }

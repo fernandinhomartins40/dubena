@@ -61,18 +61,10 @@ class PushAssincronoTest extends TestCase
         $this->assertSame(0, app(PushTransport::class)->enviar(['a', 'b'], 't', 'c'));
     }
 
-    public function test_job_captura_e_reaplica_o_tenant(): void
+    public function test_job_sem_enforcement_nao_depende_do_contexto_legado(): void
     {
-        // Simula um dispatch dentro de um tenant ativo.
-        app(TenantContext::class)->set(42, 7);
         $job = new EnviarPushJob(['tok'], 't', 'c');
-        $this->assertSame(42, $job->tenantEmpresaId);
-        $this->assertSame(7, $job->tenantGrupoId);
-
-        // Limpa o contexto e roda o job: ele deve REPOR o tenant capturado.
-        app(TenantContext::class)->clear();
+        $this->assertNull($job->tenantEnvelopePayload);
         $job->handle(new FakePushTransport);
-        $this->assertSame(42, app(TenantContext::class)->empresaId());
-        $this->assertSame(7, app(TenantContext::class)->grupoId());
     }
 }
