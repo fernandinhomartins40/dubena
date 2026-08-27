@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Tenant\TenantMappingImporter;
+use App\Domain\Tenant\TenantMembershipMappingImporter;
 use App\Models\Empresa;
 use App\Models\Saas\TenantCompanyGrant;
 use App\Models\User;
@@ -52,5 +53,40 @@ class TenantMappingImporterTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         app(TenantMappingImporter::class)->preview(['tenants' => []]);
+    }
+
+    public function test_importa_membership_documentada_sem_alterar_owner_existente(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $owner = User::factory()->create();
+        $member = User::factory()->create(['ativo' => true]);
+        app(TenantMappingImporter::class)->apply([
+            'tenants' => [[
+                'legal_name' => 'Conta comprovada',
+                'document' => '04190715000105',
+                'classification_evidence_ref' => 'legal-doc-1',
+                'companies' => [['empresa_id' => $empresa->id, 'ownership_evidence_ref' => 'legal-doc-2']],
+                'memberships' => [[
+                    'user_id' => $owner->id,
+                    'membership_role' => 'OWNER',
+                    'approval_evidence_ref' => 'legal-doc-3',
+                    'grants' => [['empresa_id' => $empresa->id, 'can_read' => true, 'can_operate' => true, 'grant_evidence_ref' => 'legal-doc-4']],
+                ]],
+            ]],
+        ]);
+
+        $plan = ['tenant_document' => '04190715000105', 'memberships' => [[
+            'user_id' => $member->id,
+            'membership_role' => 'MEMBER',
+            'approval_evidence_ref' => 'legacy-access-snapshot',
+            'grants' => [['empresa_id' => $empresa->id, 'can_read' => true, 'can_operate' => true, 'grant_evidence_ref' => 'legacy-access-snapshot']],
+        ]]];
+
+        $importer = app(TenantMembershipMappingImporter::class);
+        $this->assertSame(['memberships' => 1, 'grants' => 1], $importer->preview($plan));
+        $importer->apply($plan);
+
+        $this->assertDatabaseHas('tenant_memberships', ['user_id' => $member->id, 'membership_role' => 'MEMBER']);
+        $this->assertDatabaseCount('tenant_company_grants', 2);
     }
 }
