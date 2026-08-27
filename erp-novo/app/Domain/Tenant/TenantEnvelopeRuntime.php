@@ -14,6 +14,22 @@ final class TenantEnvelopeRuntime
         return $this->envelope;
     }
 
+    /** Executa o bootstrap de fronteira para um usuário já autenticado. */
+    public function withAuthenticatedUser(int $userId, callable $callback): mixed
+    {
+        if ($userId <= 0) {
+            throw new TenantAccessDeniedException('Bootstrap do TenantEnvelope exige usuário autenticado válido.');
+        }
+
+        $this->applyAuthenticatedUser($userId);
+
+        try {
+            return $callback();
+        } finally {
+            $this->clearAuthenticatedUser();
+        }
+    }
+
     /** @template T @param callable(): T $callback @return T */
     public function run(TenantEnvelope $envelope, callable $callback): mixed
     {
@@ -56,5 +72,23 @@ final class TenantEnvelopeRuntime
         }
 
         DB::statement("SELECT set_config('app.tenant_account_id', '', false), set_config('app.tenant_membership_id', '', false)");
+    }
+
+    private function applyAuthenticatedUser(int $userId): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::statement('SELECT set_config(?, ?, false)', ['app.authenticated_user_id', (string) $userId]);
+    }
+
+    private function clearAuthenticatedUser(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::statement("SELECT set_config('app.authenticated_user_id', '', false)");
     }
 }

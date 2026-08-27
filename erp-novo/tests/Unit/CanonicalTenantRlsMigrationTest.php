@@ -50,4 +50,15 @@ class CanonicalTenantRlsMigrationTest extends TestCase
         $this->assertStringContainsString('DISABLE ROW LEVEL SECURITY', $source);
         $this->assertStringContainsString('NO FORCE ROW LEVEL SECURITY', $source);
     }
+
+    public function test_fronteira_so_permite_bootstrap_do_usuario_autenticado(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001000_allow_authenticated_user_to_bootstrap_tenant_envelope.php');
+
+        $this->assertStringContainsString('app_current_authenticated_user_id', $source);
+        $this->assertStringContainsString('membership.user_id = app_current_authenticated_user_id()', $source);
+        $this->assertStringContainsString("membership.status = 'ACTIVE'", $source);
+        $this->assertStringContainsString('tenant_grant.approved_at IS NOT NULL', $source);
+        $this->assertStringContainsString('WITH CHECK (false)', $source);
+    }
 }

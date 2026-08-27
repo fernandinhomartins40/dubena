@@ -21,8 +21,7 @@ class ResolveTenantEnvelope
         private readonly TenantEnvelopeResolver $resolver,
         private readonly TenantEnvelopeRuntime $runtime,
         private readonly TenantContext $legacyContext,
-    ) {
-    }
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -37,8 +36,14 @@ class ResolveTenantEnvelope
         }
 
         $correlationId = (string) ($request->header('X-Request-Id') ?: Str::uuid());
-        $envelope = $this->resolver->resolveFor($user, $empresaId, $correlationId);
 
-        return $this->runtime->run($envelope, fn (): Response => $next($request));
+        return $this->runtime->withAuthenticatedUser(
+            (int) $user->id,
+            function () use ($user, $empresaId, $correlationId, $next, $request): Response {
+                $envelope = $this->resolver->resolveFor($user, $empresaId, $correlationId);
+
+                return $this->runtime->run($envelope, fn (): Response => $next($request));
+            },
+        );
     }
 }
