@@ -123,7 +123,7 @@ Route::get('/app/v1/marketplace/cidades', [MarketplaceController::class, 'cidade
     ->middleware('throttle:marketplace');
 
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
-Route::middleware(['auth:sanctum', 'tenant', 'throttle:api'])->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'throttle:api'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Usuário autenticado + tenant ativo (substitui o "quem sou / qual empresa" do legado).
@@ -936,7 +936,7 @@ Route::prefix('legado')
     // Ordem importa: `dialeto.legado` vem ANTES de `revenda.legado` para
     // envolvê-lo — senão o 403 da revenda divergente sai cru e o app, que só
     // entende HTTP 200, trata como falha de rede em vez de mostrar a mensagem.
-    ->middleware(['auth:sanctum', 'tenant', 'dialeto.legado:dados', 'revenda.legado'])
+    ->middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'dialeto.legado:dados', 'revenda.legado'])
     ->group(function () {
         Route::post('getPedidosPendentes', [PonteMovelAppController::class, 'pedidosPendentes']);
         Route::post('setPedidoSituacao', [PonteMovelAppController::class, 'setPedidoSituacao']);
@@ -957,7 +957,7 @@ Route::prefix('legado')
 // MovelApp que le `dados`. savePedido vira SOLICITACAO: a regra do cliente e que
 // o vendedor pede e a Central decide.
 Route::prefix('legado/nfweb')
-    ->middleware(['auth:sanctum', 'tenant', 'dialeto.legado:data', 'revenda.legado'])
+    ->middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'dialeto.legado:data', 'revenda.legado'])
     ->group(function () {
         Route::post('init', [PonteNfwebController::class, 'init']);
         Route::post('getCliente', [PonteNfwebController::class, 'getCliente']);

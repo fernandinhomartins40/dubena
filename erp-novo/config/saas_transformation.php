@@ -12,4 +12,8 @@ return [
         'migration_writes' => env('SAAS_FREEZE_MIGRATION_WRITES', true),
         'company_creation' => env('SAAS_FREEZE_COMPANY_CREATION', true),
     ],
+    'enforcement' => [
+        // Switch explicito: somente habilitar apos recertificacao F1 na homologacao.
+        'tenant_envelope' => env('SAAS_ENFORCE_TENANT_ENVELOPE', false),
+    ],
 ];

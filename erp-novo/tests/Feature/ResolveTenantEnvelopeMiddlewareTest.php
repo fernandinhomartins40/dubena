@@ -20,6 +20,8 @@ class ResolveTenantEnvelopeMiddlewareTest extends TestCase
 
     public function test_envelope_e_resolvido_no_request_e_limpo_no_final(): void
     {
+        config()->set('saas_transformation.enforcement.tenant_envelope', true);
+
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $tenant = TenantAccount::create(['legal_name' => 'Tenant middleware', 'status' => TenantAccount::STATUS_ACTIVE]);

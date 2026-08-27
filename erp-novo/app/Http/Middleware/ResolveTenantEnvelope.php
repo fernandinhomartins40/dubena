@@ -26,6 +26,10 @@ class ResolveTenantEnvelope
 
     public function handle(Request $request, Closure $next): Response
     {
+        if (! config('saas_transformation.enforcement.tenant_envelope')) {
+            return $next($request);
+        }
+
         $user = $request->user();
         $empresaId = $this->legacyContext->empresaId();
         if ($user === null || $empresaId === null) {
