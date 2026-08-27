@@ -147,6 +147,25 @@ Alterações preexistentes que não podem ser incorporadas, sobrescritas ou reve
   totais, autorizar `--apply`, habilitar `tenant.saas`, converter os jobs que
   ainda usam IDs legados e recertificar o gate F1 em PostgreSQL/runtime role.
 
+## Atualizacao de retomada - 2026-08-27 (America/Sao_Paulo)
+
+- O schema de fronteira F1 e a protecao RLS de `tenant_companies` e
+  `tenant_company_grants` foram versionados e aplicados na copia de homologacao.
+- O mapping documental Dubena foi validado em dry-run e aplicado uma unica vez:
+  1 tenant, 11 empresas, 1 membership OWNER para Vilso (user 3) e 11 grants.
+  A empresa de teste ficou fora do mapping. Nao reaplicar o importador.
+- `tenant.saas` permanece somente como alias: nao foi associado a rotas, pois os
+  jobs legados e a recertificacao do gate F1 ainda nao foram concluidos.
+- Duas tabelas observadas na copia (`_bkp_autocadastro_20260820` e
+  `tenant_staging_artifacts`) foram classificadas como STAGING. O catalogo vivo
+  foi corrigido no commit `3f1dcc8`, enviado para `main`; o teste focal do
+  manifesto passou (3 testes, 4 assertions). A CI desse commit deve concluir
+  antes de qualquer verificacao remota dependente dele.
+- Proximo microlote: confirmar a CI/deploy de `3f1dcc8`, executar
+  `saas:f1:pre-cutover-check` com `pgsql_owner` na copia e, em seguida,
+  inventariar e converter os jobs legados que ainda carregam IDs sem
+  TenantEnvelope. O gate F1 continua aberto.
+
 ## Limite/janela
 
 - Em 2026-08-25 16:39 (America/Sao_Paulo), três subagentes de implementação
