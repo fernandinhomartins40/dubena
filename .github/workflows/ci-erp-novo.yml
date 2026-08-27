@@ -203,11 +203,3 @@ jobs:
           REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
           RELEASE_ID: ${{ github.sha }}
         run: sh docker/build-release.sh
-
-      - name: Publicar manifesto e SBOM como evidência
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: erpnovo-release-${{ github.sha }}
-          path: erp-novo/release-artifacts/${{ github.sha }}/
-          if-no-files-found: error
-          retention-days: 90
