@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Migracao\Migracao;
+use App\Models\Saas\PlatformAdmin;
 use App\Services\Migracao\MigracaoService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -17,6 +18,9 @@ use Illuminate\Foundation\Queue\Queueable;
 class ExecutarMigracaoJob implements ShouldQueue
 {
     use Queueable;
+
+    /** ETL é um ato de plataforma declarado, nunca um bypass implícito de tenant. */
+    public bool $platformJob = true;
 
     public int $timeout = 21600;   // 6h: carga de milhões de linhas
 
@@ -36,6 +40,7 @@ class ExecutarMigracaoJob implements ShouldQueue
     public function __construct(
         public int $migracaoId,
         public array $apenas = [],
+        public int $platformAdminId = 0,
     ) {
         // Fila dedicada definida no CONSTRUTOR, não como propriedade: a trait
         // `Illuminate\Bus\Queueable` já declara `$connection` e `$queue`, e
@@ -49,6 +54,13 @@ class ExecutarMigracaoJob implements ShouldQueue
         $migracao = Migracao::find($this->migracaoId);
         if ($migracao === null) {
             return;
+        }
+        $admin = PlatformAdmin::query()->find($this->platformAdminId);
+        if ($this->platformAdminId <= 0
+            || $migracao->platform_admin_id !== $this->platformAdminId
+            || $admin === null
+            || ! $admin->ativo) {
+            throw new \LogicException('Job de migração de plataforma sem administrador ativo e correspondente.');
         }
 
         $migracao->update([

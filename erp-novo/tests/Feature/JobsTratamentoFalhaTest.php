@@ -114,4 +114,13 @@ class JobsTratamentoFalhaTest extends TestCase
         $this->assertStringContainsString('withinTenantEnvelope', $source);
         $this->assertStringContainsString('sem TenantEnvelope serializado', $source);
     }
+
+    public function test_etl_declara_administrador_de_plataforma_em_vez_de_bypass_implicito(): void
+    {
+        $source = file_get_contents((new ReflectionClass(ExecutarMigracaoJob::class))->getFileName());
+
+        $this->assertStringContainsString('public bool $platformJob = true', $source);
+        $this->assertStringContainsString('public int $platformAdminId', $source);
+        $this->assertStringContainsString('administrador ativo e correspondente', $source);
+    }
 }

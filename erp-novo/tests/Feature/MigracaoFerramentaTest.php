@@ -144,7 +144,7 @@ class MigracaoFerramentaTest extends TestCase
             ->postJson("/api/superadmin/migracoes/{$id}/executar")
             ->assertStatus(202);
 
-        Queue::assertPushed(ExecutarMigracaoJob::class);
+        Queue::assertPushed(ExecutarMigracaoJob::class, fn (ExecutarMigracaoJob $job): bool => $job->platformJob && $job->platformAdminId > 0);
         $this->assertSame(Migracao::STATUS_MIGRANDO, Migracao::find($id)->status);
     }
 
@@ -203,15 +203,17 @@ class MigracaoFerramentaTest extends TestCase
             }
         });
 
+        $admin = PlatformAdmin::factory()->create();
         $migracao = Migracao::create([
             'descricao' => 'Teste de falha parcial',
             'origem_tipo' => 'erp_pg',
             'config' => $this->payload()['config'],
             'status' => Migracao::STATUS_PENDENTE,
+            'platform_admin_id' => $admin->id,
         ]);
 
         try {
-            (new ExecutarMigracaoJob($migracao->id, ['estados']))->handle(app(MigracaoService::class));
+            (new ExecutarMigracaoJob($migracao->id, ['estados'], $admin->id))->handle(app(MigracaoService::class));
             $this->fail('O job deveria propagar a falha da etapa.');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('estados', $e->getMessage());

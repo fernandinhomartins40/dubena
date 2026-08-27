@@ -182,7 +182,7 @@ class MigracaoController extends Controller
             'erro' => null,
         ]);
 
-        ExecutarMigracaoJob::dispatch($migracao->id, $dados['apenas'] ?? []);
+        ExecutarMigracaoJob::dispatch($migracao->id, $dados['apenas'] ?? [], (int) $request->user()->id);
 
         return response()->json(['data' => ['status' => $migracao->status]], 202);
     }
