@@ -66,6 +66,10 @@ return new class extends Migration
             (array) config('saas_table_classification'),
             fn (array $entry): bool => $entry['class'] === 'COMPANY',
         ));
+        // Auditoria de login ocorre antes de existir identidade/envelope. Estas
+        // tabelas possuem política própria de retenção e não são fronteira de
+        // leitura de negócio; protegê-las com grant operacional quebra o login.
+        $classified = array_values(array_diff($classified, ['audit_logs', 'login_logs']));
         $available = DB::table('information_schema.columns')
             ->where('table_schema', 'public')
             ->whereIn('column_name', ['empresa_id', 'tenant_account_id'])

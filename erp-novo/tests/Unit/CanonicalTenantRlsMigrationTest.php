@@ -39,5 +39,15 @@ class CanonicalTenantRlsMigrationTest extends TestCase
         $this->assertStringContainsString('app_tenant_can_read(tenant_account_id, empresa_id)', $source);
         $this->assertStringContainsString('app_tenant_can_operate(tenant_account_id, empresa_id)', $source);
         $this->assertStringNotContainsString('grupo_id', $source);
+        $this->assertStringContainsString("['audit_logs', 'login_logs']", $source);
+    }
+
+    public function test_logs_de_auditoria_do_bootstrap_nao_exigem_envelope(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_000900_restore_bootstrap_audit_log_policy.php');
+
+        $this->assertStringContainsString("['audit_logs', 'login_logs']", $source);
+        $this->assertStringContainsString('DISABLE ROW LEVEL SECURITY', $source);
+        $this->assertStringContainsString('NO FORCE ROW LEVEL SECURITY', $source);
     }
 }
