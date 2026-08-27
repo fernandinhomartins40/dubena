@@ -15,6 +15,17 @@ web_tag="${REGISTRY_PREFIX%/}/erpnovo-web:${RELEASE_ID}"
 
 mkdir -p "$artifacts"
 
+# O builder padrao pode usar o driver `docker`, que nao publica attestations
+# (provenance/SBOM). A release exige essas evidencias, portanto selecionamos um
+# builder BuildKit isolado e compativel antes de qualquer build.
+builder_name="erpnovo-release-builder"
+if ! docker buildx inspect "$builder_name" >/dev/null 2>&1; then
+    docker buildx create --name "$builder_name" --driver docker-container --use
+else
+    docker buildx use "$builder_name"
+fi
+docker buildx inspect --bootstrap >/dev/null
+
 build_push() {
     target="$1"
     tag="$2"
