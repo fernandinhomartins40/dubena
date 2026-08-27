@@ -44,7 +44,11 @@ trait ResolveSenhaSeed
      */
     protected function senhaSeed(string $envVar, string $rotulo): string
     {
-        $senha = (string) env($envVar, '');
+        // `env()` e carregado no bootstrap e pode manter o valor inicial do
+        // dotenv. A variavel de processo tem precedencia para permitir que o
+        // deploy e os testes injetem a senha sem depender de cache de config.
+        $processValue = getenv($envVar);
+        $senha = $processValue === false ? (string) env($envVar, '') : $processValue;
 
         if ($senha !== '') {
             if (app()->environment('production') && mb_strlen($senha) < $this->minimoSenhaSeed) {

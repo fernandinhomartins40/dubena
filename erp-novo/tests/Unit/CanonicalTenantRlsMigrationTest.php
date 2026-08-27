@@ -17,4 +17,15 @@ class CanonicalTenantRlsMigrationTest extends TestCase
         $this->assertStringContainsString('SECURITY DEFINER SET search_path = public, pg_temp', $migration);
         $this->assertStringContainsString('approved_at IS NOT NULL', $migration);
     }
+
+    public function test_vinculos_de_empresa_da_fronteira_recebem_policy_canonica(): void
+    {
+        $source = file_get_contents(base_path('database/migrations/2026_08_29_000700_protect_tenant_boundary_company_links.php'));
+
+        $this->assertStringContainsString("'tenant_companies', 'tenant_company_grants'", $source);
+        $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $source);
+        $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $source);
+        $this->assertStringContainsString('app_tenant_can_read(tenant_account_id, empresa_id)', $source);
+        $this->assertStringContainsString('app_tenant_can_operate(tenant_account_id, empresa_id)', $source);
+    }
 }
