@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Domain\Cliente\GeocodificarClienteJob;
+use App\Domain\Geografico\ImportarLogradourosJob;
 use App\Domain\Logistica\Jobs\AtribuirPedidoJob;
 use App\Domain\Mobile\Jobs\EnviarPushJob;
 use App\Domain\Relatorio\NotificarEstoqueBaixoJob;
+use App\Jobs\ExecutarMigracaoJob;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use ReflectionClass;
 use Tests\TestCase;
@@ -33,7 +35,8 @@ class JobsTratamentoFalhaTest extends TestCase
             GeocodificarClienteJob::class,
             AtribuirPedidoJob::class,
             EnviarPushJob::class,
-            \App\Jobs\ExecutarMigracaoJob::class,
+            ImportarLogradourosJob::class,
+            ExecutarMigracaoJob::class,
         ];
     }
 
@@ -100,5 +103,15 @@ class JobsTratamentoFalhaTest extends TestCase
                 "{$classe} deixou de ser ShouldQueue.",
             );
         }
+    }
+
+    public function test_importacao_geografica_carrega_contrato_de_envelope(): void
+    {
+        $source = file_get_contents((new ReflectionClass(ImportarLogradourosJob::class))->getFileName());
+
+        $this->assertStringContainsString('TenantEnvelopeJob', $source);
+        $this->assertStringContainsString('captureTenantEnvelope', $source);
+        $this->assertStringContainsString('withinTenantEnvelope', $source);
+        $this->assertStringContainsString('sem TenantEnvelope serializado', $source);
     }
 }

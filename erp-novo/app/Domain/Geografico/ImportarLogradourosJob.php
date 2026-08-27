@@ -2,6 +2,11 @@
 
 namespace App\Domain\Geografico;
 
+use App\Domain\Tenant\TenantAccessDeniedException;
+use App\Domain\Tenant\TenantEnvelope;
+use App\Domain\Tenant\TenantEnvelopeDispatch;
+use App\Domain\Tenant\TenantEnvelopeJob;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\ImportacaoLogradouro;
 use Illuminate\Bus\Queueable;
@@ -28,6 +33,7 @@ class ImportarLogradourosJob implements ShouldQueue
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+    use TenantEnvelopeJob;
 
     /**
      * Duas tentativas.
@@ -46,9 +52,32 @@ class ImportarLogradourosJob implements ShouldQueue
     /** Cidade grande com muito refino leva minutos; o teto evita o job eterno. */
     public int $timeout = 1800;
 
-    public function __construct(public int $importacaoId) {}
+    public function __construct(public int $importacaoId)
+    {
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+        }
+    }
 
-    public function handle(ImportarLogradouros $importador): void
+    public function handle(ImportarLogradouros $importador, ?TenantEnvelopeRuntime $runtime = null): void
+    {
+        if ($this->tenantEnvelopePayload !== null) {
+            $this->withinTenantEnvelope($runtime ?? app(TenantEnvelopeRuntime::class), function () use ($importador): void {
+                $envelope = TenantEnvelope::fromPayload($this->tenantEnvelopePayload);
+                $envelope->requireOperation($envelope->activeEmpresaId);
+                $this->executar($importador);
+            });
+
+            return;
+        }
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            throw new TenantAccessDeniedException('Importação de logradouros sem TenantEnvelope serializado.');
+        }
+
+        $this->executar($importador);
+    }
+
+    private function executar(ImportarLogradouros $importador): void
     {
         $registro = ImportacaoLogradouro::withoutGrupo()->find($this->importacaoId);
 
@@ -97,6 +126,15 @@ class ImportarLogradourosJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    /** Registra a desistência final mesmo se o worker não conseguir atualizar o staging. */
+    public function failed(\Throwable $e): void
+    {
+        Log::error('logradouros: importação desistiu após as tentativas', [
+            'importacao_id' => $this->importacaoId,
+            'erro' => $e->getMessage(),
+        ]);
     }
 
     /** A base de CEP conhece o MUNICÍPIO; distrito vem entre parênteses. */
