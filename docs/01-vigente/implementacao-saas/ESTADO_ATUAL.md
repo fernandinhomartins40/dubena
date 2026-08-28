@@ -529,3 +529,23 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `F1_12_JOBS_EVENTOS_WEBSOCKETS.md`.
 - Continuam abertos: itens 4 (demais grafos pai-filho), 5 (rollback/snapshot de
   grants) e 1 (execucao em homologacao com role de runtime).
+
+## Atualizacao de retomada - 2026-08-28 (grafos pai-filho)
+
+- Item 4 do gate F1 medido por `pg_constraint`: 175 FKs ligam duas tabelas com
+  chave SaaS, mas 168 tem `empresa_id` no proprio filho — a policy canonica ja
+  valida a linha na escrita, entao apontar para pai de outro tenant nao ajuda.
+  Instalar trigger nessas 168 seria custo e risco sem ganho de isolamento.
+- Dos 7 filhos sem `empresa_id`, 6 sao grafos ja cobertos pelo protetor. Sobrava
+  `sorteio_numeros.cliente_id`, provado cruzando tenants em PostgreSQL: numero
+  do tenant 901 amarrado a cliente do tenant 902.
+- Corrigido com trigger no padrao do guarda de FK financeira. Depois dela:
+  cruzamento recusado em INSERT e UPDATE, mesmo tenant aceito e numero sem dono
+  (cliente_id nulo, caso legitimo) aceito.
+- Validacao: 138 migrations do zero em PostgreSQL 16; `RlsCoberturaTest` com
+  role runtime 6 testes/354 assertions sem skip; suite integral **1.333 passes,
+  4.207 assertions, 8 skips, zero falhas**; Pint aprovado. Ver
+  `F1_13_GRAFOS_PAI_FILHO.md`.
+- Itens 2, 3 e 4 do gate estao fechados. Restam o item 5 (rollback/snapshot de
+  grants) e o item 1 (execucao em homologacao com role de runtime, que depende
+  de deploy).

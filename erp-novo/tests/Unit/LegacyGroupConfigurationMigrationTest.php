@@ -59,4 +59,42 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
         $this->assertStringContainsString('ALTER TABLE tenant_legacy_group_scopes ENABLE ROW LEVEL SECURITY', $scopePolicy);
         $this->assertStringContainsString('WITH CHECK (false)', $scopePolicy);
     }
+
+    /**
+     * Recertificacao da cobertura: estas tabelas nao tinham `empresa_id`, entao a
+     * conversao COMPANY as pulava em silencio. `transportadoras` e `malha_fiscal`
+     * seguiam na policy legada por grupo; os dois pivots estavam sem RLS alguma.
+     */
+    public function test_protetor_cobre_as_tabelas_que_a_conversao_company_pulava(): void
+    {
+        $protector = file_get_contents(dirname(__DIR__, 2).'/app/Domain/Tenant/TenantLegacyGroupConfigurationProtector.php');
+
+        $this->assertStringContainsString("'transportadoras'", $protector);
+        $this->assertStringContainsString("'malha_fiscal'", $protector);
+
+        // Pivots sem coluna de escopo: o tenant vem do pai escopado por empresa,
+        // e por isso a policy usa as funcoes COMPANY, nao as de grupo.
+        $this->assertStringContainsString('COMPANY_CHILDREN', $protector);
+        $this->assertStringContainsString("'produto_operacao_fiscal' => ['produtos', 'produto_id']", $protector);
+        $this->assertStringContainsString('protectCompanyChildTable', $protector);
+        $this->assertStringContainsString('app_tenant_can_operate(parent_row.tenant_account_id, parent_row.empresa_id)', $protector);
+    }
+
+    /**
+     * Item 4 do gate: dos 175 relacionamentos entre tabelas com chave SaaS, 168
+     * tem `empresa_id` no filho (a policy ja valida na escrita) e 6 dos 7
+     * restantes sao grafos ja cobertos. `sorteio_numeros.cliente_id` era o
+     * unico sem guarda — provado cruzando tenants em PostgreSQL.
+     */
+    public function test_numero_de_sorteio_nao_aponta_para_cliente_de_outro_tenant(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001700_enforce_sorteio_numero_cliente_tenant.php');
+
+        $this->assertStringContainsString('app_enforce_sorteio_numero_cliente_tenant', $source);
+        $this->assertStringContainsString('sorteio_numeros_cliente_tenant', $source);
+        $this->assertStringContainsString('UPDATE OF tenant_account_id, cliente_id', $source);
+        $this->assertStringContainsString("ERRCODE = '23514'", $source);
+        // Numero sem dono e legitimo: nao pode ser recusado.
+        $this->assertStringContainsString('IF NEW.cliente_id IS NULL THEN', $source);
+    }
 }
