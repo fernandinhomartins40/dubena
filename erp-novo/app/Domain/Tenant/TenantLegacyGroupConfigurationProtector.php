@@ -100,6 +100,25 @@ final class TenantLegacyGroupConfigurationProtector
         return ['tables' => count(self::TABLES), 'rows' => $rows];
     }
 
+    /** @return array{tables:int,rows:int,without_scope:int,drift:int} */
+    public function preview(): array
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            throw new LogicException('A protecao de configuracao por grupo exige PostgreSQL efetivo.');
+        }
+
+        $rows = 0;
+        $withoutScope = 0;
+        $drift = 0;
+        foreach (self::TABLES as $table) {
+            $rows += (int) DB::table($table)->count();
+            $withoutScope += (int) DB::scalar("SELECT count(*) FROM {$table} configuration_row LEFT JOIN tenant_legacy_group_scopes scope ON scope.grupo_id = configuration_row.grupo_id AND scope.status = 'APPROVED' WHERE scope.id IS NULL");
+            $drift += (int) DB::scalar("SELECT count(*) FROM {$table} configuration_row JOIN tenant_legacy_group_scopes scope ON scope.grupo_id = configuration_row.grupo_id AND scope.status = 'APPROVED' WHERE configuration_row.tenant_account_id IS NOT NULL AND configuration_row.tenant_account_id <> scope.tenant_account_id");
+        }
+
+        return ['tables' => count(self::TABLES), 'rows' => $rows, 'without_scope' => $withoutScope, 'drift' => $drift];
+    }
+
     private function protectChildTable(string $child, string $parent, string $foreignKey): int
     {
         DB::statement("UPDATE {$child} child_row SET tenant_account_id = parent_row.tenant_account_id FROM {$parent} parent_row WHERE parent_row.id = child_row.{$foreignKey} AND child_row.tenant_account_id IS NULL");

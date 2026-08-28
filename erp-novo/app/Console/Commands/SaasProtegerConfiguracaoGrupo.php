@@ -15,16 +15,10 @@ class SaasProtegerConfiguracaoGrupo extends Command
 
     public function handle(TenantLegacyGroupConfigurationProtector $protector): int
     {
-        if (! $this->option('apply')) {
-            $this->error('Comando recusado: revise o JSON documental e informe --apply para alterar policies.');
-
-            return self::FAILURE;
-        }
-
         $previousConnection = DB::getDefaultConnection();
         DB::setDefaultConnection('pgsql_owner');
         try {
-            $result = $protector->protect();
+            $result = $this->option('apply') ? $protector->protect() : $protector->preview();
         } catch (LogicException $exception) {
             $this->error($exception->getMessage());
 
@@ -33,7 +27,7 @@ class SaasProtegerConfiguracaoGrupo extends Command
             DB::setDefaultConnection($previousConnection);
         }
 
-        $this->info('Protecao aplicada: '.json_encode($result));
+        $this->info(($this->option('apply') ? 'Protecao aplicada' : 'Preview sem alteracoes').': '.json_encode($result));
 
         return self::SUCCESS;
     }
