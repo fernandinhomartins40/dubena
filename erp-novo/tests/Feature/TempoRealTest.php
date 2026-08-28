@@ -143,6 +143,39 @@ class TempoRealTest extends TestCase
     }
 
     /**
+     * F1, item 3 do gate: com o enforcement SaaS ligado, a fronteira do tempo
+     * real passa a ser o GRANT aprovado, não `empresa_user`/`support`.
+     *
+     * Sem isto o dado não vazava pela RLS — vazava pelo WebSocket: bastava um
+     * vínculo legado (ou a flag `support`, que devolvia `true` para qualquer
+     * empresa) para escutar o canal ao vivo de outro tenant.
+     */
+    public function test_enforcement_fecha_canal_para_usuario_sem_grant_aprovado(): void
+    {
+        config()->set('saas_transformation.enforcement.tenant_envelope', true);
+
+        // Usuário com vínculo LEGADO perfeito com a empresa, e até `support`:
+        // no modelo antigo entraria; sem TenantCompany/membership/grant, não.
+        $legado = User::factory()->create([
+            'empresa_id' => $this->empresa->id,
+            'grupo_id' => $this->empresa->grupo_id,
+        ]);
+        // `support` não é fillable por decisão de segurança (T1.8), então é
+        // marcado direto — o teste precisa do pior caso: quem o legado deixaria
+        // entrar em QUALQUER empresa.
+        $legado->forceFill(['support' => true])->save();
+
+        $this->assertFalse(
+            $this->resolverCanal('empresa.{empresaId}.pedidos', $legado, ['empresaId' => $this->empresa->id]),
+            'Sem grant aprovado o canal da empresa deve fechar, mesmo para vínculo legado ou support.',
+        );
+        $this->assertFalse(
+            $this->resolverCanal('empresa.{empresaId}.central', $legado, ['empresaId' => $this->empresa->id]),
+            'A central de logística usa a mesma fronteira do canal de pedidos.',
+        );
+    }
+
+    /**
      * Resolve o callback de autorização de um canal (registrado em channels.php) e
      * o executa para um usuário, retornando o booleano de autorização.
      *

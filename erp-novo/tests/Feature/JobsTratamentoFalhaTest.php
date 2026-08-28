@@ -115,6 +115,56 @@ class JobsTratamentoFalhaTest extends TestCase
         $this->assertStringContainsString('sem TenantEnvelope serializado', $source);
     }
 
+    /**
+     * F1 item 3: todo job de NEGOCIO precisa transportar o TenantEnvelope. Um
+     * job que roda sem envelope executa fora do ciclo HTTP, onde o resolver
+     * nunca correu — e o `TenantAwareJob` legado tratava isso como "nao
+     * filtrar" em vez de "recusar".
+     *
+     * Este teste varre os jobs em vez de citar um por nome: job novo sem
+     * envelope, e sem declarar-se de plataforma, reprova aqui.
+     */
+    public function test_todo_job_de_negocio_transporta_envelope_de_tenant(): void
+    {
+        foreach ($this->jobs() as $classe) {
+            $source = file_get_contents((new ReflectionClass($classe))->getFileName());
+
+            // Job de plataforma e a excecao declarada — e precisa dizer isso no
+            // proprio codigo, nunca herdar o bypass do ambiente de execucao.
+            if (str_contains($source, 'public bool $platformJob = true')) {
+                continue;
+            }
+
+            $this->assertStringContainsString(
+                'TenantEnvelopeJob',
+                $source,
+                "{$classe} nao usa TenantEnvelopeJob: rodaria sem fronteira de tenant.",
+            );
+            $this->assertStringContainsString(
+                'captureTenantEnvelope',
+                $source,
+                "{$classe} nao captura o envelope no dispatch.",
+            );
+            $this->assertStringContainsString(
+                'withinTenantEnvelope',
+                $source,
+                "{$classe} nao reaplica o envelope no handle.",
+            );
+        }
+    }
+
+    /**
+     * O `empresaId` que viaja no payload do job nao e credencial: quem
+     * enfileira escolhe esse numero. Sem conferi-lo contra o grant do envelope,
+     * o alerta de estoque leria dados de uma empresa nao autorizada.
+     */
+    public function test_alerta_de_estoque_confere_a_empresa_contra_o_grant(): void
+    {
+        $source = file_get_contents((new ReflectionClass(NotificarEstoqueBaixoJob::class))->getFileName());
+
+        $this->assertStringContainsString('requireOperation($this->empresaId)', $source);
+    }
+
     public function test_etl_declara_administrador_de_plataforma_em_vez_de_bypass_implicito(): void
     {
         $source = file_get_contents((new ReflectionClass(ExecutarMigracaoJob::class))->getFileName());

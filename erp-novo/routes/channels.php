@@ -1,8 +1,12 @@
 <?php
 
+use App\Domain\Tenant\TenantAccessDeniedException;
+use App\Domain\Tenant\TenantEnvelopeResolver;
 use App\Models\Cliente\Cliente;
 use App\Models\Pedido\Pedido;
+use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Str;
 
 /*
 | Autorização de canais de broadcasting (P5) — a 2ª barreira do tempo real.
@@ -17,18 +21,43 @@ use Illuminate\Support\Facades\Broadcast;
 // com o guard 'sanctum' — senão o callback receberia user nulo e a checagem de
 // posse não valeria. `authorize` falha com 403 quando o callback retorna false.
 
+/**
+ * Barreira de tenant do tempo real (F1, item 3 do gate).
+ *
+ * `podeAcessarEmpresa()` responde pelo modelo LEGADO: vale um vínculo em
+ * `empresa_user`, e a flag `support` devolve `true` para qualquer empresa. Num
+ * SaaS isso deixa entrar no canal ao vivo de outro tenant quem não tem grant
+ * aprovado nenhum — o dado não vaza pela RLS, vaza pelo WebSocket.
+ *
+ * Com o enforcement ligado a fronteira passa a ser o grant aprovado, resolvido
+ * pelo mesmo `TenantEnvelopeResolver` do HTTP e dos jobs. Enquanto o switch
+ * estiver desligado o comportamento legado é preservado, para não derrubar a
+ * operação atual antes da conversão.
+ */
+$autorizaEmpresa = function ($user, int $empresaId): bool {
+    if (! $user instanceof User) {
+        return false;
+    }
+
+    if (config('saas_transformation.enforcement.tenant_envelope')) {
+        try {
+            return app(TenantEnvelopeResolver::class)
+                ->resolveFor($user, $empresaId, (string) Str::uuid())
+                ->canRead($empresaId);
+        } catch (TenantAccessDeniedException) {
+            return false; // sem titularidade/membership/grant aprovados: fecha.
+        }
+    }
+
+    return $user->podeAcessarEmpresa($empresaId);
+};
+
 // Canal da empresa: a SPA/admin escuta o fluxo de pedidos da empresa ATIVA.
-// Autoriza se o usuário pertence à empresa (própria ou multi-empresa permitida).
-Broadcast::channel('empresa.{empresaId}.pedidos', function ($user, int $empresaId) {
-    return method_exists($user, 'podeAcessarEmpresa') && $user->podeAcessarEmpresa($empresaId);
-}, ['guards' => ['sanctum']]);
+Broadcast::channel('empresa.{empresaId}.pedidos', fn ($user, int $empresaId) => $autorizaEmpresa($user, $empresaId), ['guards' => ['sanctum']]);
 
 // Canal da CENTRAL DE LOGÍSTICA (L2): o painel operacional escuta a fila de
-// distribuição (novo pedido, atribuição, posição agregada). Mesma barreira de
-// tenant do canal de pedidos — só quem pertence à empresa entra.
-Broadcast::channel('empresa.{empresaId}.central', function ($user, int $empresaId) {
-    return method_exists($user, 'podeAcessarEmpresa') && $user->podeAcessarEmpresa($empresaId);
-}, ['guards' => ['sanctum']]);
+// distribuição (novo pedido, atribuição, posição agregada). Mesma barreira.
+Broadcast::channel('empresa.{empresaId}.central', fn ($user, int $empresaId) => $autorizaEmpresa($user, $empresaId), ['guards' => ['sanctum']]);
 
 /**
  * Autoriza um usuário num canal de pedido: precisa ser do MESMO tenant e ser parte
@@ -36,15 +65,19 @@ Broadcast::channel('empresa.{empresaId}.central', function ($user, int $empresaI
  * compartilhada pelos canais pedido.{id} e pedido.{id}.entregador (sem função
  * global, para o arquivo poder ser carregado mais de uma vez sem redeclarar).
  */
-$autorizaPedido = function ($user, int $pedidoId): bool {
+$autorizaPedido = function ($user, int $pedidoId) use ($autorizaEmpresa): bool {
     // Pedido é tenant-scoped; sem tenant resolvido no broadcasting auth, filtramos
     // explicitamente pela empresa do usuário (defense-in-depth).
-    $pedido = Pedido::withoutTenant()
-        ->where('id', $pedidoId)
-        ->where('empresa_id', $user->empresa_id)
-        ->first();
+    $pedido = Pedido::withoutTenant()->find($pedidoId);
 
     if ($pedido === null) {
+        return false;
+    }
+
+    // A empresa vem do PEDIDO e é validada contra o grant — filtrar por
+    // `$user->empresa_id` só olhava a empresa padrão do usuário e ignorava tanto
+    // o multi-empresa quanto, com enforcement ligado, a fronteira aprovada.
+    if (! $autorizaEmpresa($user, (int) $pedido->empresa_id)) {
         return false;
     }
 

@@ -505,3 +505,27 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Continuam abertos no gate F1: execucao em homologacao com role de runtime,
   jobs/eventos/WebSockets sem envelope, demais grafos pai-filho e o registro de
   rollback/snapshot de grants. `erp-novo/perda.sql` segue intocado.
+
+## Atualizacao de retomada - 2026-08-28 (jobs, eventos e WebSockets)
+
+- Item 3 do gate F1 executado. Dos 6 jobs, 4 ja estavam convertidos; o
+  `ExecutarMigracaoJob` esta correto como job de plataforma declarado; faltava o
+  `NotificarEstoqueBaixoJob`, que lia dados de negocio sem fronteira alguma.
+- O `empresaId` que viaja no payload do job nao e credencial: quem enfileira
+  escolhe o numero. O job passou a conferi-lo com `requireOperation` antes de
+  ler estoque e usuarios.
+- Achado do tempo real: `routes/channels.php` autorizava so pelo modelo legado
+  (`podeAcessarEmpresa`, que aceita `empresa_user` e devolve `true` para
+  `support`). Sem uma referencia sequer ao envelope. Com enforcement ligado, um
+  usuario sem grant continuaria entrando no canal ao vivo de outro tenant — o
+  dado nao vazaria pela RLS, vazaria pelo WebSocket.
+- Os canais de pedido tambem filtravam por `$user->empresa_id`, a empresa padrao
+  do usuario, ignorando o multi-empresa. A empresa passou a vir do PEDIDO e a
+  ser validada contra o grant.
+- Validacao: suite integral **1.331 passes, 4.196 assertions, 8 skips, zero
+  falhas**; `TempoRealTest` 6 testes/19 assertions (o caso novo recusa ate
+  usuario `support`); `JobsTratamentoFalhaTest` 9 testes/48 assertions, com
+  varredura que reprova job novo sem envelope. Ver
+  `F1_12_JOBS_EVENTOS_WEBSOCKETS.md`.
+- Continuam abertos: itens 4 (demais grafos pai-filho), 5 (rollback/snapshot de
+  grants) e 1 (execucao em homologacao com role de runtime).

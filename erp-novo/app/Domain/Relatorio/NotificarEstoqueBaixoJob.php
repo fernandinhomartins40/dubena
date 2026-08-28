@@ -3,6 +3,10 @@
 namespace App\Domain\Relatorio;
 
 use App\Domain\Mobile\PushService;
+use App\Domain\Tenant\TenantEnvelope;
+use App\Domain\Tenant\TenantEnvelopeDispatch;
+use App\Domain\Tenant\TenantEnvelopeJob;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\Empresa;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -30,6 +34,7 @@ class NotificarEstoqueBaixoJob implements ShouldQueue
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+    use TenantEnvelopeJob;
 
     /**
      * Três tentativas: o modo de falha esperado aqui é indisponibilidade
@@ -49,9 +54,33 @@ class NotificarEstoqueBaixoJob implements ShouldQueue
 
     public function __construct(public int $empresaId)
     {
+        if (config('saas_transformation.enforcement.tenant_envelope')) {
+            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+        }
     }
 
-    public function handle(RelatorioService $relatorios, PushService $push): void
+    public function handle(RelatorioService $relatorios, PushService $push, ?TenantEnvelopeRuntime $runtime = null): void
+    {
+        if ($this->tenantEnvelopePayload !== null) {
+            $this->withinTenantEnvelope(
+                $runtime ?? app(TenantEnvelopeRuntime::class),
+                function () use ($relatorios, $push): void {
+                    // O job carrega um `empresaId` proprio; sem esta checagem ele
+                    // leria estoque e usuarios de uma empresa que o envelope nao
+                    // autoriza — o id do payload nao e credencial.
+                    TenantEnvelope::fromPayload($this->tenantEnvelopePayload)
+                        ->requireOperation($this->empresaId);
+                    $this->executar($relatorios, $push);
+                },
+            );
+
+            return;
+        }
+
+        $this->executar($relatorios, $push);
+    }
+
+    private function executar(RelatorioService $relatorios, PushService $push): void
     {
         $itens = $relatorios->estoqueBaixo($this->empresaId);
 
