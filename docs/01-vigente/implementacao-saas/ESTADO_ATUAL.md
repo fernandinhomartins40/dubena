@@ -477,3 +477,31 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Proximo microlote: revisar os demais consumidores de configuracao financeira
   armazenados em `empresa_configs.dados`, que exigem conversao tipada posterior
   e nao podem ser inferidos a partir da copia.
+
+## Atualizacao de retomada - 2026-08-28 (recertificacao da cobertura RLS)
+
+- O item 2 do gate F1 (recertificar todas as tabelas classificadas) foi
+  executado e **reprovou**: `saas:f1:pre-cutover-check` conferia apenas a
+  existencia da coluna `tenant_account_id`, nao a policy. Em PostgreSQL real,
+  150 tabelas tinham a chave e so 117 tinham policy canonica.
+- Cinco tabelas COMPANY nao eram alcancadas por nenhuma conversao:
+  `sequencias`, `produto_operacao_fiscal` e `convenio_fechamento_pedidos`
+  estavam com `rls=false` (sem policy alguma); `transportadoras` e
+  `malha_fiscal` seguiam na policy legada por `grupo_id`. O portao aprovava
+  esse banco com exit 0.
+- `sequencias` guarda a numeracao fiscal. Prova com a role `erp_app` sem
+  contexto: leu e sobrescreveu o contador de outra empresa. Corrigido com
+  `empresa_id` real derivado dos dois formatos de chave existentes + policy
+  canonica; a mesma prova depois retorna 0 linhas e `UPDATE 0`.
+- O portao passou a exigir policy canonica ativa com RLS forcada. A ponte
+  documental cobre 18 tabelas (eram 16) e ganhou protecao de filho por pai
+  escopado por empresa. `NumeroSequencialService` deixou de falhar em silencio
+  sob RLS. Ver `F1_11_COBERTURA_RLS_RECERTIFICADA.md`.
+- Validacao: suite integral **1.328 passes, 4.176 assertions, 8 skips, zero
+  falhas**; `RlsCoberturaTest` com role runtime e `--fail-on-skipped` em
+  6 testes/354 assertions sem skip; Pint e `git diff --check` aprovados.
+- Achado registrado sem corrigir: `operacoes_fiscais` esta classificada
+  PLATFORM mas possui `grupo_id`. Mudar classe e decisao de desenho.
+- Continuam abertos no gate F1: execucao em homologacao com role de runtime,
+  jobs/eventos/WebSockets sem envelope, demais grafos pai-filho e o registro de
+  rollback/snapshot de grants. `erp-novo/perda.sql` segue intocado.

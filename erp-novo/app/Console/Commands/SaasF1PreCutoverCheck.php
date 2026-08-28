@@ -58,6 +58,7 @@ class SaasF1PreCutoverCheck extends Command
             "select count(*) from tenant_companies tc join empresas e on e.id = tc.empresa_id where tc.status = 'APPROVED' and e.ownership_status is distinct from 'OWNERSHIP_APPROVED'"
         );
         $companyTablesWithoutKey = $this->companyTablesWithoutTenantKey($connection);
+        $companyTablesWithoutCanonicalPolicy = $this->companyTablesWithoutCanonicalPolicy($connection);
 
         if ($missingFunctions !== []) {
             $this->error('Funcoes RLS canonicas ausentes: '.implode(', ', $missingFunctions));
@@ -65,11 +66,14 @@ class SaasF1PreCutoverCheck extends Command
         if ($companyTablesWithoutKey !== []) {
             $this->error('Tabelas COMPANY sem tenant_account_id: '.implode(', ', $companyTablesWithoutKey));
         }
+        if ($companyTablesWithoutCanonicalPolicy !== []) {
+            $this->error('Tabelas COMPANY com chave tenant mas SEM policy canonica ativa: '.implode(', ', $companyTablesWithoutCanonicalPolicy));
+        }
         if ($approvedLinksWithoutOwnership > 0) {
             $this->error("Fronteira inconsistente: {$approvedLinksWithoutOwnership} vinculo(s) TenantCompany APPROVED sem ownership aprovado.");
         }
 
-        if ($missingFunctions !== [] || $companyTablesWithoutKey !== [] || $approvedLinksWithoutOwnership > 0) {
+        if ($missingFunctions !== [] || $companyTablesWithoutKey !== [] || $companyTablesWithoutCanonicalPolicy !== [] || $approvedLinksWithoutOwnership > 0) {
             $this->error('PRE-CUTOVER F1 BLOQUEADO — execute somente o dry-run/importador documental; nao habilite tenant.saas.');
 
             return self::FAILURE;
@@ -97,5 +101,45 @@ class SaasF1PreCutoverCheck extends Command
         $withKey = array_flip(array_map(fn (object $column) => $column->table_name, $existing));
 
         return array_values(array_filter($companyTables, fn (string $table) => ! isset($withKey[$table])));
+    }
+
+    /**
+     * Ter a coluna `tenant_account_id` nao prova isolamento: a migration de
+     * conversao so alcanca tabelas COMPANY que possuem `empresa_id`, e pula em
+     * silencio as demais. Sem esta verificacao o portao aprovava um banco onde
+     * `sequencias` (numeracao fiscal) estava sem RLS alguma.
+     *
+     * @return list<string>
+     */
+    private function companyTablesWithoutCanonicalPolicy($connection): array
+    {
+        $companyTables = array_keys(array_filter(
+            (array) config('saas_table_classification'),
+            fn (array $entry) => $entry['class'] === 'COMPANY',
+        ));
+        // Excecoes declaradas, cada uma com motivo ja registrado no repositorio:
+        // - audit_logs/login_logs: auditoria anterior ao envelope (migration 000800);
+        // - config_globais: pertence a IntegrationAccount na F6;
+        // - grupos/empresas: espinha do tenancy — o resolver precisa le-las para
+        //   estabelecer contexto, e filtra-las por contexto quebra a resolucao
+        //   (mesma justificativa da allowlist da migration 2026_06_26_000300).
+        $companyTables = array_diff($companyTables, [
+            'audit_logs', 'login_logs', 'config_globais', 'grupos', 'empresas',
+        ]);
+
+        $protected = $connection->select(
+            <<<'SQL'
+            select p.tablename
+            from pg_policies p
+            join pg_class c on c.relname = p.tablename and c.relnamespace = 'public'::regnamespace
+            where p.schemaname = 'public'
+              and p.qual like '%app_tenant_can_read%'
+              and c.relrowsecurity
+              and c.relforcerowsecurity
+            SQL
+        );
+        $withPolicy = array_flip(array_map(fn (object $row) => $row->tablename, $protected));
+
+        return array_values(array_filter($companyTables, fn (string $table) => ! isset($withPolicy[$table])));
     }
 }

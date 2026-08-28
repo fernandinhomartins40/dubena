@@ -12,7 +12,7 @@ class MalhaFiscal extends Model
 
     protected $table = 'malha_fiscal';
 
-    protected $fillable = ['grupo_id', 'tipo', 'codigo', 'descricao', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'tipo', 'codigo', 'descricao', 'ativo'];
 
     protected function casts(): array
     {

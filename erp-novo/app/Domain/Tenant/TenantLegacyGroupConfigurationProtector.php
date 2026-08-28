@@ -17,6 +17,7 @@ final class TenantLegacyGroupConfigurationProtector
         'clientecontatotipos',
         'condicaopagamentos',
         'contamovimentotipos',
+        'malha_fiscal',
         'motivos_nao_venda',
         'monitora_veiculo_tipos',
         'pedido_motivos_atraso',
@@ -25,7 +26,21 @@ final class TenantLegacyGroupConfigurationProtector
         'planos_conta',
         'promocoes',
         'sorteios',
+        'transportadoras',
         'veiculo_tipos',
+    ];
+
+    /**
+     * Pivots sem `empresa_id` e sem `grupo_id`: a migration COMPANY nao os
+     * alcanca e eles ficavam sem RLS alguma. O tenant vem do pai escopado por
+     * empresa — `operacoes_fiscais` nao serve de pai porque e PLATFORM e nao
+     * possui chave de tenant.
+     *
+     * @var array<string, array{0:string,1:string}>
+     */
+    private const COMPANY_CHILDREN = [
+        'produto_operacao_fiscal' => ['produtos', 'produto_id'],
+        'convenio_fechamento_pedidos' => ['convenio_fechamentos', 'convenio_fechamento_id'],
     ];
 
     /** @return array{tables:int,rows:int} */
@@ -95,6 +110,9 @@ final class TenantLegacyGroupConfigurationProtector
             ] as $child => [$parent, $foreignKey]) {
                 $rows += $this->protectChildTable($child, $parent, $foreignKey);
             }
+            foreach (self::COMPANY_CHILDREN as $child => [$parent, $foreignKey]) {
+                $rows += $this->protectCompanyChildTable($child, $parent, $foreignKey);
+            }
             foreach (['centros_custo', 'planos_conta'] as $table) {
                 $this->assertHierarchyTenant($table);
             }
@@ -127,6 +145,10 @@ final class TenantLegacyGroupConfigurationProtector
         ] as $child => [$parent, $foreignKey]) {
             $invalidChildren += (int) DB::scalar("SELECT count(*) FROM {$child} child_row LEFT JOIN {$parent} parent_row ON parent_row.id = child_row.{$foreignKey} WHERE parent_row.id IS NULL OR (child_row.tenant_account_id IS NOT NULL AND parent_row.tenant_account_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id)");
         }
+        foreach (self::COMPANY_CHILDREN as $child => [$parent, $foreignKey]) {
+            $rows += (int) DB::table($child)->count();
+            $invalidChildren += (int) DB::scalar("SELECT count(*) FROM {$child} child_row LEFT JOIN {$parent} parent_row ON parent_row.id = child_row.{$foreignKey} WHERE parent_row.id IS NULL OR (child_row.tenant_account_id IS NOT NULL AND parent_row.tenant_account_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id)");
+        }
 
         $invalidHierarchies = 0;
         foreach (['centros_custo', 'planos_conta'] as $table) {
@@ -149,6 +171,25 @@ final class TenantLegacyGroupConfigurationProtector
         DB::statement("ALTER TABLE {$child} FORCE ROW LEVEL SECURITY");
         DB::statement("DROP POLICY IF EXISTS tenant_isolation ON {$child}");
         DB::statement("CREATE POLICY tenant_isolation ON {$child} USING (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND app_tenant_can_read_group_config(parent_row.tenant_account_id, parent_row.grupo_id))) WITH CHECK (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND parent_row.tenant_account_id = {$child}.tenant_account_id AND app_tenant_can_operate_group_config(parent_row.tenant_account_id, parent_row.grupo_id)))");
+
+        return (int) DB::table($child)->count();
+    }
+
+    /**
+     * Igual ao filho group-scoped, mas o pai e escopado por empresa: a policy
+     * precisa das funcoes COMPANY, nao das de configuracao por grupo.
+     */
+    private function protectCompanyChildTable(string $child, string $parent, string $foreignKey): int
+    {
+        DB::statement("UPDATE {$child} child_row SET tenant_account_id = parent_row.tenant_account_id FROM {$parent} parent_row WHERE parent_row.id = child_row.{$foreignKey} AND child_row.tenant_account_id IS NULL");
+        $invalid = (int) DB::scalar("SELECT count(*) FROM {$child} child_row LEFT JOIN {$parent} parent_row ON parent_row.id = child_row.{$foreignKey} WHERE parent_row.id IS NULL OR parent_row.tenant_account_id IS NULL OR child_row.tenant_account_id IS NULL OR child_row.tenant_account_id <> parent_row.tenant_account_id");
+        if ($invalid > 0) {
+            throw new LogicException("F1 recusada: {$child} possui {$invalid} filho(s) com tenant divergente do pai.");
+        }
+        DB::statement("ALTER TABLE {$child} ENABLE ROW LEVEL SECURITY");
+        DB::statement("ALTER TABLE {$child} FORCE ROW LEVEL SECURITY");
+        DB::statement("DROP POLICY IF EXISTS tenant_isolation ON {$child}");
+        DB::statement("CREATE POLICY tenant_isolation ON {$child} USING (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND app_tenant_can_read(parent_row.tenant_account_id, parent_row.empresa_id))) WITH CHECK (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND parent_row.tenant_account_id = {$child}.tenant_account_id AND app_tenant_can_operate(parent_row.tenant_account_id, parent_row.empresa_id)))");
 
         return (int) DB::table($child)->count();
     }

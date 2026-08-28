@@ -6,5 +6,5 @@ class Transportadora extends CadastroApoio
 {
     protected $table = 'transportadoras';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'cnpj', 'telefone'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'cnpj', 'telefone'];
 }
