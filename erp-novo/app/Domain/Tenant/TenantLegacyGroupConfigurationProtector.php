@@ -100,7 +100,7 @@ final class TenantLegacyGroupConfigurationProtector
         return ['tables' => count(self::TABLES), 'rows' => $rows];
     }
 
-    /** @return array{tables:int,rows:int,without_scope:int,drift:int} */
+    /** @return array{tables:int,rows:int,without_scope:int,drift:int,invalid_children:int,invalid_hierarchies:int} */
     public function preview(): array
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
@@ -116,7 +116,21 @@ final class TenantLegacyGroupConfigurationProtector
             $drift += (int) DB::scalar("SELECT count(*) FROM {$table} configuration_row JOIN tenant_legacy_group_scopes scope ON scope.grupo_id = configuration_row.grupo_id AND scope.status = 'APPROVED' WHERE configuration_row.tenant_account_id IS NOT NULL AND configuration_row.tenant_account_id <> scope.tenant_account_id");
         }
 
-        return ['tables' => count(self::TABLES), 'rows' => $rows, 'without_scope' => $withoutScope, 'drift' => $drift];
+        $invalidChildren = 0;
+        foreach ([
+            'checklist_perguntas' => ['checklists', 'checklist_id'],
+            'condicaopagamento_parcelas' => ['condicaopagamentos', 'condicaopagamento_id'],
+            'sorteio_numeros' => ['sorteios', 'sorteio_id'],
+        ] as $child => [$parent, $foreignKey]) {
+            $invalidChildren += (int) DB::scalar("SELECT count(*) FROM {$child} child_row LEFT JOIN {$parent} parent_row ON parent_row.id = child_row.{$foreignKey} WHERE parent_row.id IS NULL OR (child_row.tenant_account_id IS NOT NULL AND parent_row.tenant_account_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id)");
+        }
+
+        $invalidHierarchies = 0;
+        foreach (['centros_custo', 'planos_conta'] as $table) {
+            $invalidHierarchies += (int) DB::scalar("SELECT count(*) FROM {$table} child_row JOIN {$table} parent_row ON parent_row.id = child_row.pai_id WHERE child_row.pai_id IS NOT NULL AND child_row.tenant_account_id IS NOT NULL AND parent_row.tenant_account_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id");
+        }
+
+        return ['tables' => count(self::TABLES), 'rows' => $rows, 'without_scope' => $withoutScope, 'drift' => $drift, 'invalid_children' => $invalidChildren, 'invalid_hierarchies' => $invalidHierarchies];
     }
 
     private function protectChildTable(string $child, string $parent, string $foreignKey): int
