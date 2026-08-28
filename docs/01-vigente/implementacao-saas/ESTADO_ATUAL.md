@@ -396,3 +396,13 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao local: 17 testes/86 assertions em `CadastroApoioRhTest`, gates de
   frota, `F15MigratorsTest` e o contrato da migration. Proximo passo: commit,
   CI/deploy e continuar pelos demais COMPANY sem `empresa_id`.
+
+## Atualizacao de retomada - 2026-08-27 (CRM Monitora group-scoped)
+
+- `promocoes` e `monitora_veiculo_tipos` foram incluidos no protetor
+  documental; suas escritas passam a receber a chave apenas do envelope ativo.
+- `config_globais` permanece fora da ponte F1 por decisao explicita: seus
+  segredos e fallback de provedores pertencem a `IntegrationAccount` na F6.
+- Validacao local: 41 testes/129 assertions em CRM, Monitora e migradores.
+  Proximo passo: commit/CI/deploy deste recorte; nenhuma configuracao existente
+  sera reatribuida sem JSON documental.

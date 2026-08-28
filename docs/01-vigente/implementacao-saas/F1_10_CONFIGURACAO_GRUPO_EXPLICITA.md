@@ -18,6 +18,11 @@ Também são cobertos `contamovimentotipos`, `cargos` e `veiculo_tipos`, usados
 respectivamente por movimentos financeiros, colaboradores e veículos. `cargos`
 possui dois modelos no código, ambos agora recebem a chave apenas do envelope.
 
+`promocoes` e `monitora_veiculo_tipos` também usam a ponte. `config_globais`
+foi deliberadamente excluída deste recorte: ela contém credenciais e política de
+provedores, que devem ser convertidas para `IntegrationAccount` na F6, não
+reatribuídas pelo grupo legado.
+
 ## Desenho implementado
 
 - `tenant_legacy_group_scopes` exige `tenant_account_id`, `grupo_id` único,
@@ -58,6 +63,8 @@ assertions**.
 
 Para o recorte financeiro/RH/frota, os testes focais aprovaram **17 testes, 86
 assertions**.
+
+Para CRM/Monitora, foram aprovados **41 testes, 129 assertions**.
 
 Em PostgreSQL 15 descartável, o gate `RlsCoberturaTest` também passou com a
 role `erp_app` (`rolsuper=false`, `rolbypassrls=false`): **6 testes, 352

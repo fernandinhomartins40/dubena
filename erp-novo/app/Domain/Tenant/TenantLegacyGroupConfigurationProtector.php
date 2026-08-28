@@ -15,9 +15,11 @@ final class TenantLegacyGroupConfigurationProtector
         'clientecontatotipos',
         'contamovimentotipos',
         'motivos_nao_venda',
+        'monitora_veiculo_tipos',
         'pedido_motivos_atraso',
         'pedidooperacoes',
         'pedidosituacoes',
+        'promocoes',
         'veiculo_tipos',
     ];
 

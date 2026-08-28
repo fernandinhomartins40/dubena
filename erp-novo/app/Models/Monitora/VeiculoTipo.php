@@ -18,7 +18,7 @@ class VeiculoTipo extends Model
 
     protected $table = 'monitora_veiculo_tipos';
 
-    protected $fillable = ['grupo_id', 'descricao', 'icone', 'velocidade_maxima', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'icone', 'velocidade_maxima', 'ativo'];
 
     protected function casts(): array
     {

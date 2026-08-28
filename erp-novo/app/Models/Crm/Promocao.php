@@ -12,7 +12,7 @@ class Promocao extends Model
 
     protected $table = 'promocoes';
 
-    protected $fillable = ['grupo_id', 'descricao', 'codigo', 'inicio', 'fim', 'desconto_percentual', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'codigo', 'inicio', 'fim', 'desconto_percentual', 'ativo'];
 
     /** Promoção válida hoje = ativa e dentro da janela inicio..fim. */
     public function scopeVigente($query)
