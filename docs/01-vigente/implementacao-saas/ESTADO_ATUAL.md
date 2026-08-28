@@ -549,3 +549,23 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Itens 2, 3 e 4 do gate estao fechados. Restam o item 5 (rollback/snapshot de
   grants) e o item 1 (execucao em homologacao com role de runtime, que depende
   de deploy).
+
+## Atualizacao de retomada - 2026-08-28 (snapshot/rollback de grants)
+
+- Item 5 do gate F1 fechado. O importador escreve cinco tabelas de fronteira e
+  promove `empresas.ownership_status` como efeito colateral; nada disso era
+  reversivel: `migrate:rollback` nao desfaz dados e `tenant_staging_artifacts`
+  exige tenant_account_id e tem TTL/purge, que apagaria a evidencia.
+- Criado `saas:tenant:snapshot-grants <arquivo> [--restore]`, somente leitura
+  por padrao, gravando fora do banco que restaura. Cobre as cinco tabelas MAIS
+  o `ownership_status` — sem esse campo o rollback deixaria empresas aprovadas
+  sem vinculo, estado que nenhum gate detecta.
+- Prova em PostgreSQL 16: decisao errada aplicada (2 vinculos/2 aprovadas),
+  `--restore` devolveu 1 vinculo/1 aprovada e a empresa 802 voltou a
+  `OWNERSHIP_UNRESOLVED`. Restore com snapshot de outro banco foi recusado.
+- Validacao: `SaasSnapshotGrantsTest` 3 testes/13 assertions; suite integral
+  **1.336 passes, 4.220 assertions, 8 skips, zero falhas**; Pint aprovado. Ver
+  `F1_14_SNAPSHOT_ROLLBACK_GRANTS.md`.
+- Itens 2, 3, 4 e 5 do gate F1 estao fechados. Resta o item 1 (execucao em
+  homologacao com a role de runtime), que depende de CI/deploy destes commits, e
+  so entao o item 6 (declarar F1 concluida).
