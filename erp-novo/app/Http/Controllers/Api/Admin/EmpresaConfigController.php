@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Fiscal\CertificadoService;
 use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
@@ -12,6 +13,7 @@ use App\Models\EmpresaConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -67,6 +69,20 @@ class EmpresaConfigController extends Controller
         'email_corpo', 'email_requer_autenticacao', 'email_requer_tls',
     ];
 
+    /** @var array<string,string> chave JSON => tabela de configuracao financeira */
+    private const CONFIGURACOES_FINANCEIRAS = [
+        'planoconta_id' => 'planos_conta', 'pc_receita_desconto_id' => 'planos_conta',
+        'pc_receita_juro_id' => 'planos_conta', 'pc_despesa_desconto_id' => 'planos_conta',
+        'pc_despesa_juro_id' => 'planos_conta', 'pcfrete_id' => 'planos_conta',
+        'pcvalegas_id' => 'planos_conta', 'convenio_pc_id' => 'planos_conta',
+        'convenio_pcfrete_id' => 'planos_conta', 'pcfretegp_id' => 'planos_conta',
+        'centrocusto_id' => 'centros_custo', 'cc_receita_juro_id' => 'centros_custo',
+        'cc_receita_desconto_id' => 'centros_custo', 'cc_despesa_desconto_id' => 'centros_custo',
+        'ccfrete_id' => 'centros_custo', 'ccvalegas_id' => 'centros_custo',
+        'convenio_cc_id' => 'centros_custo', 'convenio_ccfrete_id' => 'centros_custo',
+        'ccfretegp_id' => 'centros_custo',
+    ];
+
     public function show(Request $request, int $empresaId): JsonResponse
     {
         $empresa = $this->empresaDoGrupo($request, $empresaId);
@@ -101,6 +117,7 @@ class EmpresaConfigController extends Controller
 
         $colunas = array_intersect_key($entrada, array_flip(self::COLUNAS));
         $dados = array_diff_key($entrada, array_flip(self::COLUNAS));
+        $this->validarConfiguracoesFinanceirasDoTenant($dados);
 
         $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
         $config->fill($colunas);
@@ -330,6 +347,26 @@ class EmpresaConfigController extends Controller
         unset($dados['integracoes']);
 
         return array_merge($dados, $base);
+    }
+
+    /** @param array<string,mixed> $dados */
+    private function validarConfiguracoesFinanceirasDoTenant(array $dados): void
+    {
+        $tenantAccountId = app(TenantEnvelopeRuntime::class)->current()?->tenantAccountId;
+        if ($tenantAccountId === null) {
+            return;
+        }
+
+        foreach (self::CONFIGURACOES_FINANCEIRAS as $chave => $tabela) {
+            if (! array_key_exists($chave, $dados) || $dados[$chave] === null || $dados[$chave] === '') {
+                continue;
+            }
+            $id = filter_var($dados[$chave], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $tenantDaConfiguracao = $id === false ? null : DB::table($tabela)->whereKey($id)->value('tenant_account_id');
+            if ($tenantDaConfiguracao === null || (int) $tenantDaConfiguracao !== $tenantAccountId) {
+                throw ValidationException::withMessages([$chave => 'A configuracao financeira deve pertencer ao tenant ativo.']);
+            }
+        }
     }
 
     private function empresaDoGrupo(Request $request, int $empresaId, bool $exigirAtiva = false): Empresa
