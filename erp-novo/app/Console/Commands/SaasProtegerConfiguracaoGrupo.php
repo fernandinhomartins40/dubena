@@ -29,6 +29,12 @@ class SaasProtegerConfiguracaoGrupo extends Command
 
         $this->info(($this->option('apply') ? 'Protecao aplicada' : 'Preview sem alteracoes').': '.json_encode($result));
 
+        if (! $this->option('apply') && ! $result['ready']) {
+            $this->error('Preview bloqueado: corrija os contadores antes de executar --apply.');
+
+            return self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 }

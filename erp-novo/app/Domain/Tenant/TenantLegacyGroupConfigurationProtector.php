@@ -100,7 +100,7 @@ final class TenantLegacyGroupConfigurationProtector
         return ['tables' => count(self::TABLES), 'rows' => $rows];
     }
 
-    /** @return array{tables:int,rows:int,without_scope:int,drift:int,invalid_children:int,invalid_hierarchies:int} */
+    /** @return array{tables:int,rows:int,without_scope:int,drift:int,invalid_children:int,invalid_hierarchies:int,ready:bool} */
     public function preview(): array
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
@@ -130,7 +130,9 @@ final class TenantLegacyGroupConfigurationProtector
             $invalidHierarchies += (int) DB::scalar("SELECT count(*) FROM {$table} child_row JOIN {$table} parent_row ON parent_row.id = child_row.pai_id WHERE child_row.pai_id IS NOT NULL AND child_row.tenant_account_id IS NOT NULL AND parent_row.tenant_account_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id");
         }
 
-        return ['tables' => count(self::TABLES), 'rows' => $rows, 'without_scope' => $withoutScope, 'drift' => $drift, 'invalid_children' => $invalidChildren, 'invalid_hierarchies' => $invalidHierarchies];
+        $ready = $withoutScope === 0 && $drift === 0 && $invalidChildren === 0 && $invalidHierarchies === 0;
+
+        return ['tables' => count(self::TABLES), 'rows' => $rows, 'without_scope' => $withoutScope, 'drift' => $drift, 'invalid_children' => $invalidChildren, 'invalid_hierarchies' => $invalidHierarchies, 'ready' => $ready];
     }
 
     private function protectChildTable(string $child, string $parent, string $foreignKey): int
