@@ -79,3 +79,16 @@ Após deploy em homologação, executar preview de um JSON documental que inclua
 `saas:tenant:proteger-configuracao-grupo --apply`. Em seguida, recertificar
 PostgreSQL e a role `erp_app`, incluindo leitura, escrita cruzada, ausência de
 contexto e dois jobs sequenciais.
+
+## Hierarquia financeira
+
+`centros_custo` e `planos_conta` tambem usam a ponte documental. A migration
+adiciona a chave SaaS que faltava em `planos_conta`, sem preencher dados, e o
+trigger PostgreSQL bloqueia insercao ou alteracao de `pai_id`/`tenant_account_id`
+quando pai e filho nao possuem o mesmo tenant. A unica compatibilidade
+transitoria e pai e filho ambos sem chave, antes da conversao documental;
+arvore parcialmente convertida e recusada.
+
+Em PostgreSQL 15 descartavel, a cadeia completa de migrations foi aplicada e
+os dois cruzamentos foram recusados pelo banco. Os testes Laravel focais
+aprovaram **10 testes, 69 assertions**.

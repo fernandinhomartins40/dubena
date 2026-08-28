@@ -35,6 +35,16 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
         $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $protector);
         $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $protector);
 
+        $hierarchyConstraint = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001300_enforce_tenant_financial_hierarchies.php');
+        $this->assertStringContainsString('app_enforce_tenant_financial_hierarchy', $hierarchyConstraint);
+        $this->assertStringContainsString('centros_custo_tenant_hierarchy', $hierarchyConstraint);
+        $this->assertStringContainsString('planos_conta_tenant_hierarchy', $hierarchyConstraint);
+        $this->assertStringContainsString('UPDATE OF pai_id, tenant_account_id', $hierarchyConstraint);
+        $this->assertStringContainsString("ERRCODE = '23514'", $hierarchyConstraint);
+        $this->assertStringContainsString("Schema::hasColumn('planos_conta', 'tenant_account_id')", $hierarchyConstraint);
+
+        $this->assertStringContainsString("Schema::hasTable('tenant_legacy_group_scopes')", $source);
+
         $scopePolicy = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001200_protect_tenant_legacy_group_scopes.php');
         $this->assertStringContainsString('ALTER TABLE tenant_legacy_group_scopes ENABLE ROW LEVEL SECURITY', $scopePolicy);
         $this->assertStringContainsString('WITH CHECK (false)', $scopePolicy);

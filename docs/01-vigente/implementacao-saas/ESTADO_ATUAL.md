@@ -432,3 +432,22 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao local: 10 testes/64 assertions em financeiro, relatorios e contrato
   da migration. Proximo passo: CI/deploy; nenhum dado da copia foi usado como
   regra de titularidade.
+
+## Atualizacao de retomada - 2026-08-27 (constraint estrutural da hierarquia financeira)
+
+- CI e deploy de homologacao do SHA `f6fc337` foram aprovados. A protecao de
+  `centros_custo` e `planos_conta` continua condicionada a ponte documental;
+  nenhum backfill remoto foi executado.
+- A migration seguinte completa F1-08: adiciona de forma aditiva a chave que
+  faltava em `planos_conta` e instala trigger PostgreSQL que recusa `pai_id`
+  entre tenants distintos em ambas as arvores. Ela nao atribui tenant, nao muda
+  `grupo_id` e nao ativa RLS antes do comando documental.
+- Prova PostgreSQL 15 descartavel: cadeia de migrations aplicada; dois tenants
+  criados; os dois cruzamentos foram recusados pelo trigger. A unica
+  compatibilidade permitida e pai/filho ambos sem chave SaaS antes da conversao.
+  A ponte documental tambem ganhou guarda idempotente para retomada apos
+  interrupcao parcial. Testes focais: 10 testes/69 assertions aprovados.
+- Proximo microlote: mapear as FKs de configuracao financeira que saem de
+  `financeiros`/`financeirorateios` para `planos_conta` e `centros_custo`,
+  escolhendo constraint composta ou validacao estrutural sem usar dados da copia
+  como regra. `erp-novo/perda.sql` segue preexistente e intocado.

@@ -14,15 +14,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('tenant_legacy_group_scopes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_account_id')->constrained('tenant_accounts')->restrictOnDelete();
-            $table->foreignId('grupo_id')->unique()->constrained('grupos')->restrictOnDelete();
-            $table->string('status', 32)->default('PENDING')->index();
-            $table->timestamp('approved_at')->nullable();
-            $table->string('evidence_ref');
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('tenant_legacy_group_scopes')) {
+            Schema::create('tenant_legacy_group_scopes', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('tenant_account_id')->constrained('tenant_accounts')->restrictOnDelete();
+                $table->foreignId('grupo_id')->unique()->constrained('grupos')->restrictOnDelete();
+                $table->string('status', 32)->default('PENDING')->index();
+                $table->timestamp('approved_at')->nullable();
+                $table->string('evidence_ref');
+                $table->timestamps();
+            });
+        }
 
         if (DB::connection()->getDriverName() !== 'pgsql') {
             return;
