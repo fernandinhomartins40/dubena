@@ -81,6 +81,28 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
     }
 
     /**
+     * Achado da homologação: os dois pivots ficavam com `rls=false` mesmo após o
+     * deploy. A causa é de desenho — eles recebem a COLUNA numa migration mas a
+     * POLICY só pelo comando de conversão documental, que existe para legado.
+     * Estando VAZIOS não há titularidade a decidir, e num tenant novo (que nunca
+     * roda a conversão) eles nasceriam permanentemente sem RLS.
+     */
+    public function test_pivot_vazio_e_protegido_pela_estrutura_e_nao_pela_conversao(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001800_protect_empty_company_pivots.php');
+
+        $this->assertStringContainsString("'produto_operacao_fiscal' => ['produtos', 'produto_id']", $source);
+        $this->assertStringContainsString("'convenio_fechamento_pedidos'", $source);
+        $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $source);
+        $this->assertStringContainsString('app_tenant_can_operate(parent_row.tenant_account_id, parent_row.empresa_id)', $source);
+
+        // Com dados, a decisão continua sendo documental: a migration não pode
+        // inferir dono de linha existente.
+        $this->assertStringContainsString('->count() > 0', $source);
+        $this->assertStringContainsString('continue', $source);
+    }
+
+    /**
      * Item 4 do gate: dos 175 relacionamentos entre tabelas com chave SaaS, 168
      * tem `empresa_id` no filho (a policy ja valida na escrita) e 6 dos 7
      * restantes sao grafos ja cobertos. `sorteio_numeros.cliente_id` era o

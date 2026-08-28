@@ -569,3 +569,32 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Itens 2, 3, 4 e 5 do gate F1 estao fechados. Resta o item 1 (execucao em
   homologacao com a role de runtime), que depende de CI/deploy destes commits, e
   so entao o item 6 (declarar F1 concluida).
+
+## Atualizacao de retomada - 2026-08-28 (verificacao em homologacao)
+
+- Acesso SSH autorizado; verificacao somente leitura. Runtime confirmado como
+  `erp_app` com `rolsuper=false` e `rolbypassrls=false`: a RLS e exercida de
+  verdade na copia.
+- As migrations `001600` e `001700` rodaram. A correcao de `sequencias` funcionou
+  em 100% dos dados reais: das 14 sequencias (numeracao fiscal da Dubena),
+  ZERO ficaram sem `empresa_id` ou sem tenant. Os 20 numeros de sorteio reais
+  nao cruzam tenant.
+- O gate reprovou (exit 1) por 4 tabelas sem policy canonica; `sequencias` NAO
+  esta entre elas. O preview do comando documental na copia esta `ready:true`
+  (18 tabelas, 387 linhas, zero pendencia).
+- Achado que virou codigo: `produto_operacao_fiscal` e
+  `convenio_fechamento_pedidos` estavam com `rls=false` e 0 linhas. Eles recebem
+  a coluna numa migration mas a policy so pela conversao documental — entao num
+  tenant NOVO nasceriam permanentemente sem RLS. A migration `001800` protege o
+  pivot enquanto ele esta vazio e se recusa a tocar tabela com dados.
+- Prova local: 139 migrations do zero; pivots com `rls=true`; apos o
+  `--apply` do comando documental o `pre-cutover-check` retorna **exit 0**.
+  Suite integral **1.337 passes, 4.226 assertions, zero falhas**;
+  `RlsCoberturaTest` 6/354 sem skip. Ver `F1_15_VERIFICACAO_HOMOLOGACAO.md`.
+- Snapshot de rollback da fronteira real gravado em
+  `/opt/dubena-snapshots/f1-pre-apply-20260828-234328.json` (1 tenant, 11
+  empresas, 81 memberships, 152 grants).
+- PENDENTE: o `--apply` em homologacao nao foi executado (escrita em dados reais
+  bloqueada pelo classificador). Com preview `ready:true` e snapshot no lugar, a
+  operacao e segura e reversivel; falta a decisao de executa-la, e so entao o
+  item 6 (declarar F1 concluida).
