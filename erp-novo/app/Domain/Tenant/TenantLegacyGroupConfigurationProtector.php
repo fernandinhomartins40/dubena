@@ -14,6 +14,7 @@ final class TenantLegacyGroupConfigurationProtector
         'checklists',
         'clientecontatosituacoes',
         'clientecontatotipos',
+        'condicaopagamentos',
         'contamovimentotipos',
         'motivos_nao_venda',
         'monitora_veiculo_tipos',
@@ -85,6 +86,7 @@ final class TenantLegacyGroupConfigurationProtector
 
         foreach ([
             'checklist_perguntas' => ['checklists', 'checklist_id'],
+            'condicaopagamento_parcelas' => ['condicaopagamentos', 'condicaopagamento_id'],
             'sorteio_numeros' => ['sorteios', 'sorteio_id'],
         ] as $child => [$parent, $foreignKey]) {
             $rows += $this->protectChildTable($child, $parent, $foreignKey);

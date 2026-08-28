@@ -29,6 +29,8 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
         $this->assertStringContainsString("'checklists'", $protector);
         $this->assertStringContainsString("'sorteios'", $protector);
         $this->assertStringContainsString('protectChildTable', $protector);
+        $this->assertStringContainsString("'condicaopagamentos'", $protector);
+        $this->assertStringContainsString("'condicaopagamento_parcelas'", $protector);
         $this->assertStringContainsString('ENABLE ROW LEVEL SECURITY', $protector);
         $this->assertStringContainsString('FORCE ROW LEVEL SECURITY', $protector);
 

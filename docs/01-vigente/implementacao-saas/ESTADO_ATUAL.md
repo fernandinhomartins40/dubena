@@ -416,3 +416,11 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   grupo; criacao de filho obtem a chave exclusivamente do pai ja protegido.
 - Validacao local: `CrmTest` e contrato da migration, 7 testes/41 assertions.
   Proximo passo: commit/CI/deploy; `perda.sql` segue preexistente e intocado.
+
+## Atualizacao de retomada - 2026-08-27 (condicoes de pagamento pai-filho)
+
+- `condicaopagamentos` e `condicaopagamento_parcelas` passaram a usar a ponte
+  documental com propagacao/checagem de tenant pelo pai; divergencia bloqueia a
+  ativacao RLS.
+- Validacao local: 8 testes/38 assertions em condicoes e FKs de migracao.
+  Proximo passo: CI/deploy deste microlote; `perda.sql` permanece intocado.
