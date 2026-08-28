@@ -18,7 +18,7 @@ class FinanceiroRateio extends Model
 
     protected $table = 'financeirorateios';
 
-    protected $fillable = ['financeiro_id', 'planoconta_id', 'centrocusto_id', 'valor'];
+    protected $fillable = ['tenant_account_id', 'financeiro_id', 'planoconta_id', 'centrocusto_id', 'valor'];
 
     protected function casts(): array
     {

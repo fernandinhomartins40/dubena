@@ -2,8 +2,8 @@
 
 namespace App\Models\Financeiro;
 
-use App\Domain\Shared\Auditavel;
 use App\Domain\Financeiro\AgrupamentoStatus;
+use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,7 +24,7 @@ class Financeiro extends Model
     protected $table = 'financeiros';
 
     protected $fillable = [
-        'empresa_id', 'grupo_id', 'cliente_id', 'planoconta_id', 'centrocusto_id',
+        'tenant_account_id', 'empresa_id', 'grupo_id', 'cliente_id', 'planoconta_id', 'centrocusto_id',
         'pagarreceber', 'documento', 'descricao', 'valor', 'data_emissao',
         'agrupamento_status', 'agrupador_id', 'origem', 'origem_id', 'cancelado',
     ];

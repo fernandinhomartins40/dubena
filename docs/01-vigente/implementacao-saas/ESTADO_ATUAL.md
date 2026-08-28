@@ -451,3 +451,16 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `financeiros`/`financeirorateios` para `planos_conta` e `centros_custo`,
   escolhendo constraint composta ou validacao estrutural sem usar dados da copia
   como regra. `erp-novo/perda.sql` segue preexistente e intocado.
+
+## Atualizacao de retomada - 2026-08-27 (propagacao de chave financeira)
+
+- `BelongsToTenant` passou a preencher `tenant_account_id` somente do envelope
+  ativo ou, em ETL/seed sem envelope, do pai explicitamente declarado. Nunca
+  aceita a chave vinda do payload.
+- `financeiros`, `financeiroparcelas` e `financeirorateios` declararam a chave
+  para participar dessa propagacao. Parcelas e rateios so podem herdar do
+  lancamento pai; a proxima constraint de FK podera confiar nessa chave.
+- Validacao local: `FinanceiroTest`, `TenantEnvelopeRuntimeTest` e
+  `ResolveTenantEnvelopeMiddlewareTest`: 9 testes/28 assertions aprovados.
+- Proximo microlote: instalar e provar em PostgreSQL a validacao estrutural das
+  FKs financeiras para plano/centro de custo, sem executar backfill remoto.

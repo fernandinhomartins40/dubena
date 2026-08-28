@@ -5,6 +5,7 @@ namespace App\Domain\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Trait para models escopados por tenant (empresa_id).
@@ -48,6 +49,18 @@ trait BelongsToTenant
                 && empty($model->getAttribute('grupo_id'))) {
                 $model->setAttribute('grupo_id', $context->grupoId());
             }
+
+            // A chave SaaS nunca vem do payload. Em escrita tenant-aware ela
+            // vem do envelope; em ETL sem envelope, somente do pai ja ligado.
+            if (in_array('tenant_account_id', $model->getFillable(), true)
+                && empty($model->getAttribute('tenant_account_id'))) {
+                $runtime = app(TenantEnvelopeRuntime::class);
+                $tenantAccountId = $runtime->current()?->tenantAccountId
+                    ?? static::tenantAccountIdDoPai($model);
+                if ($tenantAccountId !== null) {
+                    $model->setAttribute('tenant_account_id', $tenantAccountId);
+                }
+            }
         });
     }
 
@@ -73,11 +86,32 @@ trait BelongsToTenant
             if ($valorFk === null) {
                 continue;
             }
-            $empresaId = \Illuminate\Support\Facades\DB::table($tabelaPai)
+            $empresaId = DB::table($tabelaPai)
                 ->where('id', $valorFk)
                 ->value('empresa_id');
             if ($empresaId !== null) {
                 return (int) $empresaId;
+            }
+        }
+
+        return null;
+    }
+
+    /** Herda a chave SaaS do pai apenas no caminho sem envelope (ETL/seed). */
+    protected static function tenantAccountIdDoPai(Model $model): ?int
+    {
+        $mapa = property_exists($model, 'tenantParent') ? $model->tenantParent : [];
+
+        foreach ($mapa as $fk => $tabelaPai) {
+            $valorFk = $model->getAttribute($fk);
+            if ($valorFk === null) {
+                continue;
+            }
+            $tenantAccountId = DB::table($tabelaPai)
+                ->where('id', $valorFk)
+                ->value('tenant_account_id');
+            if ($tenantAccountId !== null) {
+                return (int) $tenantAccountId;
             }
         }
 
@@ -98,9 +132,7 @@ trait BelongsToTenant
  */
 class TenantScope implements Scope
 {
-    public function __construct(private TenantContext $context)
-    {
-    }
+    public function __construct(private TenantContext $context) {}
 
     public function apply(Builder $builder, Model $model): void
     {

@@ -25,7 +25,7 @@ class FinanceiroParcela extends Model
     protected $table = 'financeiroparcelas';
 
     protected $fillable = [
-        'financeiro_id', 'numero', 'vencimento', 'valor', 'desconto',
+        'tenant_account_id', 'financeiro_id', 'numero', 'vencimento', 'valor', 'desconto',
         'valor_efetivado', 'baixado', 'datahora_baixa',
     ];
 
