@@ -10,12 +10,15 @@ final class TenantLegacyGroupConfigurationProtector
 {
     /** @var list<string> */
     private const TABLES = [
+        'cargos',
         'clientecontatosituacoes',
         'clientecontatotipos',
+        'contamovimentotipos',
         'motivos_nao_venda',
         'pedido_motivos_atraso',
         'pedidooperacoes',
         'pedidosituacoes',
+        'veiculo_tipos',
     ];
 
     /** @return array{tables:int,rows:int} */

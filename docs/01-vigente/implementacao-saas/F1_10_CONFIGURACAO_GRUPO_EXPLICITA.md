@@ -14,6 +14,10 @@ O mesmo contrato foi estendido a `motivos_nao_venda`, `clientecontatotipos` e
 `clientecontatosituacoes`: eles configuram ações de pedido/atendimento e são
 referenciados por pedidos e interações de clientes, sem `empresa_id` próprio.
 
+Também são cobertos `contamovimentotipos`, `cargos` e `veiculo_tipos`, usados
+respectivamente por movimentos financeiros, colaboradores e veículos. `cargos`
+possui dois modelos no código, ambos agora recebem a chave apenas do envelope.
+
 ## Desenho implementado
 
 - `tenant_legacy_group_scopes` exige `tenant_account_id`, `grupo_id` único,
@@ -50,6 +54,9 @@ PHPUnit preexistentes foram emitidos, sem falha.
 
 Para a extensão dos três cadastros de atendimento, `MotivosPedidoTest`,
 `TenantMappingImporterTest` e os testes de migration aprovaram **12 testes, 39
+assertions**.
+
+Para o recorte financeiro/RH/frota, os testes focais aprovaram **17 testes, 86
 assertions**.
 
 Em PostgreSQL 15 descartável, o gate `RlsCoberturaTest` também passou com a

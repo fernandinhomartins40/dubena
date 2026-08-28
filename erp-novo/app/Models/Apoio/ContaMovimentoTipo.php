@@ -7,7 +7,7 @@ class ContaMovimentoTipo extends CadastroApoio
     protected $table = 'contamovimentotipos';
 
     protected $fillable = [
-        'grupo_id', 'descricao', 'ativo',
+        'tenant_account_id', 'grupo_id', 'descricao', 'ativo',
         'pagarreceber', 'cheque', 'cartao', 'valegas', 'convenio',
     ];
 

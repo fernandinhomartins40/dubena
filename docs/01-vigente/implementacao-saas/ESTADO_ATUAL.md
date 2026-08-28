@@ -385,3 +385,14 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `TenantMappingImporterTest` e `MotivosPedidoTest`: 12 testes/39 assertions
   aprovados. Proximo passo: CI/deploy desta extensao e depois o proximo grupo
   de cadastros COMPANY sem `empresa_id`.
+
+## Atualizacao de retomada - 2026-08-27 (financeiro RH frota group-scoped)
+
+- O protetor documental tambem cobre `contamovimentotipos`, `cargos` e
+  `veiculo_tipos`. Os dois modelos que escrevem `cargos` e os modelos de
+  movimento/frota preenchem a chave somente pelo envelope ativo.
+- Nenhuma linha foi convertida por `grupo_id`; sem bridge documental aprovada o
+  comando recusa o backfill/policy.
+- Validacao local: 17 testes/86 assertions em `CadastroApoioRhTest`, gates de
+  frota, `F15MigratorsTest` e o contrato da migration. Proximo passo: commit,
+  CI/deploy e continuar pelos demais COMPANY sem `empresa_id`.

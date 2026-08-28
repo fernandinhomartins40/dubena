@@ -10,7 +10,7 @@ class Cargo extends CadastroApoio
 {
     protected $table = 'cargos';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'salario_base'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'salario_base'];
 
     protected function casts(): array
     {

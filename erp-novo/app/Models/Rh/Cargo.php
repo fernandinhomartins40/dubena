@@ -14,7 +14,7 @@ class Cargo extends Model
 
     protected $table = 'cargos';
 
-    protected $fillable = ['grupo_id', 'descricao', 'salario_base', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'salario_base', 'ativo'];
 
     protected function casts(): array
     {
