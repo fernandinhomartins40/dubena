@@ -45,6 +45,13 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
 
         $this->assertStringContainsString("Schema::hasTable('tenant_legacy_group_scopes')", $source);
 
+        $financialFkConstraint = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001400_enforce_financial_configuration_tenant_keys.php');
+        $this->assertStringContainsString('app_enforce_financial_configuration_tenant', $financialFkConstraint);
+        $this->assertStringContainsString('financeiros_configuration_tenant', $financialFkConstraint);
+        $this->assertStringContainsString('financeirorateios_configuration_tenant', $financialFkConstraint);
+        $this->assertStringContainsString('NEW.planoconta_id', $financialFkConstraint);
+        $this->assertStringContainsString('NEW.centrocusto_id', $financialFkConstraint);
+
         $scopePolicy = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001200_protect_tenant_legacy_group_scopes.php');
         $this->assertStringContainsString('ALTER TABLE tenant_legacy_group_scopes ENABLE ROW LEVEL SECURITY', $scopePolicy);
         $this->assertStringContainsString('WITH CHECK (false)', $scopePolicy);

@@ -464,3 +464,16 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `ResolveTenantEnvelopeMiddlewareTest`: 9 testes/28 assertions aprovados.
 - Proximo microlote: instalar e provar em PostgreSQL a validacao estrutural das
   FKs financeiras para plano/centro de custo, sem executar backfill remoto.
+
+## Atualizacao de retomada - 2026-08-27 (FKs financeiras estruturais)
+
+- Trigger PostgreSQL passou a validar `planoconta_id` e `centrocusto_id` de
+  `financeiros` e `financeirorateios`. Quando a configuracao ja possui chave
+  SaaS, a linha financeira precisa ter a mesma chave; referencia cruzada e
+  recusada no banco.
+- Prova PostgreSQL 15 descartavel: cadeia completa aplicada, insercao cruzada
+  recusada tanto para lancamento quanto para rateio. Nenhum dado remoto foi
+  preenchido ou reatribuido.
+- Proximo microlote: revisar os demais consumidores de configuracao financeira
+  armazenados em `empresa_configs.dados`, que exigem conversao tipada posterior
+  e nao podem ser inferidos a partir da copia.
