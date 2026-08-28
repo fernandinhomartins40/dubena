@@ -13,7 +13,7 @@ class Sorteio extends Model
 
     protected $table = 'sorteios';
 
-    protected $fillable = ['grupo_id', 'descricao', 'data_sorteio', 'situacao', 'numero_sorteado'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'data_sorteio', 'situacao', 'numero_sorteado'];
 
     protected function casts(): array
     {

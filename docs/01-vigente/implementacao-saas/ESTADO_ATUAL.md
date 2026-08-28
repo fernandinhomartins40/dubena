@@ -406,3 +406,13 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao local: 41 testes/129 assertions em CRM, Monitora e migradores.
   Proximo passo: commit/CI/deploy deste recorte; nenhuma configuracao existente
   sera reatribuida sem JSON documental.
+
+## Atualizacao de retomada - 2026-08-27 (grafos CRM pai-filho)
+
+- `checklists`/`checklist_perguntas` e `sorteios`/`sorteio_numeros` receberam
+  chave tenant no pai e propagacao verificavel aos filhos. O protetor recusa
+  filho sem pai, tenant ausente ou tenant divergente antes de instalar RLS.
+- As policies dos filhos consultam o pai e exigem a mesma permissao canonica de
+  grupo; criacao de filho obtem a chave exclusivamente do pai ja protegido.
+- Validacao local: `CrmTest` e contrato da migration, 7 testes/41 assertions.
+  Proximo passo: commit/CI/deploy; `perda.sql` segue preexistente e intocado.

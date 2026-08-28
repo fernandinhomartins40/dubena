@@ -4,6 +4,7 @@ namespace App\Models\Crm;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pergunta de um checklist — C10. Leaf puro: acessado apenas via o Checklist pai
@@ -15,6 +16,15 @@ class ChecklistPergunta extends Model
     protected $table = 'checklist_perguntas';
 
     protected $fillable = ['checklist_id', 'pergunta', 'ordem'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model): void {
+            if ($model->tenant_account_id === null && $model->checklist_id !== null) {
+                $model->tenant_account_id = DB::table('checklists')->whereKey($model->checklist_id)->value('tenant_account_id');
+            }
+        });
+    }
 
     protected function casts(): array
     {

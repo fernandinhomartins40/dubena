@@ -11,6 +11,7 @@ final class TenantLegacyGroupConfigurationProtector
     /** @var list<string> */
     private const TABLES = [
         'cargos',
+        'checklists',
         'clientecontatosituacoes',
         'clientecontatotipos',
         'contamovimentotipos',
@@ -20,6 +21,7 @@ final class TenantLegacyGroupConfigurationProtector
         'pedidooperacoes',
         'pedidosituacoes',
         'promocoes',
+        'sorteios',
         'veiculo_tipos',
     ];
 
@@ -81,6 +83,28 @@ final class TenantLegacyGroupConfigurationProtector
             $rows += (int) DB::table($table)->count();
         }
 
+        foreach ([
+            'checklist_perguntas' => ['checklists', 'checklist_id'],
+            'sorteio_numeros' => ['sorteios', 'sorteio_id'],
+        ] as $child => [$parent, $foreignKey]) {
+            $rows += $this->protectChildTable($child, $parent, $foreignKey);
+        }
+
         return ['tables' => count(self::TABLES), 'rows' => $rows];
+    }
+
+    private function protectChildTable(string $child, string $parent, string $foreignKey): int
+    {
+        DB::statement("UPDATE {$child} child_row SET tenant_account_id = parent_row.tenant_account_id FROM {$parent} parent_row WHERE parent_row.id = child_row.{$foreignKey} AND child_row.tenant_account_id IS NULL");
+        $invalid = (int) DB::scalar("SELECT count(*) FROM {$child} child_row LEFT JOIN {$parent} parent_row ON parent_row.id = child_row.{$foreignKey} WHERE parent_row.id IS NULL OR parent_row.tenant_account_id IS NULL OR child_row.tenant_account_id IS NULL OR child_row.tenant_account_id <> parent_row.tenant_account_id");
+        if ($invalid > 0) {
+            throw new LogicException("F1 recusada: {$child} possui {$invalid} filho(s) com tenant divergente do pai.");
+        }
+        DB::statement("ALTER TABLE {$child} ENABLE ROW LEVEL SECURITY");
+        DB::statement("ALTER TABLE {$child} FORCE ROW LEVEL SECURITY");
+        DB::statement("DROP POLICY IF EXISTS tenant_isolation ON {$child}");
+        DB::statement("CREATE POLICY tenant_isolation ON {$child} USING (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND app_tenant_can_read_group_config(parent_row.tenant_account_id, parent_row.grupo_id))) WITH CHECK (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND parent_row.tenant_account_id = {$child}.tenant_account_id AND app_tenant_can_operate_group_config(parent_row.tenant_account_id, parent_row.grupo_id)))");
+
+        return (int) DB::table($child)->count();
     }
 }
