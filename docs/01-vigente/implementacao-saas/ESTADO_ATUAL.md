@@ -424,3 +424,11 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   ativacao RLS.
 - Validacao local: 8 testes/38 assertions em condicoes e FKs de migracao.
   Proximo passo: CI/deploy deste microlote; `perda.sql` permanece intocado.
+
+## Atualizacao de retomada - 2026-08-27 (hierarquia financeira)
+
+- `centros_custo` e `planos_conta` entram na ponte documental; a protecao
+  recusa qualquer `pai_id` cuja chave tenant divirja da chave do filho.
+- Validacao local: 10 testes/64 assertions em financeiro, relatorios e contrato
+  da migration. Proximo passo: CI/deploy; nenhum dado da copia foi usado como
+  regra de titularidade.

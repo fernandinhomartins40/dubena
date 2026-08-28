@@ -13,7 +13,7 @@ class PlanoConta extends Model
 
     protected $table = 'planos_conta';
 
-    protected $fillable = ['grupo_id', 'pai_id', 'codigo', 'descricao', 'pagarreceber', 'nivel', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'pai_id', 'codigo', 'descricao', 'pagarreceber', 'nivel', 'ativo'];
 
     protected function casts(): array
     {

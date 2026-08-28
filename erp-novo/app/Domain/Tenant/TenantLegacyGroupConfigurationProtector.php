@@ -11,6 +11,7 @@ final class TenantLegacyGroupConfigurationProtector
     /** @var list<string> */
     private const TABLES = [
         'cargos',
+        'centros_custo',
         'checklists',
         'clientecontatosituacoes',
         'clientecontatotipos',
@@ -21,6 +22,7 @@ final class TenantLegacyGroupConfigurationProtector
         'pedido_motivos_atraso',
         'pedidooperacoes',
         'pedidosituacoes',
+        'planos_conta',
         'promocoes',
         'sorteios',
         'veiculo_tipos',
@@ -91,6 +93,9 @@ final class TenantLegacyGroupConfigurationProtector
         ] as $child => [$parent, $foreignKey]) {
             $rows += $this->protectChildTable($child, $parent, $foreignKey);
         }
+        foreach (['centros_custo', 'planos_conta'] as $table) {
+            $this->assertHierarchyTenant($table);
+        }
 
         return ['tables' => count(self::TABLES), 'rows' => $rows];
     }
@@ -108,5 +113,13 @@ final class TenantLegacyGroupConfigurationProtector
         DB::statement("CREATE POLICY tenant_isolation ON {$child} USING (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND app_tenant_can_read_group_config(parent_row.tenant_account_id, parent_row.grupo_id))) WITH CHECK (EXISTS (SELECT 1 FROM {$parent} parent_row WHERE parent_row.id = {$child}.{$foreignKey} AND parent_row.tenant_account_id = {$child}.tenant_account_id AND app_tenant_can_operate_group_config(parent_row.tenant_account_id, parent_row.grupo_id)))");
 
         return (int) DB::table($child)->count();
+    }
+
+    private function assertHierarchyTenant(string $table): void
+    {
+        $invalid = (int) DB::scalar("SELECT count(*) FROM {$table} child_row JOIN {$table} parent_row ON parent_row.id = child_row.pai_id WHERE child_row.pai_id IS NOT NULL AND child_row.tenant_account_id <> parent_row.tenant_account_id");
+        if ($invalid > 0) {
+            throw new LogicException("F1 recusada: {$table} possui {$invalid} vinculo(s) hierarquico(s) entre tenants distintos.");
+        }
     }
 }

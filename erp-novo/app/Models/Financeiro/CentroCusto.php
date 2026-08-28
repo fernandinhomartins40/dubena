@@ -13,7 +13,7 @@ class CentroCusto extends Model
 
     protected $table = 'centros_custo';
 
-    protected $fillable = ['grupo_id', 'pai_id', 'codigo', 'descricao', 'nivel', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'pai_id', 'codigo', 'descricao', 'nivel', 'ativo'];
 
     protected function casts(): array
     {
