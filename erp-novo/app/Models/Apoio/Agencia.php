@@ -6,5 +6,5 @@ class Agencia extends CadastroApoio
 {
     protected $table = 'agencias';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'banco_id', 'numero', 'digito'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'banco_id', 'numero', 'digito'];
 }

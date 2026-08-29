@@ -13,7 +13,7 @@ class OperacaoFiscal extends Model
     protected $table = 'operacoes_fiscais';
 
     protected $fillable = [
-        'grupo_id', 'descricao', 'descricao_fiscal', 'cfop',
+        'tenant_account_id', 'grupo_id', 'descricao', 'descricao_fiscal', 'cfop',
         'movimenta_estoque', 'movimenta_financeiro', 'ativo',
     ];
 

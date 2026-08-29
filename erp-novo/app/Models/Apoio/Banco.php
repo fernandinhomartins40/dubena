@@ -6,5 +6,5 @@ class Banco extends CadastroApoio
 {
     protected $table = 'bancos';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'codigo', 'site'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'codigo', 'site'];
 }

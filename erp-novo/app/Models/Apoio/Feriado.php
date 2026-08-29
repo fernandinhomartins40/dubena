@@ -6,7 +6,7 @@ class Feriado extends CadastroApoio
 {
     protected $table = 'feriados';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'data', 'recorrente'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'data', 'recorrente'];
 
     protected function casts(): array
     {

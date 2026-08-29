@@ -17,7 +17,7 @@ class Bairro extends Model
 
     protected $table = 'bairros';
 
-    protected $fillable = ['grupo_id', 'cidade_id', 'descricao', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'cidade_id', 'descricao', 'ativo'];
 
     protected function casts(): array
     {

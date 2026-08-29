@@ -26,7 +26,11 @@ class ConfigGlobal extends Model
         'google_maps_key', 'link_monitoramento',
     ];
 
-    protected $hidden = ['rt_csrt', 'email_senha', 'sat_signac_prod', 'sat_signac_homolog'];
+    // `google_maps_key` entrou aqui depois: ela e credencial COBRADA, e estava
+    // saindo em claro em qualquer serializacao do model. Duas revendas
+    // concorrentes nao podem ver a chave uma da outra, e nem a plataforma
+    // precisa exibi-la de volta.
+    protected $hidden = ['rt_csrt', 'email_senha', 'sat_signac_prod', 'sat_signac_homolog', 'google_maps_key'];
 
     protected function casts(): array
     {
@@ -37,6 +41,7 @@ class ConfigGlobal extends Model
             'email_senha' => 'encrypted',
             'sat_signac_prod' => 'encrypted',
             'sat_signac_homolog' => 'encrypted',
+            'google_maps_key' => 'encrypted',
         ];
     }
 }

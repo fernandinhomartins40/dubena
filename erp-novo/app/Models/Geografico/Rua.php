@@ -17,7 +17,7 @@ class Rua extends Model
 
     protected $table = 'ruas';
 
-    protected $fillable = ['grupo_id', 'cidade_id', 'bairro_id', 'descricao', 'cep', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'cidade_id', 'bairro_id', 'descricao', 'cep', 'ativo'];
 
     protected function casts(): array
     {

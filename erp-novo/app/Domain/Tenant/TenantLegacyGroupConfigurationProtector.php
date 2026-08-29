@@ -10,31 +10,50 @@ final class TenantLegacyGroupConfigurationProtector
 {
     /** @var list<string> */
     private const TABLES = [
+        'agencias',
+        'bairros',
+        'bancos',
         'cargos',
         'centros_custo',
+        'cidades',
         'checklists',
         'clientecontatosituacoes',
         'clientecontatotipos',
         'condicaopagamentos',
         'contamovimentotipos',
+        'estados_civis',
+        'feriados',
         'malha_fiscal',
         'motivos_nao_venda',
+        'operacoes_fiscais',
+        'parentescos',
         'monitora_veiculo_tipos',
         'pedido_motivos_atraso',
         'pedidooperacoes',
         'pedidosituacoes',
         'planos_conta',
+        'produtoclasses',
+        'profissoes',
+        'regioes',
+        'ruas',
+        'segmentos',
         'promocoes',
         'sorteios',
+        'telefonetipos',
+        'tipo_combustiveis',
+        'tipopessoas',
+        'tipos_documento_veiculo',
+        'tipos_exame',
         'transportadoras',
+        'unidadesmedida',
         'veiculo_tipos',
     ];
 
     /**
      * Pivots sem `empresa_id` e sem `grupo_id`: a migration COMPANY nao os
      * alcanca e eles ficavam sem RLS alguma. O tenant vem do pai escopado por
-     * empresa — `operacoes_fiscais` nao serve de pai porque e PLATFORM e nao
-     * possui chave de tenant.
+     * empresa — `operacoes_fiscais` nao serve de pai porque e escopado por
+     * GRUPO, e a policy de grupo nao responde as funcoes COMPANY.
      *
      * @var array<string, array{0:string,1:string}>
      */

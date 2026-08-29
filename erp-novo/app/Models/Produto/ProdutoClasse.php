@@ -13,7 +13,7 @@ class ProdutoClasse extends Model
 
     protected $table = 'produtoclasses';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo'];
 
     protected function casts(): array
     {

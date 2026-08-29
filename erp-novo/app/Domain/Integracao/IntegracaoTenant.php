@@ -3,8 +3,10 @@
 namespace App\Domain\Integracao;
 
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\ConfigGlobal;
 use App\Models\EmpresaConfig;
+use App\Models\Saas\TenantLegacyGroupScope;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 
@@ -110,6 +112,16 @@ class IntegracaoTenant
     {
         $grupoId ??= $this->tenant->grupoId();
         if ($grupoId !== null) {
+            // `withoutGrupo()` derruba o escopo do Eloquent, entao a RLS era a
+            // unica barreira — e ela era a legada por `app.grupo_id`. Com o
+            // enforcement SaaS ligado, o grupo pedido tem que pertencer ao
+            // tenant do envelope ativo: chave do Maps e credencial cobrada, e
+            // duas revendas concorrentes nao podem gastar a cota uma da outra.
+            if (config('saas_transformation.enforcement.tenant_envelope')
+                && ! $this->grupoPertenceAoEnvelope($grupoId)) {
+                return null;
+            }
+
             $key = ConfigGlobal::withoutGrupo()
                 ->where('grupo_id', $grupoId)
                 ->value('google_maps_key');
@@ -128,6 +140,27 @@ class IntegracaoTenant
         }
 
         return ! empty($env) ? (string) $env : null;
+    }
+
+    /**
+     * O grupo pedido pertence ao tenant do envelope ativo?
+     *
+     * Sem envelope a resposta e NAO: fora de request e sem fronteira declarada,
+     * ler credencial de um grupo arbitrario e exatamente o que precisa ser
+     * negado. O chamador cai no fallback da plataforma, que ja registra warning.
+     */
+    private function grupoPertenceAoEnvelope(int $grupoId): bool
+    {
+        $envelope = app(TenantEnvelopeRuntime::class)->current();
+        if ($envelope === null) {
+            return false;
+        }
+
+        return TenantLegacyGroupScope::query()
+            ->where('grupo_id', $grupoId)
+            ->where('tenant_account_id', $envelope->tenantAccountId)
+            ->where('status', TenantLegacyGroupScope::STATUS_APPROVED)
+            ->exists();
     }
 
     /**

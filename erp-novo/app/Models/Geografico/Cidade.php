@@ -18,7 +18,7 @@ class Cidade extends Model
 
     protected $table = 'cidades';
 
-    protected $fillable = ['grupo_id', 'descricao', 'uf', 'cod_ibge', 'municipio_ibge', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'uf', 'cod_ibge', 'municipio_ibge', 'ativo'];
 
     protected function casts(): array
     {

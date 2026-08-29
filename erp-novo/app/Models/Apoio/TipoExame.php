@@ -7,7 +7,7 @@ class TipoExame extends CadastroApoio
 {
     protected $table = 'tipos_exame';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'admissional'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'admissional'];
 
     protected function casts(): array
     {

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Integracao\IntegracaoTenant;
+use App\Models\ConfigGlobal;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use App\Models\User;
@@ -87,9 +88,12 @@ class ContratoIntegracoesMigradasTest extends TestCase
     {
         [, $empresa] = $this->suporte();
 
-        DB::table('config_globais')->updateOrInsert(
+        // Pelo model, não por `DB::table`: `google_maps_key` é `encrypted` desde
+        // 2026-08-29 (credencial cobrada não fica em claro), e a escrita crua
+        // gravaria texto puro que o cast não consegue decifrar na leitura.
+        ConfigGlobal::withoutGrupo()->updateOrCreate(
             ['grupo_id' => $empresa->grupo_id],
-            ['google_maps_key' => 'AIza_key_da_rede', 'updated_at' => now()],
+            ['google_maps_key' => 'AIza_key_da_rede'],
         );
 
         $this->assertSame(
@@ -97,5 +101,28 @@ class ContratoIntegracoesMigradasTest extends TestCase
             app(IntegracaoTenant::class)->googleMapsKey($empresa->grupo_id),
             'o Maps é lido de config_globais do grupo — gravar em empresa_configs some'
         );
+    }
+
+    /**
+     * A chave do Maps é credencial COBRADA. Duas revendas concorrentes não podem
+     * ver a chave uma da outra — nem gastar a cota alheia.
+     *
+     * Antes de 2026-08-29 ela era a única de `config_globais` que não era
+     * `encrypted` nem `hidden`, e saía em claro no banco e em qualquer
+     * serialização do model.
+     */
+    public function test_chave_do_maps_nao_fica_em_claro_nem_aparece_serializada(): void
+    {
+        [, $empresa] = $this->suporte();
+
+        $config = ConfigGlobal::withoutGrupo()->updateOrCreate(
+            ['grupo_id' => $empresa->grupo_id],
+            ['google_maps_key' => 'AIza_segredo_da_revenda'],
+        );
+
+        $cru = DB::table('config_globais')->where('grupo_id', $empresa->grupo_id)->value('google_maps_key');
+        $this->assertNotSame('AIza_segredo_da_revenda', $cru, 'a chave não pode ficar em claro no banco');
+        $this->assertSame('AIza_segredo_da_revenda', $config->fresh()->google_maps_key, 'o cast precisa decifrar de volta');
+        $this->assertArrayNotHasKey('google_maps_key', $config->toArray(), 'a chave não pode sair em serialização');
     }
 }

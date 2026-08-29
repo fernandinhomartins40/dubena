@@ -12,7 +12,7 @@ class TipoDocumentoVeiculo extends CadastroApoio
 {
     protected $table = 'tipos_documento_veiculo';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'exige_validade'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'exige_validade'];
 
     protected function casts(): array
     {

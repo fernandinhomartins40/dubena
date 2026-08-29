@@ -16,25 +16,17 @@ $register = static function (array $tables, string $class, string $owner, string
 };
 
 $register([
-    'agencias',
-    'bairros',
-    'bancos',
     'cache',
     'cache_locks',
-    'cidades',
     'cidades_plataforma',
     'estados',
-    'estados_civis',
     'failed_jobs',
-    'feriados',
     'ibpt_aliquotas',
     'job_batches',
     'jobs',
     'logradouros_oficiais',
     'migrations',
     'municipios_ibge',
-    'operacoes_fiscais',
-    'parentescos',
     'password_policies',
     'password_reset_tokens',
     'permission_conditions',
@@ -43,23 +35,12 @@ $register([
     'personal_access_tokens',
     'platform_admins',
     'platform_audit_logs',
-    'produtoclasses',
     'produtoorigens',
-    'profissoes',
-    'regioes',
     'role_user',
     'role_versions',
     'roles',
-    'ruas',
-    'segmentos',
     'sessions',
-    'telefonetipos',
-    'tipo_combustiveis',
-    'tipopessoas',
-    'tipos_documento_veiculo',
-    'tipos_exame',
     'unidades',
-    'unidadesmedida',
     'user_2fa',
     'users',
 ], 'PLATFORM', 'Platform Operations', 'Referencia, identidade, autorizacao ou infraestrutura compartilhada; nao contem dado operacional de empresa.');
@@ -246,5 +227,44 @@ $register([
     'veiculos',
     'venda_ativas',
 ], 'COMPANY', 'Business Domain Owners', 'Registro operacional do dominio que deve receber empresa_id e tenant_id conforme F1-03, sem usar grupo_id como fronteira de acesso.');
+
+/*
+ * Reclassificacao de 2026-08-29. Estas 19 estavam como PLATFORM sob a
+ * justificativa "nao contem dado operacional de empresa". Os dados e o codigo
+ * diziam o contrario:
+ *
+ *  - todas tem `grupo_id`, unicidade `(grupo_id, descricao)` e model com
+ *    `BelongsToGrupo`;
+ *  - todas sao EDITAVEIS pela revenda (CadastroApoioRegistry / controllers
+ *    proprios de cidade e logradouro) — inclusive `bancos` e `estados_civis`;
+ *  - na copia real o seed ja duplicou `tipos_documento_veiculo` 7 + 7 entre os
+ *    dois grupos, provando que na pratica sao copias por tenant.
+ *
+ * Se a revenda edita, o dado e dela: uma renomeando um banco ou desativando uma
+ * unidade de medida nao pode afetar a concorrente. O PLATFORM de verdade e o
+ * cadastro publico e imutavel, sem `grupo_id` — `municipios_ibge` e
+ * `logradouros_oficiais`, que seguem PLATFORM e nao tem tela de edicao.
+ */
+$register([
+    'agencias',
+    'bairros',
+    'bancos',
+    'cidades',
+    'estados_civis',
+    'feriados',
+    'operacoes_fiscais',
+    'parentescos',
+    'produtoclasses',
+    'profissoes',
+    'regioes',
+    'ruas',
+    'segmentos',
+    'telefonetipos',
+    'tipo_combustiveis',
+    'tipopessoas',
+    'tipos_documento_veiculo',
+    'tipos_exame',
+    'unidadesmedida',
+], 'COMPANY', 'Business Domain Owners', 'Cadastro escopado por grupo e editavel pela revenda: a policy canonica de configuracao substitui a policy legada por app.grupo_id. Catalogo publico e imutavel permanece PLATFORM (municipios_ibge, logradouros_oficiais).');
 
 return $entries;

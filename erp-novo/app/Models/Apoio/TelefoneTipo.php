@@ -6,7 +6,7 @@ class TelefoneTipo extends CadastroApoio
 {
     protected $table = 'telefonetipos';
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo', 'celular'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo', 'celular'];
 
     protected function casts(): array
     {

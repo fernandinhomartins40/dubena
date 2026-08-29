@@ -12,8 +12,13 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * F1 cutover middleware. Deve rodar após `tenant` durante o dual-read;
- * propositalmente não é adicionado às rotas antes do import documental F1-10.
+ * F1 cutover middleware. Roda após `tenant` durante o dual-read.
+ *
+ * Já está anexado a todas as rotas `auth:sanctum` (routes/api.php). O que
+ * decide se ele atua é `SAAS_ENFORCE_TENANT_ENVELOPE`: desligado, ele é
+ * passagem livre e vale o modelo legado; ligado, nenhuma requisição autenticada
+ * segue sem fronteira aprovada — e a troca é uma variável de ambiente, não um
+ * deploy, para o rollback ser imediato.
  */
 class ResolveTenantEnvelope
 {

@@ -13,7 +13,7 @@ class UnidadeMedida extends Model
 
     protected $table = 'unidadesmedida';
 
-    protected $fillable = ['grupo_id', 'descricao', 'sigla', 'ativo'];
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'sigla', 'ativo'];
 
     protected function casts(): array
     {

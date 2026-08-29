@@ -15,7 +15,10 @@ abstract class CadastroApoio extends Model
     use BelongsToGrupo;
     use HasFactory;
 
-    protected $fillable = ['grupo_id', 'descricao', 'ativo'];
+    // `tenant_account_id` participa da ponte documental: `BelongsToGrupo` so
+    // preenche a chave em models que a declaram, e o valor vem do envelope
+    // ativo — nunca do payload da requisicao.
+    protected $fillable = ['tenant_account_id', 'grupo_id', 'descricao', 'ativo'];
 
     protected function casts(): array
     {
