@@ -2,11 +2,15 @@
 
 **Objetivo durável:** ativo  
 **Estado:** IMPLEMENTANDO  
-**Fase:** F0 — Contenção, inventário vivo e decisões  
-**Último microlote concluído:** F0-05.07/08 — PostgreSQL/RLS e reprodutibilidade  
-**Microlote parcial:** F0-03 — segredos removidos do código; rotação externa pendente  
-**Microlote em andamento:** F0-05A — anel externo de build/deploy  
-**Última atualização:** 2026-08-26 10:15 (America/Sao_Paulo)
+**Fase:** F1 — **CONCLUÍDA** (gate aprovado em homologação; ver `F1_16_GATE_APROVADO.md`)  
+**Último microlote concluído:** F1-16 — gate F1 aprovado com role de runtime sobre dados reais  
+**Próxima fase:** F2 — ainda não iniciada  
+**Pendência externa herdada:** F0-03 — rotação/revogação externa de segredos  
+**Última atualização:** 2026-08-29 (America/Sao_Paulo)
+
+> ⚠️ `tenant.saas` continua **fora das rotas** e `SAAS_ENFORCE_TENANT_ENVELOPE`
+> segue `false`. F1 entrega a fronteira **provada**; ligar o enforcement é
+> decisão de cutover, não consequência automática do gate.
 
 ## Referências obrigatórias
 
@@ -618,3 +622,27 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Apos o deploy desta migration, a lista de pendencias do gate em homologacao
   deve ficar vazia, restando apenas o `--apply` do comando documental (preview
   `ready:true`, snapshot ja gravado) para as tabelas group-scoped com dados.
+
+## GATE F1 APROVADO - 2026-08-29 (America/Sao_Paulo)
+
+- `saas:f1:pre-cutover-check --connection=pgsql_owner` retornou **exit 0** na
+  homologacao. A unica empresa fora da fronteira e a de teste ("Grupo Padrao"),
+  que DEVE ficar fora e e negada pelo resolver.
+- O exit 0 agora vale: o portao verifica policy canonica ativa com RLS forcada,
+  nao so a coluna. Ele reprovou tres vezes nesta sequencia (4 tabelas -> 2 -> 0).
+- Cobertura: 150 tabelas com `tenant_account_id`, **141 com policy canonica +
+  FORCE**. As 9 restantes sao excecoes declaradas.
+- Prova do item 1 sobre DADOS REAIS, com role `erp_app`
+  (`rolsuper=false`, `rolbypassrls=false`):
+  - sem contexto -> 0 clientes visiveis (existem 55.453);
+  - tenant alheio -> 0 em clientes, pedidos, sequencias e financeiros;
+  - UPDATE cruzado -> 0 linhas, conferido pelo owner.
+  Com envelope legitimo, a visibilidade bate exatamente com os 11 grants.
+- Efeito das migrations: `sequencias` com 14/14 sequencias fiscais preenchidas
+  (zero orfa); trigger de sorteio ativo com 20 numeros reais sem cruzamento; os
+  2 pivots e as 2 configuracoes vazias com policy canonica.
+- **F1 CONCLUIDA.** Itens 1 a 6 fechados. Ver `F1_16_GATE_APROVADO.md`.
+- Abertos, sem bloquear F1: 19 tabelas PLATFORM ainda com policy por `grupo_id`
+  (catalogos compartilhados — inconsistencia de classificacao, nao de
+  isolamento); `operacoes_fiscais` PLATFORM com `grupo_id`; e a decisao de
+  ligar `tenant.saas`/enforcement, que e cutover.
