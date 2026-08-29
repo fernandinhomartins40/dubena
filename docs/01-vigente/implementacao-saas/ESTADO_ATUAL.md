@@ -598,3 +598,23 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   bloqueada pelo classificador). Com preview `ready:true` e snapshot no lugar, a
   operacao e segura e reversivel; falta a decisao de executa-la, e so entao o
   item 6 (declarar F1 concluida).
+
+## Atualizacao de retomada - 2026-08-28 (deploy 001800 verificado)
+
+- Verificado na homologacao apos o deploy: `produto_operacao_fiscal` e
+  `convenio_fechamento_pedidos` passaram a `rls=true force=true` com policy
+  CANONICA. `sequencias` idem. O gate caiu de 4 para 2 tabelas pendentes.
+- As 2 restantes, `transportadoras` e `malha_fiscal`, estao VAZIAS na copia e
+  seguiam na policy legada por `grupo_id`. E a mesma lacuna que a `001800`
+  fechou para os pivots: a troca para a policy canonica so viria pela conversao
+  documental, entao num tenant NOVO elas ficariam indefinidamente confiando em
+  `app.grupo_id` — a barreira fail-open que F1 substitui.
+- Criada a migration `001900`, que troca a policy enquanto a tabela esta vazia e
+  NAO toca tabela com dados. Provado nos dois sentidos: banco novo -> canonica;
+  com 1 linha preexistente -> intocada, decisao segue documental.
+- Validacao: 140 migrations do zero; suite integral **1.338 passes, 4.232
+  assertions, 8 skips, zero falhas**; `RlsCoberturaTest` 6/354 sem skip; Pint
+  aprovado.
+- Apos o deploy desta migration, a lista de pendencias do gate em homologacao
+  deve ficar vazia, restando apenas o `--apply` do comando documental (preview
+  `ready:true`, snapshot ja gravado) para as tabelas group-scoped com dados.

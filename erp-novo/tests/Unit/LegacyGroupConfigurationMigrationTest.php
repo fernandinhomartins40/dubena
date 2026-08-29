@@ -103,6 +103,27 @@ class LegacyGroupConfigurationMigrationTest extends TestCase
     }
 
     /**
+     * Mesma lacuna da `001800`, agora para configuração group-scoped:
+     * `transportadoras` e `malha_fiscal` seguiam na policy legada por `grupo_id`
+     * e só trocariam pela conversão documental. Vazias, num tenant novo,
+     * ficariam indefinidamente confiando em `app.grupo_id` — a barreira
+     * fail-open que F1 substitui.
+     */
+    public function test_configuracao_vazia_troca_a_policy_legada_por_grupo(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2).'/database/migrations/2026_08_29_001900_protect_empty_group_configuration.php');
+
+        $this->assertStringContainsString("'transportadoras'", $source);
+        $this->assertStringContainsString("'malha_fiscal'", $source);
+        // Group-scoped usa as funções de configuração de grupo, não as COMPANY.
+        $this->assertStringContainsString('app_tenant_can_read_group_config(tenant_account_id, grupo_id)', $source);
+        $this->assertStringContainsString('app_tenant_can_operate_group_config(tenant_account_id, grupo_id)', $source);
+        // Com dados, a decisão continua documental.
+        $this->assertStringContainsString('->count() > 0', $source);
+        $this->assertStringContainsString('continue', $source);
+    }
+
+    /**
      * Item 4 do gate: dos 175 relacionamentos entre tabelas com chave SaaS, 168
      * tem `empresa_id` no filho (a policy ja valida na escrita) e 6 dos 7
      * restantes sao grafos ja cobertos. `sorteio_numeros.cliente_id` era o
