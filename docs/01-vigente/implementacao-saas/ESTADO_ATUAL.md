@@ -646,3 +646,33 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   (catalogos compartilhados — inconsistencia de classificacao, nao de
   isolamento); `operacoes_fiscais` PLATFORM com `grupo_id`; e a decisao de
   ligar `tenant.saas`/enforcement, que e cutover.
+
+## Atualizacao de retomada - 2026-08-29 (credenciais e reclassificacao)
+
+- Motivado pela observacao do operador: cada revenda tem chaves proprias e duas
+  concorrentes nao podem ver a da outra.
+- FURO PROVADO em `config_globais` (CSRT, senha SMTP, assinatura SAT, chave do
+  Maps): a policy ainda era a legada por `app.grupo_id`. Sem envelope nenhum, a
+  linha vinha COM a `google_maps_key`, enquanto `clientes` na mesma condicao ja
+  retornava zero. E `google_maps_key` era a unica credencial da tabela sem
+  `encrypted`/`hidden` — vazou em claro. Corrigido: policy canonica, coluna
+  `varchar(120)` -> `text` antes de cifrar, migration idempotente, e
+  `googleMapsKey()` exige que o grupo pertenca ao tenant do envelope.
+- RECLASSIFICACAO: as 19 tabelas PLATFORM viraram COMPANY group-scoped. Todas
+  tem `grupo_id`, unicidade `(grupo_id, descricao)`, model `BelongsToGrupo` e
+  sao EDITAVEIS pela revenda; `tipos_documento_veiculo` ja estava duplicado 7+7.
+  O PLATFORM de verdade e `municipios_ibge`/`logradouros_oficiais` (publico,
+  imutavel, sem `grupo_id`, sem tela). A ponte documental passa a 37 tabelas.
+- CORRECAO DE REGISTRO: `tenant.saas` NUNCA esteve fora das rotas — ja estava em
+  todas as rotas `auth:sanctum`; o docblock e que estava desatualizado. E
+  `SAAS_ENFORCE_TENANT_ENVELOPE=true` JA ESTAVA ativo na homologacao (config
+  efetiva `true`). A app responde HTTP 200 nesse modo.
+- Validacao: 142 migrations do zero; protetor cobre 37 tabelas;
+  `pre-cutover-check` exit 0; suite integral **1.339 passes, 4.254 assertions,
+  zero falhas**. Ver `F1_17_CREDENCIAIS_E_RECLASSIFICACAO.md`.
+- PENDENCIA ASSUMIDA: com enforcement ligado a suite vai a 566 falhas de 1.346,
+  porque as factories criam empresa sem TenantCompany/membership/grant. E divida
+  do ambiente de teste, nao da aplicacao — em homologacao 81 dos 82 usuarios tem
+  membership, e o unico sem e o admin de teste da empresa 139 (fora da fronteira
+  de proposito, `support` deixando de ser bypass). Adaptar as factories e o
+  proximo trabalho antes de considerar o modo novo coberto por testes.
