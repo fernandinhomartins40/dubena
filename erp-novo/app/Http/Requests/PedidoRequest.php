@@ -2,6 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Cliente\Cliente;
+use App\Models\Estoque\Setor;
+use App\Models\Pedido\PedidoOperacao;
+use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -20,10 +26,13 @@ class PedidoRequest extends FormRequest
         $criando = $this->isMethod('post');
 
         return [
-            'cliente_id' => ($criando ? 'required' : 'sometimes').'|integer|exists:clientes,id',
-            'pedidosituacao_id' => ($criando ? 'required' : 'sometimes').'|integer|exists:pedidosituacoes,id',
-            'pedidooperacao_id' => 'nullable|integer|exists:pedidooperacoes,id',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            // `ExisteNoTenant` no lugar de `exists:tabela,id`: a regra nativa
+            // valida contra a tabela inteira, e um pedido da empresa A era
+            // aceito com `cliente_id` da empresa B — inclusive entre tenants.
+            'cliente_id' => [$criando ? 'required' : 'sometimes', 'integer', new ExisteNoTenant(Cliente::class)],
+            'pedidosituacao_id' => [$criando ? 'required' : 'sometimes', 'integer', new ExisteNoTenant(PedidoSituacao::class)],
+            'pedidooperacao_id' => ['nullable', 'integer', new ExisteNoTenant(PedidoOperacao::class)],
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             'atendente_user_id' => 'nullable|integer|exists:users,id',
             'entregador_user_id' => 'nullable|integer|exists:users,id',
             'datahora' => 'nullable|date',
@@ -34,7 +43,7 @@ class PedidoRequest extends FormRequest
             'observacao' => 'nullable|string',
 
             'itens' => ($criando ? 'required|array|min:1' : 'nullable|array'),
-            'itens.*.produto_id' => 'required_with:itens|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['required_with:itens', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required_with:itens|numeric|gt:0',
             'itens.*.preco_unitario' => 'nullable|numeric|gte:0',
             'itens.*.desconto' => 'nullable|numeric|gte:0',

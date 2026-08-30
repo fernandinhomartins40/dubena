@@ -788,3 +788,33 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - PENDENTE do F2-01: schema de request/response por rota e catalogo consumido
   pelo frontend. Ficaram fora por escolha — o valor imediato estava na permissao,
   que e o que F2-02 consome e o que fechava um vazamento real.
+
+## Atualizacao de retomada - 2026-08-30 (F2-02 FK tenant-aware)
+
+- Medi as tres exigencias da tarefa antes de mexer. Duas JA ESTAVAM certas:
+  condicao ABAC desconhecida ja e negada (`default => false` no
+  `PolicyEvaluator`), e a transferencia entre contas ja tinha contencao no
+  `CaixaService`, com comentario nomeando o achado F0-04/A-12.2. Nao mexi.
+- FURO PROVADO: `exists:clientes,id` valida contra a tabela INTEIRA. Um POST
+  /pedidos da empresa A com `cliente_id` da empresa B era aceito com 201 — e
+  continuava 201 entre TENANTS distintos com o enforcement ligado. A RLS protege
+  a leitura; a validacao corria por fora e a FK nascia cruzada.
+- Corrigido com `App\Rules\ExisteNoTenant`, que valida pelo MODEL em vez da
+  tabela: o escopo vem de quem ja o declara (`BelongsToTenant` por empresa,
+  `BelongsToGrupo` por grupo, model sem escopo continua valendo na tabela toda,
+  correto para catalogo de plataforma). Evita reescrever 135 regras a mao.
+- Aplicado em `PedidoRequest` (cliente, situacao, operacao, setor, produto dos
+  itens) e `ClienteRequest` (7 campos, incluindo `convenio_id`, que aponta para
+  outro cliente e amarrava convenio alheio).
+- `atendente_user_id`/`entregador_user_id` seguem com `exists` nativo de
+  proposito: `User` nao tem escopo de tenant e a validacao certa ali e outra
+  (pertencer a empresa via `empresa_user`).
+- Validacao: `FkTenantAwareTest` 5 testes (cross-empresa, cross-tenant, produto,
+  convenio, e o caminho legitimo seguindo em 201); suite integral **1.362 passes
+  / 4.317 assertions / zero falhas nos DOIS modos**; Pint aprovado. Ver
+  `F2_02_FK_TENANT_AWARE.md`.
+- PENDENTE: as demais ocorrencias de `exists:` (colaborador, comodato, veiculo,
+  alcada, logradouro, pagamento e app mobile). A ferramenta esta pronta e
+  provada, mas cada arquivo precisa de leitura propria para nao trocar por
+  escopo errado — `exists:users,id` e justamente o caso onde a troca automatica
+  estaria errada.
