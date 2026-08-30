@@ -79,6 +79,96 @@ class AbacPolicyEvaluatorTest extends TestCase
         $this->assertFalse($this->evaluator()->permite($user->fresh(), 'pedido.edit', ['unidade_id' => $uniB->id]));
     }
 
+    /**
+     * F2-02A — a unidade desce dois níveis: departamento E setor.
+     *
+     * O teste de unidade existente só comparava `unidade_id` direto, então o
+     * ramo que desce a hierarquia (e o `herda_filhos = false` desse nível)
+     * nunca era exercitado. Uma regressão ali passaria calada.
+     */
+    public function test_unidade_cobre_departamento_e_setor_somente_quando_herda(): void
+    {
+        $empresa = Empresa::factory()->create();
+        app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
+
+        $unidade = Unidade::create(['nome' => 'Matriz', 'tipo' => 'matriz']);
+        $departamento = Departamento::create(['unidade_id' => $unidade->id, 'nome' => 'Operações']);
+        $setor = SetorOrg::create(['departamento_id' => $departamento->id, 'nome' => 'Entrega']);
+
+        // Fora da unidade: nem departamento nem setor podem ser alcançados.
+        $outraUnidade = Unidade::create(['nome' => 'Filial', 'tipo' => 'filial']);
+        $outroDepartamento = Departamento::create(['unidade_id' => $outraUnidade->id, 'nome' => 'Alheio']);
+        $outroSetor = SetorOrg::create(['departamento_id' => $outroDepartamento->id, 'nome' => 'Alheio']);
+
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+        $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'GerenteDaUnidade']);
+        $perm = Permission::firstOrCreate(['chave' => 'pedido.edit']);
+        $role->permissions()->sync([$perm->id]);
+        $user->roles()->attach($role->id, [
+            'empresa_id' => $empresa->id,
+            'unidade_id' => $unidade->id,
+            'herda_filhos' => true,
+        ]);
+        Auth::login($user->fresh());
+
+        $avaliador = $this->evaluator();
+
+        // Herdando: desce para o departamento e para o setor da própria unidade.
+        $this->assertTrue($avaliador->permite($user->fresh(), 'pedido.edit', ['departamento_id' => $departamento->id]));
+        $this->assertTrue($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $setor->id]));
+
+        // Mas nunca para os de outra unidade.
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['departamento_id' => $outroDepartamento->id]));
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $outroSetor->id]));
+
+        // Sem herdar: só o que casa com a própria unidade.
+        $user->roles()->updateExistingPivot($role->id, ['herda_filhos' => false]);
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['departamento_id' => $departamento->id]));
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $setor->id]));
+        $this->assertTrue($avaliador->permite($user->fresh(), 'pedido.edit', ['unidade_id' => $unidade->id]));
+    }
+
+    /**
+     * Setor é a folha da hierarquia: não tem filhos, então `herda_filhos` não o
+     * afeta. Fixado em teste para que a assimetria com os outros dois níveis
+     * fique registrada como intencional, e não pareça esquecimento.
+     */
+    public function test_escopo_de_setor_e_folha_e_ignora_herda_filhos(): void
+    {
+        $empresa = Empresa::factory()->create();
+        app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
+
+        $unidade = Unidade::create(['nome' => 'Matriz', 'tipo' => 'matriz']);
+        $departamento = Departamento::create(['unidade_id' => $unidade->id, 'nome' => 'Operações']);
+        $setor = SetorOrg::create(['departamento_id' => $departamento->id, 'nome' => 'Entrega']);
+        $outroSetor = SetorOrg::create(['departamento_id' => $departamento->id, 'nome' => 'Portaria']);
+
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+        $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Encarregado']);
+        $perm = Permission::firstOrCreate(['chave' => 'pedido.edit']);
+        $role->permissions()->sync([$perm->id]);
+        $user->roles()->attach($role->id, [
+            'empresa_id' => $empresa->id,
+            'setor_id' => $setor->id,
+            'herda_filhos' => true,
+        ]);
+        Auth::login($user->fresh());
+
+        $avaliador = $this->evaluator();
+
+        $this->assertTrue($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $setor->id]));
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $outroSetor->id]));
+
+        // O resultado não muda com `herda_filhos = false`: não há nível abaixo.
+        $user->roles()->updateExistingPivot($role->id, ['herda_filhos' => false]);
+        $this->assertTrue($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $setor->id]));
+        $this->assertFalse($avaliador->permite($user->fresh(), 'pedido.edit', ['setor_id' => $outroSetor->id]));
+    }
+
     public function test_escopo_vazio_cobre_a_empresa_inteira(): void
     {
         [$user] = $this->cenario('pedido.edit'); // sem escopo no pivot

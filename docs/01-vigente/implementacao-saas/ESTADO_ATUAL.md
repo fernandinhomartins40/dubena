@@ -843,3 +843,29 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao: sintaxe conferida nos 40 arquivos; `FkTenantAwareTest` 6 testes;
   suite integral **1.363 passes / 4.318 assertions / zero falhas nos DOIS
   modos**; Pint aprovado. Ver `F2_02_FK_TENANT_AWARE.md`.
+
+## Atualizacao de retomada - 2026-08-30 (F2-02A herda_filhos)
+
+- A previsao da auditoria NAO se confirmou. Esperava-se um campo gravado e nunca
+  lido ("promessa sem enforcement"); na verdade `PolicyEvaluator::escopoCobre()`
+  implementa a semantica: unidade alcanca departamentos e setores dela,
+  departamento alcanca seus setores, e as tres consultas de descida filtram por
+  `empresa_id` — a heranca nao atravessa empresa.
+- DECISAO: implementar integralmente (o campo fica). Setor ignora `herda_filhos`
+  porque e a FOLHA da hierarquia — assimetria intencional, agora fixada em teste
+  para nao parecer esquecimento.
+- A lacuna real era o TESTE, nao o codigo: o teste de unidade so comparava
+  `unidade_id` direto, entao o ramo que desce dois niveis nunca era exercitado,
+  nem o `herda_filhos = false` desse nivel. Regressao ali passaria calada.
+  Dois testes novos fecham isso.
+- A outra metade da F2-02 ("autorizacao em cada porta de mutacao") foi medida:
+  das rotas de mutacao autenticadas sem permissao, as 5 em `api/admin` sao as
+  excecoes ja justificadas; as demais sao `app/v1`, cuja fronteira e o papel do
+  token. Verifiquei que essa fronteira existe: so 8 rotas `app/v1` nao tem
+  `approle`, e todas sao legitimas (login, cadastro, logout, refresh, device e
+  marketplace publico) — nenhuma pode exigir papel de token ainda nao emitido.
+- Validacao: `AbacPolicyEvaluatorTest` 12 testes/30 assertions (eram 10); suite
+  integral **1.365 passes / 4.329 assertions / zero falhas nos DOIS modos**;
+  Pint aprovado. Ver `F2_02A_HERDA_FILHOS.md`.
+- F2-02 e F2-02A CONCLUIDAS. Restam da F2: F2-03 (licenca), F2-04 (Legacy Full),
+  F2-06 (auditoria), o restante de F2-07 e de F2-08.
