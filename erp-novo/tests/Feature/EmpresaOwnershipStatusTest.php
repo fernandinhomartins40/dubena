@@ -12,7 +12,7 @@ class EmpresaOwnershipStatusTest extends TestCase
 
     public function test_empresa_nova_fica_explicitamente_sem_titularidade_classificada(): void
     {
-        $empresa = Empresa::factory()->create()->refresh();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create()->refresh();
 
         $this->assertSame(Empresa::OWNERSHIP_UNRESOLVED, $empresa->ownership_status);
     }

@@ -8,6 +8,7 @@ use App\Models\Grupo;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -71,6 +72,7 @@ class VisibilidadeRedeTest extends TestCase
             'support' => false,
         ]);
         $this->dono->empresas()->attach($this->filial->id);
+        FronteiraTenant::sincronizarVinculosLegados($this->dono->refresh());
 
         $papel = Role::create(['grupo_id' => $rede->id, 'nome' => 'Admin']);
         $papel->permissions()->sync([
@@ -166,6 +168,7 @@ class VisibilidadeRedeTest extends TestCase
         // Mesmo com um vínculo indevido a uma empresa de OUTRA rede, a lista
         // de visíveis é restrita ao grupo — a fronteira é dura.
         $this->dono->empresas()->attach($this->concorrente->id);
+        FronteiraTenant::sincronizarVinculosLegados($this->dono->refresh());
 
         $visiveis = $this->dono->fresh()->empresasVisiveis((int) $this->matriz->grupo_id);
 

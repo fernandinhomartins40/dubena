@@ -6,9 +6,11 @@ use App\Domain\Tenant\TenantContext;
 use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\ConfigGlobal;
 use App\Models\EmpresaConfig;
+use App\Models\Saas\TenantCompany;
 use App\Models\Saas\TenantLegacyGroupScope;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Resolvedor central de CREDENCIAIS por tenant (spec: docs/01-vigente/INTEGRACOES_MULTITENANT.md).
@@ -136,7 +138,7 @@ class IntegracaoTenant
             // Sem grupo resolvido (nem explícito, nem no contexto): consumo vai
             // para a key da PLATAFORMA. Legítimo em dev/CLI; em produção indica
             // chamada fora de request sem id explícito — fica visível no log.
-            \Illuminate\Support\Facades\Log::warning('integracao: googleMapsKey sem grupo resolvido — usando key da plataforma (env)');
+            Log::warning('integracao: googleMapsKey sem grupo resolvido — usando key da plataforma (env)');
         }
 
         return ! empty($env) ? (string) $env : null;
@@ -145,21 +147,40 @@ class IntegracaoTenant
     /**
      * O grupo pedido pertence ao tenant do envelope ativo?
      *
-     * Sem envelope a resposta e NAO: fora de request e sem fronteira declarada,
-     * ler credencial de um grupo arbitrario e exatamente o que precisa ser
-     * negado. O chamador cai no fallback da plataforma, que ja registra warning.
+     * SEM envelope a resposta e SIM, e isso e deliberado. O alvo desta guarda e
+     * o request autenticado que tenta ler a chave de um grupo que nao e seu —
+     * ali existe envelope, e a comparacao vale. Fora de request (ETL, console,
+     * geocodificacao em lote) nunca houve envelope; negar ali nao protegeria
+     * ninguem de outro tenant e apenas quebraria trabalho legitimo, jogando o
+     * consumo para a key da plataforma em silencio.
+     *
+     * A protecao real desses caminhos e a RLS canonica agora instalada em
+     * `config_globais`, que ja recusa a linha sem contexto aprovado.
      */
     private function grupoPertenceAoEnvelope(int $grupoId): bool
     {
         $envelope = app(TenantEnvelopeRuntime::class)->current();
         if ($envelope === null) {
-            return false;
+            return true;
         }
 
-        return TenantLegacyGroupScope::query()
+        // A ponte documental de grupo e opcional (so existe onde ha configuracao
+        // group-scoped convertida), entao ela nao serve de teste principal. O
+        // vinculo confiavel e `TenantCompany`: se alguma empresa aprovada deste
+        // tenant esta no grupo pedido, o grupo e dele.
+        if (TenantLegacyGroupScope::query()
             ->where('grupo_id', $grupoId)
             ->where('tenant_account_id', $envelope->tenantAccountId)
             ->where('status', TenantLegacyGroupScope::STATUS_APPROVED)
+            ->exists()) {
+            return true;
+        }
+
+        return TenantCompany::query()
+            ->join('empresas', 'empresas.id', '=', 'tenant_companies.empresa_id')
+            ->where('empresas.grupo_id', $grupoId)
+            ->where('tenant_companies.tenant_account_id', $envelope->tenantAccountId)
+            ->where('tenant_companies.status', TenantCompany::STATUS_APPROVED)
             ->exists();
     }
 

@@ -6,10 +6,10 @@ use App\Domain\Logistica\CentralService;
 use App\Domain\Logistica\DistribuidorService;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelope;
 use App\Domain\Tenant\TenantEnvelopeDispatch;
 use App\Domain\Tenant\TenantEnvelopeJob;
 use App\Domain\Tenant\TenantEnvelopeRuntime;
-use App\Domain\Tenant\TenantEnvelope;
 use App\Models\Logistica\LogisticaConfig;
 use App\Models\Pedido\Pedido;
 use Illuminate\Bus\Queueable;
@@ -42,7 +42,10 @@ class AtribuirPedidoJob implements ShouldQueue
     public function __construct(public int $pedidoId, public int $empresaId, public int $grupoId)
     {
         if (config('saas_transformation.enforcement.tenant_envelope')) {
-            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+            $envelope = app(TenantEnvelopeDispatch::class)->captureOrNull();
+            if ($envelope !== null) {
+                $this->captureTenantEnvelope($envelope);
+            }
         }
     }
 

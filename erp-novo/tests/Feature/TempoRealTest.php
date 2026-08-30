@@ -14,6 +14,7 @@ use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
+use App\Models\Saas\TenantMembership;
 use App\Models\User;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\Broadcaster;
@@ -160,6 +161,10 @@ class TempoRealTest extends TestCase
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
         ]);
+        // A factory passou a criar membership/grant por padrão, e o ponto deste
+        // teste é justamente o usuário que NÃO tem. Remove-se só a membership
+        // dele — apagar a fronteira da empresa quebraria as demais fixtures.
+        TenantMembership::query()->where('user_id', $legado->id)->delete();
         // `support` não é fillable por decisão de segurança (T1.8), então é
         // marcado direto — o teste precisa do pior caso: quem o legado deixaria
         // entrar em QUALQUER empresa.

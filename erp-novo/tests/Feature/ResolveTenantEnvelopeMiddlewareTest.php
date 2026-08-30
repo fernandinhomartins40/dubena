@@ -22,8 +22,8 @@ class ResolveTenantEnvelopeMiddlewareTest extends TestCase
     {
         config()->set('saas_transformation.enforcement.tenant_envelope', true);
 
-        $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $user = User::factory()->semFronteiraSaas()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $tenant = TenantAccount::create(['legal_name' => 'Tenant middleware', 'status' => TenantAccount::STATUS_ACTIVE]);
         $company = TenantCompany::create(['tenant_account_id' => $tenant->id, 'empresa_id' => $empresa->id, 'status' => TenantCompany::STATUS_APPROVED, 'approved_at' => now(), 'ownership_evidence_ref' => 'e-1']);
         $membership = TenantMembership::create(['tenant_account_id' => $tenant->id, 'user_id' => $user->id, 'status' => TenantMembership::STATUS_ACTIVE, 'approved_at' => now(), 'approval_evidence_ref' => 'e-2']);
@@ -41,8 +41,8 @@ class ResolveTenantEnvelopeMiddlewareTest extends TestCase
     public function test_flag_desligada_preserva_rota_autenticada_sem_mapping_saas(): void
     {
         config()->set('saas_transformation.enforcement.tenant_envelope', false);
-        $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $user = User::factory()->semFronteiraSaas()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas'])->get('/_f1-envelope-disabled', fn () => response()->json(['ok' => true]));
         Sanctum::actingAs($user);

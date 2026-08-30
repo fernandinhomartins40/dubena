@@ -6,7 +6,6 @@ use App\Domain\Mobile\Contracts\PushTransport;
 use App\Domain\Mobile\Drivers\FakePushTransport;
 use App\Domain\Mobile\Jobs\EnviarPushJob;
 use App\Domain\Mobile\PushService;
-use App\Domain\Tenant\TenantContext;
 use App\Models\Empresa;
 use App\Models\Mobile\AppDevice;
 use App\Models\User;
@@ -63,6 +62,10 @@ class PushAssincronoTest extends TestCase
 
     public function test_job_sem_enforcement_nao_depende_do_contexto_legado(): void
     {
+        // O nome do teste ja diz o modo: fixa-lo evita que o resultado dependa
+        // da variavel de ambiente com que a suite foi executada.
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
+
         $job = new EnviarPushJob(['tok'], 't', 'c');
         $this->assertNull($job->tenantEnvelopePayload);
         $job->handle(new FakePushTransport);

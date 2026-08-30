@@ -17,8 +17,8 @@ class TenantMappingImporterTest extends TestCase
 
     public function test_dry_run_nao_persiste_e_apply_cria_somente_vinculos_documentados(): void
     {
-        $empresa = Empresa::factory()->create();
-        $user = User::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $user = User::factory()->semFronteiraSaas()->create();
         $plan = [
             'tenants' => [[
                 'legal_name' => 'Conta comprovada',
@@ -57,9 +57,9 @@ class TenantMappingImporterTest extends TestCase
 
     public function test_importa_membership_documentada_sem_alterar_owner_existente(): void
     {
-        $empresa = Empresa::factory()->create();
-        $owner = User::factory()->create();
-        $member = User::factory()->create(['ativo' => true]);
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $owner = User::factory()->semFronteiraSaas()->create();
+        $member = User::factory()->semFronteiraSaas()->create(['ativo' => true]);
         app(TenantMappingImporter::class)->apply([
             'tenants' => [[
                 'legal_name' => 'Conta comprovada',
@@ -92,7 +92,7 @@ class TenantMappingImporterTest extends TestCase
 
     public function test_importa_ponte_de_grupo_somente_com_empresa_aprovada_e_evidencia(): void
     {
-        $empresa = Empresa::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
         $plan = [
             'tenants' => [[
                 'legal_name' => 'Conta com configuracao compartilhada',
@@ -118,7 +118,7 @@ class TenantMappingImporterTest extends TestCase
 
     public function test_recusa_ponte_de_grupo_duplicada_em_vez_de_escolher_tenant_por_inferencia(): void
     {
-        $empresa = Empresa::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
         $tenant = [
             'legal_name' => 'Conta com grupo declarado',
             'classification_evidence_ref' => 'legal-doc-1',

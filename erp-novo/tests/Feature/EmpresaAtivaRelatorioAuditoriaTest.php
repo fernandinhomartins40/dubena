@@ -11,6 +11,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SecurityEvent;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -32,6 +33,11 @@ class EmpresaAtivaRelatorioAuditoriaTest extends TestCase
 
         Cliente::factory()->create(['empresa_id' => $padrao->id, 'grupo_id' => $grupo->id]);
         Cliente::factory()->count(2)->create(['empresa_id' => $ativa->id, 'grupo_id' => $grupo->id]);
+
+        // O usuário aqui alcança a outra empresa por `support`, que no modelo
+        // legado era bypass total. Com o enforcement SaaS isso deixa de valer:
+        // o acesso passa a exigir grant explícito, então o cenário o concede.
+        FronteiraTenant::paraUsuario($user, [$padrao->id, $ativa->id]);
 
         return [$user, $padrao, $ativa];
     }
@@ -112,6 +118,7 @@ class EmpresaAtivaRelatorioAuditoriaTest extends TestCase
             'support' => false,
         ]);
         $user->empresas()->attach($ativa->id);
+        FronteiraTenant::sincronizarVinculosLegados($user->refresh());
 
         $auditoria = Permission::firstOrCreate(['chave' => 'auditoria.view']);
         $verCusto = Permission::firstOrCreate(['chave' => 'produto.campo.custo.view']);

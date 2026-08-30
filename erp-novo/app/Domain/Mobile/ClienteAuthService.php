@@ -3,9 +3,13 @@
 namespace App\Domain\Mobile;
 
 use App\Domain\Cliente\ClienteService;
+use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Saas\TenantCompany;
+use App\Models\Saas\TenantCompanyGrant;
+use App\Models\Saas\TenantMembership;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -81,7 +85,7 @@ class ClienteAuthService
         // para uma tela de login que ele pode nao conseguir usar. Era um ponto
         // real de perda de venda: quem ja comprou pelo entregador tinha o
         // telefone na base e nao conseguia se cadastrar no app.
-        $resultado = app(\App\Domain\Identidade\IdentificarOuCriarCliente::class)->executar(
+        $resultado = app(IdentificarOuCriarCliente::class)->executar(
             $empresaId,
             $grupoId,
             [
@@ -170,8 +174,55 @@ class ClienteAuthService
             $cliente->user_id = $user->id;
             $cliente->save();
 
+            $this->garantirFronteiraSaas($user, (int) $cliente->empresa_id);
+
             return $user;
         });
+    }
+
+    /**
+     * O usuario do cliente do app tambem precisa existir na fronteira SaaS.
+     *
+     * Sem isto, com o enforcement ligado, o cliente faz login mas toma 403 na
+     * requisicao seguinte: o resolver exige membership ativa. O grant cobre
+     * SOMENTE a empresa do proprio cliente e inclui operacao porque ele cria
+     * pedido pelo app; o que ele pode ver e fazer dentro dela continua sendo
+     * decidido pelo RBAC e pelo escopo de cliente do controller, nao aqui.
+     *
+     * Empresa fora da fronteira (sem TenantCompany aprovado) nao ganha
+     * membership: ali o 403 e a resposta correta.
+     */
+    private function garantirFronteiraSaas(User $user, int $empresaId): void
+    {
+        $company = TenantCompany::query()
+            ->where('empresa_id', $empresaId)
+            ->where('status', TenantCompany::STATUS_APPROVED)
+            ->first();
+        if ($company === null) {
+            return;
+        }
+
+        $membership = TenantMembership::query()->firstOrCreate(
+            ['tenant_account_id' => $company->tenant_account_id, 'user_id' => $user->id],
+            [
+                'status' => TenantMembership::STATUS_ACTIVE,
+                'membership_role' => 'MEMBER',
+                'approved_at' => now(),
+                'approval_evidence_ref' => 'app:cliente:'.$user->id,
+            ],
+        );
+
+        TenantCompanyGrant::query()->firstOrCreate(
+            ['tenant_membership_id' => $membership->id, 'empresa_id' => $empresaId],
+            [
+                'tenant_account_id' => $company->tenant_account_id,
+                'tenant_company_id' => $company->id,
+                'can_read' => true,
+                'can_operate' => true,
+                'approved_at' => now(),
+                'grant_evidence_ref' => 'app:cliente:'.$user->id,
+            ],
+        );
     }
 
     private function somenteDigitos(string $valor): string

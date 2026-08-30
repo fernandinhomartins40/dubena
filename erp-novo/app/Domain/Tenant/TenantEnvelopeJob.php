@@ -20,6 +20,20 @@ trait TenantEnvelopeJob
             throw new TenantAccessDeniedException('Job de negocio sem TenantEnvelope serializado.');
         }
 
-        return $runtime->run(TenantEnvelope::fromPayload($this->tenantEnvelopePayload), $callback);
+        $envelope = TenantEnvelope::fromPayload($this->tenantEnvelopePayload);
+        $atual = $runtime->current();
+
+        // Fila sincrona (`QUEUE_CONNECTION=sync`) executa o job DENTRO do
+        // request, onde o envelope ja esta ativo — e `run()` recusa sobrepor,
+        // de proposito, para nao vazar tenant entre jobs no mesmo worker.
+        //
+        // Reusar so vale se for o MESMO tenant: identico, o envelope aninhado
+        // nao mudaria nada; diferente, sobrepor e exatamente o vazamento que a
+        // guarda existe para impedir, entao deixamos `run()` recusar.
+        if ($atual !== null && $atual->tenantAccountId === $envelope->tenantAccountId) {
+            return $callback();
+        }
+
+        return $runtime->run($envelope, $callback);
     }
 }

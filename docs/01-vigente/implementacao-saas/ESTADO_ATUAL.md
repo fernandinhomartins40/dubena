@@ -676,3 +676,31 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   membership, e o unico sem e o admin de teste da empresa 139 (fora da fronteira
   de proposito, `support` deixando de ser bypass). Adaptar as factories e o
   proximo trabalho antes de considerar o modo novo coberto por testes.
+
+## Atualizacao de retomada - 2026-08-29 (suite verde com enforcement)
+
+- Fechada a pendencia de F1-17: com `SAAS_ENFORCE_TENANT_ENVELOPE=true` a suite
+  ia a 566 falhas de 1.346. Agora sao **1.339 passes / 4.254 assertions / zero
+  falhas nos DOIS modos** (ligado e desligado).
+- A adaptacao nao era so divida de teste. Caminhar pelas falhas revelou TRES
+  defeitos reais que iriam para producao com o enforcement ligado:
+  1. Fila SINCRONA derrubava criacao de pedido pelo app com HTTP 403 ("nao e
+     permitido sobrepor TenantEnvelope no mesmo worker"): o job roda dentro do
+     request, onde o envelope ja esta ativo. Agora reusa o envelope se for o
+     MESMO tenant; tenant diferente segue recusado.
+  2. Cliente do app tomava 403 depois de logar: `ClienteAuthService` cria o User
+     do cliente sem membership. Corrigido na origem, com grant restrito a
+     empresa do proprio cadastro.
+  3. Job despachado fora de request (console/seed/ETL) estourava por exigir ator
+     autenticado. Criado `captureOrNull()`; a barreira real (`requireOperation`
+     no handle) continua intacta.
+- Ajuste em `IntegracaoTenant`: a guarda de F1-17 negava a chave do Maps sem
+  envelope, o que nao protege de outro tenant (nao ha tenant a comparar) e so
+  quebrava trabalho legitimo. Sem envelope agora permite; a protecao desse
+  caminho e a RLS canonica instalada em `config_globais`.
+- `Database\Factories\Support\FronteiraTenant` monta tenant/vinculo/membership/
+  grant via `afterCreating`, entao nenhuma chamada de teste mudou no caso comum.
+  Fica em `database/factories` porque `Tests\` so existe em `autoload-dev`.
+  Estados `semFronteiraSaas()` atendem os testes que exercitam a AUSENCIA.
+- Validacao: 142 migrations do zero; `RlsCoberturaTest` 6/354 sem skip; Pint
+  aprovado. Ver `F1_18_SUITE_COM_ENFORCEMENT.md`.

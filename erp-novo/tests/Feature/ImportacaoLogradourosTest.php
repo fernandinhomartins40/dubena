@@ -194,6 +194,11 @@ class ImportacaoLogradourosTest extends TestCase
 
     public function test_falha_da_fonte_so_marca_falhou_na_ultima_tentativa(): void
     {
+        // Este teste exercita a RETENTATIVA da fila, não a fronteira de tenant.
+        // Com o enforcement ligado o job exige envelope e lança antes de chegar
+        // ao ponto testado, então o modo é fixado aqui.
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
+
         $cidade = $this->cidade();
 
         $registro = ImportacaoLogradouro::create([

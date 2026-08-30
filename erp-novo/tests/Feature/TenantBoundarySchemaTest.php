@@ -20,7 +20,7 @@ class TenantBoundarySchemaTest extends TestCase
 
     public function test_schema_sombra_nao_infere_tenant_de_empresa_ou_grupo_legado(): void
     {
-        $empresa = Empresa::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
 
         $this->assertSame(0, TenantAccount::count());
         $this->assertSame(0, TenantCompany::count());
@@ -37,7 +37,7 @@ class TenantBoundarySchemaTest extends TestCase
 
     public function test_uma_empresa_nao_pode_ser_vinculada_a_dois_tenants(): void
     {
-        $empresa = Empresa::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
         $tenantA = TenantAccount::create(['legal_name' => 'Tenant A']);
         $tenantB = TenantAccount::create(['legal_name' => 'Tenant B']);
 
@@ -49,8 +49,8 @@ class TenantBoundarySchemaTest extends TestCase
 
     public function test_grant_operacional_e_link_comercial_sao_registros_independentes(): void
     {
-        $empresa = Empresa::factory()->create();
-        $user = User::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $user = User::factory()->semFronteiraSaas()->create();
         $provider = TenantAccount::create(['legal_name' => 'Fornecedor SaaS']);
         $consumer = TenantAccount::create(['legal_name' => 'Rede cliente']);
         $membership = TenantMembership::create([

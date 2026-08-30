@@ -13,8 +13,7 @@ final class TenantEnvelopeDispatch
         private readonly TenantEnvelopeRuntime $runtime,
         private readonly TenantEnvelopeResolver $resolver,
         private readonly TenantContext $legacyContext,
-    ) {
-    }
+    ) {}
 
     public function capture(): TenantEnvelope
     {
@@ -29,5 +28,25 @@ final class TenantEnvelopeDispatch
         }
 
         return $this->resolver->resolveFor($user, $empresaId, (string) Str::uuid());
+    }
+
+    /**
+     * Igual ao `capture()`, mas devolve `null` em vez de recusar quando nao ha
+     * ator autenticado.
+     *
+     * Serve ao despacho que nasce fora de um request — service chamado por
+     * console, seed ou teste de dominio. Nao afrouxa a fronteira: o job que usa
+     * isto continua obrigado a chamar `requireOperation()` no `handle()`, e sem
+     * envelope ele cai no caminho legado, que o enforcement ja restringe pela
+     * RLS. Recusar aqui apenas trocaria uma falha de autorizacao por um erro em
+     * codigo que nunca teve ator.
+     */
+    public function captureOrNull(): ?TenantEnvelope
+    {
+        try {
+            return $this->capture();
+        } catch (TenantAccessDeniedException) {
+            return null;
+        }
     }
 }

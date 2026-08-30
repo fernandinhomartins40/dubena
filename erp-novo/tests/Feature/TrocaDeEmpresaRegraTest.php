@@ -7,6 +7,7 @@ use App\Models\Grupo;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -54,6 +55,7 @@ class TrocaDeEmpresaRegraTest extends TestCase
             'support' => false,
         ]);
         $this->usuario->empresas()->attach($this->filial->id);
+        FronteiraTenant::sincronizarVinculosLegados($this->usuario->refresh());
 
         $papel = Role::create(['grupo_id' => $rede->id, 'nome' => 'Admin']);
         $papel->permissions()->sync([

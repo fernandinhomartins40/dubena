@@ -6,6 +6,7 @@ use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Grupo;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Database\Seeders\AcessoRedeDubenaSeeder;
 use Database\Seeders\RbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,6 +56,14 @@ class AcessoRedeDubenaSeederTest extends TestCase
 
         $this->seed(RbacSeeder::class);
         $this->seed(AcessoRedeDubenaSeeder::class);
+
+        // Os usuários vêm do seeder, não da factory, então a fronteira SaaS não
+        // é criada automaticamente. Sem ela o enforcement nega o acesso e o
+        // teste passaria a medir o resolver em vez do RBAC de rede que é o
+        // assunto aqui.
+        foreach (User::withoutGlobalScopes()->get() as $usuario) {
+            FronteiraTenant::sincronizarVinculosLegados($usuario);
+        }
     }
 
     public function test_dono_da_rede_enxerga_todas_as_filiais(): void

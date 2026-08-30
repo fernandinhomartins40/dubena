@@ -19,8 +19,8 @@ class TenantEnvelopeResolverTest extends TestCase
 
     public function test_resolve_somente_com_titularidade_membership_e_grant_aprovados(): void
     {
-        $empresa = Empresa::factory()->create();
-        $user = User::factory()->create();
+        $empresa = Empresa::factory()->semFronteiraSaas()->create();
+        $user = User::factory()->semFronteiraSaas()->create();
         $tenant = TenantAccount::create(['legal_name' => 'Tenant aprovado', 'status' => TenantAccount::STATUS_ACTIVE]);
         $company = TenantCompany::create([
             'tenant_account_id' => $tenant->id,
@@ -57,6 +57,6 @@ class TenantEnvelopeResolverTest extends TestCase
     {
         $this->expectException(TenantAccessDeniedException::class);
 
-        app(TenantEnvelopeResolver::class)->resolveFor(User::factory()->create(), Empresa::factory()->create()->id, 'correlation-1');
+        app(TenantEnvelopeResolver::class)->resolveFor(User::factory()->semFronteiraSaas()->create(), Empresa::factory()->semFronteiraSaas()->create()->id, 'correlation-1');
     }
 }

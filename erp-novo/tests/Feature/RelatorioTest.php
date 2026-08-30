@@ -148,6 +148,10 @@ class RelatorioTest extends TestCase
 
     public function test_notify_alertas_enfileira_job_por_empresa(): void
     {
+        // Comportamento do modo LEGADO. Com o enforcement ligado o cron falha
+        // fechado de proposito (ver o teste seguinte), entao o modo precisa ser
+        // fixado aqui — senao o resultado depende da variavel de ambiente.
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
         Queue::fake();
 
         $this->artisan('notify:alertas')->assertExitCode(0);

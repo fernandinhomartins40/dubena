@@ -48,7 +48,10 @@ class EnviarPushJob implements ShouldQueue
         public bool $platformJob = false,
     ) {
         if (config('saas_transformation.enforcement.tenant_envelope') && ! $this->platformJob) {
-            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+            $envelope = app(TenantEnvelopeDispatch::class)->captureOrNull();
+            if ($envelope !== null) {
+                $this->captureTenantEnvelope($envelope);
+            }
         }
     }
 

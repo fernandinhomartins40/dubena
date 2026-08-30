@@ -7,6 +7,7 @@ use App\Models\EmpresaConfig;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,6 +30,7 @@ class EmpresaAlvoAutorizacaoTest extends TestCase
 
         if ($vincularIrma) {
             $user->empresas()->attach($irma->id);
+            FronteiraTenant::sincronizarVinculosLegados($user->refresh());
             $this->conceder($user, $irma, ['empresa.view', 'empresa.edit', 'empresa.delete']);
         }
 
@@ -111,6 +113,7 @@ class EmpresaAlvoAutorizacaoTest extends TestCase
     {
         [$user, , $irma] = $this->cenario();
         $user->empresas()->attach($irma->id);
+        FronteiraTenant::sincronizarVinculosLegados($user->refresh());
 
         $this->actingAs($user, 'sanctum')
             ->withHeader('X-Empresa-Id', (string) $irma->id)

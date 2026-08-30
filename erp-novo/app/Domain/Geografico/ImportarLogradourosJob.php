@@ -55,7 +55,10 @@ class ImportarLogradourosJob implements ShouldQueue
     public function __construct(public int $importacaoId)
     {
         if (config('saas_transformation.enforcement.tenant_envelope')) {
-            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+            $envelope = app(TenantEnvelopeDispatch::class)->captureOrNull();
+            if ($envelope !== null) {
+                $this->captureTenantEnvelope($envelope);
+            }
         }
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cliente;
 
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Tenant\TenantEnvelope;
 use App\Domain\Tenant\TenantEnvelopeDispatch;
 use App\Domain\Tenant\TenantEnvelopeJob;
@@ -38,7 +39,10 @@ class GeocodificarClienteJob implements ShouldQueue
     public function __construct(public int $clienteId)
     {
         if (config('saas_transformation.enforcement.tenant_envelope')) {
-            $this->captureTenantEnvelope(app(TenantEnvelopeDispatch::class)->capture());
+            $envelope = app(TenantEnvelopeDispatch::class)->captureOrNull();
+            if ($envelope !== null) {
+                $this->captureTenantEnvelope($envelope);
+            }
         }
     }
 
@@ -73,7 +77,7 @@ class GeocodificarClienteJob implements ShouldQueue
         // job roda fora de request (TenantContext vazio) e cair no env silencioso
         // faria a rede consumir a quota da plataforma. Fallback env preservado
         // (Maps não é dinheiro; dev/homolog sem key de grupo continua funcionando).
-        $apiKey = app(\App\Domain\Integracao\IntegracaoTenant::class)
+        $apiKey = app(IntegracaoTenant::class)
             ->googleMapsKey($cliente->grupo_id !== null ? (int) $cliente->grupo_id : null);
         if (empty($apiKey)) {
             return; // sem credencial (ex.: dev/homolog) — não geocodifica

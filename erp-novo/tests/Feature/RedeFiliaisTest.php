@@ -8,6 +8,7 @@ use App\Models\Grupo;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -95,6 +96,7 @@ class RedeFiliaisTest extends TestCase
         foreach ([$empresa, ...$tambemEm] as $alvo) {
             if ($alvo->id !== $empresa->id) {
                 $user->empresas()->attach($alvo->id);
+                FronteiraTenant::sincronizarVinculosLegados($user->refresh());
             }
             // Um papel POR EMPRESA: filiais da mesma rede compartilhariam o
             // mesmo papel do grupo, e o pivot (user_id, role_id) é único.
