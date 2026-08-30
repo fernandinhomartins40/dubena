@@ -757,3 +757,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   aprovado. Ver `F2_05_BREAK_GLASS.md`.
 - F2-05 CONCLUIDO. Restam da F2: F2-01 (manifesto), F2-02/02A, F2-03 (licenca),
   F2-04, F2-06, o restante de F2-07 e de F2-08.
+
+## Atualizacao de retomada - 2026-08-30 (F2-01 permissao declarada por rota)
+
+- O manifesto ja pegava rota removida/nova, mas so sabia QUAIS rotas existem,
+  nao O QUE cada uma exige. A diferenca tinha custo real.
+- FURO PROVADO: `LookupController` era o unico controller Admin sem `autorizar()`
+  em metodo nenhum, e serve 33 lookups — entre eles clientes, produtos, contas,
+  colaboradores e usuarios. Com o mesmo usuario sem papel:
+  `/api/admin/clientes` -> 403 e `/api/admin/lookups/clientes` -> 200 com os
+  clientes. A mesma informacao, pela porta de tras.
+- Corrigido: cada lookup declara a permissao de leitura do modulo DONO do dado
+  (quem enxerga cliente nao passa a enxergar conta bancaria), autorizando depois
+  de normalizar o alias e antes de qualquer leitura. Slug conhecido sem permissao
+  declarada e negado; slug inexistente mantem lista vazia com 200 — contrato que
+  a SPA ja consome (minha 1a versao trocou por 404 e derrubou um teste).
+- GUARDIAO: `ApiContratoDriftTest` passou a reprovar rota `api/admin/*`
+  autenticada sem permissao declarada. Verificado nos dois sentidos: removi a
+  autorizacao do Lookup e o teste reprovou apontando a rota exata.
+- Falso positivo corrigido antes de virar regra: a 1a versao do detector olhava
+  so o corpo do metodo e acusou o `GeoController`, que autoriza corretamente
+  dentro do helper `cfg()`. Detector que grita errado passa a ser ignorado —
+  agora ele segue helpers privados da propria classe. Isso levou o recorte admin
+  de 17 para 11 rotas, todas legitimas (2FA/sessoes do proprio usuario,
+  assinatura da propria empresa, dashboard, troca de empresa), cada uma
+  justificada em `ADMIN_SEM_PERMISSAO_APROVADAS`.
+- Validacao: `LookupAutorizacaoTest` 5 testes; `ApiContratoDriftTest` 2; suite
+  integral **1.357 passes / 4.304 assertions / zero falhas nos DOIS modos**;
+  Pint aprovado. Ver `F2_01_MANIFESTO_PERMISSAO.md`.
+- PENDENTE do F2-01: schema de request/response por rota e catalogo consumido
+  pelo frontend. Ficaram fora por escolha — o valor imediato estava na permissao,
+  que e o que F2-02 consome e o que fechava um vazamento real.

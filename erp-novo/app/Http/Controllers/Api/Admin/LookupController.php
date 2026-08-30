@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Apoio\CadastroSlugs;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class LookupController extends Controller
 {
+    use AutorizaPorPermissao;
+
     /**
      * Registry: slug => [tabela, coluna_label, escopo('grupo'|'empresa'|null), where_extra].
      *
@@ -58,6 +61,62 @@ class LookupController extends Controller
         'contato-situacoes' => ['clientecontatosituacoes', 'descricao', 'grupo'],
     ];
 
+    /**
+     * Permissão exigida por lookup — F2-01.
+     *
+     * Este controller era o único do Admin sem `autorizar()` em nenhum método, e
+     * isso vazava: `/api/admin/clientes` devolvia 403 para quem não tem
+     * `cliente.view`, e `/api/admin/lookups/clientes` devolvia a MESMA lista de
+     * clientes com 200. O mesmo valia para produtos, contas, colaboradores e
+     * usuários.
+     *
+     * A chave é a permissão de LEITURA do módulo dono do dado. Slug ausente
+     * deste mapa é recusado — default-deny: lookup novo sem permissão declarada
+     * não nasce aberto por esquecimento.
+     *
+     * @var array<string, string>
+     */
+    private const PERMISSAO = [
+        // Geográfico e cadastros de apoio: alimentam formulários de cadastro.
+        'cidades' => 'cliente.view',
+        'bairros' => 'cliente.view',
+        'ruas' => 'cliente.view',
+        'estados' => 'cliente.view',
+        'regioes' => 'cliente.view',
+        'segmentos' => 'cliente.view',
+        'telefone-tipos' => 'cliente.view',
+        'tipos-pessoa' => 'cliente.view',
+        'contato-tipos' => 'cliente.view',
+        'contato-situacoes' => 'cliente.view',
+        'parentescos' => 'cliente.view',
+        // Pessoas e parceiros.
+        'clientes' => 'cliente.view',
+        'clientes-fornecedores' => 'cliente.view',
+        'colaboradores' => 'colaborador.view',
+        'cargos' => 'colaborador.view',
+        'usuarios' => 'usuario.view',
+        // Produto e estoque.
+        'produtos' => 'produto.view',
+        'produtos-vasilhame' => 'produto.view',
+        'produto-classes' => 'produto.view',
+        'unidades' => 'produto.view',
+        'tipo-glp' => 'produto.view',
+        'setores' => 'estoque.view',
+        // Financeiro: conta bancária e plano de contas são dado sensível.
+        'contas' => 'financeiro.view',
+        'planos-conta' => 'financeiro.view',
+        'centros-custo' => 'financeiro.view',
+        'condicoes-pagamento' => 'financeiro.view',
+        'movimento-tipos' => 'financeiro.view',
+        'bancos' => 'financeiro.view',
+        // Pedido e frota.
+        'pedido-operacoes' => 'pedido.view',
+        'pedido-situacoes' => 'pedido.view',
+        'combustiveis' => 'veiculo.view',
+        'veiculo-tipos' => 'veiculo.view',
+        'nf-grupos-fiscais' => 'fiscal.view',
+    ];
+
     /** Lookups sem tabela própria — listas fixas (id sintético + label). */
     private const ESTATICOS = [
         'tipo-glp' => ['P2', 'P5', 'P13', 'P20', 'P45', 'P90', 'Granel'],
@@ -70,6 +129,21 @@ class LookupController extends Controller
         // Normaliza alias → slug canônico (F00.2): /lookups/tipo-pessoa e
         // /cadastros/tipos-pessoa passam a resolver a MESMA entidade.
         $tipo = CadastroSlugs::canonico($tipo);
+
+        // Autoriza DEPOIS de normalizar o alias e ANTES de qualquer leitura: um
+        // lookup entrega o mesmo dado da listagem do módulo, e precisa da mesma
+        // permissão.
+        //
+        // Slug desconhecido continua devolvendo lista vazia com 200 — contrato
+        // que a SPA já consome (um AsyncSelect tolera vazio, não um 404). O que
+        // NÃO pode acontecer é slug conhecido sem permissão declarada: aí é
+        // esquecimento, e o default é negar.
+        if (isset(self::PERMISSAO[$tipo])) {
+            $this->autorizar($request, self::PERMISSAO[$tipo]);
+        } elseif (isset(self::MAPA[$tipo]) || isset(self::ESTATICOS[$tipo])) {
+            abort(403, 'Lookup sem permissão declarada.');
+        }
+
         $q = trim((string) $request->query('q', ''));
 
         if (isset(self::ESTATICOS[$tipo])) {

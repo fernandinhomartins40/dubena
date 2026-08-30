@@ -202,6 +202,32 @@ final class FronteiraTenant
         $user->load('roles');
     }
 
+    /**
+     * Papel com um conjunto ESPECÍFICO de permissões, para os testes de
+     * granularidade — onde "pode tudo" não mede nada.
+     *
+     * @param  list<string>  $chaves
+     */
+    public static function papelComPermissoes(User $user, array $chaves, ?int $empresaId = null): void
+    {
+        $empresaId ??= (int) $user->empresa_id;
+        $grupoId = (int) ($user->grupo_id ?: Empresa::withoutGlobalScopes()->find($empresaId)?->grupo_id);
+
+        $ids = [];
+        foreach ($chaves as $chave) {
+            $ids[] = Permission::query()->firstOrCreate(['chave' => $chave])->id;
+        }
+
+        $role = Role::query()->firstOrCreate(
+            ['grupo_id' => $grupoId, 'nome' => 'Papel de teste '.md5(implode(',', $chaves))],
+            ['descricao' => 'Papel de teste com permissões específicas'],
+        );
+        $role->permissions()->sync($ids);
+
+        $user->roles()->syncWithoutDetaching([$role->id => ['empresa_id' => $empresaId]]);
+        $user->load('roles');
+    }
+
     /** Ponte documental do grupo — só para quem exercita configuração group-scoped. */
     public static function ponteDeGrupo(Empresa $empresa): TenantLegacyGroupScope
     {

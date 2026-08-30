@@ -33,4 +33,43 @@ class ApiContratoDriftTest extends TestCase
         $this->assertSame([], $removidos, 'Endpoints REMOVIDOS do contrato (quebra SPA/apps): '.implode(', ', $removidos));
         $this->assertSame([], $novos, 'Endpoints NOVOS não registrados no manifesto — rode `php artisan api:manifest` e commite: '.implode(', ', $novos));
     }
+
+    /**
+     * F2-01 — rota `api/admin/*` autenticada precisa declarar permissão.
+     *
+     * Saber que a rota existe não basta: é preciso saber o que ela exige. Uma
+     * rota autenticada sem `autorizar()` é aberta a qualquer usuário logado, e
+     * foi assim que `/lookups/{tipo}` entregou a lista de clientes e de contas a
+     * quem a listagem do módulo negava com 403.
+     *
+     * A lista de exceções é fechada e justificada no comando: 2FA e sessões do
+     * próprio usuário, assinatura da própria empresa, dashboard e troca de
+     * empresa. Rota nova fora dela reprova aqui — que é o ponto.
+     */
+    public function test_toda_rota_admin_autenticada_declara_permissao(): void
+    {
+        $semPermissao = ApiManifestGerar::rotasSemPermissaoDeclarada();
+
+        // Só o recorte admin: `api/app/v1/*` tem outra fronteira (o papel do
+        // token, via middleware `approle`) e as pontes legadas têm a sua.
+        $admin = array_values(array_filter(
+            $semPermissao,
+            fn (string $linha): bool => str_contains($linha, 'api/admin/'),
+        ));
+
+        // O detector anota o controller entre parênteses; a exceção é por rota.
+        $novas = array_values(array_filter($admin, function (string $linha): bool {
+            $rota = trim(explode('(', $linha)[0]);
+
+            return ! in_array($rota, ApiManifestGerar::ADMIN_SEM_PERMISSAO_APROVADAS, true);
+        }));
+
+        $this->assertSame(
+            [],
+            $novas,
+            "Rota admin autenticada sem permissão declarada:\n - ".implode("\n - ", $novas)
+                ."\nChame `\$this->autorizar(\$request, 'modulo.acao')` ou justifique em "
+                .'ApiManifestGerar::ADMIN_SEM_PERMISSAO_APROVADAS.',
+        );
+    }
 }
