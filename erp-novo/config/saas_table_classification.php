@@ -27,6 +27,7 @@ $register([
     'logradouros_oficiais',
     'migrations',
     'municipios_ibge',
+    'otp_consumidos',
     'password_policies',
     'password_reset_tokens',
     'permission_conditions',
@@ -48,6 +49,9 @@ $register([
 $register([
     'assinatura_eventos',
     'assinaturas',
+    'break_glass_grants',
+    'limite_overrides',
+    'plano_limites',
     'plano_recurso',
     'planos',
     'planos_conta',

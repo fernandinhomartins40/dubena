@@ -51,6 +51,7 @@
     "DELETE api/app/v1/enderecos/{id}",
     "DELETE api/app/v1/perfil",
     "DELETE api/superadmin/cidades/{id}",
+    "DELETE api/superadmin/empresas/{id}/limite/{chave}",
     "DELETE api/superadmin/empresas/{id}/override/{chave}",
     "GET api/admin/alcadas",
     "GET api/admin/alertas",
@@ -590,6 +591,7 @@
     "PUT api/superadmin/cidades/{id}",
     "PUT api/superadmin/empresas/{id}/assinatura",
     "PUT api/superadmin/empresas/{id}/assinatura/status",
+    "PUT api/superadmin/empresas/{id}/limite",
     "PUT api/superadmin/empresas/{id}/override",
     "PUT api/superadmin/migracoes/{id}/mapeamento",
     "PUT api/superadmin/planos/{id}"

@@ -157,22 +157,80 @@ class SuperAdminService
 
     // ───────────────────────── Overrides de recurso (cross-tenant) ─────────────────────────
 
-    /** Liga/desliga um recurso por empresa (cortesia/piloto/bloqueio). */
-    public function definirOverride(int $empresaId, string $recursoChave, bool $habilitado): RecursoOverride
-    {
+    /**
+     * Liga/desliga um recurso por empresa (cortesia/piloto/bloqueio).
+     *
+     * F2-03: `motivo` é obrigatório e `expiraEm` opcional. Override sem prazo
+     * vira permanente por esquecimento — é assim que um piloto de 30 dias custa
+     * dois anos. Sem prazo continua possível, mas passa a ser uma escolha
+     * declarada, e o motivo diz a quem revisar por que ela foi feita.
+     */
+    public function definirOverride(
+        int $empresaId,
+        string $recursoChave,
+        bool $habilitado,
+        string $motivo,
+        ?\DateTimeInterface $expiraEm = null,
+    ): RecursoOverride {
         abort_unless(RecursoCatalogo::existe($recursoChave), 422, 'Recurso desconhecido.');
+        abort_if(trim($motivo) === '', 422, 'Motivo é obrigatório para sobrepor o plano.');
 
         $override = RecursoOverride::withoutTenant()->updateOrCreate(
             ['empresa_id' => $empresaId, 'recurso_chave' => $recursoChave],
-            ['habilitado' => $habilitado],
+            ['habilitado' => $habilitado, 'motivo' => $motivo, 'expira_em' => $expiraEm],
         );
 
         $this->auditoria->registrar('recurso.override', $empresaId, 'recurso_overrides', $override->id, null, [
-            'recurso' => $recursoChave, 'habilitado' => $habilitado,
+            'recurso' => $recursoChave,
+            'habilitado' => $habilitado,
+            'motivo' => $motivo,
+            'expira_em' => $expiraEm?->format(DATE_ATOM),
         ]);
         $this->licenca->invalidar($empresaId);
 
         return $override;
+    }
+
+    /**
+     * Define o teto numérico de um limite por empresa (F2-03).
+     *
+     * `$valor` nulo = ilimitado para aquela empresa. Mesmo rito do override de
+     * recurso: motivo obrigatório e prazo opcional.
+     */
+    public function definirLimiteOverride(
+        int $empresaId,
+        string $limiteChave,
+        ?int $valor,
+        string $motivo,
+        ?\DateTimeInterface $expiraEm = null,
+    ): LimiteOverride {
+        abort_unless(RecursoCatalogo::limiteExiste($limiteChave), 422, 'Limite desconhecido.');
+        abort_if(trim($motivo) === '', 422, 'Motivo é obrigatório para sobrepor o limite do plano.');
+
+        $override = LimiteOverride::withoutTenant()->updateOrCreate(
+            ['empresa_id' => $empresaId, 'limite_chave' => $limiteChave],
+            ['valor' => $valor, 'motivo' => $motivo, 'expira_em' => $expiraEm],
+        );
+
+        $this->auditoria->registrar('limite.override', $empresaId, 'limite_overrides', $override->id, null, [
+            'limite' => $limiteChave,
+            'valor' => $valor,
+            'motivo' => $motivo,
+            'expira_em' => $expiraEm?->format(DATE_ATOM),
+        ]);
+        $this->licenca->invalidar($empresaId);
+
+        return $override;
+    }
+
+    /** Remove um override de limite (volta a valer o teto do plano). */
+    public function removerLimiteOverride(int $empresaId, string $limiteChave): void
+    {
+        LimiteOverride::withoutTenant()
+            ->where('empresa_id', $empresaId)->where('limite_chave', $limiteChave)->delete();
+
+        $this->auditoria->registrar('limite.override.removido', $empresaId, 'limite_overrides', null, ['limite' => $limiteChave], null);
+        $this->licenca->invalidar($empresaId);
     }
 
     /** Remove um override (volta a valer o plano). */

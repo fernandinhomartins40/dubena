@@ -105,14 +105,78 @@ ato comercial da plataforma, não algo que o tenant faz sobre si mesmo.
 
 A ordem não é sugestão: inverter os passos 2 e 4 tira os módulos do ar.
 
-## O que este microlote NÃO fez
+## Pendências fechadas (2026-08-30)
 
-A tarefa F2-03 completa pede também **limites e add-ons por assinatura**
-(ex.: teto de usuários, de veículos rastreados) e **overrides temporários
-auditados**. `RecursoOverride` já existe como tabela e é lido pelo
-`LicencaService`; o que falta é a porta para operá-lo e o conceito de limite
-numérico, que hoje não existe no catálogo — recurso é booleano.
+As duas lacunas registradas no microlote anterior foram implementadas.
 
-Fica registrado como pendência, não como esquecimento.
+### Limites numéricos
+
+Recurso respondia "tem ou não tem". Faltava "até quanto" — e num SaaS é o limite
+que separa a revenda de bairro da rede com 11 unidades.
+
+`RecursoCatalogo::LIMITES` declara três: `empresas`, `usuarios` e
+`veiculos_monitorados`. `plano_limites` guarda o teto por plano (`null` =
+ilimitado) e `limite_overrides` a exceção por empresa.
+
+| Plano | empresas | usuários | veículos GPS |
+|---|---|---|---|
+| Essencial | 2 | 15 | 0 |
+| Completo | ilimitado | ilimitado | ilimitado |
+
+A régua veio da própria Dubena: 11 unidades e 82 usuários é uma **rede**, não uma
+revenda de bairro.
+
+`LicencaService::limite()` e `dentroDoLimite()` resolvem na ordem override →
+plano → ausência de declaração (que é ilimitado, porque não se inventa teto para
+plano que nunca o declarou). **Sem assinatura o teto é zero**, não ilimitado — o
+mesmo fail-closed dos recursos.
+
+O Completo declara `null` explicitamente em vez de omitir: omitir também libera,
+mas por acidente, e a diferença importa para quem revisar a grade depois.
+
+### Override temporário e auditado
+
+`recurso_overrides` não tinha prazo nem motivo. O gate pede "overrides
+temporários auditados" — e cortesia sem validade vira permanente por
+esquecimento: é assim que um piloto de 30 dias custa dois anos.
+
+Agora `motivo` é obrigatório e `expira_em` opcional, nas duas tabelas. O
+`LicencaService` ignora override expirado, então a cortesia acaba sozinha.
+
+Uma armadilha evitada: ao criar a policy RLS de `limite_overrides`, o primeiro
+rascunho usou `WITH CHECK (false)` por parecer "mais seguro" — isso teria
+quebrado a porta do SuperAdmin, que grava pela conexão de runtime. A policy final
+espelha exatamente a de `recurso_overrides`, a tabela irmã.
+
+### O menu não mostra o que não foi contratado
+
+Descoberto ao revisar a metade frontend do F2-01: o menu da SPA filtra por
+**permissão**, mas não por **feature**. Com a licença ligada, o usuário veria
+"Monitoramento (GPS)" e tomaria 402 ao clicar — descobriria pelo erro.
+
+`hasFeature()` fecha isso. Duas decisões que valem registro:
+
+- **`support` não fura licença.** Bypass de RBAC é acesso; licença é contrato.
+  Quem dá suporte não passa a ter direito a um módulo que a revenda não comprou.
+- **Ausência de `features` no payload libera**, para a SPA não quebrar durante um
+  deploy em que o backend ainda não envia o campo.
+
+### Evidência das pendências
+
+- `LicencaEnforcementTest`: **14 testes / 39 assertions** (eram 8/24).
+- Frontend: **11 testes** em `rbac.test.ts`; `tsc --noEmit` limpo.
+- **145 migrations** do zero em PostgreSQL 16; `RlsCoberturaTest` com role
+  `erp_app` e `--fail-on-skipped`: **6 testes / 358 assertions, zero skip** — o
+  guardião pegou `limite_overrides` sem policy antes de eu perceber.
+- Manifesto de API regenerado: 594 → 596 endpoints.
+
+## O que ainda não existe
+
+O **enforcement** dos limites — quem cria empresa, usuário ou veículo ainda não
+consulta `dentroDoLimite()`. A decisão existe e está testada; falta chamá-la nas
+portas de criação, que é trabalho de F2-08 (matriz por papel) e toca os mesmos
+controllers.
+
+Registrado como pendência, não como esquecimento.
 
 `erp-novo/perda.sql` segue pré-existente e intocado.

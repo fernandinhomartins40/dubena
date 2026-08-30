@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { apiPrefix, ensureCsrf, setToken, getToken } from './api'
-import { can as canFn, canField as canFieldFn } from './rbac'
+import { can as canFn, canField as canFieldFn, hasFeature as hasFeatureFn } from './rbac'
 
 export interface AuthUser {
   id: number
@@ -13,6 +13,8 @@ export interface AuthUser {
   is_support: boolean
   roles: string[]
   permissions: string[]
+  /** Recursos CONTRATADOS pela empresa (F2-03). Ausente em backend antigo. */
+  features?: string[]
 }
 
 interface AuthContextValue {
@@ -23,6 +25,8 @@ interface AuthContextValue {
   can: (permission: string) => boolean
   /** Field-level (A7): pode ver/editar um campo controlado? `can('modulo.campo.{nome}.{acao}')`. */
   canField: (modulo: string, campo: string, acao: 'view' | 'edit') => boolean
+  /** O modulo esta contratado no plano da empresa? (F2-03) */
+  hasFeature: (feature: string) => boolean
   refresh: () => Promise<void>
 }
 
@@ -127,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: async () => { await logoutMut.mutateAsync() },
     can: (permission) => canFn(user ?? null, permission),
     canField: (modulo, campo, acao) => canFieldFn(user ?? null, modulo, campo, acao),
+    hasFeature: (feature) => hasFeatureFn(user ?? null, feature),
     refresh: async () => { await qc.invalidateQueries({ queryKey: ['me'] }) },
   }
 

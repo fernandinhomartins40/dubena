@@ -904,3 +904,37 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - PENDENTE do F2-03: limites/add-ons numericos por assinatura (teto de usuarios,
   de veiculos) e porta para operar `RecursoOverride`. Hoje recurso e booleano —
   limite numerico nao existe no catalogo.
+
+## Atualizacao de retomada - 2026-08-30 (pendencias de F2-01 e F2-03 fechadas)
+
+- LIMITES NUMERICOS (F2-03): recurso respondia "tem ou nao tem"; faltava "ate
+  quanto". `RecursoCatalogo::LIMITES` declara `empresas`, `usuarios` e
+  `veiculos_monitorados`; `plano_limites` guarda o teto por plano e
+  `limite_overrides` a excecao por empresa. Essencial: 2 empresas / 15 usuarios
+  / 0 veiculos GPS. Completo: ilimitado, declarado como `null` EXPLICITO (omitir
+  tambem libera, mas por acidente). Sem assinatura o teto e ZERO, nao ilimitado.
+- OVERRIDE TEMPORARIO: `motivo` obrigatorio e `expira_em` opcional nas duas
+  tabelas; o `LicencaService` ignora override expirado. Cortesia sem validade
+  vira permanente por esquecimento — e assim que um piloto de 30 dias custa dois
+  anos.
+- ARMADILHA EVITADA: o primeiro rascunho da policy de `limite_overrides` usou
+  `WITH CHECK (false)` por parecer "mais seguro"; isso quebraria a porta do
+  SuperAdmin, que grava pela conexao de runtime. A policy final espelha a de
+  `recurso_overrides`, a tabela irma.
+- METADE FRONTEND DE F2-01: o menu da SPA filtrava por PERMISSAO mas nao por
+  FEATURE — com a licenca ligada o usuario veria "Monitoramento" e tomaria 402
+  ao clicar. `hasFeature()` fecha isso. Duas decisoes: `support` NAO fura
+  licenca (bypass e acesso, licenca e contrato), e ausencia de `features` no
+  payload libera, para a SPA nao quebrar durante o deploy.
+- ACHADO: `break_glass_grants` e `otp_consumidos` (criadas em F2-05) nunca
+  entraram no manifesto de classificacao — o gate F1 as reprovaria em
+  homologacao. Registradas como TENANT e PLATFORM. O guardiao de RLS tambem
+  pegou `limite_overrides` sem policy antes de eu perceber.
+- Validacao: `LicencaEnforcementTest` 14 testes/39 assertions; frontend 11 testes
+  e `tsc --noEmit` limpo; 145 migrations do zero em PostgreSQL 16 com
+  `RlsCoberturaTest` 6/358 sem skip; manifesto de API 594 -> 596; suite integral
+  **1.379 passes / 4.369 assertions / zero falhas nos DOIS modos**; Pint
+  aprovado. Ver `F2_03_LICENCA.md`.
+- PENDENTE: o ENFORCEMENT dos limites — quem cria empresa/usuario/veiculo ainda
+  nao chama `dentroDoLimite()`. A decisao existe e esta testada; falta chama-la
+  nas portas de criacao, trabalho que toca os mesmos controllers de F2-08.

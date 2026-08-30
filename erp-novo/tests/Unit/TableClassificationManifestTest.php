@@ -38,6 +38,10 @@ class TableClassificationManifestTest extends TestCase
         $catalogPath = dirname(__DIR__, 3).'/docs/01-vigente/implementacao-saas/CATALOGO_VIVO.json';
         $catalog = json_decode((string) file_get_contents($catalogPath), true, flags: JSON_THROW_ON_ERROR);
         $tables = array_column($catalog['schema'], 'name');
+        // Tabelas criadas DEPOIS do snapshot do catálogo vivo. Ficam listadas
+        // aqui em vez de regravar o snapshot: ele é evidência de um estado
+        // certificado do banco, e reescrevê-lo a cada migration nova destruiria
+        // justamente o que ele serve para provar.
         $tables = array_merge($tables, [
             'tenant_accounts',
             'tenant_memberships',
@@ -45,6 +49,12 @@ class TableClassificationManifestTest extends TestCase
             'tenant_company_grants',
             'tenant_legacy_group_scopes',
             'tenant_network_links',
+            // F2-05 — break-glass e anti-replay de OTP.
+            'break_glass_grants',
+            'otp_consumidos',
+            // F2-03 — limites numéricos por plano e override por empresa.
+            'plano_limites',
+            'limite_overrides',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

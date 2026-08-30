@@ -75,17 +75,62 @@ class EmpresaController extends Controller
         return response()->json(['data' => $licenca->recursosEfetivos($id)]);
     }
 
-    /** PUT /superadmin/empresas/{id}/override — liga/desliga um recurso. */
+    /**
+     * PUT /superadmin/empresas/{id}/override — liga/desliga um recurso.
+     *
+     * `motivo` é obrigatório e `expira_em` opcional (F2-03): sobrepor o plano
+     * contratado é exceção comercial, e exceção sem justificativa registrada
+     * vira regra por esquecimento.
+     */
     public function override(Request $request, int $id): JsonResponse
     {
         $d = $request->validate([
             'recurso_chave' => 'required|string',
             'habilitado' => 'required|boolean',
+            'motivo' => 'required|string|max:500',
+            'expira_em' => 'nullable|date|after:now',
         ]);
 
-        $override = $this->service->definirOverride($id, $d['recurso_chave'], (bool) $d['habilitado']);
+        $override = $this->service->definirOverride(
+            $id,
+            $d['recurso_chave'],
+            (bool) $d['habilitado'],
+            $d['motivo'],
+            isset($d['expira_em']) ? new \DateTimeImmutable($d['expira_em']) : null,
+        );
 
         return response()->json(['data' => $override], 201);
+    }
+
+    /** PUT /superadmin/empresas/{id}/limite — define o teto numérico de um limite. */
+    public function limite(Request $request, int $id): JsonResponse
+    {
+        $d = $request->validate([
+            'limite_chave' => 'required|string',
+            // Nulo é válido e significa ILIMITADO — por isso `present`, e não
+            // `required`, que rejeitaria o nulo explícito.
+            'valor' => 'present|nullable|integer|min:0',
+            'motivo' => 'required|string|max:500',
+            'expira_em' => 'nullable|date|after:now',
+        ]);
+
+        $override = $this->service->definirLimiteOverride(
+            $id,
+            $d['limite_chave'],
+            $d['valor'] === null ? null : (int) $d['valor'],
+            $d['motivo'],
+            isset($d['expira_em']) ? new \DateTimeImmutable($d['expira_em']) : null,
+        );
+
+        return response()->json(['data' => $override], 201);
+    }
+
+    /** DELETE /superadmin/empresas/{id}/limite/{chave} */
+    public function removerLimite(int $id, string $chave): JsonResponse
+    {
+        $this->service->removerLimiteOverride($id, $chave);
+
+        return response()->json(['message' => 'Override de limite removido.']);
     }
 
     /** DELETE /superadmin/empresas/{id}/override/{chave} */

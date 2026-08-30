@@ -123,8 +123,14 @@ class SuperAdminTest extends TestCase
             'empresa_id' => $empresa->id, 'plano_id' => $plano->id, 'status' => 'ativa', 'inicio' => now()->subDay(),
         ]);
 
+        // `motivo` passou a ser obrigatório (F2-03): sobrepor plano contratado é
+        // exceção comercial, e exceção sem justificativa vira regra.
         $this->withToken($token)->putJson("/api/superadmin/empresas/{$empresa->id}/override", [
             'recurso_chave' => 'app_entregador', 'habilitado' => true,
+        ])->assertStatus(422);
+
+        $this->withToken($token)->putJson("/api/superadmin/empresas/{$empresa->id}/override", [
+            'recurso_chave' => 'app_entregador', 'habilitado' => true, 'motivo' => 'cortesia — chamado 12',
         ])->assertCreated();
 
         $this->withToken($token)->getJson("/api/superadmin/empresas/{$empresa->id}/recursos")

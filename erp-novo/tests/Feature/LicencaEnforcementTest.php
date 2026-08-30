@@ -4,13 +4,17 @@ namespace Tests\Feature;
 
 use App\Domain\Saas\LicencaService;
 use App\Domain\Saas\RecursoCatalogo;
+use App\Domain\Saas\SuperAdminService;
 use App\Http\Middleware\RecursoPorRota;
 use App\Models\Empresa;
 use App\Models\Saas\Assinatura;
+use App\Models\Saas\LimiteOverride;
 use App\Models\Saas\Plano;
+use App\Models\Saas\RecursoOverride;
 use App\Models\User;
 use Database\Seeders\PlanosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /**
@@ -153,6 +157,110 @@ class LicencaEnforcementTest extends TestCase
         $legado = Plano::query()->where('slug', 'basico')->first();
         $this->assertNotNull($legado, 'plano legado não pode ser excluído');
         $this->assertFalse((bool) $legado->ativo);
+    }
+
+    /**
+     * F2-03 (pendência) — limite numérico. Recurso diz "tem"; limite, "até
+     * quanto". Num SaaS é o limite que separa a revenda de bairro da rede.
+     */
+    public function test_limite_do_plano_vale_e_ilimitado_e_null(): void
+    {
+        [, $empresa] = $this->cenario();
+        $licenca = app(LicencaService::class);
+
+        $this->assinar($empresa, 'essencial');
+        $this->assertSame(2, $licenca->limite('empresas', $empresa->id));
+        $this->assertTrue($licenca->dentroDoLimite('empresas', 1, $empresa->id));
+        $this->assertFalse($licenca->dentroDoLimite('empresas', 2, $empresa->id));
+
+        // Completo declara `null` = ilimitado.
+        Assinatura::withoutTenant()->where('empresa_id', $empresa->id)->delete();
+        $this->assinar($empresa, 'completo');
+        $this->assertNull($licenca->limite('empresas', $empresa->id));
+        $this->assertTrue($licenca->dentroDoLimite('empresas', 9999, $empresa->id));
+    }
+
+    /** Fail-closed também nos limites: sem contrato, teto zero. */
+    public function test_sem_assinatura_o_teto_e_zero_e_nao_ilimitado(): void
+    {
+        [, $empresa] = $this->cenario();
+        $licenca = app(LicencaService::class);
+
+        $this->assertSame(0, $licenca->limite('usuarios', $empresa->id));
+        $this->assertFalse($licenca->dentroDoLimite('usuarios', 0, $empresa->id));
+    }
+
+    public function test_override_de_limite_sobrepoe_o_plano_e_expira(): void
+    {
+        [, $empresa] = $this->cenario();
+        $this->assinar($empresa, 'essencial');
+        $licenca = app(LicencaService::class);
+
+        $this->assertSame(2, $licenca->limite('empresas', $empresa->id));
+
+        // Cortesia com prazo.
+        LimiteOverride::withoutTenant()->create([
+            'empresa_id' => $empresa->id,
+            'limite_chave' => 'empresas',
+            'valor' => 10,
+            'motivo' => 'piloto comercial — chamado 51',
+            'expira_em' => now()->addDay(),
+        ]);
+        $licenca->invalidar($empresa->id);
+        $this->assertSame(10, $licenca->limite('empresas', $empresa->id));
+
+        // Expirado, volta a valer o plano: cortesia com prazo tem de acabar.
+        LimiteOverride::withoutTenant()->where('empresa_id', $empresa->id)
+            ->update(['expira_em' => now()->subMinute()]);
+        $licenca->invalidar($empresa->id);
+        $this->assertSame(2, $licenca->limite('empresas', $empresa->id));
+    }
+
+    /**
+     * A mesma expiração vale para o override de RECURSO — era permanente antes,
+     * e um piloto de 30 dias virava dois anos por esquecimento.
+     */
+    public function test_override_de_recurso_expira(): void
+    {
+        [, $empresa] = $this->cenario();
+        $this->assinar($empresa, 'essencial'); // sem monitoramento
+        $licenca = app(LicencaService::class);
+
+        $this->assertFalse($licenca->recursoHabilitado('monitora', $empresa->id));
+
+        RecursoOverride::withoutTenant()->create([
+            'empresa_id' => $empresa->id,
+            'recurso_chave' => 'monitora',
+            'habilitado' => true,
+            'motivo' => 'cortesia — avaliação',
+            'expira_em' => now()->addDay(),
+        ]);
+        $licenca->invalidar($empresa->id);
+        $this->assertTrue($licenca->recursoHabilitado('monitora', $empresa->id));
+
+        RecursoOverride::withoutTenant()->where('empresa_id', $empresa->id)
+            ->update(['expira_em' => now()->subMinute()]);
+        $licenca->invalidar($empresa->id);
+        $this->assertFalse($licenca->recursoHabilitado('monitora', $empresa->id));
+    }
+
+    /** Sobrepor plano contratado é exceção comercial: sem motivo, não passa. */
+    public function test_override_exige_motivo(): void
+    {
+        [, $empresa] = $this->cenario();
+        $servico = app(SuperAdminService::class);
+
+        $this->expectException(HttpException::class);
+        $servico->definirOverride($empresa->id, 'monitora', true, '   ');
+    }
+
+    public function test_override_recusa_chave_fora_do_catalogo(): void
+    {
+        [, $empresa] = $this->cenario();
+        $servico = app(SuperAdminService::class);
+
+        $this->expectException(HttpException::class);
+        $servico->definirLimiteOverride($empresa->id, 'limite_inventado', 5, 'teste');
     }
 
     public function test_mapa_de_rota_cobre_os_modulos_opcionais(): void

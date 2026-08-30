@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { can, canField } from './rbac'
+import { can, canField, hasFeature } from './rbac'
 import { normalizarMe } from './auth'
 import type { AuthUser } from './auth'
 
@@ -47,5 +47,28 @@ describe('normalizarMe', () => {
   it('tolera o shape plano e defaults', () => {
     const u = normalizarMe({ id: 3, name: 'C', email: 'c@x.com' })
     expect(u).toMatchObject({ id: 3, empresa_id: null, grupo_id: null, is_support: false, roles: [], permissions: [] })
+  })
+})
+
+describe('hasFeature', () => {
+  const base = { id: 1, name: 'A', email: 'a@a', empresa_id: 1, grupo_id: 1, is_support: false, roles: [], permissions: [] }
+
+  it('libera o modulo contratado e nega o que nao esta no plano', () => {
+    const u = { ...base, features: ['crm'] }
+    expect(hasFeature(u, 'crm')).toBe(true)
+    expect(hasFeature(u, 'monitora')).toBe(false)
+  })
+
+  it('support NAO fura licenca: bypass e acesso, nao contrato', () => {
+    const sup = { ...base, is_support: true, features: [] as string[] }
+    expect(hasFeature(sup, 'monitora')).toBe(false)
+  })
+
+  it('sem o campo features (backend antigo) libera, para a SPA nao quebrar no deploy', () => {
+    expect(hasFeature(base, 'monitora')).toBe(true)
+  })
+
+  it('sem usuario, nega', () => {
+    expect(hasFeature(null, 'crm')).toBe(false)
   })
 })

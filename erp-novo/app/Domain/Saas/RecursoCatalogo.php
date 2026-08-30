@@ -38,6 +38,24 @@ final class RecursoCatalogo
     ];
 
     /**
+     * Limites NUMÉRICOS por plano (F2-03) — chave => descrição.
+     *
+     * Recurso responde "tem ou não tem"; limite responde "até quanto". Num SaaS
+     * é o limite que separa a revenda de bairro da rede com 11 unidades, então
+     * ele é metade da grade comercial.
+     *
+     * A contagem de cada limite vive em `LimiteCatalogo::contar()`, que é onde
+     * se define o que exatamente está sendo contado.
+     *
+     * @var array<string, string>
+     */
+    public const LIMITES = [
+        'empresas' => 'Unidades (empresas) ativas no tenant',
+        'usuarios' => 'Usuários ativos por empresa',
+        'veiculos_monitorados' => 'Veículos com rastreamento GPS ativo',
+    ];
+
+    /**
      * Todas as chaves de recurso.
      *
      * @return list<string>
@@ -45,6 +63,22 @@ final class RecursoCatalogo
     public static function chaves(): array
     {
         return array_keys(self::RECURSOS);
+    }
+
+    /**
+     * Todas as chaves de limite.
+     *
+     * @return list<string>
+     */
+    public static function chavesDeLimite(): array
+    {
+        return array_keys(self::LIMITES);
+    }
+
+    /** A chave de limite existe no catálogo? */
+    public static function limiteExiste(string $chave): bool
+    {
+        return array_key_exists($chave, self::LIMITES);
     }
 
     /** A chave existe no catálogo? */

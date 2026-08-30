@@ -22,13 +22,19 @@ interface NavItem {
   to: string
   icon: ReactNode
   permission?: string
+  /**
+   * Recurso CONTRATADO exigido (F2-03). Distinto de `permission`: aquela diz o
+   * que o usuario pode, esta diz o que a empresa comprou. Sem o filtro, o menu
+   * mostraria o modulo e o clique voltaria 402.
+   */
+  feature?: string
   group: string
 }
 
 // Navegação DECLARATIVA (sem menu-no-banco). Cresce conforme migramos módulos.
 const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: <LayoutDashboard size={18} />, group: 'Geral' },
-  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', group: 'Geral' },
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', feature: 'relatorios_avancados', group: 'Geral' },
 
   { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
   { label: 'Cadastros a revisar', to: '/clientes/revisoes', icon: <Merge size={18} />, permission: 'cliente.edit', group: 'Cadastros' },
@@ -52,8 +58,8 @@ const NAV: NavItem[] = [
   { label: 'Convênios', to: '/convenios', icon: <Handshake size={18} />, permission: 'convenio.view', group: 'Financeiro' },
 
   { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'CRM' },
-  { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', group: 'CRM' },
-  { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', group: 'CRM' },
+  { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', feature: 'crm', group: 'CRM' },
+  { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', feature: 'crm', group: 'CRM' },
   { label: 'Metas', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'CRM' },
   { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', group: 'CRM' },
 
@@ -62,8 +68,8 @@ const NAV: NavItem[] = [
   { label: 'Bens', to: '/bens', icon: <Building size={18} />, permission: 'bem.view', group: 'Gestão' },
 
   { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'RH & Frota' },
-  { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', group: 'RH & Frota' },
-  { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', group: 'RH & Frota' },
+  { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', feature: 'frota', group: 'RH & Frota' },
+  { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', feature: 'monitora', group: 'RH & Frota' },
 
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
   { label: 'Acessos', to: '/acessos', icon: <ShieldCheck size={18} />, permission: 'usuario.view', group: 'Administração' },
@@ -75,7 +81,7 @@ const NAV: NavItem[] = [
 const ORDEM_GRUPOS = ['Geral', 'Cadastros', 'Operações', 'Financeiro', 'CRM', 'Gestão', 'RH & Frota', 'Administração']
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, logout, can } = useAuth()
+  const { user, logout, can, hasFeature } = useAuth()
   const navigate = useNavigate()
   // `open` = sidebar recolhida/expandida no DESKTOP (md+).
   const [open, setOpen] = useState(true)
@@ -92,7 +98,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   // No mobile a sidebar é overlay e está sempre "expandida" (mostra rótulos).
   const expandida = open || mobileOpen
 
-  const visiveis = NAV.filter((i) => !i.permission || can(i.permission))
+  const visiveis = NAV.filter(
+    (i) => (!i.permission || can(i.permission)) && (!i.feature || hasFeature(i.feature)),
+  )
   const presentes = Array.from(new Set(visiveis.map((i) => i.group)))
   const grupos = [
     ...ORDEM_GRUPOS.filter((g) => presentes.includes(g)),
