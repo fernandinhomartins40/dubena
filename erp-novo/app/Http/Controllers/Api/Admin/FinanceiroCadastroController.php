@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\CentroCusto;
 use App\Models\Financeiro\PlanoConta;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,7 @@ class FinanceiroCadastroController extends Controller
     {
         $this->autorizar($request, 'financeiro.edit');
         $d = $request->validate([
-            'pai_id' => 'nullable|integer|exists:planos_conta,id',
+            'pai_id' => ['nullable', 'integer', new ExisteNoTenant(PlanoConta::class)],
             'codigo' => 'nullable|string|max:30',
             'descricao' => 'required|string|max:255',
             'pagarreceber' => 'required|in:P,R',
@@ -66,7 +67,7 @@ class FinanceiroCadastroController extends Controller
     {
         $this->autorizar($request, 'financeiro.edit');
         $d = $request->validate([
-            'pai_id' => 'nullable|integer|exists:centros_custo,id',
+            'pai_id' => ['nullable', 'integer', new ExisteNoTenant(CentroCusto::class)],
             'codigo' => 'nullable|string|max:30',
             'descricao' => 'required|string|max:255',
             'nivel' => 'nullable|integer|min:1',

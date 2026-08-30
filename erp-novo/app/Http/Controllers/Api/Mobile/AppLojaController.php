@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Mobile\CatalogoMobileService;
 use App\Domain\Mobile\CotacaoMobileService;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\Feriado;
+use App\Models\Empresa;
 use App\Models\EmpresaConfig;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Monitora\Cerca;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,7 +38,7 @@ class AppLojaController extends Controller
             'itens' => 'required|array|min:1',
             'itens.*.produto_id' => 'required|integer',
             'itens.*.quantidade' => 'required|numeric|gt:0',
-            'condicao_id' => 'nullable|integer|exists:condicaopagamentos,id',
+            'condicao_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'codigo_cupom' => 'nullable|string|max:40',
             'gasdopovo' => 'boolean',
         ]);
@@ -53,7 +59,7 @@ class AppLojaController extends Controller
         // F6: quais meios ONLINE a empresa suporta — SÓ booleanos (nunca credencial).
         // Com driver fake (dev/CI) tudo fica disponível; com gate real, disponível =
         // a empresa tem o próprio credenciamento (fail-closed coerente com F2).
-        $integracao = app(\App\Domain\Integracao\IntegracaoTenant::class);
+        $integracao = app(IntegracaoTenant::class);
         $pixDisponivel = config('services.pix.driver', 'fake') === 'fake'
             || $integracao->pixConfigurado($user->empresa_id);
         $cartaoDisponivel = config('services.pagamento.driver', 'fake') !== 'erede'
@@ -71,7 +77,7 @@ class AppLojaController extends Controller
     /** GET /app/v1/reseller — dados da revenda (empresa do token) exibidos no app (F3b). */
     public function reseller(Request $request): JsonResponse
     {
-        $empresa = \App\Models\Empresa::query()->findOrFail($request->user()->empresa_id);
+        $empresa = Empresa::query()->findOrFail($request->user()->empresa_id);
         $cfg = EmpresaConfig::query()->where('empresa_id', $empresa->id)->first();
 
         return response()->json(['data' => [
@@ -88,7 +94,7 @@ class AppLojaController extends Controller
     /** GET /app/v1/feriados — feriados do grupo (afetam agendamento) — F3b. */
     public function feriados(Request $request): JsonResponse
     {
-        $feriados = \App\Models\Apoio\Feriado::query()
+        $feriados = Feriado::query()
             ->where('grupo_id', $request->user()->grupo_id)
             ->where('ativo', true)
             ->orderBy('data')
@@ -105,7 +111,7 @@ class AppLojaController extends Controller
     /** GET /app/v1/poligonos — cercas/polígonos de entrega da empresa (F3b). */
     public function poligonos(Request $request): JsonResponse
     {
-        $cercas = \App\Models\Monitora\Cerca::query()
+        $cercas = Cerca::query()
             ->where('empresa_id', $request->user()->empresa_id)
             ->where('ativo', true)
             ->with('pontos:id,cerca_id,latitude,longitude,ordem')

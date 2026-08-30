@@ -9,6 +9,9 @@ use App\Models\Gestao\CupomFiscal;
 use App\Models\Gestao\Documento;
 use App\Models\Gestao\EmpresaBem;
 use App\Models\Gestao\Mcmm;
+use App\Models\Pedido\Pedido;
+use App\Models\Produto\Produto;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -33,9 +36,9 @@ class GestaoController extends Controller
     {
         $this->autorizar($request, 'cupomfiscal.create');
         $d = $request->validate([
-            'pedido_id' => 'nullable|integer|exists:pedidos,id',
+            'pedido_id' => ['nullable', 'integer', new ExisteNoTenant(Pedido::class)],
             'itens' => 'required|array|min:1',
-            'itens.*.produto_id' => 'nullable|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required|numeric|gt:0',
             'itens.*.valor_unitario' => 'required|numeric|gte:0',
         ]);
@@ -93,7 +96,7 @@ class GestaoController extends Controller
             'descricao' => 'required|string|max:255',
             'tipo' => 'required|in:entrada,saida',
             'quantidade' => 'required|numeric',
-            'produto_id' => 'nullable|integer|exists:produtos,id',
+            'produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
         ]);
         $d['data'] ??= now()->toDateString();
 

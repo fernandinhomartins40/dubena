@@ -7,10 +7,12 @@ use App\Domain\Pagamento\PagamentoService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Caixa\Conta;
 use App\Models\Cliente\Cliente;
 use App\Models\Pagamento\CartaoTransacao;
 use App\Models\Pagamento\GasDoPovoBeneficio;
 use App\Models\Pedido\Pedido;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,8 +37,8 @@ class PagamentoController extends Controller
     {
         $this->autorizar($request, 'cartao.create');
         $d = $request->validate([
-            'pedido_id' => 'nullable|integer|exists:pedidos,id',
-            'conta_id' => 'nullable|integer|exists:contas,id',
+            'pedido_id' => ['nullable', 'integer', new ExisteNoTenant(Pedido::class)],
+            'conta_id' => ['nullable', 'integer', new ExisteNoTenant(Conta::class)],
             'bandeira' => 'nullable|string|max:30',
             'tipo' => 'nullable|in:credito,debito',
             'nsu' => 'nullable|string|max:30',
@@ -63,7 +65,7 @@ class PagamentoController extends Controller
     {
         $this->autorizar($request, 'gasdopovo.create');
         $d = $request->validate([
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'nis' => 'nullable|string|max:20',
             'competencia' => 'required|string|size:7',
             'valor' => 'required|numeric|gt:0',
@@ -76,8 +78,8 @@ class PagamentoController extends Controller
     {
         $this->autorizar($request, 'gasdopovo.edit');
         $d = $request->validate([
-            'pedido_id' => 'required|integer|exists:pedidos,id',
-            'conta_id' => 'nullable|integer|exists:contas,id',
+            'pedido_id' => ['required', 'integer', new ExisteNoTenant(Pedido::class)],
+            'conta_id' => ['nullable', 'integer', new ExisteNoTenant(Conta::class)],
         ]);
         $beneficio = GasDoPovoBeneficio::query()->findOrFail($id);
 

@@ -10,10 +10,13 @@ use App\Domain\Monitora\ViagensService;
 use App\Domain\Relatorio\RelatorioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\Setor;
+use App\Models\Geografico\Cidade;
 use App\Models\Monitora\Cerca;
 use App\Models\Monitora\UltimaPosicao;
 use App\Models\Monitora\Veiculo;
 use App\Models\Monitora\VeiculoTipo;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -69,7 +72,7 @@ class MonitoraController extends Controller
         return $request->validate([
             'placa' => 'required|string|max:10',
             'descricao' => 'nullable|string|max:255',
-            'tipo_id' => 'nullable|integer|exists:monitora_veiculo_tipos,id',
+            'tipo_id' => ['nullable', 'integer', new ExisteNoTenant(VeiculoTipo::class)],
             'motorista' => 'nullable|string|max:255',
             'km_atual' => 'nullable|integer|min:0',
             'imei' => 'nullable|string|max:30',
@@ -442,11 +445,11 @@ class MonitoraController extends Controller
         return $request->validate([
             'descricao' => 'required|string|max:255',
             'cor' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             // Município a que a cerca pertence. Nullable: a cerca continua
             // valendo como geofence sem ele, e aparece agrupada em
             // "Sem município" para ser classificada.
-            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
             'ativo' => 'boolean',
             'pontos' => 'required|array|min:3',
             'pontos.*.latitude' => 'required|numeric|between:-90,90',

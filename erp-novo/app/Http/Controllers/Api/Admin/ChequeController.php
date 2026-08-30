@@ -7,7 +7,12 @@ use App\Domain\Caixa\SituacaoCheque;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\Banco;
 use App\Models\Caixa\Cheque;
+use App\Models\Caixa\Conta;
+use App\Models\Cliente\Cliente;
+use App\Models\Financeiro\FinanceiroParcela;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -72,7 +77,7 @@ class ChequeController extends Controller
         $this->autorizar($request, 'caixa.edit');
         $d = $request->validate([
             'situacao' => 'required|string',
-            'conta_id' => 'nullable|integer|exists:contas,id',
+            'conta_id' => ['nullable', 'integer', new ExisteNoTenant(Conta::class)],
         ]);
         $destino = SituacaoCheque::tryFrom($d['situacao']);
         abort_unless($destino !== null, 422, 'Situação inválida.');
@@ -88,7 +93,7 @@ class ChequeController extends Controller
         $this->autorizar($request, 'caixa.edit');
         $d = $request->validate([
             'valor_compromisso' => 'required|numeric|gte:0',
-            'financeiro_parcela_id' => 'nullable|integer|exists:financeiroparcelas,id',
+            'financeiro_parcela_id' => ['nullable', 'integer', new ExisteNoTenant(FinanceiroParcela::class)],
         ]);
 
         $resultado = $this->service->encontroDeContas(
@@ -109,8 +114,8 @@ class ChequeController extends Controller
 
         return $request->validate([
             'especie' => "{$req}|in:R,E",
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'banco_id' => 'nullable|integer|exists:bancos,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
+            'banco_id' => ['nullable', 'integer', new ExisteNoTenant(Banco::class)],
             'numero' => 'nullable|string|max:30',
             'agencia' => 'nullable|string|max:20',
             'conta_corrente' => 'nullable|string|max:30',

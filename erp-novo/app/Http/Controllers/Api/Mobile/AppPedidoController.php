@@ -8,7 +8,13 @@ use App\Domain\Mobile\PagamentoOnlineService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Http\Controllers\Api\Mobile\Concerns\ResolveClienteDoApp;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Mobile\EntregadorPosicao;
 use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,16 +37,16 @@ class AppPedidoController extends Controller
     public function criarPedido(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'lat' => 'required_without:cliente_id|numeric',
             'lng' => 'required_without:cliente_id|numeric',
-            'pedidosituacao_id' => 'nullable|integer|exists:pedidosituacoes,id',
-            'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
+            'pedidosituacao_id' => ['nullable', 'integer', new ExisteNoTenant(PedidoSituacao::class)],
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'gasdopovo' => 'boolean',
             'observacao' => 'nullable|string',
             'codigo_cupom' => 'nullable|string|max:40',
             'itens' => 'required|array|min:1',
-            'itens.*.produto_id' => 'required|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['required', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required|numeric|gt:0',
             // Nota: preco_unitario do cliente é IGNORADO de propósito (anti-fraude F3c).
         ]);
@@ -50,7 +56,7 @@ class AppPedidoController extends Controller
         // F4 (segurança): usuário do app COM cliente vinculado só cria pedido para
         // SI MESMO — cliente_id do payload (e o matching por geoloc, que poderia
         // casar o vizinho) valem apenas para o fluxo staff/transição sem vínculo.
-        $clienteDoToken = \App\Models\Cliente\Cliente::query()
+        $clienteDoToken = Cliente::query()
             ->where('empresa_id', $user->empresa_id)
             ->where('user_id', $user->id)
             ->value('id');
@@ -205,7 +211,7 @@ class AppPedidoController extends Controller
             return response()->json(['data' => $vazio]);
         }
 
-        $pos = \App\Models\Mobile\EntregadorPosicao::query()
+        $pos = EntregadorPosicao::query()
             ->where('entregador_user_id', $pedido->entregador_user_id)
             ->first();
 

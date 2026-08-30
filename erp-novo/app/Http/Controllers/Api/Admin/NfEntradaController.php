@@ -6,8 +6,10 @@ use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Fiscal\NfEntradaService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\Setor;
 use App\Models\Fiscal\NfRecebida;
 use App\Models\Fiscal\NfRecebidaItem;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -102,7 +104,7 @@ class NfEntradaController extends Controller
             'Sem permissão para alterar custo de produto.',
         );
         $d = $request->validate([
-            'setor_id' => 'required|integer|exists:setores,id',
+            'setor_id' => ['required', 'integer', new ExisteNoTenant(Setor::class)],
         ]);
 
         // findOrFail é tenant-scoped: só processa NF da empresa ativa.

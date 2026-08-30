@@ -5,7 +5,14 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Rh\ColaboradorService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\Setor;
+use App\Models\Geografico\Bairro;
+use App\Models\Geografico\Cidade;
+use App\Models\Geografico\Rua;
+use App\Models\Produto\Produto;
+use App\Models\Rh\Cargo;
 use App\Models\Rh\Colaborador;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -261,8 +268,8 @@ class ColaboradorController extends Controller
     private function validarComissao(Request $request): array
     {
         return $request->validate([
-            'produto_id' => 'nullable|integer|exists:produtos,id',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            'produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             'condicaopagamento_id' => 'nullable|integer',
             // `integer` e não string: o model faz cast para int (o legado usa um
             // código numérico de tipo de comissão).
@@ -378,7 +385,7 @@ class ColaboradorController extends Controller
             'nome' => 'required|string|max:255',
             'cpf' => 'nullable|string|max:11',
             'rg' => 'nullable|string|max:20',
-            'cargo_id' => 'nullable|integer|exists:cargos,id',
+            'cargo_id' => ['nullable', 'integer', new ExisteNoTenant(Cargo::class)],
             'data_nascimento' => 'nullable|date',
             'data_admissao' => 'nullable|date',
             'data_desligamento' => 'nullable|date',
@@ -394,9 +401,9 @@ class ColaboradorController extends Controller
             // bairro) e o formulário já enviava — faltava a coluna no destino.
             'cep' => 'nullable|string|max:8',
             'uf' => 'nullable|string|max:2',
-            'cidade_id' => 'nullable|integer|exists:cidades,id',
-            'bairro_id' => 'nullable|integer|exists:bairros,id',
-            'rua_id' => 'nullable|integer|exists:ruas,id',
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
+            'bairro_id' => ['nullable', 'integer', new ExisteNoTenant(Bairro::class)],
+            'rua_id' => ['nullable', 'integer', new ExisteNoTenant(Rua::class)],
             'numero' => 'nullable|string|max:20',
             'complemento' => 'nullable|string|max:255',
         ]);

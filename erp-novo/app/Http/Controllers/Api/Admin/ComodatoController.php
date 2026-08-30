@@ -7,14 +7,18 @@ use App\Domain\Satelite\ComodatoService;
 use App\Domain\Satelite\VinculoVasilhame;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
+use App\Models\Estoque\Setor;
 use App\Models\Produto\Produto;
 use App\Models\Satelite\Comodato;
 use App\Models\Satelite\ComodatoAvaliacao;
 use App\Models\Satelite\ComodatoConfig;
 use App\Models\Satelite\ComodatoContrato;
 use App\Models\Satelite\ComodatoMovimento;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * Comodato (vasilhame emprestado) — N8.
@@ -41,9 +45,9 @@ class ComodatoController extends Controller
     {
         $this->autorizar($request, 'comodato.edit');
         $d = $request->validate([
-            'cliente_id' => 'required|integer|exists:clientes,id',
-            'produto_id' => 'required|integer|exists:produtos,id',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
+            'produto_id' => ['required', 'integer', new ExisteNoTenant(Produto::class)],
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             'quantidade' => 'required|numeric|gt:0',
             'data_emprestimo' => 'nullable|date',
             'nome_representante' => 'nullable|string|max:255',
@@ -102,7 +106,7 @@ class ComodatoController extends Controller
      * Permissao de leitura: imprimir nao altera nada. Quem consulta o comodato
      * precisa poder gerar o contrato para colher a assinatura.
      */
-    public function contrato(Request $request, int $id, ComodatoPdfService $pdf): \Illuminate\Http\Response
+    public function contrato(Request $request, int $id, ComodatoPdfService $pdf): Response
     {
         $this->autorizar($request, 'comodato.view');
 
@@ -158,7 +162,7 @@ class ComodatoController extends Controller
     }
 
     /** GET /comodatos/{id}/movimentos/{movimento}/recibo — prova da entrega, para o cliente. */
-    public function recibo(Request $request, int $id, int $movimento, ComodatoPdfService $pdf): \Illuminate\Http\Response
+    public function recibo(Request $request, int $id, int $movimento, ComodatoPdfService $pdf): Response
     {
         $this->autorizar($request, 'comodato.view');
 
@@ -372,7 +376,7 @@ class ComodatoController extends Controller
         $this->autorizar($request, 'comodato.config');
 
         $d = $request->validate([
-            'produto_retornavel_id' => 'nullable|integer|exists:produtos,id',
+            'produto_retornavel_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
         ]);
 
         $empresaId = (int) $request->user()->empresa_id;

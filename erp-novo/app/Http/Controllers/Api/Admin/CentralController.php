@@ -8,7 +8,9 @@ use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Logistica\LogisticaConfig;
+use App\Models\Monitora\Veiculo;
 use App\Models\Pedido\Pedido;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -75,7 +77,7 @@ class CentralController extends Controller
         $this->autorizar($request, 'logistica.distribuir');
         $d = $request->validate([
             'entregador_user_id' => 'required|integer|exists:users,id',
-            'veiculo_id' => 'nullable|integer|exists:monitora_veiculos,id',
+            'veiculo_id' => ['nullable', 'integer', new ExisteNoTenant(Veiculo::class)],
             'motivo' => 'nullable|string|max:255',
         ]);
 

@@ -6,7 +6,10 @@ use App\Domain\Logistica\CalculadoraTaxaEntrega;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Geografico\Bairro;
+use App\Models\Geografico\Cidade;
 use App\Models\Logistica\TaxaEntrega;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -107,8 +110,8 @@ class TaxaEntregaController extends Controller
         return $request->validate([
             'descricao' => 'required|string|max:120',
             'criterio' => 'required|in:bairro,cidade,distancia,valor_pedido,padrao',
-            'bairro_id' => 'nullable|integer|exists:bairros,id|required_if:criterio,bairro',
-            'cidade_id' => 'nullable|integer|exists:cidades,id|required_if:criterio,cidade',
+            'bairro_id' => ['nullable', 'integer', new ExisteNoTenant(Bairro::class), 'required_if:criterio,bairro'],
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class), 'required_if:criterio,cidade'],
             // Faixa dos critérios numéricos (km ou R$).
             'faixa_de' => 'nullable|numeric|gte:0',
             'faixa_ate' => 'nullable|numeric|gte:0|gte:faixa_de',

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\TelefoneTipo;
 use App\Models\Cliente\Cliente;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,7 +34,7 @@ class ClienteTelefoneController extends Controller
         $dados = $request->validate([
             'telefone' => 'required|string|max:30',
             'whatsapp' => 'nullable|boolean',
-            'telefonetipo_id' => 'nullable|integer|exists:telefonetipos,id',
+            'telefonetipo_id' => ['nullable', 'integer', new ExisteNoTenant(TelefoneTipo::class)],
         ]);
 
         $tel = $cliente->telefones()->create($dados);

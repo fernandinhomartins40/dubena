@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Logistica\JornadaService;
+use App\Domain\Logistica\RoteirizadorService;
 use App\Domain\Mobile\EntregaService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Mobile\RastreamentoService;
@@ -13,6 +14,7 @@ use App\Models\Logistica\Jornada;
 use App\Models\Monitora\Veiculo;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,7 +31,7 @@ class AppEntregadorController extends Controller
         private RastreamentoService $rastreamento,
         private EntregaService $entrega,
         private JornadaService $jornadas,
-        private \App\Domain\Logistica\RoteirizadorService $roteirizador,
+        private RoteirizadorService $roteirizador,
     ) {}
 
     /** GET /app/v1/entregador/rota — rota otimizada das entregas ativas (L5). */
@@ -89,7 +91,7 @@ class AppEntregadorController extends Controller
     public function iniciarJornada(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'veiculo_id' => 'nullable|integer|exists:monitora_veiculos,id',
+            'veiculo_id' => ['nullable', 'integer', new ExisteNoTenant(Veiculo::class)],
             'km_inicial' => 'nullable|integer|min:0',
             'checklist' => 'nullable|array',
         ]);
@@ -188,7 +190,7 @@ class AppEntregadorController extends Controller
     public function atualizarStatus(Request $request, int $id): JsonResponse
     {
         $d = $request->validate([
-            'pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id',
+            'pedidosituacao_id' => ['required', 'integer', new ExisteNoTenant(PedidoSituacao::class)],
             'lat' => 'nullable|numeric',
             'lng' => 'nullable|numeric',
         ]);

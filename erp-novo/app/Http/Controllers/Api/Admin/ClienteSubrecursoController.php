@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\ClienteContatoSituacao;
+use App\Models\Apoio\ClienteContatoTipo;
 use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteInteracao;
 use App\Models\Cliente\ClientePreco;
 use App\Models\Pedido\Pedido;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -52,8 +55,8 @@ class ClienteSubrecursoController extends Controller
         $cliente = Cliente::query()->findOrFail($clienteId);
 
         $dados = $request->validate([
-            'tipo_id' => 'nullable|integer|exists:clientecontatotipos,id',
-            'situacao_id' => 'nullable|integer|exists:clientecontatosituacoes,id',
+            'tipo_id' => ['nullable', 'integer', new ExisteNoTenant(ClienteContatoTipo::class)],
+            'situacao_id' => ['nullable', 'integer', new ExisteNoTenant(ClienteContatoSituacao::class)],
             'descricao' => 'required|string',
             'acao' => 'nullable|string|max:255',
         ]);

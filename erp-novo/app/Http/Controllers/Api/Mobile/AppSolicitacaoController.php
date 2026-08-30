@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
-use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Fiscal\CupomTextoService;
+use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Venda\CargaFranqueadoService;
 use App\Domain\Venda\CentralVendasService;
 use App\Domain\Venda\ExtratoRemuneracaoService;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Geografico\Cidade;
 use App\Models\Pedido\Pedido;
+use App\Models\Produto\Produto;
 use App\Models\Rh\Colaborador;
+use App\Models\Satelite\ValeGas;
 use App\Models\Venda\PedidoSolicitacao;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -49,12 +55,12 @@ class AppSolicitacaoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'cliente_id' => 'required|integer|exists:clientes,id',
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
             'itens' => 'required|array|min:1',
-            'itens.*.produto_id' => 'required|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['required', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required|numeric|gt:0',
-            'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             'desconto_solicitado' => 'nullable|numeric|min:0',
             'justificativa' => 'nullable|string|max:500',
             'observacao' => 'nullable|string|max:255',
@@ -119,7 +125,7 @@ class AppSolicitacaoController extends Controller
             'numero' => 'nullable|string|max:20',
             'complemento' => 'nullable|string|max:60',
             'ponto_referencia' => 'nullable|string|max:120',
-            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
             'telefone' => 'nullable|string|max:30',
             'observacoes' => 'nullable|string|max:500',
         ]);
@@ -256,7 +262,7 @@ class AppSolicitacaoController extends Controller
     {
         $d = $request->validate(['codigo' => 'required|string|max:60']);
 
-        $vale = \App\Models\Satelite\ValeGas::query()
+        $vale = ValeGas::query()
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->where('codigo', trim($d['codigo']))
             ->first();

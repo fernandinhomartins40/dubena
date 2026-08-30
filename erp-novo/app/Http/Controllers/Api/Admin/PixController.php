@@ -6,6 +6,7 @@ use App\Domain\Cobranca\PixService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,7 +37,7 @@ class PixController extends Controller
     {
         $this->autorizar($request, 'financeiro.edit');
         $d = $request->validate([
-            'parcela_id' => 'required|integer|exists:financeiroparcelas,id',
+            'parcela_id' => ['required', 'integer', new ExisteNoTenant(FinanceiroParcela::class)],
             'expira_segundos' => 'nullable|integer|min:60',
         ]);
 

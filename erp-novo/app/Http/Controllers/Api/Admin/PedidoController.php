@@ -11,10 +11,13 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PedidoRequest;
 use App\Http\Resources\PedidoResource;
+use App\Models\Apoio\MotivoNaoVenda;
+use App\Models\Apoio\PedidoMotivoAtraso;
 use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,7 +113,7 @@ class PedidoController extends Controller
     public function mudarSituacao(Request $request, int $id): PedidoResource
     {
         $this->autorizar($request, 'pedido.edit');
-        $d = $request->validate(['pedidosituacao_id' => 'required|integer|exists:pedidosituacoes,id']);
+        $d = $request->validate(['pedidosituacao_id' => ['required', 'integer', new ExisteNoTenant(PedidoSituacao::class)]]);
 
         $pedido = Pedido::query()->findOrFail($id);
         $atualizado = $this->service->mudarSituacao($pedido, $d['pedidosituacao_id'], $request->user()->id);
@@ -194,7 +197,7 @@ class PedidoController extends Controller
         $this->autorizar($request, 'pedido.edit');
 
         $d = $request->validate([
-            'pedidomotivoatraso_id' => 'required|integer|exists:pedido_motivos_atraso,id',
+            'pedidomotivoatraso_id' => ['required', 'integer', new ExisteNoTenant(PedidoMotivoAtraso::class)],
             'justificativa' => 'nullable|string|max:255',
         ]);
 
@@ -220,7 +223,7 @@ class PedidoController extends Controller
         $this->autorizar($request, 'pedido.edit');
 
         $d = $request->validate([
-            'motivonaovenda_id' => 'required|integer|exists:motivos_nao_venda,id',
+            'motivonaovenda_id' => ['required', 'integer', new ExisteNoTenant(MotivoNaoVenda::class)],
         ]);
 
         $pedido = Pedido::query()->findOrFail($id);
@@ -270,7 +273,7 @@ class PedidoController extends Controller
         $this->autorizar($request, 'pedidosituacao.edit');
         $d = $request->validate([
             'ordem' => ['required', 'array', 'min:1'],
-            'ordem.*' => ['integer', 'exists:pedidosituacoes,id'],
+            'ordem.*' => ['integer', new ExisteNoTenant(PedidoSituacao::class)],
         ]);
 
         DB::transaction(function () use ($d) {

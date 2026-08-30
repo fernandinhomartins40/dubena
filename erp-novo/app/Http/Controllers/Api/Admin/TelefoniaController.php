@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Telefonia\TelefoniaService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,9 +20,7 @@ class TelefoniaController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private TelefoniaService $service)
-    {
-    }
+    public function __construct(private TelefoniaService $service) {}
 
     /** GET /telefonia/fila — o que está tocando agora. */
     public function fila(Request $request): JsonResponse
@@ -38,7 +38,7 @@ class TelefoniaController extends Controller
     {
         $this->autorizar($request, 'pedido.view');
 
-        $d = $request->validate(['cliente_id' => 'nullable|integer|exists:clientes,id']);
+        $d = $request->validate(['cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)]]);
 
         return response()->json([
             'data' => $this->service->atender(

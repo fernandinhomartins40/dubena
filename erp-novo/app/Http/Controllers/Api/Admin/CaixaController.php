@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Caixa\CaixaService;
-use App\Domain\Tenant\TenantContext;
 use App\Domain\Shared\PdfService;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\Banco;
 use App\Models\Caixa\Conta;
 use App\Models\Caixa\ContaMovimento;
+use App\Models\Empresa;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 
 /**
  * Caixa / Conta — N6. Contas, movimentos, abrir/fechar, baixar parcela,
@@ -35,29 +40,29 @@ class CaixaController extends Controller
      * Meia pagina de proposito: dois recibos por folha A4. Papel custa, e um
      * recibo ocupando uma folha inteira e desperdicio que o balcao nota todo dia.
      */
-    public function recibo(Request $request, int $movimentoId, PdfService $pdf): \Illuminate\Http\Response
+    public function recibo(Request $request, int $movimentoId, PdfService $pdf): Response
     {
         $this->autorizar($request, 'caixa.view');
 
         $mov = ContaMovimento::query()->findOrFail($movimentoId);
         $conta = Conta::query()->find($mov->conta_id);
-        $empresa = $mov->empresa_id !== null ? \App\Models\Empresa::query()->find($mov->empresa_id) : null;
+        $empresa = $mov->empresa_id !== null ? Empresa::query()->find($mov->empresa_id) : null;
 
-        $valor = 'R$ ' . number_format((float) $mov->valor, 2, ',', '.');
+        $valor = 'R$ '.number_format((float) $mov->valor, 2, ',', '.');
         $tipo = ((string) $mov->pagarreceber) === 'R' ? 'RECEBIMENTO' : 'PAGAMENTO';
 
         $corpo = $pdf->campos([
             'Documento' => (string) $mov->id,
-            'Data' => $mov->datahora ? \Illuminate\Support\Carbon::parse($mov->datahora)->format('d/m/Y H:i') : null,
+            'Data' => $mov->datahora ? Carbon::parse($mov->datahora)->format('d/m/Y H:i') : null,
             'Conta' => (string) ($conta->descricao ?? ''),
             'Historico' => (string) ($mov->descricao ?? ''),
             'Tipo' => $tipo,
         ])
-        . '<div class="total">Valor: ' . e($valor) . '</div>'
-        . $pdf->assinatura('Recebemos de / Pagamos a');
+        .'<div class="total">Valor: '.e($valor).'</div>'
+        .$pdf->assinatura('Recebemos de / Pagamos a');
 
         return response(
-            $pdf->meiaPagina('Recibo de ' . $tipo, $corpo, [
+            $pdf->meiaPagina('Recibo de '.$tipo, $corpo, [
                 'empresa' => (string) ($empresa->razao_social ?? ''),
                 'cnpj' => (string) ($empresa->cnpj ?? ''),
                 'rodape' => 'Documento gerado eletronicamente pelo sistema.',
@@ -65,7 +70,7 @@ class CaixaController extends Controller
             200,
             [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="recibo-' . $mov->id . '.pdf"',
+                'Content-Disposition' => 'inline; filename="recibo-'.$mov->id.'.pdf"',
             ],
         );
     }
@@ -93,7 +98,7 @@ class CaixaController extends Controller
         $d = $request->validate([
             'descricao' => 'required|string|max:255',
             'tipo' => 'nullable|in:CAIXA,BANCO,CARTAO',
-            'banco_id' => 'nullable|integer|exists:bancos,id',
+            'banco_id' => ['nullable', 'integer', new ExisteNoTenant(Banco::class)],
             'agencia' => 'nullable|string|max:20',
             'numero' => 'nullable|string|max:30',
             'saldo_inicial' => 'nullable|numeric',
@@ -148,7 +153,7 @@ class CaixaController extends Controller
     {
         Conta::query()->findOrFail($contaId);
         $d = $request->validate([
-            'parcela_id' => 'required|integer|exists:financeiroparcelas,id',
+            'parcela_id' => ['required', 'integer', new ExisteNoTenant(FinanceiroParcela::class)],
             'juros' => 'nullable|numeric|gte:0',
             'multa' => 'nullable|numeric|gte:0',
             'desconto' => 'nullable|numeric|gte:0',
@@ -175,7 +180,7 @@ class CaixaController extends Controller
         Conta::query()->findOrFail($contaId);
         $d = $request->validate([
             'itens' => 'required|array|min:1',
-            'itens.*.parcela_id' => 'required|integer|exists:financeiroparcelas,id',
+            'itens.*.parcela_id' => ['required', 'integer', new ExisteNoTenant(FinanceiroParcela::class)],
             'itens.*.juros' => 'nullable|numeric|gte:0',
             'itens.*.multa' => 'nullable|numeric|gte:0',
             'itens.*.desconto' => 'nullable|numeric|gte:0',
@@ -220,8 +225,8 @@ class CaixaController extends Controller
     {
         $this->autorizar($request, 'caixa.edit');
         $d = $request->validate([
-            'conta_origem_id' => 'required|integer|exists:contas,id',
-            'conta_destino_id' => 'required|integer|exists:contas,id',
+            'conta_origem_id' => ['required', 'integer', new ExisteNoTenant(Conta::class)],
+            'conta_destino_id' => ['required', 'integer', new ExisteNoTenant(Conta::class)],
             'valor' => 'required|numeric|gt:0',
         ]);
 

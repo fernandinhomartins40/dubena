@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Venda\CargaFranqueadoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\Setor;
+use App\Models\Produto\Produto;
 use App\Models\Rh\Colaborador;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -79,9 +82,9 @@ class CargaFranqueadoController extends Controller
         $d = $request->validate([
             // Na devolução este é o setor de DESTINO (o depósito). Mesmo campo
             // porque, dos dois lados, é sempre "o depósito da empresa".
-            'setor_origem_id' => 'required|integer|exists:setores,id',
+            'setor_origem_id' => ['required', 'integer', new ExisteNoTenant(Setor::class)],
             'itens' => 'required|array|min:1',
-            'itens.*.produto_id' => 'required|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['required', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required|numeric|gt:0',
         ]);
 

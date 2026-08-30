@@ -15,6 +15,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -89,7 +90,7 @@ class NotaFiscalController extends Controller
     {
         $this->autorizar($request, 'fiscal.emitir');
         $d = $request->validate([
-            'pedido_id' => 'required|integer|exists:pedidos,id',
+            'pedido_id' => ['required', 'integer', new ExisteNoTenant(Pedido::class)],
             'modelo' => 'required|in:55,65,59',
         ]);
 

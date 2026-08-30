@@ -818,3 +818,28 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   provada, mas cada arquivo precisa de leitura propria para nao trocar por
   escopo errado — `exists:users,id` e justamente o caso onde a troca automatica
   estaria errada.
+
+## Atualizacao de retomada - 2026-08-30 (F2-02 cobertura COMPLETA de exists:)
+
+- Fecha a pendencia deixada no microlote anterior: aplicar `ExisteNoTenant` em
+  TODA a superficie, nao so em pedido e cliente.
+- Levantamento por REFLEXAO das 124 ocorrencias de `exists:` em `app/`:
+  60 escopo empresa + 48 escopo grupo = **108 convertidas**; 15 legitimamente
+  sem escopo (mantidas); 1 citacao em comentario (ignorada). 40 arquivos.
+- ERRO DE CLASSIFICACAO PEGO A TEMPO: a primeira tentativa mapeou escopo por
+  regex e classificou `pedidos` e `colaboradores` como SEM escopo — ambos usam
+  `use Auditavel, BelongsToTenant;` agrupado numa linha, forma que o padrao nao
+  casava. Refeito com reflexao (traits reais da classe e da hierarquia). Com o
+  mapa errado, 11 ocorrencias desses dois teriam ficado sem protecao.
+- As 15 mantidas sao deliberadas: `users`, `empresas`, `roles`, `permissions`,
+  `planos`, `municipios_ibge`, `logradouros_oficiais`, `cidades_plataforma` nao
+  tem escopo de tenant — forcar a regra ali seria trocar por escopo ERRADO.
+- Dois casos que a automacao nao resolvia: `GeoController` e
+  `CadastroApoioRegistry` guardam regras numa `const`, onde PHP nao aceita `new`.
+  Nos dois, a conversao passou para o ponto unico de uso (`cfg()` e `validar()`).
+- GUARDIAO: `test_nenhum_exists_aponta_para_tabela_escopada` varre `app/Http` e
+  reprova `exists:` novo apontando para tabela escopada. A lista de tabelas vem
+  da reflexao, entao model que ganhar escopo entra na varredura sozinho.
+- Validacao: sintaxe conferida nos 40 arquivos; `FkTenantAwareTest` 6 testes;
+  suite integral **1.363 passes / 4.318 assertions / zero falhas nos DOIS
+  modos**; Pint aprovado. Ver `F2_02_FK_TENANT_AWARE.md`.

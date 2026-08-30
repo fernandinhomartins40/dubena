@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\Rua;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -198,6 +199,45 @@ class GeoController extends Controller
         abort_unless(isset(self::ENTIDADES[$entidade]), 404, 'Entidade geográfica desconhecida.');
         $this->autorizar($request, $permissao);
 
-        return self::ENTIDADES[$entidade];
+        $cfg = self::ENTIDADES[$entidade];
+        $cfg['regras'] = $this->regrasComEscopo($cfg['regras']);
+
+        return $cfg;
+    }
+
+    /**
+     * Troca `exists:tabela,id` por `ExisteNoTenant` (F2-02).
+     *
+     * A conversão é feita aqui, e não na const: PHP não aceita `new` em
+     * constante. `exists:cidades,id` validaria contra a tabela inteira, deixando
+     * um bairro nascer apontando para cidade de outro grupo.
+     *
+     * @param  array<string, string>  $regras
+     * @return array<string, mixed>
+     */
+    private function regrasComEscopo(array $regras): array
+    {
+        $porTabela = [
+            'cidades' => Cidade::class,
+            'bairros' => Bairro::class,
+            'ruas' => Rua::class,
+        ];
+
+        foreach ($regras as $campo => $regra) {
+            if (! is_string($regra) || ! str_contains($regra, 'exists:')) {
+                continue;
+            }
+            $partes = [];
+            foreach (explode('|', $regra) as $p) {
+                if (preg_match('/^exists:([a-z_]+),id$/', $p, $m) && isset($porTabela[$m[1]])) {
+                    $partes[] = new ExisteNoTenant($porTabela[$m[1]]);
+                } else {
+                    $partes[] = $p;
+                }
+            }
+            $regras[$campo] = $partes;
+        }
+
+        return $regras;
     }
 }

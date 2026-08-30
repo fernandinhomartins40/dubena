@@ -4,7 +4,12 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Produto\Produto;
+use App\Models\Rh\Colaborador;
 use App\Models\Venda\AlcadaDesconto;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -65,10 +70,10 @@ class AlcadaDescontoController extends Controller
 
         $d = $request->validate([
             'role_id' => 'nullable|integer|exists:roles,id',
-            'colaborador_id' => 'nullable|integer|exists:colaboradores,id',
-            'produto_id' => 'nullable|integer|exists:produtos,id',
-            'setor_id' => 'nullable|integer|exists:setores,id',
-            'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
+            'colaborador_id' => ['nullable', 'integer', new ExisteNoTenant(Colaborador::class)],
+            'produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'percentual_max' => 'required|numeric|min:0|max:100',
             'valor_max' => 'nullable|numeric|min:0',
             // 'tabela' = sobre o preço de lista; 'praticado' = sobre o preço já

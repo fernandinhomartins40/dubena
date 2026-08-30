@@ -2,6 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Produto\Produto;
+use App\Models\Produto\ProdutoClasse;
+use App\Models\Produto\UnidadeMedida;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -47,10 +51,10 @@ class ProdutoRequest extends FormRequest
             // produto | servico | taxa. Governa estoque e fiscal: servico nao
             // movimenta armazem e nao exige NCM (ver NaturezaItem).
             'natureza' => 'nullable|in:produto,servico,taxa',
-            'produtoclasse_id' => 'nullable|integer|exists:produtoclasses,id',
-            'unidademedida_id' => 'nullable|integer|exists:unidadesmedida,id',
+            'produtoclasse_id' => ['nullable', 'integer', new ExisteNoTenant(ProdutoClasse::class)],
+            'unidademedida_id' => ['nullable', 'integer', new ExisteNoTenant(UnidadeMedida::class)],
             'vasilhame_retornavel' => 'nullable|boolean',
-            'produto_retornavel_id' => 'nullable|integer|exists:produtos,id',
+            'produto_retornavel_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
             'ativo' => 'nullable|boolean',
             'envia_app_nf' => 'nullable|boolean',
             'dias_giro' => 'nullable|integer',

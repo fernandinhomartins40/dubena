@@ -6,6 +6,8 @@ use App\Domain\Apoio\CadastroApoioRegistry;
 use App\Domain\Apoio\CadastroApoioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\Banco;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -77,6 +79,19 @@ class CadastroApoioController extends Controller
             ['descricao' => 'required|string|max:255', 'ativo' => 'nullable|boolean'],
             $extras,
         );
+
+        // F2-02: as regras vêm de uma `const` do registry, onde PHP não aceita
+        // `new` — a troca acontece aqui. `exists:bancos,id` validaria contra a
+        // tabela inteira, deixando uma agência apontar para banco de outro grupo.
+        foreach ($regras as $campo => $regra) {
+            if (! is_string($regra) || ! str_contains($regra, 'exists:bancos,id')) {
+                continue;
+            }
+            $regras[$campo] = array_map(
+                fn (string $p) => $p === 'exists:bancos,id' ? new ExisteNoTenant(Banco::class) : $p,
+                explode('|', $regra),
+            );
+        }
 
         return $request->validate($regras);
     }

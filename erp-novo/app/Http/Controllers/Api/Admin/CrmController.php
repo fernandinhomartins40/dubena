@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
 use App\Models\Crm\Checklist;
 use App\Models\Crm\ChecklistExecucao;
 use App\Models\Crm\MetaVenda;
 use App\Models\Crm\PosVenda;
 use App\Models\Crm\Promocao;
 use App\Models\Crm\Sorteio;
+use App\Models\Pedido\Pedido;
+use App\Models\Rh\Colaborador;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -34,8 +38,8 @@ class CrmController extends Controller
     {
         $this->autorizar($request, $id ? 'posvenda.edit' : 'posvenda.create');
         $d = $request->validate([
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'pedido_id' => 'nullable|integer|exists:pedidos,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
+            'pedido_id' => ['nullable', 'integer', new ExisteNoTenant(Pedido::class)],
             'data' => 'nullable|date',
             'nota' => 'nullable|integer|min:0|max:10',
             'canal' => 'nullable|string|max:30',
@@ -116,7 +120,7 @@ class CrmController extends Controller
     {
         $this->autorizar($request, 'sorteio.edit');
         $d = $request->validate([
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'numero' => 'required|string|max:20',
         ]);
         $sorteio = Sorteio::query()->findOrFail($id);
@@ -153,7 +157,7 @@ class CrmController extends Controller
     {
         $this->autorizar($request, $id ? 'meta.edit' : 'meta.create');
         $d = $request->validate([
-            'colaborador_id' => 'nullable|integer|exists:colaboradores,id',
+            'colaborador_id' => ['nullable', 'integer', new ExisteNoTenant(Colaborador::class)],
             'competencia' => 'required|string|size:7', // YYYY-MM
             'meta_valor' => 'required|numeric|min:0',
         ]);

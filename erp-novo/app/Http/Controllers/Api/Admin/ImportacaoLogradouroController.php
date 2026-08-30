@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\ImportacaoLogradouro;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,7 +62,7 @@ class ImportacaoLogradouroController extends Controller
         $this->autorizar($request, 'cliente.create');
 
         $dados = $request->validate([
-            'cidade_id' => ['required', 'integer', 'exists:cidades,id'],
+            'cidade_id' => ['required', 'integer', new ExisteNoTenant(Cidade::class)],
         ]);
 
         $cidade = Cidade::query()->findOrFail($dados['cidade_id']);

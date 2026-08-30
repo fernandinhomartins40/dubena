@@ -8,9 +8,14 @@ use App\Domain\Satelite\ValeGasService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
+use App\Models\Pedido\Pedido;
+use App\Models\Produto\Produto;
 use App\Models\Satelite\ValeGas;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * Vale-gás (cupom pré-pago) — N8.
@@ -47,8 +52,8 @@ class ValeGasController extends Controller
     {
         $this->autorizar($request, 'valegas.edit');
         $d = $request->validate([
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'produto_id' => 'nullable|integer|exists:produtos,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
+            'produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
             'valor' => 'required|numeric|gt:0',
             'validade' => 'nullable|date',
             'codigo' => 'nullable|string|max:40',
@@ -65,7 +70,7 @@ class ValeGasController extends Controller
      * Permissão de leitura: imprimir não altera nada. Quem consulta o vale
      * precisa poder imprimi-lo.
      */
-    public function pdf(Request $request, int $id, ValeGasPdfService $pdf): \Illuminate\Http\Response
+    public function pdf(Request $request, int $id, ValeGasPdfService $pdf): Response
     {
         $this->autorizar($request, 'valegas.view');
 
@@ -78,7 +83,7 @@ class ValeGasController extends Controller
     }
 
     /** GET /vale-gas/{id}/duplicata — a via de cobrança do vale vendido a prazo. */
-    public function duplicata(Request $request, int $id, ValeGasPdfService $pdf): \Illuminate\Http\Response
+    public function duplicata(Request $request, int $id, ValeGasPdfService $pdf): Response
     {
         $this->autorizar($request, 'valegas.view');
 
@@ -97,7 +102,7 @@ class ValeGasController extends Controller
         $d = $request->validate([
             'codigo' => 'required|string',
             'situacao' => 'required|string',
-            'pedido_id' => 'nullable|integer|exists:pedidos,id',
+            'pedido_id' => ['nullable', 'integer', new ExisteNoTenant(Pedido::class)],
         ]);
         $destino = SituacaoValeGas::tryFrom($d['situacao']);
         abort_unless($destino !== null, 422, 'Situação inválida.');

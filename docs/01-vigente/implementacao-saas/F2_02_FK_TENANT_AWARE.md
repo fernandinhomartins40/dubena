@@ -67,14 +67,54 @@ via `empresa_user`), que não é o que esta regra resolve.
 - Suíte integral verde nos dois modos.
 - Pint aprovado.
 
-## O que este microlote NÃO fez
+## Cobertura completa
 
-Restam as demais ocorrências de `exists:` — `ColaboradorController`,
-`ComodatoController`, `VeiculoController`, `AlcadaDescontoController`,
-`LogradouroOficialController`, `PagamentoController` e os controllers do app
-mobile. A ferramenta está pronta e provada; aplicá-la é trabalho mecânico, mas
-cada arquivo precisa de leitura própria para não trocar por escopo errado —
-`exists:users,id` foi justamente o caso onde a troca automática estaria errada.
+Levantamento por reflexão (não regex — ver abaixo) das **124 ocorrências** de
+`exists:` em `app/`:
+
+| Situação | Qtd | Ação |
+|---|---|---|
+| Tabela com escopo de empresa | 60 | convertidas |
+| Tabela com escopo de grupo | 48 | convertidas |
+| Sem escopo de tenant | 15 | **mantidas** de propósito |
+| Citação em comentário | 1 | ignorada |
+
+Convertidas em **40 arquivos**: todos os controllers Admin, os do app mobile, os
+FormRequests, mais dois casos que precisaram de tratamento próprio.
+
+### As 15 mantidas, e por quê
+
+`users`, `empresas`, `roles`, `permissions`, `planos`, `municipios_ibge`,
+`logradouros_oficiais` e `cidades_plataforma` **não têm escopo de tenant**. Forçar
+`ExisteNoTenant` ali seria trocar por escopo errado — o oposto de corrigir. Para
+`users`, a validação correta é pertencer à empresa via `empresa_user`, que é outro
+problema.
+
+### Dois casos que a automação não resolvia
+
+`GeoController` e `CadastroApoioRegistry` guardam as regras numa `const`, e PHP
+não aceita `new` em constante. Nos dois, a conversão passou para o ponto único
+onde a regra é usada (`cfg()` e `validar()`).
+
+### Um erro de classificação, pego a tempo
+
+A primeira tentativa de mapear escopo usou regex e classificou `pedidos` e
+`colaboradores` como **sem escopo** — os dois usam `use Auditavel,
+BelongsToTenant;` agrupado numa linha, forma que o padrão não casava. Refeito com
+reflexão, lendo os traits reais da classe e da hierarquia.
+
+Se eu tivesse seguido com o mapa errado, 11 ocorrências de `pedidos` e
+`colaboradores` teriam ficado sem proteção — exatamente o tipo de coisa que passa
+despercebida.
+
+## Guardião contra regressão
+
+`FkTenantAwareTest::test_nenhum_exists_aponta_para_tabela_escopada` varre
+`app/Http` e reprova qualquer `exists:` novo apontando para tabela escopada. A
+lista de tabelas vem da reflexão, então model que ganhar escopo no futuro entra
+na varredura sozinho.
+
+## O que este microlote NÃO fez
 
 A tarefa F2-02 também pede "autorização comportamental em cada porta de mutação e
 leitura sensível". A varredura de F2-01 já mostrou que todas as rotas admin

@@ -5,8 +5,12 @@ namespace App\Http\Controllers\Api\Mobile;
 use App\Domain\Missao\MissaoService;
 use App\Domain\Missao\VendaCampoService;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
+use App\Models\Financeiro\CondicaoPagamento;
+use App\Models\Geografico\Cidade;
 use App\Models\Missao\MissaoAtribuicao;
 use App\Models\Produto\Produto;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -73,7 +77,7 @@ class AppMissaoController extends Controller
             'status' => 'required|string|in:visitada,ausente,interessado,venda,frustrada',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'observacao' => 'nullable|string|max:255',
             'duracao_seg' => 'nullable|integer|min:0',
             'foto' => 'nullable|image|max:8192',
@@ -153,11 +157,11 @@ class AppMissaoController extends Controller
     public function venderGas(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'cliente_id' => 'required|integer|exists:clientes,id',
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
             'itens' => 'required|array|min:1',
-            'itens.*.produto_id' => 'required|integer|exists:produtos,id',
+            'itens.*.produto_id' => ['required', 'integer', new ExisteNoTenant(Produto::class)],
             'itens.*.quantidade' => 'required|numeric|gt:0',
-            'condicaopagamento_id' => 'nullable|integer|exists:condicaopagamentos,id',
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'observacao' => 'nullable|string|max:255',
@@ -191,7 +195,7 @@ class AppMissaoController extends Controller
     public function venderValeGas(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'cliente_id' => 'required|integer|exists:clientes,id',
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
             'valor' => 'required|numeric|gt:0',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
@@ -222,7 +226,7 @@ class AppMissaoController extends Controller
             'nome' => 'required|string|max:160',
             'endereco' => 'nullable|string|max:255',
             'numero' => 'nullable|string|max:20',
-            'cidade_id' => 'nullable|integer|exists:cidades,id',
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
             'telefone' => 'nullable|string|max:30',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',

@@ -9,12 +9,18 @@ use App\Domain\Financeiro\FinanceiroService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Caixa\Conta;
+use App\Models\Cliente\Cliente;
+use App\Models\Financeiro\CentroCusto;
+use App\Models\Financeiro\ContaExtratoRegra;
 use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
-use App\Models\Caixa\Conta;
+use App\Models\Financeiro\PlanoConta;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Financeiro (a pagar / a receber) — N5. Lançamentos por PARCELA (a granularidade
@@ -98,9 +104,9 @@ class FinanceiroController extends Controller
 
         $d = $request->validate([
             'pagarreceber' => 'required|in:P,R',
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
-            'planoconta_id' => 'nullable|integer|exists:planos_conta,id',
-            'centrocusto_id' => 'nullable|integer|exists:centros_custo,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
+            'planoconta_id' => ['nullable', 'integer', new ExisteNoTenant(PlanoConta::class)],
+            'centrocusto_id' => ['nullable', 'integer', new ExisteNoTenant(CentroCusto::class)],
             'documento' => 'nullable|string|max:60',
             'descricao' => 'nullable|string|max:255',
             'valor' => 'required|numeric|gt:0',
@@ -136,7 +142,7 @@ class FinanceiroController extends Controller
             'titulos' => 'required|array|min:1',
             'titulos.*' => 'integer|distinct',
             'pagarreceber' => 'required|in:P,R',
-            'cliente_id' => 'nullable|integer|exists:clientes,id',
+            'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'descricao' => 'nullable|string|max:255',
             'num_parcelas' => 'nullable|integer|min:1|max:360',
         ]);
@@ -195,7 +201,7 @@ class FinanceiroController extends Controller
     {
         $this->autorizar($request, 'financeiro.view');
         $d = $request->validate([
-            'conta_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('contas', 'id')->where(
+            'conta_id' => ['required', 'integer', Rule::exists('contas', 'id')->where(
                 fn ($query) => $query->where('empresa_id', $this->tenant->requireEmpresaId())
             )],
             'inicio' => 'required|date',
@@ -230,7 +236,7 @@ class FinanceiroController extends Controller
         $this->autorizar($request, 'financeiro.view');
         $this->contaAtiva($contaId);
 
-        $regras = \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+        $regras = ContaExtratoRegra::withoutTenant()
             ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)
             ->orderByDesc('prioridade')
@@ -257,7 +263,7 @@ class FinanceiroController extends Controller
         $dados['empresa_id'] = $this->tenant->requireEmpresaId();
         $dados['grupo_id'] = $this->tenant->requireGrupoId();
 
-        $regra = \App\Models\Financeiro\ContaExtratoRegra::query()->create($dados);
+        $regra = ContaExtratoRegra::query()->create($dados);
 
         return response()->json(['data' => $regra], 201);
     }
@@ -269,7 +275,7 @@ class FinanceiroController extends Controller
         $this->contaAtiva($contaId);
 
         // findOrFail escopado pela conta: o id vem do cliente.
-        $regra = \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+        $regra = ContaExtratoRegra::withoutTenant()
             ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)->findOrFail($id);
 
@@ -284,7 +290,7 @@ class FinanceiroController extends Controller
         $this->autorizar($request, 'financeiro.edit');
         $this->contaAtiva($contaId);
 
-        \App\Models\Financeiro\ContaExtratoRegra::withoutTenant()
+        ContaExtratoRegra::withoutTenant()
             ->where('empresa_id', $this->tenant->requireEmpresaId())
             ->where('conta_id', $contaId)->findOrFail($id)->delete();
 
@@ -304,7 +310,7 @@ class FinanceiroController extends Controller
     {
         $base = [
             'descricao' => 'required|string|max:255',
-            'acao' => ['required', \Illuminate\Validation\Rule::enum(ContaExtratoAcao::class)],
+            'acao' => ['required', Rule::enum(ContaExtratoAcao::class)],
             'cliente_id' => 'nullable|integer',
             'ativo' => 'nullable|boolean',
             'prioridade' => 'nullable|integer|min:0',

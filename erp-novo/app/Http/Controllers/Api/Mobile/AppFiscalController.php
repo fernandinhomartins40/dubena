@@ -9,8 +9,10 @@ use App\Domain\Fiscal\ModeloDocumento;
 use App\Http\Controllers\Controller;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * Emissão fiscal em campo (F6) — o vendedor industrial.
@@ -42,7 +44,7 @@ class AppFiscalController extends Controller
     public function emitir(Request $request): JsonResponse
     {
         $d = $request->validate([
-            'pedido_id' => 'required|integer|exists:pedidos,id',
+            'pedido_id' => ['required', 'integer', new ExisteNoTenant(Pedido::class)],
             // 55=NF-e, 65=NFC-e. O legado decide por `appnfceauto` da condição de
             // pagamento (NfwebController::savePedido:375); aqui o app escolhe,
             // porque o industrial sabe se o cliente é PJ com IE.
@@ -65,7 +67,7 @@ class AppFiscalController extends Controller
      * que é a mesma regra do MovelApp: `NotaFiscalImpressaoActivity:120` só
      * imprime com `nfsituacao_id == 100`.
      */
-    public function danfe(Request $request, int $id, DanfePdfService $danfe): \Illuminate\Http\Response
+    public function danfe(Request $request, int $id, DanfePdfService $danfe): Response
     {
         $nota = NotaFiscal::query()
             ->where('empresa_id', (int) $request->user()->empresa_id)

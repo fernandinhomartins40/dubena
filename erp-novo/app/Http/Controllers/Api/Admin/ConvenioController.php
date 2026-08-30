@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Satelite\ConvenioFechamentoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Cliente\Cliente;
 use App\Models\Satelite\Convenio;
 use App\Models\Satelite\ConvenioFechamento;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,7 +32,7 @@ class ConvenioController extends Controller
     {
         $this->autorizar($request, 'convenio.edit');
         $d = $request->validate([
-            'cliente_id' => 'required|integer|exists:clientes,id',
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
             'descricao' => 'required|string|max:255',
             'dia_fechamento' => 'nullable|integer|min:1|max:31',
             'dia_vencimento' => 'nullable|integer|min:1|max:31',

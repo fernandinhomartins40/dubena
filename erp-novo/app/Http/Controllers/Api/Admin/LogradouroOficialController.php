@@ -9,6 +9,7 @@ use App\Models\Geografico\Cidade;
 use App\Models\Geografico\ImportacaoCnefe;
 use App\Models\Geografico\LogradouroOficial;
 use App\Models\Geografico\Rua;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class LogradouroOficialController extends Controller
         $this->autorizar($request, 'cliente.view');
 
         $dados = $request->validate([
-            'cidade_id' => ['required', 'integer', 'exists:cidades,id'],
+            'cidade_id' => ['required', 'integer', new ExisteNoTenant(Cidade::class)],
             'q' => ['nullable', 'string', 'max:120'],
         ]);
 
@@ -81,7 +82,7 @@ class LogradouroOficialController extends Controller
         $this->autorizar($request, 'cliente.view');
 
         $dados = $request->validate([
-            'cidade_id' => ['required', 'integer', 'exists:cidades,id'],
+            'cidade_id' => ['required', 'integer', new ExisteNoTenant(Cidade::class)],
             'texto' => ['required', 'string', 'max:120'],
         ]);
 
@@ -119,7 +120,7 @@ class LogradouroOficialController extends Controller
         $this->autorizar($request, 'cliente.view');
 
         $dados = $request->validate([
-            'cidade_id' => ['required', 'integer', 'exists:cidades,id'],
+            'cidade_id' => ['required', 'integer', new ExisteNoTenant(Cidade::class)],
         ]);
 
         $cidade = Cidade::query()->findOrFail($dados['cidade_id']);
@@ -187,7 +188,7 @@ class LogradouroOficialController extends Controller
         $this->autorizar($request, 'cliente.edit');
 
         $dados = $request->validate([
-            'rua_id' => ['required', 'integer', 'exists:ruas,id'],
+            'rua_id' => ['required', 'integer', new ExisteNoTenant(Rua::class)],
             'oficial_id' => ['required', 'integer', 'exists:logradouros_oficiais,id'],
         ]);
 

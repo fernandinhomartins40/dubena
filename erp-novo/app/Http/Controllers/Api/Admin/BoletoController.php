@@ -12,8 +12,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Cobranca\Boleto;
 use App\Models\Cobranca\RemessaCnab;
 use App\Models\Financeiro\FinanceiroParcela;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -37,7 +39,7 @@ class BoletoController extends Controller
      * `financeiro.view` e nao `.edit`: imprimir e leitura. Mas E dado financeiro
      * de cliente, entao passa por autorizacao como todo o resto.
      */
-    public function pdf(Request $request, int $id, BoletoPdfService $pdf): \Illuminate\Http\Response
+    public function pdf(Request $request, int $id, BoletoPdfService $pdf): Response
     {
         $this->autorizar($request, 'financeiro.view');
 
@@ -48,7 +50,7 @@ class BoletoController extends Controller
 
         return response($pdf->gerar($boleto), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="boleto-' . $boleto->id . '.pdf"',
+            'Content-Disposition' => 'inline; filename="boleto-'.$boleto->id.'.pdf"',
         ]);
     }
 
@@ -82,7 +84,7 @@ class BoletoController extends Controller
     public function gerar(Request $request): JsonResponse
     {
         $this->autorizar($request, 'financeiro.edit');
-        $d = $request->validate(['parcela_id' => 'required|integer|exists:financeiroparcelas,id']);
+        $d = $request->validate(['parcela_id' => ['required', 'integer', new ExisteNoTenant(FinanceiroParcela::class)]]);
 
         $parcela = FinanceiroParcela::withoutTenant()
             ->whereKey($d['parcela_id'])

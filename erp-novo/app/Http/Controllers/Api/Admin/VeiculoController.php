@@ -5,7 +5,12 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Frota\VeiculoService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Apoio\TipoDocumentoVeiculo;
+use App\Models\Frota\TipoCombustivel;
 use App\Models\Frota\Veiculo;
+use App\Models\Frota\VeiculoTipo;
+use App\Models\Rh\Colaborador;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -203,7 +208,7 @@ class VeiculoController extends Controller
             'tipo' => 'required|in:SAIDA,ENTRADA',
             'datahora' => 'nullable|date',
             'km' => 'nullable|integer|min:0',
-            'colaborador_id' => 'nullable|integer|exists:colaboradores,id',
+            'colaborador_id' => ['nullable', 'integer', new ExisteNoTenant(Colaborador::class)],
             'observacao' => 'nullable|string|max:255',
         ]);
         $reg = $v->entradasSaidas()->create(array_merge($d, ['datahora' => $d['datahora'] ?? now()]));
@@ -232,7 +237,7 @@ class VeiculoController extends Controller
             // existe; `tipo_documento_id` é o caminho novo, com domínio de
             // valores (T4.5) — o legado tinha esse cadastro e o novo não.
             'tipo' => 'required|string|max:60',
-            'tipo_documento_id' => 'nullable|integer|exists:tipos_documento_veiculo,id',
+            'tipo_documento_id' => ['nullable', 'integer', new ExisteNoTenant(TipoDocumentoVeiculo::class)],
             'numero' => 'nullable|string|max:60',
             'emissao' => 'nullable|date',
             'vencimento' => 'nullable|date',
@@ -262,8 +267,8 @@ class VeiculoController extends Controller
             'placa' => 'required|string|max:10',
             'descricao' => 'required|string|max:255',
             'renavam' => 'nullable|string|max:20',
-            'veiculotipo_id' => 'nullable|integer|exists:veiculo_tipos,id',
-            'tipocombustivel_id' => 'nullable|integer|exists:tipo_combustiveis,id',
+            'veiculotipo_id' => ['nullable', 'integer', new ExisteNoTenant(VeiculoTipo::class)],
+            'tipocombustivel_id' => ['nullable', 'integer', new ExisteNoTenant(TipoCombustivel::class)],
             'km_atual' => 'nullable|integer|min:0',
             'km_troca_oleo' => 'nullable|integer|min:0',
             'km_ultima_troca_oleo' => 'nullable|integer|min:0',

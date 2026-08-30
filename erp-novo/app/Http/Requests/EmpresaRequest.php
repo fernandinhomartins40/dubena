@@ -2,6 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Geografico\Bairro;
+use App\Models\Geografico\Cidade;
+use App\Models\Geografico\Rua;
+use App\Models\Regiao;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -34,10 +39,10 @@ class EmpresaRequest extends FormRequest
             'endereco' => 'nullable|string|max:255',
             // FKs: o formulário já as enviava; sem estas regras o `validated()`
             // as descartava e o endereço da empresa nunca era gravado.
-            'cidade_id' => 'nullable|integer|exists:cidades,id',
-            'bairro_id' => 'nullable|integer|exists:bairros,id',
-            'rua_id' => 'nullable|integer|exists:ruas,id',
-            'regiao_id' => 'nullable|integer|exists:regioes,id',
+            'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
+            'bairro_id' => ['nullable', 'integer', new ExisteNoTenant(Bairro::class)],
+            'rua_id' => ['nullable', 'integer', new ExisteNoTenant(Rua::class)],
+            'regiao_id' => ['nullable', 'integer', new ExisteNoTenant(Regiao::class)],
             'numero' => 'nullable|string|max:20',
             'complemento' => 'nullable|string|max:255',
             'telefone1' => 'nullable|string|max:20',

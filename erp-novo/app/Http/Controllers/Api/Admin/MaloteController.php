@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Caixa\MaloteService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
+use App\Models\Caixa\Conta;
+use App\Models\Estoque\Setor;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,9 +21,7 @@ class MaloteController extends Controller
 {
     use AutorizaPorPermissao;
 
-    public function __construct(private MaloteService $service)
-    {
-    }
+    public function __construct(private MaloteService $service) {}
 
     /** GET /malotes/conferencia — o que o entregador tem a acertar no período. */
     public function conferencia(Request $request): JsonResponse
@@ -32,7 +33,7 @@ class MaloteController extends Controller
         $d = $request->validate([
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',
-            'setor_id' => 'nullable|integer|exists:setores,id',
+            'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
             'entregador_user_id' => 'nullable|integer|exists:users,id',
         ]);
 
@@ -56,7 +57,7 @@ class MaloteController extends Controller
         $d = $request->validate([
             'pedidos' => 'required|array|min:1',
             'pedidos.*' => 'integer',
-            'conta_id' => 'nullable|integer|exists:contas,id',
+            'conta_id' => ['nullable', 'integer', new ExisteNoTenant(Conta::class)],
         ]);
 
         return response()->json([

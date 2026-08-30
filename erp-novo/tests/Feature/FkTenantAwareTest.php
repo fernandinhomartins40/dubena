@@ -10,6 +10,7 @@ use App\Models\Estoque\Setor;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -135,6 +136,106 @@ class FkTenantAwareTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('convenio_id');
+    }
+
+    /**
+     * Varredura: nenhuma regra `exists:` sobra apontando para tabela escopada.
+     *
+     * Este é o teste que impede a regressão silenciosa — 104 ocorrências foram
+     * convertidas, e uma nova entra fácil por hábito. As tabelas de fora da
+     * lista são deliberadas: `users`, `empresas`, `roles`, `permissions`,
+     * `planos`, `municipios_ibge`, `logradouros_oficiais` e `cidades_plataforma`
+     * não têm escopo de tenant, e forçar um ali seria trocar por escopo errado.
+     */
+    public function test_nenhum_exists_aponta_para_tabela_escopada(): void
+    {
+        $escopadas = [];
+        foreach ($this->modelsComEscopo() as $tabela) {
+            $escopadas[$tabela] = true;
+        }
+
+        $achados = [];
+        $dir = app_path('Http');
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($it as $arquivo) {
+            if (! $arquivo->isFile() || $arquivo->getExtension() !== 'php') {
+                continue;
+            }
+            foreach (file($arquivo->getPathname()) as $n => $linha) {
+                $limpa = ltrim($linha);
+                // Comentário citando `exists:` não é regra.
+                if (str_starts_with($limpa, '//') || str_starts_with($limpa, '*')) {
+                    continue;
+                }
+                if (! preg_match_all('/exists:([a-z_0-9]+),id/', $linha, $m)) {
+                    continue;
+                }
+                foreach ($m[1] as $tabela) {
+                    if (isset($escopadas[$tabela])) {
+                        $achados[] = basename($arquivo->getPathname()).':'.($n + 1).' → '.$tabela;
+                    }
+                }
+            }
+        }
+
+        // `GeoController` guarda regras numa `const` (PHP não aceita `new` ali) e
+        // converte em `cfg()`; o mesmo vale para o registry de cadastros de apoio.
+        $achados = array_values(array_filter(
+            $achados,
+            fn (string $a): bool => ! str_starts_with($a, 'GeoController.php'),
+        ));
+
+        $this->assertSame(
+            [],
+            $achados,
+            "Regra `exists:` apontando para tabela com escopo de tenant:\n - "
+                .implode("\n - ", $achados)
+                ."\nUse `new ExisteNoTenant(Model::class)`.",
+        );
+    }
+
+    /** @return list<string> tabelas cujo model declara BelongsToTenant/Grupo */
+    private function modelsComEscopo(): array
+    {
+        $tabelas = [];
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(app_path('Models'), \FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($it as $arquivo) {
+            if (! $arquivo->isFile() || $arquivo->getExtension() !== 'php') {
+                continue;
+            }
+            $classe = 'App\\Models'.str_replace(
+                [app_path('Models'), '/', '.php'],
+                ['', '\\', ''],
+                str_replace('\\', '/', $arquivo->getPathname()),
+            );
+            if (! class_exists($classe)) {
+                continue;
+            }
+            $r = new \ReflectionClass($classe);
+            if ($r->isAbstract() || ! $r->isSubclassOf(Model::class)) {
+                continue;
+            }
+
+            $traits = [];
+            for ($c = $r; $c; $c = $c->getParentClass()) {
+                foreach ($c->getTraitNames() as $t) {
+                    $traits[] = class_basename($t);
+                }
+            }
+            if (array_intersect(['BelongsToTenant', 'BelongsToGrupo'], $traits) === []) {
+                continue;
+            }
+
+            $tabelas[] = $r->newInstanceWithoutConstructor()->getTable();
+        }
+
+        return $tabelas;
     }
 
     /** O caminho legítimo continua funcionando — a regra não pode virar bloqueio. */

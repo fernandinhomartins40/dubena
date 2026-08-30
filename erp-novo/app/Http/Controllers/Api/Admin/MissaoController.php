@@ -7,6 +7,9 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Missao\Missao;
 use App\Models\Missao\MissaoAtribuicao;
+use App\Models\Missao\MissaoEvidencia;
+use App\Models\Monitora\Cerca;
+use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -151,7 +154,7 @@ class MissaoController extends Controller
         // ATIVA (respeitando a troca de empresa via X-Empresa-Id), e a RLS é a 2ª
         // barreira. Antes filtrava por $request->user()->empresa_id (a empresa-casa
         // do usuário), o que servia arquivo errado a usuários multi-empresa — S-2.
-        $ev = \App\Models\Missao\MissaoEvidencia::query()->findOrFail($id);
+        $ev = MissaoEvidencia::query()->findOrFail($id);
 
         abort_unless(Storage::disk('local')->exists($ev->foto_path), 404);
 
@@ -209,7 +212,7 @@ class MissaoController extends Controller
             'tipo' => 'required|string|in:'.implode(',', Missao::TIPOS),
             'titulo' => 'required|string|max:160',
             'descricao' => 'nullable|string',
-            'cerca_id' => 'nullable|integer|exists:monitora_cercas,id',
+            'cerca_id' => ['nullable', 'integer', new ExisteNoTenant(Cerca::class)],
             'centro_lat' => 'nullable|numeric|between:-90,90',
             'centro_lng' => 'nullable|numeric|between:-180,180',
             'raio_m' => 'nullable|integer|min:50',
