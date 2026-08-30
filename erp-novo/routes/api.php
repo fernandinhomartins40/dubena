@@ -2,6 +2,7 @@
 
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Api\Admin\AlcadaDescontoController;
+use App\Http\Controllers\Api\Admin\AlertaController;
 use App\Http\Controllers\Api\Admin\AssinaturaController;
 use App\Http\Controllers\Api\Admin\AuditoriaController;
 use App\Http\Controllers\Api\Admin\BoletoController;
@@ -17,7 +18,6 @@ use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
 use App\Http\Controllers\Api\Admin\ColaboradorController;
-use App\Http\Controllers\Api\Admin\AlertaController;
 use App\Http\Controllers\Api\Admin\ComodatoController;
 use App\Http\Controllers\Api\Admin\ConfigFiscalController;
 use App\Http\Controllers\Api\Admin\ConfigGlobalController;
@@ -123,7 +123,10 @@ Route::get('/app/v1/marketplace/cidades', [MarketplaceController::class, 'cidade
     ->middleware('throttle:marketplace');
 
 // Rotas autenticadas (Sanctum) + tenant resolvido + rate-limit por usuário (F13).
-Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'throttle:api'])->group(function () {
+// `licenca.rota` (F2-03) barra com 402 o módulo não contratado, resolvendo o
+// recurso pelo prefixo do caminho — assim rota nova de um domínio já nasce
+// coberta. Governado por SAAS_ENFORCE_LICENCA; desligado, é passagem livre.
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'throttle:api'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Usuário autenticado + tenant ativo (substitui o "quem sou / qual empresa" do legado).

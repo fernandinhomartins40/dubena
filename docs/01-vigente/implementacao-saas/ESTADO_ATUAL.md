@@ -869,3 +869,38 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   Pint aprovado. Ver `F2_02A_HERDA_FILHOS.md`.
 - F2-02 e F2-02A CONCLUIDAS. Restam da F2: F2-03 (licenca), F2-04 (Legacy Full),
   F2-06 (auditoria), o restante de F2-07 e de F2-08.
+
+## Atualizacao de retomada - 2026-08-30 (F2-03 licenca)
+
+- ACHADO: `LicencaService`, catalogo de 10 recursos e middleware `recurso:` ja
+  existiam e estavam CORRETOS — mas ZERO das 604 rotas usavam o middleware e
+  havia ZERO assinaturas no banco. A licenca existia e nao decidia nada.
+- Documentacao que dizia o contrario do codigo: o docblock do `PlanosSeeder`
+  afirmava "empresas sem assinatura tem tudo liberado (fail-open)". Verifiquei
+  em teste: e FAIL-CLOSED, `recursosEfetivos()` devolve `[]`. Corrigido.
+- GRADE: dois planos, ambos pagos (sem free), desenhados a partir do uso REAL
+  medido na copia — 241.021 notas fiscais, 21.135 boletos + 4.961 PIX,
+  16.153.938 posicoes GPS, 3.097 pos-vendas. Essencial R$349,90
+  (app consumidor/entregador, cobranca, nfce) e Completo R$749,90 (catalogo
+  inteiro, declarado por `RecursoCatalogo::chaves()` — recurso novo entra nele
+  sozinho). Os 3 planos antigos foram DESATIVADOS, nao excluidos: assinatura
+  apontando para plano apagado ficaria orfa e o tenant perderia tudo.
+- ENFORCEMENT por PREFIXO (`RecursoPorRota`), nao rota a rota: o middleware
+  antigo exigia ser escrito em cada rota, e foi por isso que nenhuma o usava.
+  Assim rota nova de um dominio ja nasce coberta. Nucleo do ERP (cliente,
+  produto, pedido, estoque, financeiro) fica FORA do mapa: e o que a revenda
+  contrata por definicao, nao add-on.
+- `saas:assinatura:criar <empresa|tenant> <plano>`: aceita todas as empresas de
+  um tenant (so as com TenantCompany APROVADO), recusa duplicar sem `--force`,
+  CANCELA a anterior em vez de apagar (a trilha sobrevive a troca), invalida o
+  cache por empresa e registra na trilha de plataforma.
+- Flag `SAAS_ENFORCE_LICENCA` nasce `false`. A ORDEM importa e nao e sugestao:
+  semear planos -> criar assinaturas -> conferir `/api/me` -> so entao ligar.
+  Inverter tira os modulos do ar, porque o servico e fail-closed.
+- Validacao: `LicencaEnforcementTest` 8 testes/24 assertions; comando conferido
+  (assinatura criada, 10 recursos, duplicada recusada); suite integral
+  **1.373 passes / 4.353 assertions / zero falhas nos DOIS modos**; Pint
+  aprovado. Ver `F2_03_LICENCA.md`.
+- PENDENTE do F2-03: limites/add-ons numericos por assinatura (teto de usuarios,
+  de veiculos) e porta para operar `RecursoOverride`. Hoje recurso e booleano —
+  limite numerico nao existe no catalogo.

@@ -2,20 +2,22 @@
 
 use App\Domain\Integracao\CredencialNaoConfiguradaException;
 use App\Domain\Saas\TransformationFrozenException;
-use App\Domain\Tenant\TenantNotResolvedException;
 use App\Domain\Tenant\TenantAccessDeniedException;
+use App\Domain\Tenant\TenantNotResolvedException;
 use App\Http\Middleware\AppRole;
 use App\Http\Middleware\DialetoLegado;
 use App\Http\Middleware\Idempotente;
-use App\Http\Middleware\ValidaRevendaLegado;
 use App\Http\Middleware\Permissao;
 use App\Http\Middleware\Recurso;
+use App\Http\Middleware\RecursoPorRota;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\ResolveTenantEnvelope;
+use App\Http\Middleware\ValidaRevendaLegado;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -50,6 +52,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.saas' => ResolveTenantEnvelope::class,
             'permissao' => Permissao::class,
             'recurso' => Recurso::class,
+            // F2-03: mesmo enforcement, resolvido pelo prefixo da rota.
+            'licenca.rota' => RecursoPorRota::class,
             'approle' => AppRole::class,
             // F0 — ponte para os apps legados: traduz o envelope e confere o
             // revenda_id contra o token. Saem quando os legados forem desligados.
@@ -101,7 +105,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // domínio dizendo "isto não pode", como imprimir DANFE de nota não
         // autorizada: a mensagem é para o operador ler, e devolvê-la como erro
         // do servidor esconderia justamente o motivo.
-        $exceptions->render(function (\DomainException $e, Request $request) {
+        $exceptions->render(function (DomainException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }
@@ -110,7 +114,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // FASE 2 — dinheiro fail-closed: empresa sem credencial própria em produção
         // → 503 com mensagem neutra (detalhe fica no log; nada interno vaza ao app).
         $exceptions->render(function (CredencialNaoConfiguradaException $e, Request $request) {
-            \Illuminate\Support\Facades\Log::warning('integracao: credencial ausente (fail-closed)', [
+            Log::warning('integracao: credencial ausente (fail-closed)', [
                 'servico' => $e->servico, 'empresa_id' => $e->empresaId,
             ]);
             if ($request->expectsJson()) {
