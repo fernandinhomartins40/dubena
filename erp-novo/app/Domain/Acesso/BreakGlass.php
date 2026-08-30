@@ -56,6 +56,14 @@ class BreakGlass
             ->whereNull('revogado_em')
             ->where('inicia_em', '<=', $agora)
             ->where('expira_em', '>', $agora)
+            // Espelha `BreakGlassGrant::vigente()`: 2FA conferido no ato, e
+            // aprovacao de um segundo administrador quando o escopo e OPERACAO.
+            // Divergir daquele metodo faria a decisao depender de por onde se
+            // pergunta, que e o tipo de brecha que esta fase existe para fechar.
+            ->whereNotNull('twofa_verificado_em')
+            ->where(fn ($q) => $q
+                ->where('escopo', '!=', BreakGlassGrant::ESCOPO_OPERACAO)
+                ->orWhereNotNull('aprovado_em'))
             ->exists();
 
         // A CONSULTA nao e memorizada de proposito: memorizar a decisao faria

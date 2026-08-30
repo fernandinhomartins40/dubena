@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Saas\AuditoriaPlataforma;
+use App\Domain\Seguranca\VerificadorDoisFatores;
 use App\Models\Empresa;
 use App\Models\Saas\BreakGlassGrant;
 use App\Models\User;
@@ -23,11 +24,13 @@ class SaasBreakGlassConceder extends Command
         {--motivo= : Justificativa (obrigatoria)}
         {--ticket= : Referencia do chamado}
         {--minutos=60 : Validade em minutos}
+        {--otp= : Codigo TOTP do usuario elevado (obrigatorio para conceder)}
+        {--escopo=LEITURA : LEITURA ou OPERACAO; OPERACAO exige aprovacao posterior}
         {--revogar : Revoga as concessoes vigentes desse usuario nessa empresa}';
 
     protected $description = 'Concede (ou revoga) acesso break-glass temporario a uma empresa.';
 
-    public function handle(AuditoriaPlataforma $auditoria): int
+    public function handle(AuditoriaPlataforma $auditoria, VerificadorDoisFatores $verificador): int
     {
         $user = User::query()
             ->when(is_numeric($this->argument('user')),
@@ -66,12 +69,35 @@ class SaasBreakGlassConceder extends Command
             return self::FAILURE;
         }
 
+        $escopo = strtoupper((string) $this->option('escopo'));
+        if (! in_array($escopo, [BreakGlassGrant::ESCOPO_LEITURA, BreakGlassGrant::ESCOPO_OPERACAO], true)) {
+            $this->error('Escopo invalido: use LEITURA ou OPERACAO.');
+
+            return self::FAILURE;
+        }
+
+        // 2FA no ato: quem pede prova que e ele. Sem isto, bastava acesso ao
+        // console para elevar qualquer usuario de suporte.
+        $otp = trim((string) $this->option('otp'));
+        if ($otp === '') {
+            $this->error('O codigo 2FA (--otp) e obrigatorio para conceder acesso elevado.');
+
+            return self::FAILURE;
+        }
+        if (! $verificador->verificar($user->twoFactor, $otp)) {
+            $this->error('Codigo 2FA invalido, ja utilizado ou 2FA nao configurado para este usuario.');
+
+            return self::FAILURE;
+        }
+
         $minutos = max(1, (int) $this->option('minutos'));
         $grant = BreakGlassGrant::create([
             'user_id' => $user->id,
             'empresa_id' => $empresaId,
+            'escopo' => $escopo,
             'motivo' => $motivo,
             'ticket_ref' => $this->option('ticket') ?: null,
+            'twofa_verificado_em' => now(),
             'inicia_em' => now(),
             'expira_em' => now()->addMinutes($minutos),
         ]);
@@ -81,10 +107,20 @@ class SaasBreakGlassConceder extends Command
             empresaId: $empresaId,
             entidade: 'break_glass_grants',
             entidadeId: $grant->id,
-            depois: ['user_id' => $user->id, 'motivo' => $motivo, 'expira_em' => $grant->expira_em->toIso8601String()],
+            depois: [
+                'user_id' => $user->id, 'motivo' => $motivo, 'escopo' => $escopo,
+                'expira_em' => $grant->expira_em->toIso8601String(),
+            ],
         );
 
-        $this->info("Acesso concedido a {$user->email} na empresa {$empresaId} ate {$grant->expira_em}.");
+        $this->info("Acesso {$escopo} concedido a {$user->email} na empresa {$empresaId} ate {$grant->expira_em}.");
+
+        if ($escopo === BreakGlassGrant::ESCOPO_OPERACAO) {
+            $this->warn(
+                "PENDENTE DE APROVACAO: escopo OPERACAO so passa a valer apos um segundo administrador rodar\n"
+                ."  php artisan saas:break-glass:aprovar {$grant->id} --admin=<id>"
+            );
+        }
 
         return self::SUCCESS;
     }

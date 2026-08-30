@@ -729,3 +729,31 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - PENDENTE do F2-05: 2FA e aprovacao para acao critica exigem decisao sobre quem
   aprova e o que e critico; `platform_admins.twofa_confirmado_em` ja existe e
   precisa entrar no desenho.
+
+## Atualizacao de retomada - 2026-08-30 (break-glass fechado: 2FA, aprovacao, anti-replay)
+
+- Fecha a pendencia de F2-05.
+- 2FA NO ATO: `--otp` passou a ser obrigatorio e e conferido contra o TOTP do
+  proprio usuario elevado. A concessao grava `twofa_verificado_em`, e
+  `vigente()` exige o carimbo — linha sem ele nao autoriza, mesmo no prazo.
+- ESCOPO: `LEITURA` (default) exige so 2FA; `OPERACAO` exige tambem aprovacao de
+  um PlatformAdmin. A concessao OPERACAO nasce inerte e o comando avisa; o
+  `saas:break-glass:aprovar` RECUSA o mesmo admin que concedeu — sem isso a
+  "segunda assinatura" seria decoracao.
+- ANTI-REPLAY (F2-07): achado independente durante a implementacao.
+  `Totp::verificar` aceita janela de +-1 passo, entao o MESMO codigo valia ~90
+  segundos e nada registrava consumo — era reapresentavel a vontade. A tabela
+  `otp_consumidos` fecha isso, e a barreira e a UNICIDADE no banco, nao um
+  SELECT antes do INSERT (duas requisicoes simultaneas passariam as duas por uma
+  checagem previa). Corrige o login inteiro, nao so o break-glass, porque o
+  `VerificadorDoisFatores` ja era ponto unico de web/app/SuperAdmin.
+- Cuidado de consistencia: `BreakGlassGrant::vigente()` (PHP) e a consulta em
+  `BreakGlass` (SQL) fazem a mesma pergunta e foram atualizadas juntas —
+  divergir faria a decisao depender de por onde se pergunta.
+- Validacao: `BreakGlassTest` 12 testes/40 assertions; login/2FA/SuperAdmin
+  62 testes/197 assertions sem regressao; **144 migrations do zero** em
+  PostgreSQL 16 com `RlsCoberturaTest` 6/356 sem skip; suite integral
+  **1.351 passes / 4.294 assertions / zero falhas nos DOIS modos**; Pint
+  aprovado. Ver `F2_05_BREAK_GLASS.md`.
+- F2-05 CONCLUIDO. Restam da F2: F2-01 (manifesto), F2-02/02A, F2-03 (licenca),
+  F2-04, F2-06, o restante de F2-07 e de F2-08.

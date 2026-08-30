@@ -3,6 +3,8 @@
 namespace App\Domain\Seguranca;
 
 use App\Models\User2fa;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Verificação de 2FA (A5) — PONTO ÚNICO (Q-2 da auditoria).
@@ -27,7 +29,11 @@ class VerificadorDoisFatores
         }
 
         if ($this->totp->verificar($twofa->secret, $otp)) {
-            return true;
+            // Anti-replay (F2-07). `Totp::verificar` aceita janela de ±1 passo,
+            // entao o MESMO codigo de 6 digitos vale por ~90 segundos. Sem isto
+            // ele podia ser reapresentado a vontade nesse intervalo — inclusive
+            // por quem o interceptasse.
+            return $this->consumir((int) $twofa->user_id, $otp);
         }
 
         // Recovery code (one-time): se bater, consome e segue.
@@ -41,5 +47,31 @@ class VerificadorDoisFatores
         }
 
         return false;
+    }
+
+    /**
+     * Registra o OTP como usado. Devolve false se ja tinha sido consumido.
+     *
+     * A barreira e a unicidade `(user_id, codigo_hash)` no banco, nao um SELECT
+     * antes do INSERT: duas requisicoes simultaneas com o mesmo codigo passariam
+     * as duas por uma checagem previa, e so uma sobrevive a constraint.
+     *
+     * Guarda o HASH, nao o codigo: a trilha nao precisa do segredo em claro.
+     */
+    private function consumir(int $userId, string $otp): bool
+    {
+        $codigo = preg_replace('/\D/', '', $otp) ?? '';
+
+        try {
+            DB::table('otp_consumidos')->insert([
+                'user_id' => $userId,
+                'codigo_hash' => hash('sha256', $userId.':'.$codigo),
+                'usado_em' => now(),
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return false; // replay
+        }
+
+        return true;
     }
 }
