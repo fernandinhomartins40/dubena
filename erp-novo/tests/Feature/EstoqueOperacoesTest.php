@@ -36,7 +36,7 @@ class EstoqueOperacoesTest extends TestCase
         $this->empresa = Empresa::factory()->create();
         app(TenantContext::class)->set($this->empresa->id, $this->empresa->grupo_id);
         $this->user = User::factory()->create([
-            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true,
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
         ]);
         $this->produto = Produto::create(['grupo_id' => $this->empresa->grupo_id, 'descricao' => 'P13', 'preco_venda' => 110, 'custo_medio' => 90, 'ativo' => true]);
         $this->deposito = Setor::create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Depósito', 'ativo' => true]);

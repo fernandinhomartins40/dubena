@@ -41,7 +41,7 @@ class EntregaP7Test extends TestCase
         parent::setUp();
         Storage::fake('local');
         $this->empresa = Empresa::factory()->create();
-        $this->entregador = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true]);
+        $this->entregador = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10);

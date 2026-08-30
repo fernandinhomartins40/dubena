@@ -23,7 +23,6 @@ class EmpresaAlvoAutorizacaoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $ativa->id,
             'grupo_id' => $ativa->grupo_id,
-            'support' => false,
         ]);
 
         $this->conceder($user, $ativa, ['empresa.view', 'empresa.edit', 'empresa.delete']);

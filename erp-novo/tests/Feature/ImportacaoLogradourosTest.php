@@ -50,7 +50,6 @@ class ImportacaoLogradourosTest extends TestCase
         return User::factory()->create([
             'grupo_id' => $cidade->grupo_id,
             'empresa_id' => $empresa->id,
-            'support' => true,
         ]);
     }
 

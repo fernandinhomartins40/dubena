@@ -10,8 +10,8 @@ use App\Models\Alerta;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Pedido\Pedido;
-use App\Models\Pedido\PedidoSituacao;
 use App\Models\Pedido\PedidoItem;
+use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\Satelite\Comodato;
 use App\Models\User;
@@ -53,7 +53,6 @@ class ComodatoVigilanciaTest extends TestCase
         $this->user = User::factory()->create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
-            'support' => true,
         ]);
 
         // Espelha o cadastro real: o casco e o conteúdo são produtos distintos.

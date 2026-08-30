@@ -88,7 +88,6 @@ class RedeFiliaisTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         $verCliente = Permission::firstOrCreate(['chave' => 'cliente.view']);

@@ -31,7 +31,6 @@ class CidadePlataformaTest extends TestCase
         $this->user = User::factory()->create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
-            'support' => true,
         ]);
         app(TenantContext::class)->set($this->empresa->id, (int) $this->empresa->grupo_id);
     }
@@ -119,7 +118,7 @@ class CidadePlataformaTest extends TestCase
         // Outra empresa (tenant B): não enxerga o vínculo da empresa A.
         $empresaB = Empresa::factory()->create();
         $userB = User::factory()->create([
-            'empresa_id' => $empresaB->id, 'grupo_id' => $empresaB->grupo_id, 'support' => true,
+            'empresa_id' => $empresaB->id, 'grupo_id' => $empresaB->grupo_id,
         ]);
         app(TenantContext::class)->set($empresaB->id, (int) $empresaB->grupo_id);
 

@@ -32,8 +32,8 @@ class AbacPolicyEvaluatorTest extends TestCase
         $empresa = Empresa::factory()->create();
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
 
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Papel']);
         $perm = Permission::firstOrCreate(['chave' => $ability]);
@@ -67,7 +67,7 @@ class AbacPolicyEvaluatorTest extends TestCase
         $uniA = Unidade::create(['nome' => 'A', 'tipo' => 'filial']);
         $uniB = Unidade::create(['nome' => 'B', 'tipo' => 'filial']);
 
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'GerenteFilial']);
         $perm = Permission::firstOrCreate(['chave' => 'pedido.edit']);
         $role->permissions()->sync([$perm->id]);
@@ -96,8 +96,8 @@ class AbacPolicyEvaluatorTest extends TestCase
         $outroDepartamento = Departamento::create(['unidade_id' => $unidade->id, 'nome' => 'Financeiro']);
         $outroSetor = SetorOrg::create(['departamento_id' => $outroDepartamento->id, 'nome' => 'Cobrança']);
 
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Gerente']);
         $permission = Permission::firstOrCreate(['chave' => 'pedido.edit']);
@@ -221,9 +221,16 @@ class AbacPolicyEvaluatorTest extends TestCase
 
     public function test_suporte_ignora_abac(): void
     {
+        // Comportamento do modo LEGADO: com o enforcement ligado, `support`
+        // sozinho não autoriza mais — quem autoriza é o break-glass (F2-05).
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
+
         $empresa = Empresa::factory()->create();
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
-        $support = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $support = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        // `support` não é fillable (T1.8).
+        $support->forceFill(['support' => true])->save();
+        $support = $support->fresh();
         Auth::login($support);
 
         // Sem papel, sem nada — suporte passa em qualquer recurso/condição.

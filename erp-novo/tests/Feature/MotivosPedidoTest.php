@@ -31,7 +31,6 @@ class MotivosPedidoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -152,8 +151,8 @@ class MotivosPedidoTest extends TestCase
         $pedido = $this->pedido($empresa);
         $motivoId = $this->motivo('pedido_motivos_atraso', $empresa, 'Trânsito');
 
-        $semPermissao = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $semPermissao = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($semPermissao, 'sanctum')

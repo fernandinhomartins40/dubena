@@ -34,7 +34,6 @@ class DanfePdfTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -133,8 +132,8 @@ class DanfePdfTest extends TestCase
     {
         [, $empresa] = $this->suporte();
         $nota = $this->nota($empresa);
-        $leitor = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($leitor, 'sanctum')
@@ -146,7 +145,7 @@ class DanfePdfTest extends TestCase
 
     public function test_barcode_exige_44_digitos(): void
     {
-        $b = new CodigoBarras128C();
+        $b = new CodigoBarras128C;
 
         // A chave da NF-e tem tamanho fixo. Aceitar outro produziria um símbolo
         // ilegível descoberto só no destino.
@@ -156,7 +155,7 @@ class DanfePdfTest extends TestCase
 
     public function test_verificador_do_code128_segue_a_especificacao(): void
     {
-        $b = new CodigoBarras128C();
+        $b = new CodigoBarras128C;
 
         // Valor conhecido: START C (105) + 1*1 + 2*2 + 3*3 = 105+1+4+9 = 119;
         // 119 % 103 = 16.
@@ -165,7 +164,7 @@ class DanfePdfTest extends TestCase
 
     public function test_barcode_desenha_start_e_stop(): void
     {
-        $b = new CodigoBarras128C();
+        $b = new CodigoBarras128C;
         $html = $b->html('41250612345678000199550010000043211000043215');
 
         // START C é '211232' e o STOP do Code 128 é '2331112': se qualquer um
@@ -179,7 +178,7 @@ class DanfePdfTest extends TestCase
 
     public function test_chave_sai_formatada_em_grupos_de_quatro(): void
     {
-        $b = new CodigoBarras128C();
+        $b = new CodigoBarras128C;
 
         $this->assertSame(
             '4125 0612 3456 7800 0199 5500 1000 0043 2110 0004 3215',

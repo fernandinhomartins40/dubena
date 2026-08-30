@@ -20,7 +20,6 @@ class CustoComodatoAutorizacaoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $cliente = Cliente::factory()->create([
             'empresa_id' => $empresa->id,

@@ -7,6 +7,7 @@ use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Identidade\NormalizadorTexto;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Geografico\Cidade;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\User;
@@ -30,7 +31,7 @@ class IdentidadeClienteTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         return [$user, $empresa];
@@ -39,7 +40,7 @@ class IdentidadeClienteTest extends TestCase
     /** Cidade real: `clientes.cidade_id` e FK, e um id inventado nao insere. */
     private function cidade(Empresa $empresa): int
     {
-        return $this->cidadeId ??= (int) \App\Models\Geografico\Cidade::factory()->create([
+        return $this->cidadeId ??= (int) Cidade::factory()->create([
             'grupo_id' => $empresa->grupo_id,
         ])->id;
     }

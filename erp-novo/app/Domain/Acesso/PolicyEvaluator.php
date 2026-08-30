@@ -34,11 +34,13 @@ class PolicyEvaluator
      */
     public function permite(User $user, string $ability, array|Model|null $recurso = null): bool
     {
-        if ($user->support) {
+        $empresaId = $this->tenant->empresaId() ?? $user->empresa_id;
+
+        // F2-05: acesso elevado exige concessão break-glass vigente NESTA
+        // empresa, não mais o flag permanente.
+        if ($user->acessoElevado($empresaId)) {
             return true;
         }
-
-        $empresaId = $this->tenant->empresaId() ?? $user->empresa_id;
 
         // 1) RBAC: precisa ter a permissão pela via normal.
         if (! $user->temPermissao($ability, $empresaId)) {

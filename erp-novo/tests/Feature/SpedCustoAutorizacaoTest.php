@@ -17,10 +17,9 @@ class SpedCustoAutorizacaoTest extends TestCase
     private function usuario(array $chaves): User
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Fiscal SPED']);
         $ids = collect($chaves)->map(

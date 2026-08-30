@@ -30,8 +30,8 @@ class FieldLevelTest extends TestCase
     private function userCom(array $chaves): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Papel']);
         $ids = collect($chaves)->map(fn (string $c) => Permission::firstOrCreate(['chave' => $c])->id)->all();
@@ -89,8 +89,15 @@ class FieldLevelTest extends TestCase
 
     public function test_suporte_ve_todos_os_campos(): void
     {
+        // Comportamento do modo LEGADO: com o enforcement ligado, `support`
+        // sozinho nao autoriza mais — quem autoriza e o break-glass (F2-05).
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
         $empresa = Empresa::factory()->create();
-        $support = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $support = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        // `support` não é fillable (T1.8). No modo legado ele ainda vale por si;
+        // com o enforcement é o break-glass que autoriza (F2-05).
+        $support->forceFill(['support' => true])->save();
+        $support = $support->fresh();
         $cli = $this->cliente($empresa);
 
         $resp = $this->actingAs($support, 'sanctum')->getJson("/api/admin/clientes/{$cli->id}")->assertOk();

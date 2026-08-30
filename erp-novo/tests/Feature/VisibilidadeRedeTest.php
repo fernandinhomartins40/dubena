@@ -69,7 +69,6 @@ class VisibilidadeRedeTest extends TestCase
         $this->dono = User::factory()->create([
             'empresa_id' => $this->matriz->id,
             'grupo_id' => $rede->id,
-            'support' => false,
         ]);
         $this->dono->empresas()->attach($this->filial->id);
         FronteiraTenant::sincronizarVinculosLegados($this->dono->refresh());
@@ -150,7 +149,6 @@ class VisibilidadeRedeTest extends TestCase
         $gerente = User::factory()->create([
             'empresa_id' => $this->filial->id,
             'grupo_id' => $this->filial->grupo_id,
-            'support' => false,
         ]);
         $papel = Role::create(['grupo_id' => $this->filial->grupo_id, 'nome' => 'Gerente']);
         $papel->permissions()->sync([Permission::firstOrCreate(['chave' => 'cliente.view'])->id]);
@@ -182,7 +180,6 @@ class VisibilidadeRedeTest extends TestCase
         $solo = User::factory()->create([
             'empresa_id' => $this->matriz->id,
             'grupo_id' => $this->matriz->grupo_id,
-            'support' => false,
         ]);
         $papel = Role::create(['grupo_id' => $this->matriz->grupo_id, 'nome' => 'Solo']);
         $papel->permissions()->sync([Permission::firstOrCreate(['chave' => 'cliente.view'])->id]);

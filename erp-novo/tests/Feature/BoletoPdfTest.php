@@ -2,15 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Cobranca\CodigoBarrasI25;
 use App\Domain\Cobranca\BoletoPdfService;
+use App\Domain\Cobranca\CodigoBarrasI25;
 use App\Models\Cliente\Cliente;
 use App\Models\Cobranca\Boleto;
 use App\Models\Empresa;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * GATE da T4.6 — impressão do boleto, o bloqueante das saídas impressas.
@@ -35,7 +35,6 @@ class BoletoPdfTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -85,8 +84,8 @@ class BoletoPdfTest extends TestCase
         [, $empresa] = $this->suporte();
         $boleto = $this->boleto($empresa);
 
-        $semPermissao = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $semPermissao = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         // Boleto é dado financeiro de cliente: não é público.

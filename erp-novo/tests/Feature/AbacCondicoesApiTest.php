@@ -22,7 +22,7 @@ class AbacCondicoesApiTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $adminRole = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Admin']);
         foreach (['papel.view', 'papel.edit'] as $c) {
@@ -99,7 +99,7 @@ class AbacCondicoesApiTest extends TestCase
     {
         [, $empresa, $alvo] = $this->cenario();
         // Usuário só com papel.view (sem edit).
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'SoLeitura']);
         $role->permissions()->sync([Permission::firstOrCreate(['chave' => 'papel.view'])->id]);
         $user->roles()->attach($role->id, ['empresa_id' => $empresa->id]);

@@ -32,7 +32,6 @@ class EnderecoEmpresaColaboradorTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         // `cidades.uf` é FK para `estados`: sem o PR cadastrado a criação falha.
         Estado::firstOrCreate(

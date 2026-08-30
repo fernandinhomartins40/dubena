@@ -28,7 +28,6 @@ class EmpresaTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -38,7 +37,10 @@ class EmpresaTest extends TestCase
     {
         [$user, $empresa] = $this->usuarioSuporte();
         // outra empresa do mesmo grupo
-        Empresa::factory()->create(['grupo_id' => $empresa->grupo_id]);
+        $irma = Empresa::factory()->create(['grupo_id' => $empresa->grupo_id]);
+        // Ver a irma exige vinculo explicito: `support` deixou de dar acesso a
+        // rede inteira por si (F2-05).
+        $user->empresas()->attach($irma->id);
         // empresa de outro grupo (não deve aparecer)
         Empresa::factory()->create();
 
@@ -72,6 +74,7 @@ class EmpresaTest extends TestCase
     {
         [$user, $empresa] = $this->usuarioSuporte();
         $outra = Empresa::factory()->create(['grupo_id' => $empresa->grupo_id]);
+        $user->empresas()->attach($outra->id);
 
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/admin/empresas/{$outra->id}/ativar")

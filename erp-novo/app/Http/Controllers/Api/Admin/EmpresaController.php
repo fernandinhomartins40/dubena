@@ -33,9 +33,10 @@ class EmpresaController extends Controller
 
         // O seletor do cabeçalho consome esta lista, então ela precisa conter
         // só o que o usuário REALMENTE acessa — mostrar uma filial que ele não
-        // pode abrir vira um erro na cara dele. `support` continua vendo todas.
+        // pode abrir vira um erro na cara dele. Ver todas é acesso elevado
+        // (F2-05): exige break-glass vigente, não mais o flag permanente.
         $user = $request->user();
-        if ($user !== null && ! $user->support && method_exists($user, 'empresasVisiveis')) {
+        if ($user !== null && ! $user->acessoElevado() && method_exists($user, 'empresasVisiveis')) {
             $query->whereIn('id', $user->empresasVisiveis($this->grupoDoUsuario($request)));
         }
 
@@ -140,7 +141,7 @@ class EmpresaController extends Controller
 
         abort_unless($user !== null && $user->podeAcessarEmpresa($id), 404);
 
-        if ($exigirAtiva && ! $user->support) {
+        if ($exigirAtiva && ! $user->acessoElevado($id)) {
             abort_unless(app(TenantContext::class)->empresaId() === $id, 404);
         }
 

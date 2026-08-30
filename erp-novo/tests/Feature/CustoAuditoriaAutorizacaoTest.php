@@ -17,10 +17,9 @@ class CustoAuditoriaAutorizacaoTest extends TestCase
     /** @param list<string> $chaves */
     private function usuario(Empresa $empresa, array $chaves): User
     {
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
         $role = Role::create([
             'grupo_id' => $empresa->grupo_id,

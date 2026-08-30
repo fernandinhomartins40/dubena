@@ -36,7 +36,6 @@ class ComodatoVinculoApiTest extends TestCase
         $this->user = User::factory()->create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
-            'support' => true,
         ]);
 
         $this->vasilhame = Produto::create([

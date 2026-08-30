@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Models\Monitora\CercaPonto;
 use App\Models\Monitora\Veiculo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class MonitoraTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -85,12 +86,12 @@ class MonitoraTest extends TestCase
             'descricao' => 'Nova', 'pontos' => array_merge($pontos, [['latitude' => -25.39, 'longitude' => -51.46]]),
         ])->assertOk()->assertJsonPath('data.descricao', 'Nova')->assertJsonCount(4, 'data.pontos');
         $this->assertDatabaseHas('monitora_cercas', ['id' => $id, 'descricao' => 'Nova']);
-        $this->assertSame(4, \App\Models\Monitora\CercaPonto::where('cerca_id', $id)->count());
+        $this->assertSame(4, CercaPonto::where('cerca_id', $id)->count());
 
         // Exclui (vértices em cascata).
         $this->actingAs($user, 'sanctum')->deleteJson("/api/admin/monitora/cercas/{$id}")->assertOk();
         $this->assertDatabaseMissing('monitora_cercas', ['id' => $id]);
-        $this->assertSame(0, \App\Models\Monitora\CercaPonto::where('cerca_id', $id)->count());
+        $this->assertSame(0, CercaPonto::where('cerca_id', $id)->count());
     }
 
     public function test_sync_endpoint_responde(): void
@@ -106,7 +107,7 @@ class MonitoraTest extends TestCase
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/monitora/veiculos')->assertStatus(403);
     }

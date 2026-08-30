@@ -37,8 +37,8 @@ class AbacVerbosSensiveisTest extends TestCase
         $empresa = Empresa::factory()->create();
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
 
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Operador']);
         $ids = collect($chaves)->map(fn (string $c) => Permission::firstOrCreate(['chave' => $c])->id)->all();
@@ -116,7 +116,7 @@ class AbacVerbosSensiveisTest extends TestCase
         ])->assertCreated()->json('data.id');
 
         // Ator B (mesma empresa, com estornar+ownership) NÃO pode estornar o de A.
-        $userB = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $userB = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $userB->roles()->attach($roleA->id, ['empresa_id' => $empresa->id]);
         $this->actingAs($userB->fresh(), 'sanctum')->postJson("/api/admin/caixa/movimentos/{$mov}/estornar")
             ->assertStatus(403);

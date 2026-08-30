@@ -306,7 +306,7 @@ class TraccarRastreamentoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $tipo = VeiculoTipo::create([
@@ -342,7 +342,7 @@ class TraccarRastreamentoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $veiculo = Veiculo::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -371,7 +371,7 @@ class TraccarRastreamentoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $veiculo = Veiculo::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -399,7 +399,7 @@ class TraccarRastreamentoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $veiculo = Veiculo::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,

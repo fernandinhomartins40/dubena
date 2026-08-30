@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Estoque\EstoqueService;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
 use App\Models\Financeiro\Financeiro;
@@ -24,7 +25,7 @@ class NfEntradaApiTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -84,7 +85,7 @@ class NfEntradaApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.situacao', 'processada');
 
         // Estoque entrou e financeiro a pagar foi gerado.
-        $this->assertEqualsWithDelta(10.0, app(\App\Domain\Estoque\EstoqueService::class)->saldoDerivado($setor->id, $produto->id), 0.001);
+        $this->assertEqualsWithDelta(10.0, app(EstoqueService::class)->saldoDerivado($setor->id, $produto->id), 0.001);
         $this->assertSame(1, Financeiro::withoutTenant()->where('pagarreceber', 'P')->count());
 
         // Idempotente: processar de novo não duplica.
@@ -95,7 +96,7 @@ class NfEntradaApiTest extends TestCase
     public function test_exige_permissao(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/fiscal/nf-entrada')->assertForbidden();
     }

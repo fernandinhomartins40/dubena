@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Estoque\EstoqueService;
 use App\Domain\Logistica\CalculadoraTaxaEntrega;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Produto\NaturezaItem;
@@ -89,7 +90,7 @@ class NaturezaItemETaxaEntregaTest extends TestCase
         ]);
         $botijao = $this->produto('Botijão P13', NaturezaItem::PRODUTO, 120);
 
-        app(\App\Domain\Estoque\EstoqueService::class)
+        app(EstoqueService::class)
             ->entrada($this->setor->id, $botijao->id, 10, 80);
 
         app(PedidoService::class)->criar([
@@ -299,8 +300,8 @@ class NaturezaItemETaxaEntregaTest extends TestCase
 
     public function test_sem_permissao_a_api_de_taxas_recusa(): void
     {
-        $user = User::factory()->create([
-            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
         ]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/taxas-entrega')->assertStatus(403);

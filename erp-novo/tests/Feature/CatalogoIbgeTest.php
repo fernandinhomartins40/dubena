@@ -123,7 +123,6 @@ class CatalogoIbgeTest extends TestCase
         $user = User::factory()->create([
             'grupo_id' => $empresa->grupo_id,
             'empresa_id' => $empresa->id,
-            'support' => true,
         ]);
 
         $this->actingAs($user, 'sanctum')
@@ -138,7 +137,6 @@ class CatalogoIbgeTest extends TestCase
         $user = User::factory()->create([
             'grupo_id' => $empresa->grupo_id,
             'empresa_id' => $empresa->id,
-            'support' => true,
         ]);
 
         $this->actingAs($user, 'sanctum')
@@ -161,7 +159,6 @@ class CatalogoIbgeTest extends TestCase
         $user = User::factory()->create([
             'grupo_id' => $empresa->grupo_id,
             'empresa_id' => $empresa->id,
-            'support' => true,
         ]);
 
         $this->actingAs($user, 'sanctum')

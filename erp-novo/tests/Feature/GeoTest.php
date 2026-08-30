@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Empresa;
 use App\Models\Estado;
+use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,7 +26,6 @@ class GeoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -82,8 +82,8 @@ class GeoTest extends TestCase
         [$user, $empresa] = $this->suporte();
         $c1 = Cidade::factory()->create(['grupo_id' => $empresa->grupo_id]);
         $c2 = Cidade::factory()->create(['grupo_id' => $empresa->grupo_id]);
-        \App\Models\Geografico\Bairro::factory()->create(['grupo_id' => $empresa->grupo_id, 'cidade_id' => $c1->id]);
-        \App\Models\Geografico\Bairro::factory()->create(['grupo_id' => $empresa->grupo_id, 'cidade_id' => $c2->id]);
+        Bairro::factory()->create(['grupo_id' => $empresa->grupo_id, 'cidade_id' => $c1->id]);
+        Bairro::factory()->create(['grupo_id' => $empresa->grupo_id, 'cidade_id' => $c2->id]);
 
         $this->actingAs($user, 'sanctum')
             ->getJson("/api/admin/geo/bairros?cidade_id={$c1->id}")

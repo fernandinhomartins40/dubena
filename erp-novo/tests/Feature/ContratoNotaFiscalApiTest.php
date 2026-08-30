@@ -94,7 +94,6 @@ class ContratoNotaFiscalApiTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         $papel = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Fiscal']);

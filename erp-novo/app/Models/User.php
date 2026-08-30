@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use App\Domain\Shared\Auditavel;
+use App\Domain\Acesso\BreakGlass;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Domain\Saas\LicencaService;
+use App\Domain\Shared\Auditavel;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,13 +82,29 @@ class User extends Authenticatable
             ->withPivot('empresa_id', 'unidade_id', 'departamento_id', 'setor_id', 'herda_filhos');
     }
 
+    /**
+     * Acesso elevado (break-glass) vigente para esta empresa? — F2-05.
+     *
+     * Ponto único: as quatro camadas que antes liam `$this->support` direto
+     * passam por aqui. O flag sozinho não autoriza mais nada quando o
+     * enforcement SaaS está ligado — é preciso uma concessão com motivo, prazo
+     * e trilha. Ver `App\Domain\Acesso\BreakGlass`.
+     */
+    public function acessoElevado(?int $empresaId = null): bool
+    {
+        return app(BreakGlass::class)->ativo($this, $empresaId);
+    }
+
     // ---- Tenant (usado por ResolveTenant) ----
 
     /** O usuário pode operar nesta empresa? (própria, ou nas permitidas). */
     public function podeAcessarEmpresa(int $empresaId): bool
     {
-        if ($this->support) {
-            return true; // suporte = acesso total (regra do legado)
+        // F2-05: `support` deixou de ser bypass por si. Ele diz quem PODE pedir
+        // acesso elevado; quem autoriza é a concessão break-glass vigente para
+        // esta empresa. No modo legado o comportamento antigo é preservado.
+        if ($this->acessoElevado($empresaId)) {
+            return true;
         }
 
         return (int) $this->empresa_id === $empresaId
@@ -101,7 +118,7 @@ class User extends Authenticatable
      * vinculadas em `empresa_user`, restritas ao grupo informado — a rede é a
      * fronteira dura, um vínculo cruzando redes nunca amplia a visão.
      *
-     * `support` vê todas as empresas do grupo (regra do legado para o suporte).
+     * Ver a rede inteira é acesso elevado: exige break-glass vigente (F2-05).
      *
      * @return list<int>
      */
@@ -109,7 +126,8 @@ class User extends Authenticatable
     {
         $grupoId ??= (int) $this->grupo_id;
 
-        if ($this->support) {
+        // Ver a rede inteira também é acesso elevado: exige concessão vigente.
+        if ($this->acessoElevado()) {
             return Empresa::query()->where('grupo_id', $grupoId)
                 ->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
@@ -137,11 +155,11 @@ class User extends Authenticatable
 
     /**
      * Tem a permissão "modulo.acao" na empresa ativa?
-     * Suporte = bypass (regra do legado: support=1 ignora permissões).
+     * Acesso elevado (break-glass vigente) dispensa a checagem — F2-05.
      */
     public function temPermissao(string $chave, ?int $empresaId = null): bool
     {
-        if ($this->support) {
+        if ($this->acessoElevado($empresaId)) {
             return true;
         }
 
@@ -180,14 +198,14 @@ class User extends Authenticatable
     }
 
     /**
-     * Chaves de permissão efetivas na empresa ativa. Para `support`, devolve o
-     * universo de permissões (bypass total — o front trata como "pode tudo").
+     * Chaves de permissão efetivas na empresa ativa. Sob acesso elevado devolve
+     * o universo de permissões (o front trata como "pode tudo").
      *
      * @return list<string>
      */
     public function permissoesEfetivas(?int $empresaId = null): array
     {
-        if ($this->support) {
+        if ($this->acessoElevado($empresaId)) {
             return Permission::query()->pluck('chave')->all();
         }
 

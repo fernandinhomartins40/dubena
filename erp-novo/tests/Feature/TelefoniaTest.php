@@ -36,7 +36,6 @@ class TelefoniaTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -276,8 +275,8 @@ class TelefoniaTest extends TestCase
     public function test_exige_permissao(): void
     {
         [, $empresa] = $this->cenario();
-        $semAcesso = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $semAcesso = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($semAcesso, 'sanctum')

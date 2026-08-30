@@ -46,7 +46,6 @@ class ComodatoDevolucaoParcialTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $cliente = Cliente::create([
             'empresa_id' => $empresa->id,

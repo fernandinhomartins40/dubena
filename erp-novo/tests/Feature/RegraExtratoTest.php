@@ -10,6 +10,7 @@ use App\Models\Empresa;
 use App\Models\Financeiro\ContaExtratoRegra;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -35,7 +36,6 @@ class RegraExtratoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         $conta = Conta::create([
@@ -192,7 +192,7 @@ class RegraExtratoTest extends TestCase
 
         $this->assertSame([], app(RegraExtratoService::class)->regrasDaConta($conta->id, $outra->id));
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
         app(ConciliacaoService::class)->conciliar(
             $conta->id,
             $outra->id,
@@ -299,8 +299,8 @@ class RegraExtratoTest extends TestCase
     public function test_escrita_exige_permissao(): void
     {
         [, $empresa, $conta] = $this->cenario();
-        $leitor = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($leitor, 'sanctum')

@@ -20,7 +20,7 @@ class CobrancaTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -140,7 +140,7 @@ class CobrancaTest extends TestCase
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/boletos')->assertStatus(403);
     }

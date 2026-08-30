@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Frota\VeiculoService;
 use App\Models\Empresa;
 use App\Models\Frota\Veiculo;
 use App\Models\Rh\Colaborador;
@@ -34,7 +35,6 @@ class EscritaRestauradaTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -200,7 +200,7 @@ class EscritaRestauradaTest extends TestCase
         // alerta está ACESO.
         $v = $this->veiculo($empresa, ['km_troca_oleo' => 10000, 'km_ultima_troca_oleo' => 0]);
 
-        $antes = app(\App\Domain\Frota\VeiculoService::class)->alertaTrocaOleo($v);
+        $antes = app(VeiculoService::class)->alertaTrocaOleo($v);
         $this->assertTrue($antes['precisa_trocar'], 'o cenário precisa começar com o alerta aceso');
 
         $this->actingAs($user, 'sanctum')
@@ -211,7 +211,7 @@ class EscritaRestauradaTest extends TestCase
 
         // O ponto da tarefa: o alerta APAGA. Gravar a linha sem atualizar
         // `km_ultima_troca_oleo` deixaria o aviso aceso para sempre.
-        $depois = app(\App\Domain\Frota\VeiculoService::class)->alertaTrocaOleo($v->fresh());
+        $depois = app(VeiculoService::class)->alertaTrocaOleo($v->fresh());
         $this->assertFalse($depois['precisa_trocar'], 'a troca registrada tem de zerar o alerta');
         $this->assertSame(10500, (int) $v->fresh()->km_ultima_troca_oleo);
         $this->assertSame(10500, (int) $v->fresh()->km_atual);
@@ -266,8 +266,8 @@ class EscritaRestauradaTest extends TestCase
         [, $empresa] = $this->suporte();
         $v = $this->veiculo($empresa);
 
-        $semPermissao = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $semPermissao = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($semPermissao, 'sanctum')

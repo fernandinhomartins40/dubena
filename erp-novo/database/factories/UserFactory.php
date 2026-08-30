@@ -67,6 +67,13 @@ class UserFactory extends Factory
             }
 
             FronteiraTenant::paraUsuario($user);
+
+            // F2-08: os testes usavam `support = true` como atalho para "pode
+            // tudo". Com o break-glass de F2-05 o flag deixou de autorizar por
+            // si, entao o usuario de teste passa a ter um papel REAL — que e o
+            // que a matriz de permissoes deveria exercitar desde o inicio.
+            // Quem precisa de usuario SEM poder usa `semPapel()`.
+            FronteiraTenant::papelAdministrador($user);
         });
     }
 
@@ -78,6 +85,20 @@ class UserFactory extends Factory
      * vinculo. Sem isto os testes que contam `tenant_accounts` para provar que
      * nada e inferido encontrariam a conta dessa empresa implicita.
      */
+    /**
+     * Usuario dentro da fronteira, mas SEM permissao nenhuma.
+     *
+     * Para os testes que provam o 403 do RBAC: com o papel padrao da factory
+     * eles passariam a receber 200 e deixariam de medir o que prometem.
+     */
+    public function semPapel(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            $user->roles()->detach();
+            $user->load('roles');
+        });
+    }
+
     public function semFronteiraSaas(): static
     {
         return $this->afterCreating(function (User $user): void {

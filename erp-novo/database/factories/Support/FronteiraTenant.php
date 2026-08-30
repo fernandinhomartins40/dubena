@@ -2,7 +2,10 @@
 
 namespace Database\Factories\Support;
 
+use App\Domain\Shared\PermissaoCatalogo;
 use App\Models\Empresa;
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\Saas\TenantAccount;
 use App\Models\Saas\TenantCompany;
 use App\Models\Saas\TenantCompanyGrant;
@@ -168,6 +171,35 @@ final class FronteiraTenant
         }
 
         self::paraUsuario($user, $ids);
+    }
+
+    /**
+     * Dá ao usuário um papel REAL com todas as permissões na empresa.
+     *
+     * F2-08: os testes usavam `support = true` como atalho para "pode tudo".
+     * Com o break-glass de F2-05 o flag deixou de autorizar por si, e o atalho
+     * passou a mascarar a própria coisa que o teste deveria exercitar — o RBAC.
+     *
+     * Cria papel e permissões apenas se ainda não existirem, para não depender
+     * da ordem em que o teste roda seeders.
+     */
+    public static function papelAdministrador(User $user, ?int $empresaId = null): void
+    {
+        $empresaId ??= (int) $user->empresa_id;
+        $grupoId = (int) ($user->grupo_id ?: Empresa::withoutGlobalScopes()->find($empresaId)?->grupo_id);
+
+        foreach (PermissaoCatalogo::comDescricoes() as $chave => $descricao) {
+            Permission::query()->firstOrCreate(['chave' => $chave], ['descricao' => $descricao]);
+        }
+
+        $role = Role::query()->firstOrCreate(
+            ['grupo_id' => $grupoId, 'nome' => 'Administrador de teste'],
+            ['descricao' => 'Papel de teste com todas as permissões'],
+        );
+        $role->permissions()->sync(Permission::query()->pluck('id')->all());
+
+        $user->roles()->syncWithoutDetaching([$role->id => ['empresa_id' => $empresaId]]);
+        $user->load('roles');
     }
 
     /** Ponte documental do grupo — só para quem exercita configuração group-scoped. */

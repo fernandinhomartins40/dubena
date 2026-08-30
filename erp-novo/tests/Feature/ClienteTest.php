@@ -8,6 +8,8 @@ use App\Models\Apoio\TipoPessoa;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Geografico\Cidade;
+use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoSituacao;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -27,7 +29,6 @@ class ClienteTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -253,10 +254,10 @@ class ClienteTest extends TestCase
         [$user, $empresa] = $this->suporte();
         $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => true]);
 
-        $situacao = \App\Models\Pedido\PedidoSituacao::query()->create([
+        $situacao = PedidoSituacao::query()->create([
             'grupo_id' => $empresa->grupo_id, 'descricao' => 'Em aberto', 'efeito' => 'PENDENTE',
         ]);
-        \App\Models\Pedido\Pedido::query()->create([
+        Pedido::query()->create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ]);
@@ -270,7 +271,7 @@ class ClienteTest extends TestCase
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/clientes')->assertStatus(403);
     }

@@ -33,10 +33,9 @@ class EstruturaOrganizacionalTest extends TestCase
     private function adminCom(array $chaves): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'AdminEstrutura']);

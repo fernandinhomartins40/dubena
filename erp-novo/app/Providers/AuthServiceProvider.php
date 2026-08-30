@@ -25,11 +25,13 @@ class AuthServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // Bypass do suporte: support = "pode tudo" (regra herdada do legado).
+        // Acesso elevado (F2-05): antes era `support = pode tudo`, permanente e
+        // sem trilha. Agora depende de uma concessão break-glass vigente para a
+        // empresa ativa — no modo legado o comportamento antigo é preservado.
         // Devolver `true` curto-circuita TODA verificação de Gate antes de avaliar
         // a ability específica; devolver `null` deixa seguir para o Gate definido.
         Gate::before(function (User $user) {
-            return $user->support ? true : null;
+            return $user->acessoElevado() ? true : null;
         });
 
         // Um Gate por chave do catálogo (a fonte da verdade do RBAC). Cada Gate

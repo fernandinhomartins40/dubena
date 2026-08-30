@@ -36,7 +36,6 @@ class ValeGasPdfTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $cliente = Cliente::create([
             'empresa_id' => $empresa->id,
@@ -209,8 +208,8 @@ class ValeGasPdfTest extends TestCase
     {
         [, $empresa, $cliente] = $this->cenario();
         $vale = $this->vale($empresa, $cliente);
-        $leitor = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($leitor, 'sanctum')

@@ -27,14 +27,13 @@ class ContratoIntegracoesMigradasTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @return array{0:\App\Models\User, 1:\App\Models\Empresa} */
+    /** @return array{0:User, 1:Empresa} */
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];

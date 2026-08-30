@@ -141,7 +141,7 @@ class SegurancaAvancadaTest extends TestCase
     public function test_politica_de_senha_bloqueia_senha_fraca_na_criacao(): void
     {
         $empresa = Empresa::factory()->create();
-        $admin = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $admin = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Admin']);
         $role->permissions()->sync([Permission::firstOrCreate(['chave' => 'usuario.create'])->id, Permission::firstOrCreate(['chave' => 'usuario.edit'])->id]);
         $admin->roles()->attach($role->id, ['empresa_id' => $empresa->id]);
@@ -165,7 +165,7 @@ class SegurancaAvancadaTest extends TestCase
     public function test_admin_define_politica_de_senha(): void
     {
         $empresa = Empresa::factory()->create();
-        $admin = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $admin = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Admin']);
         $role->permissions()->sync([Permission::firstOrCreate(['chave' => 'usuario.edit'])->id]);
         $admin->roles()->attach($role->id, ['empresa_id' => $empresa->id]);

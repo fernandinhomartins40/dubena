@@ -166,7 +166,7 @@ class CnabBoletoTest extends TestCase
             ]]],
         ]);
         $user = $comUser ? User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]) : null;
 
         return [$empresa, $user];

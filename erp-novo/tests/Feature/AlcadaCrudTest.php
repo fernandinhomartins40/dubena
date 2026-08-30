@@ -30,7 +30,7 @@ class AlcadaCrudTest extends TestCase
         $this->empresa = Empresa::factory()->create();
         $this->gestor = User::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
-            'support' => true,   // bypass de RBAC: aqui o foco é o CRUD
+            // bypass de RBAC: aqui o foco é o CRUD
         ]);
         $this->actingAs($this->gestor, 'sanctum');
     }

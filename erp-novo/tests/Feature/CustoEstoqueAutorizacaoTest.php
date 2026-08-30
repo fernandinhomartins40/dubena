@@ -22,10 +22,9 @@ class CustoEstoqueAutorizacaoTest extends TestCase
     private function cenario(array $permissoes): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Estoque seguro']);
         $ids = collect($permissoes)->map(

@@ -34,10 +34,9 @@ class EnforcementCentralTest extends TestCase
     public function test_gate_nega_sem_papel_e_libera_com_papel(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         // Sem papel → o Gate (que delega a temPermissao) nega.
@@ -45,7 +44,7 @@ class EnforcementCentralTest extends TestCase
 
         // Concede a permissão via papel na empresa ativa.
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Operador']);
-        $perm = Permission::create(['chave' => 'produto.view']);
+        $perm = Permission::firstOrCreate(['chave' => 'produto.view']);
         $role->permissions()->sync([$perm->id]);
         $user->roles()->attach($role->id, ['empresa_id' => $empresa->id]);
 
@@ -59,12 +58,18 @@ class EnforcementCentralTest extends TestCase
 
     public function test_support_faz_bypass_de_qualquer_ability(): void
     {
+        // Comportamento do modo LEGADO: com o enforcement ligado, `support`
+        // sozinho não autoriza mais — quem autoriza é o break-glass (F2-05).
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
+
         $empresa = Empresa::factory()->create();
-        $support = User::factory()->create([
+        $support = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
+        // `support` não é fillable (T1.8).
+        $support->forceFill(['support' => true])->save();
+        $support = $support->fresh();
 
         // Sem nenhum papel, o support passa em qualquer Gate (Gate::before).
         $this->assertTrue(Gate::forUser($support)->allows('produto.view'));
@@ -89,10 +94,9 @@ class EnforcementCentralTest extends TestCase
     public function test_endpoint_real_aplica_enforcement_central(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         // Sem papel → 403 (a trait nos controllers usa o Gate central).
@@ -103,7 +107,7 @@ class EnforcementCentralTest extends TestCase
 
         // Com a permissão → passa (200).
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Operador']);
-        $perm = Permission::create(['chave' => 'produto.view']);
+        $perm = Permission::firstOrCreate(['chave' => 'produto.view']);
         $role->permissions()->sync([$perm->id]);
         $user->roles()->attach($role->id, ['empresa_id' => $empresa->id]);
 

@@ -6,9 +6,9 @@ use App\Domain\Monitora\Contracts\AjustadorDeVia;
 use App\Domain\Monitora\Drivers\AjustadorCacheado;
 use App\Domain\Monitora\Drivers\FakeAjustadorDeVia;
 use App\Domain\Monitora\ViagensService;
-use App\Models\Monitora\ViaCache;
 use App\Models\Empresa;
 use App\Models\Monitora\Veiculo;
+use App\Models\Monitora\ViaCache;
 use App\Models\Monitora\ViagemCache;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,7 +31,7 @@ class ViagensRotaTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $veiculo = Veiculo::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -533,7 +533,10 @@ class ViagensRotaTest extends TestCase
         // O ponto do meio devolvido pelo provedor tem de aparecer no tracado.
         $achou = false;
         foreach ($caminho as $p) {
-            if (abs($p['lat'] - (-25.3950)) < 1e-6) { $achou = true; break; }
+            if (abs($p['lat'] - (-25.3950)) < 1e-6) {
+                $achou = true;
+                break;
+            }
         }
         $this->assertTrue($achou, 'o caminho das ruas nao entrou no tracado');
     }
@@ -598,7 +601,8 @@ class ViagensRotaTest extends TestCase
         [, $veiculo] = $this->cenario();
 
         $recebido = null;
-        $fake = new class extends FakeAjustadorDeVia {
+        $fake = new class extends FakeAjustadorDeVia
+        {
             public array $ultimoBloco = [];
 
             public function ajustar(array $pontos): ?array

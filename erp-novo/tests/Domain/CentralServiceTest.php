@@ -2,15 +2,18 @@
 
 namespace Tests\Domain;
 
+use App\Domain\Estoque\EstoqueService;
 use App\Domain\Logistica\CentralService;
-use App\Domain\Logistica\JornadaService;
+use App\Domain\Logistica\Events\PedidoAtribuido;
+use App\Domain\Logistica\Events\PedidoEntrouNaFila;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\Events\PedidoStatusAtualizado;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Cliente\Cliente;
+use App\Models\Empresa;
 use App\Models\Estoque\Setor;
 use App\Models\Logistica\PedidoAtribuicao;
-use App\Models\Monitora\Veiculo;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -52,9 +55,9 @@ class CentralServiceTest extends TestCase
         // Fake SELETIVO (broadcasts): Event::fake() global mataria os model events
         // do Eloquent (creating da BelongsToTenant -> empresa_id ficaria null).
         Event::fake([
-            \App\Domain\Logistica\Events\PedidoEntrouNaFila::class,
-            \App\Domain\Logistica\Events\PedidoAtribuido::class,
-            \App\Domain\Pedido\Events\PedidoStatusAtualizado::class,
+            PedidoEntrouNaFila::class,
+            PedidoAtribuido::class,
+            PedidoStatusAtualizado::class,
         ]);
 
         $this->central = app(CentralService::class);
@@ -67,7 +70,7 @@ class CentralServiceTest extends TestCase
 
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId, 'preco_venda' => 100]);
         $this->cliente = Cliente::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
-        app(\App\Domain\Estoque\EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10.0);
+        app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10.0);
 
         $this->entregador = User::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
         $this->operador = User::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
@@ -143,7 +146,7 @@ class CentralServiceTest extends TestCase
     public function test_atribuicao_recusa_entregador_de_outra_empresa(): void
     {
         $pedido = $this->pedidoPendente();
-        $alheio = User::factory()->create();
+        $alheio = User::factory()->semPapel()->create();
 
         try {
             $this->central->atribuir($pedido, $this->empresaId, $alheio->id);
@@ -157,8 +160,8 @@ class CentralServiceTest extends TestCase
     public function test_atribuicao_recusa_pedido_de_empresa_diferente_da_esperada(): void
     {
         $pedido = $this->pedidoPendente();
-        $outraEmpresa = \App\Models\Empresa::factory()->create();
-        $entregadorOutra = User::factory()->create([
+        $outraEmpresa = Empresa::factory()->create();
+        $entregadorOutra = User::factory()->semPapel()->create([
             'empresa_id' => $outraEmpresa->id,
             'grupo_id' => $outraEmpresa->grupo_id,
         ]);

@@ -704,3 +704,28 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   Estados `semFronteiraSaas()` atendem os testes que exercitam a AUSENCIA.
 - Validacao: 142 migrations do zero; `RlsCoberturaTest` 6/354 sem skip; Pint
   aprovado. Ver `F1_18_SUITE_COM_ENFORCEMENT.md`.
+
+## Atualizacao de retomada - 2026-08-29 (F2-05 break-glass)
+
+- Primeira tarefa da F2. `support` era bypass total de RBAC em QUATRO camadas
+  (`Gate::before`, `PolicyEvaluator`, `podeAcessarEmpresa`, `empresasVisiveis`).
+  Medido, nao deduzido: a mesma rota devolvia 403 sem o flag e 200 com ele. Na
+  copia real ha 12 usuarios ativos assim e `platform_audit_logs` esta ZERADO.
+- O acesso virou EVENTO: `break_glass_grants` com alvo, motivo, prazo e autor,
+  decidido em ponto unico (`App\Domain\Acesso\BreakGlass`) e concedido por
+  `saas:break-glass:conceder`, que exige motivo. Expira sozinho.
+- Provado: sem concessao 403; vigente 200; expirada 403; revogada 403; concessao
+  de OUTRA empresa 403; uso deixa 1 entrada `break_glass.usado`; modo legado
+  preserva o bypass.
+- Defeito encontrado no proprio desenho: a primeira versao memorizava a decisao
+  por request, o que faria uma revogacao so valer no request seguinte. Agora a
+  consulta nao e memorizada; memoriza-se apenas o registro na trilha.
+- F2-08 parcial: 96 usos de `'support' => true` em 87 arquivos foram removidos.
+  A `UserFactory` passou a conceder PAPEL REAL (`papelAdministrador`) e o estado
+  `semPapel()` atende os testes que provam o 403. Progresso das falhas:
+  290 -> 69 -> 36 -> 23 -> 15 -> 4 -> 0.
+- Validacao: suite integral **1.347 passes / 4.274 assertions / zero falhas nos
+  DOIS modos**; Pint aprovado. Ver `F2_05_BREAK_GLASS.md`.
+- PENDENTE do F2-05: 2FA e aprovacao para acao critica exigem decisao sobre quem
+  aprova e o que e critico; `platform_admins.twofa_confirmado_em` ja existe e
+  precisa entrar no desenho.

@@ -10,6 +10,7 @@ use App\Models\Produto\Produto;
 use App\Models\Rh\Colaborador;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -148,7 +149,7 @@ class CargaFranqueadoTest extends TestCase
     {
         // Quem barra é o EstoqueService (saldo insuficiente) — a carga não
         // reimplementa essa regra.
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
         $this->servico()->carregar($this->franqueado('consignacao'), $this->deposito->id, [
             ['produto_id' => $this->produto->id, 'quantidade' => 9999],
         ]);
@@ -159,7 +160,7 @@ class CargaFranqueadoTest extends TestCase
         $f = $this->franqueado('consignacao');
         $operador = User::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
-            'support' => true,   // bypass de RBAC: o foco aqui é a rota, não a permissão
+            // bypass de RBAC: o foco aqui é a rota, não a permissão
         ]);
 
         $this->actingAs($operador, 'sanctum')

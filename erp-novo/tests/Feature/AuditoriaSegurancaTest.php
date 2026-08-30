@@ -31,8 +31,8 @@ class AuditoriaSegurancaTest extends TestCase
         $empresa = Empresa::factory()->create();
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
 
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Admin']);
         $ids = collect($chaves)->map(fn (string $c) => Permission::firstOrCreate(['chave' => $c])->id)->all();
@@ -134,7 +134,7 @@ class AuditoriaSegurancaTest extends TestCase
     /** Helper: usuário com auditoria.view na MESMA empresa (para ler histórico). */
     private function adminComAuditoria(Empresa $empresa): User
     {
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Auditor']);
         $role->permissions()->sync([Permission::firstOrCreate(['chave' => 'auditoria.view'])->id]);
         $user->roles()->attach($role->id, ['empresa_id' => $empresa->id]);

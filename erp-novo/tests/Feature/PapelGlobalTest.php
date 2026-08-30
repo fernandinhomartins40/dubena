@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,7 +31,6 @@ class PapelGlobalTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'GlobalOps']);
@@ -62,7 +62,7 @@ class PapelGlobalTest extends TestCase
 
         DB::table('role_user')->insert(['user_id' => $user->id, 'role_id' => $role->id, 'empresa_id' => null]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         DB::table('role_user')->insert(['user_id' => $user->id, 'role_id' => $role->id, 'empresa_id' => null]);
     }
 }

@@ -7,10 +7,14 @@ use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Domain\Mobile\Contracts\PushTransport;
+use App\Domain\Monitora\Contracts\SgcasaDriver;
+use App\Domain\Monitora\Drivers\FakeSgcasaDriver;
 use App\Models\User;
+use Database\Seeders\DeployAdminSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -39,7 +43,7 @@ class FaseF1SegurancaTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/ADMIN_SEED_PASSWORD/');
 
-        (new \Database\Seeders\DeployAdminSeeder)->run();
+        (new DeployAdminSeeder)->run();
     }
 
     public function test_seeder_de_admin_rejeita_senha_fraca_em_producao(): void
@@ -51,7 +55,7 @@ class FaseF1SegurancaTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/no mínimo/');
 
-        (new \Database\Seeders\DeployAdminSeeder)->run();
+        (new DeployAdminSeeder)->run();
     }
 
     // ---------------------------------------------------------------- T1.3
@@ -76,7 +80,7 @@ class FaseF1SegurancaTest extends TestCase
     /**
      * @param  class-string  $contrato
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('driversGate')]
+    #[DataProvider('driversGate')]
     public function test_driver_gate_falha_em_producao_quando_fake(
         string $contrato, string $chaveConfig, string $envVar
     ): void {
@@ -92,7 +96,7 @@ class FaseF1SegurancaTest extends TestCase
     /**
      * @param  class-string  $contrato
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('driversGate')]
+    #[DataProvider('driversGate')]
     public function test_driver_gate_permite_fake_fora_de_producao(
         string $contrato, string $chaveConfig, string $envVar
     ): void {
@@ -110,8 +114,8 @@ class FaseF1SegurancaTest extends TestCase
         // GPS ausente degrada (sem rastreamento), não corrompe dado — por isso
         // é a exceção deliberada ao fail-close: resolve, mas loga aviso.
         $this->assertInstanceOf(
-            \App\Domain\Monitora\Drivers\FakeSgcasaDriver::class,
-            app(\App\Domain\Monitora\Contracts\SgcasaDriver::class),
+            FakeSgcasaDriver::class,
+            app(SgcasaDriver::class),
         );
     }
 
@@ -127,7 +131,7 @@ class FaseF1SegurancaTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('rotasPublicasDoApp')]
+    #[DataProvider('rotasPublicasDoApp')]
     public function test_rota_publica_do_app_tem_throttle(string $uri): void
     {
         $rota = collect(Route::getRoutes())->first(fn ($r) => $r->uri() === $uri);
@@ -167,7 +171,7 @@ class FaseF1SegurancaTest extends TestCase
     public function test_support_nao_e_atribuivel_em_massa(): void
     {
         $user = new User;
-        $user->fill(['name' => 'X', 'email' => 'x@y.com', 'support' => true]);
+        $user->fill(['name' => 'X', 'email' => 'x@y.com']);
 
         $this->assertNotTrue(
             $user->support,

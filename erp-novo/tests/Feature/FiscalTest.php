@@ -136,7 +136,7 @@ class FiscalTest extends TestCase
 
     public function test_emite_via_api(): void
     {
-        $user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $pedido = $this->pedido(3);
 
         $this->actingAs($user, 'sanctum')->postJson('/api/admin/notas/emitir', [
@@ -148,7 +148,7 @@ class FiscalTest extends TestCase
 
     public function test_sem_permissao_recebe_403(): void
     {
-        $user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/notas')->assertStatus(403);
     }

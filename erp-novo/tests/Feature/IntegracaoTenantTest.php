@@ -11,6 +11,7 @@ use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 /**
@@ -25,7 +26,7 @@ class IntegracaoTenantTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -93,7 +94,7 @@ class IntegracaoTenantTest extends TestCase
         [, $empresa] = $this->suporte();
         app(EmpresaConfig::class)->newQuery()->create([
             'empresa_id' => $empresa->id,
-            'dados' => ['integracoes' => ['cartao' => ['pv' => 'PV-EMP', 'token' => \Illuminate\Support\Facades\Crypt::encryptString('T-EMP')]]],
+            'dados' => ['integracoes' => ['cartao' => ['pv' => 'PV-EMP', 'token' => Crypt::encryptString('T-EMP')]]],
         ]);
 
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
@@ -121,7 +122,7 @@ class IntegracaoTenantTest extends TestCase
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
         EmpresaConfig::query()->create([
             'empresa_id' => $empresa->id,
-            'dados' => ['integracoes' => ['pix' => ['webhook_hmac_secret' => \Illuminate\Support\Facades\Crypt::encryptString('HMAC-EMP')]]],
+            'dados' => ['integracoes' => ['pix' => ['webhook_hmac_secret' => Crypt::encryptString('HMAC-EMP')]]],
         ]);
 
         $parcela = app(FinanceiroService::class)->criar([
@@ -147,7 +148,7 @@ class IntegracaoTenantTest extends TestCase
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
         EmpresaConfig::query()->create([
             'empresa_id' => $empresa->id,
-            'dados' => ['integracoes' => ['pix' => ['webhook_hmac_secret' => \Illuminate\Support\Facades\Crypt::encryptString('HMAC-EMP')]]],
+            'dados' => ['integracoes' => ['pix' => ['webhook_hmac_secret' => Crypt::encryptString('HMAC-EMP')]]],
         ]);
 
         $parcela = app(FinanceiroService::class)->criar([

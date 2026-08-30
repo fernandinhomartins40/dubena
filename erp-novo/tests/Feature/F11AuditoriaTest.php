@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
+use App\Models\Estado;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\Rua;
@@ -23,7 +25,7 @@ class F11AuditoriaTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -48,7 +50,7 @@ class F11AuditoriaTest extends TestCase
         [, $empresa] = $this->suporte();
 
         // EmpresaConfig tem cert_senha (cast encrypted) — não pode aparecer no log.
-        $cfg = \App\Models\EmpresaConfig::query()->create(['empresa_id' => $empresa->id, 'cert_senha' => 'segredo123']);
+        $cfg = EmpresaConfig::query()->create(['empresa_id' => $empresa->id, 'cert_senha' => 'segredo123']);
 
         $log = AuditLog::query()->where('entidade', 'empresa_configs')->where('entidade_id', $cfg->id)->first();
         $this->assertNotNull($log);
@@ -68,7 +70,7 @@ class F11AuditoriaTest extends TestCase
     public function test_inconsistencias_detecta_ruas_similares(): void
     {
         [$user, $empresa] = $this->suporte();
-        \App\Models\Estado::query()->firstOrCreate(['uf' => 'PR'], ['descricao' => 'Paraná']);
+        Estado::query()->firstOrCreate(['uf' => 'PR'], ['descricao' => 'Paraná']);
         $cidade = Cidade::withoutGrupo()->create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'Curitiba', 'uf' => 'PR']);
 
         // Duas ruas com nomes quase iguais (typo) na mesma cidade → apontadas.
@@ -88,8 +90,8 @@ class F11AuditoriaTest extends TestCase
     public function test_inconsistencias_nao_cruza_cidades(): void
     {
         [$user, $empresa] = $this->suporte();
-        \App\Models\Estado::query()->firstOrCreate(['uf' => 'PR'], ['descricao' => 'Paraná']);
-        \App\Models\Estado::query()->firstOrCreate(['uf' => 'SP'], ['descricao' => 'São Paulo']);
+        Estado::query()->firstOrCreate(['uf' => 'PR'], ['descricao' => 'Paraná']);
+        Estado::query()->firstOrCreate(['uf' => 'SP'], ['descricao' => 'São Paulo']);
         $c1 = Cidade::withoutGrupo()->create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'A', 'uf' => 'PR']);
         $c2 = Cidade::withoutGrupo()->create(['grupo_id' => $empresa->grupo_id, 'descricao' => 'B', 'uf' => 'SP']);
         Bairro::withoutGrupo()->create(['grupo_id' => $empresa->grupo_id, 'cidade_id' => $c1->id, 'descricao' => 'Centro']);

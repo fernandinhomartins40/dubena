@@ -377,7 +377,7 @@ class EmpresaConfigController extends Controller
         $empresa = Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
         abort_unless($user->podeAcessarEmpresa($empresaId), 404);
 
-        if ($exigirAtiva && ! $user->support) {
+        if ($exigirAtiva && ! $user->acessoElevado($empresaId)) {
             abort_unless(app(TenantContext::class)->empresaId() === $empresaId, 404);
         }
 

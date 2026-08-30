@@ -5,12 +5,17 @@ namespace Tests\Feature;
 use App\Domain\Apoio\CadastroSlugs;
 use App\Domain\Caixa\CaixaService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PedidoService;
 use App\Domain\Relatorio\RelatorioService;
 use App\Models\Caixa\ContaMovimento;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
@@ -28,7 +33,6 @@ class FaseF00Test extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -76,7 +80,7 @@ class FaseF00Test extends TestCase
         );
 
         // ...e nenhuma rota pode referenciá-lo.
-        $referenciaStub = collect(\Illuminate\Support\Facades\Route::getRoutes())
+        $referenciaStub = collect(Route::getRoutes())
             ->contains(fn ($r) => str_contains((string) ($r->getActionName() ?? ''), 'StubController'));
         $this->assertFalse($referenciaStub, 'Nenhuma rota deve apontar para StubController.');
     }
@@ -88,11 +92,11 @@ class FaseF00Test extends TestCase
         $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         // Cria um pedido concretizado para o cliente via service de venda.
-        $situacao = \App\Models\Pedido\PedidoSituacao::factory()->create([
-            'grupo_id' => $empresa->grupo_id, 'efeito' => \App\Domain\Pedido\EfeitoPedido::PENDENTE,
+        $situacao = PedidoSituacao::factory()->create([
+            'grupo_id' => $empresa->grupo_id, 'efeito' => EfeitoPedido::PENDENTE,
         ]);
-        $produto = \App\Models\Produto\Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'preco_venda' => 100]);
-        $pedido = app(\App\Domain\Pedido\PedidoService::class)->criar([
+        $produto = Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'preco_venda' => 100]);
+        $pedido = app(PedidoService::class)->criar([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
         ], [['produto_id' => $produto->id, 'quantidade' => 2]]);
@@ -158,7 +162,7 @@ class FaseF00Test extends TestCase
     // ── F00.6 — rotas órfãs expostas ──────────────────────────────────────────
     public function test_rotas_orfas_estao_registradas(): void
     {
-        $rotas = collect(\Illuminate\Support\Facades\Route::getRoutes())->map->uri()->all();
+        $rotas = collect(Route::getRoutes())->map->uri()->all();
 
         foreach ([
             'api/admin/financeiro/lancamentos/agrupar',

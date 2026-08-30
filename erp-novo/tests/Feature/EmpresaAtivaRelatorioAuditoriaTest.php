@@ -28,16 +28,20 @@ class EmpresaAtivaRelatorioAuditoriaTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $padrao->id,
             'grupo_id' => $grupo->id,
-            'support' => true,
         ]);
 
         Cliente::factory()->create(['empresa_id' => $padrao->id, 'grupo_id' => $grupo->id]);
         Cliente::factory()->count(2)->create(['empresa_id' => $ativa->id, 'grupo_id' => $grupo->id]);
 
-        // O usuário aqui alcança a outra empresa por `support`, que no modelo
-        // legado era bypass total. Com o enforcement SaaS isso deixa de valer:
-        // o acesso passa a exigir grant explícito, então o cenário o concede.
-        FronteiraTenant::paraUsuario($user, [$padrao->id, $ativa->id]);
+        // O usuário alcançava a outra empresa por `support`, que era bypass
+        // total. Com o break-glass (F2-05) o flag não autoriza mais por si, e
+        // com o enforcement SaaS o acesso exige grant — então o cenário declara
+        // o vínculo explicitamente, nas duas camadas.
+        $user->empresas()->attach($ativa->id);
+        FronteiraTenant::paraUsuario($user->refresh(), [$padrao->id, $ativa->id]);
+        // O papel é por empresa (pivot `role_user.empresa_id`): sem concedê-lo
+        // também na ativa, o usuário chega nela sem permissão nenhuma.
+        FronteiraTenant::papelAdministrador($user, $ativa->id);
 
         return [$user, $padrao, $ativa];
     }
@@ -112,10 +116,9 @@ class EmpresaAtivaRelatorioAuditoriaTest extends TestCase
         $grupo = Grupo::factory()->create();
         $padrao = Empresa::factory()->create(['grupo_id' => $grupo->id]);
         $ativa = Empresa::factory()->create(['grupo_id' => $grupo->id]);
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $padrao->id,
             'grupo_id' => $grupo->id,
-            'support' => false,
         ]);
         $user->empresas()->attach($ativa->id);
         FronteiraTenant::sincronizarVinculosLegados($user->refresh());

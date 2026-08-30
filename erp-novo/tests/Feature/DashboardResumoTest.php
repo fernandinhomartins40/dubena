@@ -23,7 +23,7 @@ class DashboardResumoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         Cliente::factory()->count(3)->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);

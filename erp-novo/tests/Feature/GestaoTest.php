@@ -24,7 +24,7 @@ class GestaoTest extends TestCase
         parent::setUp();
         $this->empresa = Empresa::factory()->create();
         $this->user = User::factory()->create([
-            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true,
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
         ]);
         app(TenantContext::class)->set($this->empresa->id, $this->empresa->grupo_id);
     }
@@ -82,7 +82,7 @@ class GestaoTest extends TestCase
 
     public function test_sem_permissao_403(): void
     {
-        $u = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => false]);
+        $u = User::factory()->semPapel()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->actingAs($u, 'sanctum')->getJson('/api/admin/bens')->assertStatus(403);
     }
 }

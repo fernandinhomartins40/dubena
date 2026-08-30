@@ -3,17 +3,18 @@
 namespace Tests\Feature;
 
 use App\Domain\Caixa\MaloteService;
+use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Caixa\Conta;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
-use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -36,10 +37,11 @@ class MaloteTest extends TestCase
     private function cenario(): array
     {
         $empresa = Empresa::factory()->create();
+        // Ator do cenário: precisa de papel real (a factory concede). O usuário
+        // sem permissão é criado nos testes que exercitam a negação.
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $conta = Conta::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -143,7 +145,7 @@ class MaloteTest extends TestCase
     public function test_filtra_por_entregador(): void
     {
         [$user, $empresa] = $this->cenario();
-        $outro = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $outro = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         $this->pedido($empresa, 50.00, extra: ['entregador_user_id' => $user->id]);
         $this->pedido($empresa, 70.00, extra: ['entregador_user_id' => $outro->id]);
@@ -224,7 +226,7 @@ class MaloteTest extends TestCase
         $pedido = $this->pedido($empresa, 200.00, extra: ['cancelado' => true]);
 
         // Baixar parcela de título estornado criaria receita que não existe.
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
         app(MaloteService::class)->fechar($empresa->id, [$pedido->id], $conta->id, $user->id);
     }
 
@@ -236,7 +238,7 @@ class MaloteTest extends TestCase
         try {
             app(MaloteService::class)->fechar($empresa->id, [$pedido->id], null, $user->id);
             $this->fail('deveria exigir conta');
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->assertStringContainsString('Empresas', $e->errors()['conta_id'][0]);
         }
     }
@@ -266,7 +268,7 @@ class MaloteTest extends TestCase
         ]);
         $pedido = $this->pedido($empresa, 10.00);
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->expectException(ValidationException::class);
         app(MaloteService::class)->fechar($empresa->id, [$pedido->id], $contaAlheia->id, $user->id);
     }
 
@@ -287,8 +289,8 @@ class MaloteTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.baixadas', 1);
 
-        $leitor = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $this->actingAs($leitor, 'sanctum')
             ->postJson('/api/admin/malotes/fechar', ['pedidos' => [$pedido->id], 'conta_id' => $conta->id])

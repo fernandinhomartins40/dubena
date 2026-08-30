@@ -52,7 +52,6 @@ class TrocaDeEmpresaRegraTest extends TestCase
         $this->usuario = User::factory()->create([
             'empresa_id' => $this->matriz->id,
             'grupo_id' => $rede->id,
-            'support' => false,
         ]);
         $this->usuario->empresas()->attach($this->filial->id);
         FronteiraTenant::sincronizarVinculosLegados($this->usuario->refresh());

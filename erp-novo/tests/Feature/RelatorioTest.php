@@ -38,7 +38,7 @@ class RelatorioTest extends TestCase
     {
         parent::setUp();
         $this->empresa = Empresa::factory()->create();
-        $this->user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true]);
+        $this->user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         $this->cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
@@ -168,7 +168,7 @@ class RelatorioTest extends TestCase
 
     public function test_relatorio_sem_permissao_403(): void
     {
-        $user = User::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => false]);
+        $user = User::factory()->semPapel()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
 
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/admin/relatorios/vendas?inicio=2026-01-01&fim=2026-01-31')

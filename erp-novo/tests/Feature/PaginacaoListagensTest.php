@@ -65,7 +65,6 @@ class PaginacaoListagensTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
-            'support' => false,
         ]);
         $papel = Role::create(['grupo_id' => $this->empresa->grupo_id, 'nome' => 'Fiscal']);
         $papel->permissions()->sync([Permission::firstOrCreate(['chave' => 'fiscal.view'])->id]);

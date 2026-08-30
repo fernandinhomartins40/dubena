@@ -89,7 +89,7 @@ class SuperAdminTest extends TestCase
     public function test_usuario_de_tenant_nao_acessa_superadmin(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         // Token de tenant (guard sanctum) não vale no guard 'platform'.
         $this->actingAs($user, 'sanctum')->getJson('/api/superadmin/empresas')->assertStatus(401);

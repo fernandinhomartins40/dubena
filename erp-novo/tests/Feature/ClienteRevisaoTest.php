@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteRevisao;
 use App\Models\Empresa;
+use App\Models\Geografico\Cidade;
+use App\Models\Geografico\Rua;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,7 +27,7 @@ class ClienteRevisaoTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         return [$user, $empresa];
@@ -62,7 +65,7 @@ class ClienteRevisaoTest extends TestCase
         [$user, $empresa] = $this->suporte();
         $this->parSuspeito($empresa);
 
-        $revisao = \App\Models\Cliente\ClienteRevisao::query()->firstOrFail();
+        $revisao = ClienteRevisao::query()->firstOrFail();
         $manterId = min((int) $revisao->cliente_id, (int) $revisao->candidato_id);
         $absorvidoId = max((int) $revisao->cliente_id, (int) $revisao->candidato_id);
 
@@ -84,7 +87,7 @@ class ClienteRevisaoTest extends TestCase
         [$user, $empresa] = $this->suporte();
         $this->parSuspeito($empresa);
 
-        $revisao = \App\Models\Cliente\ClienteRevisao::query()->firstOrFail();
+        $revisao = ClienteRevisao::query()->firstOrFail();
 
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/admin/clientes/revisoes/{$revisao->id}/descartar", [
@@ -123,10 +126,10 @@ class ClienteRevisaoTest extends TestCase
     {
         [$user, $empresa] = $this->suporte();
 
-        $cidade = \App\Models\Geografico\Cidade::factory()->create([
+        $cidade = Cidade::factory()->create([
             'grupo_id' => $empresa->grupo_id, 'descricao' => 'Guarapuava',
         ]);
-        $rua = \App\Models\Geografico\Rua::query()->create([
+        $rua = Rua::query()->create([
             'grupo_id' => $empresa->grupo_id, 'cidade_id' => $cidade->id,
             'descricao' => 'Avenida Bandeirantes', 'ativo' => true,
         ]);
@@ -156,8 +159,8 @@ class ClienteRevisaoTest extends TestCase
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($user, 'sanctum')->getJson('/api/admin/clientes/revisoes')->assertStatus(403);

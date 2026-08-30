@@ -34,7 +34,6 @@ class GasDoPovoProgramaTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         $produto = Produto::factory()->create([
@@ -110,7 +109,7 @@ class GasDoPovoProgramaTest extends TestCase
     {
         $empresa = Empresa::factory()->create();
         $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true,
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($user, 'sanctum')
@@ -203,8 +202,8 @@ class GasDoPovoProgramaTest extends TestCase
     public function test_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $user = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
 
         $this->actingAs($user, 'sanctum')

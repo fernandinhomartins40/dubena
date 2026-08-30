@@ -5,16 +5,21 @@ namespace Tests\Feature;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Mobile\PedidoMobileService;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Models\Apoio\Feriado;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteEndereco;
 use App\Models\Cliente\ClienteTelefone;
 use App\Models\Crm\Promocao;
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
 use App\Models\Estoque\Setor;
 use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Monitora\Cerca;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
+use App\Models\Produto\ProdutoCondicaoPreco;
+use App\Models\Rh\Colaborador;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -42,11 +47,11 @@ class MobileTest extends TestCase
         $this->empresa = Empresa::factory()->create();
         $this->user = User::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
-            'email' => 'app@teste.com', 'password' => Hash::make('segredo123'), 'support' => true,
+            'email' => 'app@teste.com', 'password' => Hash::make('segredo123'),
         ]);
         // O login do app de CAMPO exige cadastro de colaborador ativo
         // (fail-closed): sem ele nao ha papel a conceder.
-        \App\Models\Rh\Colaborador::factory()->create([
+        Colaborador::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
             'user_id' => $this->user->id, 'ativo' => true,
         ]);
@@ -436,7 +441,7 @@ class MobileTest extends TestCase
 
     public function test_config_do_app_da_empresa(): void
     {
-        \App\Models\EmpresaConfig::query()->create([
+        EmpresaConfig::query()->create([
             'empresa_id' => $this->empresa->id,
             'tempoentrega' => 45,
             'dados' => ['app' => ['gaspovo_ativo' => true, 'video' => ['url' => 'https://x/v.mp4', 'titulo' => 'Abertura']]],
@@ -455,7 +460,7 @@ class MobileTest extends TestCase
             'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Crédito', 'num_parcelas' => 1, 'a_vista' => false, 'ativo' => true,
         ]);
         // Produto custa 100 à vista, mas 120 nesta condição (crédito).
-        \App\Models\Produto\ProdutoCondicaoPreco::query()->create([
+        ProdutoCondicaoPreco::query()->create([
             'empresa_id' => $this->empresa->id, 'produto_id' => $this->produto->id,
             'condicaopagamento_id' => $condicao->id, 'gasdopovo' => false, 'valor' => 120,
         ]);
@@ -481,7 +486,7 @@ class MobileTest extends TestCase
         $condicao = CondicaoPagamento::query()->create([
             'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Crédito', 'num_parcelas' => 1, 'a_vista' => false, 'ativo' => true,
         ]);
-        \App\Models\Produto\ProdutoCondicaoPreco::query()->create([
+        ProdutoCondicaoPreco::query()->create([
             'empresa_id' => $this->empresa->id, 'produto_id' => $this->produto->id,
             'condicaopagamento_id' => $condicao->id, 'gasdopovo' => false, 'valor' => 120,
         ]);
@@ -567,7 +572,7 @@ class MobileTest extends TestCase
 
     public function test_feriados_do_grupo(): void
     {
-        \App\Models\Apoio\Feriado::query()->create([
+        Feriado::query()->create([
             'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Natal',
             'data' => '2026-12-25', 'recorrente' => true, 'ativo' => true,
         ]);
@@ -699,7 +704,7 @@ class MobileTest extends TestCase
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id,
         ]);
         $outro = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
-        $enderecoAlheio = \App\Models\Cliente\ClienteEndereco::query()->create([
+        $enderecoAlheio = ClienteEndereco::query()->create([
             'empresa_id' => $this->empresa->id, 'cliente_id' => $outro->id, 'endereco' => 'Rua X',
         ]);
 

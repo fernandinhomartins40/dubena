@@ -262,9 +262,11 @@ class PapelController extends Controller
             ]);
         }
 
-        // Anti-escalonamento: o ator não-suporte não pode conceder além do que tem.
+        // Anti-escalonamento: ninguém concede além do que tem. A exceção é o
+        // acesso elevado (F2-05), que agora exige break-glass vigente — antes
+        // bastava o flag `support` permanente.
         $ator = $request->user();
-        if (! $ator->support) {
+        if (! $ator->acessoElevado($this->tenant->empresaId())) {
             $minhas = $ator->permissoesEfetivas($this->tenant->empresaId());
             $excedente = array_values(array_diff($validas, $minhas));
             if ($excedente !== []) {

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Acesso\BreakGlass;
 use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Drivers\CaixaBoletoDriver;
@@ -102,6 +103,12 @@ class AppServiceProvider extends ServiceProvider
         // O middleware ResolveTenant popula; Services/Models/Scopes injetam o MESMO objeto.
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
         $this->app->scoped(TenantEnvelopeRuntime::class, fn () => new TenantEnvelopeRuntime);
+
+        // BreakGlass memoriza a decisão por par usuário/empresa dentro do ciclo:
+        // as quatro camadas de autorização perguntam a mesma coisa várias vezes
+        // por requisição, e sem instância única a trilha registraria o mesmo uso
+        // repetidas vezes.
+        $this->app->scoped(BreakGlass::class);
 
         // Driver de boleto (N7/F08 — GATE bancário). COBRANCA_DRIVER seleciona o
         // CNAB real por banco: 'caixa' (104) ou 'itau' (341); qualquer outro valor

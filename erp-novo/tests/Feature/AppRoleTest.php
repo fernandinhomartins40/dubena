@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteTelefone;
 use App\Models\Empresa;
+use App\Models\Rh\Colaborador;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -57,7 +58,7 @@ class AppRoleTest extends TestCase
         ]);
 
         // Pre-requisito do app de campo: colaborador ativo (fail-closed).
-        \App\Models\Rh\Colaborador::factory()->create([
+        Colaborador::factory()->create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
             'user_id' => $user->id, 'ativo' => true,
         ]);
@@ -118,7 +119,7 @@ class AppRoleTest extends TestCase
     {
         // actingAs (sem token pessoal) = autenticação stateful do back-office.
         $staff = User::factory()->create([
-            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true,
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
         ]);
 
         $this->actingAs($staff, 'sanctum')->getJson('/api/app/v1/entregador/jornada')->assertOk();

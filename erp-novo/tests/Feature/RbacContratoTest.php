@@ -28,16 +28,17 @@ class RbacContratoTest extends TestCase
     public function test_me_devolve_roles_e_permissions_do_papel(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         // Papel "Caixa" com 2 permissões, vinculado ao usuário NA empresa.
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Caixa']);
-        $pView = Permission::create(['chave' => 'caixa.view']);
-        $pEdit = Permission::create(['chave' => 'caixa.edit']);
+        // `firstOrCreate`: o catálogo pode já ter sido semeado pela fixture, e
+        // `create` estouraria a unicidade da chave.
+        $pView = Permission::firstOrCreate(['chave' => 'caixa.view']);
+        $pEdit = Permission::firstOrCreate(['chave' => 'caixa.edit']);
         $role->permissions()->sync([$pView->id, $pEdit->id]);
         $user->roles()->attach($role->id, ['empresa_id' => $empresa->id]);
 
@@ -51,10 +52,9 @@ class RbacContratoTest extends TestCase
     public function test_usuario_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
         // Sem papel algum → sem permissões.
 
@@ -65,17 +65,23 @@ class RbacContratoTest extends TestCase
 
     public function test_support_recebe_universo_de_permissoes(): void
     {
+        // Comportamento do modo LEGADO: com o enforcement ligado, `support`
+        // sozinho nao autoriza mais — quem autoriza e o break-glass (F2-05).
+        config()->set('saas_transformation.enforcement.tenant_envelope', false);
         // Popula o catálogo (como o RbacSeeder faria).
         foreach (PermissaoCatalogo::chaves() as $chave) {
             Permission::firstOrCreate(['chave' => $chave]);
         }
 
         $empresa = Empresa::factory()->create();
-        $support = User::factory()->create([
+        $support = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
+        // `support` não é fillable (T1.8). No modo legado ele ainda vale por si;
+        // com o enforcement é o break-glass que autoriza (F2-05).
+        $support->forceFill(['support' => true])->save();
+        $support = $support->fresh();
 
         $resp = $this->actingAs($support, 'sanctum')->getJson('/api/me')->assertOk();
 

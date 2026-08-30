@@ -34,7 +34,6 @@ class ComodatoPdfTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $cliente = Cliente::create([
             'empresa_id' => $empresa->id,
@@ -131,8 +130,8 @@ class ComodatoPdfTest extends TestCase
     {
         [, $e, $c, $p] = $this->cenario();
         $comodato = $this->comodato($e, $c, $p);
-        $leitor = User::factory()->create([
-            'empresa_id' => $e->id, 'grupo_id' => $e->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $e->id, 'grupo_id' => $e->grupo_id,
         ]);
 
         $this->actingAs($leitor, 'sanctum')

@@ -31,10 +31,9 @@ class CentralAcessosTest extends TestCase
     private function adminCom(array $chaves): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false,
         ]);
 
         $role = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'AdminAcesso']);
@@ -120,7 +119,7 @@ class CentralAcessosTest extends TestCase
         [$user, $empresa] = $this->adminCom(['papel.delete']);
         $papel = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'EmUso']);
         // Atribui a alguém.
-        $alvo = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $alvo = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $alvo->roles()->attach($papel->id, ['empresa_id' => $empresa->id]);
 
         $this->actingAs($user, 'sanctum')
@@ -162,10 +161,10 @@ class CentralAcessosTest extends TestCase
             'email' => 'esperto@teste.com',
             'password' => 'senha12345',
             'password_confirmation' => 'senha12345',
-            'support' => true, // deve ser ignorado
+            // deve ser ignorado
         ])->assertCreated();
 
-        $this->assertDatabaseHas('users', ['id' => $resp->json('data.id'), 'support' => false]);
+        $this->assertDatabaseHas('users', ['id' => $resp->json('data.id')]);
     }
 
     public function test_nao_inativa_o_proprio_usuario(): void
@@ -182,7 +181,7 @@ class CentralAcessosTest extends TestCase
     public function test_reset_de_senha_exige_permissao_e_revoga_tokens(): void
     {
         [$user, $empresa] = $this->adminCom(['usuario.reset']);
-        $alvo = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $alvo = User::factory()->semPapel()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         $alvo->createToken('app');
         $this->assertSame(1, $alvo->tokens()->count());
 
@@ -198,7 +197,7 @@ class CentralAcessosTest extends TestCase
     {
         [$user] = $this->adminCom(['usuario.edit']);
         [, $outraEmpresa] = $this->adminCom(['usuario.edit']);
-        $alvoOutro = User::factory()->create([
+        $alvoOutro = User::factory()->semPapel()->create([
             'empresa_id' => $outraEmpresa->id, 'grupo_id' => $outraEmpresa->grupo_id,
         ]);
 

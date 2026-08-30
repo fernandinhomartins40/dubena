@@ -25,7 +25,7 @@ class F07FinanceiroCaixaChequeTest extends TestCase
     private function suporte(): array
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $user = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
 
         return [$user, $empresa];
     }
@@ -48,7 +48,8 @@ class F07FinanceiroCaixaChequeTest extends TestCase
     public function test_agrupar_titulos_via_api(): void
     {
         [$user, $empresa] = $this->suporte();
-        $t1 = $this->titulo($empresa, 100); $t2 = $this->titulo($empresa, 150);
+        $t1 = $this->titulo($empresa, 100);
+        $t2 = $this->titulo($empresa, 150);
 
         $resp = $this->actingAs($user, 'sanctum')->postJson('/api/admin/financeiro/lancamentos/agrupar', [
             'titulos' => [$t1->id, $t2->id], 'pagarreceber' => 'R', 'descricao' => 'Fechamento mês',

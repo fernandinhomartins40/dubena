@@ -23,7 +23,7 @@ class LookupTest extends TestCase
     private function user(): User
     {
         $empresa = Empresa::factory()->create();
-        $u = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => true]);
+        $u = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
 
         return $u;

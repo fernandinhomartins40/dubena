@@ -22,7 +22,6 @@ class CadastroApoioTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         return [$user, $empresa];
@@ -132,10 +131,10 @@ class CadastroApoioTest extends TestCase
     public function test_usuario_sem_permissao_recebe_403(): void
     {
         $empresa = Empresa::factory()->create();
-        $user = User::factory()->create([
+        $user = User::factory()->semPapel()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => false, // sem roles → sem permissão
+            // sem roles → sem permissão
         ]);
 
         $this->actingAs($user, 'sanctum')

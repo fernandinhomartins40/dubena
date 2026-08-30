@@ -7,6 +7,7 @@ use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Produto\Produto;
 use App\Models\Satelite\Comodato;
+use App\Models\Satelite\ComodatoContrato;
 use App\Models\Satelite\ComodatoMovimento;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,7 +27,6 @@ class ComodatoContratoVersaoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
         $cliente = Cliente::create([
             'empresa_id' => $empresa->id,
@@ -176,7 +176,7 @@ class ComodatoContratoVersaoTest extends TestCase
             ->where('tipo', ComodatoMovimento::DEVOLUCAO)->sole();
 
         // Usuário com edit mas sem `comodato.estornar` não desfaz entrega.
-        $comum = User::factory()->create([
+        $comum = User::factory()->semPapel()->create([
             'empresa_id' => $e->id,
             'grupo_id' => $e->grupo_id,
         ]);
@@ -203,7 +203,7 @@ class ComodatoContratoVersaoTest extends TestCase
         $comodato = $this->emprestar($user, $e, $c, $p);
         $versao = $comodato->id;
 
-        $contrato = \App\Models\Satelite\ComodatoContrato::where('comodato_id', $comodato->id)->sole();
+        $contrato = ComodatoContrato::where('comodato_id', $comodato->id)->sole();
         $this->assertNull($contrato->assinado_em);
 
         $this->actingAs($user, 'sanctum')

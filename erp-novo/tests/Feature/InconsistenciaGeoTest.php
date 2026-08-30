@@ -37,7 +37,6 @@ class InconsistenciaGeoTest extends TestCase
         $user = User::factory()->create([
             'empresa_id' => $empresa->id,
             'grupo_id' => $empresa->grupo_id,
-            'support' => true,
         ]);
 
         $cidade = Cidade::create([
@@ -199,8 +198,8 @@ class InconsistenciaGeoTest extends TestCase
 
         // Usuário com apenas `cliente.view` (o que basta para o GET) não pode
         // gravar: a escrita exige `cliente.edit`.
-        $leitor = User::factory()->create([
-            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'support' => false,
+        $leitor = User::factory()->semPapel()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
         ]);
         $papel = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Leitor']);
         $papel->permissions()->sync([Permission::firstOrCreate(['chave' => 'cliente.view'])->id]);

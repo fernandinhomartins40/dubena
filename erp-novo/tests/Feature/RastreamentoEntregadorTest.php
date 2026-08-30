@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Logistica\JornadaService;
 use App\Domain\Mobile\Events\EntregadorPosicaoAtualizada;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
@@ -39,14 +40,14 @@ class RastreamentoEntregadorTest extends TestCase
         parent::setUp();
         $this->empresa = Empresa::factory()->create();
         $this->entregador = User::factory()->create([
-            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'support' => true,
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
         ]);
         $this->setor = Setor::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10);
 
         // L4: o ping de posição agora exige jornada ativa — abre uma para o entregador.
-        app(\App\Domain\Logistica\JornadaService::class)->iniciar($this->entregador, null);
+        app(JornadaService::class)->iniciar($this->entregador, null);
     }
 
     private function pedido(PedidoSituacao $situacao): Pedido
