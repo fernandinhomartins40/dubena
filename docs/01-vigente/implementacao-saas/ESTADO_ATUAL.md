@@ -1180,3 +1180,39 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - O comando NAO dispara mais a suite (a versao com `Process` aninhado falhava
   MUDO no Windows). Sao duas etapas:
   `API_SCHEMA_CAPTURA=1 php artisan test` e depois `php artisan api:schema`.
+
+## Atualizacao de retomada - 2026-08-31 (F3-04A papel da situacao)
+
+- Primeira tarefa da **F3**. Escolhida por ser a mais concreta e por ter um
+  defeito ATIVO, nao so um risco de desenho.
+- `EntregaService::iniciarRota()` — a acao que o entregador dispara ao sair com
+  a carga — encontrava a situacao de deslocamento por
+  `LIKE '%saiu%' OR '%rota%' OR '%caminho%'`, desempatava por `orderBy('id')` e,
+  nao achando, **CRIAVA** "Saiu para entrega" para continuar.
+- O item 3 e o pior tipo de defeito: silencioso e cumulativo. O cliente
+  configurou o Kanban dele e o sistema acrescenta uma coluna que ele nao pediu.
+  A partir dai existem dois nomes para o mesmo momento, o relatorio soma errado,
+  e nada liga o sintoma a causa.
+- Falso positivo do outro lado: "Saiu do estoque para conferencia" casa com
+  `%saiu%` e viraria destino de entrega. Ha teste para isso.
+- CORRECAO: `papel` declarado na situacao (`PapelSituacao::EM_ROTA`). O
+  `EfeitoPedido` continua com 3 valores e governa a maquina de estados — o papel
+  distingue momentos DENTRO de um mesmo efeito.
+- Quatro decisoes: default NENHUM (papel e afirmacao, nao inferencia);
+  exclusivo por grupo (dois alvos devolveriam o desempate arbitrario);
+  sem papel a acao FALHA com mensagem acionavel (erro custa um minuto, situacao
+  duplicada em silencio contamina o relatorio para sempre); exposto na UI do
+  Kanban (senao a config existiria so na API).
+- CONVERSAO: a heuristica antiga roda UMA vez, na migration, e so onde e
+  inequivoca — um unico candidato no grupo. Grupo com dois candidatos fica SEM
+  papel de proposito. Escolher "a de menor id" resolveria a migration e deixaria
+  uma decisao errada gravada num banco que ninguem revisaria.
+- Testes em ESPANHOL de proposito (`En reparto`, `Camino al cliente`): e o
+  cenario que o gate da F3 exige e que a heuristica antiga nao sobrevive.
+- O contrato de schema (F2-01) capturou a mudanca SOZINHO: `papel` apareceu no
+  diff de `api-schema.json` sem ninguem editar o arquivo. Foi para isso que ele
+  foi construido.
+- Validacao: 14 testes focais; suite **1460 passes / 4627 assertions / zero
+  falhas nos DOIS modos**; RlsCobertura 6/6 e migration up->down->up em
+  PostgreSQL real; tsc limpo; Vitest 39; Pint aprovado.
+  Ver `F3_04A_PAPEL_DA_SITUACAO.md`.

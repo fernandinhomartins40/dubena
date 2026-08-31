@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Logistica\JornadaService;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
@@ -18,8 +19,11 @@ use Tests\TestCase;
 
 /**
  * L6 — Iniciar rota: move as entregas PENDENTES do entregador para a situação
- * "Saiu para entrega" (criando-a no grupo se não existir), de forma idempotente,
- * e exige jornada ativa.
+ * marcada com o papel EM_ROTA, de forma idempotente, e exige jornada ativa.
+ *
+ * F3-04A mudou o contrato: a situação de deslocamento é CONFIGURADA (papel
+ * declarado), não mais procurada por `LIKE` na descrição nem criada em silêncio
+ * quando a busca falha. Ver `PapelSituacaoEmRotaTest` para o porquê.
  */
 class IniciarRotaTest extends TestCase
 {
@@ -35,6 +39,8 @@ class IniciarRotaTest extends TestCase
 
     private PedidoSituacao $pendente;
 
+    private PedidoSituacao $emRota;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -46,6 +52,12 @@ class IniciarRotaTest extends TestCase
         $this->produto = Produto::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100]);
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 100, 10);
         $this->pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        // F3-04A: a situação de deslocamento agora é configurada, não inventada.
+        $this->emRota = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create([
+            'grupo_id' => $this->empresa->grupo_id,
+            'descricao' => 'Saiu para entrega',
+            'papel' => PapelSituacao::EM_ROTA->value,
+        ]);
 
         // Jornada ativa (exigida pelo endpoint).
         app(JornadaService::class)->iniciar($this->entregador, null);
@@ -72,14 +84,10 @@ class IniciarRotaTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.iniciados', 2);
 
-        // A situação "Saiu para entrega" foi criada no grupo e aplicada aos pedidos.
-        $alvo = PedidoSituacao::query()
-            ->where('grupo_id', $this->empresa->grupo_id)
-            ->where('descricao', 'Saiu para entrega')->first();
-        $this->assertNotNull($alvo);
-        $this->assertSame(EfeitoPedido::PENDENTE, $alvo->efeito);
-        $this->assertSame($alvo->id, $p1->refresh()->pedidosituacao_id);
-        $this->assertSame($alvo->id, $p2->refresh()->pedidosituacao_id);
+        // A situação com papel EM_ROTA foi aplicada aos pedidos.
+        $this->assertSame($this->emRota->id, $p1->refresh()->pedidosituacao_id);
+        $this->assertSame($this->emRota->id, $p2->refresh()->pedidosituacao_id);
+        $this->assertSame(EfeitoPedido::PENDENTE, $this->emRota->efeito);
     }
 
     public function test_iniciar_rota_e_idempotente(): void
@@ -96,18 +104,35 @@ class IniciarRotaTest extends TestCase
             ->assertJsonPath('data.iniciados', 0);
     }
 
-    public function test_reusa_situacao_de_deslocamento_existente(): void
+    /**
+     * O nome da situação deixou de importar: quem decide é o papel.
+     *
+     * Antes, uma situação chamada "Em rota de entrega" era encontrada por
+     * `LIKE '%rota%'`; com outro nome qualquer, não seria.
+     */
+    public function test_usa_a_situacao_com_papel_seja_qual_for_a_descricao(): void
     {
-        $existente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)
-            ->create(['grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Em rota de entrega']);
+        $this->emRota->update(['descricao' => 'Camino al cliente']);
         $p = $this->pedido();
 
         $this->actingAs($this->entregador, 'sanctum')
             ->postJson('/api/app/v1/entregador/rota/iniciar')->assertOk();
 
-        $this->assertSame($existente->id, $p->refresh()->pedidosituacao_id);
-        // Não criou uma segunda situação de rota.
-        $this->assertSame(0, PedidoSituacao::query()->where('descricao', 'Saiu para entrega')->count());
+        $this->assertSame($this->emRota->id, $p->refresh()->pedidosituacao_id);
+    }
+
+    /** Sem papel configurado, a ação pede configuração em vez de inventar. */
+    public function test_sem_papel_configurado_recusa_sem_criar_situacao(): void
+    {
+        $this->emRota->update(['papel' => PapelSituacao::NENHUM->value]);
+        $this->pedido();
+        $antes = PedidoSituacao::query()->count();
+
+        $this->actingAs($this->entregador, 'sanctum')
+            ->postJson('/api/app/v1/entregador/rota/iniciar')
+            ->assertStatus(422);
+
+        $this->assertSame($antes, PedidoSituacao::query()->count());
     }
 
     public function test_sem_jornada_ativa_rejeita(): void

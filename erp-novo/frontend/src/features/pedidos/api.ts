@@ -14,11 +14,21 @@ export interface KanbanColuna {
   pedidos: { id: number; valorvenda: number; datahora: string | null; cliente: string | null }[]
 }
 
+/**
+ * Papel OPERACIONAL da situação (F3-04A).
+ *
+ * O efeito diz o que a transição faz com estoque e financeiro; o papel diz qual
+ * momento a situação representa. Antes, o app do entregador descobria a situação
+ * de deslocamento procurando `%saiu%`/`%rota%` na descrição — o que só funciona
+ * para quem escreveu essas palavras em português.
+ */
+export type PapelSituacao = 'NENHUM' | 'EM_ROTA'
+
 export interface PedidoSituacao {
-  id: number; descricao: string; efeito: EfeitoPedido; cor: string | null; ordem: number; ativo: boolean
+  id: number; descricao: string; efeito: EfeitoPedido; papel: PapelSituacao; cor: string | null; ordem: number; ativo: boolean
 }
 export interface SituacaoForm {
-  id?: number; descricao: string; efeito: EfeitoPedido; cor?: string | null
+  id?: number; descricao: string; efeito: EfeitoPedido; papel?: PapelSituacao; cor?: string | null
 }
 
 export function usePedidos(situacaoId: number, q: string, page: number) {

@@ -3,12 +3,14 @@
 namespace App\Domain\Mobile;
 
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoComprovacao;
 use App\Models\Pedido\PedidoOcorrencia;
 use App\Models\Pedido\PedidoSituacao;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -115,7 +117,7 @@ class EntregaService
      * "Saiu para entrega" do grupo (criada se o grupo ainda não tem uma situação de
      * deslocamento). Reusa a máquina de estados — tempo real/central notificados.
      *
-     * @return array{iniciados:int, pedidos:\Illuminate\Support\Collection<int,Pedido>}
+     * @return array{iniciados:int, pedidos:Collection<int,Pedido>}
      */
     public function iniciarRota(int $empresaId, int $entregadorUserId): array
     {
@@ -141,30 +143,36 @@ class EntregaService
     }
 
     /**
-     * Situação de DESLOCAMENTO do grupo (efeito PENDENTE, descrição indicando rota).
-     * Não existindo, cria "Saiu para entrega" — o plano L0 previa a situação
-     * intermediária por grupo, sem hard-code de id.
+     * Situação de DESLOCAMENTO do grupo, pelo PAPEL declarado (F3-04A).
+     *
+     * Antes isto procurava por `LIKE '%saiu%' OR '%rota%' OR '%caminho%'` e,
+     * não achando, CRIAVA "Saiu para entrega". Funcionava para uma revenda que
+     * escreveu essas palavras; para a segunda — "Em trânsito", ou qualquer
+     * coisa em espanhol — a busca falhava e o sistema cadastrava uma situação
+     * concorrente, invisível na configuração que o cliente montou.
+     *
+     * Agora a intenção vem do cadastro. Sem papel declarado, a ação FALHA com
+     * uma pergunta respondível, em vez de inventar um estado: um erro que diz o
+     * que configurar custa um minuto; uma situação duplicada em silêncio
+     * contamina o relatório do cliente e ninguém liga uma coisa à outra.
      */
     private function situacaoSaiuParaEntrega(int $grupoId): PedidoSituacao
     {
         $alvo = PedidoSituacao::query()
             ->where('grupo_id', $grupoId)
-            ->where('efeito', EfeitoPedido::PENDENTE->value)
+            ->where('papel', PapelSituacao::EM_ROTA->value)
             ->where('ativo', true)
-            ->where(function ($q) {
-                foreach (['%saiu%', '%rota%', '%caminho%'] as $termo) {
-                    $q->orWhereRaw('LOWER(descricao) LIKE ?', [$termo]);
-                }
-            })
-            ->orderBy('id')->first();
+            ->orderBy('id')
+            ->first();
 
-        return $alvo ?? PedidoSituacao::create([
-            'grupo_id' => $grupoId,
-            'descricao' => 'Saiu para entrega',
-            'efeito' => EfeitoPedido::PENDENTE->value,
-            'cor' => '#2563EB',
-            'ativo' => true,
-        ]);
+        if ($alvo === null) {
+            throw ValidationException::withMessages([
+                'situacao' => 'Nenhuma situação de pedido está marcada como "Saiu para entrega". '
+                    .'Configure o papel da situação em Configurações › Situações de pedido.',
+            ]);
+        }
+
+        return $alvo;
     }
 
     /** Guarda um upload no disco privado, em pasta por tenant/pedido. */

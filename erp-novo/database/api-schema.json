@@ -5378,7 +5378,8 @@
             "cor": false,
             "descricao": true,
             "efeito": true,
-            "ordem": false
+            "ordem": false,
+            "papel": false
         },
         "response": {
             "data.cor": "string",
@@ -7336,7 +7337,8 @@
             "cor": false,
             "descricao": true,
             "efeito": true,
-            "ordem": false
+            "ordem": false,
+            "papel": false
         },
         "response": {
             "data.ativo": "bool",
@@ -7348,6 +7350,7 @@
             "data.id": "int",
             "data.ordem": "int",
             "data.padrao_tela_pedido": "bool",
+            "data.papel": "string",
             "data.tenant_account_id": "null",
             "data.updated_at": "string"
         },

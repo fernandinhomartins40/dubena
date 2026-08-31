@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Shared\PdfService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -314,7 +315,7 @@ class PedidoController extends Controller
      */
     private function validarSituacao(Request $request, ?int $ignorarId = null): array
     {
-        return $request->validate([
+        $dados = $request->validate([
             'descricao' => [
                 'required', 'string', 'max:255',
                 Rule::unique('pedidosituacoes', 'descricao')
@@ -322,10 +323,50 @@ class PedidoController extends Controller
                     ->ignore($ignorarId),
             ],
             'efeito' => ['required', Rule::enum(EfeitoPedido::class)],
+            // F3-04A: o papel operacional é DECLARADO aqui. Sem ele, o código
+            // que precisa da situação de deslocamento voltaria a adivinhá-la
+            // pela descrição em português.
+            'papel' => ['nullable', Rule::enum(PapelSituacao::class)],
             'cor' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'ordem' => ['nullable', 'integer', 'min:0'],
             'ativo' => ['boolean'],
         ]);
+
+        $this->recusarPapelDuplicado($request, $dados['papel'] ?? null, $ignorarId);
+
+        return $dados;
+    }
+
+    /**
+     * Um papel exclusivo por grupo.
+     *
+     * Duas situações marcadas "Saiu para entrega" deixariam a ação de iniciar
+     * rota com dois alvos possíveis — e a escolha cairia de novo numa
+     * desempate arbitrário (`orderBy('id')`), que é a classe de decisão que
+     * F3-04A existe para tirar do código.
+     */
+    private function recusarPapelDuplicado(Request $request, ?string $papel, ?int $ignorarId): void
+    {
+        if ($papel === null || $papel === PapelSituacao::NENHUM->value) {
+            return;
+        }
+
+        $enum = PapelSituacao::from($papel);
+        if (! in_array($enum, PapelSituacao::exclusivos(), true)) {
+            return;
+        }
+
+        $jaExiste = PedidoSituacao::query()
+            ->where('papel', $papel)
+            ->when($ignorarId, fn ($q, $id) => $q->whereKeyNot($id))
+            ->exists();
+
+        if ($jaExiste) {
+            throw ValidationException::withMessages([
+                'papel' => 'Já existe uma situação com o papel "'.$enum->rotulo().'". '
+                    .'Remova o papel da outra antes de atribuí-lo aqui.',
+            ]);
+        }
     }
 
     /** GET /pedidos/kanban — colunas por situação com totais. */

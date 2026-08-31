@@ -9,7 +9,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import {
   usePedidosKanban, useSalvarSituacao, useExcluirSituacao, useReordenarSituacoes, useMudarSituacaoPedido,
-  type KanbanColuna, type EfeitoPedido, type SituacaoForm,
+  type KanbanColuna, type EfeitoPedido, type SituacaoForm, type PapelSituacao,
 } from './api'
 import { brl, dataHora as fmtData } from '@/lib/format'
 
@@ -246,7 +246,7 @@ const CORES = ['#FF6200', '#DBFB3B', '#22C55E', '#3B82F6', '#A855F7', '#EF4444',
 /** Cria/edita uma coluna (situação) do Kanban: descrição + status (efeito) + cor. */
 function SituacaoDialog({ value, onClose }: { value: SituacaoForm | null; onClose: () => void }) {
   const salvar = useSalvarSituacao()
-  const [form, setForm] = useState<SituacaoForm>({ descricao: '', efeito: 'PENDENTE', cor: null })
+  const [form, setForm] = useState<SituacaoForm>({ descricao: '', efeito: 'PENDENTE', papel: 'NENHUM', cor: null })
 
   useEffect(() => { if (value) setForm(value) }, [value])
   const set = <K extends keyof SituacaoForm>(k: K, v: SituacaoForm[K]) => setForm((s) => ({ ...s, [k]: v }))
@@ -272,6 +272,18 @@ function SituacaoDialog({ value, onClose }: { value: SituacaoForm | null; onClos
             <SelectItem value="PENDENTE">Pendente — em aberto</SelectItem>
             <SelectItem value="CONCLUIDO">Concluído — baixa estoque/financeiro</SelectItem>
             <SelectItem value="CANCELADO">Cancelado — estorna</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {/* F3-04A: o app do entregador precisa saber QUAL coluna significa "saiu
+          para entrega". Antes ele adivinhava pelo nome, e criava uma coluna
+          nova quando não reconhecia — aqui isso vira uma escolha explícita. */}
+      <Field label="Papel operacional" hint="Marque a coluna que representa a mercadoria a caminho do cliente. É ela que o app do entregador usa ao iniciar a rota.">
+        <Select value={form.papel ?? 'NENHUM'} onValueChange={(v) => set('papel', v as PapelSituacao)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="NENHUM">Sem papel especial</SelectItem>
+            <SelectItem value="EM_ROTA">Saiu para entrega (em rota)</SelectItem>
           </SelectContent>
         </Select>
       </Field>
