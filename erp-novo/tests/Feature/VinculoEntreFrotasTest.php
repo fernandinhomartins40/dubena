@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Empresa;
 use App\Models\Frota\Veiculo as VeiculoFrota;
 use App\Models\Monitora\Veiculo as VeiculoRastreado;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -106,6 +107,65 @@ class VinculoEntreFrotasTest extends TestCase
         // veículos distintos. A conversão por placa não pode uni-los.
         $this->assertNull($rastreadoB->veiculo_frota_id);
         $this->assertNotSame($daA->empresa_id, $rastreadoB->empresa_id);
+    }
+
+    /**
+     * A conciliação torna a pendência VISÍVEL.
+     *
+     * A conversão deixou nulo o que era ambíguo ou sem par — o que está certo,
+     * porque o palpite errado ligaria a manutenção de um caminhão à posição de
+     * outro. Mas uma pendência que só existe no banco é uma pendência que não
+     * será resolvida.
+     */
+    public function test_conciliacao_lista_os_nao_vinculados_com_candidatos(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+
+        $frota = $this->frota($empresa, 'ABC1D23');
+        // Formato diferente, mesma placa: a normalização tem de reconhecer.
+        $this->rastreado($empresa, 'abc-1d23');
+        // Sem par na frota: aparece com lista de candidatos vazia.
+        $this->rastreado($empresa, 'ZZZ0K00');
+        // Já vinculado: NÃO aparece.
+        $this->rastreado($empresa, 'ABC1D23', $frota->id);
+
+        $linhas = collect($this->actingAs($user, 'sanctum')
+            ->getJson('/api/admin/monitora/conciliacao')
+            ->assertOk()
+            ->json('data'));
+
+        $this->assertCount(2, $linhas, 'só os não vinculados');
+
+        $comCandidato = $linhas->firstWhere('placa', 'abc-1d23');
+        $this->assertCount(1, $comCandidato['candidatos'], 'a normalização achou o par');
+        $this->assertSame($frota->id, $comCandidato['candidatos'][0]['id']);
+
+        $semCandidato = $linhas->firstWhere('placa', 'ZZZ0K00');
+        $this->assertSame([], $semCandidato['candidatos']);
+    }
+
+    /** O vínculo é declarável pela API — senão a conciliação não teria saída. */
+    public function test_vinculo_e_declaravel_pela_api(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $user = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+
+        $frota = $this->frota($empresa, 'ABC1D23');
+        $rastreado = $this->rastreado($empresa, 'ABC1D23');
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/admin/monitora/veiculos/{$rastreado->id}", [
+                'placa' => 'ABC1D23',
+                'veiculo_frota_id' => $frota->id,
+            ])
+            ->assertOk();
+
+        $this->assertSame($frota->id, $rastreado->fresh()->veiculo_frota_id);
     }
 
     /**

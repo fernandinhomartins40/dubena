@@ -1614,3 +1614,23 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   existe para nao fazer.
 - Validacao: 7 testes focais; suite **1520 passes / 4734 assertions**; Pint.
   Ver `F3_10_MEDICAO_CONFIGURACAO.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F3-09: conciliacao visivel e vinculo declaravel)
+
+- A conversao de F3-09 ligou os pares INEQUIVOCOS e deixou nulo o ambiguo (placa
+  repetida na frota) ou sem par. Isso esta certo — o palpite errado ligaria a
+  manutencao de um caminhao a posicao de outro. Mas **uma pendencia que so existe
+  no banco e uma pendencia que nao sera resolvida**.
+- `GET /monitora/conciliacao` lista os rastreados sem vinculo, com os candidatos
+  da frota pela placa NORMALIZADA ("ABC-1D23" e "abc1d23" sao a mesma placa
+  digitada por pessoas diferentes, e e essa divergencia que faz o veiculo sumir
+  de um dos lados). Um candidato = sugestao segura; dois ou mais = ambiguo, e a
+  lista vai inteira porque a escolha e humana.
+- `veiculo_frota_id` passou a ser declaravel na criacao/edicao — senao a
+  conciliacao apontaria o problema sem oferecer saida.
+- Validacao: 7 testes focais; suite **1522 passes / 4741 assertions**; manifesto
+  597 -> 598; Pint.
+- NAO FEITO, registrado: a tela de veiculos rastreados ainda nao existe na SPA,
+  entao a conciliacao vive so na API — que e onde a decisao pode ser tomada hoje.
+  A FUSAO das duas tabelas continua aberta: 7 tabelas dependem de
+  `monitora_veiculos`, incluindo posicoes com milhoes de linhas.

@@ -175,6 +175,7 @@
     "GET api/admin/missoes/evidencias/{id}",
     "GET api/admin/monitora/cercas",
     "GET api/admin/monitora/cercas/conflitos",
+    "GET api/admin/monitora/conciliacao",
     "GET api/admin/monitora/tipos",
     "GET api/admin/monitora/ultimas-posicoes",
     "GET api/admin/monitora/veiculos",

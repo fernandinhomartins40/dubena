@@ -12,6 +12,7 @@ use App\Domain\Saas\LimiteContratado;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\Setor;
+use App\Models\Frota\Veiculo as VeiculoFrota;
 use App\Models\Geografico\Cidade;
 use App\Models\Monitora\Cerca;
 use App\Models\Monitora\UltimaPosicao;
@@ -80,7 +81,59 @@ class MonitoraController extends Controller
             'km_atual' => 'nullable|integer|min:0',
             'imei' => 'nullable|string|max:30',
             'deviceid' => 'nullable|string|max:50',
+            // F3-09: vinculo com o cadastro de FROTA (km, troca de oleo,
+            // documentos). Sem ele, "onde esta o caminhao que precisa trocar o
+            // oleo?" nao tem resposta — uma frota sabe o km, a outra a posicao.
+            'veiculo_frota_id' => ['nullable', 'integer', new ExisteNoTenant(VeiculoFrota::class)],
             'ativo' => 'boolean',
+        ]);
+    }
+
+    /**
+     * GET /monitora/conciliacao — o que ainda nao esta ligado a frota (F3-09).
+     *
+     * A conversao ligou os pares INEQUIVOCOS pela placa normalizada e deixou
+     * nulo o que era ambiguo (placa repetida na frota) ou sem par. Isso esta
+     * certo — o palpite errado ligaria a manutencao de um caminhao a posicao de
+     * outro — mas ate aqui ninguem VIA esses casos.
+     *
+     * Uma pendencia que so existe no banco e uma pendencia que nao sera
+     * resolvida. Esta lista e o que a torna acionavel.
+     */
+    public function conciliacao(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'monitora.view');
+
+        $semVinculo = Veiculo::query()
+            ->whereNull('veiculo_frota_id')
+            ->orderBy('placa')
+            ->get(['id', 'placa', 'descricao', 'ativo']);
+
+        $normalizar = fn (?string $p) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $p));
+
+        // Candidatos da frota, indexados pela placa normalizada: "ABC-1D23" e
+        // "abc1d23" sao a mesma placa digitada por pessoas diferentes, e e
+        // justamente essa divergencia que faz o veiculo sumir de um dos lados.
+        $frota = VeiculoFrota::query()
+            ->get(['id', 'placa', 'descricao'])
+            ->groupBy(fn ($v) => $normalizar($v->placa));
+
+        return response()->json([
+            'data' => $semVinculo->map(function (Veiculo $v) use ($frota, $normalizar) {
+                $candidatos = $frota->get($normalizar($v->placa)) ?? collect();
+
+                return [
+                    'id' => $v->id,
+                    'placa' => $v->placa,
+                    'descricao' => $v->descricao,
+                    'ativo' => (bool) $v->ativo,
+                    // Um candidato = sugestao segura. Dois ou mais = ambiguo, e
+                    // a escolha e humana: por isso a lista vai inteira.
+                    'candidatos' => $candidatos->map(fn ($f) => [
+                        'id' => $f->id, 'placa' => $f->placa, 'descricao' => $f->descricao,
+                    ])->values(),
+                ];
+            })->values(),
         ]);
     }
 

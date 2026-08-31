@@ -587,6 +587,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
 
         // ── Monitora (GPS) — N11 (módulo isolado) ──
         Route::get('monitora/veiculos', [MonitoraController::class, 'veiculos']);
+        // F3-09: rastreados que ainda nao estao ligados ao cadastro de frota.
+        Route::get('monitora/conciliacao', [MonitoraController::class, 'conciliacao']);
         Route::post('monitora/veiculos', [MonitoraController::class, 'criarVeiculo']);
         Route::put('monitora/veiculos/{id}', [MonitoraController::class, 'atualizarVeiculo'])->whereNumber('id');
         Route::post('monitora/veiculos/{id}/posicoes', [MonitoraController::class, 'ingerirPosicao'])->whereNumber('id');
