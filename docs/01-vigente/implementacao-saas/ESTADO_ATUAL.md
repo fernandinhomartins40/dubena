@@ -1343,3 +1343,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   por tabela e serve tanto seletor de lancamento quanto transferencia (onde
   custodia E destino valido). A tela de entrada manual ainda NAO existe na SPA —
   quando existir, o seletor deve usar `Setor::armazens()`, que ja esta pronto.
+
+## Atualizacao de retomada - 2026-08-31 (F3-08 PARCIAL: codigo IBGE conferido)
+
+- ESCOPO, dito antes de tudo: este lote faz o PRIMEIRO PEDACO da F3-08, nao a
+  tarefa inteira. Os tres catalogos continuam existindo (`municipios_ibge`
+  nacional, `cidades` por grupo, `cidades_plataforma`). Unifica-los alcanca
+  `Cidade` em 27 arquivos e mexe em dado fiscal — nao e trabalho para fazer sem
+  validacao.
+- O vinculo `cidades.municipio_ibge -> municipios_ibge` JA EXISTIA (migration de
+  2026-08-23). O que faltava era a PORTA DE ESCRITA usa-lo: `POST /geo/cidades`
+  aceitava `cod_ibge` como `nullable|integer` — numero livre, digitado a mao, sem
+  conferencia. Codigo errado nao da erro no cadastro; da rejeicao da SEFAZ na
+  primeira nota, quando ninguem lembra de onde veio o numero.
+- CORRECAO DE LEITURA MINHA: achei que
+  `'cod_municipio' => (int) ($municipio?->cod_ibge ?? 0)` no NFePHPSefazDriver
+  mandaria `cMun = 0` para a SEFAZ. NAO MANDA — logo abaixo ha validacao que
+  exige `>= 1000000`, `cuf > 0` e UF batendo, com erro claro. Registro porque a
+  conclusao apressada teria produzido "correcao" para problema inexistente.
+- `normalizarCidade()`: se veio `municipio_ibge`, codigo e UF sao DERIVADOS dele
+  (nao se confia em dois campos que podem discordar); se veio so `cod_ibge`, ele
+  e conferido e vira o vinculo; UF divergente do proprio codigo e recusada; e
+  vale tambem na EDICAO, senao bastaria criar certo e editar errado.
+- NAO se exige codigo: cidade sem `cod_ibge` continua podendo ser criada. Exigir
+  travaria quem ainda nao migrou, e a emissao fiscal ja barra o que falta. A
+  garantia e sobre codigo ERRADO, nao sobre codigo AUSENTE — so o primeiro e
+  silencioso.
+- Validacao: 6 testes focais; suite **1489 passes / 4676 assertions**; Pint.
+  Ver `F3_08_MUNICIPIO_IBGE.md`.
+- ABERTO da F3-08: unificar os tres catalogos; `cidades_plataforma` tem a mesma
+  porta sem conferencia; e decidir se `cidades` deve seguir por grupo, ja que
+  municipio e fato nacional.

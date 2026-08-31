@@ -7,12 +7,14 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
+use App\Models\Geografico\MunicipioIbge;
 use App\Models\Geografico\Rua;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Geográfico (cidades/bairros/ruas) — N2. Base do endereço do cliente.
@@ -26,7 +28,16 @@ class GeoController extends Controller
     private const ENTIDADES = [
         'cidades' => [
             'model' => Cidade::class,
-            'regras' => ['descricao' => 'required|string|max:255', 'uf' => 'required|string|size:2', 'cod_ibge' => 'nullable|integer', 'ativo' => 'nullable|boolean'],
+            // F3-08: `municipio_ibge` liga a cidade ao catalogo autoritativo.
+            // `cod_ibge` continua aceito para nao quebrar quem ja envia, mas e
+            // conferido contra o catalogo em `normalizarCidade`.
+            'regras' => [
+                'descricao' => 'required|string|max:255',
+                'uf' => 'required|string|size:2',
+                'cod_ibge' => 'nullable|integer',
+                'municipio_ibge' => 'nullable|integer|exists:municipios_ibge,cod_ibge',
+                'ativo' => 'nullable|boolean',
+            ],
             'filtros' => ['uf'],
         ],
         'bairros' => [
@@ -83,7 +94,7 @@ class GeoController extends Controller
     public function store(Request $request, string $entidade): JsonResponse
     {
         $cfg = $this->cfg($request, $entidade, 'cliente.create');
-        $dados = $request->validate($cfg['regras']);
+        $dados = $this->normalizarCidade($entidade, $request->validate($cfg['regras']));
 
         return response()->json(['data' => $cfg['model']::create($dados)], 201);
     }
@@ -92,9 +103,65 @@ class GeoController extends Controller
     {
         $cfg = $this->cfg($request, $entidade, 'cliente.edit');
         $registro = $cfg['model']::query()->findOrFail($id);
-        $registro->update($request->validate($cfg['regras']));
+        $registro->update($this->normalizarCidade($entidade, $request->validate($cfg['regras'])));
 
         return response()->json(['data' => $registro->refresh()]);
+    }
+
+    /**
+     * F3-08 — o municipio IBGE e o catalogo autoritativo.
+     *
+     * `cidades` e por GRUPO: cada tenant tem a sua copia de "Guarapuava/PR",
+     * que e um fato nacional. Isso por si so nao e o problema — o problema e o
+     * `cod_ibge` ser um inteiro livre, digitado a mao.
+     *
+     * Um codigo errado nao da erro no cadastro: da REJEICAO da SEFAZ na
+     * primeira nota, quando ninguem lembra de onde veio o numero.
+     *
+     * Aqui, portanto:
+     *  - se veio `municipio_ibge`, o `cod_ibge` e DERIVADO dele (nao se confia
+     *    em dois campos que podem discordar), e a UF tambem;
+     *  - se veio so `cod_ibge`, ele e conferido contra o catalogo e vira o
+     *    vinculo — um codigo que nao existe e recusado na hora, que e onde
+     *    custa um minuto em vez de uma nota rejeitada.
+     *
+     * @param  array<string,mixed>  $dados
+     * @return array<string,mixed>
+     */
+    private function normalizarCidade(string $entidade, array $dados): array
+    {
+        if ($entidade !== 'cidades') {
+            return $dados;
+        }
+
+        $codigo = $dados['municipio_ibge'] ?? $dados['cod_ibge'] ?? null;
+
+        if ($codigo === null) {
+            return $dados;
+        }
+
+        $municipio = MunicipioIbge::query()->find((int) $codigo);
+
+        if ($municipio === null) {
+            throw ValidationException::withMessages([
+                'cod_ibge' => 'Codigo IBGE inexistente. Escolha o municipio no catalogo oficial.',
+            ]);
+        }
+
+        // A UF vem do catalogo: uma cidade com UF divergente do proprio codigo
+        // IBGE e rejeitada pela SEFAZ, e o cadastro nao tem como saber qual das
+        // duas o operador quis.
+        if (isset($dados['uf']) && strtoupper((string) $dados['uf']) !== strtoupper($municipio->uf)) {
+            throw ValidationException::withMessages([
+                'uf' => 'A UF nao confere com o municipio IBGE informado ('.$municipio->nome.'/'.$municipio->uf.').',
+            ]);
+        }
+
+        $dados['municipio_ibge'] = $municipio->cod_ibge;
+        $dados['cod_ibge'] = $municipio->cod_ibge;
+        $dados['uf'] = $municipio->uf;
+
+        return $dados;
     }
 
     public function destroy(Request $request, string $entidade, int $id): JsonResponse
