@@ -10,6 +10,7 @@ use App\Domain\Pedido\Events\PedidoStatusAtualizado;
 use App\Domain\Venda\AlcadaDescontoService;
 use App\Models\AuditLog;
 use App\Models\Pedido\Pedido;
+use App\Models\Pedido\PedidoItem;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use Illuminate\Support\Carbon;
@@ -185,7 +186,7 @@ class PedidoService
      * Serviço e taxa aparecem no pedido, no cupom e no financeiro; no armazém,
      * não.
      *
-     * @return list<\App\Models\Pedido\PedidoItem>
+     * @return list<PedidoItem>
      */
     private function itensComEstoque(Pedido $pedido): array
     {

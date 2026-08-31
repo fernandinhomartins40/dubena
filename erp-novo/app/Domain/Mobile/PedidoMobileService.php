@@ -4,10 +4,12 @@ namespace App\Domain\Mobile;
 
 use App\Domain\Cliente\GeocodificarClienteJob;
 use App\Domain\Monitora\MonitoraService;
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
+use App\Models\Empresa;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoAvaliacao;
@@ -168,6 +170,8 @@ class PedidoMobileService
             : $this->situacaoPendenteId($grupoId);
 
         return $this->pedidos->criar([
+            // F3-05: pedido do proprio cliente, sem atendente.
+            'canal' => CanalVenda::APP_CLIENTE->value,
             'empresa_id' => $empresaId,
             'grupo_id' => $grupoId,
             'cliente_id' => $cliente->id,
@@ -222,7 +226,7 @@ class PedidoMobileService
             return;
         }
 
-        $marketplaceAtivo = (bool) \App\Models\Empresa::query()
+        $marketplaceAtivo = (bool) Empresa::query()
             ->whereKey($empresaId)->value('app_marketplace_ativo');
         if (! $marketplaceAtivo) {
             return;

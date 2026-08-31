@@ -3,11 +3,14 @@
 namespace App\Domain\Missao;
 
 use App\Domain\Cliente\ClienteService;
+use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Mobile\PedidoMobileService;
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Satelite\ValeGasService;
 use App\Models\Cliente\Cliente;
+use App\Models\Empresa;
 use App\Models\Missao\MissaoAtribuicao;
 use App\Models\Missao\MissaoVisita;
 use App\Models\Pedido\PedidoSituacao;
@@ -58,6 +61,8 @@ class VendaCampoService
         return DB::transaction(function () use ($atribuicao, $visita, $dados, $entregadorUserId, $empresaId, $grupoId, $cliente, $setor) {
             // Entregue na hora → nasce CONCLUIDO (baixa estoque + financeiro na criação).
             $pedido = $this->pedidos->criar([
+                // F3-05: venda feita pelo entregador, na rua.
+                'canal' => CanalVenda::CAMPO->value,
                 'empresa_id' => $empresaId,
                 'grupo_id' => $grupoId,
                 'cliente_id' => $cliente->id,
@@ -114,7 +119,7 @@ class VendaCampoService
     {
         // Porta unica de identidade: em prospeccao o mesmo endereco e visitado
         // por entregadores diferentes, e sem isto cada visita virava um cadastro.
-        $resultado = app(\App\Domain\Identidade\IdentificarOuCriarCliente::class)->executar(
+        $resultado = app(IdentificarOuCriarCliente::class)->executar(
             (int) $atribuicao->empresa_id,
             $this->grupoDa($atribuicao),
             [
@@ -136,7 +141,7 @@ class VendaCampoService
     private function grupoDa(MissaoAtribuicao $atribuicao): int
     {
         return (int) ($atribuicao->missao?->grupo_id
-            ?? \App\Models\Empresa::query()->whereKey($atribuicao->empresa_id)->value('grupo_id'));
+            ?? Empresa::query()->whereKey($atribuicao->empresa_id)->value('grupo_id'));
     }
 
     private function situacaoPorEfeito(int $grupoId, EfeitoPedido $efeito): PedidoSituacao

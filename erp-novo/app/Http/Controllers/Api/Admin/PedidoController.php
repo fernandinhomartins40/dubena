@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\FiscalService;
 use App\Domain\Fiscal\ModeloDocumento;
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
@@ -85,6 +86,10 @@ class PedidoController extends Controller
 
         $dados = $request->safe()->except('itens');
         $dados['user_id'] = $request->user()->id;
+        // F3-05: o painel e atendimento interno (balcao ou telefone). Sem
+        // declarar aqui, o pedido do app e o do balcao ficam identicos no banco
+        // e "quanto do faturamento vem do app?" nao tem resposta.
+        $dados['canal'] = CanalVenda::INTERNO->value;
         $pedido = $this->service->criar($dados, $request->validated()['itens'] ?? []);
 
         return (new PedidoResource($pedido->load('situacao')))->response()->setStatusCode(201);

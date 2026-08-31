@@ -2,6 +2,7 @@
 
 namespace App\Models\Pedido;
 
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Cliente\Cliente;
@@ -28,6 +29,8 @@ class Pedido extends Model
 
     protected $fillable = [
         'empresa_id', 'grupo_id', 'cliente_id', 'pedidooperacao_id', 'pedidosituacao_id',
+        // F3-05: por qual porta o pedido entrou (app, balcao, campo, central).
+        'canal',
         'condicaopagamento_id',
         'setor_id', 'atendente_user_id', 'entregador_user_id', 'veiculo_id', 'financeiro_id',
         'datahora', 'datahora_acao', 'entrega_urgente', 'entrega_telefone',
@@ -36,9 +39,20 @@ class Pedido extends Model
         'gasdopovo',
     ];
 
+    /**
+     * Default do canal tambem no model: o de coluna so vale na linha gravada, e
+     * `null === CanalVenda::APP_CLIENTE` daria false por acidente.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'canal' => 'DESCONHECIDO',
+    ];
+
     protected function casts(): array
     {
         return [
+            'canal' => CanalVenda::class,
             'datahora' => 'datetime',
             'datahora_acao' => 'datetime',
             'entrega_urgente' => 'boolean',

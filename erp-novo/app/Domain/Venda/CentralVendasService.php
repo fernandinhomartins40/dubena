@@ -2,6 +2,7 @@
 
 namespace App\Domain\Venda;
 
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Venda\Events\SolicitacaoRecebida;
@@ -123,6 +124,8 @@ class CentralVendasService
             $this->exigirPendente($fresco);
 
             $pedido = $this->pedidos->criar([
+                // F3-05: televendas, com fila e roteiro.
+                'canal' => CanalVenda::CENTRAL->value,
                 'empresa_id' => $fresco->empresa_id,
                 'grupo_id' => $fresco->grupo_id,
                 'cliente_id' => $fresco->cliente_id,

@@ -1428,3 +1428,30 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   livre, sem schema tipado nem versionado — a tarefa pede isso e e trabalho
   grande. Empresa nova hoje nao recebe configuracao nenhuma (fail-closed, que e
   consistente), entao nao ha "defaults de plataforma copiados no onboarding".
+
+## Atualizacao de retomada - 2026-08-31 (F3-05 canal de venda)
+
+- Quatro caminhos criam pedido — painel admin, app do consumidor, app do
+  entregador (venda em campo) e central de vendas — e NO BANCO OS QUATRO FICAVAM
+  IDENTICOS. "Quanto do meu faturamento ja vem do app?" nao tinha resposta, e essa
+  e exatamente a decisao de investir ou nao no canal digital.
+- DIMENSAO e nao booleanos paralelos, como a tarefa pede: booleanos por canal
+  permitem estados IMPOSSIVEIS (dois verdadeiros — veio do app E do balcao?) e
+  exigem coluna nova a cada canal. Um enum resolve os dois.
+- SEM conversao retroativa: os pedidos existentes ficam DESCONHECIDO. Daria para
+  adivinhar ("tem entregador e nao tem atendente, entao veio do campo"), mas
+  "provavelmente" num dado que vira RELATORIO DE FATURAMENTO POR CANAL e pior que
+  "nao sei" — o grafico ficaria bonito e errado. A fatia sem origem aparece,
+  encolhe sozinha, e a decisao se baseia no que foi medido de verdade.
+- GUARDIAO: `test_toda_porta_que_cria_pedido_declara_o_canal` varre quem injeta
+  `PedidoService` e chama `criar`. Precisou de DUAS iteracoes para nao virar
+  ruido — a primeira pegava qualquer `$service->criar(...)`, a segunda ainda
+  acusava o `FinanceiroService`, que so CITA `PedidoService` num comentario e tem
+  o proprio `criar`. Verificado que detecta: removi o canal do
+  `CentralVendasService` de proposito e ele apontou o arquivo.
+- Validacao: 6 testes focais; suite **1501 passes / 4699 assertions**; 153
+  migrations em PostgreSQL real; RlsCobertura 6/6; rollback -> reaplicacao OK;
+  Pint. Ver `F3_05_CANAL_DE_VENDA.md`.
+- ABERTO: o relatorio por canal NA TELA (o dado existe e e consultavel, mas
+  ninguem o ve — e era a pergunta que motivou a tarefa); e `envia_app_nf` no
+  produto, que continua sendo um flag booleano de canal.
