@@ -2,8 +2,11 @@
 
 namespace App\Domain\Mobile\Drivers;
 
+use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Driver eRede REAL (F12 — GATE Rede). Autoriza/estorna cartão via API eRede
@@ -38,10 +41,27 @@ class EredeDriver implements PagamentoDriver
             ]);
 
             $j = $resp->json();
+
+            // 5xx é falha DELA, não recusa: o pedido pode ter sido processado
+            // antes do erro. Só 4xx e um `returnCode` de negação são resposta.
+            if ($resp->serverError()) {
+                Log::warning('eRede devolveu erro de servidor — resultado indeterminado.', [
+                    'status' => $resp->status(),
+                ]);
+
+                return [
+                    'aprovado' => false,
+                    'indeterminado' => true,
+                    'tid' => $j['tid'] ?? null, 'nsu' => null, 'autorizacao' => null, 'bandeira' => null,
+                    'mensagem' => 'A operadora respondeu com erro ('.$resp->status().'). Consulte antes de cobrar de novo.',
+                ];
+            }
+
             $aprovado = $resp->successful() && (string) ($j['returnCode'] ?? '') === '00';
 
             return [
                 'aprovado' => $aprovado,
+                'indeterminado' => false,
                 'tid' => $j['tid'] ?? null,
                 'nsu' => $j['nsu'] ?? null,
                 'autorizacao' => $j['authorizationCode'] ?? null,
@@ -49,7 +69,27 @@ class EredeDriver implements PagamentoDriver
                 'mensagem' => (string) ($j['returnMessage'] ?? ($aprovado ? 'Aprovado' : 'Recusado')),
             ];
         } catch (\Throwable $e) {
-            return ['aprovado' => false, 'tid' => null, 'nsu' => null, 'autorizacao' => null, 'bandeira' => null, 'mensagem' => $e->getMessage()];
+            // F6-08 — rede indisponível NÃO é recusa de negócio.
+            //
+            // Chegar aqui significa que a operadora não respondeu: conexão
+            // recusada, timeout, DNS. E o timeout costuma acontecer *depois* que
+            // ela autorizou — é a resposta que se perde no caminho.
+            //
+            // Devolver isto como recusa simples faria a venda ser refeita, e o
+            // cliente seria cobrado duas vezes. `aprovado` continua `false`
+            // porque não se entrega mercadoria sobre uma dúvida; `indeterminado`
+            // é o que diz que a dúvida existe.
+            Log::warning('eRede não respondeu — resultado indeterminado.', [
+                'erro' => $e->getMessage(),
+                'classe' => $e::class,
+            ]);
+
+            return [
+                'aprovado' => false,
+                'indeterminado' => true,
+                'tid' => null, 'nsu' => null, 'autorizacao' => null, 'bandeira' => null,
+                'mensagem' => 'A operadora não respondeu. Consulte antes de cobrar de novo: '.$e->getMessage(),
+            ];
         }
     }
 
@@ -69,12 +109,12 @@ class EredeDriver implements PagamentoDriver
         }
     }
 
-    private function client(): \Illuminate\Http\Client\PendingRequest
+    private function client(): PendingRequest
     {
         // Multi-tenant: PV/token vêm da EMPRESA ativa (IntegracaoTenant), não mais
         // do env global — cada revenda cobra pelo SEU credenciamento eRede. Fallback
         // env só para dev/homolog (uma conta de teste).
-        $cred = app(\App\Domain\Integracao\IntegracaoTenant::class)->cartao();
+        $cred = app(IntegracaoTenant::class)->cartao();
         $url = rtrim((string) $cred['url'], '/');
 
         return Http::timeout(20)->acceptJson()

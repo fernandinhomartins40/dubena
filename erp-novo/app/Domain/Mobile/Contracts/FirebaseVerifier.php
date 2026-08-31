@@ -2,6 +2,8 @@
 
 namespace App\Domain\Mobile\Contracts;
 
+use App\Domain\Mobile\Exceptions\FirebaseTokenInvalido;
+
 /**
  * Verificador do ID token do Firebase (F1 — GATE phone-auth).
  *
@@ -17,7 +19,7 @@ interface FirebaseVerifier
      *
      * @return array{uid:string, phone:?string}
      *
-     * @throws \App\Domain\Mobile\Exceptions\FirebaseTokenInvalido quando inválido/expirado.
+     * @throws FirebaseTokenInvalido quando inválido/expirado.
      */
     public function verify(string $idToken): array;
 }

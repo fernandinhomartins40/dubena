@@ -13,14 +13,12 @@ use Illuminate\Support\Facades\DB;
  */
 class PagamentoOnlineService
 {
-    public function __construct(private PagamentoDriver $driver)
-    {
-    }
+    public function __construct(private PagamentoDriver $driver) {}
 
     /**
      * Cobra um pedido no cartão. Grava a transação e devolve o registro.
      *
-     * @param array{token:string, parcelas?:int} $cartao
+     * @param  array{token:string, parcelas?:int}  $cartao
      */
     public function cobrarPedido(Pedido $pedido, array $cartao): PagamentoOnline
     {
@@ -40,8 +38,21 @@ class PagamentoOnlineService
 
             $res = $this->driver->autorizar(['valor' => $valor, 'parcelas' => $parcelas, 'token' => $cartao['token']]);
 
+            // F6-08 — três desfechos, não dois.
+            //
+            // Gravar INDETERMINADO como NEGADO encerraria o caso: a tela diz
+            // "recusado", o operador tenta de novo, e se a operadora tinha
+            // autorizado antes do timeout o cliente é cobrado duas vezes. O
+            // estado próprio é o que mantém a pergunta em aberto até alguém
+            // consultar a operadora.
+            $situacao = match (true) {
+                (bool) $res['aprovado'] => SituacaoPagamento::AUTORIZADO,
+                (bool) ($res['indeterminado'] ?? false) => SituacaoPagamento::INDETERMINADO,
+                default => SituacaoPagamento::NEGADO,
+            };
+
             $pagamento->update([
-                'situacao' => $res['aprovado'] ? SituacaoPagamento::AUTORIZADO->value : SituacaoPagamento::NEGADO->value,
+                'situacao' => $situacao->value,
                 'tid' => $res['tid'],
                 'nsu' => $res['nsu'],
                 'autorizacao' => $res['autorizacao'],
