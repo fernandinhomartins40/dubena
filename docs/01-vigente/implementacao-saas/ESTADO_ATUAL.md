@@ -1533,3 +1533,39 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   exigir `empresaId` (isolamento de tenant) e o seeder ficou para tras —
   `ArgumentCountError`. **O seeder de demonstracao estava quebrado.** Corrigido.
   So apareceu porque o teste novo o executa; nenhum teste o exercitava antes.
+
+## Atualizacao de retomada - 2026-08-31 (F3-01 PARCIAL: papeis com vigencia)
+
+- ESCOPO: a tarefa pede papeis com vigencia + endereco unico normalizado. Este
+  lote entrega a PRIMEIRA. O endereco fica aberto: o texto de
+  `clientes.endereco` ainda e a fonte em SEIS pontos de leitura, incluindo cupom
+  fiscal e contrato de comodato — documento que vai para o cliente.
+- Os tres booleanos paralelos (`cliente`/`fornecedor`/`transportador`) respondem
+  "e?" e nao "era, quando?". Um fornecedor que deixou de fornecer nao tinha como
+  sair da lista sem APAGAR O HISTORICO: desmarcar faz parecer que ele nunca
+  forneceu, e as notas de entrada antigas passam a apontar para alguem que "nao
+  e fornecedor".
+- `cliente_papeis`: um papel por linha com `inicio`/`fim`. Marcar ABRE vigencia,
+  desmarcar ENCERRA com a data de hoje — a linha nao e apagada.
+- Os booleanos NAO foram removidos, de proposito: `ClienteResource`,
+  `ClienteRequest` e o ETL ainda dependem deles, e migration destrutiva nao viaja
+  junto com feature. `sincronizarPapeis()` mantem as duas fontes coerentes, e
+  `temPapel()` le da tabela com o booleano como FALLBACK — um cadastro criado
+  pelo ETL tem so o booleano e nao pode sumir da lista por isso (com teste).
+- DOIS ERROS MEUS no caminho, os dois so visiveis porque o teste cobre o
+  encerramento NO MESMO DIA (o caso real): (1) `fim >= hoje` mantinha vigente um
+  papel encerrado hoje; (2) `where` em vez de `whereDate` — o valor chega como
+  "2026-08-31 00:00:00" e comparado como STRING com "2026-08-31" sai maior. E a
+  armadilha do `whereBetween` registrada no CLAUDE.md, e eu a repeti mesmo tendo
+  lido o arquivo.
+- O `TableClassificationManifestTest` acusou a tabela nova: o snapshot
+  `CATALOGO_VIVO.json` NAO se reescreve (e evidencia de um estado certificado);
+  tabelas posteriores entram numa lista do proprio teste.
+- Validacao: 7 testes focais; 155 migrations em PostgreSQL real; RlsCobertura 6/6
+  com **360 assertions** (eram 358 — a tabela nova entrou na cobertura sozinha);
+  policy canonica `app_tenant_can_read/operate` + FORCE RLS confirmados no banco;
+  conversao com 4 casos (inclusive "nenhum papel", que NAO ganhou papel por
+  presuncao); rollback -> reaplicacao OK. Ver `F3_01_PAPEIS_DA_PESSOA.md`.
+- ABERTO da F3-01: endereco normalizado; os lookups ainda nao filtram por papel
+  (mesma limitacao do `LookupController` registrada em F3-06); e remover os
+  booleanos quando o consumo migrar.

@@ -2,6 +2,7 @@
 
 namespace App\Models\Cliente;
 
+use App\Domain\Cliente\PapelPessoa;
 use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use App\Models\Apoio\Segmento;
@@ -9,6 +10,7 @@ use App\Models\Apoio\TipoPessoa;
 use App\Models\Geografico\Bairro;
 use App\Models\Geografico\Cidade;
 use App\Models\Geografico\Rua;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -85,7 +87,7 @@ class Cliente extends Model
     /** Quem tirou este cadastro da lista de ativos (trilha da desativacao). */
     public function desativadoPor(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'desativado_por');
+        return $this->belongsTo(User::class, 'desativado_por');
     }
 
     public function cidade(): BelongsTo
@@ -149,5 +151,34 @@ class Cliente extends Model
     public function segmento(): BelongsTo
     {
         return $this->belongsTo(Segmento::class, 'segmento_id');
+    }
+
+    /** Papeis da pessoa, com vigencia (F3-01). */
+    public function papeis(): HasMany
+    {
+        return $this->hasMany(ClientePapel::class);
+    }
+
+    /**
+     * A pessoa exerce este papel HOJE?
+     *
+     * Le da tabela de papeis, com o booleano legado como fallback: enquanto as
+     * duas fontes convivem, um cadastro que so tem o booleano (criado por um
+     * caminho ainda nao migrado) nao pode desaparecer da lista.
+     */
+    public function temPapel(PapelPessoa $papel): bool
+    {
+        if ($this->relationLoaded('papeis') || $this->exists) {
+            $daTabela = $this->papeis()
+                ->where('papel', $papel->value)
+                ->vigentes()
+                ->exists();
+
+            if ($daTabela) {
+                return true;
+            }
+        }
+
+        return (bool) $this->{$papel->colunaLegada()};
     }
 }

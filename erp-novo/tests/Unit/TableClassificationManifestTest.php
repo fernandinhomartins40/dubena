@@ -55,6 +55,9 @@ class TableClassificationManifestTest extends TestCase
             // F2-03 — limites numéricos por plano e override por empresa.
             'plano_limites',
             'limite_overrides',
+            // F3-01 — papéis da pessoa com vigência (substitui os booleanos
+            // paralelos `cliente`/`fornecedor`/`transportador`).
+            'cliente_papeis',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

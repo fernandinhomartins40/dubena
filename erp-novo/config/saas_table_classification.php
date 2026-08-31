@@ -103,6 +103,7 @@ $register([
     'checklists',
     'cheques',
     'cliente_enderecos',
+    'cliente_papeis',
     'cliente_identidades',
     'cliente_revisoes',
     'cliente_vinculos',

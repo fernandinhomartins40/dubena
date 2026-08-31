@@ -5,7 +5,7 @@ namespace App\Domain\Cliente;
 use App\Domain\Auditoria\RegistroAcao;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Models\Cliente\Cliente;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\Cliente\ClientePapel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -32,6 +32,8 @@ class ClienteService
                 $this->sincronizarTelefones($cliente, $telefones);
             }
 
+            $this->sincronizarPapeis($cliente);
+
             GeocodificarClienteJob::dispatch($cliente->id);
 
             return $cliente->load('telefones');
@@ -52,6 +54,8 @@ class ClienteService
             if (is_array($telefones)) {
                 $this->sincronizarTelefones($cliente, $telefones);
             }
+
+            $this->sincronizarPapeis($cliente);
 
             if ($enderecoMudou) {
                 GeocodificarClienteJob::dispatch($cliente->id);
@@ -191,7 +195,7 @@ class ClienteService
     /**
      * Substitui o conjunto de telefones do cliente pelo informado.
      *
-     * @param list<array<string, mixed>> $telefones
+     * @param  list<array<string, mixed>>  $telefones
      */
     private function sincronizarTelefones(Cliente $cliente, array $telefones): void
     {
@@ -212,7 +216,7 @@ class ClienteService
      * Bloqueia cadastro de cliente com MESMO endereço (numero+cidade+bairro) na
      * empresa — query parametrizada (corrige a SQLi por concatenação do legado).
      *
-     * @param array<string, mixed> $dados
+     * @param  array<string, mixed>  $dados
      */
     /**
      * A TRAVA DE ENDEREÇO DUPLICADO FOI REMOVIDA (lançava ValidationException).
@@ -239,5 +243,48 @@ class ClienteService
         }
 
         return false;
+    }
+
+    /**
+     * Mantem `cliente_papeis` em sincronia com os booleanos (F3-01).
+     *
+     * As duas fontes convivem por enquanto: os booleanos ainda sao escritos pelo
+     * formulario e lidos pelo `ClienteResource` e pelo ETL. Enquanto isso durar,
+     * escrever so numa delas faria a outra mentir.
+     *
+     * Marcar um papel ABRE uma vigencia; desmarcar ENCERRA a vigente com a data
+     * de hoje — nao apaga a linha. E essa a diferenca que a tabela existe para
+     * fazer: um fornecedor que deixou de fornecer sai da lista de hoje sem que
+     * as notas de entrada antigas passem a apontar para alguem que "nunca foi
+     * fornecedor".
+     */
+    private function sincronizarPapeis(Cliente $cliente): void
+    {
+        foreach (PapelPessoa::cases() as $papel) {
+            $marcado = (bool) $cliente->{$papel->colunaLegada()};
+
+            $vigente = ClientePapel::query()
+                ->where('cliente_id', $cliente->id)
+                ->where('papel', $papel->value)
+                ->whereNull('fim')
+                ->first();
+
+            if ($marcado && $vigente === null) {
+                ClientePapel::create([
+                    'empresa_id' => $cliente->empresa_id,
+                    'grupo_id' => $cliente->grupo_id,
+                    'tenant_account_id' => $cliente->tenant_account_id,
+                    'cliente_id' => $cliente->id,
+                    'papel' => $papel->value,
+                    'inicio' => now()->toDateString(),
+                ]);
+
+                continue;
+            }
+
+            if (! $marcado && $vigente !== null) {
+                $vigente->update(['fim' => now()->toDateString()]);
+            }
+        }
     }
 }
