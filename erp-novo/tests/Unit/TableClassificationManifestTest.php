@@ -61,6 +61,10 @@ class TableClassificationManifestTest extends TestCase
             // F5-04 — conciliacao persistida: o lancamento do extrato bancario e
             // o par que ele formou (ou nao). Company: e dinheiro de UMA revenda.
             'conciliacao_lancamentos',
+            // F5-01 — plano de contas modelo. PLATFORM pelo criterio da
+            // reclassificacao de 2026-08-29: nao tem `grupo_id` e a revenda nao
+            // o edita — ela edita a COPIA dela, em `planos_conta`.
+            'plano_conta_modelos',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

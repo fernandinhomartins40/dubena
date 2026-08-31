@@ -34,6 +34,7 @@ $register([
     'permission_role',
     'permissions',
     'personal_access_tokens',
+    'plano_conta_modelos',
     'platform_admins',
     'platform_audit_logs',
     'produtoorigens',

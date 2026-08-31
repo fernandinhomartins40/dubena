@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Empresa\EnderecoEmpresaSync;
+use App\Domain\Financeiro\PlanoContaModeloService;
 use App\Domain\Saas\LimiteContratado;
 use App\Domain\Saas\TransformationFreeze;
 use App\Domain\Tenant\TenantContext;
@@ -70,6 +71,19 @@ class EmpresaController extends Controller
         ));
 
         $this->vincularAoTenantDoAtor($request, $empresa);
+
+        // F5-01 — o grupo precisa ter plano de contas para o DRE agrupar alguma
+        // coisa. Depois do vínculo de tenant, porque a trigger de hierarquia
+        // (F1-08) recusa pai e filho de tenants distintos: copiar antes deixaria
+        // a árvore sem tenant e o backfill teria de percorrê-la de novo.
+        //
+        // Idempotente: um grupo que já tem as contas não ganha duplicatas, o que
+        // torna seguro chamar a cada empresa criada — inclusive a segunda
+        // unidade da mesma revenda.
+        app(PlanoContaModeloService::class)->copiarParaGrupo(
+            (int) $empresa->grupo_id,
+            TenantCompany::query()->where('empresa_id', $empresa->id)->value('tenant_account_id'),
+        );
 
         return (new EmpresaResource(
             $empresa->load(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao']),
