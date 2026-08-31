@@ -145,6 +145,25 @@ class CidadeMunicipioIbgeTest extends TestCase
             ->assertCreated();
     }
 
+    /**
+     * A cidade de PLATAFORMA (area de cobertura do SaaS) tem a mesma porta, e
+     * ate agora sem conferencia nenhuma. O codigo errado aqui nao vai direto
+     * para a nota, mas e o que liga esta cidade ao municipio real — um vinculo
+     * errado propaga para tudo que consultar por ele.
+     */
+    public function test_cidade_de_plataforma_tambem_confere_o_codigo(): void
+    {
+        [, $user] = $this->cenario();
+        $this->municipio(4109401, 'Guarapuava', 'PR');
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/cidades', [
+                'nome' => 'Inventada', 'uf' => 'PR', 'cod_ibge' => 9999999,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('cod_ibge');
+    }
+
     /** A conferência vale também na edição — senão bastaria criar e editar. */
     public function test_edicao_tambem_confere_o_codigo(): void
     {

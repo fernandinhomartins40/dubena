@@ -1590,3 +1590,27 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   que varria ZERO arquivos e passava sempre. Verificado que detecta: reinseri a
   montagem manual no CentralController e ele apontou arquivo e linha.
 - Validacao: 4 testes focais; suite **1519 passes / 4731 assertions**; Pint.
+
+## Atualizacao de retomada - 2026-08-31 (F3-08 completa + F3-10 medida)
+
+- F3-08: `cidades_plataforma` (a segunda porta) tinha o MESMO `cod_ibge` livre,
+  sem conferencia. Aplicada a mesma correcao do `GeoController`: codigo
+  inexistente e recusado, UF divergente e recusada, e a UF passa a vir do
+  catalogo. Cidade SEM codigo continua permitida — a garantia e sobre codigo
+  ERRADO, nao ausente.
+- F3-10 MEDIDA, e **corrijo o que eu mesmo anotei errado**: registrei antes que
+  `empresa_configs.dados` era "JSON livre, sem schema tipado". NAO E. O endpoint
+  generico tem allow-list (~50 chaves declaradas), RECUSA chave inesperada,
+  RECUSA estrutura aninhada ("configuracao estruturada deve usar seu endpoint
+  especifico") e valida a configuracao financeira a parte. Os blocos
+  estruturados tem porta propria e validada campo a campo — `integracoes` valida
+  `pix.ambiente` com `in:producao,homologacao`, `cartao.url` com `url`, e cifra
+  os segredos por valor preservando o ja salvo.
+- Isso e schema tipado por bloco na pratica. O que nao existe e VERSAO declarada
+  — e sem consumidor que precise migrar entre versoes, seria peso morto.
+- Empresa nova nao recebe configuracao nenhuma: fail-closed, consistente com o
+  resto (sem credencial da empresa nao cobra e nao autentica). Semear defaults
+  exigiria decidir QUAIS valores sao universais, que e exatamente o que a F3
+  existe para nao fazer.
+- Validacao: 7 testes focais; suite **1520 passes / 4734 assertions**; Pint.
+  Ver `F3_10_MEDICAO_CONFIGURACAO.md`.

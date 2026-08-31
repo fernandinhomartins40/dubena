@@ -7,9 +7,11 @@ use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
+use App\Models\Geografico\MunicipioIbge;
 use App\Models\Saas\CidadePlataforma;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Cidades da plataforma (P3) — catálogo (cidades_plataforma) e o vínculo
@@ -90,7 +92,7 @@ class CidadeController extends Controller
     /** @return array<string,mixed> */
     private function validar(Request $request): array
     {
-        return $request->validate([
+        $dados = $request->validate([
             'nome' => 'required|string|max:255',
             'uf' => 'required|string|size:2',
             'cod_ibge' => 'nullable|integer',
@@ -98,6 +100,53 @@ class CidadeController extends Controller
             'centro_lng' => 'nullable|numeric|between:-180,180',
             'ativo' => 'nullable|boolean',
         ]);
+
+        return $this->conferirIbge($dados);
+    }
+
+    /**
+     * F3-08 — o codigo IBGE e conferido contra o catalogo autoritativo.
+     *
+     * Mesma correcao ja aplicada em `GeoController`, na outra porta: `cod_ibge`
+     * era um inteiro livre, digitado a mao. Um codigo errado nao da erro no
+     * cadastro — da rejeicao da SEFAZ na primeira nota emitida para aquela
+     * cidade, quando ninguem lembra de onde veio o numero.
+     *
+     * Aqui a cidade e de PLATAFORMA (area de cobertura do SaaS), entao o codigo
+     * errado nao vai direto para a nota; mas ele e o que liga esta cidade ao
+     * municipio real, e um vinculo errado propaga para tudo que consultar por
+     * ele.
+     *
+     * @param  array<string,mixed>  $dados
+     * @return array<string,mixed>
+     */
+    private function conferirIbge(array $dados): array
+    {
+        $codigo = $dados['cod_ibge'] ?? null;
+
+        // Sem codigo continua permitido: exigir travaria o cadastro de quem
+        // ainda nao migrou. A garantia e sobre codigo ERRADO, nao ausente.
+        if ($codigo === null) {
+            return $dados;
+        }
+
+        $municipio = MunicipioIbge::query()->find((int) $codigo);
+
+        if ($municipio === null) {
+            throw ValidationException::withMessages([
+                'cod_ibge' => 'Codigo IBGE inexistente. Escolha o municipio no catalogo oficial.',
+            ]);
+        }
+
+        if (isset($dados['uf']) && strtoupper((string) $dados['uf']) !== strtoupper($municipio->uf)) {
+            throw ValidationException::withMessages([
+                'uf' => 'A UF nao confere com o municipio IBGE informado ('.$municipio->nome.'/'.$municipio->uf.').',
+            ]);
+        }
+
+        $dados['uf'] = $municipio->uf;
+
+        return $dados;
     }
 
     /** Resolve a empresa garantindo que pertence ao grupo do usuário (anti-cross-tenant). */
