@@ -2,6 +2,8 @@
 
 namespace App\Domain\Cobranca\Cnab;
 
+use App\Domain\Identidade\NormalizadorTexto;
+
 /**
  * Helpers de CNAB/boleto (F08): dígitos verificadores (módulo 10 e 11), formatação
  * de campos de largura fixa e fator de vencimento FEBRABAN. PHP puro e testável —
@@ -128,10 +130,15 @@ final class CnabHelper
         );
     }
 
+    /**
+     * F6-06A — o normalizador canônico, e não `iconv('ASCII//TRANSLIT')`.
+     *
+     * O TRANSLIT depende do locale: no Windows devolve "?" para acentuado. Aqui
+     * isso significava boleto impresso com "JOAO" na VPS e "JO?O" em dev — e a
+     * divergência só apareceria no papel entregue ao cliente.
+     */
     private static function semAcento(string $v): string
     {
-        $t = @iconv('UTF-8', 'ASCII//TRANSLIT', $v);
-
-        return $t !== false ? $t : $v;
+        return NormalizadorTexto::semAcento($v);
     }
 }

@@ -2,17 +2,24 @@
 
 namespace App\Http\Controllers\Api\Legado;
 
+use App\Domain\Cobranca\BoletoPdfService;
 use App\Domain\Fiscal\DanfePdfService;
 use App\Domain\Venda\CentralVendasService;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteTelefone;
+use App\Models\Cobranca\Boleto;
 use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Fiscal\NotaFiscal;
+use App\Models\Mobile\AppDevice;
 use App\Models\Pedido\Pedido;
 use App\Models\Produto\Produto;
 use App\Models\Rh\Colaborador;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * F0 — ponte para o NFWEB (app de venda consultiva, React Native).
@@ -210,7 +217,7 @@ class PonteNfwebController extends Controller
             ->get(['p.vencimento', 'f.documento', 'f.descricao', 'p.valor']);
 
         return response()->json(['data' => $parcelas->map(fn ($p) => [
-            'datavencimento' => \Illuminate\Support\Carbon::parse($p->vencimento)->format('d/m/Y'),
+            'datavencimento' => Carbon::parse($p->vencimento)->format('d/m/Y'),
             'documento' => $p->documento ?? '',
             'descricao' => $p->descricao ?? '',
             'valor' => (float) $p->valor,
@@ -265,7 +272,7 @@ class PonteNfwebController extends Controller
     }
 
     /** GET nfweb/visualizarDanfe — PDF (passa intacto pelo dialeto). */
-    public function visualizarDanfe(Request $request, DanfePdfService $danfe): \Illuminate\Http\Response
+    public function visualizarDanfe(Request $request, DanfePdfService $danfe): Response
     {
         return $this->pdfDaNota($request, $danfe, 'inline');
     }
@@ -276,7 +283,7 @@ class PonteNfwebController extends Controller
      * O legado tem as duas rotas porque a tela oferece "ver" e "baixar"; só muda
      * o `Content-Disposition`. Manter as duas evita mexer no app.
      */
-    public function baixarDanfe(Request $request, DanfePdfService $danfe): \Illuminate\Http\Response
+    public function baixarDanfe(Request $request, DanfePdfService $danfe): Response
     {
         return $this->pdfDaNota($request, $danfe, 'attachment');
     }
@@ -383,12 +390,20 @@ class PonteNfwebController extends Controller
 
         $cliente = Cliente::create(array_filter($dados, fn ($v) => $v !== null));
 
+        // F6-06A — pelo MODEL, não por `DB::table()->insert()`.
+        //
+        // A escrita crua pula os model events, e com eles o
+        // `ClienteIdentidadeObserver`: o telefone entrava na tabela sem virar
+        // traço de identidade. O efeito é silencioso e cumulativo — o cliente
+        // fica invisível ao motor de deduplicação, e o próximo cadastro com o
+        // mesmo telefone vira duplicata **sem nem ser comparado**.
+        //
+        // Também perdia o `empresa_id` herdado por relação, deixando o telefone
+        // órfão de tenant.
         foreach ($fones as $fone) {
-            \DB::table('clientetelefones')->insert([
+            ClienteTelefone::create([
                 'cliente_id' => $cliente->id,
                 'telefone' => $fone,
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
         }
 
@@ -440,7 +455,7 @@ class PonteNfwebController extends Controller
         $token = (string) $request->input('registration_id', $request->input('token', ''));
 
         if ($token !== '') {
-            \App\Models\Mobile\AppDevice::updateOrCreate(
+            AppDevice::updateOrCreate(
                 ['user_id' => $request->user()->id, 'device_id' => $request->input('device_id', 'nfweb')],
                 ['empresa_id' => $request->user()->empresa_id, 'push_token' => $token, 'plataforma' => 'android'],
             );
@@ -503,16 +518,16 @@ class PonteNfwebController extends Controller
         return response()->json(['data' => $parcelas->map(fn ($p) => [
             'id' => $p->id,
             'numero' => $p->numero,
-            'datavencimento' => \Illuminate\Support\Carbon::parse($p->vencimento)->format('d/m/Y'),
+            'datavencimento' => Carbon::parse($p->vencimento)->format('d/m/Y'),
             'valor' => (float) $p->valor,
             'baixado' => (bool) $p->baixado,
         ])->all()]);
     }
 
     /** GET nfweb/visualizarBoleto — PDF do boleto da parcela. */
-    public function visualizarBoleto(Request $request, \App\Domain\Cobranca\BoletoPdfService $pdf): \Illuminate\Http\Response
+    public function visualizarBoleto(Request $request, BoletoPdfService $pdf): Response
     {
-        $boleto = \App\Models\Cobranca\Boleto::query()
+        $boleto = Boleto::query()
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->findOrFail((int) $request->input('boleto_id', $request->input('id', 0)));
 
@@ -544,14 +559,14 @@ class PonteNfwebController extends Controller
             return response()->json(['message' => 'Cliente sem e-mail cadastrado.'], 422);
         }
 
-        \Illuminate\Support\Facades\Log::info('nfweb: envio de nota por e-mail solicitado', [
+        Log::info('nfweb: envio de nota por e-mail solicitado', [
             'nota_id' => $nota->id, 'destino' => $destino, 'user_id' => $request->user()->id,
         ]);
 
         return response()->json(['data' => ['enviado' => true, 'destino' => $destino]]);
     }
 
-    private function pdfDaNota(Request $request, DanfePdfService $danfe, string $disposicao): \Illuminate\Http\Response
+    private function pdfDaNota(Request $request, DanfePdfService $danfe, string $disposicao): Response
     {
         $nota = NotaFiscal::query()
             ->where('empresa_id', (int) $request->user()->empresa_id)

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Apoio;
 
+use App\Domain\Identidade\NormalizadorTexto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -53,7 +54,7 @@ class InconsistenciaService
      * seriam linhas distintas e o mesmo par voltaria à fila pela ordem inversa.
      *
      * @param  'rua'|'bairro'  $tipo
-     * @return bool  false se o par já estava ignorado (idempotente)
+     * @return bool false se o par já estava ignorado (idempotente)
      */
     public function ignorarPar(
         string $tipo,
@@ -224,16 +225,20 @@ class InconsistenciaService
         return $max === 0 ? 0.0 : 1.0 - (levenshtein($a, $b) / $max);
     }
 
-    /** Normaliza: minúsculo, sem acento, sem pontuação, espaços colapsados. */
+    /**
+     * F6-06A — o normalizador canônico, e não uma cópia local com `iconv`.
+     *
+     * Fazia exatamente o que `NormalizadorTexto::basico()` já faz, e com o
+     * defeito que ele existe para evitar: `iconv('ASCII//TRANSLIT')` depende do
+     * locale e no Windows devolve "?" para acentuado.
+     *
+     * Aqui isso é pior que cosmético — este serviço **compara** textos para
+     * achar cadastros duplicados. Com "?" no lugar do acento, "JOSÉ" e "JOSE"
+     * deixam de casar em dev e casam na VPS: a mesma base produz listas de
+     * inconsistência diferentes conforme onde roda.
+     */
     private function normalizar(string $v): string
     {
-        $v = mb_strtolower(trim($v));
-        $t = @iconv('UTF-8', 'ASCII//TRANSLIT', $v);
-        if ($t !== false) {
-            $v = $t;
-        }
-        $v = preg_replace('/[^a-z0-9 ]/', '', $v);
-
-        return trim(preg_replace('/\s+/', ' ', $v));
+        return NormalizadorTexto::basico($v);
     }
 }

@@ -54,6 +54,51 @@ final class NormalizadorTexto
         return trim(preg_replace('/\s+/', ' ', $t) ?? '');
     }
 
+    /**
+     * Só tira o acento — preserva caixa, pontuação e espaços.
+     *
+     * Existe para quem precisa de ASCII **sem** perder o resto do texto: o
+     * layout CNAB aceita `.`, `,`, `-` e `/` no nome do sacado, e `basico()`
+     * transformaria todos em espaço. O boleto sairia com "IND. E COM." virando
+     * "IND E COM", divergindo do cadastro.
+     *
+     * A tabela explícita é o ponto: `iconv('ASCII//TRANSLIT')` depende do locale
+     * e no Windows devolve "?" para acentuado. Um nome com "ç" viraria "?" no
+     * boleto impresso — em dev, e não na VPS, o que é a pior forma de descobrir.
+     */
+    public static function semAcento(?string $texto): string
+    {
+        if ($texto === null) {
+            return '';
+        }
+
+        // Minúsculas para a tabela casar, depois devolve a caixa original letra
+        // a letra — trocar o caso de tudo mudaria o nome impresso.
+        $original = $texto;
+        $minusculo = mb_strtolower($texto, 'UTF-8');
+        $semAcento = strtr($minusculo, self::ACENTOS);
+
+        // Se a transliteração não mexeu em nada, o texto já era ASCII.
+        if ($semAcento === $minusculo) {
+            return $original;
+        }
+
+        $saida = '';
+        $caracteres = mb_str_split($original, 1, 'UTF-8');
+
+        foreach ($caracteres as $c) {
+            $convertido = strtr(mb_strtolower($c, 'UTF-8'), self::ACENTOS);
+
+            // `mb_strtolower($c) === $c` diz que o caractere original já era
+            // minúsculo; senão devolve a versão em caixa alta do convertido.
+            $saida .= mb_strtolower($c, 'UTF-8') === $c
+                ? $convertido
+                : mb_strtoupper($convertido, 'UTF-8');
+        }
+
+        return $saida;
+    }
+
     /** Só os dígitos — para CPF, CNPJ, CEP e telefone. */
     public static function digitos(?string $texto): string
     {
