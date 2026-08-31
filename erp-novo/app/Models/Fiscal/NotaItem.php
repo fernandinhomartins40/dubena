@@ -28,6 +28,13 @@ class NotaItem extends Model
         'valor_total', 'desconto', 'cfop', 'cst_icms',
         'bc_icms', 'aliq_icms', 'valor_icms', 'aliq_pis', 'valor_pis',
         'aliq_cofins', 'valor_cofins', 'aliq_ipi', 'valor_ipi',
+        // F5-08 — o resto da resolucao congelada. O XML JA lia estes campos do
+        // item (`$icms->orig = $item->origem_icms`), e eles nao existiam: nem
+        // coluna, nem fillable. O `orig` saía 0 — "nacional" para qualquer
+        // produto, inclusive importado — e o CST de PIS/COFINS saía nulo.
+        'origem_icms', 'modalidade_bc_icms',
+        'cst_pis', 'bc_pis', 'cst_cofins', 'bc_cofins',
+        'bc_icms_st', 'aliq_icms_st', 'valor_icms_st',
     ];
 
     protected function casts(): array

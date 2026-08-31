@@ -138,7 +138,29 @@ class FiscalService
                     'valor_total' => $valorTotal,
                     'desconto' => $item->desconto,
                     'cfop' => $this->cfopDe($operacao, $pedido->grupo_id, $ufEmitente, $ufDestino),
+
+                    // F5-08 — a resolução tributária congelada por INTEIRO.
+                    //
+                    // Só `cst_icms` era gravado. O XML lia os demais do item
+                    // (`$icms->orig`, `$pis->CST`, `$pis->vBC`) e recebia nulo,
+                    // porque não havia coluna nem fillable — três camadas
+                    // concordando em descartar o mesmo dado.
+                    //
+                    // Depois de autorizada a NF-e é imutável na SEFAZ, e a
+                    // matriz agora tem vigência justamente porque muda: remontar
+                    // o XML relendo a regra produziria divergência com o
+                    // autorizado. Por isso congela aqui.
                     'cst_icms' => $tributos['cst_icms'],
+                    'origem_icms' => $tributos['origem_icms'] ?? null,
+                    'modalidade_bc_icms' => $tributos['modalidade_bc_icms'] ?? null,
+                    'cst_pis' => $tributos['cst_pis'] ?? null,
+                    'cst_cofins' => $tributos['cst_cofins'] ?? null,
+
+                    // A base de PIS/COFINS é a mesma do ICMS no caso geral. Sem
+                    // ela o XML mandava o valor do tributo com a base zerada —
+                    // internamente inconsistente.
+                    'bc_pis' => $imp->baseIcms,
+                    'bc_cofins' => $imp->baseIcms,
                 ], $imp->toArray()));
 
                 $totais['prod'] += $valorTotal;

@@ -91,6 +91,8 @@ class ResolucaoTributariaService
                 'aliq_icms' => (float) $regra->pf_aliq_icms,
                 'perc_bc_icms' => (float) ($regra->pf_perc_bc_icms ?? 100),
                 'origem_icms' => $regra->pf_origem_icms,
+                // F5-08 — o XML le `modBC` do item; sem propagar aqui, chegava nulo.
+                'modalidade_bc_icms' => $regra->pf_modalidade_bc_icms ?? $regra->modalidade_bc_icms,
                 // Consumidor final não recolhe ST nem diferimento (ImpostoDB).
                 'mva_st' => 0.0,
                 'aliq_icms_st' => 0.0,
@@ -107,6 +109,7 @@ class ResolucaoTributariaService
             'aliq_icms' => (float) $regra->aliq_icms,
             'perc_bc_icms' => (float) ($regra->perc_bc_icms ?? 100),
             'origem_icms' => $regra->origem_icms,
+            'modalidade_bc_icms' => $regra->modalidade_bc_icms,
             'mva_st' => (float) $regra->mva,
             'aliq_icms_st' => (float) $regra->aliq_icms_st,
             'perc_bc_icms_st' => (float) ($regra->perc_bc_icms_st ?? 100),
@@ -137,6 +140,7 @@ class ResolucaoTributariaService
                 'aliq_icms' => (float) $uf->pf_aliq_icms,
                 'perc_bc_icms' => (float) ($uf->pf_perc_bc_icms ?? 100),
                 'origem_icms' => $uf->pf_origem_icms,
+                'modalidade_bc_icms' => $uf->pf_modalidade_bc_icms ?? $uf->modalidade_bc_icms,
                 'mva_st' => 0.0,
                 'aliq_icms_st' => 0.0,
                 'perc_bc_icms_st' => 100.0,
@@ -154,6 +158,7 @@ class ResolucaoTributariaService
             'aliq_icms' => (float) $uf->aliq_icms,
             'perc_bc_icms' => (float) ($uf->perc_bc_icms ?? 100),
             'origem_icms' => $uf->origem_icms,
+            'modalidade_bc_icms' => $uf->modalidade_bc_icms,
             'mva_st' => (float) $uf->mva,
             'aliq_icms_st' => (float) $uf->aliq_icms_st,
             'perc_bc_icms_st' => (float) ($uf->perc_bc_icms_st ?? 100),
