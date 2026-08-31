@@ -1663,3 +1663,32 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ABERTO: os chamadores ainda NAO passam a chave — a infraestrutura esta pronta e
   testada, adotar em cada porta e o passo seguinte e cada uma precisa decidir
   qual e a sua chave natural.
+
+## Atualizacao de retomada - 2026-08-31 (F4-02: a projecao de saldo ganha prova)
+
+- `estoquesaldos` e a projecao, mantida na MESMA transacao do movimento com lock
+  pessimista. Isso esta certo — e o que da o saldo em O(1) na tela. O que
+  faltava e a outra metade: PROVAR que ela bate com o ledger.
+- Uma projecao sem conferencia e uma afirmacao sem prova. Ela pode divergir por
+  um bug corrigido meses atras, por um UPDATE manual em producao, por uma
+  migracao — e ninguem descobre, porque a tela mostra a projecao e ninguem soma
+  o ledger a mao.
+- `ConferenciaDeSaldo` compara por (setor, produto) e **NAO AJUSTA**. E o gate da
+  fase, e a razao e que o ajuste automatico destroi a evidencia: se a projecao
+  diz 10 e o ledger soma 8, ou a projecao esta errada OU falta movimento no
+  ledger (mercadoria que entrou sem registro). Sobrescrever resolve a tela e
+  apaga a pergunta — e se a resposta era a segunda, a mercadoria some da
+  contabilidade sem rastro. Ha teste provando que conferir nao altera nada.
+- Tres decisoes: (1) percorre a UNIAO das chaves, nao so as da projecao — um par
+  no ledger SEM linha de saldo e o caso mais grave, e olhar so a projecao o
+  deixaria invisivel; (2) tolerancia de 0,001, porque a quantidade tem 3 casas e
+  comparar float por igualdade exata viraria ruido, e relatorio com ruido deixa
+  de ser lido; (3) o comando sai com FAILURE, para servir de PORTAO em script de
+  deploy e nao so de relatorio.
+- `php artisan estoque:conferir [--empresa=] [--csv=]`, read-only por desenho.
+- Validacao: 8 testes focais; suite **1536 passes / 4769 assertions**; Pint.
+  Ver `F4_02_CONFERENCIA_DE_SALDO.md`.
+- ABERTO de proposito: NAO ha recalculo automatico da projecao. Reconstruir
+  `estoquesaldos` a partir do ledger seria uma linha — e e exatamente o "ajuste
+  silencioso" que o gate proibe. Se vier a ser necessario, deve ser comando
+  proprio, explicito e com confirmacao.
