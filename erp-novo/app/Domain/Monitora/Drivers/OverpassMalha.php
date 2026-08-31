@@ -20,6 +20,21 @@ use Illuminate\Support\Facades\Log;
 class OverpassMalha implements MalhaViaria
 {
     /**
+     * Identificacao da aplicacao perante o Overpass.
+     *
+     * `app.name` e o nome da plataforma, configuravel por deploy. O fallback
+     * generico existe para o caso de a configuracao vir vazia: identificar-se
+     * de forma neutra e melhor do que se passar por outra empresa.
+     */
+    private function userAgent(): string
+    {
+        $nome = trim((string) config('app.name'));
+        $nome = $nome === '' ? 'ERP' : preg_replace('/[^A-Za-z0-9._-]/', '', $nome);
+
+        return $nome.'/1.0 (geofencing)';
+    }
+
+    /**
      * Vias que entram na malha.
      *
      * `service` (acessos de estacionamento) e `footway` ficam de FORA: eles
@@ -61,7 +76,12 @@ class OverpassMalha implements MalhaViaria
             $resposta = Http::timeout($this->timeout + 5)
                 // A política de uso do Overpass pede identificação da
                 // aplicação; requisição anônima em volume é bloqueada.
-                ->withHeaders(['User-Agent' => 'ERP-Dubena/1.0 (geofencing)'])
+                // F3-10: o nome vem da configuracao da PLATAFORMA, nao do
+                // nome de uma revenda. Fixo em "ERP-Dubena", toda revenda do
+                // SaaS se identificaria como a primeira cliente perante um
+                // servico externo — e a politica de uso do Overpass pede que o
+                // User-Agent identifique QUEM esta chamando.
+                ->withHeaders(['User-Agent' => $this->userAgent()])
                 ->asForm()
                 ->post($this->endpoint, ['data' => $consulta]);
 

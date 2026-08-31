@@ -1405,3 +1405,26 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ABERTO: a fusao das tabelas; uma tela de conciliacao (hoje os nao vinculados e
   os ambiguos ficam nulos CORRETAMENTE, mas ninguem os ve); e criar
   `monitora_veiculos` com placa inexistente na frota ainda nao avisa.
+
+## Atualizacao de retomada - 2026-08-31 (F3-10 PARCIAL: literal da Dubena fora do codigo)
+
+- Varri `app/` e `config/` por "Dubena" e "Guarapuava". Resultado honesto: a
+  ESMAGADORA MAIORIA sao COMENTARIOS explicando de onde veio um numero
+  ("medido na base real de Guarapuava", "a −25° um grau de longitude vale ~10%
+  menos"). Isso e documentacao valiosa e nao foi tocado.
+- Em codigo EXECUTAVEL havia **um** caso: o `User-Agent` enviado ao Overpass
+  dizia `ERP-Dubena/1.0`. Num SaaS, toda revenda se identificaria como a
+  primeira cliente perante um servico externo — e a politica de uso do Overpass
+  pede justamente que o User-Agent identifique quem chama. Agora vem de
+  `config('app.name')`, com fallback generico (identificar-se de forma neutra e
+  melhor do que se passar por outra empresa).
+- Verifiquei tambem defaults suspeitos (UF fixa, cidade fixa, codigo IBGE fixo):
+  o unico `'41'` encontrado e CST fiscal, legitimo.
+- O guardiao `EscritaCanonicaTest` ganhou um terceiro teste: nome de revenda ou
+  da cidade dela dentro de STRING em codigo falha a suite. Comentario continua
+  permitido — o que se proibe e o literal governar comportamento. VERIFICADO QUE
+  DETECTA: reinseri `'ERP-Dubena/1.0'` de proposito e ele apontou arquivo e linha.
+- NAO FEITO da F3-10, e registrado: `empresa_configs.dados` continua sendo JSON
+  livre, sem schema tipado nem versionado — a tarefa pede isso e e trabalho
+  grande. Empresa nova hoje nao recebe configuracao nenhuma (fail-closed, que e
+  consistente), entao nao ha "defaults de plataforma copiados no onboarding".

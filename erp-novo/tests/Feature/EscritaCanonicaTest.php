@@ -90,6 +90,44 @@ class EscritaCanonicaTest extends TestCase
     }
 
     /**
+     * F3-10 — nome de revenda ou cidade dela não vira literal em código.
+     *
+     * "Dubena" e "Guarapuava" são a primeira cliente e a cidade dela. Num
+     * produto para N revendas, qualquer um dos dois dentro de uma string
+     * executável é uma regra da Dubena aplicada a todo mundo — e o caso que
+     * motivou isto era exatamente assim: o `User-Agent` enviado ao Overpass
+     * dizia `ERP-Dubena`, então toda revenda do SaaS se identificaria como a
+     * primeira perante um serviço externo.
+     *
+     * Comentário citando a origem de um número ("medido na base de Guarapuava")
+     * é documentação valiosa, e continua permitido — o que se proíbe é o
+     * literal governar comportamento.
+     */
+    public function test_nome_de_revenda_nao_vira_literal_em_codigo(): void
+    {
+        $achados = [];
+
+        foreach ($this->arquivosPhp() as $arquivo) {
+            foreach ($this->linhasDeCodigo($arquivo) as $numero => $linha) {
+                foreach (['Dubena', 'Guarapuava'] as $termo) {
+                    // Só dentro de string: um nome de classe ou variável que
+                    // contenha o termo é outro assunto (e não existe hoje).
+                    if (preg_match("/['\"][^'\"]*{$termo}[^'\"]*['\"]/i", $linha) === 1) {
+                        $relativo = str_replace(base_path().DIRECTORY_SEPARATOR, '', $arquivo);
+                        $achados[] = "{$relativo}:{$numero} tem \"{$termo}\" numa string";
+                    }
+                }
+            }
+        }
+
+        $this->assertSame([], $achados, implode("\n", array_merge(
+            ['Nome da primeira revenda (ou da cidade dela) dentro de código:'],
+            $achados,
+            ['', 'Use configuração de plataforma (app.name) ou do tenant.'],
+        )));
+    }
+
+    /**
      * A licença é nominal: arquivo permitido tem de existir, senão a lista
      * envelhece protegendo um arquivo que já foi renomeado.
      */
