@@ -1516,3 +1516,20 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   por centro de custo), o lugar ja esta pronto e a decisao e do dono.
 - Ver `F3_07_ORGANIZACAO_MEDICAO.md` — registrei a medicao para a proxima pessoa
   nao refazer a investigacao.
+
+## Atualizacao de retomada - 2026-08-31 (F3-04 medido + duas lacunas fechadas)
+
+- F3-04 ("separar order/fulfillment/payment/fiscal; forma de pagamento nunca e
+  status de entrega"): MEDIDO. As situacoes que o seeder entrega sao todas de
+  FULFILLMENT (Em Aberto -> Separacao -> Rota -> Concluido). Nao ha forma de
+  pagamento disfarcada de status, que e o defeito que a tarefa alerta.
+- LACUNA MINHA fechada: criei `PapelSituacao::EM_ROTA` em F3-04A e NAO atualizei
+  os seeders. Uma revenda nova recebia "Em Rota" no Kanban e o app do entregador
+  falhava ao iniciar rota — comportamento correto (pede configuracao), mas o
+  seeder existe justamente para nao exigir configuracao manual do que ja se sabe.
+  `DemoGuarapuavaSeeder` e `HomologSeeder` agora declaram o papel, com teste.
+- BUG PREEXISTENTE encontrado no caminho: `DemoGuarapuavaSeeder` chamava
+  `CaixaService::abrir($conta->id)` com um argumento, mas a assinatura passou a
+  exigir `empresaId` (isolamento de tenant) e o seeder ficou para tras —
+  `ArgumentCountError`. **O seeder de demonstracao estava quebrado.** Corrigido.
+  So apareceu porque o teste novo o executa; nenhum teste o exercitava antes.

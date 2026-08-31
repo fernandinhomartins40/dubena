@@ -10,6 +10,7 @@ use App\Models\Empresa;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\User;
+use Database\Seeders\DemoGuarapuavaSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -194,6 +195,28 @@ class PapelSituacaoEmRotaTest extends TestCase
                 'papel' => PapelSituacao::EM_ROTA->value,
             ])
             ->assertOk();
+    }
+
+    /**
+     * O seeder tem de entregar a base PRONTA, com o papel declarado.
+     *
+     * Sem isto, uma revenda nova recebe "Em Rota" no Kanban e o app do
+     * entregador falha ao iniciar rota — o comportamento e correto (pede
+     * configuracao), mas o seeder existe justamente para nao exigir
+     * configuracao manual do que ja se sabe.
+     *
+     * Esta lacuna era real: criei o papel em F3-04A e nao atualizei os seeders.
+     */
+    public function test_seeder_declara_o_papel_da_situacao_de_rota(): void
+    {
+        $this->seed(DemoGuarapuavaSeeder::class);
+
+        $comPapel = PedidoSituacao::query()
+            ->where('papel', PapelSituacao::EM_ROTA->value)
+            ->where('ativo', true)
+            ->count();
+
+        $this->assertSame(1, $comPapel, 'o seeder tem de declarar exatamente uma situação de rota');
     }
 
     /** Toda situação nasce sem papel: é afirmação de quem configura, não default. */

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Domain\Caixa\CaixaService;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Satelite\ComodatoService;
 use App\Domain\Satelite\ValeGasService;
@@ -53,7 +54,6 @@ use App\Models\Geografico\Rua;
 use App\Models\Gestao\Documento;
 use App\Models\Gestao\EmpresaBem;
 use App\Models\Gestao\Mcmm;
-use App\Models\Monitora\Cerca;
 use App\Models\Pagamento\GasDoPovoBeneficio;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoOperacao;
@@ -476,18 +476,23 @@ class DemoGuarapuavaSeeder extends Seeder
         $op = PedidoOperacao::firstOrCreate(['grupo_id' => $this->grupoId, 'descricao' => 'Venda'], ['venda_direta' => true, 'ativo' => true]);
         PedidoOperacao::firstOrCreate(['grupo_id' => $this->grupoId, 'descricao' => 'Disk-Gás'], ['disk' => true, 'ativo' => true]);
 
+        // O quarto elemento e o PAPEL operacional (F3-04A). "Em Rota" precisa
+        // declara-lo: e por ele que o app do entregador acha a situacao ao
+        // iniciar a rota. Sem isso, numa base nova a acao falha pedindo
+        // configuracao — e o seeder existe justamente para entregar a base
+        // pronta.
         $defs = [
-            ['Em Aberto', 'PENDENTE', '#F59E0B', 0],
-            ['Em Separação', 'PENDENTE', '#3B82F6', 1],
-            ['Em Rota', 'PENDENTE', '#A855F7', 2],
-            ['Concluído', 'CONCLUIDO', '#22C55E', 3],
-            ['Cancelado', 'CANCELADO', '#EF4444', 4],
+            ['Em Aberto', 'PENDENTE', '#F59E0B', 0, PapelSituacao::NENHUM],
+            ['Em Separação', 'PENDENTE', '#3B82F6', 1, PapelSituacao::NENHUM],
+            ['Em Rota', 'PENDENTE', '#A855F7', 2, PapelSituacao::EM_ROTA],
+            ['Concluído', 'CONCLUIDO', '#22C55E', 3, PapelSituacao::NENHUM],
+            ['Cancelado', 'CANCELADO', '#EF4444', 4, PapelSituacao::NENHUM],
         ];
         $situacoes = [];
-        foreach ($defs as [$desc, $efeito, $cor, $ordem]) {
+        foreach ($defs as [$desc, $efeito, $cor, $ordem, $papel]) {
             $situacoes[$efeito === 'CONCLUIDO' ? 'concluido' : ($efeito === 'CANCELADO' ? 'cancelado' : $desc)] = PedidoSituacao::firstOrCreate(
                 ['grupo_id' => $this->grupoId, 'descricao' => $desc],
-                ['efeito' => $efeito, 'cor' => $cor, 'ordem' => $ordem, 'ativo' => true],
+                ['efeito' => $efeito, 'papel' => $papel->value, 'cor' => $cor, 'ordem' => $ordem, 'ativo' => true],
             );
         }
 
@@ -547,7 +552,9 @@ class DemoGuarapuavaSeeder extends Seeder
                 'empresa_id' => $this->empresa->id, 'grupo_id' => $this->grupoId,
                 'descricao' => 'Caixa Geral', 'tipo' => 'caixa', 'saldo_inicial' => 2000.00,
             ]);
-            $svc->abrir($conta->id);
+            // `abrir` passou a exigir a empresa esperada (isolamento de tenant)
+            // e o seeder ficou para tras — quebrava com ArgumentCountError.
+            $svc->abrir($conta->id, (int) $this->empresa->id);
         }
         // Conta bancária adicional
         Conta::firstOrCreate(['empresa_id' => $this->empresa->id, 'descricao' => 'Banco - Conta Movimento'], ['grupo_id' => $this->grupoId, 'tipo' => 'banco', 'saldo_inicial' => 15000, 'saldo_atual' => 15000, 'ativo' => true]);
@@ -764,5 +771,4 @@ class DemoGuarapuavaSeeder extends Seeder
 
         return $l().$l().$l().mt_rand(0, 9).$l().mt_rand(0, 9).mt_rand(0, 9);
     }
-
 }

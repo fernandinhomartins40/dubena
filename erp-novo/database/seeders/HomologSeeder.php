@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Domain\Caixa\CaixaService;
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Satelite\ComodatoService;
 use App\Domain\Satelite\ValeGasService;
@@ -195,6 +196,13 @@ class HomologSeeder extends Seeder
         $pendente = PedidoSituacao::firstOrCreate(
             ['grupo_id' => $this->grupoId, 'descricao' => 'Pendente'],
             ['efeito' => 'PENDENTE', 'ativo' => true],
+        );
+        // F3-04A: sem uma situacao com o papel EM_ROTA, o app do entregador
+        // nao consegue iniciar rota na homologacao — a acao falha pedindo
+        // configuracao, que e o comportamento correto mas impede o teste.
+        PedidoSituacao::firstOrCreate(
+            ['grupo_id' => $this->grupoId, 'descricao' => 'Saiu para entrega'],
+            ['efeito' => 'PENDENTE', 'papel' => PapelSituacao::EM_ROTA->value, 'ativo' => true],
         );
         $concluido = PedidoSituacao::firstOrCreate(
             ['grupo_id' => $this->grupoId, 'descricao' => 'Concluído'],
