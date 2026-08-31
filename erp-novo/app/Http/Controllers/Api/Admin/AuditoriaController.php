@@ -114,6 +114,7 @@ class AuditoriaController extends Controller
             'fim' => 'nullable|date',
             'apenas_sensiveis' => 'nullable|boolean',
             'cliente_id' => 'nullable|integer',
+            'correlacao' => 'nullable|string|max:64',
         ]);
 
         // Busca por cliente: atalho para (entidade=clientes + id), que e o

@@ -24,8 +24,8 @@ class RegistroAcao
     /**
      * Grava uma ação sobre um model.
      *
-     * @param  string  $acao     chave de CatalogoAuditoria::ACOES
-     * @param  string|null  $motivo   o "porquê" digitado pela pessoa
+     * @param  string  $acao  chave de CatalogoAuditoria::ACOES
+     * @param  string|null  $motivo  o "porquê" digitado pela pessoa
      * @param  array<string,mixed>  $contexto  dados extras exibidos na trilha
      */
     public function registrar(Model $alvo, string $acao, ?string $motivo = null, array $contexto = []): void
@@ -65,6 +65,10 @@ class RegistroAcao
         }
 
         AuditLog::create([
+            ...app(ContextoAuditoria::class)->campos(),
+            // `motivo` vira COLUNA: dentro do JSON `depois` nao dava para
+            // filtrar nem exigir.
+            'motivo' => $motivo,
             'empresa_id' => $alvo->getAttribute('empresa_id'),
             'entidade' => $alvo->getTable(),
             'entidade_id' => $alvo->getKey(),

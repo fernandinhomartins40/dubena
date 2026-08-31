@@ -2,6 +2,7 @@
 
 namespace App\Domain\Shared;
 
+use App\Domain\Auditoria\ContextoAuditoria;
 use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -60,6 +61,9 @@ trait Auditavel
         );
 
         AuditLog::create([
+            // F2-06: tenant e correlacao vem do ponto unico, para toda linha da
+            // trilha responder "de qual revenda" e "de qual requisicao".
+            ...app(ContextoAuditoria::class)->campos(),
             'empresa_id' => $this->getAttribute('empresa_id'),
             'entidade' => $this->getTable(),
             'entidade_id' => $this->getKey(),

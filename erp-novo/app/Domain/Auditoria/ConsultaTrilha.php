@@ -85,6 +85,10 @@ class ConsultaTrilha
             ->when($filtros['entidade_id'] ?? null, fn (Builder $q, $id) => $q->where('entidade_id', $id))
             ->when($filtros['acao'] ?? null, fn (Builder $q, $a) => $q->where('acao', $a))
             ->when($filtros['user_id'] ?? null, fn (Builder $q, $u) => $q->where('user_id', $u))
+            // Recorte "aquele clique": todas as linhas nascidas da mesma
+            // requisição. Continua preso à empresa acima — o fio é um filtro
+            // dentro do tenant, nunca uma porta para fora dele.
+            ->when($filtros['correlacao'] ?? null, fn (Builder $q, $c) => $q->where('correlation_id', $c))
             ->when($filtros['apenas_sensiveis'] ?? false, fn (Builder $q) => $q->whereIn('acao', CatalogoAuditoria::ACOES_SENSIVEIS))
             // whereDate: `criado_em` é datetime, e comparar com a string 'Y-m-d'
             // perderia o último dia do intervalo (armadilha conhecida do repo).
@@ -115,9 +119,15 @@ class ConsultaTrilha
             'acao' => $log->acao,
             'acao_rotulo' => CatalogoAuditoria::rotuloAcao($log->acao),
             'sensivel' => CatalogoAuditoria::acaoSensivel($log->acao),
-            'motivo' => $depois['motivo'] ?? null,
+            // A coluna vem primeiro; o JSON é o fallback das linhas gravadas
+            // antes de `motivo` virar coluna (F2-06). A trilha é append-only:
+            // não se reescreve o passado para uniformizar o formato.
+            'motivo' => $log->motivo ?? $depois['motivo'] ?? null,
             'autor' => $log->user?->name,
             'autor_id' => $log->user_id,
+            // O fio que liga esta linha às outras da mesma ação — é por ele que
+            // se responde "o que mais aconteceu naquele clique".
+            'correlacao' => $log->correlation_id,
             'ip' => $log->ip,
             'criado_em' => $log->criado_em?->toIso8601String(),
             'alteracoes' => $this->diff($log, $mostrarCusto),

@@ -21,7 +21,8 @@ class SecurityEvent extends Model
 
     protected $table = 'security_events';
 
-    protected $fillable = ['empresa_id', 'user_id', 'tipo', 'alvo', 'detalhes', 'ip', 'criado_em'];
+    protected $fillable = ['empresa_id', 'user_id', 'tipo', 'alvo', 'detalhes', 'ip', 'criado_em',
+        'tenant_account_id', 'correlation_id', 'motivo'];
 
     protected function casts(): array
     {

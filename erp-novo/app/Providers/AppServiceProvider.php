@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\Acesso\BreakGlass;
+use App\Domain\Auditoria\ContextoAuditoria;
 use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Drivers\CaixaBoletoDriver;
@@ -109,6 +110,10 @@ class AppServiceProvider extends ServiceProvider
         // por requisição, e sem instância única a trilha registraria o mesmo uso
         // repetidas vezes.
         $this->app->scoped(BreakGlass::class);
+
+        // ContextoAuditoria memoriza o correlation_id do ciclo: as varias
+        // linhas de trilha de uma mesma requisicao precisam compartilhar o fio.
+        $this->app->scoped(ContextoAuditoria::class);
 
         // Driver de boleto (N7/F08 — GATE bancário). COBRANCA_DRIVER seleciona o
         // CNAB real por banco: 'caixa' (104) ou 'itau' (341); qualquer outro valor

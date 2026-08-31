@@ -2,6 +2,7 @@
 
 namespace App\Domain\Seguranca;
 
+use App\Domain\Auditoria\ContextoAuditoria;
 use App\Models\SecurityEvent;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
@@ -23,6 +24,8 @@ class AuditoriaSeguranca
     public function registrar(string $tipo, ?string $alvo = null, array $detalhes = []): void
     {
         SecurityEvent::create([
+            // F2-06: tenant e correlacao unificados com as demais trilhas.
+            ...app(ContextoAuditoria::class)->campos(),
             'user_id' => Auth::id(),
             'tipo' => $tipo,
             'alvo' => $alvo,

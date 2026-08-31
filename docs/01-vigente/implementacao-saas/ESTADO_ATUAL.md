@@ -4,7 +4,7 @@
 **Estado:** IMPLEMENTANDO  
 **Fase:** F1 — **CONCLUÍDA** (gate aprovado em homologação; ver `F1_16_GATE_APROVADO.md`)  
 **Último microlote concluído:** F1-16 — gate F1 aprovado com role de runtime sobre dados reais  
-**Próxima fase:** F2 — ainda não iniciada  
+**Próxima fase:** F2 — em andamento (F2-06 concluída)  
 **Pendência externa herdada:** F0-03 — rotação/revogação externa de segredos  
 **Última atualização:** 2026-08-29 (America/Sao_Paulo)
 
@@ -986,3 +986,46 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao: 31 testes focais; `tsc --noEmit` limpo; manifesto 596 -> 597;
   suite integral **1.384 passes / 4.377 assertions / zero falhas nos DOIS
   modos**; Pint aprovado.
+
+## Atualizacao de retomada - 2026-08-31 (F2-06 auditoria unificada)
+
+- F2-06 CONCLUIDO. Restam da F2: F2-01 (schema de request/response por rota),
+  F2-04 (Legacy Full), o restante de F2-07 e de F2-08.
+- ACHADO que muda a leitura da tarefa: `audit_logs`, `login_logs` e
+  `security_events` **ja tinham** a coluna `tenant_account_id` desde a migration
+  000300 — e **nada a preenchia**. Nao era schema faltando; era coluna vazia
+  esperando codigo. Coluna vazia e pior que ausente: parece resolvida.
+  Descoberto rodando as migrations contra PostgreSQL real e lendo o `\d` — a
+  suite em sqlite nao teria mostrado.
+- O que faltava de fato: `correlation_id` nas quatro, `tenant_account_id` em
+  `platform_audit_logs`, `motivo` como coluna consultavel (estava dentro do JSON
+  `depois`) e, sobretudo, alguem preenchendo tudo isso.
+- `ContextoAuditoria` e o ponto unico: envelope > header `X-Request-Id` > gerado.
+  A trilha de plataforma deriva o tenant da empresa ALVO, porque o SuperAdmin
+  opera sem tenant resolvido por desenho.
+- BUG MEU pego por teste: memorizar a correlacao num campo de servico `scoped`
+  NAO da uma por requisicao. O container resolve no boot e sob Octane a instancia
+  atende requisicoes seguidas — confirmei com `spl_object_id` dentro e fora da
+  requisicao: o mesmo objeto. A trilha passaria a afirmar que acoes de clientes
+  diferentes vieram do mesmo clique. Corrigido com `WeakMap` por Request; o teste
+  `requisicoes_distintas_nao_compartilham_o_fio` trava a regressao.
+- BUG MEU no `down()`: dropava `tenant_account_id` das quatro, destruindo em tres
+  delas a coluna da migration 000300. Agora so `platform_audit_logs` a perde.
+  Verificado up -> down -> up em PostgreSQL real.
+- O fio ficou navegavel: filtro `correlacao` em `ConsultaTrilha` (DENTRO do
+  `where empresa_id`, com teste adversarial de linha de outra empresa usando o
+  mesmo fio) e botao "Ver tudo que veio deste clique" na tela.
+- CORRECAO DE REGISTRO: as atualizacoes anteriores dizem "zero falhas nos DOIS
+  modos". Medi o modo enforcement e ha **103 falhas**, que sao ANTERIORES a este
+  trabalho — confirmei rodando a suite com as minhas mudancas em stash: as mesmas
+  103. Sao fixtures sem plano batendo em 402 depois que F2-03 ligou o
+  `LimiteContratado`. Nao e regressao, mas tambem nao e "zero": e backlog de
+  F2-08 (teste de ausencia de assinatura).
+- Validacao: 9 testes focais; suite integral **1393 passes / 4402 assertions** no
+  modo padrao; `RlsCoberturaTest` 6/6 em PostgreSQL real; tsc limpo; Vitest 39;
+  manifesto 597; Pint aprovado. Ver `F2_06_AUDITORIA.md`.
+- PENDENTE registrado (nao bloqueia): FK `ON DELETE RESTRICT` de
+  `tenant_account_id` nas tres trilhas antigas bloquearia excluir um tenant com
+  trilha. Hoje e inocuo — nao existe exclusao de tenant no sistema. Quando o
+  fluxo existir, e decisao de retencao (anonimizar ou arquivar), nao de
+  correlacao.

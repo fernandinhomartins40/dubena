@@ -17,7 +17,8 @@ class LoginLog extends Model
 
     protected $table = 'login_logs';
 
-    protected $fillable = ['user_id', 'email', 'empresa_id', 'ip', 'user_agent', 'sucesso', 'motivo', 'criado_em'];
+    protected $fillable = ['user_id', 'email', 'empresa_id', 'ip', 'user_agent', 'sucesso', 'motivo', 'criado_em',
+        'tenant_account_id', 'correlation_id'];
 
     protected function casts(): array
     {

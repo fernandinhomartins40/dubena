@@ -114,6 +114,21 @@ function TrilhaGeral({ onAbrirCliente }: { onAbrirCliente: (c: ClienteBusca) => 
             <Input type="date" className="w-40" value={filtros.fim ?? ''} onChange={(e) => definir('fim', e.target.value)} aria-label="Data final" />
           </div>
 
+          {/* O recorte por clique não tem controle próprio (o valor vem de uma
+              linha da trilha), então precisa se anunciar: sem isto a lista
+              encurta e o motivo fica invisível. */}
+          {filtros.correlacao && (
+            <span className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-sm">
+              Ações de um único clique
+              <button
+                aria-label="Remover recorte por clique"
+                onClick={() => definir('correlacao', '')}
+              >
+                <X size={14} />
+              </button>
+            </span>
+          )}
+
           <Button
             variant={filtros.apenas_sensiveis ? 'default' : 'outline'}
             onClick={() => definir('apenas_sensiveis', !filtros.apenas_sensiveis)}
@@ -140,7 +155,11 @@ function TrilhaGeral({ onAbrirCliente }: { onAbrirCliente: (c: ClienteBusca) => 
           />
         ) : (
           <>
-            <LinhaDoTempo acoes={data.data} onAbrirCliente={onAbrirCliente} />
+            <LinhaDoTempo
+              acoes={data.data}
+              onAbrirCliente={onAbrirCliente}
+              onVerClique={(c) => { setFiltros({ correlacao: c }); setPage(1) }}
+            />
             <Paginacao
               page={data.meta.current_page}
               lastPage={data.meta.last_page}
@@ -291,18 +310,29 @@ function BotaoResumo({
 // ────────────────────────────── Linha do tempo ──────────────────────────────
 
 function LinhaDoTempo({
-  acoes, onAbrirCliente,
-}: { acoes: AcaoTrilha[]; onAbrirCliente?: (c: ClienteBusca) => void }) {
+  acoes, onAbrirCliente, onVerClique,
+}: {
+  acoes: AcaoTrilha[]
+  onAbrirCliente?: (c: ClienteBusca) => void
+  onVerClique?: (correlacao: string) => void
+}) {
   return (
     <ol className="relative space-y-0 border-l pl-6 ml-2">
-      {acoes.map((a) => <ItemTrilha key={a.id} acao={a} onAbrirCliente={onAbrirCliente} />)}
+      {acoes.map((a) => (
+        <ItemTrilha key={a.id} acao={a} onAbrirCliente={onAbrirCliente} onVerClique={onVerClique} />
+      ))}
     </ol>
   )
 }
 
 function ItemTrilha({
-  acao, onAbrirCliente,
-}: { acao: AcaoTrilha; onAbrirCliente?: (c: ClienteBusca) => void }) {
+  acao, onAbrirCliente, onVerClique,
+}: {
+  acao: AcaoTrilha
+  onAbrirCliente?: (c: ClienteBusca) => void
+  /** Recorta a trilha pelo fio da requisição que gerou esta linha. */
+  onVerClique?: (correlacao: string) => void
+}) {
   const [aberto, setAberto] = useState(false)
   const temDetalhe = acao.alteracoes.length > 0
 
@@ -342,6 +372,16 @@ function ItemTrilha({
           <div className="mt-2 rounded bg-secondary/60 px-2 py-1 text-sm">
             <span className="text-muted-foreground">Motivo: </span>{acao.motivo}
           </div>
+        )}
+
+        {/* Uma ação humana vira várias linhas; o fio mostra as irmãs dela. */}
+        {acao.correlacao && onVerClique && (
+          <button
+            className="mt-2 text-sm text-muted-foreground underline-offset-4 hover:underline"
+            onClick={() => onVerClique(acao.correlacao!)}
+          >
+            Ver tudo que veio deste clique
+          </button>
         )}
 
         {temDetalhe && (

@@ -18,6 +18,8 @@ class AuditLog extends Model
     protected $fillable = [
         'empresa_id', 'entidade', 'entidade_id', 'acao', 'user_id',
         'antes', 'depois', 'ip', 'criado_em',
+        // F2-06: tenant, correlacao e motivo como colunas.
+        'tenant_account_id', 'correlation_id', 'motivo',
     ];
 
     protected function casts(): array

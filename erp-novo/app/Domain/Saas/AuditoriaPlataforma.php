@@ -2,6 +2,7 @@
 
 namespace App\Domain\Saas;
 
+use App\Domain\Auditoria\ContextoAuditoria;
 use App\Models\Saas\PlatformAdmin;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
@@ -27,6 +28,11 @@ class AuditoriaPlataforma
         ?array $depois = null,
     ): void {
         DB::table('platform_audit_logs')->insert([
+            // F2-06: correlacao liga esta linha a acao HTTP que a originou.
+            // `tenant_account_id` nao vem do envelope aqui: o SuperAdmin opera
+            // SEM tenant resolvido, por desenho, entao ele e derivado da empresa
+            // alvo — que e o que identifica de quem e o dado tocado.
+            ...app(ContextoAuditoria::class)->camposDePlataforma($empresaId),
             'platform_admin_id' => $this->adminId(),
             'acao' => $acao,
             'empresa_id' => $empresaId,

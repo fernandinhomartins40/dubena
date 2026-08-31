@@ -25,6 +25,8 @@ export interface AcaoTrilha {
   /** Nulo em ação de sistema (ETL, cron): a tela mostra "Sistema". */
   autor: string | null
   autor_id: number | null
+  /** Fio da requisição: agrupa tudo que nasceu do mesmo clique. */
+  correlacao: string | null
   ip: string | null
   criado_em: string
   alteracoes: Alteracao[]
@@ -38,6 +40,8 @@ export interface FiltrosTrilha {
   fim?: string
   apenas_sensiveis?: boolean
   cliente_id?: number
+  /** Recorta a trilha por um clique — sempre dentro da empresa ativa. */
+  correlacao?: string
 }
 
 interface Paginado<T> {
