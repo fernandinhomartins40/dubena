@@ -10,6 +10,7 @@ use App\Domain\Cobranca\Drivers\CaixaBoletoDriver;
 use App\Domain\Cobranca\Drivers\FakeBoletoDriver;
 use App\Domain\Cobranca\Drivers\FakePixDriver;
 use App\Domain\Cobranca\Drivers\ItauBoletoDriver;
+use App\Domain\Contrato\ColetorDeSchema;
 use App\Domain\Fiscal\Contracts\SefazDriver;
 use App\Domain\Fiscal\Drivers\FakeSefazDriver;
 use App\Domain\Fiscal\Drivers\NFePHPSefazDriver;
@@ -53,6 +54,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -286,6 +288,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // F2-01: captura as regras de validação REALMENTE aplicadas, para o
+        // contrato de request por rota.
+        //
+        // Aqui e não nos controllers: só 5 rotas usam `FormRequest`; as outras
+        // 217 validam inline, muitas com regras montadas em tempo de execução.
+        // O resolver do Validator é o único ponto por onde todas passam.
+        //
+        // Inerte fora dos testes — `ligado()` é um booleano estático.
+        Validator::resolver(function ($traducao, $dados, $regras, $mensagens, $atributos = []) {
+            if (ColetorDeSchema::ligado()) {
+                ColetorDeSchema::registrarRequest($regras);
+            }
+
+            return new \Illuminate\Validation\Validator($traducao, $dados, $regras, $mensagens, $atributos);
+        });
+
         // Rate-limit da API (F13): por usuário autenticado (ou IP, se anônimo).
         // 120 req/min cobre o uso normal da SPA e barra abuso/loop. O webhook PIX e
         // o login têm limites próprios mais estreitos.

@@ -1131,3 +1131,52 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `recurso:` nas rotas nao acharia nada (foi o meu primeiro erro aqui).
 - Validacao: 22 testes focais; suite integral **1445 passes / 4547 assertions /
   zero falhas nos DOIS modos**; Pint aprovado. Ver `F2_08_TESTES_REAIS.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F2-01 parte 2: schema de contrato)
+
+- **A FASE F2 ESTA FECHADA.** Todas as oito tarefas: F2-01, F2-02, F2-02A,
+  F2-03, F2-04, F2-05, F2-06, F2-07, F2-08.
+- O que faltava da F2-01 era o schema de request/response por rota. O manifesto
+  existente e uma lista de "METODO uri": pega rota removida, e nada mais. O que
+  quebra a SPA e os apps com muito mais frequencia NAO altera essa lista — campo
+  que some da resposta, obrigatorio que aparece, tipo que muda.
+- DECISAO: capturar em RUNTIME, nao ler o codigo. Medido antes: so **5 rotas**
+  usam FormRequest; as outras **217** validam inline, muitas com regras montadas
+  em tempo de execucao. Um extrator estatico leria bem as 5 e mal as 217, e um
+  contrato que descreve mal metade do sistema e pior que nenhum — da confianca
+  onde nao deve.
+- PRECO, dito na cara: a cobertura do contrato e a cobertura da suite. Rota nao
+  exercitada nao entra, e o comando REPORTA quantas ficaram de fora — que e a
+  lista de rotas que nenhum teste toca.
+- Ganchos: `Validator::resolver()` (unico ponto por onde passam FormRequest E os
+  217 validate inline) e um middleware no grupo `api` (unico ponto por onde passa
+  toda resposta, seja Resource, array ou JsonResponse). Ambos saem na primeira
+  linha com a captura desligada.
+- O que NAO entra: regras completas (gravar `min:8` faria o arquivo mudar a cada
+  ajuste de validacao sem o contrato ter mudado), corpo de erro (o 422 e a forma
+  da FALHA; misturar faria o contrato prometer campos que so existem quando algo
+  deu errado) e profundidade > 3 (viraria ruido).
+- Lista vira a forma do ITEM (`data[].nome`): o contrato e o formato, nao a
+  quantidade.
+- ARMADILHA DO WINDOWS anotada: a env do `Process` SUBSTITUI o ambiente herdado.
+  Sem mesclar com `getenv()`, o subprocesso perde PATH/SystemRoot e o PHP nem
+  inicia — o sintoma e saida VAZIA, que nao parece erro de ambiente. Custou uma
+  execucao inteira da suite.
+- `api:schema --check` classifica o diff em vez de so acusar mudanca; campo que
+  SUMIU vem primeiro, porque e o que quebra o consumidor silenciosamente.
+- Ver `F2_01B_SCHEMA_DE_CONTRATO.md`.
+
+### F2-01 parte 2 — resultado medido
+
+- Contrato gerado: **368 rotas** (179 com request, 292 com response), **62%**
+  das 597 rotas do manifesto. As 229 sem contrato sao as que nenhum teste
+  exercita — nao e meta frustrada, e lista acionavel.
+- Amostra de qualidade: `POST api/admin/clientes` identificou exatamente os DOIS
+  campos realmente obrigatorios (`nome` e `telefones.*.telefone`) entre ~30
+  chaves aceitas, inclusive o obrigatorio aninhado.
+- `--check` verificado com campo fantasma: acusou
+  "campo `data.campo_fantasma` SUMIU da resposta".
+- Suite: **1451 passes / 4614 assertions / zero falhas nos DOIS modos**.
+- O comando NAO dispara mais a suite (a versao com `Process` aninhado falhava
+  MUDO no Windows). Sao duas etapas:
+  `API_SCHEMA_CAPTURA=1 php artisan test` e depois `php artisan api:schema`.

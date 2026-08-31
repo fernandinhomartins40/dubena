@@ -5,6 +5,7 @@ use App\Domain\Saas\TransformationFrozenException;
 use App\Domain\Tenant\TenantAccessDeniedException;
 use App\Domain\Tenant\TenantNotResolvedException;
 use App\Http\Middleware\AppRole;
+use App\Http\Middleware\CapturarSchemaDaRota;
 use App\Http\Middleware\DialetoLegado;
 use App\Http\Middleware\Idempotente;
 use App\Http\Middleware\Permissao;
@@ -62,6 +63,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // F7 — reenvio da fila offline nao repete o efeito.
             'idempotente' => Idempotente::class,
         ]);
+
+        // F2-01: captura a forma de request/response por rota. Inerte fora dos
+        // testes — sai na primeira linha se a coleta não estiver ligada.
+        $middleware->appendToGroup('api', CapturarSchemaDaRota::class);
 
         // API pura: convidado NUNCA é redirecionado para uma rota 'login' (que não
         // existe aqui). Sem isto, request sem Accept: application/json num endpoint
