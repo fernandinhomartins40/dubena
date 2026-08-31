@@ -250,6 +250,11 @@ class PedidoService
 
             $pedido->itens()->create([
                 'produto_id' => $produto->id,
+                // F3-03: congela o nome do produto NO MOMENTO da venda. Sem
+                // isto, renomear um produto reescreve o historico — o pedido de
+                // tres meses atras passa a dizer que o cliente comprou algo que
+                // nao existia com aquele nome.
+                'descricao_snapshot' => $produto->descricao,
                 'quantidade' => $qtd,
                 'preco_unitario' => $preco,
                 'desconto' => $desc,

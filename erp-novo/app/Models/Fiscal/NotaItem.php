@@ -20,7 +20,11 @@ class NotaItem extends Model
     protected $table = 'nota_itens';
 
     protected $fillable = [
-        'nota_fiscal_id', 'produto_id', 'numero_item', 'quantidade', 'valor_unitario',
+        'nota_fiscal_id', 'produto_id',
+        // F3-03: o que o produto ERA na emissao — o XML autorizado depende
+        // destes valores, e o cadastro pode mudar depois.
+        'descricao_snapshot', 'ncm_snapshot', 'unidade_snapshot',
+        'numero_item', 'quantidade', 'valor_unitario',
         'valor_total', 'desconto', 'cfop', 'cst_icms',
         'bc_icms', 'aliq_icms', 'valor_icms', 'aliq_pis', 'valor_pis',
         'aliq_cofins', 'valor_cofins', 'aliq_ipi', 'valor_ipi',

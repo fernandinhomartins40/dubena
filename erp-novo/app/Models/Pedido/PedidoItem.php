@@ -20,7 +20,23 @@ class PedidoItem extends Model
 
     protected $table = 'pedidoitens';
 
-    protected $fillable = ['pedido_id', 'produto_id', 'quantidade', 'preco_unitario', 'desconto', 'valor_total'];
+    protected $fillable = [
+        'pedido_id', 'produto_id',
+        // F3-03: o que o produto se chamava quando foi vendido.
+        'descricao_snapshot',
+        'quantidade', 'preco_unitario', 'desconto', 'valor_total',
+    ];
+
+    /**
+     * Nome a exibir: o congelado, com o cadastro atual como fallback.
+     *
+     * O fallback atende as linhas anteriores a F3-03, onde o snapshot e nulo —
+     * `null` ali significa "nao foi capturado", nao "produto sem nome".
+     */
+    public function descricaoExibida(): ?string
+    {
+        return $this->descricao_snapshot ?? $this->produto?->descricao;
+    }
 
     protected function casts(): array
     {

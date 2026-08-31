@@ -1455,3 +1455,37 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ABERTO: o relatorio por canal NA TELA (o dado existe e e consultavel, mas
   ninguem o ve — e era a pergunta que motivou a tarefa); e `envia_app_nf` no
   produto, que continua sendo um flag booleano de canal.
+
+## Atualizacao de retomada - 2026-08-31 (F3-03 snapshot do item)
+
+- **O achado mais serio desta fase.** `pedidoitens` e `nota_itens` guardavam
+  `produto_id`, quantidade e preco. O PRECO estava congelado e sempre esteve
+  certo; a DESCRICAO nao — era lida do produto na hora de exibir.
+- No pedido isso reescreve o historico (renomear um produto faz o pedido de tres
+  meses atras dizer que o cliente comprou algo que nao existia com aquele nome).
+  Chato, mas contornavel.
+- NA NOTA FISCAL e outra coisa: `XmlNfeBuilder` montava o `xProd` do XML lendo
+  `$item->produto?->descricao`. Depois de autorizada, a NF-e e IMUTAVEL na SEFAZ
+  — mas uma reimpressao de DANFE passava a mostrar a descricao NOVA. O papel
+  deixava de bater com o documento autorizado. Isso e divergencia fiscal, nao
+  detalhe de tela. `nota_itens` ja congelava CFOP, CST e aliquotas; faltava
+  justamente o que aparece impresso.
+- Congelados: `descricao_snapshot` no pedido; descricao + NCM + unidade na nota
+  (NCM e unidade entram no XML e definem tributacao). Os tres pontos de leitura
+  passaram a preferir o congelado: XmlNfeBuilder, DanfePdfService e
+  CupomTextoService.
+- `null` significa "nao capturado", NAO "sem nome": colunas nullable, com
+  fallback para o cadastro atual. A conversao preenche as linhas antigas com o
+  valor de HOJE — que e exatamente o que elas ja usavam ao exibir, entao nao
+  piora nada: troca "le o atual toda vez" por "leu uma vez e congelou".
+- Conversao com SUBSELECT correlacionado, e nao `UPDATE ... FROM`: Postgres e
+  sqlite escrevem o segundo de formas diferentes. E em SQL por tabela, nao linha
+  a linha — `nota_itens` numa base real tem centenas de milhares de linhas.
+- Validacao: 5 testes focais + 1 fiscal; 75 testes fiscais existentes passando;
+  suite **1507 passes / 4708 assertions**; 154 migrations em PostgreSQL real;
+  RlsCobertura 6/6; conversao verificada com massa; rollback -> reaplicacao OK.
+  Ver `F3_03_SNAPSHOT_DO_ITEM.md`.
+- ABERTO: `unidade_snapshot` e gravado mas o XML ainda manda `uCom = 'UN'` fixo
+  (trocar sem conferir a tabela de unidades da SEFAZ e risco fiscal); e
+  `NfEntradaService` nao recebeu snapshot — e nota de TERCEIRO, onde a descricao
+  vem do XML do fornecedor e nao do cadastro, entao o problema nao e o mesmo.

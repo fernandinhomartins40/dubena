@@ -64,7 +64,7 @@ class CupomTextoService
             // Descrição na primeira linha, números na segunda: em 55 colunas o
             // nome do produto sozinho já consome quase metade, e espremer tudo
             // numa linha só cortaria justamente o que identifica o item.
-            $l[] = $this->linha(mb_substr((string) ($item->produto?->descricao ?? ''), 0, $largura), $largura, 'L');
+            $l[] = $this->linha(mb_substr((string) ($item->descricao_snapshot ?? $item->produto?->descricao ?? ''), 0, $largura), $largura, 'L');
             $l[] = $this->linha(
                 $this->pad('', 18)
                 .$this->pad($this->num($item->quantidade, 0), 5)
@@ -142,7 +142,7 @@ class CupomTextoService
         $l[] = $this->separador($largura);
 
         foreach ($nota->itens as $item) {
-            $l[] = $this->linha(mb_substr((string) ($item->produto?->descricao ?? ''), 0, $largura), $largura, 'L');
+            $l[] = $this->linha(mb_substr((string) ($item->descricao_snapshot ?? $item->produto?->descricao ?? ''), 0, $largura), $largura, 'L');
             $l[] = $this->linha(
                 $this->pad('', 18)
                 .$this->pad($this->num($item->quantidade, 0), 5)

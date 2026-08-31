@@ -31,9 +31,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
  */
 class DanfePdfService
 {
-    public function __construct(private CodigoBarras128C $barras)
-    {
-    }
+    public function __construct(private CodigoBarras128C $barras) {}
 
     /**
      * Gera os bytes do PDF do DANFE de uma nota.
@@ -239,7 +237,9 @@ class DanfePdfService
         $linhas = '';
 
         foreach ($nota->itens as $item) {
-            $desc = e((string) ($item->produto->descricao ?? ''));
+            // F3-03: o papel tem de mostrar o que foi autorizado, nao o
+            // cadastro de hoje.
+            $desc = e((string) ($item->descricao_snapshot ?? $item->produto->descricao ?? ''));
             $cod = e((string) ($item->produto_id ?? ''));
             $cfop = e((string) ($item->cfop ?? ''));
             $cst = e((string) ($item->cst_icms ?? ''));

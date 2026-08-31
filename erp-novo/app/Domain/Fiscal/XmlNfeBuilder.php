@@ -157,8 +157,14 @@ class XmlNfeBuilder
         $prod->item = $n;
         $prod->cProd = (string) $item->produto_id;
         $prod->cEAN = 'SEM GTIN';
-        $prod->xProd = $item->produto?->descricao ?? ('Item '.$n);
-        $prod->NCM = $item->produto?->ncm ?? '00000000';
+        // F3-03: o CONGELADO vence o cadastro atual. Sem isto, reemitir ou
+        // reimprimir uma nota depois de o produto ser renomeado produziria um
+        // documento diferente do que foi autorizado na SEFAZ.
+        //
+        // O fallback para o cadastro atende as notas anteriores a F3-03, onde o
+        // snapshot e nulo.
+        $prod->xProd = $item->descricao_snapshot ?? $item->produto?->descricao ?? ('Item '.$n);
+        $prod->NCM = $item->ncm_snapshot ?? $item->produto?->ncm ?? '00000000';
         $prod->CFOP = $item->cfop ?? '5102';
         $prod->uCom = 'UN';
         $prod->qCom = (float) $item->quantidade;

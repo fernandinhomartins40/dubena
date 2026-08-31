@@ -115,6 +115,29 @@ class FiscalTest extends TestCase
         $this->assertEqualsWithDelta(180, (float) $nota->valor_icms, 0.001);
     }
 
+    /**
+     * F3-03 — a nota congela a descricao, o NCM e a unidade na emissao.
+     *
+     * Depois de autorizada, a NF-e e imutavel na SEFAZ. Sem o snapshot, uma
+     * reimpressao de DANFE (ou o XML remontado) leria a descricao ATUAL do
+     * produto, e o papel deixaria de bater com o que foi autorizado — que e
+     * divergencia fiscal, nao detalhe de tela.
+     */
+    public function test_nota_congela_a_descricao_do_produto_na_emissao(): void
+    {
+        $this->produto->update(['descricao' => 'GLP P13 tributado']);
+
+        $nota = app(FiscalService::class)->emitirDoPedido($this->pedido(1), ModeloDocumento::NFE);
+        $item = $nota->itens->first();
+
+        $this->assertSame('GLP P13 tributado', $item->descricao_snapshot);
+
+        // Renomear o produto DEPOIS nao pode mudar o que a nota diz.
+        $this->produto->update(['descricao' => 'Outro nome qualquer']);
+
+        $this->assertSame('GLP P13 tributado', $item->fresh()->descricao_snapshot);
+    }
+
     public function test_numeracao_sequencial_sem_duplicar(): void
     {
         $svc = app(FiscalService::class);

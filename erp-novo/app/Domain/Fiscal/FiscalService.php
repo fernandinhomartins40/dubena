@@ -115,6 +115,15 @@ class FiscalService
                 $valorTotal = round((float) $item->quantidade * (float) $item->preco_unitario - (float) $item->desconto, 2);
                 $nota->itens()->create(array_merge([
                     'produto_id' => $produto->id,
+                    // F3-03: descricao, NCM e unidade CONGELADOS na emissao.
+                    //
+                    // Depois de autorizada, a NF-e e imutavel na SEFAZ. Sem o
+                    // snapshot, uma reimpressao de DANFE le a descricao ATUAL do
+                    // produto — e o papel deixa de bater com o XML autorizado.
+                    // Isso e divergencia fiscal, nao detalhe de tela.
+                    'descricao_snapshot' => $produto->descricao,
+                    'ncm_snapshot' => $produto->ncm,
+                    'unidade_snapshot' => $produto->unidade?->sigla,
                     'numero_item' => $i + 1,
                     'quantidade' => $item->quantidade,
                     'valor_unitario' => $item->preco_unitario,
