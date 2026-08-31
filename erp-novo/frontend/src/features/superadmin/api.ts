@@ -96,6 +96,8 @@ export interface SaPlano {
   preco_mensal: string | number | null
   ativo: boolean
   recursos?: string[]
+  /** chave => teto. `null` = ilimitado (F2-03). */
+  limites?: Record<string, number | null>
 }
 
 export interface SaCidade {
@@ -197,13 +199,18 @@ export function useSaOverride() {
 export interface SaPlanosResposta {
   planos: SaPlano[]
   catalogo: { chave: string; descricao: string }[]
+  catalogoLimites: { chave: string; descricao: string }[]
 }
 export const useSaPlanos = () =>
   useQuery<SaPlanosResposta>({
     queryKey: ['sa', 'planos'],
     queryFn: async () => {
       const { data } = await saApi.get('/planos')
-      return { planos: data.data, catalogo: data.catalogo_recursos ?? [] }
+      return {
+        planos: data.data,
+        catalogo: data.catalogo_recursos ?? [],
+        catalogoLimites: data.catalogo_limites ?? [],
+      }
     },
   })
 

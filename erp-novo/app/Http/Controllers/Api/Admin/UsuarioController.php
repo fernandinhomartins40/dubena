@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Saas\LimiteContratado;
 use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\PasswordPolicyService;
 use App\Domain\Tenant\TenantContext;
@@ -63,6 +64,8 @@ class UsuarioController extends Controller
     public function store(Request $request): JsonResponse
     {
         $this->autorizar($request, 'usuario.create');
+        // F2-03: teto de usuarios ativos do plano contratado.
+        app(LimiteContratado::class)->exigirEspaco('usuarios');
         $dados = $this->validar($request);
 
         $usuario = User::create([

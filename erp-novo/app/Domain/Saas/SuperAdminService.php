@@ -5,7 +5,9 @@ namespace App\Domain\Saas;
 use App\Models\Empresa;
 use App\Models\Saas\Assinatura;
 use App\Models\Saas\AssinaturaEvento;
+use App\Models\Saas\LimiteOverride;
 use App\Models\Saas\Plano;
+use App\Models\Saas\PlanoLimite;
 use App\Models\Saas\RecursoOverride;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -251,9 +253,13 @@ class SuperAdminService
      * @param  array<string,mixed>  $dados
      * @param  list<string>  $recursos
      */
-    public function salvarPlano(array $dados, array $recursos, ?int $id = null): Plano
+    /**
+     * @param  array<string, int|null>|null  $limites  chave => teto; `null` = ilimitado.
+     *                                                 Passar `null` no lugar do array mantém os limites atuais.
+     */
+    public function salvarPlano(array $dados, array $recursos, ?int $id = null, ?array $limites = null): Plano
     {
-        return DB::transaction(function () use ($dados, $recursos, $id) {
+        return DB::transaction(function () use ($dados, $recursos, $id, $limites) {
             $plano = $id
                 ? tap(Plano::query()->findOrFail($id))->update($dados)
                 : Plano::query()->create($dados);
@@ -264,9 +270,41 @@ class SuperAdminService
                 $plano->recursos()->updateOrCreate(['recurso_chave' => $chave], []);
             }
 
+            // Limites são do DONO do produto, não do código: a grade comercial
+            // se edita aqui, e nenhum teto fica hardcoded em seeder.
+            $limitesValidos = [];
+            if ($limites !== null) {
+                $limitesValidos = array_filter(
+                    $limites,
+                    fn ($chave) => RecursoCatalogo::limiteExiste($chave),
+                    ARRAY_FILTER_USE_KEY,
+                );
+
+                PlanoLimite::query()
+                    ->where('plano_id', $plano->id)
+                    ->whereNotIn('limite_chave', array_keys($limitesValidos) ?: ['__none__'])
+                    ->delete();
+
+                foreach ($limitesValidos as $chave => $valor) {
+                    PlanoLimite::query()->updateOrCreate(
+                        ['plano_id' => $plano->id, 'limite_chave' => $chave],
+                        ['valor' => $valor === null ? null : max(0, (int) $valor)],
+                    );
+                }
+            }
+
             $this->auditoria->registrar($id ? 'plano.editado' : 'plano.criado', null, 'planos', $plano->id, null, [
-                'slug' => $plano->slug, 'recursos' => $validos,
+                'slug' => $plano->slug, 'recursos' => $validos, 'limites' => $limitesValidos,
             ]);
+
+            // O cache de licença é por EMPRESA, então mudar o plano não o
+            // invalida sozinho: sem isto, editar a grade no painel só teria
+            // efeito depois do TTL, e quem editou concluiria que não funcionou.
+            Assinatura::withoutTenant()
+                ->where('plano_id', $plano->id)
+                ->pluck('empresa_id')
+                ->unique()
+                ->each(fn ($empresaId) => $this->licenca->invalidar((int) $empresaId));
 
             return $plano->refresh()->load('recursos');
         });

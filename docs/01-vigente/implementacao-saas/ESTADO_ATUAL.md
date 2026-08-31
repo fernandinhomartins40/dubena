@@ -938,3 +938,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - PENDENTE: o ENFORCEMENT dos limites — quem cria empresa/usuario/veiculo ainda
   nao chama `dentroDoLimite()`. A decisao existe e esta testada; falta chama-la
   nas portas de criacao, trabalho que toca os mesmos controllers de F2-08.
+
+## Atualizacao de retomada - 2026-08-30 (enforcement de limites e grade editavel)
+
+- CORRECAO DE RUMO pedida pelo dono: eu estava adaptando o produto a copia. Os
+  tetos do Essencial (2 empresas / 15 usuarios) tinham sido derivados do uso da
+  Dubena — uma revenda virando definicao de produto, exatamente o erro que a
+  transformacao SaaS existe para desfazer. Os numeros SAIRAM do codigo.
+- A grade agora se edita em SuperAdmin -> Planos: preco, recursos e limites. O
+  seeder cria so dois planos de partida e NAO declara teto nenhum (sem teto =
+  ilimitado). Ele tambem deixou de sincronizar limites: semeia o que falta e
+  nunca apaga, senao desfaria a decisao comercial a cada deploy.
+- Editar plano invalida o cache de licenca de quem o assina — sem isso a edicao
+  so teria efeito apos o TTL e pareceria nao funcionar.
+- ENFORCEMENT: `LimiteContratado` e a porta unica que recusa com 402, ligada em
+  empresa, usuario e veiculo monitorado. Cada contagem declara seu recorte
+  (empresas = unidades ativas do MESMO TENANT; usuarios = so ATIVOS, senao
+  desligar alguem nao liberaria vaga).
+- FURO ENCONTRADO ao ligar: `EmpresaController::store()` criava a Empresa mas
+  nao o `TenantCompany` — a filial nascia FORA da fronteira, nao contava no teto
+  e o resolver a negava. Agora entra no tenant de quem criou, com evidencia
+  `api:empresa.store:user:N`. Nao e inferencia: o tenant vem do ator.
+- Um bug meu foi pego pelo teste antes de existir em runtime: coluna ambigua no
+  JOIN de `empresasDoTenant`, que so apareceria com tenant aprovado.
+- Validacao: `LicencaEnforcementTest` 18 testes/45 assertions; frontend 11 testes
+  e tsc limpo; suite integral **1.383 passes / 4.375 assertions / zero falhas nos
+  DOIS modos**; Pint aprovado. Ver `F2_03_LICENCA.md`.
+- REGRA DE TRABALHO registrada na memoria: medir a copia serve para ACHAR
+  problema, nunca para definir regra de negocio. Valor comercial e do dono,
+  editavel no painel.
+- PENDENTE: tela de override POR EMPRESA (cortesia/piloto) so existe como API; o
+  painel ainda nao a expoe.

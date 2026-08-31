@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Saas\LicencaService;
+use App\Domain\Saas\LimiteContratado;
 use App\Domain\Saas\RecursoCatalogo;
 use App\Domain\Saas\SuperAdminService;
 use App\Http\Middleware\RecursoPorRota;
@@ -10,6 +11,7 @@ use App\Models\Empresa;
 use App\Models\Saas\Assinatura;
 use App\Models\Saas\LimiteOverride;
 use App\Models\Saas\Plano;
+use App\Models\Saas\PlanoLimite;
 use App\Models\Saas\RecursoOverride;
 use App\Models\User;
 use Database\Seeders\PlanosSeeder;
@@ -169,15 +171,23 @@ class LicencaEnforcementTest extends TestCase
         $licenca = app(LicencaService::class);
 
         $this->assinar($empresa, 'essencial');
+
+        // Sem teto declarado, o plano e ILIMITADO: o seeder nao fixa numero, e
+        // a grade e definida pelo dono no painel SuperAdmin.
+        $this->assertNull($licenca->limite('empresas', $empresa->id));
+        $this->assertTrue($licenca->dentroDoLimite('empresas', 9999, $empresa->id));
+
+        // Com teto definido (como o painel faria), ele passa a valer.
+        PlanoLimite::query()->create([
+            'plano_id' => Plano::query()->where('slug', 'essencial')->firstOrFail()->id,
+            'limite_chave' => 'empresas',
+            'valor' => 2,
+        ]);
+        $licenca->invalidar($empresa->id);
+
         $this->assertSame(2, $licenca->limite('empresas', $empresa->id));
         $this->assertTrue($licenca->dentroDoLimite('empresas', 1, $empresa->id));
         $this->assertFalse($licenca->dentroDoLimite('empresas', 2, $empresa->id));
-
-        // Completo declara `null` = ilimitado.
-        Assinatura::withoutTenant()->where('empresa_id', $empresa->id)->delete();
-        $this->assinar($empresa, 'completo');
-        $this->assertNull($licenca->limite('empresas', $empresa->id));
-        $this->assertTrue($licenca->dentroDoLimite('empresas', 9999, $empresa->id));
     }
 
     /** Fail-closed também nos limites: sem contrato, teto zero. */
@@ -195,6 +205,11 @@ class LicencaEnforcementTest extends TestCase
         [, $empresa] = $this->cenario();
         $this->assinar($empresa, 'essencial');
         $licenca = app(LicencaService::class);
+        PlanoLimite::query()->create([
+            'plano_id' => Plano::query()->where('slug', 'essencial')->firstOrFail()->id,
+            'limite_chave' => 'empresas', 'valor' => 2,
+        ]);
+        $licenca->invalidar($empresa->id);
 
         $this->assertSame(2, $licenca->limite('empresas', $empresa->id));
 
@@ -261,6 +276,92 @@ class LicencaEnforcementTest extends TestCase
 
         $this->expectException(HttpException::class);
         $servico->definirLimiteOverride($empresa->id, 'limite_inventado', 5, 'teste');
+    }
+
+    /**
+     * F2-03 — o teto passa a RECUSAR, não só a informar.
+     *
+     * Antes disto `dentroDoLimite()` existia e ninguém o chamava: a decisão
+     * estava pronta e nenhuma porta de criação a consultava.
+     */
+    public function test_criacao_de_empresa_para_no_teto_do_plano(): void
+    {
+        config()->set('saas_transformation.enforcement.licenca', true);
+        config()->set('saas_transformation.freeze.company_creation', false);
+
+        [$user, $empresa] = $this->cenario();
+        $this->assinar($empresa, 'essencial');
+        PlanoLimite::query()->create([
+            'plano_id' => Plano::query()->where('slug', 'essencial')->firstOrFail()->id,
+            'limite_chave' => 'empresas', 'valor' => 2,
+        ]);
+        app(LicencaService::class)->invalidar($empresa->id);
+
+        // A empresa do cenário é a 1ª; criar a 2ª cabe.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/empresas', ['razao_social' => 'Filial 2'])
+            ->assertCreated();
+
+        // A 3ª estoura o teto do Essencial.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/empresas', ['razao_social' => 'Filial 3'])
+            ->assertStatus(402);
+    }
+
+    public function test_criacao_de_usuario_para_no_teto_do_plano(): void
+    {
+        config()->set('saas_transformation.enforcement.licenca', true);
+        [$user, $empresa] = $this->cenario();
+
+        // Teto de 1 usuário: o próprio ator já ocupa a vaga.
+        $this->assinar($empresa, 'essencial');
+        LimiteOverride::withoutTenant()->create([
+            'empresa_id' => $empresa->id,
+            'limite_chave' => 'usuarios',
+            'valor' => 1,
+            'motivo' => 'teste',
+        ]);
+        app(LicencaService::class)->invalidar($empresa->id);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/usuarios', [
+                'name' => 'Novo', 'email' => 'novo@teste.test',
+                'password' => 'Segredo!123', 'password_confirmation' => 'Segredo!123',
+            ])
+            ->assertStatus(402);
+    }
+
+    /** Usuário inativo não ocupa vaga — senão desligar alguém não liberaria espaço. */
+    public function test_usuario_inativo_nao_ocupa_vaga(): void
+    {
+        [, $empresa] = $this->cenario();
+        $inativo = User::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'ativo' => false,
+        ]);
+
+        $uso = app(LimiteContratado::class)->usoAtual('usuarios', $empresa->id);
+
+        $this->assertSame(1, $uso, 'só o ator ativo do cenário conta');
+        $this->assertNotNull($inativo->id);
+    }
+
+    /** Desligado, o teto não recusa nada: a operação atual não pode cair. */
+    public function test_enforcement_desligado_nao_recusa(): void
+    {
+        config()->set('saas_transformation.enforcement.licenca', false);
+        [$user, $empresa] = $this->cenario();
+        $this->assinar($empresa, 'essencial');
+        LimiteOverride::withoutTenant()->create([
+            'empresa_id' => $empresa->id, 'limite_chave' => 'usuarios', 'valor' => 0, 'motivo' => 'teste',
+        ]);
+        app(LicencaService::class)->invalidar($empresa->id);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/usuarios', [
+                'name' => 'Novo', 'email' => 'novo2@teste.test',
+                'password' => 'Segredo!123', 'password_confirmation' => 'Segredo!123',
+            ])
+            ->assertCreated();
     }
 
     public function test_mapa_de_rota_cobre_os_modulos_opcionais(): void

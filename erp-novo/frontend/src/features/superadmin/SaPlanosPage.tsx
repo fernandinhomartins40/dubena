@@ -15,13 +15,21 @@ export function SaPlanosPage() {
   const [edit, setEdit] = useState<SaPlano | null>(null)
   const [form, setForm] = useState<Record<string, any>>({})
   const [recursos, setRecursos] = useState<Set<string>>(new Set())
+  // chave => string do input. Vazio = ILIMITADO (o backend recebe null).
+  const [limites, setLimites] = useState<Record<string, string>>({})
 
   const catalogo = data?.catalogo ?? []
+  const catalogoLimites = data?.catalogoLimites ?? []
 
   function abrir(reg?: SaPlano) {
     setEdit(reg ?? null)
     setForm(reg ? { ...reg } : { ativo: true })
     setRecursos(new Set(reg?.recursos ?? []))
+    setLimites(
+      Object.fromEntries(
+        Object.entries(reg?.limites ?? {}).map(([k, v]) => [k, v === null || v === undefined ? '' : String(v)]),
+      ),
+    )
     setOpen(true)
   }
 
@@ -44,6 +52,10 @@ export function SaPlanosPage() {
           preco_mensal: Number(form.preco_mensal ?? 0),
           ativo: !!form.ativo,
           recursos: Array.from(recursos),
+          // Campo vazio vira `null` = ilimitado, e nao 0 (que barraria tudo).
+          limites: Object.fromEntries(
+            catalogoLimites.map((l) => [l.chave, limites[l.chave]?.trim() ? Number(limites[l.chave]) : null]),
+          ),
         },
       })
       toast.success('Plano salvo.'); setOpen(false)
@@ -54,6 +66,13 @@ export function SaPlanosPage() {
     { key: 'nome', header: 'Plano', cell: (v) => <div><div className="font-medium">{v.nome}</div><div className="text-xs text-muted-foreground">{v.slug}</div></div> },
     { key: 'preco', header: 'Preço/mês', cell: (v) => brl(Number(v.preco_mensal ?? 0)) },
     { key: 'recursos', header: 'Recursos', cell: (v) => <span className="text-sm text-muted-foreground">{(v.recursos ?? []).length} recurso(s)</span> },
+    {
+      key: 'limites', header: 'Limites',
+      cell: (v) => {
+        const declarados = Object.entries(v.limites ?? {}).filter(([, teto]) => teto !== null && teto !== undefined)
+        return <span className="text-sm text-muted-foreground">{declarados.length === 0 ? 'Ilimitado' : `${declarados.length} teto(s)`}</span>
+      },
+    },
     { key: 'ativo', header: 'Status', cell: (v) => v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge> },
     { key: 'acoes', header: '', align: 'right', cell: (v) => <RowActions onEdit={() => abrir(v)} /> },
   ]
@@ -62,7 +81,7 @@ export function SaPlanosPage() {
     <>
       <ResourceList
         title="Planos"
-        subtitle="Catálogo de planos e os recursos (features) habilitados em cada um"
+        subtitle="Catálogo de planos: preço, recursos habilitados e limites de uso"
         action={<Button onClick={() => abrir()}><Plus size={16} /> Novo plano</Button>}
         columns={columns}
         rows={data?.planos}
@@ -92,6 +111,25 @@ export function SaPlanosPage() {
             {catalogo.length === 0 && <p className="text-sm text-muted-foreground">Catálogo de recursos indisponível.</p>}
             {catalogo.map((r) => (
               <CheckboxField key={r.chave} label={r.descricao} checked={recursos.has(r.chave)} onChange={(c) => toggle(r.chave, c)} />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1 text-sm font-medium">Limites do plano</p>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Deixe em branco para ilimitado. Zero bloqueia o recurso por completo.
+          </p>
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
+            {catalogoLimites.length === 0 && <p className="text-sm text-muted-foreground">Catálogo de limites indisponível.</p>}
+            {catalogoLimites.map((l) => (
+              <Field key={l.chave} label={l.descricao}>
+                <Input
+                  type="number" min={0} placeholder="Ilimitado"
+                  value={limites[l.chave] ?? ''}
+                  onChange={(e) => setLimites((p) => ({ ...p, [l.chave]: e.target.value }))}
+                />
+              </Field>
             ))}
           </div>
         </div>

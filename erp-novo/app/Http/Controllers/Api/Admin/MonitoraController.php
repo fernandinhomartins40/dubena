@@ -8,6 +8,7 @@ use App\Domain\Monitora\MonitoraSyncService;
 use App\Domain\Monitora\RelatorioMonitoraService;
 use App\Domain\Monitora\ViagensService;
 use App\Domain\Relatorio\RelatorioService;
+use App\Domain\Saas\LimiteContratado;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\Setor;
@@ -49,6 +50,8 @@ class MonitoraController extends Controller
     public function criarVeiculo(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.edit');
+        // F2-03: teto de veiculos rastreados do plano contratado.
+        app(LimiteContratado::class)->exigirEspaco('veiculos_monitorados');
         $d = $this->validarVeiculo($request);
         $d['empresa_id'] = $request->user()->empresa_id;
         $d['grupo_id'] = $request->user()->grupo_id;

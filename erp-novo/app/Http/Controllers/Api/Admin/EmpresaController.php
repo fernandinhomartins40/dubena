@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Empresa\EnderecoEmpresaSync;
+use App\Domain\Saas\LimiteContratado;
 use App\Domain\Saas\TransformationFreeze;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\EmpresaRequest;
 use App\Http\Resources\EmpresaResource;
 use App\Models\Empresa;
+use App\Models\Saas\TenantCompany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -57,6 +59,8 @@ class EmpresaController extends Controller
     {
         $this->autorizar($request, 'empresa.create');
         $this->freeze->assertCompanyCreationAllowed();
+        // F2-03: teto de unidades do plano contratado (402 se estourou).
+        app(LimiteContratado::class)->exigirEspaco('empresas');
 
         // O texto do endereço é derivado das FKs: a DANFE imprime a string, e
         // sem isto ela sairia vazia mesmo com a cidade escolhida no formulário.
@@ -64,6 +68,8 @@ class EmpresaController extends Controller
             app(EnderecoEmpresaSync::class)->aplicar($request->validated()),
             ['grupo_id' => $this->grupoDoUsuario($request)],
         ));
+
+        $this->vincularAoTenantDoAtor($request, $empresa);
 
         return (new EmpresaResource(
             $empresa->load(['cidadeCadastro', 'bairroCadastro', 'rua', 'regiao']),
@@ -119,6 +125,40 @@ class EmpresaController extends Controller
             'message' => 'Empresa ativada.',
             'tenant' => ['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id],
         ]);
+    }
+
+    /**
+     * A unidade nova entra no MESMO tenant de quem a criou — F2-03.
+     *
+     * Sem isto ela nascia fora da fronteira SaaS, com duas consequências: não
+     * contava no teto do plano (o limite vazava) e o resolver a negava quando o
+     * enforcement de tenant liga — o usuário criava a filial e não conseguia
+     * usá-la.
+     *
+     * Não é inferência de titularidade: o tenant vem do ATOR autenticado, e a
+     * evidência registra isso. Ator fora da fronteira não cria vínculo nenhum —
+     * a empresa fica como estava, e a conversão documental decide depois.
+     */
+    private function vincularAoTenantDoAtor(Request $request, Empresa $empresa): void
+    {
+        $origem = TenantCompany::query()
+            ->where('empresa_id', $request->user()?->empresa_id)
+            ->where('status', TenantCompany::STATUS_APPROVED)
+            ->first();
+
+        if ($origem === null) {
+            return;
+        }
+
+        TenantCompany::query()->create([
+            'tenant_account_id' => $origem->tenant_account_id,
+            'empresa_id' => $empresa->id,
+            'status' => TenantCompany::STATUS_APPROVED,
+            'approved_at' => now(),
+            'ownership_evidence_ref' => 'api:empresa.store:user:'.$request->user()->id,
+        ]);
+
+        $empresa->forceFill(['ownership_status' => Empresa::OWNERSHIP_APPROVED])->save();
     }
 
     /** Query de empresas restrita ao grupo do usuário (sem escopo de empresa_id). */

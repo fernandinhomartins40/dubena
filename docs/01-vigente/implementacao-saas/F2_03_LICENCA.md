@@ -42,6 +42,13 @@ Desenhada a partir do uso **real** medido na cópia da Dubena, não de palpite:
 `RecursoCatalogo::chaves()`, não por lista fixa — recurso novo entra nele
 sozinho, e o que fica de fora do Essencial vira diferencial por construção.
 
+> **Correção de rumo (2026-08-30).** O dono apontou o risco de eu estar adaptando
+> o produto à cópia da Dubena. Ele estava certo: os tetos do Essencial haviam sido
+> derivados do uso dela ("11 unidades é uma rede"), e isso é uma revenda virando
+> definição de produto. Os números saíram do código — a grade agora se edita no
+> painel SuperAdmin, e o seeder cria só o ponto de partida, sem teto declarado.
+> A medição continua servindo para achar problema, nunca para virar regra.
+
 Os três planos antigos (Básico/Pro/Enterprise) foram **desativados, não
 excluídos**: uma assinatura antiga apontando para um plano apagado ficaria órfã,
 e o tenant perderia todos os recursos de uma vez.
@@ -170,12 +177,60 @@ Descoberto ao revisar a metade frontend do F2-01: o menu da SPA filtra por
   guardião pegou `limite_overrides` sem policy antes de eu perceber.
 - Manifesto de API regenerado: 594 → 596 endpoints.
 
+## Enforcement dos limites e grade editável
+
+O teto passou a **recusar**, não só informar. `LimiteContratado` é a porta única:
+`LicencaService` responde "qual é o teto", ele responde "quanto já existe" e
+aplica a recusa com **402**.
+
+Ligado em três portas de criação: empresa, usuário e veículo monitorado.
+
+Cada contagem declara seu recorte, porque a ambiguidade é onde o mesmo limite
+passa a significar coisas diferentes:
+
+| Limite | Conta |
+|---|---|
+| `empresas` | unidades **ativas do mesmo tenant** — o contrato é com o tenant, e é ele que paga |
+| `usuarios` | usuários **ativos** da empresa; inativo não ocupa vaga, senão desligar alguém não liberaria espaço |
+| `veiculos_monitorados` | veículos com rastreamento na empresa |
+
+### A grade é do dono, não do código
+
+Preço, recursos e limites se editam em **SuperAdmin → Planos**. O seeder cria
+apenas dois planos de partida e **não declara teto nenhum** — sem teto declarado
+o plano é ilimitado, e o dono define os números quando desenhar a grade.
+
+O seeder também deixou de sincronizar limites: ele **semeia o que falta e nunca
+apaga**. Sincronizar desfaria a decisão comercial a cada deploy, silenciosamente.
+
+Editar um plano invalida o cache de licença de todas as empresas que o assinam —
+sem isso, a edição só teria efeito depois do TTL e quem editou concluiria que não
+funcionou.
+
+### Um furo encontrado ao ligar o enforcement
+
+`EmpresaController::store()` criava a `Empresa` mas **não** o `TenantCompany`. A
+filial nascia fora da fronteira SaaS, com duas consequências: não contava no teto
+(o limite vazava) e o resolver a negava com o enforcement de tenant ligado — o
+usuário criava e não conseguia usar.
+
+Agora a unidade nova entra no tenant **de quem a criou**, com a evidência
+registrando a origem (`api:empresa.store:user:N`). Não é inferência de
+titularidade: o tenant vem do ator autenticado. Ator fora da fronteira não cria
+vínculo — a conversão documental decide depois.
+
+### Evidência
+
+- `LicencaEnforcementTest`: **18 testes / 45 assertions**.
+- Frontend: 11 testes, `tsc --noEmit` limpo.
+- Suíte integral: **1.383 passes / 4.375 assertions / zero falhas nos dois modos**.
+- Um bug meu foi pego pelo teste antes de existir em runtime: coluna ambígua no
+  JOIN de `empresasDoTenant` só apareceria com tenant aprovado.
+
 ## O que ainda não existe
 
-O **enforcement** dos limites — quem cria empresa, usuário ou veículo ainda não
-consulta `dentroDoLimite()`. A decisão existe e está testada; falta chamá-la nas
-portas de criação, que é trabalho de F2-08 (matriz por papel) e toca os mesmos
-controllers.
+A tela de **override por empresa** (cortesia/piloto) só existe como API; o painel
+ainda não a expõe. `saas:break-glass` e `saas:assinatura:criar` seguem no console.
 
 Registrado como pendência, não como esquecimento.
 
