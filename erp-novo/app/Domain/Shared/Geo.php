@@ -40,10 +40,25 @@ final class Geo
      */
     public static function boundingBox(float $lat, float $raioMetros): array
     {
-        // 1 grau de latitude ≈ 111.32 km em qualquer lugar; longitude encolhe com cos(lat).
-        $latDelta = $raioMetros / 111_320.0;
+        // O grau tem de ser COERENTE com o raio do Haversine (F6-04).
+        //
+        // A constante anterior era 111_320 — o grau no equador do elipsoide
+        // WGS84. Com a esfera de 6 371 km usada aqui, um grau vale 111 195 m, e
+        // a caixa saía **0,112% menor que o raio que ela pré-filtra**: num raio
+        // de 5 km, os últimos 5,6 metros ficavam de fora.
+        //
+        // O efeito é o pior tipo — a caixa é um pré-filtro para a query
+        // indexada, então o candidato descartado nunca chega ao cálculo fino.
+        // Um cliente na borda da área de entrega simplesmente some da lista, e o
+        // resultado sai plausível.
+        //
+        // Derivar do próprio raio, em vez de escrever outro número, é o que
+        // impede as duas constantes de divergirem de novo.
+        $metrosPorGrau = self::RAIO_M * M_PI / 180;
+
+        $latDelta = $raioMetros / $metrosPorGrau;
         $cos = max(0.00001, cos(deg2rad($lat)));
-        $lngDelta = $raioMetros / (111_320.0 * $cos);
+        $lngDelta = $raioMetros / ($metrosPorGrau * $cos);
 
         return ['lat_delta' => $latDelta, 'lng_delta' => $lngDelta];
     }

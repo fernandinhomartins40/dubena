@@ -2,6 +2,7 @@
 
 namespace App\Etl\Migrators;
 
+use App\Domain\Shared\Geo;
 use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
@@ -484,16 +485,16 @@ final class MonitoraLegadoMigrator implements Migrator
         return $out;
     }
 
-    /** Distância aproximada em metros (haversine). */
+    /**
+     * F6-04 — delega ao ponto único (`Geo`).
+     *
+     * Esta cópia era idêntica à do `Geo`, raio incluído — o que mostra o
+     * problema: quem a escreveu reimplementou algo que já existia, e as duas
+     * ficaram lado a lado sem ninguém notar.
+     */
     private function metrosEntre(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $r = 6371000.0;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::metros($lat1, $lng1, $lat2, $lng2);
     }
 
     private function fonte()

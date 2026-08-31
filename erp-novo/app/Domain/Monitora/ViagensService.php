@@ -3,9 +3,11 @@
 namespace App\Domain\Monitora;
 
 use App\Domain\Monitora\Contracts\AjustadorDeVia;
+use App\Domain\Shared\Geo;
 use App\Models\Monitora\Veiculo;
 use App\Models\Monitora\ViagemCache;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 /**
@@ -63,9 +65,6 @@ class ViagensService
      * acima disso o bico fica visível saindo da rua.
      */
     private const VAIVEM_MINIMO = 30.0;
-
-    /** Raio médio da Terra em km — para a distância percorrida. */
-    private const RAIO_TERRA_KM = 6371.0088;
 
     /**
      * Viagens de um veículo no período.
@@ -131,7 +130,7 @@ class ViagensService
     /**
      * Corta a sequência de posições nos pontos de parada longa.
      *
-     * @param  Collection<int,\Illuminate\Database\Eloquent\Model>  $posicoes
+     * @param  Collection<int,Model>  $posicoes
      * @return list<array<string,mixed>>
      */
     private function segmentar(Collection $posicoes): array
@@ -200,8 +199,8 @@ class ViagensService
     /**
      * Monta uma viagem a partir das posições do trecho.
      *
-     * @param  list<\Illuminate\Database\Eloquent\Model>  $pontos
-     * @return array<string,mixed>|null  null quando o trecho é ruído
+     * @param  list<Model>  $pontos
+     * @return array<string,mixed>|null null quando o trecho é ruído
      */
     private function montar(array $pontos): ?array
     {
@@ -627,15 +626,21 @@ class ViagensService
         return sqrt($dx * $dx + $dy * $dy);
     }
 
-    /** Distância em km entre duas coordenadas (haversine). */
+    /**
+     * F6-04 — delega ao ponto único (`Geo`), em vez de reimplementar.
+     *
+     * A cópia local usava raio 6371.0088 km e `asin` com clamp; o `Geo` usa
+     * 6_371_000 m e `atan2`. As duas formas são equivalentes — e o `atan2` é
+     * numericamente robusto nos dois extremos sem precisar do clamp (verifiquei
+     * com pontos idênticos e antipodais). A diferença de raio dá centímetros
+     * numa rota de 200 km.
+     *
+     * O problema nunca foi precisão: eram **quatro** cópias da mesma fórmula, e
+     * uma correção alcançaria uma só. O `Geo` foi criado exatamente para acabar
+     * com isso (Q-4 da auditoria) — as cópias voltaram depois.
+     */
     private function kmEntre(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $rad = M_PI / 180;
-        $dLat = ($lat2 - $lat1) * $rad;
-        $dLng = ($lng2 - $lng1) * $rad;
-        $h = sin($dLat / 2) ** 2
-            + cos($lat1 * $rad) * cos($lat2 * $rad) * sin($dLng / 2) ** 2;
-
-        return 2 * self::RAIO_TERRA_KM * asin(min(1.0, sqrt($h)));
+        return Geo::km($lat1, $lng1, $lat2, $lng2);
     }
 }

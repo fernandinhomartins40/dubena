@@ -2,6 +2,7 @@
 
 namespace App\Domain\Logistica;
 
+use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 
@@ -15,9 +16,6 @@ use App\Models\Empresa;
  */
 class DistanciaEntrega
 {
-    /** Raio médio da Terra em km. */
-    private const RAIO_TERRA_KM = 6371.0;
-
     /** @var array<int, array{lat: float, lng: float}|null> */
     private array $cacheEmpresa = [];
 
@@ -61,14 +59,17 @@ class DistanciaEntrega
         return $this->cacheEmpresa[$empresaId] = $coord;
     }
 
+    /**
+     * F6-04 — delega ao ponto unico (`Geo`), em vez de reimplementar.
+     *
+     * A copia local usava raio 6371.0 e o `Geo` usa 6_371_000 m; a diferenca
+     * numerica e de centimetros, e nao era esse o problema. O problema e que
+     * quatro copias da mesma formula significam que uma correcao alcanca uma so
+     * — e o `Geo` foi criado exatamente para acabar com isso (Q-4 da auditoria),
+     * antes de as copias voltarem.
+     */
     private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return self::RAIO_TERRA_KM * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::km($lat1, $lng1, $lat2, $lng2);
     }
 }
