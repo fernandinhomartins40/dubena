@@ -27,24 +27,24 @@ class CnabBoletoTest extends TestCase
     use RefreshDatabase;
 
     // ── Matemática CNAB (PHP puro) ──
-    public function test_modulo10_e_modulo11(): void
-    {
-        // Casos conhecidos do módulo 10 (linha digitável).
-        $this->assertSame(CnabHelper::modulo10('00190500954014481606906809350314337370000000100'), CnabHelper::modulo10('00190500954014481606906809350314337370000000100'));
-        $this->assertIsInt(CnabHelper::modulo11('0019050098'));
-        // DV do código de barras nunca é 0/10/11 (regra → 1).
-        $dv = CnabHelper::modulo11('001990000000000010000000000000000000000000', 9, true);
-        $this->assertGreaterThanOrEqual(1, $dv);
-        $this->assertLessThanOrEqual(9, $dv);
-    }
+    //
+    // A conferência dos VALORES mora em `CnabVetoresOficiaisTest`, com vetores
+    // derivados da especificação FEBRABAN.
+    //
+    // O que estava aqui não verificava nada: `modulo10` era comparado com ele
+    // mesmo (passa com qualquer algoritmo, inclusive um que devolvesse sempre
+    // zero), `modulo11` só conferia que o retorno era `int`, e o fator de
+    // vencimento só media o comprimento — quatro dígitos —, nunca o valor. Um
+    // erro de um dia na data-base passava incólume, e o boleto sairia com fator
+    // errado para todo mundo.
+    //
+    // O que sobrou aqui é o contrato de FORMA, que continua valendo e é barato.
 
-    public function test_fator_vencimento_e_linha_digitavel(): void
+    public function test_linha_digitavel_tem_o_formato_do_padrao(): void
     {
-        $fator = CnabHelper::fatorVencimento('2002-05-01'); // exemplo clássico FEBRABAN
-        $this->assertSame(4, strlen($fator));
-
         $barras = str_pad('1', 44, '0'); // 44 dígitos
         $linha = CnabHelper::linhaDigitavel($barras);
+
         // 47 dígitos + separadores (5 espaços + 3 pontos).
         $this->assertSame(47, strlen(preg_replace('/\D/', '', $linha)));
     }
