@@ -26,6 +26,9 @@ class AuditoriaPlataforma
         ?int $entidadeId = null,
         ?array $antes = null,
         ?array $depois = null,
+        // F2-06 criou a coluna; sem o parâmetro ela ficaria sempre nula — e
+        // intervenção de plataforma é justamente onde o porquê mais importa.
+        ?string $motivo = null,
     ): void {
         DB::table('platform_audit_logs')->insert([
             // F2-06: correlacao liga esta linha a acao HTTP que a originou.
@@ -40,6 +43,7 @@ class AuditoriaPlataforma
             'entidade_id' => $entidadeId,
             'antes' => $antes !== null ? json_encode($antes) : null,
             'depois' => $depois !== null ? json_encode($depois) : null,
+            'motivo' => $motivo,
             'ip' => $this->ip(),
             'criado_em' => now(),
         ]);

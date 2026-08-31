@@ -11,6 +11,7 @@ use App\Models\Saas\PlanoLimite;
 use App\Models\Saas\RecursoOverride;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * SuperAdminService (P4) — o ÚNICO ponto autorizado a cruzar tenants.
@@ -101,6 +102,20 @@ class SuperAdminService
             $plano = Plano::query()->findOrFail($planoId);
 
             $assinatura = $this->assinaturaCorrente($empresaId);
+
+            // F2-04: plano de transição não se atribui pelo painel.
+            //
+            // Ele é concedido uma vez, por `saas:legacy-full`, a quem já operava
+            // antes de a licença passar a decidir. Deixar o painel atribuí-lo
+            // seria a porta pela qual "transição" vira "plano gratuito com tudo
+            // incluso": um clique resolve a reclamação de hoje e ninguém migra.
+            //
+            // Quem já ESTÁ nele pode permanecer — a restrição é sobre entrar.
+            if ($plano->transitorio && $assinatura?->plano_id !== $plano->id) {
+                throw ValidationException::withMessages([
+                    'plano_id' => 'Plano de transição não pode ser atribuído: escolha um plano vendável.',
+                ]);
+            }
             $antes = $assinatura ? ['plano_id' => $assinatura->plano_id, 'status' => $assinatura->status] : null;
 
             $payload = array_merge([
@@ -260,6 +275,21 @@ class SuperAdminService
     public function salvarPlano(array $dados, array $recursos, ?int $id = null, ?array $limites = null): Plano
     {
         return DB::transaction(function () use ($dados, $recursos, $id, $limites) {
+            if ($id !== null) {
+                $atual = Plano::query()->findOrFail($id);
+
+                // F2-04: o plano de transição é identificado pelo slug, e é por
+                // ele que `saas:legacy-full` e o relatório de status o acham.
+                // Renomear o slug pelo painel deixaria os dois cegos, sem erro
+                // visível — as empresas continuariam assinantes de um plano que
+                // o sistema não reconhece mais como transitório.
+                if ($atual->transitorio && ($dados['slug'] ?? $atual->slug) !== $atual->slug) {
+                    throw ValidationException::withMessages([
+                        'slug' => 'O slug de um plano de transição não pode ser alterado.',
+                    ]);
+                }
+            }
+
             $plano = $id
                 ? tap(Plano::query()->findOrFail($id))->update($dados)
                 : Plano::query()->create($dados);

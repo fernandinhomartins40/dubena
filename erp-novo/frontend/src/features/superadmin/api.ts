@@ -95,6 +95,11 @@ export interface SaPlano {
   descricao: string | null
   preco_mensal: string | number | null
   ativo: boolean
+  /**
+   * Plano de TRANSIÇÃO (F2-04), não oferta. Precisa estar ativo — senão as
+   * assinaturas nele deixam de valer — mas não se vende nem se atribui.
+   */
+  transitorio?: boolean
   recursos?: string[]
   /** chave => teto. `null` = ilimitado (F2-03). */
   limites?: Record<string, number | null>

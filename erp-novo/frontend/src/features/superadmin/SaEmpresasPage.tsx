@@ -136,8 +136,13 @@ function AssinaturaDialog({ empresa, onClose }: { empresa: SaEmpresa; onClose: (
         <Select value={planoId} onValueChange={setPlanoId}>
           <SelectTrigger><SelectValue placeholder="Selecione um plano" /></SelectTrigger>
           <SelectContent>
-            {(planos?.planos ?? []).map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
+            {/* Plano de transição (F2-04) fora da lista: o backend o recusa,
+                e oferecer o que será recusado só produz um erro evitável.
+                Quem JÁ está nele continua — a restrição é sobre entrar. */}
+            {(planos?.planos ?? []).filter((p) => !p.transitorio || String(p.id) === planoId).map((p) => (
+              <SelectItem key={p.id} value={String(p.id)}>
+                {p.nome}{p.transitorio ? ' (transição)' : ''}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

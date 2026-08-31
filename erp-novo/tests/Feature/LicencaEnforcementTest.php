@@ -14,6 +14,7 @@ use App\Models\Saas\Plano;
 use App\Models\Saas\PlanoLimite;
 use App\Models\Saas\RecursoOverride;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Database\Seeders\PlanosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -60,6 +61,9 @@ class LicencaEnforcementTest extends TestCase
     public function test_sem_assinatura_a_licenca_nao_libera_nada(): void
     {
         [, $empresa] = $this->cenario();
+        // A fixture assina toda empresa da fronteira (F2-04). Aqui o assunto é
+        // justamente a AUSÊNCIA de contrato, então a assinatura é cancelada.
+        FronteiraTenant::semLicenca($empresa);
 
         $licenca = app(LicencaService::class);
 
@@ -124,7 +128,10 @@ class LicencaEnforcementTest extends TestCase
     {
         $this->seed(PlanosSeeder::class);
 
-        $ativos = Plano::query()->where('ativo', true)->get();
+        // `vendaveis()` e nao `ativo`: F2-04 acrescentou o plano de transição,
+        // que precisa estar ATIVO (senão as assinaturas nele deixam de valer)
+        // mas não faz parte da grade comercial.
+        $ativos = Plano::query()->vendaveis()->get();
 
         $this->assertCount(2, $ativos, 'a grade tem dois planos, ambos vendáveis');
         foreach ($ativos as $plano) {
@@ -194,6 +201,7 @@ class LicencaEnforcementTest extends TestCase
     public function test_sem_assinatura_o_teto_e_zero_e_nao_ilimitado(): void
     {
         [, $empresa] = $this->cenario();
+        FronteiraTenant::semLicenca($empresa);
         $licenca = app(LicencaService::class);
 
         $this->assertSame(0, $licenca->limite('usuarios', $empresa->id));

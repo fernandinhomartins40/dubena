@@ -73,7 +73,15 @@ export function SaPlanosPage() {
         return <span className="text-sm text-muted-foreground">{declarados.length === 0 ? 'Ilimitado' : `${declarados.length} teto(s)`}</span>
       },
     },
-    { key: 'ativo', header: 'Status', cell: (v) => v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge> },
+    {
+      key: 'ativo', header: 'Status',
+      // Um plano de R$ 0,00 com o catálogo inteiro, sem rótulo, lê-se como o
+      // melhor negócio da grade. O rótulo é o que impede confundir a transição
+      // de F2-04 com uma oferta.
+      cell: (v) => v.transitorio
+        ? <Badge variant="secondary">Transição</Badge>
+        : v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>,
+    },
     { key: 'acoes', header: '', align: 'right', cell: (v) => <RowActions onEdit={() => abrir(v)} /> },
   ]
 
@@ -100,7 +108,17 @@ export function SaPlanosPage() {
       >
         <div className="grid grid-cols-2 gap-3">
           <Field label="Nome" required><Input value={form.nome ?? ''} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} /></Field>
-          <Field label="Slug" required><Input value={form.slug ?? ''} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="basico / pro / enterprise" /></Field>
+          {/* O slug do plano de transição identifica-o para `saas:legacy-full`
+              e para o relatório de status: renomeá-lo deixaria os dois cegos,
+              então o backend recusa e o campo fica travado aqui. */}
+          <Field label="Slug" required>
+            <Input
+              value={form.slug ?? ''}
+              disabled={edit?.transitorio}
+              onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+              placeholder="basico / pro / enterprise"
+            />
+          </Field>
         </div>
         <Field label="Descrição"><Textarea value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
         <Field label="Preço mensal (R$)" required><Input type="number" min={0} step="0.01" value={form.preco_mensal ?? ''} onChange={(e) => setForm((f) => ({ ...f, preco_mensal: e.target.value }))} /></Field>

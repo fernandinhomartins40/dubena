@@ -63,6 +63,25 @@ class PlanosSeeder extends Seeder
             RecursoCatalogo::chaves(),
         );
 
+        // F2-04 — plano de TRANSIÇÃO, não oferta.
+        //
+        // Existe para uma finalidade só: conservar o acesso de quem já opera
+        // enquanto o fail-open é removido. Recebe o catálogo inteiro e nenhum
+        // teto, porque estreitar quem já roda seria a transição quebrando a
+        // operação — exatamente o que ela deveria evitar.
+        //
+        // Preço zero não é generosidade: é a marca de que este plano não foi
+        // negociado. Quem estiver nele precisa migrar para um plano vendável,
+        // e é o relatório de `saas:legacy:status` que cobra essa migração.
+        $legado = $this->plano(
+            Plano::SLUG_LEGADO,
+            'Legacy Full (transição)',
+            'Plano de transição das empresas que já operavam antes da licença passar a decidir. Não é vendável: migrar para Essencial ou Completo.',
+            0.0,
+            RecursoCatalogo::chaves(),
+        );
+        $legado->update(['transitorio' => true]);
+
         // Planos legados da fase P2. Desativados, não excluídos: uma assinatura
         // antiga pode apontar para eles, e apagar a linha deixaria a assinatura
         // órfã — sem plano, o tenant perderia todos os recursos de uma vez.
@@ -75,7 +94,7 @@ class PlanosSeeder extends Seeder
      * @param  list<string>  $recursos
      * @param  array<string, int|null>  $limites
      */
-    private function plano(string $slug, string $nome, string $descricao, float $preco, array $recursos, array $limites = []): void
+    private function plano(string $slug, string $nome, string $descricao, float $preco, array $recursos, array $limites = []): Plano
     {
         $plano = Plano::query()->updateOrCreate(
             ['slug' => $slug],
@@ -107,5 +126,7 @@ class PlanosSeeder extends Seeder
                 ['valor' => $valor],
             );
         }
+
+        return $plano;
     }
 }

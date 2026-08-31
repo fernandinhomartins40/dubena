@@ -1029,3 +1029,37 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   trilha. Hoje e inocuo — nao existe exclusao de tenant no sistema. Quando o
   fluxo existir, e decisao de retencao (anonimizar ou arquivar), nao de
   correlacao.
+
+## Atualizacao de retomada - 2026-08-31 (F2-04 Legacy Full)
+
+- F2-04 CONCLUIDO. Restam da F2: F2-01 (schema de request/response por rota),
+  o restante de F2-07 e de F2-08.
+- O PORTAO DA F2 FOI ATINGIDO NESTE LOTE: a suite passa com
+  `SAAS_ENFORCE_LICENCA=true` **sem nenhuma falha**. Era 103 falhas antes.
+- Plano `legacy-full` criado pelo seeder, marcado `transitorio` (coluna nova).
+  `ativo` nao servia para separar oferta de transicao: o plano transitorio
+  PRECISA estar ativo, senao as assinaturas nele deixam de valer.
+- Quatro travas, cada uma fechando uma porta: nao aparece em `vendaveis()`; o
+  painel recusa atribui-lo; o slug e imutavel (e por ele que o comando e o
+  relatorio acham o plano — renomear deixaria os dois cegos SEM erro visivel); e
+  `saas:licenca:status` conta quem ainda esta nele.
+- Comando e nao seeder: seeder roda a cada deploy e nao pergunta nada. Assinar
+  empresa e ato comercial — tem `--dry-run`, conferencia do alvo e trilha.
+  Assinatura nasce sem `fim`: prazo aqui desligaria a operacao numa data que
+  ninguem lembraria de renovar.
+- LACUNA DO F2-06 fechada aqui: `AuditoriaPlataforma::registrar()` nao aceitava
+  `motivo` — eu criara a coluna sem expor o parametro, e ela ficaria sempre nula
+  justamente na trilha onde o porque mais importa.
+- A causa real das 103 falhas nao era o Legacy Full: as fixtures criam empresas
+  por factory, sem passar por comando nenhum. `FronteiraTenant` ganhou
+  `licencaDeTransicao()` (empresa dentro da fronteira TEM assinatura — e o estado
+  que F2-04 estabelece) e `semLicenca()` para os testes que exercitam a NEGACAO.
+  Mesmo padrao que ja existia para o envelope, pela mesma razao.
+- A fixture assina no plano de TRANSICAO de proposito: assinar `essencial` faria
+  a suite exercitar uma grade comercial que o dono ainda vai desenhar, e o dia em
+  que ele a mudasse a suite quebraria sem nada ter quebrado.
+- Validacao: 12 testes focais; suite integral **1405 passes / 4430 assertions /
+  zero falhas nos DOIS modos**; RlsCobertura 6/6 em PostgreSQL real; migration
+  up->down->up; tsc limpo; Vitest 39; Pint aprovado. Ver `F2_04_LEGACY_FULL.md`.
+- OPERACIONAL (nao e codigo): rodar `saas:legacy-full --dry-run` contra o banco
+  real, conferir a lista, executar, e so entao virar `SAAS_ENFORCE_LICENCA`.

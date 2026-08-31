@@ -30,6 +30,10 @@ class PlanoController extends Controller
                     'descricao' => $p->descricao,
                     'preco_mensal' => (float) $p->preco_mensal,
                     'ativo' => (bool) $p->ativo,
+                    // F2-04: a UI precisa distinguir oferta de transição —
+                    // um plano de R$ 0,00 com tudo incluso, sem rótulo, lê-se
+                    // como o melhor negócio da grade.
+                    'transitorio' => (bool) $p->transitorio,
                     'recursos' => $p->recursos->pluck('recurso_chave'),
                     // chave => teto. `null` = ilimitado; chave ausente idem.
                     'limites' => PlanoLimite::query()->where('plano_id', $p->id)

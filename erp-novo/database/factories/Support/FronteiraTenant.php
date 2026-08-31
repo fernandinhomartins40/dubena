@@ -2,10 +2,14 @@
 
 namespace Database\Factories\Support;
 
+use App\Domain\Saas\LicencaService;
+use App\Domain\Saas\RecursoCatalogo;
 use App\Domain\Shared\PermissaoCatalogo;
 use App\Models\Empresa;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Saas\Assinatura;
+use App\Models\Saas\Plano;
 use App\Models\Saas\TenantAccount;
 use App\Models\Saas\TenantCompany;
 use App\Models\Saas\TenantCompanyGrant;
@@ -40,6 +44,11 @@ final class FronteiraTenant
             ->where('status', TenantCompany::STATUS_APPROVED)
             ->first();
         if ($existente !== null) {
+            // A licenca tambem quando o vinculo ja existe: sem isto, empresa
+            // criada por outro caminho ficaria dentro da fronteira e fora da
+            // licenca — o estado exato que F2-04 declarou invalido.
+            self::licencaDeTransicao($empresa);
+
             return TenantAccount::findOrFail($existente->tenant_account_id);
         }
 
@@ -56,7 +65,75 @@ final class FronteiraTenant
         // O pre-cutover recusa vinculo APPROVED sem ownership aprovado.
         $empresa->forceFill(['ownership_status' => Empresa::OWNERSHIP_APPROVED])->save();
 
+        self::licencaDeTransicao($empresa);
+
         return $tenant;
+    }
+
+    /**
+     * Assina a empresa no plano de transicao (F2-04).
+     *
+     * Mesma razao da fronteira acima: `LicencaService` e fail-closed, entao com
+     * `SAAS_ENFORCE_LICENCA=true` uma empresa sem assinatura perde TODOS os
+     * modulos e a suite acusa 402 em massa. Isso nao e o teste achando um bug —
+     * e a fixture descrevendo um mundo que F2-04 declarou invalido: empresa
+     * dentro da fronteira TEM assinatura.
+     *
+     * Usa o plano de transicao de proposito. Assinar `essencial` faria os testes
+     * exercitarem uma grade comercial que o dono ainda vai desenhar, e o dia em
+     * que ele mudasse a grade a suite quebraria sem nada ter quebrado.
+     *
+     * Quem testa a AUSENCIA de licenca chama `semLicenca()`.
+     */
+    public static function licencaDeTransicao(Empresa $empresa): void
+    {
+        $plano = Plano::query()->firstOrCreate(
+            ['slug' => Plano::SLUG_LEGADO],
+            [
+                'nome' => 'Legacy Full (transição)',
+                'descricao' => 'Plano de transição das empresas que já operavam.',
+                'preco_mensal' => 0,
+                'ativo' => true,
+                'transitorio' => true,
+            ],
+        );
+
+        // O catalogo inteiro: "full" e o que conserva o acesso de quem ja opera.
+        foreach (RecursoCatalogo::chaves() as $chave) {
+            $plano->recursos()->firstOrCreate(['recurso_chave' => $chave]);
+        }
+
+        $temVigente = Assinatura::withoutTenant()
+            ->where('empresa_id', $empresa->id)
+            ->whereIn('status', [Assinatura::STATUS_ATIVA, Assinatura::STATUS_TRIAL])
+            ->exists();
+
+        if (! $temVigente) {
+            Assinatura::withoutTenant()->create([
+                'empresa_id' => $empresa->id,
+                'plano_id' => $plano->id,
+                'status' => Assinatura::STATUS_ATIVA,
+                'inicio' => now(),
+                'fim' => null,
+            ]);
+        }
+
+        app(LicencaService::class)->invalidar($empresa->id);
+    }
+
+    /**
+     * Remove a licenca da empresa, para os testes que exercitam a NEGACAO.
+     *
+     * Cancela em vez de apagar: e o que acontece na vida real quando uma
+     * assinatura termina, e o `LicencaService` so considera vigente.
+     */
+    public static function semLicenca(Empresa $empresa): void
+    {
+        Assinatura::withoutTenant()
+            ->where('empresa_id', $empresa->id)
+            ->update(['status' => Assinatura::STATUS_CANCELADA, 'fim' => now()]);
+
+        app(LicencaService::class)->invalidar($empresa->id);
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Models\Saas\Assinatura;
 use App\Models\Saas\Plano;
 use App\Models\Saas\RecursoOverride;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
@@ -52,6 +53,9 @@ class LicenciamentoSaasTest extends TestCase
 
     public function test_empresa_sem_assinatura_nao_tem_recursos(): void
     {
+        // A fixture assina toda empresa da fronteira (F2-04); aqui o assunto e
+        // justamente a ausencia de contrato.
+        FronteiraTenant::semLicenca($this->empresa);
         $licenca = app(LicencaService::class);
 
         $this->assertFalse($licenca->recursoHabilitado('marketplace'));
@@ -85,6 +89,7 @@ class LicenciamentoSaasTest extends TestCase
 
     public function test_assinatura_cancelada_nao_libera_recursos(): void
     {
+        FronteiraTenant::semLicenca($this->empresa);
         $plano = $this->planoCom('pro', ['marketplace']);
         Assinatura::query()->create([
             'empresa_id' => $this->empresa->id, 'plano_id' => $plano->id,
@@ -102,6 +107,7 @@ class LicenciamentoSaasTest extends TestCase
 
     public function test_override_positivo_pode_liberar_recurso_sem_assinatura(): void
     {
+        FronteiraTenant::semLicenca($this->empresa);
         RecursoOverride::query()->create([
             'empresa_id' => $this->empresa->id,
             'recurso_chave' => 'marketplace',
