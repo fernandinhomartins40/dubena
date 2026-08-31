@@ -56,6 +56,12 @@ class RegistroAcao
         if ($automatico !== null) {
             $automatico->update([
                 'acao' => $acao,
+                // A COLUNA tambem, e nao so o JSON. Este ramo (absorver o
+                // `atualizado` recente) ficou de fora quando `motivo` virou
+                // coluna no F2-06, e o efeito era silencioso: a acao com motivo
+                // gravava a coluna VAZIA sempre que o alvo tinha acabado de ser
+                // salvo — que e justamente o caso comum.
+                'motivo' => $motivo,
                 // O diff de colunas do update é preservado; só ganha o verbo
                 // certo e o porquê.
                 'depois' => array_merge($automatico->depois ?? [], $depois),

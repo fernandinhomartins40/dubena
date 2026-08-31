@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pedido;
 
+use App\Domain\Auditoria\RegistroAcao;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Domain\Logistica\Events\PedidoEntrouNaFila;
@@ -136,6 +137,7 @@ class PedidoService
         $efeito = $nova->efeito;
 
         if ($efeito->concretiza() && ! $pedido->estoque_movimentado) {
+            $this->registrarPrecoAbaixoDoMinimo($pedido);
             $this->baixarEstoque($pedido, $userId);
             $financeiro = $this->financeiro->gerarDoPedido($pedido);
             $pedido->forceFill([
@@ -274,6 +276,55 @@ class PedidoService
      * @param  array<string,mixed>  $item
      * @param  array<string,mixed>  $contexto
      */
+    /**
+     * F4-06 — o preco e reconferido no momento em que a venda se CONCRETIZA.
+     *
+     * A alcada roda na criacao do item. Entre criar e concluir pode passar dias,
+     * e nesse intervalo o `preco_venda_minimo` do produto pode ter subido — o
+     * pedido entao conclui abaixo do piso, sem que ninguem tenha feito nada
+     * errado e sem que ninguem saiba.
+     *
+     * Aqui NAO se bloqueia, e a razao importa: quando o efeito concretiza, a
+     * mercadoria em geral ja saiu (o entregador ja entregou). Recusar a
+     * conclusao deixaria o pedido travado num limbo, com o estoque fisico ja
+     * baixado na rua e o sistema dizendo que a venda nao aconteceu.
+     *
+     * O que se faz e REGISTRAR na trilha, com o motivo. A margem perdida vira
+     * um fato consultavel — "quais vendas fecharam abaixo do piso, e quanto isso
+     * custou" — em vez de sumir.
+     */
+    private function registrarPrecoAbaixoDoMinimo(Pedido $pedido): void
+    {
+        foreach ($pedido->itens as $item) {
+            $produto = $item->produto;
+            $minimo = $produto?->preco_venda_minimo;
+            $qtd = (float) $item->quantidade;
+
+            if ($minimo === null || $qtd <= 0) {
+                continue;
+            }
+
+            $unitarioFinal = ($qtd * (float) $item->preco_unitario - (float) $item->desconto) / $qtd;
+
+            // Mesma tolerancia da alcada: centavo de arredondamento nao e
+            // venda abaixo do piso.
+            if ($unitarioFinal >= (float) $minimo - 0.001) {
+                continue;
+            }
+
+            app(RegistroAcao::class)->registrar(
+                $pedido,
+                'pedido.preco_abaixo_do_minimo',
+                sprintf(
+                    'Item "%s" concluido a R$ %s, abaixo do minimo de R$ %s vigente hoje.',
+                    $item->descricao_snapshot ?? $produto?->descricao ?? ('produto '.$item->produto_id),
+                    number_format($unitarioFinal, 2, ',', '.'),
+                    number_format((float) $minimo, 2, ',', '.'),
+                ),
+            );
+        }
+    }
+
     private function verificarAlcada(Produto $produto, float $qtd, float $preco, float $desc, array $item, array $contexto): void
     {
         // 1) Piso do produto — vale para TODOS, inclusive desconto já aprovado

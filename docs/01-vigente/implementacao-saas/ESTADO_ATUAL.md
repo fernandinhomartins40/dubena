@@ -1737,3 +1737,26 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao: 5 testes focais; suite **1548 passes / 4789 assertions**; 157
   migrations em PostgreSQL real; RlsCobertura 6/6; rollback -> reaplicacao das
   duas migrations OK; Pint.
+
+## Atualizacao de retomada - 2026-08-31 (F4-06: preco revalidado na conclusao)
+
+- A alcada de desconto roda na CRIACAO do item, e e solida (o piso do produto
+  vale para todos, ate para desconto aprovado pela Central). O que faltava:
+  entre CRIAR e CONCLUIR pode passar dias, e nesse intervalo o
+  `preco_venda_minimo` pode ter subido. O pedido conclui abaixo do piso sem que
+  ninguem tenha feito nada errado e sem que ninguem saiba.
+- REGISTRA, NAO BLOQUEIA — e a decisao que mais importa aqui. Quando o efeito
+  concretiza, a mercadoria em geral JA SAIU (o entregador ja entregou). Recusar
+  a conclusao deixaria o pedido num limbo: estoque fisico baixado na rua e o
+  sistema dizendo que a venda nao aconteceu. A margem perdida vira fato
+  consultavel na trilha, em vez de sumir.
+- O alerta diz QUAL item e QUANTO — sem isso nao e acionavel. E preco acima do
+  minimo nao gera nada: um alerta que sempre dispara deixa de ser lido.
+- **DEFEITO MEU DO F2-06 corrigido de passagem**: `RegistroAcao` tem dois ramos —
+  criar linha nova, ou ABSORVER o `atualizado` que o trait gravou segundos antes.
+  Quando `motivo` virou coluna, so o primeiro ramo foi ajustado. O efeito era
+  silencioso: a coluna saia VAZIA sempre que o alvo tinha acabado de ser salvo —
+  que e o caso COMUM, nao a excecao. So apareceu porque este teste le o motivo de
+  uma acao logo apos um save. Ha teste travando a regressao.
+- Validacao: 5 testes focais + 1 no F2-06; suite **1554 passes / 4799
+  assertions**; Pint.

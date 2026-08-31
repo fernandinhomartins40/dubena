@@ -126,6 +126,34 @@ class AuditoriaUnificadaTest extends TestCase
     }
 
     /**
+     * O `motivo` vale tambem quando a acao ABSORVE um `atualizado` recente.
+     *
+     * `RegistroAcao` funde a acao semantica com o `atualizado` que o trait
+     * gravou segundos antes, para nao produzir duas linhas do mesmo instante.
+     * Esse ramo ficou de fora quando `motivo` virou coluna (F2-06), e o efeito
+     * era silencioso: a coluna saia VAZIA sempre que o alvo tinha acabado de ser
+     * salvo — o caso comum, nao a excecao.
+     */
+    public function test_motivo_e_coluna_mesmo_absorvendo_o_atualizado(): void
+    {
+        [$user, $empresa] = $this->cenario();
+        $this->actingAs($user, 'sanctum');
+
+        $cliente = Cliente::factory()->create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
+        ]);
+
+        // Salva o alvo AGORA: o proximo `registrar` vai absorver este update.
+        $cliente->update(['nome' => 'Nome alterado']);
+        app(RegistroAcao::class)->registrar($cliente, 'cliente.desativado', 'motivo que nao pode sumir');
+
+        $this->assertSame(
+            'motivo que nao pode sumir',
+            AuditLog::query()->where('acao', 'cliente.desativado')->value('motivo'),
+        );
+    }
+
+    /**
      * O SuperAdmin opera SEM tenant resolvido — é assim por desenho, senão não
      * cruzaria empresas. Então o tenant da trilha de plataforma vem da empresa
      * ALVO, que é o que identifica de quem é o dado tocado.
