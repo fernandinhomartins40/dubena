@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Veículo da frota (negócio) — escopo por empresa. C6.
@@ -69,5 +70,17 @@ class Veiculo extends Model
     public function combustivel(): BelongsTo
     {
         return $this->belongsTo(TipoCombustivel::class, 'tipocombustivel_id');
+    }
+
+    /**
+     * Registro de RASTREAMENTO do mesmo veiculo, se houver (F3-09).
+     *
+     * `hasOne` e nao `belongsTo`: a chave mora do lado do monitora, porque foi
+     * ele que ganhou o vinculo — a frota e o cadastro principal do veiculo, e
+     * o rastreamento e algo que se acopla a ele.
+     */
+    public function rastreamento(): HasOne
+    {
+        return $this->hasOne(\App\Models\Monitora\Veiculo::class, 'veiculo_frota_id');
     }
 }

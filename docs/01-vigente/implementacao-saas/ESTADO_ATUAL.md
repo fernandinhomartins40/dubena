@@ -1374,3 +1374,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ABERTO da F3-08: unificar os tres catalogos; `cidades_plataforma` tem a mesma
   porta sem conferencia; e decidir se `cidades` deve seguir por grupo, ja que
   municipio e fato nacional.
+
+## Atualizacao de retomada - 2026-08-31 (F3-09 PARCIAL: vinculo entre as frotas)
+
+- O mesmo caminhao existia DUAS vezes: `veiculos` (km, troca de oleo, documentos)
+  e `monitora_veiculos` (rastreador, posicoes, cercas). Nada as ligava — cada uma
+  com seu proprio `veiculo_id`, e a placa como unica coisa em comum, sem ninguem
+  conferir se batia.
+- Duas consequencias: "onde esta o caminhao que precisa trocar o oleo?" nao tinha
+  resposta (uma frota sabe o km, a outra a posicao); e a placa podia divergir por
+  erro de digitacao SEM NADA ACUSAR — o veiculo sumia de um dos lados.
+- VINCULO e nao FUSAO. O alvo final e uma tabela so, mas fundi-las agora alcanca
+  `Veiculo` em 23 arquivos e as tabelas de posicao (milhoes de linhas). O vinculo
+  entrega a resposta operacional hoje e deixa a fusao para um passo separado,
+  feito com os dois lados JA CONCILIADOS — posicao bem melhor para faze-la.
+- `nullOnDelete` e nao cascade: apagar o cadastro de frota nao pode apagar o
+  historico de posicoes, que e a prova de onde o veiculo esteve (usada para
+  conferir entrega e jornada). Ha teste.
+- A chave mora do lado do monitora: a frota e o cadastro PRINCIPAL, o
+  rastreamento e algo que se acopla a ele. E o rastreador e um VINCULO, nao a
+  identidade — trocar de aparelho nao cria caminhao novo (com teste).
+- CONCILIACAO verificada em Postgres, 4 casos: `abc-1d23` casou com `ABC1D23` (a
+  normalizacao e o ponto); placa duplicada na frota ficou NULO; sem par ficou
+  nulo; e mesma placa em outra empresa casou com O VEICULO DELA. Placa duplicada
+  sem vinculo e deliberado — o palpite errado ligaria a manutencao de um caminhao
+  a posicao de outro, que e pior que nao ligar nada.
+- Validacao: 5 testes focais; suite **1494 passes / 4685 assertions**; 152
+  migrations em PostgreSQL real; RlsCobertura 6/6; rollback -> reaplicacao OK;
+  Pint. Ver `F3_09_VINCULO_ENTRE_FROTAS.md`.
+- ABERTO: a fusao das tabelas; uma tela de conciliacao (hoje os nao vinculados e
+  os ambiguos ficam nulos CORRETAMENTE, mas ninguem os ve); e criar
+  `monitora_veiculos` com placa inexistente na frota ainda nao avisa.
