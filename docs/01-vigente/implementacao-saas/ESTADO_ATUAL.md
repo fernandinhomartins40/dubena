@@ -1489,3 +1489,30 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   (trocar sem conferir a tabela de unidades da SEFAZ e risco fiscal); e
   `NfEntradaService` nao recebeu snapshot — e nota de TERCEIRO, onde a descricao
   vem do XML do fornecedor e nao do cadastro, entao o problema nao e o mesmo.
+
+## Atualizacao de retomada - 2026-08-31 (F3-07: medicao, sem trabalho a fazer)
+
+- A tarefa manda "desativar a hierarquia concorrente somente APOS medir
+  consumidores". Fiz a medicao. **Nao ha o que desativar.**
+- Parti da hipotese de que `regioes` competia com
+  `unidades/departamentos/setores_org`. Errado: sao tres coisas com nomes
+  parecidos e propositos DIFERENTES — arvore organizacional (RBAC), regiao
+  GEOGRAFICA de entrega, e local de ESTOQUE (F3-06).
+- DOIS FALSOS POSITIVOS que investiguei e descartei:
+  (1) `colaborador_comissoes.setor_id` aponta para `setores` (estoque) e parecia
+  "colaborador lotado num deposito" — mas o comentario da migration diz
+  `(colaborador x produto x setor x condicao)`: e regra de comissao POR LOCAL DE
+  ESTOQUE, legitima;
+  (2) `cargos` poderia ter sido duplicada pela A3 — e a migration diz
+  explicitamente que NAO foi, so acrescentou `role_id`. Os dois sao o oposto do
+  defeito que a tarefa combate: decisoes corretas ja tomadas.
+- A arvore serve exclusivamente ao RBAC (`role_user` + `herda_filhos`, fechado em
+  F2-02A). E o uso para o qual foi criada.
+- NAO FIZ, de proposito: o colaborador nao tem lotacao na arvore
+  (`colaboradores.unidade_id` nao existe). Poderia parecer lacuna; nao e —
+  acrescentar seria INVENTAR REQUISITO. Nenhum relatorio, tela ou regra pede "em
+  qual departamento o colaborador trabalha", e coluna sem consumidor e o peso
+  morto que esta transformacao esta removendo. Se vier a ser necessaria (folha
+  por centro de custo), o lugar ja esta pronto e a decisao e do dono.
+- Ver `F3_07_ORGANIZACAO_MEDICAO.md` — registrei a medicao para a proxima pessoa
+  nao refazer a investigacao.
