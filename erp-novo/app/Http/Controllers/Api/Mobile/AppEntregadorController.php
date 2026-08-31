@@ -178,7 +178,9 @@ class AppEntregadorController extends Controller
                 'valor_venda' => (float) $p->valor_venda,
                 'situacao' => $p->situacao?->descricao,
                 'cliente' => $p->cliente?->nome,
-                'endereco' => trim(($p->cliente?->endereco ?? '').', '.($p->cliente?->numero ?? '')),
+                // F3-01: ponto unico. Sem isto o entregador recebia so o
+                // numero da casa, sem rua — no app que serve para ele CHEGAR la.
+                'endereco' => $p->cliente?->endereco_completo,
                 'lat' => $p->cliente?->latitude !== null ? (float) $p->cliente->latitude : null,
                 'lng' => $p->cliente?->longitude !== null ? (float) $p->cliente->longitude : null,
             ]);

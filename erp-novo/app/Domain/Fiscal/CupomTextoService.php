@@ -52,7 +52,10 @@ class CupomTextoService
         $l[] = $this->coluna('Data:', optional($pedido->datahora)->format('d/m/Y H:i') ?? '', $largura);
         $l[] = $this->linha('Cliente: '.($pedido->cliente?->nome ?? ''), $largura, 'L');
 
-        $endereco = trim(($pedido->cliente?->endereco ?? '').', '.($pedido->cliente?->numero ?? ''), ', ');
+        // F3-01: o accessor e o ponto unico. Montar a mao lia a coluna
+        // `endereco`, que esta NULL em 100% da base — o cupom saia com
+        // "Endereco: 587", so o numero, porque o logradouro vem da FK `rua_id`.
+        $endereco = (string) ($pedido->cliente?->endereco_linha ?? '');
         if ($endereco !== '') {
             $l[] = $this->linha($endereco, $largura, 'L');
         }

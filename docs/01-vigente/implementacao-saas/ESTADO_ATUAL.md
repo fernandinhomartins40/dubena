@@ -1569,3 +1569,24 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ABERTO da F3-01: endereco normalizado; os lookups ainda nao filtram por papel
   (mesma limitacao do `LookupController` registrada em F3-06); e remover os
   booleanos quando o consumo migrar.
+
+## Atualizacao de retomada - 2026-08-31 (F3-01: endereco com ponto unico de leitura)
+
+- Fecha a segunda parte da F3-01. `Cliente::endereco_completo` JA EXISTIA, com a
+  medicao registrada no proprio codigo: a coluna `endereco` esta NULL em **100%
+  da base** (0 de 55.453 medidos em producao) — o logradouro real sempre veio da
+  FK `rua_id`.
+- Mesmo assim, QUATRO lugares montavam a string a mao a partir da coluna. Como
+  ela e nula, todos exibiam SO O NUMERO: cupom fiscal, contrato de comodato (cujo
+  proposito e localizar quem esta com o vasilhame), central de vendas e app do
+  entregador (que serve para ele CHEGAR no endereco).
+- "Endereco: 587" nao trava nada — e um documento entregue ao cliente com a
+  informacao errada, e ninguem liga o sintoma a causa.
+- ISENCAO com motivo: `IdentidadeCliente` usa o logradouro como TRACO de
+  identidade para deduplicacao, separado do numero e da cidade. Ja resolve a FK
+  corretamente; forcar o accessor ali juntaria numero e cidade no mesmo traco e
+  faria dois clientes distintos casarem.
+- O guardiao tem `assertGreaterThan(50, $varridos)` — licao do `FkTenantAwareTest`,
+  que varria ZERO arquivos e passava sempre. Verificado que detecta: reinseri a
+  montagem manual no CentralController e ele apontou arquivo e linha.
+- Validacao: 4 testes focais; suite **1519 passes / 4731 assertions**; Pint.

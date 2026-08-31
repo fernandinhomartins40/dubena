@@ -41,7 +41,8 @@ class CentralController extends Controller
         ])->map(fn (Pedido $p) => [
             'id' => $p->id,
             'cliente' => $p->cliente?->nome,
-            'endereco' => trim(($p->cliente?->endereco ?? '').', '.($p->cliente?->numero ?? '')),
+            // F3-01: ponto unico (a coluna `endereco` esta NULL em toda a base).
+            'endereco' => $p->cliente?->endereco_completo,
             'lat' => $p->cliente?->latitude !== null ? (float) $p->cliente->latitude : null,
             'lng' => $p->cliente?->longitude !== null ? (float) $p->cliente->longitude : null,
             'valor_venda' => (float) $p->valor_venda,

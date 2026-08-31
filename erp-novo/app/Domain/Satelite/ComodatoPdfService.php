@@ -63,7 +63,10 @@ class ComodatoPdfService
         $identificacao = $this->pdf->campos([
             'Comodatário' => (string) ($cliente?->nome ?? ''),
             'CPF / CNPJ' => $this->documento($doc),
-            'Endereço' => trim(sprintf('%s, %s %s', $cliente?->endereco ?? '', $cliente?->numero ?? '', $cliente?->complemento ?? ''), ' ,'),
+            // F3-01: ponto unico. A montagem manual lia a coluna `endereco`
+            // (NULL em toda a base) e o contrato saia sem o logradouro — num
+            // documento cujo proposito e localizar quem esta com o vasilhame.
+            'Endereço' => (string) ($cliente?->endereco_completo ?? ''),
             'CEP / UF' => trim(((string) ($cliente?->cep ?? '')).' / '.((string) ($cliente?->uf ?? '')), ' /'),
             // Telefone vive em `clientetelefones`, nao numa coluna do cliente:
             // sem ele o contrato nao tem como localizar quem esta com o vasilhame.
