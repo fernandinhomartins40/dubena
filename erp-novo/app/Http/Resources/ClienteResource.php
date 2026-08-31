@@ -13,8 +13,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ClienteResource extends JsonResource
 {
     /** Campos sob controle field-level (A7) — só viajam se o usuário tiver `view`. */
-    private const CAMPOS_SENSIVEIS = ['credito_limite', 'credito_saldo', 'convenio_limite'];
-
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -92,6 +90,9 @@ class ClienteResource extends JsonResource
 
         // Field-level (A7): oculta campos sensíveis sem `cliente.campo.{nome}.view`.
         return app(CamposPermitidos::class)
-            ->filtrarLeitura($request->user(), 'cliente', $dados, self::CAMPOS_SENSIVEIS);
+            // Sem lista local: os campos controlados vêm do catálogo (F2-07),
+            // senão uma chave nova nele não protegeria nada até alguém lembrar
+            // de editar este arquivo.
+            ->filtrarLeitura($request->user(), 'cliente', $dados);
     }
 }

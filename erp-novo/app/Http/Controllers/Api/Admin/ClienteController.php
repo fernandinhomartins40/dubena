@@ -25,9 +25,6 @@ class ClienteController extends Controller
 {
     use AutorizaPorPermissao;
 
-    /** Campos sob controle field-level na escrita (espelha o Resource). */
-    private const CAMPOS_SENSIVEIS = ['credito_limite', 'credito_saldo', 'convenio_limite'];
-
     public function __construct(
         private ClienteService $service,
         private CamposPermitidos $campos,
@@ -170,9 +167,8 @@ class ClienteController extends Controller
      */
     private function semCamposBloqueados(ClienteRequest $request): array
     {
-        return $this->campos->filtrarEscrita(
-            $request->user(), 'cliente', $request->validated(), self::CAMPOS_SENSIVEIS,
-        );
+        // Campos controlados vêm do catálogo (F2-07), não de uma lista local.
+        return $this->campos->filtrarEscrita($request->user(), 'cliente', $request->validated());
     }
 
     /**

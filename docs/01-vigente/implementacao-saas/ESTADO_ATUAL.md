@@ -1063,3 +1063,40 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   up->down->up; tsc limpo; Vitest 39; Pint aprovado. Ver `F2_04_LEGACY_FULL.md`.
 - OPERACIONAL (nao e codigo): rodar `saas:legacy-full --dry-run` contra o banco
   real, conferir a lista, executar, e so entao virar `SAAS_ENFORCE_LICENCA`.
+
+## Atualizacao de retomada - 2026-08-31 (F2-07 seguranca)
+
+- F2-07 CONCLUIDO (o TOTP anti-replay ja tinha sido fechado antes). Restam da
+  F2: F2-01 (schema de request/response por rota) e o restante de F2-08.
+- Os tres itens tem a MESMA forma: codigo correto para uma revenda, defeituoso
+  para muitas.
+- LOCKOUT: o contador por IP era compartilhado entre tenants. Duas revendas
+  atras do mesmo CGNAT de operadora — comum em cidade pequena, que e o publico
+  de um ERP de GLP — e a primeira a errar 5 vezes TIRAVA A SEGUNDA DO AR. Pior:
+  5 tentativas com e-mails inventados derrubavam o IP de um escritorio inteiro.
+  Agora o eixo do IP e escopado ao tenant do e-mail alvo; as duas defesas
+  (varredura no tenant, ataque a uma conta de varios IPs) seguem intactas.
+- ACHADO no caminho: falha por senha errada — a mais comum — nao gravava
+  `empresa_id` no `login_logs`. O contador por IP nunca enxergaria justamente as
+  tentativas que deveria contar.
+- POLITICA DE SENHA: declarada por EMPRESA, mas a senha e do USUARIO. Um gerente
+  de duas filiais trocava a senha na filial frouxa (min 8) e enfraquecia a
+  credencial que abre a rigida (min 12 + complexidade). A regra aplicada passa a
+  ser a MAIS RIGIDA entre as empresas alcancadas. Empresa sem politica nao baixa
+  a regua (o default e piso, nao teto) e `expira_dias = 0` e "nunca", nao "menor
+  que tudo".
+- CAMPOS SENSIVEIS: a lista vivia em DOIS lugares — no catalogo e numa constante
+  `CAMPOS_SENSIVEIS` dentro de cada resource. Declarar uma chave no catalogo NAO
+  protegia nada ate alguem lembrar de editar a segunda lista: uma permissao que
+  existe, aparece na tela de papeis, pode ser negada, e nao esconde o campo. Isso
+  e pior que nao ter a permissao, porque afirma uma protecao que nao acontece.
+  Agora `camposControlados($modulo)` deriva do catalogo; zero ocorrencias de
+  `CAMPOS_SENSIVEIS` no app/. Um teste varre o catalogo inteiro e exige que cada
+  chave vire controle real.
+- Sobre "default-deny" do enunciado: trocar a convencao globalmente quebraria
+  todas as respostas da API sem ganho proporcional. O que estava aberto nao era o
+  default — era a segunda lista, que fazia a declaracao nao valer. Foi isso que
+  se fechou.
+- Validacao: 18 testes focais; suite integral **1423 passes / 4490 assertions /
+  zero falhas nos DOIS modos**; RlsCobertura 6/6 em PostgreSQL real; Pint
+  aprovado. Ver `F2_07_SEGURANCA.md`.
