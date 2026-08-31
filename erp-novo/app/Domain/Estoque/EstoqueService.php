@@ -262,7 +262,14 @@ class EstoqueService
                 $this->acertar($inventario->setor_id, $item->produto_id, (float) $item->quantidade_contada, $userId, (int) $inventario->empresa_id);
             }
 
-            $inventario->update(['situacao' => 'efetivado']);
+            // F4-03: efetivar E aprovar. Quem apertou o botao autorizou o
+            // ajuste — e essa e uma informacao diferente de quem CONTOU, que
+            // e registrada quando o inventario e aberto/preenchido.
+            $inventario->update([
+                'situacao' => 'efetivado',
+                'aprovado_por' => $userId,
+                'aprovado_em' => now(),
+            ]);
 
             return $inventario->refresh()->load('itens');
         });

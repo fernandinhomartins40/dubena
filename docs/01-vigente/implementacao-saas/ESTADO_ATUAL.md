@@ -1716,3 +1716,24 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - `estoque:conferir` passou a checar as DUAS projecoes num comando so.
 - Validacao: 7 testes focais; suite **1543 passes / 4780 assertions**; Pint.
   Ver `F4_02_CONFERENCIA_DE_SALDO.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F4-03: inventario com autoria e aprovacao)
+
+- MEDIDO primeiro, de novo: a efetivacao JA estava correta — usa o saldo
+  DERIVADO do ledger, grava `quantidade_sistema` no momento e gera o movimento
+  de acerto. O ajuste ja era rastreavel.
+- Faltava a outra metade da tarefa: AUTORIA e APROVACAO. O `user_id` do
+  movimento diz quem apertou o botao de efetivar; nao diz quem CONTOU — e num
+  inventario essas costumam ser pessoas diferentes (o conferente vai ao deposito
+  com a lista, o supervisor aprova o ajuste). Sem a separacao, um ajuste de
+  milhares de reais fica com um unico nome e a pergunta da auditoria ("quem
+  contou? quem autorizou?") nao tem resposta.
+- `aprovado_por` e nullable de proposito: nem toda revenda vai exigir dupla
+  aprovacao, e tornar obrigatorio imporia um fluxo de duas pessoas a quem tem
+  uma so. O que se registra e o que ACONTECEU; exigir dupla aprovacao e decisao
+  de produto, e o lugar dela e a configuracao.
+- As duas colunas separadas deixam VISIVEL quando e a mesma pessoa — que e uma
+  informacao, nao um defeito.
+- Validacao: 5 testes focais; suite **1548 passes / 4789 assertions**; 157
+  migrations em PostgreSQL real; RlsCobertura 6/6; rollback -> reaplicacao das
+  duas migrations OK; Pint.

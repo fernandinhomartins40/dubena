@@ -13,11 +13,17 @@ class EstoqueInventario extends Model
 
     protected $table = 'estoque_inventarios';
 
-    protected $fillable = ['empresa_id', 'setor_id', 'data', 'situacao', 'observacao'];
+    protected $fillable = [
+        'empresa_id', 'setor_id', 'data', 'situacao', 'observacao',
+        // F4-03: quem CONTOU e quem APROVOU o ajuste — costumam ser pessoas
+        // diferentes (o conferente vai ao depósito, o supervisor autoriza), e o
+        // ator do movimento de acerto não distingue as duas.
+        'contado_por', 'aprovado_por', 'aprovado_em',
+    ];
 
     protected function casts(): array
     {
-        return ['data' => 'date'];
+        return ['data' => 'date', 'aprovado_em' => 'datetime'];
     }
 
     public function itens(): HasMany

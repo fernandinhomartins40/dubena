@@ -309,6 +309,10 @@ class EstoqueController extends Controller
             'setor_id' => $d['setor_id'],
             'data' => $d['data'] ?? now()->toDateString(),
             'situacao' => 'aberto',
+            // F4-03: quem informou a contagem. E diferente de quem APROVA o
+            // ajuste na efetivacao — e a separacao existe justamente para
+            // deixar visivel quando as duas sao a mesma pessoa.
+            'contado_por' => $request->user()->id,
         ]);
         foreach ($d['itens'] as $i) {
             $inv->itens()->create(['produto_id' => $i['produto_id'], 'quantidade_contada' => $i['quantidade_contada']]);
