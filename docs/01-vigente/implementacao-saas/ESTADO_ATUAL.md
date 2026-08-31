@@ -1100,3 +1100,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Validacao: 18 testes focais; suite integral **1423 passes / 4490 assertions /
   zero falhas nos DOIS modos**; RlsCobertura 6/6 em PostgreSQL real; Pint
   aprovado. Ver `F2_07_SEGURANCA.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F2-08 testes reais)
+
+- F2-08 CONCLUIDO. Da F2 resta apenas **F2-01** (schema de request/response por
+  rota; a parte de action/resource/capability e catalogo ja foi entregue).
+- VAZAMENTO REAL ENCONTRADO pela varredura adversarial:
+  `GET /api/admin/produtos/{id}/estoque` devolvia **200 para produto de outro
+  tenant**. Os saldos nao vazavam (a RLS os protege), mas o 200 confirma que
+  aquele id existe em algum lugar — metade do que um atacante quer ao varrer
+  numeros. `EstoqueController::porProduto` nao verificava o dono do produto.
+  Corrigido com 404 (nao 403: "existe, mas voce nao pode" ja e a informacao).
+- O teste adversarial DESCOBRE as rotas pelo roteador, entao alcanca o que
+  ninguem pensou em cobrir. Duas salvaguardas contra virar teatro: contraprova
+  positiva (as mesmas rotas respondem para o id proprio — senao passaria com a
+  app inteira fora do ar) e guarda do mapa (recurso novo com `{id}` FALHA ate
+  alguem declarar a que grupo pertence).
+- MATRIZ DE PAPEIS REAIS: os 4 do RbacSeeder (Administrador/Gerente/Operador/
+  Entregador), sem `support`. Papeis sob medida provam que o MECANISMO funciona;
+  nao que os papeis ENTREGUES estao desenhados certo. 13 testes passaram de
+  primeira — o valor nao foi achar defeito, foi passar a detectar quando a
+  hierarquia deixar de valer. Inclui "a escada nao se inverte": cada papel e
+  subconjunto ESTRITO do anterior.
+- AUSENCIA DE ASSINATURA nas PORTAS (o servico ja tinha teste): 402 e nao 403 —
+  a distincao permite a tela dizer "seu plano nao inclui isto" em vez de mandar o
+  cliente pedir acesso a quem nao pode conceder. O nucleo do ERP continua
+  respondendo: pendencia comercial nao pode virar perda de dado operacional.
+- A varredura pergunta a `RecursoPorRota::recursoDaRota()`, nao aos middlewares
+  declarados na rota — ele resolve por PREFIXO de caminho, entao procurar
+  `recurso:` nas rotas nao acharia nada (foi o meu primeiro erro aqui).
+- Validacao: 22 testes focais; suite integral **1445 passes / 4547 assertions /
+  zero falhas nos DOIS modos**; Pint aprovado. Ver `F2_08_TESTES_REAIS.md`.

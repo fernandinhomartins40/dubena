@@ -13,6 +13,7 @@ use App\Models\Estoque\EstoqueHistorico;
 use App\Models\Estoque\EstoqueInventario;
 use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
+use App\Models\Produto\Produto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -90,6 +91,14 @@ class EstoqueController extends Controller
     public function porProduto(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'estoque.view');
+
+        // F2-08: o produto tem de ser DESTE tenant. Sem isto a rota devolvia 200
+        // para id alheio — os saldos não vazavam (a RLS os protege), mas o 200
+        // confirmava que aquele id existe em algum lugar, que é metade do que um
+        // atacante quer ao trocar números na URL.
+        //
+        // 404 e não 403: "existe, mas você não pode" já é a informação.
+        abort_unless(Produto::query()->whereKey($id)->exists(), 404);
 
         $setores = EstoqueSaldo::query()
             ->with(['setor:id,descricao'])
