@@ -1280,3 +1280,35 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   que a coluna existe para resolver.
 - 150 migrations em PostgreSQL, RlsCobertura 6/6, rollback -> reaplicacao OK
   (banco descartavel `erp_f3b_check`, criado e removido).
+
+## Atualizacao de retomada - 2026-08-31 (F3-11 escrita canonica)
+
+- Guardiao executavel contra o RETORNO das inferencias por texto. A F3 tirou
+  decisoes de dentro de palavras em portugues (F3-04A, F3-02); nada disso se
+  sustenta sozinho.
+- O raciocinio: a proxima pessoa que precisar distinguir dois conceitos que o
+  modelo nao separa vai escrever `str_contains($p->descricao, '...')`. E vai
+  FUNCIONAR — passa no teste, resolve o chamado, e o custo so aparece na segunda
+  revenda, meses depois, como uma tela com menos linhas do que devia. Uma regra
+  que depende de alguem lembrar nao e uma regra.
+- Varre `app/Domain`, `app/Http/Controllers` e `app/Jobs` procurando termos do
+  dominio (VASILHA, CASCO, BOTIJAO, GRANEL, RECARGA, SAIU, ROTA DE, CAMINHO) e
+  falha quando um deles GOVERNA decisao.
+- Tres cuidados para nao virar ruido: presenca nao basta (exige `str_contains`,
+  `stripos`, `preg_match`, `LIKE`… na mesma linha — senao todo rotulo de tela
+  acusaria); comentario nao conta (documentacao que cita o padrao antigo e
+  documentacao, inclusive a que explica por que ele saiu); e a licenca e nominal,
+  com o motivo escrito (so `VinculoVasilhame.php`, onde a regex vive como
+  sugestao conferida por humano).
+- Segundo teste impede a lista de PERMITIDOS de envelhecer: arquivo permitido que
+  nao existe mais quebra a suite.
+- A mensagem de falha aponta a SAIDA (declarar no cadastro, ou virar `sugerir*`
+  com evidencia) — um guardiao que so diz "nao" empurra o proximo a contornar.
+- VERIFICADO QUE DETECTA: inseri de proposito um `str_contains(..., 'BOTIJAO')`
+  no EntregaService e ele apontou `app/Domain/Mobile/EntregaService.php:124`.
+  Um guardiao que nunca acusa e decorativo.
+- LIMITACAO ASSUMIDA: a lista e do dominio de GLP, nao exaustiva do portugues.
+  Conceito novo com vocabulario novo nao e pego — o valor esta em travar o
+  caminho ja trilhado, que e por onde a regressao volta.
+- Validacao: 2 testes focais; suite **1475 passes / 4650 assertions**; Pint.
+  Ver `F3_11_ESCRITA_CANONICA.md`.
