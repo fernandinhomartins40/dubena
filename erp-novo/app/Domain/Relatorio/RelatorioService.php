@@ -100,7 +100,13 @@ class RelatorioService
             ->join('financeiros as f', 'f.id', '=', 'fp.financeiro_id')
             ->where('f.empresa_id', $empresaId)
             ->where('f.cancelado', false)
-            ->whereBetween('fp.vencimento', [$dtInicio, $dtFim]);
+            // Comparar a DATA, nao o texto. `vencimento` e coluna `date`, mas o
+            // cast do Eloquent serializa 'AAAA-MM-DD 00:00:00'; o Postgres trunca
+            // a hora na gravacao e o sqlite NAO. Num whereBetween por texto isso
+            // faz o ultimo dia do periodo sumir em sqlite e nao em producao — o
+            // pior tipo de divergencia, porque o teste diverge do que roda.
+            ->whereDate('fp.vencimento', '>=', $dtInicio)
+            ->whereDate('fp.vencimento', '<=', $dtFim);
 
         $aReceber = (clone $parcelas)->where('f.pagarreceber', 'R')->where('fp.baixado', false)->sum('fp.valor');
         $aPagar = (clone $parcelas)->where('f.pagarreceber', 'P')->where('fp.baixado', false)->sum('fp.valor');
@@ -504,7 +510,11 @@ class RelatorioService
     {
         return DB::table('nf_recebidas')
             ->where('empresa_id', $empresaId)
-            ->whereBetween('data_emissao', [$inicio, $fim])
+            // whereDate: os limites chegam crus da rota, sem normalizacao, e
+            // whereBetween por texto descartaria o ultimo dia (ver a nota em
+            // `financeiro`). Aqui era o unico ponto ainda sem tratamento.
+            ->whereDate('data_emissao', '>=', $inicio)
+            ->whereDate('data_emissao', '<=', $fim)
             ->orderBy('data_emissao')
             ->get(['numero', 'serie', 'emitente_nome', 'data_emissao', 'valor_total', 'situacao'])
             ->map(fn ($r) => [
@@ -586,9 +596,9 @@ class RelatorioService
             ->where('f.empresa_id', $empresaId)
             ->where('f.cancelado', false)
             ->where('fp.baixado', false)
-            // Comparar a DATA, não o texto: `vencimento` guarda datetime, e um
-            // whereBetween contra 'AAAA-MM-DD' descartaria o último dia do
-            // período (00:00:00 do dia seguinte já é maior que a string do fim).
+            // Comparar a DATA, nao o texto. A coluna e `date`, mas o cast do
+            // Eloquent grava 'AAAA-MM-DD 00:00:00' — o Postgres trunca a hora,
+            // o sqlite nao. whereDate e correto nos dois.
             ->whereDate('fp.vencimento', '>=', $dtInicio->toDateString())
             ->whereDate('fp.vencimento', '<=', $dtFim->toDateString())
             ->groupBy('fp.vencimento')

@@ -221,6 +221,65 @@ class FinanceiroController extends Controller
     }
 
     /**
+     * POST /financeiro/conciliacao/casar — casamento MANUAL (F5-04).
+     *
+     * O algoritmo casa por (valor, data) dentro de uma tolerancia. Ele nao
+     * alcanca a tarifa que entrou com valor diferente do previsto, nem o
+     * deposito que o banco lancou tres dias depois. Quem resolve esses e o
+     * operador — e a decisao dele fica registrada com nome e motivo, senao a
+     * conciliacao vira um numero que ninguem consegue defender depois.
+     *
+     * Escrita, e nao leitura: exige `financeiro.edit`.
+     */
+    public function conciliacaoCasar(Request $request, ConciliacaoService $service): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+        $empresaId = $this->tenant->requireEmpresaId();
+
+        $d = $request->validate([
+            // `exists` filtrado por empresa: `exists:tabela,id` sozinho aceitaria
+            // o id de outra revenda, e o servico ainda barraria — mas a mensagem
+            // de erro sairia como "invalido", escondendo a tentativa.
+            'lancamento_id' => ['required', 'integer', Rule::exists('conciliacao_lancamentos', 'id')
+                ->where(fn ($q) => $q->where('empresa_id', $empresaId))],
+            'movimento_id' => ['required', 'integer', Rule::exists('contamovimentos', 'id')
+                ->where(fn ($q) => $q->where('empresa_id', $empresaId))],
+            'motivo' => 'nullable|string|max:255',
+        ]);
+
+        $lancamento = $service->casarManualmente(
+            (int) $d['lancamento_id'], (int) $d['movimento_id'], $empresaId,
+            $request->user()?->id, $d['motivo'] ?? null,
+        );
+
+        return response()->json(['data' => $lancamento]);
+    }
+
+    /**
+     * POST /financeiro/conciliacao/desfazer — desfaz um par (F5-04).
+     *
+     * Vai para DESFEITO, nao de volta para PENDENTE: "nunca casou" e "casou e
+     * alguem desfez" sao fatos diferentes, e o segundo e o que se investiga.
+     */
+    public function conciliacaoDesfazer(Request $request, ConciliacaoService $service): JsonResponse
+    {
+        $this->autorizar($request, 'financeiro.edit');
+        $empresaId = $this->tenant->requireEmpresaId();
+
+        $d = $request->validate([
+            'lancamento_id' => ['required', 'integer', Rule::exists('conciliacao_lancamentos', 'id')
+                ->where(fn ($q) => $q->where('empresa_id', $empresaId))],
+            'motivo' => 'nullable|string|max:255',
+        ]);
+
+        $lancamento = $service->desfazer(
+            (int) $d['lancamento_id'], $empresaId, $request->user()?->id, $d['motivo'] ?? null,
+        );
+
+        return response()->json(['data' => $lancamento]);
+    }
+
+    /**
      * GET /financeiro/conciliacao-contabil — concilia o financeiro do ERP com o
      * saldo contábil externo (CONSISA) por período (F08). Gate: sem CONSISA
      * configurada, devolve o lado do ERP com diferença = valor (habilitado=false).

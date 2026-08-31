@@ -379,6 +379,8 @@
     "POST api/admin/estoque/transferencias",
     "POST api/admin/financeiro/centros-custo",
     "POST api/admin/financeiro/conciliacao",
+    "POST api/admin/financeiro/conciliacao/casar",
+    "POST api/admin/financeiro/conciliacao/desfazer",
     "POST api/admin/financeiro/contas/{contaId}/extrato-regras",
     "POST api/admin/financeiro/lancamentos",
     "POST api/admin/financeiro/lancamentos/agrupar",

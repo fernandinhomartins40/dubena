@@ -13,6 +13,27 @@ use App\Models\Cobranca\Boleto;
  */
 class FakeBoletoDriver implements BoletoDriver
 {
+    /**
+     * F5-05 — defesa em profundidade: o fake nao existe em producao.
+     *
+     * O container ja recusa a configuracao que ativaria um fake em producao
+     * (`exigirDriverReal`), e essa e a protecao principal. Esta guarda cobre o
+     * caminho que ela nao alcanca: instanciar a classe diretamente, sem passar
+     * pela resolucao por interface.
+     *
+     * Duas travas para o mesmo risco porque o custo de errar aqui e boleto sintetico
+     * entrando na operacao real — e o modo de falhar e silencioso: o sistema
+     * responde "sucesso" e nenhum boleto sintetico foi gerado de verdade.
+     */
+    public function __construct()
+    {
+        if (app()->isProduction()) {
+            throw new \RuntimeException(
+                static::class.' e proibido em producao — nenhum boleto sintetico foi gerado.',
+            );
+        }
+    }
+
     public function bancoCodigo(): int
     {
         return 0; // fictício

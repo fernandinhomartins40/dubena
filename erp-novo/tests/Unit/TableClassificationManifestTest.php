@@ -58,6 +58,9 @@ class TableClassificationManifestTest extends TestCase
             // F3-01 — papéis da pessoa com vigência (substitui os booleanos
             // paralelos `cliente`/`fornecedor`/`transportador`).
             'cliente_papeis',
+            // F5-04 — conciliacao persistida: o lancamento do extrato bancario e
+            // o par que ele formou (ou nao). Company: e dinheiro de UMA revenda.
+            'conciliacao_lancamentos',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

@@ -739,6 +739,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         // Conciliação bancária (OFX) — implementada via ConciliacaoService.
         Route::get('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
         Route::post('financeiro/conciliacao', [FinanceiroController::class, 'conciliacao']);
+        // Decisao manual sobre um par (F5-04) — escrita, exige financeiro.edit.
+        Route::post('financeiro/conciliacao/casar', [FinanceiroController::class, 'conciliacaoCasar']);
+        Route::post('financeiro/conciliacao/desfazer', [FinanceiroController::class, 'conciliacaoDesfazer']);
         // Conciliação contábil (CONSISA) — F08.
         // Regras de classificação automática do extrato (T4.2): é o que torna a
         // importação OFX produtiva em vez de uma lista para classificar à mão.

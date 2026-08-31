@@ -65,7 +65,9 @@ class ConciliacaoContabilService
             ->where('financeiros.empresa_id', $empresaId)
             ->where('financeiros.pagarreceber', $tipo)
             ->where('financeiros.cancelado', false)
-            ->whereBetween('financeiroparcelas.vencimento', [$inicio, $fim])
+            // whereDate, nao whereBetween: ver a nota em RelatorioService::financeiro.
+            ->whereDate('financeiroparcelas.vencimento', '>=', $inicio)
+            ->whereDate('financeiroparcelas.vencimento', '<=', $fim)
             ->when(true, fn (Builder $b) => $b->groupBy('financeiros.cliente_id'))
             ->get();
     }

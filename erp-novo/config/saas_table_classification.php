@@ -127,6 +127,7 @@ $register([
     'comodato_contratos',
     'comodato_movimentos',
     'comodatos',
+    'conciliacao_lancamentos',
     'condicaopagamento_parcelas',
     'condicaopagamentos',
     'config_fiscais',

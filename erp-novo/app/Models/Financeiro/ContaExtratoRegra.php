@@ -4,6 +4,7 @@ namespace App\Models\Financeiro;
 
 use App\Domain\Financeiro\ContaExtratoAcao;
 use App\Domain\Tenant\BelongsToTenant;
+use App\Models\Caixa\Conta;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -38,6 +39,6 @@ class ContaExtratoRegra extends Model
 
     public function conta(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Caixa\Conta::class, 'conta_id');
+        return $this->belongsTo(Conta::class, 'conta_id');
     }
 }
