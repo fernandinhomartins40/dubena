@@ -2,6 +2,7 @@
 
 namespace App\Domain\Satelite;
 
+use App\Domain\Produto\TipoProduto;
 use App\Models\Produto\Produto;
 use Illuminate\Support\Collection;
 
@@ -64,19 +65,54 @@ class VinculoVasilhame
      */
     public function ehVasilhame(Produto $p): bool
     {
-        $texto = mb_strtoupper((string) $p->descricao);
+        // F3-02: o tipo DECLARADO decide. A palavra na descrição virou
+        // sugestão (ver `sugerirTipo`), porque um catálogo que diga
+        // "Cilindro 13kg" ou esteja em espanhol sumia da vigilância inteira —
+        // e a tela não ficava vazia, ficava com menos linhas.
+        return $p->tipo === TipoProduto::RECIPIENTE;
+    }
 
-        // "Botijão P13 - RECARGA" é venda de conteúdo, não casco emprestado.
-        // Sem esta exclusão ele entraria como vasilhame E como compra, errando
-        // os dois lados da conta.
-        if (str_contains($texto, 'RECARGA')) {
-            return false;
+    /**
+     * Sugestão de tipo a partir da descrição — para a tela de conferência.
+     *
+     * É a heurística antiga, no lugar certo: um palpite oferecido a quem
+     * decide, em vez de uma resposta usada como verdade. Devolve também a
+     * evidência, porque um palpite sem o motivo não é conferível.
+     *
+     * @return array{tipo: TipoProduto, evidencia: string}|null
+     */
+    public function sugerirTipo(Produto $p): ?array
+    {
+        if ($p->tipo !== TipoProduto::INDEFINIDO) {
+            return null; // já classificado: nada a sugerir
         }
 
-        return str_contains($texto, 'VASILHA')
-            || str_contains($texto, 'CASCO')
-            || str_contains($texto, 'BOTIJAO')
-            || str_contains($texto, 'BOTIJÃO');
+        $texto = mb_strtoupper((string) $p->descricao);
+
+        if ($p->tipo_glp !== null && ! str_contains($texto, 'GRANEL')) {
+            return ['tipo' => TipoProduto::CONTEUDO, 'evidencia' => 'tipo_glp preenchido'];
+        }
+
+        // "Botijão P13 - RECARGA" é venda de conteúdo, não casco emprestado.
+        // Sem esta exclusão ele entraria como recipiente E como compra,
+        // errando os dois lados da conta.
+        if (! str_contains($texto, 'RECARGA')) {
+            foreach (['VASILHA', 'CASCO', 'BOTIJAO', 'BOTIJÃO', 'CILINDRO'] as $termo) {
+                if (str_contains($texto, $termo)) {
+                    return ['tipo' => TipoProduto::RECIPIENTE, 'evidencia' => 'descrição contém '.$termo];
+                }
+            }
+        }
+
+        if (! str_contains($texto, 'GRANEL')) {
+            foreach (['GLP', 'RECARGA'] as $termo) {
+                if (str_contains($texto, $termo)) {
+                    return ['tipo' => TipoProduto::CONTEUDO, 'evidencia' => 'descrição contém '.$termo];
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -88,20 +124,8 @@ class VinculoVasilhame
      */
     public function ehConteudo(Produto $p): bool
     {
-        if (str_contains(mb_strtoupper((string) $p->descricao), 'GRANEL')) {
-            return false;
-        }
-
-        if ($p->tipo_glp !== null && isset(self::TIPO_GLP[(int) $p->tipo_glp])) {
-            return true;
-        }
-
-        $texto = mb_strtoupper((string) $p->descricao);
-
-        // "Botijão P13 - Recarga" não tem GLP no nome nem `tipo_glp`, mas é
-        // reabastecimento — e deixá-la fora subestimaria o consumo de quem
-        // compra por esse item, gerando alerta contra cliente que compra normal.
-        return str_contains($texto, 'GLP') || str_contains($texto, 'RECARGA');
+        // F3-02: tipo declarado, mesma razão de `ehVasilhame`.
+        return $p->tipo === TipoProduto::CONTEUDO;
     }
 
     /**

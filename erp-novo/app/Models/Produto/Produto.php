@@ -3,6 +3,7 @@
 namespace App\Models\Produto;
 
 use App\Domain\Produto\NaturezaItem;
+use App\Domain\Produto\TipoProduto;
 use App\Domain\Shared\Auditavel;
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,6 +28,10 @@ class Produto extends Model
         'descricao', 'produtoclasse_id', 'grupo_fiscal_id', 'unidademedida_id',
         // produto | servico | taxa — governa estoque e fiscal (ver NaturezaItem).
         'natureza',
+        // F3-02: papel no ciclo de CUSTODIA (recipiente/conteudo/mercadoria).
+        // Ortogonal a `natureza`: um recipiente e um conteudo sao ambos
+        // `produto`; o que os separa e serem o casco ou o gas dentro dele.
+        'tipo', 'tipo_origem', 'tipo_evidencia',
         'vasilhame_retornavel', 'produto_retornavel_id', 'ativo', 'envia_app_nf',
         'dias_giro', 'observacao',
         'preco_venda', 'preco_venda_minimo', 'custo_medio', 'custo_frete',
@@ -41,10 +46,25 @@ class Produto extends Model
     /** Custos só saem por ProdutoResource/presenter com autorização field-level. */
     protected $hidden = ['custo_medio', 'custo_frete'];
 
+    /**
+     * Default do `tipo` tambem no model, e nao so no banco.
+     *
+     * O default de coluna so vale na linha ja gravada; um `new Produto` tem
+     * `tipo = null`, e comparar `null === TipoProduto::RECIPIENTE` da false por
+     * acidente em vez de por decisao. Declarar aqui faz INDEFINIDO valer desde
+     * a instancia.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'tipo' => 'INDEFINIDO',
+    ];
+
     protected function casts(): array
     {
         return [
             'natureza' => NaturezaItem::class,
+            'tipo' => TipoProduto::class,
             'vasilhame_retornavel' => 'boolean',
             'ativo' => 'boolean',
             'envia_app_nf' => 'boolean',

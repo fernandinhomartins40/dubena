@@ -936,12 +936,14 @@
     "GET api/admin/comodatos/vinculos": {
         "request": [],
         "response": {
+            "data": "array",
             "data[].capacidade": "string",
             "data[].descricao": "string",
             "data[].em_comodato": "int",
             "data[].id": "int",
             "data[].produto_retornavel_id": "null",
-            "data[].sugeridos[]": "int"
+            "data[].sugeridos[]": "int",
+            "data[].tipo_origem": "null"
         },
         "status": [
             200
@@ -4041,7 +4043,10 @@
             "data.produto.produtoclasse_id": "null",
             "data.produto.sped": "bool",
             "data.produto.tenant_account_id": "null",
+            "data.produto.tipo": "string",
+            "data.produto.tipo_evidencia": "null",
             "data.produto.tipo_glp": "null",
+            "data.produto.tipo_origem": "null",
             "data.produto.unidademedida_id": "null",
             "data.produto.updated_at": "string",
             "data.produto.vasilhame_retornavel": "bool",
@@ -5567,6 +5572,7 @@
             "produto_retornavel_id": false,
             "produtoclasse_id": false,
             "sped": false,
+            "tipo": false,
             "tipo_glp": false,
             "unidademedida_id": false,
             "vasilhame_retornavel": false
@@ -7429,6 +7435,7 @@
             "produto_retornavel_id": false,
             "produtoclasse_id": false,
             "sped": false,
+            "tipo": false,
             "tipo_glp": false,
             "unidademedida_id": false,
             "vasilhame_retornavel": false

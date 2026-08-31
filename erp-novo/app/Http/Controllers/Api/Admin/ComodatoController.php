@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Produto\TipoProduto;
 use App\Domain\Satelite\ComodatoPdfService;
 use App\Domain\Satelite\ComodatoService;
 use App\Domain\Satelite\VinculoVasilhame;
@@ -327,6 +328,10 @@ class ComodatoController extends Controller
                     'produto_retornavel_id' => $p->produto_retornavel_id === null
                         ? null
                         : (int) $p->produto_retornavel_id,
+                    // Quem decidiu o tipo: `heuristica` e palpite gravado pela
+                    // conversao; `humano` foi conferido. Sem isso os dois ficam
+                    // indistinguiveis e a divida some de vista sem ser paga.
+                    'tipo_origem' => $p->tipo_origem,
                     'sugeridos' => $sugeridos,
                     // Em posse hoje: dimensiona o estrago de um par errado.
                     // Duas somas em vez de uma expressão porque `coalesce` dentro
@@ -348,7 +353,34 @@ class ComodatoController extends Controller
             ->sortBy('descricao')
             ->values();
 
-        return response()->json(['data' => $linhas, 'conteudos' => $conteudos]);
+        // F3-02: produtos que a classificacao ainda nao alcancou.
+        //
+        // Sem esta lista, a tela mostraria MENOS linhas do que deveria e
+        // ninguem saberia quantas faltam — que e o modo mais dificil de
+        // perceber uma falha. A sugestao aparece ao lado, com a evidencia,
+        // para quem confere decidir em vez de adivinhar.
+        $naoClassificados = $catalogo
+            ->filter(fn (Produto $p) => $p->tipo === TipoProduto::INDEFINIDO)
+            ->map(function (Produto $p) use ($vinculo) {
+                $sugestao = $vinculo->sugerirTipo($p);
+
+                return [
+                    'id' => $p->id,
+                    'descricao' => $p->descricao,
+                    'capacidade' => $vinculo->capacidade($p->descricao),
+                    'sugestao' => $sugestao === null ? null : $sugestao['tipo']->value,
+                    'sugestao_rotulo' => $sugestao === null ? null : $sugestao['tipo']->rotulo(),
+                    'evidencia' => $sugestao['evidencia'] ?? null,
+                ];
+            })
+            ->sortBy('descricao')
+            ->values();
+
+        return response()->json([
+            'data' => $linhas,
+            'conteudos' => $conteudos,
+            'nao_classificados' => $naoClassificados,
+        ]);
     }
 
     /** Vasilhames deste produto ainda em poder de clientes. */

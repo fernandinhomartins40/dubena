@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Produto\TipoProduto;
 use App\Domain\Satelite\ComodatoService;
 use App\Domain\Satelite\GerarAlertasComodato;
 use App\Domain\Satelite\VigilanciaComodatoService;
@@ -60,12 +61,14 @@ class ComodatoVigilanciaTest extends TestCase
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Vasilha P13 Kg',
+            'tipo' => TipoProduto::RECIPIENTE->value,
             'ativo' => true,
         ]);
         $this->gas = Produto::create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Glp P13',
+            'tipo' => TipoProduto::CONTEUDO->value,
             'tipo_glp' => 3,
             'ativo' => true,
         ]);
@@ -348,6 +351,7 @@ class ComodatoVigilanciaTest extends TestCase
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Vasilha P45 Kg',
+            'tipo' => TipoProduto::RECIPIENTE->value,
             'ativo' => true,
         ]);
 
@@ -362,6 +366,7 @@ class ComodatoVigilanciaTest extends TestCase
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Botijão P13 - Recarga',
+            'tipo' => TipoProduto::CONTEUDO->value,
             'ativo' => true,
         ]);
 
@@ -396,6 +401,7 @@ class ComodatoVigilanciaTest extends TestCase
             'empresa_id' => $outraEmpresa->id,
             'grupo_id' => $outraEmpresa->grupo_id,
             'descricao' => 'Vasilha P13 Kg',
+            'tipo' => TipoProduto::RECIPIENTE->value,
             'ativo' => true,
         ]);
 

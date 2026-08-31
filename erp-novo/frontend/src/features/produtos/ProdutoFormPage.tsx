@@ -4,14 +4,15 @@ import { ArrowLeft, Save, AlertCircle, Warehouse } from 'lucide-react'
 import {
   Button, Card, CardContent, PageHeader, Field, Input, Textarea, CheckboxField, AsyncSelect,
   Tabs, TabsList, TabsTrigger, TabsContent, EmptyState, Skeleton, toast,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui'
 import { OrigensTab } from './OrigensTab'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { qtd } from '@/lib/format'
-import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm } from './api'
+import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm, type TipoProduto } from './api'
 
 const VAZIO: ProdutoForm = {
-  descricao: '', produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
+  descricao: '', tipo: 'INDEFINIDO', produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
   produtoretornavel_id: null, ativo: true, enviaappnf: false, diasgiro: null, observacao: '',
   precovenda: '', precovendaminimo: '', customedio: '', custofrete: '', precogasdopovo: '',
   pesoliquido: '', pesobruto: '',
@@ -140,6 +141,20 @@ export function ProdutoFormPage() {
             </Field>
             <Field label="Espécie"><Input value={val(form.especie)} maxLength={60} onChange={(e) => campo('especie', e.target.value)} /></Field>
             <Field label="Marca"><Input value={val(form.marca)} maxLength={60} onChange={(e) => campo('marca', e.target.value)} /></Field>
+            {/* F3-02: o que o produto É, para a vigilância de comodato. Antes
+                isso era lido da descrição, e um catálogo que dissesse
+                "Cilindro 13kg" sumia da vigilância inteira. */}
+            <Field label="Tipo" hint="Recipiente é o casco emprestado; conteúdo é o gás vendido dentro dele. Usado pela vigilância de comodato.">
+              <Select value={form.tipo ?? 'INDEFINIDO'} onValueChange={(v) => campo('tipo', v as TipoProduto)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INDEFINIDO">Não classificado</SelectItem>
+                  <SelectItem value="RECIPIENTE">Recipiente (casco/vasilhame)</SelectItem>
+                  <SelectItem value="CONTEUDO">Conteúdo (gás)</SelectItem>
+                  <SelectItem value="MERCADORIA">Mercadoria comum</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <Field label="Dias de giro" hint="Usado na curva de giro do estoque">
               <Input type="number" value={form.diasgiro ?? ''} onChange={(e) => campo('diasgiro', e.target.value ? Number(e.target.value) : null)} />
             </Field>

@@ -1216,3 +1216,41 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   falhas nos DOIS modos**; RlsCobertura 6/6 e migration up->down->up em
   PostgreSQL real; tsc limpo; Vitest 39; Pint aprovado.
   Ver `F3_04A_PAPEL_DA_SITUACAO.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F3-02 tipo do produto)
+
+- `VinculoVasilhame` decidia o que um produto E lendo a descricao: `VASILHA`,
+  `CASCO`, `BOTIJAO`, `BOTIJAO` para recipiente; `GLP`/`RECARGA` para conteudo,
+  com `GRANEL` excluindo. Toda a vigilancia de comodato — que esta EM PRODUCAO e
+  revelou 145 contratos vencidos — depende disso. E NAO ha tabela de vinculo: a
+  inferencia era recalculada a cada execucao.
+- Uma revenda que cadastre "Cilindro 13kg", "P13 cheio" ou opere em espanhol
+  some da vigilancia inteira. E o modo de falhar e o pior possivel: **a tela nao
+  fica vazia, fica com MENOS linhas**. Um erro visivel seria reportado no
+  primeiro dia; uma lista curta parece uma lista.
+- CORRECAO: `tipo` no produto (RECIPIENTE/CONTEUDO/MERCADORIA/INDEFINIDO),
+  ortogonal a `natureza` — um recipiente e um conteudo sao ambos `produto`; o
+  que os separa e serem o casco ou o gas.
+- A regex NAO foi jogada fora, mudou de lugar: `sugerirTipo()` a mantem como
+  sugestao na tela de conferencia, devolvendo a EVIDENCIA junto — um palpite sem
+  o motivo nao e conferivel.
+- Tres colunas: `tipo`, `tipo_origem` (heuristica|humano) e `tipo_evidencia`. A
+  origem e o que impede a conversao de virar verdade absoluta: sem ela, palpite
+  e decisao humana ficariam indistinguiveis no dia seguinte e a divida sumiria
+  de vista sem ser paga.
+- O que nao casou com nada NAO virou MERCADORIA. "Nao bateu com nenhuma palavra"
+  e "e mercadoria comum" sao afirmacoes diferentes, e so a primeira e verdade —
+  marcar tudo esconderia os cascos que a heuristica nao reconhece, que sao a
+  razao da migration existir.
+- `GET /comodatos/vinculos` passou a devolver `nao_classificados` com sugestao e
+  evidencia: troca "a tela mostra menos linhas" por "estes N precisam decisao".
+- Detalhe pego no teste: o default da COLUNA so vale na linha gravada; um
+  `new Produto` vinha com `tipo = null`, e `null === RECIPIENTE` da false por
+  acidente. `protected $attributes` no model resolve.
+- Validacao: 10 testes focais + 22 de comodato atualizados; suite **1470 passes
+  / 4644 assertions / zero falhas nos DOIS modos**; tsc limpo; Vitest 39; Pint.
+- ⚠️ **PENDENTE**: validacao em PostgreSQL real (migration + RlsCobertura) NAO
+  foi feita — o Docker Desktop caiu no meio do lote e nao voltou. A migration usa
+  `UPPER(...) LIKE` em vez de `ILIKE` justamente para dar o mesmo resultado nos
+  dois bancos, mas isso precisa ser CONFIRMADO antes do deploy.
+  Ver `F3_02_TIPO_DO_PRODUTO.md`.

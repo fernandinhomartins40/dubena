@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Produto\TipoProduto;
 use App\Models\Empresa;
 use App\Models\Produto\Produto;
 use App\Models\User;
@@ -42,12 +43,14 @@ class ComodatoVinculoApiTest extends TestCase
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Vasilha P13 Kg',
+            'tipo' => TipoProduto::RECIPIENTE->value,
             'ativo' => true,
         ]);
         $this->gas = Produto::create([
             'empresa_id' => $this->empresa->id,
             'grupo_id' => $this->empresa->grupo_id,
             'descricao' => 'Glp P13',
+            'tipo' => TipoProduto::CONTEUDO->value,
             'tipo_glp' => 3,
             'ativo' => true,
         ]);
@@ -109,6 +112,7 @@ class ComodatoVinculoApiTest extends TestCase
             'empresa_id' => $outra->id,
             'grupo_id' => $outra->grupo_id,
             'descricao' => 'Glp P13',
+            'tipo' => TipoProduto::CONTEUDO->value,
             'tipo_glp' => 3,
             'ativo' => true,
         ]);
@@ -130,6 +134,7 @@ class ComodatoVinculoApiTest extends TestCase
             'empresa_id' => $outra->id,
             'grupo_id' => $outra->grupo_id,
             'descricao' => 'Vasilha P13 Kg',
+            'tipo' => TipoProduto::RECIPIENTE->value,
             'ativo' => true,
         ]);
 

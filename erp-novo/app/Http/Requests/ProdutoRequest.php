@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Produto\TipoProduto;
 use App\Models\Produto\Produto;
 use App\Models\Produto\ProdutoClasse;
 use App\Models\Produto\UnidadeMedida;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Validação de produto. Origens como array ANINHADO. Valores numéricos como
@@ -51,6 +53,9 @@ class ProdutoRequest extends FormRequest
             // produto | servico | taxa. Governa estoque e fiscal: servico nao
             // movimenta armazem e nao exige NCM (ver NaturezaItem).
             'natureza' => 'nullable|in:produto,servico,taxa',
+            // F3-02: papel no ciclo de custodia. Declarado aqui, em vez de
+            // inferido da descricao pela vigilancia de comodato.
+            'tipo' => ['nullable', Rule::enum(TipoProduto::class)],
             'produtoclasse_id' => ['nullable', 'integer', new ExisteNoTenant(ProdutoClasse::class)],
             'unidademedida_id' => ['nullable', 'integer', new ExisteNoTenant(UnidadeMedida::class)],
             'vasilhame_retornavel' => 'nullable|boolean',

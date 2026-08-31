@@ -19,9 +19,19 @@ export interface OrigemCombustivel {
   uf?: string | null
 }
 
+/**
+ * Papel do produto no ciclo de CUSTÓDIA (F3-02).
+ *
+ * A vigilância de comodato precisa distinguir o casco que se empresta do gás
+ * que se vende dentro dele. Antes isso era lido da descrição (`VASILHA`,
+ * `CASCO`, `GLP`…), o que só funciona para quem escreveu essas palavras.
+ */
+export type TipoProduto = 'INDEFINIDO' | 'RECIPIENTE' | 'CONTEUDO' | 'MERCADORIA'
+
 export interface ProdutoForm {
   // Dados
   descricao: string
+  tipo?: TipoProduto
   produtoclasse_id: number | null
   unidademedida_id: number | null
   vasilhameretornavel: boolean
