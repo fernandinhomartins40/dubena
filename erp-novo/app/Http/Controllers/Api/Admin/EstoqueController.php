@@ -13,11 +13,13 @@ use App\Models\Estoque\EstoqueHistorico;
 use App\Models\Estoque\EstoqueInventario;
 use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
+use App\Models\Estoque\Setor;
 use App\Models\Produto\Produto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Estoque — N3. Saldos (leitura) e operações (entrada/saída/transferência/acerto/
@@ -114,6 +116,31 @@ class EstoqueController extends Controller
         return response()->json(['data' => ['setores' => $setores]]);
     }
 
+    /**
+     * F3-06 — entrada MANUAL nao entra em local de custodia.
+     *
+     * O que esta em poder de uma pessoa ou num veiculo chegou la por um
+     * movimento (carga, transferencia). Lancar entrada direto ali cria
+     * mercadoria do nada num lugar que deveria ter RECEBIDO de algum outro — e
+     * o erro nao aparece na hora, aparece como saldo que nao bate no
+     * inventario, quando ninguem mais liga uma coisa a outra.
+     *
+     * A restricao e da porta HTTP, e nao do `EstoqueService`: o servico e usado
+     * pela transferencia e pela carga do franqueado, que sao justamente os
+     * caminhos legitimos de colocar mercadoria nesses locais.
+     */
+    private function recusarLancamentoEmCustodia(int $setorId): void
+    {
+        $setor = Setor::query()->find($setorId);
+
+        if ($setor !== null && ! $setor->tipo->aceitaEntradaDireta()) {
+            throw ValidationException::withMessages([
+                'setor_id' => 'Nao se lanca entrada direta em "'.$setor->tipo->rotulo()
+                    .'". Use transferencia a partir de um deposito.',
+            ]);
+        }
+    }
+
     /** GET /estoque/historico?setor_id=&produto_id= */
     public function historico(Request $request): JsonResponse
     {
@@ -144,6 +171,7 @@ class EstoqueController extends Controller
         }
 
         $d = $this->validarMov($request, comCusto: true);
+        $this->recusarLancamentoEmCustodia((int) $d['setor_id']);
 
         $mov = $this->service->entrada($d['setor_id'], $d['produto_id'], $d['quantidade'], $d['custo_unitario'] ?? null, 'manual', null, $request->user()->id, $this->tenant->requireEmpresaId());
 

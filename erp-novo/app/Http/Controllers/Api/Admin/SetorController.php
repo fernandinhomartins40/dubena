@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Estoque\TipoLocalEstoque;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Estoque\Setor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Setores (depósitos) — N3. CRUD escopado por empresa (BelongsToTenant).
@@ -55,6 +57,9 @@ class SetorController extends Controller
     {
         return $request->validate([
             'descricao' => 'required|string|max:255',
+            // F3-06: que especie de lugar e. Sem isso, deposito, custodia de
+            // pessoa e carga de veiculo ficam indistinguiveis na mesma lista.
+            'tipo' => ['nullable', Rule::enum(TipoLocalEstoque::class)],
             'ativo' => 'nullable|boolean',
         ]);
     }

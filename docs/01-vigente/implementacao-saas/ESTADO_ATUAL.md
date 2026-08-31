@@ -1312,3 +1312,34 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   caminho ja trilhado, que e por onde a regressao volta.
 - Validacao: 2 testes focais; suite **1475 passes / 4650 assertions**; Pint.
   Ver `F3_11_ESCRITA_CANONICA.md`.
+
+## Atualizacao de retomada - 2026-08-31 (F3-06 tipo do local de estoque)
+
+- `setores` tinha `descricao` e `ativo`, e mais nada. Deposito da revenda,
+  estoque "Em poder de Fulano" (criado automaticamente pelo
+  `CargaFranqueadoService` na primeira carga) e carga de veiculo conviviam na
+  MESMA lista, indistinguiveis.
+- No seletor de "onde lancar a entrada", o operador ve "Em poder de Joao" ao lado
+  de "Deposito central" e pode escolher qualquer um. O lancamento errado NAO da
+  erro — da um saldo que nao bate, descoberto no inventario, quando ninguem mais
+  liga uma coisa a outra.
+- CORRECAO: `tipo` (DEPOSITO/LOJA/CUSTODIA_PESSOA/VEICULO) com dois predicados
+  que o codigo consulta em vez de repetir a regra: `aceitaEntradaDireta()` e
+  `eCustodia()`.
+- A restricao fica na PORTA HTTP, nao no `EstoqueService`: o servico e usado pela
+  transferencia e pela carga do franqueado, que sao justamente os caminhos
+  legitimos de por mercadoria nesses locais. Ha teste dos dois lados.
+- A CONVERSAO e a mais segura desta fase. Nas outras (F3-02, F3-04A) a heuristica
+  lia texto digitado por humano; aqui o prefixo "Em poder de " e escrito pelo
+  PROPRIO CODIGO, e existe evidencia melhor: `colaboradores.setor_estoque_id`.
+  Por isso a ordem e vinculo primeiro, prefixo so para os orfaos.
+- Verificado em Postgres com massa: "Deposito 2" virou CUSTODIA_PESSOA pelo
+  VINCULO, apesar de o nome nao ter a assinatura. Uma conversao so por texto
+  teria errado esse caso — e e o que prova o desenho.
+- Validacao: 8 testes focais; suite **1483 passes / 4663 assertions**; 151
+  migrations em PostgreSQL real; RlsCobertura 6/6; rollback -> reaplicacao OK;
+  Pint. Ver `F3_06_TIPO_DO_LOCAL_DE_ESTOQUE.md`.
+- NAO FEITO (registrado): `/lookups/setores` ainda devolve todos. Ele e generico
+  por tabela e serve tanto seletor de lancamento quanto transferencia (onde
+  custodia E destino valido). A tela de entrada manual ainda NAO existe na SPA —
+  quando existir, o seletor deve usar `Setor::armazens()`, que ja esta pronto.

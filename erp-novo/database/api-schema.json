@@ -4366,7 +4366,7 @@
         },
         "response": {
             "data.created_at": "string",
-            "data.custo_unitario": "int",
+            "data.custo_unitario": "null",
             "data.empresa_id": "int",
             "data.id": "int",
             "data.origem": "string",

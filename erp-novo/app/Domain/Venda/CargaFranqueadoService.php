@@ -3,6 +3,7 @@
 namespace App\Domain\Venda;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Estoque\TipoLocalEstoque;
 use App\Domain\Rh\ModoEstoque;
 use App\Models\Estoque\Setor;
 use App\Models\Rh\Colaborador;
@@ -171,6 +172,11 @@ class CargaFranqueadoService
             'empresa_id' => $colaborador->empresa_id,
             'grupo_id' => $colaborador->grupo_id,
             'descricao' => 'Em poder de '.$colaborador->nome,
+            // F3-06: declarado na criacao. Antes este setor entrava na lista de
+            // armazens como qualquer deposito, e o operador podia lancar uma
+            // entrada de mercadoria "em poder de Fulano" — o que nao da erro,
+            // da um saldo que so nao bate no inventario.
+            'tipo' => TipoLocalEstoque::CUSTODIA_PESSOA->value,
             'ativo' => true,
         ]);
 
