@@ -969,3 +969,20 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   editavel no painel.
 - PENDENTE: tela de override POR EMPRESA (cortesia/piloto) so existe como API; o
   painel ainda nao a expoe.
+
+## Atualizacao de retomada - 2026-08-30 (override exposto no painel)
+
+- Fecha a pendencia: a tela de override por empresa so existia como API.
+- ACHADO ao abrir a tela: `RecursosDialog` ja tinha switches de override, mas
+  chamava a API SEM `motivo` — que passou a ser obrigatorio em F2-03. A tela
+  estava QUEBRADA (422) desde aquele microlote e ninguem tinha notado, porque
+  nao havia teste de painel cobrindo o caminho.
+- O dialogo foi refeito: o switch (ou o campo de limite) agora abre um pedido de
+  MOTIVO antes de aplicar, com prazo opcional em destaque. Aplicar exceção sem
+  registrar por que e exatamente o que F2-03 existe para impedir.
+- Limites entraram na mesma tela, mostrando o teto EFETIVO (plano + override) —
+  novo endpoint `GET /superadmin/empresas/{id}/limites`. Mostrar o teto do plano
+  faria quem concedeu a cortesia achar que ela nao pegou.
+- Validacao: 31 testes focais; `tsc --noEmit` limpo; manifesto 596 -> 597;
+  suite integral **1.384 passes / 4.377 assertions / zero falhas nos DOIS
+  modos**; Pint aprovado.

@@ -364,6 +364,35 @@ class LicencaEnforcementTest extends TestCase
             ->assertCreated();
     }
 
+    /**
+     * O painel precisa mostrar o teto EFETIVO, não o do plano: com uma cortesia
+     * ativa os dois divergem, e exibir o do plano faria quem concedeu achar que
+     * ela não pegou.
+     */
+    public function test_endpoint_de_limites_devolve_o_teto_efetivo(): void
+    {
+        [, $empresa] = $this->cenario();
+        $this->assinar($empresa, 'essencial');
+
+        $plano = Plano::query()->where('slug', 'essencial')->firstOrFail();
+        PlanoLimite::query()->create([
+            'plano_id' => $plano->id, 'limite_chave' => 'usuarios', 'valor' => 5,
+        ]);
+        LimiteOverride::withoutTenant()->create([
+            'empresa_id' => $empresa->id, 'limite_chave' => 'usuarios',
+            'valor' => 30, 'motivo' => 'cortesia',
+        ]);
+        app(LicencaService::class)->invalidar($empresa->id);
+
+        $licenca = app(LicencaService::class);
+
+        // O override vence o plano — é o teto que de fato vale.
+        $this->assertSame(30, $licenca->limite('usuarios', $empresa->id));
+
+        // Limite sem teto declarado continua ilimitado.
+        $this->assertNull($licenca->limite('veiculos_monitorados', $empresa->id));
+    }
+
     public function test_mapa_de_rota_cobre_os_modulos_opcionais(): void
     {
         $this->assertSame('monitora', RecursoPorRota::recursoDaRota('api/admin/monitora/veiculos'));

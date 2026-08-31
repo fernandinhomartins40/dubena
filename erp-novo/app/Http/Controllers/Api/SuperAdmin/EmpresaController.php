@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\SuperAdmin;
 
 use App\Domain\Saas\LicencaService;
+use App\Domain\Saas\RecursoCatalogo;
 use App\Domain\Saas\SuperAdminService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -73,6 +74,23 @@ class EmpresaController extends Controller
     public function recursos(int $id, LicencaService $licenca): JsonResponse
     {
         return response()->json(['data' => $licenca->recursosEfetivos($id)]);
+    }
+
+    /**
+     * GET /superadmin/empresas/{id}/limites — tetos EFETIVOS (plano + override).
+     *
+     * O painel precisa mostrar o teto que de fato vale, não o do plano: com um
+     * override de cortesia, os dois divergem, e exibir o do plano faria quem
+     * concedeu a cortesia achar que ela não pegou.
+     */
+    public function limites(int $id, LicencaService $licenca): JsonResponse
+    {
+        $efetivos = [];
+        foreach (RecursoCatalogo::chavesDeLimite() as $chave) {
+            $efetivos[$chave] = $licenca->limite($chave, $id);
+        }
+
+        return response()->json(['data' => $efetivos]);
     }
 
     /**

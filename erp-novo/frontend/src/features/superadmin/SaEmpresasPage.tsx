@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Building2, CreditCard, SlidersHorizontal, Ban, CheckCircle2, AlertTriangle } from 'lucide-react'
 import {
-  Button, Badge, type Column, Field, Switch, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+  Button, Badge, type Column, Field, Input, Switch, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   ResourceList, FormDialog, ConfirmDialog, SearchBar, AsyncState, StatCard, toast,
 } from '@/components/ui'
 import {
   useSaEmpresas, useSaEmpresaAcoes, useSaPlanos, useSaRecursos, useSaOverride,
+  useSaLimites, useSaLimiteOverride,
   type SaEmpresa,
 } from './api'
 
@@ -153,32 +154,68 @@ function AssinaturaDialog({ empresa, onClose }: { empresa: SaEmpresa; onClose: (
   )
 }
 
-/** Mostra os recursos efetivos da empresa e permite override (ligar/desligar). */
+/**
+ * Recursos e limites EFETIVOS da empresa, com override auditado.
+ *
+ * Sobrepor o plano contratado é exceção comercial, então `motivo` é obrigatório
+ * e o prazo é oferecido em destaque: cortesia sem validade vira permanente por
+ * esquecimento. O diálogo pergunta ANTES de aplicar — o switch sozinho aplicaria
+ * uma exceção sem que ninguém registrasse por quê.
+ */
 function RecursosDialog({ empresa, onClose }: { empresa: SaEmpresa; onClose: () => void }) {
   const { data: efetivos, isLoading, error } = useSaRecursos(empresa.id)
+  const { data: limitesEfetivos } = useSaLimites(empresa.id)
   const { data: planosResp } = useSaPlanos()
   const override = useSaOverride()
+  const limiteOverride = useSaLimiteOverride()
   const catalogo = planosResp?.catalogo ?? []
+  const catalogoLimites = planosResp?.catalogoLimites ?? []
   const ativos = new Set(efetivos ?? [])
 
-  async function alternar(chave: string, on: boolean) {
+  // Exceção pendente de justificativa. Enquanto houver uma aqui, o formulário
+  // de motivo fica aberto e nada é enviado.
+  const [pendente, setPendente] = useState<
+    | { tipo: 'recurso'; chave: string; rotulo: string; habilitado: boolean }
+    | { tipo: 'limite'; chave: string; rotulo: string; valor: number | null }
+    | null
+  >(null)
+  const [motivo, setMotivo] = useState('')
+  const [expiraEm, setExpiraEm] = useState('')
+  const [rascunhoLimite, setRascunhoLimite] = useState<Record<string, string>>({})
+
+  async function confirmar() {
+    if (!pendente || !motivo.trim()) return
     try {
-      await override.set.mutateAsync({ empresaId: empresa.id, chave, habilitado: on })
-      toast.success(on ? 'Recurso habilitado (override).' : 'Recurso desabilitado (override).')
-    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao alterar recurso.') }
+      if (pendente.tipo === 'recurso') {
+        await override.set.mutateAsync({
+          empresaId: empresa.id, chave: pendente.chave,
+          habilitado: pendente.habilitado, motivo, expiraEm: expiraEm || null,
+        })
+      } else {
+        await limiteOverride.set.mutateAsync({
+          empresaId: empresa.id, chave: pendente.chave,
+          valor: pendente.valor, motivo, expiraEm: expiraEm || null,
+        })
+      }
+      toast.success('Override registrado.')
+      setPendente(null); setMotivo(''); setExpiraEm('')
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao aplicar override.') }
   }
+
+  const salvando = override.set.isPending || limiteOverride.set.isPending
 
   return (
     <FormDialog
       open onOpenChange={(v) => !v && onClose()}
-      title={`Recursos — ${empresa.nome_fantasia || empresa.razao_social}`}
-      description="Recursos efetivos (plano + overrides). Ligar/desligar cria um override por empresa, auditado."
+      title={`Plano da empresa — ${empresa.nome_fantasia || empresa.razao_social}`}
+      description="Recursos e limites efetivos (plano + overrides). Toda exceção exige motivo e fica auditada."
       confirmLabel="Fechar"
       onConfirm={onClose}
-      widthClass="max-w-lg"
+      widthClass="max-w-2xl"
     >
       <AsyncState loading={isLoading} error={error} empty={catalogo.length === 0} emptyTitle="Catálogo de recursos indisponível">
-        <ul className="divide-y divide-border">
+        <p className="mb-1 text-sm font-medium">Recursos</p>
+        <ul className="mb-4 divide-y divide-border">
           {catalogo.map((r) => {
             const on = ativos.has(r.chave)
             return (
@@ -187,12 +224,71 @@ function RecursosDialog({ empresa, onClose }: { empresa: SaEmpresa; onClose: () 
                   <p className="truncate text-sm font-medium">{r.descricao}</p>
                   <p className="truncate text-xs text-muted-foreground">{r.chave}</p>
                 </div>
-                <Switch checked={on} onCheckedChange={(c) => alternar(r.chave, c)} disabled={override.set.isPending} />
+                <Switch
+                  checked={on} disabled={salvando}
+                  onCheckedChange={(c) => setPendente({ tipo: 'recurso', chave: r.chave, rotulo: r.descricao, habilitado: c })}
+                />
+              </li>
+            )
+          })}
+        </ul>
+
+        <p className="mb-1 text-sm font-medium">Limites</p>
+        <p className="mb-2 text-xs text-muted-foreground">Em branco = ilimitado. Zero bloqueia por completo.</p>
+        <ul className="divide-y divide-border">
+          {catalogoLimites.map((l) => {
+            const efetivo = limitesEfetivos?.[l.chave]
+            const rascunho = rascunhoLimite[l.chave] ?? (efetivo === null || efetivo === undefined ? '' : String(efetivo))
+            return (
+              <li key={l.chave} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{l.descricao}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Atual: {efetivo === null || efetivo === undefined ? 'ilimitado' : efetivo}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Input
+                    type="number" min={0} placeholder="Ilimitado" className="w-28"
+                    value={rascunho}
+                    onChange={(e) => setRascunhoLimite((p) => ({ ...p, [l.chave]: e.target.value }))}
+                  />
+                  <Button
+                    variant="outline" size="sm" disabled={salvando}
+                    onClick={() => setPendente({
+                      tipo: 'limite', chave: l.chave, rotulo: l.descricao,
+                      valor: rascunho.trim() === '' ? null : Number(rascunho),
+                    })}
+                  >
+                    Aplicar
+                  </Button>
+                </div>
               </li>
             )
           })}
         </ul>
       </AsyncState>
+
+      {pendente && (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="mb-2 text-sm font-medium">
+            Sobrepor o plano — {pendente.rotulo}
+          </p>
+          <Field label="Motivo" required>
+            <Input
+              autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)}
+              placeholder="ex.: cortesia comercial — chamado 4321"
+            />
+          </Field>
+          <Field label="Expira em (deixe vazio para sem prazo)">
+            <Input type="datetime-local" value={expiraEm} onChange={(e) => setExpiraEm(e.target.value)} />
+          </Field>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => { setPendente(null); setMotivo('') }}>Cancelar</Button>
+            <Button size="sm" disabled={!motivo.trim() || salvando} onClick={confirmar}>Confirmar</Button>
+          </div>
+        </div>
+      )}
     </FormDialog>
   )
 }

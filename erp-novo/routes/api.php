@@ -1012,6 +1012,7 @@ Route::prefix('superadmin')->group(function () {
         Route::put('empresas/{id}/override', [SuperAdminEmpresaController::class, 'override'])->whereNumber('id');
         Route::delete('empresas/{id}/override/{chave}', [SuperAdminEmpresaController::class, 'removerOverride'])->whereNumber('id');
         // Tetos numéricos (F2-03): recurso diz "tem", limite diz "até quanto".
+        Route::get('empresas/{id}/limites', [SuperAdminEmpresaController::class, 'limites'])->whereNumber('id');
         Route::put('empresas/{id}/limite', [SuperAdminEmpresaController::class, 'limite'])->whereNumber('id');
         Route::delete('empresas/{id}/limite/{chave}', [SuperAdminEmpresaController::class, 'removerLimite'])->whereNumber('id');
 

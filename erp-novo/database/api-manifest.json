@@ -291,6 +291,7 @@
     "GET api/superadmin/cidades",
     "GET api/superadmin/dashboard",
     "GET api/superadmin/empresas",
+    "GET api/superadmin/empresas/{id}/limites",
     "GET api/superadmin/empresas/{id}/recursos",
     "GET api/superadmin/me",
     "GET api/superadmin/migracoes",

@@ -181,11 +181,19 @@ export const useSaRecursos = (empresaId: number | null) =>
 
 export function useSaOverride() {
   const qc = useQueryClient()
-  const inval = (empresaId: number) => qc.invalidateQueries({ queryKey: ['sa', 'recursos', empresaId] })
+  const inval = (empresaId: number) => {
+    qc.invalidateQueries({ queryKey: ['sa', 'recursos', empresaId] })
+    qc.invalidateQueries({ queryKey: ['sa', 'limites', empresaId] })
+  }
   return {
+    /** `motivo` é obrigatório e `expira_em` opcional (F2-03): sobrepor o plano é exceção comercial. */
     set: useMutation({
-      mutationFn: async ({ empresaId, chave, habilitado }: { empresaId: number; chave: string; habilitado: boolean }) =>
-        (await saApi.put(`/empresas/${empresaId}/override`, { recurso_chave: chave, habilitado })).data,
+      mutationFn: async ({ empresaId, chave, habilitado, motivo, expiraEm }: {
+        empresaId: number; chave: string; habilitado: boolean; motivo: string; expiraEm?: string | null
+      }) =>
+        (await saApi.put(`/empresas/${empresaId}/override`, {
+          recurso_chave: chave, habilitado, motivo, expira_em: expiraEm || null,
+        })).data,
       onSuccess: (_d, v) => inval(v.empresaId),
     }),
     remover: useMutation({
@@ -195,6 +203,35 @@ export function useSaOverride() {
     }),
   }
 }
+
+/** Overrides de LIMITE numérico por empresa (F2-03). */
+export function useSaLimiteOverride() {
+  const qc = useQueryClient()
+  const inval = (empresaId: number) => qc.invalidateQueries({ queryKey: ['sa', 'limites', empresaId] })
+  return {
+    set: useMutation({
+      mutationFn: async ({ empresaId, chave, valor, motivo, expiraEm }: {
+        empresaId: number; chave: string; valor: number | null; motivo: string; expiraEm?: string | null
+      }) =>
+        (await saApi.put(`/empresas/${empresaId}/limite`, {
+          limite_chave: chave, valor, motivo, expira_em: expiraEm || null,
+        })).data,
+      onSuccess: (_d, v) => inval(v.empresaId),
+    }),
+    remover: useMutation({
+      mutationFn: async ({ empresaId, chave }: { empresaId: number; chave: string }) =>
+        (await saApi.delete(`/empresas/${empresaId}/limite/${chave}`)).data,
+      onSuccess: (_d, v) => inval(v.empresaId),
+    }),
+  }
+}
+
+/** Limites efetivos da empresa: chave => teto (`null` = ilimitado). */
+export const useSaLimites = (empresaId: number) =>
+  useQuery<Record<string, number | null>>({
+    queryKey: ['sa', 'limites', empresaId],
+    queryFn: async () => (await saApi.get(`/empresas/${empresaId}/limites`)).data.data,
+  })
 
 export interface SaPlanosResposta {
   planos: SaPlano[]
