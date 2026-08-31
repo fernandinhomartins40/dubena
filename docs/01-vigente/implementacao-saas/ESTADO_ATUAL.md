@@ -1692,3 +1692,27 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `estoquesaldos` a partir do ledger seria uma linha — e e exatamente o "ajuste
   silencioso" que o gate proibe. Se vier a ser necessario, deve ser comando
   proprio, explicito e com confirmacao.
+
+## Atualizacao de retomada - 2026-08-31 (F4-04: custodia com prova)
+
+- MEDIDO primeiro: a F4-04 ja estava, em grande parte, IMPLEMENTADA. O `sentido`
+  (CONCEDIDO/RECEBIDO) existe com escopos, e ha teste explicito de que "cliente
+  marcado fornecedor continua vigiado" — `fornecedor` NAO decide direcao. E o
+  ledger patrimonial ja existe (`comodato_movimentos`: tipo, quantidade,
+  `saldo_apos`, estorno explicito, ator).
+- O que faltava era o mesmo que faltava no estoque: CONFERIR a projecao contra o
+  ledger. `comodatos.quantidade - quantidade_devolvida` e a projecao, e ninguem
+  somava os movimentos para verificar.
+- Aqui o que esta em jogo e PATRIMONIO EM PODER DE TERCEIRO: um saldo errado
+  significa vasilhame que a revenda acha que tem — ou que acha que emprestou e
+  nao emprestou.
+- `ConferenciaDeCustodia` nao ajusta, pela mesma razao da F4-02. E trata o
+  ESTORNO anulando o par: somar o movimento estornado e o estorno com o mesmo
+  sinal contaria o emprestimo duas vezes, e a conferencia acusaria divergencia
+  onde nao ha — transformando o relatorio em ruido.
+- ERRO MEU pego pelo teste do estorno: o `get()` nao carregava `id`, entao o par
+  estornado/estorno nao se reconhecia. So apareceu porque o teste exercita
+  emprestimo -> devolucao -> estorno, que e o ciclo real.
+- `estoque:conferir` passou a checar as DUAS projecoes num comando so.
+- Validacao: 7 testes focais; suite **1543 passes / 4780 assertions**; Pint.
+  Ver `F4_02_CONFERENCIA_DE_SALDO.md`.

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Domain\Estoque\ConferenciaDeSaldo;
+use App\Domain\Satelite\ConferenciaDeCustodia;
 use App\Models\Empresa;
 use Illuminate\Console\Command;
 
@@ -24,7 +25,7 @@ class EstoqueConferir extends Command
 
     protected $description = 'Compara o saldo projetado com a soma do ledger (F4-02). Não altera nada.';
 
-    public function handle(ConferenciaDeSaldo $conferencia): int
+    public function handle(ConferenciaDeSaldo $conferencia, ConferenciaDeCustodia $custodia): int
     {
         $empresas = Empresa::withoutGlobalScopes()
             ->when($this->option('empresa'), fn ($q, $id) => $q->whereKey((int) $id))
@@ -41,6 +42,21 @@ class EstoqueConferir extends Command
         $comDivergencia = 0;
 
         foreach ($empresas as $empresaId => $nome) {
+            $daCustodia = $custodia->divergencias((int) $empresaId);
+
+            if ($daCustodia->isNotEmpty()) {
+                $comDivergencia++;
+                $this->newLine();
+                $this->warn("Empresa #{$empresaId} — {$nome}: ".$daCustodia->count().' divergência(s) de CUSTÓDIA');
+
+                foreach ($daCustodia->take(20) as $d) {
+                    $this->line(sprintf(
+                        '  comodato %-6d cliente %-6d  projetado %10.3f  ledger %10.3f  dif %10.3f',
+                        $d['comodato_id'], $d['cliente_id'], $d['projetado'], $d['ledger'], $d['diferenca'],
+                    ));
+                }
+            }
+
             $divergencias = $conferencia->divergencias((int) $empresaId);
 
             if ($divergencias->isEmpty()) {
@@ -49,7 +65,7 @@ class EstoqueConferir extends Command
 
             $comDivergencia++;
             $this->newLine();
-            $this->warn("Empresa #{$empresaId} — {$nome}: ".$divergencias->count().' divergência(s)');
+            $this->warn("Empresa #{$empresaId} — {$nome}: ".$divergencias->count().' divergência(s) de ESTOQUE');
 
             foreach ($divergencias->take(20) as $d) {
                 $this->line(sprintf(
@@ -74,13 +90,13 @@ class EstoqueConferir extends Command
         }
 
         if ($comDivergencia === 0) {
-            $this->info('A projeção de saldo fecha com o ledger em '.$empresas->count().' empresa(s).');
+            $this->info('Estoque e custódia fecham com o ledger em '.$empresas->count().' empresa(s).');
 
             return self::SUCCESS;
         }
 
         $this->newLine();
-        $this->error("{$comDivergencia} empresa(s) com divergência entre projeção e ledger.");
+        $this->error("{$comDivergencia} verificacao(oes) com divergência entre projeção e ledger.");
         $this->comment('Este comando NÃO ajusta: uma diferença pode ser bug da projeção OU');
         $this->comment('movimento faltando no ledger, e sobrescrever apaga a pergunta.');
 
