@@ -1634,3 +1634,32 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   entao a conciliacao vive so na API — que e onde a decisao pode ser tomada hoje.
   A FUSAO das duas tabelas continua aberta: 7 tabelas dependem de
   `monitora_veiculos`, incluindo posicoes com milhoes de linhas.
+
+## Atualizacao de retomada - 2026-08-31 (F4-01: ledger idempotente) — INICIO DA F4
+
+- `estoquehistorico` JA ERA um ledger, e um bom: quantidade assinada, tipo,
+  evento causal (`origem`/`origem_id`), ator e `saldo_resultante`. Faltavam duas
+  coisas.
+- `tenant_account_id` EXISTIA, VAZIA — a migration 000300 (F1) a acrescentou e
+  nada a preenchia. Mesmo achado do F2-06 nas trilhas: coluna vazia e pior que
+  ausente porque PARECE resolvida.
+- IDEMPOTENCIA (o gate da F4: "rerun nao duplica"). A protecao existia mas era
+  POR CASO DE USO — o pedido tem `estoque_movimentado`; transferencia, acerto e
+  carga do franqueado nao tinham nada. Movimento duplicado NAO da erro: da um
+  saldo que nao bate, descoberto no inventario.
+- Tres decisoes: (1) a chave e OPCIONAL — exigir de todos num lote so quebraria
+  quem ainda nao informa; o que se garante e que QUEM INFORMA nunca duplica;
+  (2) a garantia e do BANCO, via indice unico PARCIAL (sem o `WHERE`, todas as
+  linhas sem chave colidiriam entre si) — verificado em Postgres: o segundo
+  insert e recusado e duas linhas sem chave convivem; (3) a chave e escopada por
+  EMPRESA, porque o numero do pedido reinicia por empresa e uma unicidade global
+  faria a segunda revenda PERDER o movimento.
+- Detalhe que so o teste pegou: acrescentei o parametro em `movimentar()` e
+  esqueci de repassa-lo nos atalhos `entrada()`/`saida()` — por onde quase todo
+  mundo chama. A chave morria ali.
+- Validacao: 6 testes focais; suite **1528 passes / 4753 assertions**; 156
+  migrations em PostgreSQL real; RlsCobertura 6/6; indice parcial conferido no
+  banco; rollback preserva a coluna da 000300. Ver `F4_01_LEDGER_IDEMPOTENTE.md`.
+- ABERTO: os chamadores ainda NAO passam a chave — a infraestrutura esta pronta e
+  testada, adotar em cada porta e o passo seguinte e cada uma precisa decidir
+  qual e a sua chave natural.

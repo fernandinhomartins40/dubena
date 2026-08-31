@@ -2,6 +2,7 @@
 
 namespace App\Domain\Estoque;
 
+use App\Models\Empresa;
 use App\Models\Estoque\EstoqueFechamento;
 use App\Models\Estoque\EstoqueHistorico;
 use App\Models\Estoque\EstoqueInventario;
@@ -48,6 +49,10 @@ class EstoqueService
         ?int $origemId = null,
         ?int $userId = null,
         ?int $empresaEsperada = null,
+        // F4-01: quando informada, o mesmo movimento nunca e gravado duas
+        // vezes. Nula por padrao — exigir de todos os chamadores num unico
+        // lote quebraria os que ainda nao a informam.
+        ?string $chaveIdempotencia = null,
     ): EstoqueHistorico {
         if ($quantidade == 0.0) {
             throw ValidationException::withMessages(['quantidade' => 'Quantidade não pode ser zero.']);
@@ -57,7 +62,25 @@ class EstoqueService
         // chamado via HTTP, testes e ETL). Garante a coerência do escopo.
         $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
 
-        return DB::transaction(function () use ($setorId, $produtoId, $quantidade, $tipo, $custoUnitario, $origem, $origemId, $userId, $empresaId) {
+        return DB::transaction(function () use ($setorId, $produtoId, $quantidade, $tipo, $custoUnitario, $origem, $origemId, $userId, $empresaId, $chaveIdempotencia) {
+            // F4-01: reprocessar devolve o movimento JA GRAVADO, sem repetir o
+            // efeito no saldo.
+            //
+            // A checagem vem antes do lock de proposito: se o movimento ja
+            // existe, nao ha o que travar. O indice unico parcial e a garantia
+            // real — esta consulta so evita a excecao no caso comum, e uma
+            // corrida entre duas chamadas simultaneas ainda bate no banco.
+            if ($chaveIdempotencia !== null) {
+                $existente = EstoqueHistorico::withoutTenant()
+                    ->where('empresa_id', $empresaId)
+                    ->where('chave_idempotencia', $chaveIdempotencia)
+                    ->first();
+
+                if ($existente !== null) {
+                    return $existente;
+                }
+            }
+
             // Lock pessimista do saldo (cria se não existir) — base anti-corrida.
             $saldo = EstoqueSaldo::withoutTenant()
                 ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
@@ -94,6 +117,12 @@ class EstoqueService
 
             return EstoqueHistorico::create([
                 'empresa_id' => $empresaId,
+                // F4-01: o ledger entra na fronteira SaaS. Sem o tenant ele
+                // ficaria de fora da policy canonica, que decide por
+                // (tenant, empresa) em todo o resto do banco. Vem da empresa
+                // porque e dela que o movimento sempre foi.
+                'tenant_account_id' => Empresa::withoutGlobalScopes()
+                    ->whereKey($empresaId)->value('tenant_account_id'),
                 'setor_id' => $setorId,
                 'produto_id' => $produtoId,
                 'tipo' => $tipo,
@@ -102,19 +131,20 @@ class EstoqueService
                 'saldo_resultante' => $novoSaldo,
                 'origem' => $origem,
                 'origem_id' => $origemId,
+                'chave_idempotencia' => $chaveIdempotencia,
                 'user_id' => $userId,
             ]);
         });
     }
 
-    public function entrada(int $setorId, int $produtoId, float $qtd, ?float $custo = null, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null): EstoqueHistorico
+    public function entrada(int $setorId, int $produtoId, float $qtd, ?float $custo = null, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null, ?string $chaveIdempotencia = null): EstoqueHistorico
     {
-        return $this->movimentar($setorId, $produtoId, abs($qtd), self::ENTRADA, $custo, $origem, $origemId, $userId, $empresaEsperada);
+        return $this->movimentar($setorId, $produtoId, abs($qtd), self::ENTRADA, $custo, $origem, $origemId, $userId, $empresaEsperada, $chaveIdempotencia);
     }
 
-    public function saida(int $setorId, int $produtoId, float $qtd, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null): EstoqueHistorico
+    public function saida(int $setorId, int $produtoId, float $qtd, ?string $origem = null, ?int $origemId = null, ?int $userId = null, ?int $empresaEsperada = null, ?string $chaveIdempotencia = null): EstoqueHistorico
     {
-        return $this->movimentar($setorId, $produtoId, -abs($qtd), self::SAIDA, null, $origem, $origemId, $userId, $empresaEsperada);
+        return $this->movimentar($setorId, $produtoId, -abs($qtd), self::SAIDA, null, $origem, $origemId, $userId, $empresaEsperada, $chaveIdempotencia);
     }
 
     /**

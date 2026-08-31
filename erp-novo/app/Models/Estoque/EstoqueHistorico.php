@@ -20,8 +20,11 @@ class EstoqueHistorico extends Model
     protected $table = 'estoquehistorico';
 
     protected $fillable = [
-        'empresa_id', 'setor_id', 'produto_id', 'tipo', 'quantidade',
-        'custo_unitario', 'saldo_resultante', 'origem', 'origem_id', 'user_id',
+        'empresa_id', 'tenant_account_id', 'setor_id', 'produto_id', 'tipo', 'quantidade',
+        'custo_unitario', 'saldo_resultante', 'origem', 'origem_id',
+        // F4-01: quando informada, o mesmo movimento nunca e gravado duas vezes.
+        'chave_idempotencia',
+        'user_id',
     ];
 
     /** Custo só pode sair por um presenter que aplique field-level. */
