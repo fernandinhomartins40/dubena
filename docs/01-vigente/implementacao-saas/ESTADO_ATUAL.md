@@ -1249,8 +1249,15 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   acidente. `protected $attributes` no model resolve.
 - Validacao: 10 testes focais + 22 de comodato atualizados; suite **1470 passes
   / 4644 assertions / zero falhas nos DOIS modos**; tsc limpo; Vitest 39; Pint.
-- ⚠️ **PENDENTE**: validacao em PostgreSQL real (migration + RlsCobertura) NAO
-  foi feita — o Docker Desktop caiu no meio do lote e nao voltou. A migration usa
-  `UPPER(...) LIKE` em vez de `ILIKE` justamente para dar o mesmo resultado nos
-  dois bancos, mas isso precisa ser CONFIRMADO antes do deploy.
+- PostgreSQL real: 149 migrations aplicadas, RlsCobertura 6/6, rollback ->
+  reaplicacao OK. O Docker Desktop caiu no meio do lote, entao a validacao foi
+  feita contra o PostgreSQL LOCAL, num banco descartavel (`erp_f3_check`, criado
+  e removido; o `erp_teste` preexistente nao foi tocado).
+- A CONVERSAO foi verificada com massa real em Postgres. Os tres casos que
+  provam as decisoes: "Botijao P13 - RECARGA" virou CONTEUDO (nao recipiente,
+  apesar da palavra); "GLP a GRANEL" ficou INDEFINIDO (excluido); e "Agua
+  mineral 20L" ficou INDEFINIDO — NAO virou MERCADORIA por presuncao.
   Ver `F3_02_TIPO_DO_PRODUTO.md`.
+- ANOTACAO DE AMBIENTE: ha PostgreSQL local escutando em 127.0.0.1:5432
+  (postgres/postgres). Serve para validar migration quando o Docker falhar —
+  criar banco descartavel, nunca usar o `erp_teste`.
