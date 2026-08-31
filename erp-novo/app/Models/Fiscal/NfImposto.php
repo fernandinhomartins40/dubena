@@ -25,6 +25,9 @@ class NfImposto extends Model
 
     protected $fillable = [
         'empresa_id', 'grupo_id', 'operacao_fiscal_id', 'grupo_fiscal_id',
+        // F5-07 — vigencia. Sem isto no fillable o campo e descartado em
+        // silencio, e toda regra nasceria valendo desde sempre.
+        'vigencia_inicio', 'vigencia_fim',
         // ICMS (PJ)
         'cst_icms', 'aliq_icms', 'perc_bc_icms', 'origem_icms',
         'modalidade_bc_icms', 'aliq_icms_mono',
@@ -51,6 +54,7 @@ class NfImposto extends Model
     protected function casts(): array
     {
         return [
+            'vigencia_inicio' => 'date', 'vigencia_fim' => 'date',
             'aliq_icms' => 'float', 'perc_bc_icms' => 'float', 'aliq_icms_mono' => 'float',
             'aliq_icms_st' => 'float', 'perc_bc_icms_st' => 'float',
             'mva' => 'float', 'mva_reduzido' => 'float',

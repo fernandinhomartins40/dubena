@@ -4,6 +4,7 @@ namespace App\Domain\Fiscal;
 
 use App\Models\Fiscal\NfImposto;
 use App\Models\Fiscal\NfImpostoEstado;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -191,17 +192,43 @@ class ResolucaoTributariaService
      * fiscal do produto; sem regra específica, cai na regra "coringa" da operação
      * (grupo_fiscal_id nulo). Devolve null quando não há regra alguma — o chamador
      * decide se erra ou usa o padrão.
+     *
+     * ## A data importa (F5-07)
+     *
+     * `$em` é a data do FATO GERADOR — a emissão da nota —, não "hoje". Alíquota
+     * de ICMS muda por decreto estadual com data certa, e o GLP tem histórico
+     * disso. Resolver pela data de hoje faria a reemissão de uma nota de
+     * dezembro calcular com a alíquota de janeiro: o XML reemitido divergiria do
+     * autorizado, em silêncio, e a divergência só apareceria na fiscalização.
+     *
+     * Quando várias versões já começaram, vale a **mais recente** — que é como
+     * uma tabela de vigências se lê. Uma versão com início no futuro não vale
+     * ainda, e é isso que permite cadastrar a alíquota nova em dezembro para
+     * entrar sozinha em janeiro.
      */
-    public function regraPara(int $empresaId, int $operacaoFiscalId, ?int $grupoFiscalId): ?NfImposto
+    public function regraPara(int $empresaId, int $operacaoFiscalId, ?int $grupoFiscalId, ?string $em = null): ?NfImposto
     {
+        $data = $em !== null ? Carbon::parse($em)->toDateString() : now()->toDateString();
+
         return NfImposto::query()
             ->where('empresa_id', $empresaId)
             ->where('operacao_fiscal_id', $operacaoFiscalId)
             ->where(fn ($q) => $q
                 ->where('grupo_fiscal_id', $grupoFiscalId)
                 ->orWhereNull('grupo_fiscal_id'))
-            // Regra específica do grupo fiscal ganha da coringa.
+            // whereDate e não comparação de texto: `vigencia_inicio` é `date`,
+            // mas o cast do Eloquent serializa com hora, e o sqlite não trunca
+            // (a armadilha do F5-11).
+            ->where(fn ($q) => $q
+                ->whereNull('vigencia_inicio')
+                ->orWhereDate('vigencia_inicio', '<=', $data))
+            ->where(fn ($q) => $q
+                ->whereNull('vigencia_fim')
+                ->orWhereDate('vigencia_fim', '>=', $data))
+            // Regra específica do grupo fiscal ganha da coringa; entre versões,
+            // ganha a que começou mais tarde.
             ->orderByRaw('grupo_fiscal_id IS NULL')
+            ->orderByDesc('vigencia_inicio')
             ->with('estados')
             ->first();
     }

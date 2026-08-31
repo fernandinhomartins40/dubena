@@ -87,10 +87,18 @@ class FiscalService
                     ]);
                 }
 
+                // F5-07 — a regra é resolvida pela data do FATO GERADOR.
+                //
+                // Aqui o rascunho ainda não tem `emitida_em`, então a data é a
+                // de hoje — o que está correto para uma nota nascendo agora. O
+                // que a vigência resolve é o outro caso: montar de novo uma nota
+                // de dezembro depois que a alíquota mudou em janeiro. Aí a data
+                // é a do pedido, não a de hoje.
                 $regra = $this->tributacao->regraPara(
                     (int) $pedido->empresa_id,
                     $operacao,
                     $grupoFiscal,
+                    ($pedido->datahora ?? $nota->emitida_em ?? now())?->toDateString(),
                 );
                 if (! $regra) {
                     throw ValidationException::withMessages([

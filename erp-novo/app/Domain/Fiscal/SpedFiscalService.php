@@ -3,6 +3,7 @@
 namespace App\Domain\Fiscal;
 
 use App\Models\Empresa;
+use App\Models\Estoque\EstoqueSaldo;
 use App\Models\Fiscal\NotaFiscal;
 use Illuminate\Support\Carbon;
 
@@ -182,7 +183,7 @@ class SpedFiscalService
 
         // ── Bloco H (inventário) — saldo por produto, derivado de estoquesaldos ──
         // Quantidade = Σ saldos dos setores da empresa; custo = custo médio do saldo.
-        $saldos = \App\Models\Estoque\EstoqueSaldo::query()
+        $saldos = EstoqueSaldo::query()
             ->where('empresa_id', $empresa->id)
             ->selectRaw('produto_id, sum(quantidade) as qtd, avg(custo_medio) as custo')
             ->groupBy('produto_id')

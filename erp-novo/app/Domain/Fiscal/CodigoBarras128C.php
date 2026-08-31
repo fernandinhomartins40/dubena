@@ -54,9 +54,9 @@ class CodigoBarras128C
     /**
      * Desenha a chave de acesso como HTML.
      *
-     * @param  string  $chave   os 44 dígitos da chave de acesso da NF-e
-     * @param  int     $altura  altura em pixels (o DANFE pede ~13 mm ≈ 50 px)
-     * @param  int     $modulo  largura do módulo em pixels
+     * @param  string  $chave  os 44 dígitos da chave de acesso da NF-e
+     * @param  int  $altura  altura em pixels (o DANFE pede ~13 mm ≈ 50 px)
+     * @param  int  $modulo  largura do módulo em pixels
      *
      * @throws \InvalidArgumentException se a chave não tiver 44 dígitos
      */
