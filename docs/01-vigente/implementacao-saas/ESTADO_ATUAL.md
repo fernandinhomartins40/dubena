@@ -1760,3 +1760,22 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   uma acao logo apos um save. Ha teste travando a regressao.
 - Validacao: 5 testes focais + 1 no F2-06; suite **1554 passes / 4799
   assertions**; Pint.
+
+## Atualizacao de retomada - 2026-08-31 (FASE F4 FECHADA)
+
+- Os cinco itens do gate F4 estao satisfeitos em codigo. Ver `F4_FECHAMENTO.md`
+  para a tabela item a item.
+- F4-05 (comodato por itens) estava JA IMPLEMENTADA: multi-item, contrato
+  consolidado, porta unica (`ComodatoService`) e chaves com tenant conferidas.
+  Os "quatro testes falhos" que a tarefa cita ja tinham sido resolvidos — hoje
+  sao 71 testes de comodato verdes.
+- F4-07 (reconciliacao Dubena) e OPERACAO, nao codigo: a ferramenta existe e esta
+  testada (`estoque:conferir --csv=`). Falta roda-la contra o banco com os dados
+  migrados e decidir, caso a caso, o que e diferenca historica legitima e o que e
+  defeito — leitura de relatorio com quem conhece a operacao.
+- A DESCOBERTA que se repetiu na fase inteira: as estruturas ja existiam e eram
+  boas. Medir antes de escrever evitou reescrever o que estava certo — e teria
+  sido facil nao medir, porque a F4-01 diz "criar movimento imutavel" e a leitura
+  apressada levaria a criar uma tabela ao lado de uma que ja fazia o trabalho.
+- Estado do plano: F0, F1, F2, F3 (com 4 parciais registradas) e F4 fechadas.
+  Restam F5 a F10.
