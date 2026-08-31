@@ -31,6 +31,13 @@ Schedule::command('financeiro:notificar-vencidos')->dailyAt('07:30')->withoutOve
 // Venda diária por empresa — 07:15 (base do e-mail; envio é gate SMTP). C9.
 Schedule::command('vendas:diaria')->dailyAt('07:15')->withoutOverlapping();
 
+// Certificado A1 vencendo/vencido por empresa — 06:45 (F5-06).
+//
+// Cedo de proposito: se o certificado venceu, a emissao ja esta parada, e a
+// revenda precisa saber ANTES de carregar o caminhao — nao depois da primeira
+// nota recusada com o cliente esperando.
+Schedule::command('fiscal:certificado-vigilancia')->dailyAt('06:45')->withoutOverlapping();
+
 // Inconsistências de saldo (estoque/caixa) — segunda 03:00. C9.
 Schedule::command('notify:inconsistencias')->weeklyOn(1, '03:00')->withoutOverlapping();
 

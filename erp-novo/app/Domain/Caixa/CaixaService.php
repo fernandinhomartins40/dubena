@@ -296,11 +296,14 @@ class CaixaService
                 'permitir_fechado' => true,
             ]);
 
-            // Reabre a parcela, se a origem era uma baixa.
+            // Reabre a parcela pela PORTA UNICA, se a origem era uma baixa.
+            //
+            // Antes esta escrita era direta no model, e sem a verificacao de
+            // empresa que a baixa faz — a unica protecao era o global scope de
+            // tenant, que nao vale em job nem em comando de console, que e
+            // exatamente onde um estorno em lote roda (F5-02).
             if ($original->financeiroparcela_id) {
-                FinanceiroParcela::query()->whereKey($original->financeiroparcela_id)->update([
-                    'baixado' => false, 'valor_efetivado' => 0, 'datahora_baixa' => null,
-                ]);
+                $this->baixas->reabrir((int) $original->financeiroparcela_id, $empresaId, 'estorno');
             }
 
             return $inverso;
