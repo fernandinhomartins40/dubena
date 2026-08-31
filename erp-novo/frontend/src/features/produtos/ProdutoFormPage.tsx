@@ -12,7 +12,7 @@ import { qtd } from '@/lib/format'
 import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm, type TipoProduto } from './api'
 
 const VAZIO: ProdutoForm = {
-  descricao: '', tipo: 'INDEFINIDO', produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
+  descricao: '', tipo: 'INDEFINIDO', capacidade: null, produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
   produtoretornavel_id: null, ativo: true, enviaappnf: false, diasgiro: null, observacao: '',
   precovenda: '', precovendaminimo: '', customedio: '', custofrete: '', precogasdopovo: '',
   pesoliquido: '', pesobruto: '',
@@ -154,6 +154,11 @@ export function ProdutoFormPage() {
                   <SelectItem value="MERCADORIA">Mercadoria comum</SelectItem>
                 </SelectContent>
               </Select>
+            </Field>
+            {/* Rótulo livre: cada revenda tem a sua grade. Uma lista fixa
+                aqui gravaria a grade brasileira de GLP na interface. */}
+            <Field label="Capacidade" hint="Rótulo da grade (ex.: P13). O casco só pareia com o gás de mesma capacidade.">
+              <Input value={val(form.capacidade)} maxLength={20} onChange={(e) => campo('capacidade', e.target.value)} placeholder="P13" />
             </Field>
             <Field label="Dias de giro" hint="Usado na curva de giro do estoque">
               <Input type="number" value={form.diasgiro ?? ''} onChange={(e) => campo('diasgiro', e.target.value ? Number(e.target.value) : null)} />

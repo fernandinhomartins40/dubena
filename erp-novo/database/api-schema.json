@@ -4000,6 +4000,8 @@
             "data.id": "int",
             "data.nome_representante": "null",
             "data.produto.ativo": "bool",
+            "data.produto.capacidade": "null",
+            "data.produto.capacidade_origem": "null",
             "data.produto.created_at": "string",
             "data.produto.descricao": "string",
             "data.produto.dias_giro": "null",
@@ -5543,6 +5545,7 @@
     "POST api/admin/produtos": {
         "request": {
             "ativo": false,
+            "capacidade": false,
             "custo_frete": false,
             "custo_medio": false,
             "descricao": true,
@@ -7406,6 +7409,7 @@
     "PUT api/admin/produtos/{id}": {
         "request": {
             "ativo": false,
+            "capacidade": false,
             "custo_frete": false,
             "custo_medio": false,
             "descricao": true,

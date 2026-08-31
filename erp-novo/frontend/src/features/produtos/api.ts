@@ -32,6 +32,8 @@ export interface ProdutoForm {
   // Dados
   descricao: string
   tipo?: TipoProduto
+  /** Rótulo da grade comercial ("P13"), não medida — o par casco↔gás é por igualdade exata. */
+  capacidade?: string | null
   produtoclasse_id: number | null
   unidademedida_id: number | null
   vasilhameretornavel: boolean

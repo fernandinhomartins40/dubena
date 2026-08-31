@@ -324,7 +324,7 @@ class ComodatoController extends Controller
                 return [
                     'id' => $p->id,
                     'descricao' => $p->descricao,
-                    'capacidade' => $vinculo->capacidade($p->descricao),
+                    'capacidade' => $vinculo->capacidadeDe($p),
                     'produto_retornavel_id' => $p->produto_retornavel_id === null
                         ? null
                         : (int) $p->produto_retornavel_id,
@@ -348,7 +348,7 @@ class ComodatoController extends Controller
             ->map(fn (Produto $p) => [
                 'id' => $p->id,
                 'descricao' => $p->descricao,
-                'capacidade' => $vinculo->capacidade($p->descricao),
+                'capacidade' => $vinculo->capacidadeDe($p),
             ])
             ->sortBy('descricao')
             ->values();
@@ -367,7 +367,7 @@ class ComodatoController extends Controller
                 return [
                     'id' => $p->id,
                     'descricao' => $p->descricao,
-                    'capacidade' => $vinculo->capacidade($p->descricao),
+                    'capacidade' => $vinculo->capacidadeDe($p),
                     'sugestao' => $sugestao === null ? null : $sugestao['tipo']->value,
                     'sugestao_rotulo' => $sugestao === null ? null : $sugestao['tipo']->rotulo(),
                     'evidencia' => $sugestao['evidencia'] ?? null,

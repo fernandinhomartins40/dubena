@@ -1261,3 +1261,22 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - ANOTACAO DE AMBIENTE: ha PostgreSQL local escutando em 127.0.0.1:5432
   (postgres/postgres). Serve para validar migration quando o Docker falhar —
   criar banco descartavel, nunca usar o `erp_teste`.
+
+### F3-02 segunda peca — a capacidade
+
+- Mesmo defeito, um nivel abaixo: `capacidade()` extraia a grade da descricao
+  (`/\bP\s?(13|20|45|90)\b/` e `/\b(13|20|45|90)\s?KG\b/`). **A grade brasileira
+  de GLP estava escrita no codigo.** Outra grade nao pareia casco com gas — e o
+  pareamento e o que sustenta a vigilancia inteira.
+- `capacidade` e varchar e nao decimal DE PROPOSITO: e um ROTULO de grade
+  comercial, nao uma medida. Dois recipientes de 13 kg de grades diferentes nao
+  sao intercambiaveis, e um numero faria parecer que sao. O par e por igualdade
+  exata do rotulo.
+- Precedencia: coluna -> `tipo_glp` -> texto. O campo fiscal vence o texto porque
+  e preenchido para valer; a coluna vence os dois porque e declaracao.
+- Conversao verificada em PostgreSQL com massa real. Os dois casos que provam o
+  cuidado: "Produto P130 especial" NAO virou P13 (o `\b` evita o falso positivo)
+  e "Botellon 15 kg" ficou NULO em vez de receber palpite — e exatamente o caso
+  que a coluna existe para resolver.
+- 150 migrations em PostgreSQL, RlsCobertura 6/6, rollback -> reaplicacao OK
+  (banco descartavel `erp_f3b_check`, criado e removido).

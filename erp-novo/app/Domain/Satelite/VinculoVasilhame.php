@@ -35,10 +35,24 @@ class VinculoVasilhame
     private const TIPO_GLP = [3 => 'P13', 4 => 'P20', 5 => 'P45'];
 
     /**
-     * Capacidade declarada na descrição.
+     * Capacidade do produto — a DECLARADA, com a descrição como fallback.
+     *
+     * F3-02: a coluna `capacidade` vence. A regex continua atendendo quem ainda
+     * não foi classificado (e a tela de conferência), mas deixou de ser a
+     * resposta: a grade brasileira de GLP estava escrita no código, e uma
+     * revenda com outra grade não pareava casco com gás — sem pareamento, a
+     * vigilância inteira fica sem a pergunta que a sustenta.
+     */
+    public function capacidadeDe(Produto $p): ?string
+    {
+        return $p->capacidade ?? $this->capacidade($p->descricao);
+    }
+
+    /**
+     * Capacidade sugerida a partir da descrição.
      *
      * Reconhece "P13", "P 13", "13kg" e "(13kg)" — as quatro formas que
-     * aparecem no cadastro real.
+     * aparecem no cadastro real. É sugestão, não verdade.
      */
     public function capacidade(?string $descricao): ?string
     {
@@ -140,7 +154,7 @@ class VinculoVasilhame
      */
     public function conteudosDe(Produto $vasilhame, ?Collection $catalogo = null): array
     {
-        $capacidade = $this->capacidade($vasilhame->descricao);
+        $capacidade = $this->capacidadeDe($vasilhame);
 
         if ($capacidade === null) {
             return [];
@@ -156,13 +170,13 @@ class VinculoVasilhame
             ->filter(fn (Produto $p) => (int) $p->empresa_id === (int) $vasilhame->empresa_id)
             ->filter(fn (Produto $p) => $this->ehConteudo($p) && ! $this->ehVasilhame($p))
             ->filter(function (Produto $p) use ($capacidade) {
-                // `tipo_glp` é mais confiável que o texto quando existe: é campo
-                // fiscal, preenchido para valer.
+                // A coluna vence; `tipo_glp` (campo fiscal) vem depois; o texto
+                // é o último recurso, para o que ainda não foi classificado.
                 $porTipo = $p->tipo_glp !== null
                     ? (self::TIPO_GLP[(int) $p->tipo_glp] ?? null)
                     : null;
 
-                return ($porTipo ?? $this->capacidade($p->descricao)) === $capacidade;
+                return ($p->capacidade ?? $porTipo ?? $this->capacidade($p->descricao)) === $capacidade;
             })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -192,7 +206,7 @@ class VinculoVasilhame
 
             $proposta[] = [
                 'vasilhame' => $p,
-                'capacidade' => $this->capacidade($p->descricao),
+                'capacidade' => $this->capacidadeDe($p),
                 'conteudos' => $conteudos,
                 // O principal é o de menor id: entre duplicatas do legado, o
                 // mais antigo é o que concentra o histórico de venda.

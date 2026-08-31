@@ -56,6 +56,9 @@ class ProdutoRequest extends FormRequest
             // F3-02: papel no ciclo de custodia. Declarado aqui, em vez de
             // inferido da descricao pela vigilancia de comodato.
             'tipo' => ['nullable', Rule::enum(TipoProduto::class)],
+            // Rotulo livre: cada revenda tem a sua grade. Validar contra uma
+            // lista fixa seria gravar a grade brasileira no codigo de novo.
+            'capacidade' => 'nullable|string|max:20',
             'produtoclasse_id' => ['nullable', 'integer', new ExisteNoTenant(ProdutoClasse::class)],
             'unidademedida_id' => ['nullable', 'integer', new ExisteNoTenant(UnidadeMedida::class)],
             'vasilhame_retornavel' => 'nullable|boolean',

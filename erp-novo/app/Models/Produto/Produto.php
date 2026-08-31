@@ -32,6 +32,10 @@ class Produto extends Model
         // Ortogonal a `natureza`: um recipiente e um conteudo sao ambos
         // `produto`; o que os separa e serem o casco ou o gas dentro dele.
         'tipo', 'tipo_origem', 'tipo_evidencia',
+        // Rotulo da grade comercial ("P13"), nao medida: dois recipientes de
+        // 13 kg de grades diferentes nao sao intercambiaveis. O pareamento
+        // casco<->gas e por igualdade exata deste rotulo.
+        'capacidade', 'capacidade_origem',
         'vasilhame_retornavel', 'produto_retornavel_id', 'ativo', 'envia_app_nf',
         'dias_giro', 'observacao',
         'preco_venda', 'preco_venda_minimo', 'custo_medio', 'custo_frete',

@@ -102,9 +102,46 @@ resultado nos dois bancos, mas isso precisa ser confirmado contra o Postgres
 antes do deploy. **Rodar `php artisan migrate` num Postgres limpo e
 `RlsCoberturaTest` assim que o Docker voltar.**
 
+## Segunda peça: a capacidade
+
+O mesmo defeito, um nível abaixo. `capacidade()` extraía a grade da descrição:
+
+```php
+/P\s?(13|20|45|90)/     "P13", "P 13"
+/(13|20|45|90)\s?KG/    "13KG", "45 KG"
+```
+
+**A grade brasileira de GLP estava escrita no código.** Uma revenda com outra
+grade não pareia casco com gás — e o pareamento é o que sustenta a vigilância:
+sem ele não há como perguntar "o cliente com 13 vasilhames P13 comprou quanto de
+P13?".
+
+`capacidade` é `varchar` e não decimal de propósito: o valor é um **rótulo de
+grade comercial**, não uma medida. Dois recipientes de 13 kg de grades
+diferentes não são intercambiáveis, e um número faria parecer que são. O
+pareamento é por igualdade exata do rótulo, que é a semântica correta.
+
+A ordem de precedência ficou: **coluna → `tipo_glp` → texto**. O campo fiscal
+vence o texto porque é preenchido para valer; a coluna vence os dois porque é a
+declaração de quem sabe.
+
+Conversão verificada em PostgreSQL com massa real:
+
+| Descrição | Capacidade | Origem |
+|---|---|---|
+| `Vasilha P13 Kg` | P13 | descricao |
+| `CASCO 45 KG` | P45 | descricao |
+| `P 20 cheio` | P20 | descricao |
+| `Glp P13` (tipo_glp=3) | P13 | **tipo_glp** |
+| `Botellon 15 kg` | — | — |
+| `Produto P130 especial` | — | — |
+
+Os dois últimos são os que provam o cuidado: "P130" **não** virou P13 (o ``
+da regex evita o falso positivo), e "Botellon 15 kg" ficou nulo em vez de
+receber um palpite — é exatamente o caso que a coluna existe para resolver.
+
 ## O que fica da F3
 
-Fechadas: F3-02 (parcial — `kind` e vínculo declarado) e F3-04A.
+Fechadas: F3-02 (`kind`, capacidade e vínculo declarados) e F3-04A.
 Abertas: F3-01 (Party), F3-03 (snapshot), F3-04 (estados ortogonais), F3-05 a
-F3-11. A parte de "compatibilidade/capacidade" da F3-02 continua derivada da
-descrição (`capacidade()`), e é a próxima peça natural deste mesmo trabalho.
+F3-11.

@@ -167,6 +167,57 @@ class TipoProdutoDeclaradoTest extends TestCase
     }
 
     /**
+     * A capacidade tem o mesmo defeito um nível abaixo: a grade brasileira de
+     * GLP (`P13`, `13KG`) estava escrita na regex. Outra grade não pareava.
+     */
+    public function test_capacidade_declarada_vence_a_descricao(): void
+    {
+        [$empresa] = $this->cenario();
+
+        $p = $this->produto($empresa, 'Botellón 15 kg', [
+            'tipo' => TipoProduto::RECIPIENTE->value,
+            'capacidade' => 'B15',
+        ]);
+
+        $this->assertSame('B15', app(VinculoVasilhame::class)->capacidadeDe($p));
+    }
+
+    /** Sem coluna, a regex continua atendendo — como fallback, não como verdade. */
+    public function test_sem_capacidade_declarada_a_descricao_e_o_fallback(): void
+    {
+        [$empresa] = $this->cenario();
+
+        $p = $this->produto($empresa, 'Vasilha P13 Kg', ['tipo' => TipoProduto::RECIPIENTE->value]);
+
+        $this->assertSame('P13', app(VinculoVasilhame::class)->capacidadeDe($p));
+    }
+
+    /**
+     * O que a mudança destrava: casco e gás de uma grade que a regex não
+     * conhece passam a parear.
+     */
+    public function test_pareamento_funciona_em_grade_fora_da_regex(): void
+    {
+        [$empresa] = $this->cenario();
+
+        $casco = $this->produto($empresa, 'Botellón vacío', [
+            'tipo' => TipoProduto::RECIPIENTE->value, 'capacidade' => 'B15',
+        ]);
+        $gas = $this->produto($empresa, 'Gas licuado', [
+            'tipo' => TipoProduto::CONTEUDO->value, 'capacidade' => 'B15',
+        ]);
+        // Mesma grade, capacidade diferente: não pode entrar no par.
+        $outro = $this->produto($empresa, 'Gas licuado grande', [
+            'tipo' => TipoProduto::CONTEUDO->value, 'capacidade' => 'B45',
+        ]);
+
+        $conteudos = app(VinculoVasilhame::class)->conteudosDe($casco);
+
+        $this->assertContains($gas->id, $conteudos);
+        $this->assertNotContains($outro->id, $conteudos);
+    }
+
+    /**
      * A lista que impede a falha silenciosa: os não classificados aparecem na
      * tela de conferência, com a sugestão ao lado.
      */
