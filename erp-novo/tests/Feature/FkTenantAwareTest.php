@@ -181,11 +181,20 @@ class FkTenantAwareTest extends TestCase
             }
         }
 
-        // `GeoController` guarda regras numa `const` (PHP não aceita `new` ali) e
-        // converte em `cfg()`; o mesmo vale para o registry de cadastros de apoio.
+        // Dois controllers guardam as regras numa `const` — onde o PHP não
+        // aceita `new` — e fazem a troca por `ExisteNoTenant` em runtime. A
+        // varredura é ESTÁTICA e enxerga a string `exists:` que a própria
+        // correção substitui, então acusaria justamente quem já está correto.
+        //
+        // O comentário original já dizia "o mesmo vale para o registry de
+        // cadastros de apoio", mas o filtro só listava o `GeoController`: a
+        // isenção do `CadastroApoioController` ficou de fora por esquecimento,
+        // e é o que fazia a suíte falhar no CI.
+        $comTrocaEmRuntime = ['GeoController.php', 'CadastroApoioController.php'];
+
         $achados = array_values(array_filter(
             $achados,
-            fn (string $a): bool => ! str_starts_with($a, 'GeoController.php'),
+            fn (string $a): bool => ! in_array(explode(':', $a)[0], $comTrocaEmRuntime, true),
         ));
 
         $this->assertSame(
@@ -209,10 +218,21 @@ class FkTenantAwareTest extends TestCase
             if (! $arquivo->isFile() || $arquivo->getExtension() !== 'php') {
                 continue;
             }
+            // O caminho e o prefixo sao normalizados para `/` ANTES do recorte.
+            //
+            // No Windows `app_path()` volta com `\`, e o `str_replace` comparava
+            // essa forma contra um caminho ja convertido para `/` — o prefixo
+            // nunca casava, e a lista saia VAZIA. Um teste que varre zero
+            // tabelas passa sempre, sem proteger nada: era o caso aqui, e por
+            // isso este guardiao de vazamento de FK entre tenants nunca acusou
+            // nada no ambiente de desenvolvimento.
+            $caminho = str_replace('\\', '/', $arquivo->getPathname());
+            $base = str_replace('\\', '/', app_path('Models'));
+
             $classe = 'App\\Models'.str_replace(
-                [app_path('Models'), '/', '.php'],
+                [$base, '/', '.php'],
                 ['', '\\', ''],
-                str_replace('\\', '/', $arquivo->getPathname()),
+                $caminho,
             );
             if (! class_exists($classe)) {
                 continue;

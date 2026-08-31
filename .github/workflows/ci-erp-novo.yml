@@ -44,6 +44,11 @@ jobs:
         with:
           php-version: '8.3'
           extensions: pdo, sqlite, pdo_sqlite, mbstring, bcmath, intl
+          # A suite roda num processo so e a memoria ACUMULA. O dompdf (fonte
+          # DejaVu embarcada, exigida para acentuacao) estoura os 128M do
+          # default do PHP na metade da suite, em Linux — no Windows o mesmo
+          # codigo passa, e foi por isso que a quebra so apareceu aqui.
+          ini-values: memory_limit=512M
           coverage: none
 
       - name: Cache de dependências Composer
@@ -157,6 +162,8 @@ jobs:
         with:
           php-version: '8.3'
           extensions: pdo, pdo_pgsql, pgsql, mbstring, bcmath, intl
+          # Mesmo motivo do job `test`: memoria acumulada pela suite inteira.
+          ini-values: memory_limit=512M
           coverage: none
 
       - name: Cache de dependências Composer
