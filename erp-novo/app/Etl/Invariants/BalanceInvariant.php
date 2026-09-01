@@ -34,13 +34,13 @@ use App\Etl\Support\MigrationContext;
 final class BalanceInvariant implements Invariant
 {
     /**
-     * @param list<string> $chave colunas que identificam a "conta" na tabela de
-     *                            MOVIMENTOS (ex.: [setor_id, produto_id])
-     * @param array<string,string> $chaveNoSaldo mapeia coluna do movimento =>
-     *        coluna correspondente na tabela de saldo, quando os nomes diferem.
-     *        Caso do caixa: `contamovimentos.conta_id` casa com `contas.id` —
-     *        sem este mapa a invariante procurava `contas.conta_id` e quebrava,
-     *        que é uma das razões de ela nunca ter sido usada em produção.
+     * @param  list<string>  $chave  colunas que identificam a "conta" na tabela de
+     *                               MOVIMENTOS (ex.: [setor_id, produto_id])
+     * @param  array<string,string>  $chaveNoSaldo  mapeia coluna do movimento =>
+     *                                              coluna correspondente na tabela de saldo, quando os nomes diferem.
+     *                                              Caso do caixa: `contamovimentos.conta_id` casa com `contas.id` —
+     *                                              sem este mapa a invariante procurava `contas.conta_id` e quebrava,
+     *                                              que é uma das razões de ela nunca ter sido usada em produção.
      */
     public function __construct(
         private MigrationContext $ctx,
@@ -53,8 +53,7 @@ final class BalanceInvariant implements Invariant
         private array $chaveNoSaldo = [],
         private ?int $idMinimoSaldo = null,
         private string $colunaIdSaldo = 'id',
-    ) {
-    }
+    ) {}
 
     public function nome(): string
     {
@@ -108,7 +107,7 @@ final class BalanceInvariant implements Invariant
 
             if (abs($saldo - $derivado) > $this->tolerancia) {
                 $divergencias++;
-                $exemplo ??= "chave(".implode(',', array_map(fn ($c) => $linha->{$c}, $this->chave)).") derivado={$derivado} saldo={$saldo}";
+                $exemplo ??= 'chave('.implode(',', array_map(fn ($c) => $linha->{$c}, $this->chave)).") derivado={$derivado} saldo={$saldo}";
             }
         }
 

@@ -145,7 +145,7 @@ final class AppGasEmCasaMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->appDisponivel()) {
             return [];
         }

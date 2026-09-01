@@ -141,7 +141,7 @@ final class IbptMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->tabelaExiste($ctx, 'produtoleiimpostos')) {
             return [];
         }

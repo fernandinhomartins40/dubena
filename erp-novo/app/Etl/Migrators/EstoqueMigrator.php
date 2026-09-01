@@ -95,7 +95,7 @@ final class EstoqueMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
 
         return [
             new CountInvariant($ctx, 'setors', 'setores'),

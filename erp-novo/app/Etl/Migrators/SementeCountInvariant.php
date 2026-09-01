@@ -13,9 +13,7 @@ use App\Models\Estado;
  */
 final class SementeCountInvariant implements Invariant
 {
-    public function __construct(private int $esperado)
-    {
-    }
+    public function __construct(private int $esperado) {}
 
     public function nome(): string
     {

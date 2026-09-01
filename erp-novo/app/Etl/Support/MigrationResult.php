@@ -13,8 +13,7 @@ final class MigrationResult
         public readonly int $gravados = 0,
         public readonly int $pulados = 0,
         public readonly array $avisos = [],
-    ) {
-    }
+    ) {}
 
     public function resumo(): string
     {

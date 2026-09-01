@@ -19,8 +19,7 @@ final class IntegrityInvariant implements Invariant
         private string $coluna,
         private string $tabelaRef,
         private string $colunaRef = 'id',
-    ) {
-    }
+    ) {}
 
     public function nome(): string
     {

@@ -13,8 +13,7 @@ final class InvariantResult
         public readonly string $mensagem = '',
         public readonly mixed $esperado = null,
         public readonly mixed $obtido = null,
-    ) {
-    }
+    ) {}
 
     public static function ok(string $nome, string $msg = ''): self
     {

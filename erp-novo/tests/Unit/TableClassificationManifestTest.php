@@ -61,6 +61,13 @@ class TableClassificationManifestTest extends TestCase
             // F5-04 — conciliacao persistida: o lancamento do extrato bancario e
             // o par que ele formou (ou nao). Company: e dinheiro de UMA revenda.
             'conciliacao_lancamentos',
+            // F7 — plano de controle da conversao. PLATFORM: e o processo que
+            // CRIA os tenants a partir do legado, entao nao pode estar sujeito
+            // ao escopo deles — uma RLS por tenant esconderia justamente a linha
+            // cujo owner ficou ambiguo, que e o caso mais importante.
+            'conversao_execucoes',
+            'conversao_linhagem',
+            'conversao_quarentena',
             // F5-01 — plano de contas modelo. PLATFORM pelo criterio da
             // reclassificacao de 2026-08-29: nao tem `grupo_id` e a revenda nao
             // o edita — ela edita a COPIA dela, em `planos_conta`.

@@ -164,7 +164,7 @@ final class UsersMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->tabelaExiste($ctx, 'users')) {
             return [];
         }

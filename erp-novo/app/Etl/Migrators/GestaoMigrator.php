@@ -12,6 +12,8 @@ use App\Models\Gestao\CupomFiscalItem;
 use App\Models\Gestao\Documento;
 use App\Models\Gestao\EmpresaBem;
 use App\Models\Gestao\Mcmm;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * F15 — migra Gestão: cupons fiscais (+itens), MCMM (mapa ANP), documentos e bens.
@@ -96,7 +98,7 @@ final class GestaoMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->legadoDisponivel($ctx)) {
             return [];
         }
@@ -134,7 +136,7 @@ final class GestaoMigrator implements Migrator
         return $n;
     }
 
-    /** @param class-string<\Illuminate\Database\Eloquent\Model> $model @param list<array<string,mixed>> $rows */
+    /** @param class-string<Model> $model @param list<array<string,mixed>> $rows */
     private function gravar(string $model, array $rows): int
     {
         $n = 0;
@@ -161,14 +163,14 @@ final class GestaoMigrator implements Migrator
      * Upsert PRESERVANDO o id do legado (forceFill ignora $fillable). Essencial
      * para manter as FKs entre tabelas após a migração.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  array<string,mixed>  $row
      */
-    private function upsert(\Illuminate\Database\Eloquent\Builder $query, array $row): void
+    private function upsert(Builder $query, array $row): void
     {
         $model = $query->firstWhere('id', $row['id']) ?? $query->getModel()->newInstance();
         $model->forceFill($row)->save();
     }
+
     /**
      * Remove chaves null (exceto id) p/ colunas NOT NULL com DEFAULT usarem o default.
      *

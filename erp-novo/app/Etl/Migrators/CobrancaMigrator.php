@@ -115,7 +115,7 @@ final class CobrancaMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
 
         return [
             // Descarte ESTRUTURAL, comprovado (T2.5): 409 boletos do legado não

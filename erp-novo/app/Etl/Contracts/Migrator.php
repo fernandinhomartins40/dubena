@@ -27,7 +27,7 @@ interface Migrator
     /**
      * Invariantes a validar após a carga.
      *
-     * @return list<\App\Etl\Contracts\Invariant>
+     * @return list<Invariant>
      */
     public function invariantes(): array;
 }

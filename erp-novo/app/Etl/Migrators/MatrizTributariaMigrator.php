@@ -237,7 +237,7 @@ final class MatrizTributariaMigrator implements Migrator
 
     public function invariantes(): array
     {
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if (! $this->tabelaExiste($ctx, 'nfimpostos')) {
             return [];
         }

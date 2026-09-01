@@ -6,6 +6,7 @@ use App\Domain\Saas\TransformationFreeze;
 use App\Domain\Saas\TransformationFrozenException;
 use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
+use App\Etl\Support\RegistroDaConversao;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -71,6 +72,34 @@ class EtlRun extends Command
             }
         }
 
+        // F7-04A — lista vazia NUNCA produz sucesso.
+        //
+        // Sem esta trava, um registry vazio faz o loop não rodar, nada falhar, e
+        // o comando imprimir "ETL concluído" com SUCCESS. Um script de deploy
+        // leria isso como carga bem-sucedida, e a operação descobriria pelo
+        // sistema vazio.
+        //
+        // É a mesma família do guardião que varria zero arquivos e passava: o
+        // verde que não prova nada é pior que o vermelho, porque ninguém
+        // investiga.
+        if ($migrators === []) {
+            $this->error('Nenhum migrador registrado — a carga nao teria o que fazer.');
+            $this->line('Isto e falha, nao sucesso: um registry vazio significa configuracao quebrada.');
+
+            return self::FAILURE;
+        }
+
+        // F7 — a execucao passa a deixar registro. O `iniciar` nunca derruba a
+        // carga: se a tabela nao existir (banco antigo), devolve null e tudo
+        // segue — instrumentacao que interrompe o processo que ela observa
+        // inverte a prioridade.
+        $registro = app(RegistroDaConversao::class);
+        $registro->iniciar(
+            $alvo ?: null,
+            (bool) $this->option('dry-run'),
+            (bool) $this->option('check'),
+        );
+
         $falhou = false;
         /** @var list<string> $todosAvisos */
         $todosAvisos = [];
@@ -107,6 +136,7 @@ class EtlRun extends Command
         }
 
         if ($falhou) {
+            $registro->encerrar('FALHOU', 'invariante reprovada');
             $this->error('ETL concluído COM FALHA de invariante (portão NÃO liberado).');
 
             return self::FAILURE;
@@ -121,6 +151,7 @@ class EtlRun extends Command
         ));
 
         if ($indisponiveis !== []) {
+            $registro->encerrar('FALHOU', implode(' | ', $indisponiveis));
             $this->error(sprintf(
                 'ETL concluído com %d falha(s) de LEITURA da origem — a carga está incompleta.',
                 count($indisponiveis),
@@ -129,6 +160,7 @@ class EtlRun extends Command
             return self::FAILURE;
         }
 
+        $registro->encerrar('CONCLUIDA', implode(' | ', $todosAvisos));
         $this->info('ETL concluído.');
 
         return self::SUCCESS;

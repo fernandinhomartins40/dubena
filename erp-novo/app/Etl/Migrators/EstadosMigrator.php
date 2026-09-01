@@ -62,7 +62,7 @@ final class EstadosMigrator implements Migrator
     public function invariantes(): array
     {
         // Sem o legado disponível, comparamos contra o conjunto-semente (27).
-        $ctx = $this->ctxAtual ?? new MigrationContext();
+        $ctx = $this->ctxAtual ?? new MigrationContext;
         if ($this->lerLegado($ctx) === null) {
             return [new SementeCountInvariant(count($this->semente()))];
         }

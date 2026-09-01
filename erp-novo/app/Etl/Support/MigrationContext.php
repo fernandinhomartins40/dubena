@@ -14,8 +14,7 @@ final class MigrationContext
         public readonly bool $dryRun = false,
         public readonly string $conexaoLegado = 'legado',
         public readonly string $conexaoNova = 'pgsql',
-    ) {
-    }
+    ) {}
 
     /** Conexão de LEITURA do banco legado. */
     public function legado(): ConnectionInterface
