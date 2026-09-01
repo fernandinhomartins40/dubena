@@ -24,7 +24,7 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
 | F7 | **14** | 13 fechadas + o pós-check de F7-12; o resto de F7-12 é operação; F7-03 parcial (falta o que exige staging) |
 | F8 | 9 | só o item de código do gate; o resto é operação |
-| F9 | 9 | 8 fechadas; F9-07 entregue (medicao); F9-08 parcial |
+| F9 | 9 | 8 fechadas; F9-07 entregue (medição); F9-08 com os 3 cenários de backend cobertos — faltam os 4 de navegador |
 | F10 | 7 | **intocada** — depende de um segundo cliente real |
 
 ## O que está aberto, nomeadamente
@@ -35,7 +35,8 @@ O levantamento abaixo é por **verificação**, não por memória.
 |---|---|
 | F5-09 | homologação fiscal exige especialista contábil e ambiente oficial da SEFAZ |
 | F8-01 a F8-09 | ensaio da conversão com dados reais; decisões caso a caso e quatro aprovações. Exceção: a **propriedade** exigida por F8-07 (segunda execução determinística e idempotente) é verificável por código e **foi entregue** — o ensaio em si continua sendo operação |
-| F10-01 a F10-07 | exige um **segundo cliente real** com convenções diferentes |
+| F10-01 a F10-05, F10-07 | exigem um **segundo cliente real** com convenções diferentes |
+| F10-06 | a regra — *"remover pontes só quando a telemetria provar zero uso"* — **já é aplicada**: `ApiContratoDriftTest` reprova qualquer endpoint removido, então tirar uma ponte exige regravar o manifesto de propósito. A telemetria que essa decisão consulta é o `ponte:uso` (F9-07). O que falta é a **decisão**, com o número que só produção produz |
 | F7-12 (o resto) | freeze, delta, shadow target, switch, blue/green e RTO/RPO com responsáveis nomeados. O **pós-check**, que era a parte de código, foi entregue |
 
 ### ⚠️ Cuidado com esta seção
@@ -63,7 +64,7 @@ tarefa — senão vira desculpa para não entregar as partes que dariam.
 | Tarefa | O que falta |
 |---|---|
 | F9-07 (2ª e 3ª partes) | **substituir** e **remover** as pontes. A medição está entregue (`ponte:uso`); a remoção depende do número que ela vai produzir em produção — hoje a tabela está vazia porque acabou de nascer |
-| F9-08 | cenários de navegador (duas abas, request em voo) exigem Playwright, que o projeto não usa |
+| F9-08 (4 de 7) | duas abas, cache persistido, requests em voo e sessão A→logout→B exigem navegador (Playwright), que o projeto não usa. Os **3 cenários de backend** — escalada para SuperAdmin, troca de empresa, IDs externos — estão cobertos |
 
 ### O que foi fechado nesta rodada
 
@@ -71,6 +72,7 @@ tarefa — senão vira desculpa para não entregar as partes que dariam.
 |---|---|
 | F6-01 | quota, custo, finalidade e health por conta de integração — `integracao_consumos` |
 | F7-10 / F7-11 | invariante `INCONCLUSIVA`; seeders sem senha conhecida |
+| F9-08 (3 de 7) | varredura adversarial das 34 rotas de plataforma. Havia teste, mas cobria **uma** rota — furo que só apareceria quando alguém adicionasse a 35ª sem guard |
 | F8-07 (a propriedade) | teste de determinismo: rodar duas vezes produz o mesmo estado, **com os mesmos ids**. A idempotência já estava implementada (`upsert`); o que faltava era a prova — todo teste de migrador rodava a carga uma vez |
 | F7-12 (pós-check) | `cutover:pos-check` — sequências atrás do maior id, execução sem desfecho, quarentena pendente, job falhado. Os portões que havia eram todos PRÉ-switch |
 | F7-02 | máquina de estados com enum e CAS — `encerrar()` não sobrescreve desfecho já registrado, e estado inventado lança em vez de virar linha invisível |

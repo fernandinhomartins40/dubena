@@ -145,6 +145,41 @@ NULL')` plantado, **quatro** testes falharam.
 produção. Hoje `ponte_usos` está vazia porque acabou de nascer — e remover com
 base numa tabela recém-criada seria exatamente o erro que ela existe para evitar.
 
+## F9-08 — os três cenários que não precisam de navegador
+
+A tarefa lista sete: *sessão A→logout→B, tenant→SuperAdmin, requests em voo, duas
+abas, cache persistido, troca de empresa e tentativa de IDs externos*.
+
+Quatro exigem navegador de verdade. **Três não**, e conferi um a um:
+
+| Cenário | Estado |
+|---|---|
+| tentativa de IDs externos | já coberto — `TrocaAdversarialDeIdsTest` varre as rotas E tem guardião de cobertura |
+| troca de empresa | já coberto — `TrocaDeEmpresaRegraTest`, inclusive "trocar não concede acesso a outra rede" |
+| **tenant → SuperAdmin** | **tinha furo** |
+
+### O furo
+
+`SuperAdminTest::test_usuario_de_tenant_nao_acessa_superadmin` existia e estava
+certo — mas cobria **uma rota de 34**. Um teste assim protege até alguém
+adicionar a 35ª esquecendo o guard, que é justamente quando a proteção
+importaria.
+
+O gate F9 exige *"todas as mutações críticas têm autorização negativa"*. A
+palavra é **todas**, e honrá-la significa partir da lista de rotas do **router** —
+nunca de uma lista escrita à mão, que envelhece em silêncio.
+
+`EscaladaParaPlataformaTest` varre as 34 e testa duas coisas: token de tenant não
+passa, e sem token nenhum também não. A segunda parece óbvia e não é — uma rota
+registrada fora do grupo com `auth:platform` responde 200 para qualquer um, e o
+sintoma é o dado de **todas as revendas** exposto sem autenticação.
+
+Com uma rota de plataforma plantada fora do grupo, os dois testes reprovaram
+apontando o nome dela.
+
+O `assertGreaterThan(20, ...)` não é decoração: varredura que varre zero e passa
+já aconteceu aqui mais de uma vez.
+
 ## Aberto
 
 A parte de navegador do **F9-08** — duas abas, cache persistido e requests em voo

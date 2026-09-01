@@ -30,6 +30,15 @@ class ApiContratoDriftTest extends TestCase
         $removidos = array_values(array_diff($salvo, $atual));
         $novos = array_values(array_diff($atual, $salvo));
 
+        // F10-06 — *"remover ... pontes legadas somente quando a telemetria
+        // provar zero uso"*. Este assert é o que faz essa regra valer: remover
+        // endpoint exige regravar o manifesto DE PROPÓSITO, e quem for fazê-lo
+        // numa rota `api/legado/*` precisa antes rodar `ponte:uso` e ver zero
+        // chamadas no recorte.
+        //
+        // Zero chamadas autoriza PROPOR a remoção, não executá-la: o MovelApp
+        // está em `targetSdk 28` e não publica na Play Store, então um APK em
+        // campo pode simplesmente não ter aberto no período medido.
         $this->assertSame([], $removidos, 'Endpoints REMOVIDOS do contrato (quebra SPA/apps): '.implode(', ', $removidos));
         $this->assertSame([], $novos, 'Endpoints NOVOS não registrados no manifesto — rode `php artisan api:manifest` e commite: '.implode(', ', $novos));
     }
