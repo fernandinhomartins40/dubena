@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Etl\Support\RegistroDaConversao;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -176,6 +177,68 @@ class PlanoDeControleDaConversaoTest extends TestCase
         $registro->encerrar('CONCLUIDA');
 
         $this->assertTrue(true, 'a carga segue mesmo sem as tabelas de controle');
+    }
+
+    /**
+     * F7-09 — duas cargas simultaneas nao podem existir.
+     *
+     * O ETL escreve por upsert PRESERVANDO id, entao duas execucoes competem
+     * pelas mesmas linhas: a segunda sobrescreve o que a primeira acabou de
+     * gravar, e nenhuma das duas falha. O resultado e uma carga que parece
+     * bem-sucedida e tem estado misturado das duas.
+     *
+     * `Isolatable` do Laravel resolveria, mas so quando alguem passa
+     * `--isolated` — e protecao que depende de lembrar nao protege.
+     */
+    public function test_carga_simultanea_e_recusada(): void
+    {
+        // Simula a outra execucao segurando o lock.
+        $outra = Cache::lock('etl:run', 60);
+        $this->assertTrue($outra->get());
+
+        try {
+            $this->artisan('etl:run')
+                ->expectsOutputToContain('Outra carga de ETL esta em andamento')
+                ->assertFailed();
+        } finally {
+            $outra->release();
+        }
+    }
+
+    /**
+     * `--dry-run` passa mesmo com uma carga em andamento.
+     *
+     * Simular nao grava, e travar a simulacao enquanto a carga roda tiraria
+     * justamente a ferramenta de diagnostico de quem esta acompanhando.
+     */
+    public function test_dry_run_nao_e_bloqueado_pelo_lock(): void
+    {
+        $outra = Cache::lock('etl:run', 60);
+        $this->assertTrue($outra->get());
+
+        try {
+            $this->artisan('etl:run migrador-que-nao-existe --dry-run')
+                ->expectsOutputToContain('não encontrado')
+                ->assertFailed();
+        } finally {
+            $outra->release();
+        }
+    }
+
+    /**
+     * O lock e liberado mesmo quando a carga falha.
+     *
+     * Sem o `finally`, uma excecao no meio deixaria a trava presa por duas
+     * horas: a proxima tentativa ficaria bloqueada sem motivo, e alguem
+     * acabaria removendo o lock a mao — que e como uma protecao morre.
+     */
+    public function test_o_lock_e_liberado_apos_falha(): void
+    {
+        $this->artisan('etl:run migrador-que-nao-existe')->assertFailed();
+
+        $lock = Cache::lock('etl:run', 10);
+        $this->assertTrue($lock->get(), 'o lock precisa ter sido liberado');
+        $lock->release();
     }
 
     /**

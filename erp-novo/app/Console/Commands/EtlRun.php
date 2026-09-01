@@ -8,6 +8,7 @@ use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\RegistroDaConversao;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -30,7 +31,56 @@ class EtlRun extends Command
 
     protected $description = 'Executa a migração de dados do banco legado para o schema novo (ETL).';
 
+    /**
+     * F7-09 — exclusão mútua entre execuções.
+     *
+     * Duas horas é folga sobre a carga completa (o dump inteiro leva ~40 min) e
+     * curto o bastante para não deixar o sistema travado se o processo morrer
+     * por OOM sem liberar o lock.
+     */
+    private const LOCK_SEGUNDOS = 7200;
+
     public function handle(TransformationFreeze $freeze): int
+    {
+        // F7-09 — dois `etl:run` simultâneos não podem existir.
+        //
+        // O ETL escreve por upsert PRESERVANDO id (`PreservaIdsDoLegado`), então
+        // duas execuções competem pelas mesmas linhas: a segunda sobrescreve o
+        // que a primeira acabou de gravar, e nenhuma das duas falha. O resultado
+        // é uma carga que parece bem-sucedida e tem estado misturado das duas.
+        //
+        // `Isolatable` do Laravel resolveria isso, mas só quando alguém passa
+        // `--isolated` — e a proteção que depende de lembrar não protege. Aqui é
+        // fail-closed: sem o lock, o comando não roda.
+        //
+        // `--dry-run` fica de fora: simular não grava, e travar a simulação
+        // enquanto uma carga roda tiraria justamente a ferramenta de diagnóstico
+        // de quem está acompanhando a carga.
+        $lock = null;
+
+        if (! $this->option('dry-run')) {
+            $lock = Cache::lock('etl:run', self::LOCK_SEGUNDOS);
+
+            if (! $lock->get()) {
+                $this->error('Outra carga de ETL esta em andamento.');
+                $this->line('Duas execucoes simultaneas competem pelas mesmas linhas (upsert por id) '
+                    .'e produzem um estado misturado que nao acusa erro.');
+
+                return self::FAILURE;
+            }
+        }
+
+        try {
+            return $this->executar($freeze);
+        } finally {
+            // `finally`: exceção no meio da carga não pode deixar o lock preso
+            // pelas duas horas inteiras — a próxima tentativa ficaria bloqueada
+            // sem motivo, e alguém acabaria removendo a trava à mão.
+            $lock?->release();
+        }
+    }
+
+    private function executar(TransformationFreeze $freeze): int
     {
         if (! $this->option('dry-run')) {
             try {
