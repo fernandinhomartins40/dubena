@@ -2,7 +2,9 @@
 
 namespace App\Domain\Monitora\Drivers;
 
+use App\Domain\Integracao\ConsumoDeIntegracao;
 use App\Domain\Monitora\Contracts\AjustadorDeVia;
+use App\Domain\Tenant\TenantContext;
 use App\Models\ConfigGlobal;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +56,15 @@ class RoadsApiAjustador implements AjustadorDeVia
                     'interpolate' => 'true',
                     'key' => $chave,
                 ]);
+
+            // F6-01 — cobrada por chamada. O Google cobra tendo devolvido
+            // traçado ou não, entao registra antes de interpretar.
+            $tenant = app(TenantContext::class);
+            app(ConsumoDeIntegracao::class)->registrar(
+                'roads', $tenant->empresaId(), $tenant->grupoId(), 'encaixar_na_via',
+                erro: ! $resp->successful(),
+                mensagemErro: $resp->successful() ? null : 'HTTP '.$resp->status(),
+            );
 
             if (! $resp->successful()) {
                 Log::warning('Roads API respondeu com erro', ['status' => $resp->status()]);

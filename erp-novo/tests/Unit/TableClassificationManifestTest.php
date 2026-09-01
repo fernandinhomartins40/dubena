@@ -65,6 +65,11 @@ class TableClassificationManifestTest extends TestCase
             // CRIA os tenants a partir do legado, entao nao pode estar sujeito
             // ao escopo deles — uma RLS por tenant esconderia justamente a linha
             // cujo owner ficou ambiguo, que e o caso mais importante.
+            // F6-01 — consumo de integracao por dono. COMPANY: a chamada e
+            // cobrada da revenda, e ela precisa ver o proprio gasto. As linhas
+            // sem empresa (chave da plataforma) ficam fora do alcance dela pela
+            // policy, que e o certo.
+            'integracao_consumos',
             'conversao_execucoes',
             'conversao_linhagem',
             'conversao_quarentena',

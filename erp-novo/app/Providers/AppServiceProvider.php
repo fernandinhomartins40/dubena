@@ -185,8 +185,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MatrizDistancia::class, function () {
             $key = $this->app->make(IntegracaoTenant::class)->googleMapsKey();
 
+            // F6-01 — o dono vai junto: e ele quem paga a chamada, e sem isto o
+            // consumo fica sem dono na fatura.
+            $tenant = $this->app->make(TenantContext::class);
+
             return $key
-                ? new GoogleMatrizDriver(new GoogleRoutesDriver((string) $key), $this->app->make(HaversineDriver::class))
+                ? new GoogleMatrizDriver(
+                    new GoogleRoutesDriver((string) $key, $tenant->empresaId(), $tenant->grupoId()),
+                    $this->app->make(HaversineDriver::class),
+                )
                 : $this->app->make(HaversineDriver::class);
         });
 
@@ -204,9 +211,12 @@ class AppServiceProvider extends ServiceProvider
         // aprendidos; o resto sai em linha reta.
         $this->app->bind(TracadorRota::class, function () {
             $key = $this->app->make(IntegracaoTenant::class)->googleMapsKey();
+            $tenant = $this->app->make(TenantContext::class);
 
             return new TracadorRotaCacheado(
-                $key ? new GoogleRoutesDriver((string) $key) : new SemTracado,
+                $key
+                    ? new GoogleRoutesDriver((string) $key, $tenant->empresaId(), $tenant->grupoId())
+                    : new SemTracado,
             );
         });
 

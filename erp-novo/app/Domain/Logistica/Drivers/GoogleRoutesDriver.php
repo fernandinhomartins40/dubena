@@ -2,6 +2,7 @@
 
 namespace App\Domain\Logistica\Drivers;
 
+use App\Domain\Integracao\ConsumoDeIntegracao;
 use App\Domain\Logistica\Contracts\TracadorRota;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -20,7 +21,15 @@ class GoogleRoutesDriver implements TracadorRota
     /** Circuito aberto: após uma falha, NENHUMA chamada por este intervalo. */
     private const CIRCUITO_TTL_S = 300;
 
-    public function __construct(private string $apiKey) {}
+    /**
+     * @param  ?int  $empresaId  dono da credencial — o consumo e cobrado dele (F6-01)
+     * @param  ?int  $grupoId  idem; ambos nulos = chave da plataforma
+     */
+    public function __construct(
+        private string $apiKey,
+        private ?int $empresaId = null,
+        private ?int $grupoId = null,
+    ) {}
 
     /**
      * A chave do circuito é POR CREDENCIAL (F6-01).
@@ -71,6 +80,15 @@ class GoogleRoutesDriver implements TracadorRota
                     'travelMode' => 'DRIVE',
                     'routingPreference' => 'TRAFFIC_AWARE',
                 ]);
+
+            // F6-01 — routes e a mais cara das tres APIs do Maps usadas aqui.
+            // Registra ANTES de interpretar a resposta: o Google cobra pela
+            // chamada, tendo ela devolvido rota ou nao.
+            app(ConsumoDeIntegracao::class)->registrar(
+                'routes', $this->empresaId, $this->grupoId, 'tracar_rota',
+                erro: ! $resp->successful(),
+                mensagemErro: $resp->successful() ? null : 'HTTP '.$resp->status(),
+            );
 
             $rota = $resp->json('routes.0');
             if (is_array($rota) && ! empty($rota['polyline']['encodedPolyline'])) {

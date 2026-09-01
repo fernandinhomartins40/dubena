@@ -169,6 +169,7 @@ $register([
     'financeiros',
     'gasdopovo_beneficios',
     'grupos',
+    'integracao_consumos',
     'inutilizacoes_fiscais',
     'jornadas',
     'login_logs',

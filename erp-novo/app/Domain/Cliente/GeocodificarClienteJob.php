@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cliente;
 
+use App\Domain\Integracao\ConsumoDeIntegracao;
 use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Tenant\TenantEnvelope;
 use App\Domain\Tenant\TenantEnvelopeDispatch;
@@ -85,6 +86,13 @@ class GeocodificarClienteJob implements ShouldQueue
 
         $endereco = $this->montarEndereco($cliente);
 
+        // F6-01 — a chamada e COBRADA por uso; quem gastou tem de ficar
+        // registrado. `grupo_id` do cliente e o mesmo dono cuja chave foi
+        // resolvida acima — se cair para a chave da plataforma, os dois ficam
+        // nulos e o consumo aparece como sendo dela, que e a verdade.
+        $consumo = app(ConsumoDeIntegracao::class);
+        $donoGrupo = $cliente->grupo_id !== null ? (int) $cliente->grupo_id : null;
+
         try {
             $resp = Http::timeout(10)->get('https://maps.googleapis.com/maps/api/geocode/json', [
                 'address' => $endereco,
@@ -93,6 +101,9 @@ class GeocodificarClienteJob implements ShouldQueue
 
             $loc = $resp->json('results.0.geometry.location');
             $type = $resp->json('results.0.geometry.location_type');
+
+            $consumo->registrar('geocoding', empresaId: (int) $cliente->empresa_id,
+                grupoId: $donoGrupo, finalidade: 'geocodificar_cliente');
 
             if (is_array($loc) && isset($loc['lat'], $loc['lng'])) {
                 $cliente->forceFill([
@@ -116,6 +127,10 @@ class GeocodificarClienteJob implements ShouldQueue
             // T5.0/T5.1: relançar é o ponto. Engolir aqui fazia `$tries = 3`
             // virar decoração — o job "sucedia" na primeira tentativa e a
             // falha transitória (timeout, 5xx da API) nunca era repetida.
+            $consumo->registrar('geocoding', empresaId: (int) $cliente->empresa_id,
+                grupoId: $donoGrupo, finalidade: 'geocodificar_cliente',
+                erro: true, mensagemErro: $e->getMessage());
+
             Log::warning('Geocoding do cliente falhou', [
                 'cliente_id' => $this->clienteId,
                 'tentativa' => $this->attempts(),
