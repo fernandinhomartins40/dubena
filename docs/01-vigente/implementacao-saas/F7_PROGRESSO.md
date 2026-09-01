@@ -162,10 +162,48 @@ O caso que o guardião prova pegar é o pior de todos: **linha editada sem mudan
 de contagem**. Com o hash cego aos valores (regressão plantada), dois testes
 falharam.
 
+## F7-02 — a máquina de estados que não era máquina
+
+Segunda tarefa que eu tinha classificado como "decisão de arquitetura" e que era,
+na verdade, correção pendente. O plano pede: *"estados felizes e bloqueantes;
+transição exige pré-condições e CAS/lock. `COMPLETED` não pode ser setado
+diretamente pelo job"*.
+
+### O que já estava certo
+
+As **pré-condições** viviam no `EtlRun`, e continuam onde estavam: invariante
+reprovada vira `FALHOU`, origem indisponível vira `FALHOU`, o resto vira
+`CONCLUIDA`. É o comando que sabe o que aconteceu na carga — mover isso para o
+registro seria piorar.
+
+### O que faltava: a máquina
+
+`encerrar()` aceitava **qualquer string** e fazia um `update` **incondicional**.
+Dois defeitos, ambos silenciosos:
+
+**Estado inventado.** `'CONCLUÍDA'` com acento gravaria um valor que nenhuma
+consulta encontra. A execução some do gate de cutover **sem sumir do banco** — o
+pior desfecho: não aparece no relatório e não há erro para investigar.
+
+Agora é enum (`SituacaoDaConversao`), como `SituacaoNota` e `EfeitoPedido` já
+eram nesta base. Estado desconhecido **lança**, e isso é deliberado: a regra
+"registro não derruba carga" vale para falha de infraestrutura — banco fora,
+tabela ausente. Erro de digitação é bug, e engoli-lo é o defeito.
+
+**O último a escrever vencia.** Um supervisor marca `INTERROMPIDA` porque o
+processo morreu por OOM; a thread agonizante ainda consegue escrever e chama
+`encerrar('CONCLUIDA')` — e uma carga incompleta passa a constar como concluída.
+
+O CAS resolve no BANCO (`where situacao = 'EM_ANDAMENTO'`), não em PHP:
+verificação em PHP perderia justamente a corrida que deveria arbitrar. E
+`encerrar()` agora devolve `bool` — `false` diz "outro chegou antes", em vez de
+mentir por omissão.
+
+Com o `where` removido (regressão plantada), dois testes falharam.
+
 ## Aberto
 
 Da **F7-03**, o que depende de staging: LOB integral e "carga nova nunca derruba
-a última boa". E a parte de CAS/lock da **F7-02** — a máquina de estados atual
-não tem transição concorrente que a exercite.
-
-As duas continuam sendo decisão de arquitetura do ETL, não correção pendente.
+a última boa" — as duas pressupõem uma área para onde copiar a fonte bruta, que
+este ETL não tem. Essa continua sendo decisão de arquitetura, não correção
+pendente.

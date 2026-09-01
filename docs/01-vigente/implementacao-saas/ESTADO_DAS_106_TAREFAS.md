@@ -22,7 +22,7 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F4 | 7 | fechada — `F4_FECHAMENTO.md` |
 | F5 | 11 | 10 fechadas; F5-09 é operação |
 | F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
-| F7 | **14** | 12 fechadas; **F7-12 aberta**; F7-03 parcial (falta o que exige staging); CAS de F7-02 parcial |
+| F7 | **14** | 13 fechadas; **F7-12 aberta** (operação); F7-03 parcial (falta o que exige staging) |
 | F8 | 9 | só o item de código do gate; o resto é operação |
 | F9 | 9 | 8 fechadas; F9-07 entregue (medicao); F9-08 parcial |
 | F10 | 7 | **intocada** — depende de um segundo cliente real |
@@ -38,12 +38,25 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F10-01 a F10-07 | exige um **segundo cliente real** com convenções diferentes |
 | F7-12 | runbook de cutover com RTO/RPO e responsáveis nomeados |
 
+### ⚠️ Cuidado com esta seção
+
+Duas tarefas que estiveram aqui — **F7-02** e **F7-03** — eram, na verdade,
+trabalho de código pendente. Eu as classifiquei como bloqueadas lendo a
+exigência mais cara da lista (*"fonte bruta imutável"*, *"CAS/lock"*) e
+concluindo que a tarefa inteira dependia dela.
+
+O critério que funciona é ler a tarefa **item a item**: F7-03 tem sete
+exigências e só duas precisam de staging; F7-02 tem pré-condições (que já
+existiam, no `EtlRun`) e a máquina de estados (que não existia).
+
+"Depende de arquitetura" é uma conclusão que precisa valer para **cada** parte da
+tarefa — senão vira desculpa para não entregar as partes que dariam.
+
 ### Depende de decisão de arquitetura
 
 | Tarefa | Por quê |
 |---|---|
 | F7-03 (parte) | LOB integral e "carga nova não derruba a boa" pressupõem área de *staging*. As outras cinco exigências — manifesto, schema, hashes, contagens, watermark — **foram entregues**: eu tinha classificado a tarefa inteira errado |
-| F7-02 (CAS) | idem — a máquina de estados atual não tem transição concorrente |
 
 ### Trabalho de código ainda por fazer
 
@@ -58,6 +71,7 @@ O levantamento abaixo é por **verificação**, não por memória.
 |---|---|
 | F6-01 | quota, custo, finalidade e health por conta de integração — `integracao_consumos` |
 | F7-10 / F7-11 | invariante `INCONCLUSIVA`; seeders sem senha conhecida |
+| F7-02 | máquina de estados com enum e CAS — `encerrar()` não sobrescreve desfecho já registrado, e estado inventado lança em vez de virar linha invisível |
 | F7-03 (5 de 7) | retrato da fonte legada com hash por tabela — `conversao:snapshot --comparar` reprova se a fonte mudou desde o ensaio |
 | F7-13 | bundle imutável de evidência com SHA-256 — `conversao:evidencia` |
 | F9-07 (1ª parte) | medição de uso das pontes por (ponte, endpoint, empresa, dia) — `ponte:uso` |

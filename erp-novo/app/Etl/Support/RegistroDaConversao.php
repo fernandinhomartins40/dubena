@@ -50,31 +50,89 @@ class RegistroDaConversao
     }
 
     /**
-     * Fecha a execução.
+     * Fecha a execução, com CAS (F7-02).
      *
      * `INTERROMPIDA` é um estado de verdade: um ETL de 3 GB morre por OOM ou por
      * sessão fechada, e o registro precisa dizer isso em vez de ficar "em
      * andamento" para sempre — linha eternamente aberta é indistinguível de
      * carga rodando agora.
+     *
+     * @param  string  $situacao  um caso de `SituacaoDaConversao`; qualquer outro
+     *                            valor LANÇA (é bug, não infortúnio de infra)
+     * @return bool true se ESTA chamada encerrou. `false` significa que outro
+     *              processo chegou antes — e quem já encerrou, encerrou.
      */
-    public function encerrar(string $situacao, string $resumo = '', array $totais = []): void
+    public function encerrar(string $situacao, string $resumo = '', array $totais = []): bool
     {
         if ($this->execucaoId === null) {
-            return;
+            return false;
+        }
+
+        // Estado inválido é DEFEITO DE CÓDIGO, e por isso lança em vez de ser
+        // engolido pelo `catch` de baixo.
+        //
+        // A regra "registro não derruba carga" existe para falha de
+        // INFRAESTRUTURA — banco fora, tabela ausente. Um `'CONCLUÍDA'` com
+        // acento não é infortúnio: é bug, e gravá-lo em silêncio deixaria a
+        // execução invisível para o gate de cutover, que procura `CONCLUIDA`
+        // exato. Some do relatório sem sumir do banco — o pior desfecho.
+        $destino = SituacaoDaConversao::tryFrom($situacao);
+
+        if ($destino === null) {
+            throw new \InvalidArgumentException(
+                "Situação de conversão desconhecida: '{$situacao}'. ".
+                'Use um caso de '.SituacaoDaConversao::class.'.',
+            );
+        }
+
+        if (! $destino->final()) {
+            throw new \InvalidArgumentException(
+                "encerrar() só aceita estado final; '{$situacao}' não encerra nada.",
+            );
         }
 
         try {
-            DB::table('conversao_execucoes')->where('id', $this->execucaoId)->update([
-                'situacao' => $situacao,
-                'encerrada_em' => now(),
-                'resumo' => $resumo !== '' ? mb_substr($resumo, 0, 60000) : null,
-                'linhas_lidas' => $totais['lidas'] ?? 0,
-                'linhas_gravadas' => $totais['gravadas'] ?? 0,
-                'linhas_quarentena' => $totais['quarentena'] ?? 0,
-                'updated_at' => now(),
-            ]);
+            // CAS: só encerra quem ainda está EM_ANDAMENTO.
+            //
+            // Sem o `where` da situação, o `update` era incondicional e o
+            // ÚLTIMO a escrever venceria. Dois desfechos ruins que isso abria:
+            //
+            //  - um processo que morreu e foi marcado INTERROMPIDA por um
+            //    supervisor voltava a CONCLUIDA se a thread agonizante ainda
+            //    conseguisse escrever;
+            //  - uma segunda execução do mesmo id sobrescreveria o desfecho da
+            //    primeira, apagando a evidência de que houve falha.
+            //
+            // Quem já encerrou, encerrou. A condição é resolvida pelo BANCO,
+            // não em PHP — verificação em PHP perderia a corrida que ela mesma
+            // deveria arbitrar.
+            $linhas = DB::table('conversao_execucoes')
+                ->where('id', $this->execucaoId)
+                ->where('situacao', SituacaoDaConversao::EM_ANDAMENTO->value)
+                ->update([
+                    'situacao' => $destino->value,
+                    'encerrada_em' => now(),
+                    'resumo' => $resumo !== '' ? mb_substr($resumo, 0, 60000) : null,
+                    'linhas_lidas' => $totais['lidas'] ?? 0,
+                    'linhas_gravadas' => $totais['gravadas'] ?? 0,
+                    'linhas_quarentena' => $totais['quarentena'] ?? 0,
+                    'updated_at' => now(),
+                ]);
+
+            return $linhas === 1;
         } catch (\Throwable) {
             // idem: registro não derruba carga.
+            //
+            // ⚠️ Este `false` e o de cima significam coisas DIFERENTES: aqui a
+            // escrita falhou e a execução ficou eternamente `EM_ANDAMENTO`; lá
+            // em cima outro processo encerrou primeiro, que é o desfecho
+            // esperado.
+            //
+            // Nenhum chamador usa o retorno hoje, então não há defeito ativo.
+            // Quem passar a usá-lo para decidir algo precisa separar os dois —
+            // e o lugar de separar é aqui, devolvendo um enum ou lançando, não
+            // no chamador tentando adivinhar.
+            return false;
         }
     }
 
