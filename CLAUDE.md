@@ -151,6 +151,13 @@ zero arquivos e passava; `assertSame(f($x), f($x))` na matemática CNAB; guardi�
 de `whereBetween` que não pegou a regressão nas duas primeiras versões. Todo
 teste que varre arquivo precisa de `assertGreaterThan(N, $varridos)`.
 
+**Teste pode passar pela verificação ERRADA.** `test_execucao_sem_desfecho`
+passava — mas porque a verificação *seguinte* também reprovava aquele cenário, e
+a mensagem dela por acaso continha a palavra asserida. Desativei a checagem que
+o teste dizia cobrir e **nenhum teste falhou**. Quando um cenário viola várias
+regras ao mesmo tempo, isole: satisfaça todas as outras e deixe só a que se quer
+medir.
+
 **Teste preso ao formato de serialização vira falso positivo.** Um teste fixava
 `'2026-09-15T00:00:00.000000Z'`; ao corrigir o fuso da plataforma a data
 continuou certa e só a representação mudou — mas o teste quebrou, fazendo a

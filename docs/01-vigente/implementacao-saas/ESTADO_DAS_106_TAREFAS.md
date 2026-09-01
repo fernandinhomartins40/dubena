@@ -22,7 +22,7 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F4 | 7 | fechada — `F4_FECHAMENTO.md` |
 | F5 | 11 | 10 fechadas; F5-09 é operação |
 | F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
-| F7 | **14** | 13 fechadas; **F7-12 aberta** (operação); F7-03 parcial (falta o que exige staging) |
+| F7 | **14** | 13 fechadas + o pós-check de F7-12; o resto de F7-12 é operação; F7-03 parcial (falta o que exige staging) |
 | F8 | 9 | só o item de código do gate; o resto é operação |
 | F9 | 9 | 8 fechadas; F9-07 entregue (medicao); F9-08 parcial |
 | F10 | 7 | **intocada** — depende de um segundo cliente real |
@@ -34,9 +34,9 @@ O levantamento abaixo é por **verificação**, não por memória.
 | Tarefa | Por quê |
 |---|---|
 | F5-09 | homologação fiscal exige especialista contábil e ambiente oficial da SEFAZ |
-| F8-01 a F8-09 | ensaio da conversão com dados reais; decisões caso a caso e quatro aprovações |
+| F8-01 a F8-09 | ensaio da conversão com dados reais; decisões caso a caso e quatro aprovações. Exceção: a **propriedade** exigida por F8-07 (segunda execução determinística e idempotente) é verificável por código e **foi entregue** — o ensaio em si continua sendo operação |
 | F10-01 a F10-07 | exige um **segundo cliente real** com convenções diferentes |
-| F7-12 | runbook de cutover com RTO/RPO e responsáveis nomeados |
+| F7-12 (o resto) | freeze, delta, shadow target, switch, blue/green e RTO/RPO com responsáveis nomeados. O **pós-check**, que era a parte de código, foi entregue |
 
 ### ⚠️ Cuidado com esta seção
 
@@ -71,6 +71,8 @@ tarefa — senão vira desculpa para não entregar as partes que dariam.
 |---|---|
 | F6-01 | quota, custo, finalidade e health por conta de integração — `integracao_consumos` |
 | F7-10 / F7-11 | invariante `INCONCLUSIVA`; seeders sem senha conhecida |
+| F8-07 (a propriedade) | teste de determinismo: rodar duas vezes produz o mesmo estado, **com os mesmos ids**. A idempotência já estava implementada (`upsert`); o que faltava era a prova — todo teste de migrador rodava a carga uma vez |
+| F7-12 (pós-check) | `cutover:pos-check` — sequências atrás do maior id, execução sem desfecho, quarentena pendente, job falhado. Os portões que havia eram todos PRÉ-switch |
 | F7-02 | máquina de estados com enum e CAS — `encerrar()` não sobrescreve desfecho já registrado, e estado inventado lança em vez de virar linha invisível |
 | F7-03 (5 de 7) | retrato da fonte legada com hash por tabela — `conversao:snapshot --comparar` reprova se a fonte mudou desde o ensaio |
 | F7-13 | bundle imutável de evidência com SHA-256 — `conversao:evidencia` |

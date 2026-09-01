@@ -74,3 +74,40 @@ Faltavam duas coisas:
 **F8-01 a F8-09 inteiras**, como operação. O primeiro passo é rodar
 `etl:run --dry-run --check` contra a cópia e ler o relatório com quem conhece a
 operação — a mesma natureza do F4-07 e do F5-09.
+
+## F8-07 — a propriedade, entregue; o ensaio, não
+
+A tarefa pede *"repetir do zero; o segundo resultado deve ser determinístico e
+idempotente"*. Isso tem duas partes, e só uma é operação.
+
+**Repetir do zero com dados reais** é o ensaio — precisa da base real e de quem
+conheça a operação para conferir. Continua aberto.
+
+**"Determinístico e idempotente"** é uma propriedade do código, e é verificável
+agora. A idempotência **já estava implementada** — `PreservaIdsDoLegado` escreve
+por `upsert`, e vários migradores comentam a decisão. O que faltava era a prova:
+**todo teste de migrador rodava a carga uma vez**.
+
+### O que o teste exige, além de "não explodir"
+
+ - a mesma quantidade de linhas — senão a recarga duplica;
+ - **os mesmos ids**, e este é o que dói. Id que muda entre execuções quebra toda
+   referência já gravada: linhagem da conversão, `erp_id` do app, qualquer coisa
+   que tenha guardado o número. O dado "está lá" e aponta para outra linha, sem
+   erro e sem log;
+ - o mesmo conteúdo, campo a campo;
+ - **as invariantes passando depois da segunda carga.** Uma recarga que passa na
+   primeira e reprova na segunda é pior que uma que falha sempre: dá confiança no
+   ensaio e quebra no cutover, a única execução que não dá para repetir.
+
+### Um comportamento fixado de propósito
+
+`test_recarga_sobrescreve_edicao_local_e_isso_e_esperado` documenta que o
+`upsert` preserva o **id**, não o conteúdo: edição feita no sistema novo é
+sobrescrita pela recarga.
+
+Isso não é defeito — é a razão de existir a trava do `etl:run`. O teste está lá
+para que ninguém "conserte" o upsert achando que ele deveria preservar edição.
+
+Com `updateOrCreate` trocado por `create` (regressão plantada), os três testes
+falharam.

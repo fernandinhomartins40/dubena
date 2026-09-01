@@ -201,6 +201,85 @@ mentir por omissão.
 
 Com o `where` removido (regressão plantada), dois testes falharam.
 
+## F7-12 — o pós-check, que é a parte de código
+
+A tarefa pede *"freeze ou CDC/journal, delta, shadow target, switch atômico,
+**pós-check**, blue/green e rollback com RTO/RPO/responsáveis"*. Quase tudo é
+operação — mas **pós-check é código**, e não existia.
+
+### Os portões que havia eram todos PRÉ-switch
+
+| Comando | Pergunta | Quando |
+|---|---|---|
+| `cutover:check` | os dados batem com a origem? | antes — precisa da conexão legada |
+| `golive:check` | a configuração está pronta? | antes — config, não operação |
+| `cutover:pos-check` | o sistema está sadio agora? | **depois** |
+
+A distinção não é acadêmica: depois do switch a origem pode nem existir mais, e
+ninguém reexecuta invariante de comparação. A pergunta muda de *"a carga trouxe
+tudo?"* para *"a operação consegue trabalhar?"*.
+
+### O que se mede depois
+
+O critério foi: o que, quebrado, **para a revenda em minutos** e só aparece com
+tráfego real.
+
+ - **sequência atrás do maior id** — o defeito clássico de carga por `insert` com
+   id explícito. A sequence continua em 1 com 40 mil linhas na tabela, e o
+   primeiro pedido novo colide com um migrado. O erro na tela é violação de
+   chave, que ninguém associa ao cutover;
+ - **execução eternamente `EM_ANDAMENTO`** — indistinguível de carga rodando
+   agora; alguém espera por um processo morto;
+ - **quarentena pendente** — dado que não entrou, e ninguém sabe qual;
+ - **job falhado depois do switch** — nota não emitida, boleto não registrado, e
+   a revenda descobre pelo cliente;
+ - **empresa sem tenant** — AVISO, não falha (ver abaixo).
+
+### Aviso × falha, e por que importa
+
+`empresa sem tenant_account_id` deixa a revenda invisível para a RLS. Mas a
+coluna é aditiva e quem a preenche é a conversão: num banco que ainda não
+converteu, nulo é o estado **normal** — inclusive o que `Empresa::factory()`
+produz.
+
+Reprovar por isso faria o comando reprovar sempre fora do cutover, e **portão que
+sempre reprova é portão que se aprende a ignorar** — justamente quando estiver
+certo. Quem trata isso como bloqueio é o `golive:check`, que verifica prontidão.
+
+Já **zero empresas** é falha: o vazio satisfaria "nenhuma sem tenant" sem
+satisfazer a intenção. Mesma armadilha do registry vazio.
+
+### Validado contra Postgres real, não só em sqlite
+
+A verificação de sequências é a única que sqlite **não exercita** — e é a mais
+importante das cinco. Rodei o comando contra um banco Postgres recém-migrado na
+VPS:
+
+```
+Sequências
+  PASS 219 sequência(s) à frente do maior id
+```
+
+Depois plantei o defeito (`insert` com id 500 + `setval(seq, 1, false)`):
+
+```
+Sequências
+  FAIL 219 sequência(s) à frente do maior id — estados (próximo 1 ≤ maior id 500)
+```
+
+É exatamente o cenário que trava a primeira venda depois do cutover, e o comando
+aponta a tabela e os dois números.
+
+### Um teste meu que não cobria o que prometia
+
+`test_execucao_sem_desfecho_reprova` passava — mas passava porque a verificação
+*seguinte* (`a última carga terminou CONCLUIDA`) também reprovava aquele cenário,
+e a mensagem dela por acaso continha a palavra que eu asseria.
+
+Descobri plantando a regressão: desativei a checagem de execução aberta e
+**nenhum teste falhou**. Corrigido criando uma carga concluída antes, para
+isolar o caso. Com a regressão replantada, o teste agora reprova.
+
 ## Aberto
 
 Da **F7-03**, o que depende de staging: LOB integral e "carga nova nunca derruba
