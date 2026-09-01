@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { EmpresaSwitcher } from './EmpresaSwitcher'
+import { useTituloDoTenant } from '@/lib/titulo'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, Tooltip, Button,
@@ -82,6 +83,12 @@ const ORDEM_GRUPOS = ['Geral', 'Cadastros', 'Operações', 'Financeiro', 'CRM', 
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout, can, hasFeature } = useAuth()
+
+  // F9-06 — a aba do navegador mostra o nome de quem esta logado, nao o da
+  // primeira revenda. Fica no shell porque e o unico ponto por onde toda tela
+  // autenticada passa.
+  useTituloDoTenant()
+
   const navigate = useNavigate()
   // `open` = sidebar recolhida/expandida no DESKTOP (md+).
   const [open, setOpen] = useState(true)

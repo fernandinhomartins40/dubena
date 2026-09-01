@@ -169,3 +169,34 @@ describe('fronteira entre plataforma e tenant no cache', () => {
     }
   })
 })
+
+/**
+ * F9-06 — branding neutro no que a plataforma serve a todas as revendas.
+ *
+ * O `index.html` trazia `Dubena · ERP` — a primeira revenda, no titulo da aba de
+ * TODAS. Num produto para N revendas isso e branding alheio em cima do proprio
+ * trabalho do cliente.
+ *
+ * O HTML e servido antes de saber quem esta logado, entao o nome so pode entrar
+ * em runtime; o que fica no arquivo tem de ser neutro.
+ */
+describe('branding neutro na casca da aplicacao', () => {
+  it('o HTML servido nao carrega nome de revenda', () => {
+    const arquivos = import.meta.glob('../../index.html', {
+      eager: true, query: '?raw', import: 'default',
+    }) as Record<string, string>
+
+    const html = Object.values(arquivos)[0] ?? ''
+
+    // A assercao de que ACHOU vem primeiro: glob que nao casa devolve vazio, e
+    // o teste passaria protegendo nada.
+    expect(html.length).toBeGreaterThan(200)
+
+    const titulo = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? ''
+
+    expect(titulo).not.toBe('')
+    for (const termo of ['Dubena', 'Guarapuava', 'Gas em Casa']) {
+      expect(titulo.toLowerCase()).not.toContain(termo.toLowerCase())
+    }
+  })
+})

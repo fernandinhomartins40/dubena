@@ -90,7 +90,19 @@ class EscritaRestauradaTest extends TestCase
                 'fim' => '2026-09-15',
             ])
             ->assertOk()
-            ->assertJsonPath('data.fim', '2026-09-15T00:00:00.000000Z');
+            // A asserção é sobre a DATA, não sobre a serialização.
+            //
+            // Antes fixava `2026-09-15T00:00:00.000000Z` — o formato ISO em UTC.
+            // Com o fuso da plataforma corrigido para America/Sao_Paulo (F9-06),
+            // a mesma data sai com o deslocamento de −3h, e a asserção literal
+            // quebrava sem que nada de errado tivesse acontecido.
+            //
+            // Prender teste ao formato de serialização é o que faz uma correção
+            // legítima parecer regressão.
+            ->assertJsonPath(
+                'data.fim',
+                fn (?string $fim) => str_starts_with((string) $fim, '2026-09-15'),
+            );
 
         $this->actingAs($user, 'sanctum')
             ->deleteJson("/api/admin/colaboradores/{$c->id}/recessos/{$criado['id']}")

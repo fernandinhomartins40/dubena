@@ -59,13 +59,24 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | F9-06 — o DEFAULT da plataforma é explícito, e não `UTC` por herança.
+    |
+    | O padrão do Laravel é UTC, e ficou assim. Só que a operação é brasileira:
+    | às 22h em Guarapuava o sistema gravava 01h do DIA SEGUINTE. Toda venda
+    | feita depois das 21h caía no dia errado — e com ela o fechamento diário,
+    | a comissão do entregador e o DRE do dia.
+    |
+    | O modo de falhar é o desta transformação inteira: silencioso e plausível.
+    | Ninguém confere se o pedido das 22h está no relatório de ontem ou de hoje;
+    | percebe-se quando o total do dia não bate com o caixa.
+    |
+    | `env` porque o timezone é da PLATAFORMA, não da revenda: uma revenda em
+    | outro fuso muda o dela na configuração da empresa, não aqui. O que muda
+    | aqui é o default de quem não declarou nada.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'America/Sao_Paulo'),
 
     /*
     |--------------------------------------------------------------------------
