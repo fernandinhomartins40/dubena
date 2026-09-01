@@ -13,6 +13,7 @@ use App\Models\Monitora\VeiculoTipo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 /**
@@ -192,6 +193,64 @@ class TraccarRastreamentoTest extends TestCase
         $veiculo = $this->veiculoComImei('467857');
 
         $this->assertSame(0, app(MonitoraSyncService::class)->sincronizar($veiculo->empresa_id));
+    }
+
+    /**
+     * F6-02 — o device desconhecido e descartado, mas NAO em silencio.
+     *
+     * O descarte esta certo: a lista pedida ao provedor sai dos veiculos desta
+     * empresa, entao posicao de IMEI que nao consta e dado que nao e dela.
+     *
+     * O que faltava era o rastro. Um rastreador instalado num caminhao que
+     * ninguem cadastrou reporta a noite toda e nao aparece em lugar nenhum — o
+     * veiculo fica invisivel no mapa, e ninguem sente falta do que nunca viu.
+     *
+     * O teste vai ao DRIVER e nao ao servico: e no driver que o filtro por IMEI
+     * conhecido acontece, e portanto onde o device desconhecido some.
+     */
+    public function test_device_desconhecido_fica_registrado(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar([], imei: '999999');
+
+        $capturado = [];
+        Log::listen(function ($evento) use (&$capturado) {
+            $capturado[] = $evento;
+        });
+
+        // Pede posicoes de um IMEI; o provedor responde com OUTRO.
+        $posicoes = app(SgcasaDriver::class)->buscarPosicoes(['467857']);
+
+        $this->assertSame([], $posicoes, 'posicao de device alheio nao entra');
+
+        $aviso = collect($capturado)->first(
+            fn ($e) => str_contains($e->message, 'Rastreador reportando'),
+        );
+
+        $this->assertNotNull($aviso, 'o descarte precisa deixar rastro');
+
+        // `array_keys` devolve int quando a chave é numérica — o IMEI vira
+        // 999999, não '999999'. Comparar como string é o que interessa aqui.
+        $this->assertSame(['999999'], array_map('strval', $aviso->context['imeis']));
+        $this->assertSame(1, $aviso->context['posicoes_descartadas']);
+    }
+
+    /** Rodada normal nao gera aviso — alarme que sempre toca e desligado. */
+    public function test_rodada_normal_nao_gera_aviso(): void
+    {
+        $this->configurarTraccar();
+        $this->fingirTraccar();
+
+        $capturado = [];
+        Log::listen(function ($evento) use (&$capturado) {
+            $capturado[] = $evento;
+        });
+
+        app(SgcasaDriver::class)->buscarPosicoes(['467857']);
+
+        $this->assertNull(
+            collect($capturado)->first(fn ($e) => str_contains($e->message, 'Rastreador reportando')),
+        );
     }
 
     /**

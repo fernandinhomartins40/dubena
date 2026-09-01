@@ -3,6 +3,7 @@
 namespace App\Domain\Monitora;
 
 use App\Domain\Monitora\Contracts\SgcasaDriver;
+use App\Models\Empresa;
 use App\Models\Monitora\Veiculo;
 use Illuminate\Support\Carbon;
 
@@ -16,8 +17,7 @@ class MonitoraSyncService
     public function __construct(
         private SgcasaDriver $sgcasa,
         private MonitoraService $monitora,
-    ) {
-    }
+    ) {}
 
     /** Sincroniza posições dos veículos ativos de uma empresa. @return int posições ingeridas */
     public function sincronizar(int $empresaId): int
@@ -42,7 +42,11 @@ class MonitoraSyncService
 
         foreach ($posicoes as $p) {
             $veiculo = $veiculos->get($p['imei']);
+
             if (! $veiculo) {
+                // Rede de segurança: o driver já filtra por IMEI conhecido (e é
+                // lá que o device desconhecido fica registrado, F6-02). Chegar
+                // aqui significaria driver devolvendo o que não foi pedido.
                 continue;
             }
 
@@ -144,7 +148,7 @@ class MonitoraSyncService
             Veiculo::query()->whereNotNull('imei')->pluck('imei')->all()
         );
 
-        $empresa = \App\Models\Empresa::find($empresaId);
+        $empresa = Empresa::find($empresaId);
         if (! $empresa) {
             return 0;
         }

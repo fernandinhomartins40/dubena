@@ -3,6 +3,7 @@
 namespace App\Domain\Monitora\Drivers;
 
 use App\Domain\Monitora\Contracts\SgcasaDriver;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -82,9 +83,28 @@ class TraccarDriver implements SgcasaDriver
             $limite = now()->addMinutes(self::TOLERANCIA_FUTURO_MINUTOS);
             $saida = [];
 
+            // F6-02 — devices que reportaram e não pertencem a esta empresa.
+            // Agregado por IMEI: com polling a cada 30 s, um rastreador não
+            // cadastrado produziria milhares de linhas por noite, e log que
+            // ninguém consegue ler é tão útil quanto nenhum.
+            $desconhecidos = [];
+
             foreach ($posicoes->json() ?? [] as $p) {
                 $imei = $imeiPorDevice[(int) ($p['deviceId'] ?? 0)] ?? '';
+
                 if ($imei === '' || ! isset($procurados[$imei])) {
+                    // O descarte está CERTO — a lista pedida sai dos veículos
+                    // desta empresa, então posição de IMEI que não consta é dado
+                    // que não é dela.
+                    //
+                    // O que faltava é o rastro. Um rastreador instalado num
+                    // caminhão que ninguém cadastrou reporta a noite toda e não
+                    // aparece em lugar nenhum: o veículo fica invisível no mapa,
+                    // e ninguém sente falta do que nunca viu.
+                    if ($imei !== '') {
+                        $desconhecidos[$imei] = ($desconhecidos[$imei] ?? 0) + 1;
+                    }
+
                     continue;
                 }
 
@@ -113,6 +133,16 @@ class TraccarDriver implements SgcasaDriver
                     'ignicao' => $this->ignicao($p),
                     'registrado_em' => $quando->toDateTimeString(),
                 ];
+            }
+
+            if ($desconhecidos !== []) {
+                // `warning` e não `error`: não é falha do sistema, é
+                // configuração faltando. Erro que não exige ação imediata treina
+                // quem opera a ignorar erros.
+                Log::warning('Rastreador reportando sem veículo cadastrado.', [
+                    'imeis' => array_keys($desconhecidos),
+                    'posicoes_descartadas' => array_sum($desconhecidos),
+                ]);
             }
 
             return $saida;
@@ -174,12 +204,12 @@ class TraccarDriver implements SgcasaDriver
      * usar o horário do servidor colocaria no mapa um trajeto que não aconteceu
      * naquela hora.
      */
-    private function momento(array $p): ?\Illuminate\Support\Carbon
+    private function momento(array $p): ?Carbon
     {
         foreach (['fixTime', 'deviceTime', 'serverTime'] as $campo) {
             if (! empty($p[$campo])) {
                 try {
-                    return \Illuminate\Support\Carbon::parse($p[$campo]);
+                    return Carbon::parse($p[$campo]);
                 } catch (\Throwable) {
                     continue;
                 }
