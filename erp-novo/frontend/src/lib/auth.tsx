@@ -121,7 +121,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null)
       }
     },
-    onSuccess: () => qc.setQueryData(['me'], null),
+    /**
+     * F9-03 — o cache inteiro morre no logout, não só o `['me']`.
+     *
+     * Antes só `['me']` era zerado, e o resto ficava: clientes, pedidos,
+     * financeiro da sessão anterior seguiam em memória. Numa revenda só isso
+     * passava despercebido — o próximo login era a mesma pessoa.
+     *
+     * Num SaaS é vazamento entre concorrentes: A sai, B entra na mesma máquina,
+     * e vê a carteira de A na tela até o refetch chegar. As telas renderizam
+     * dado cacheado imediatamente, por desenho do React Query.
+     *
+     * A ordem importa. `cancelQueries` primeiro: uma requisição EM VOO,
+     * disparada com o token de A, chega depois do `clear()` e repovoa o cache
+     * já sob a sessão de B. Cancelar antes de limpar fecha essa janela.
+     */
+    onSuccess: async () => {
+      await qc.cancelQueries()
+      qc.clear()
+    },
   })
 
   const value: AuthContextValue = {

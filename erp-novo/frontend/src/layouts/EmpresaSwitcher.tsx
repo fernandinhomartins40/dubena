@@ -48,12 +48,29 @@ export function EmpresaSwitcher() {
   const empresaFiltrada = filtro ? empresas.find((e) => e.id === filtro) : null
   const rotulo = empresaFiltrada ? nomeDe(empresaFiltrada) : 'Toda a rede'
 
-  /** Recarrega tudo: a troca muda o conjunto de dados visível. */
-  const recarregar = () => qc.invalidateQueries()
+  /**
+   * Recarrega tudo: a troca muda o conjunto de dados visível.
+   *
+   * F9-03 — `invalidateQueries` sozinho deixa uma janela aberta. Ele marca as
+   * queries como obsoletas e dispara o refetch, mas **o dado antigo continua no
+   * cache até a resposta chegar** — e as telas o renderizam nesse intervalo.
+   *
+   * Numa rede de filiais isso é um susto ("cadê meus pedidos?"). Entre revendas
+   * concorrentes é vazamento: por alguns segundos a tela mostra a carteira da
+   * outra empresa com o rótulo da nova no cabeçalho.
+   *
+   * `cancelQueries` primeiro, pelo mesmo motivo do logout: uma requisição em voo
+   * disparada com o filtro ANTIGO chega depois e repovoa o cache já sob o
+   * contexto novo.
+   */
+  const recarregar = async () => {
+    await qc.cancelQueries()
+    qc.removeQueries()
+  }
 
   async function verTodaARede() {
     setFiltroEmpresa(null)
-    recarregar()
+    await recarregar()
     toast.success('Mostrando toda a rede.')
   }
 
@@ -65,7 +82,7 @@ export function EmpresaSwitcher() {
         await ativar.mutateAsync(id)
         await refresh()
       }
-      recarregar()
+      await recarregar()
       toast.success(`Mostrando ${nome}.`)
     } catch {
       setFiltroEmpresa(filtro)
