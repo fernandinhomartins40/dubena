@@ -11,6 +11,22 @@ Duas das quatro que pulei tinham defeito real. Estão corrigidas (commit
 
 O levantamento abaixo é por **verificação**, não por memória.
 
+## Onde o plano está, em uma frase
+
+**O trabalho de código do plano está esgotado.** O que resta exige três coisas
+que não se programam: um **ensaio da conversão com dados reais** (F8), um
+**segundo cliente real** com convenções diferentes (F10), e **decisões humanas** —
+homologação fiscal com contador (F5-09), titularidade dos tenants (F1-10),
+runbook de cutover com responsáveis nomeados (F7-12).
+
+Duas exceções conhecidas, e ambas por falta de ferramenta, não de decisão:
+os 4 cenários de navegador de F9-08 (exigem Playwright, que o projeto não usa) e
+a parte de F7-03 que pressupõe área de *staging*.
+
+⚠️ Antes de aceitar qualquer linha desta página como "bloqueado", leia o aviso da
+seção **Cuidado com esta seção**: nesta rodada, **cinco** tarefas classificadas
+como bloqueadas tinham código pendente dentro delas.
+
 ## Resumo
 
 | Fase | Tarefas | Estado |
@@ -23,9 +39,9 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F5 | 11 | 10 fechadas; F5-09 é operação |
 | F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
 | F7 | **14** | 13 fechadas + o pós-check de F7-12; o resto de F7-12 é operação; F7-03 parcial (falta o que exige staging) |
-| F8 | 9 | só o item de código do gate; o resto é operação |
+| F8 | 9 | a **propriedade** de F8-07 (determinismo/idempotência) entregue; o ensaio com dados reais é operação |
 | F9 | 9 | 8 fechadas; F9-07 entregue (medição); F9-08 com os 3 cenários de backend cobertos — faltam os 4 de navegador |
-| F10 | 7 | **intocada** — depende de um segundo cliente real |
+| F10 | 7 | F10-06 **já é aplicado** pelo `ApiContratoDriftTest`; as outras 6 dependem de um segundo cliente real |
 
 ## O que está aberto, nomeadamente
 
