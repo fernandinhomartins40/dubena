@@ -2,7 +2,7 @@
 
 Data: 2026-08-31 (America/Sao_Paulo)
 
-## As nove tarefas
+## As quatorze tarefas
 
 | Tarefa | Estado | Onde |
 |---|---|---|
@@ -16,6 +16,10 @@ Data: 2026-08-31 (America/Sao_Paulo)
 | F7-07 — Quarentena | fechada | um registro por decisão, com payload bruto |
 | F7-08 — Erros | **já estava** | "origem indisponível" ≠ "origem vazia" |
 | F7-09 — Exclusão mútua | fechada | lock por destino, liberado em `finally` |
+| F7-10 — Invariantes | fechada | `INCONCLUSIVA` — fonte ausente não é aprovação |
+| F7-11 — Seed | fechada | senha do ambiente; fixture recusa produção |
+| F7-12 — Cutover | **aberta** | runbook com RTO/RPO é artefato de operação |
+| F7-13 — Evidência | **aberta** | matéria-prima existe; falta formato e quem assina |
 
 ## O que o ETL já tinha, e é bastante
 
@@ -28,7 +32,12 @@ Ele já distinguia **"origem indisponível" de "origem vazia"**, que é o espír
 do F7-08: a primeira significa carga incompleta e não pode ser lida como sucesso
 por um script de deploy.
 
-## Os dois defeitos encontrados
+> ⚠️ **Correção de um erro meu.** A primeira versão deste documento dizia "as
+> nove tarefas". F7 tem **14** — o `sed` com que li o plano cortou o intervalo
+> antes de F7-10, e não conferi a contagem. Duas das quatro que pulei tinham
+> defeito real, corrigido em `583bafd9`.
+
+## Os quatro defeitos encontrados
 
 **Lista de migradores vazia produzia SUCESSO** (F7-04A). Com o registry vazio, o
 loop não roda, nada falha, e o comando imprime "ETL concluído" com `SUCCESS`. Um
@@ -45,6 +54,18 @@ o resultado é uma carga que parece bem-sucedida com estado misturado.
 
 O `Isolatable` do Laravel resolveria, mas só quando alguém passa `--isolated`. A
 proteção que depende de lembrar não protege.
+
+**Fonte ausente valia como aprovação** (F7-10). `InvariantResult` só tinha `ok` e
+`falha`, e `BalanceInvariant` devolvia **`ok`** para "sem movimentos no recorte".
+
+A mesma resposta servia para dois fatos opostos: antes da carga, "sem movimentos"
+é o esperado; **depois** dela, significa que a carga não trouxe nada — e o portão
+do cutover aprovava assim mesmo.
+
+**Senha conhecida em seeder** (F7-11). `AcessoRedeDubenaSeeder` tinha
+`env('DONO_SEED_PASSWORD', 'dono@2026')` — o default entra sozinho quando a
+variável falta, e esse usuário é o **dono da rede**, que enxerga todas as
+filiais.
 
 ## Três tabelas, não oito
 
