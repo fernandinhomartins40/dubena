@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -235,7 +236,20 @@ class CutoverPosCheck extends Command
         $this->line('Tenancy');
 
         try {
-            $total = DB::table('empresas')->count();
+            // Pelo OWNER, não pela conexão do runtime.
+            //
+            // `empresas` está sob RLS, e este comando roda sem envelope de
+            // tenant — pelo runtime, `count()` devolve **zero mesmo com 12
+            // empresas no banco**. Aconteceu: rodei em homologação e o
+            // pós-check reprovou dizendo "nenhuma empresa cadastrada".
+            //
+            // Um portão que reprova por não ENXERGAR, em vez de por defeito, é
+            // pior que portão nenhum: ele treina quem opera a ignorá-lo. E o
+            // sintoma é indistinguível do defeito real que ele procura.
+            //
+            // As outras verificações não precisam disto: `conversao_*` são
+            // PLATFORM (sem policy) e `jobs`/`failed_jobs` são infraestrutura.
+            $total = $this->owner()->table('empresas')->count();
 
             // Zero empresas passaria por "nenhuma sem tenant" — o vazio
             // satisfaz a condição sem satisfazer a intenção. Isso SIM é falha:
@@ -250,7 +264,7 @@ class CutoverPosCheck extends Command
                 return;
             }
 
-            $semTenant = DB::table('empresas')->whereNull('tenant_account_id')->count();
+            $semTenant = $this->owner()->table('empresas')->whereNull('tenant_account_id')->count();
 
             $this->item(
                 'toda empresa tem tenant',
@@ -301,6 +315,31 @@ class CutoverPosCheck extends Command
             );
         } catch (\Throwable $e) {
             $this->item('fila verificável', false, $e->getMessage());
+        }
+    }
+
+    /**
+     * A conexão que enxerga tudo, para o que está sob RLS.
+     *
+     * Só faz sentido em PostgreSQL: é lá que existe RLS e que a conexão do
+     * runtime (`erp_app`, sem envelope de tenant) leria zero num banco cheio.
+     *
+     * Em sqlite não há RLS e `pgsql_owner` aponta para outro lugar — usá-la
+     * abriria um banco vazio e o comando reprovaria por não enxergar, que é
+     * exatamente o defeito que este método existe para corrigir.
+     */
+    private function owner(): ConnectionInterface
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return DB::connection();
+        }
+
+        try {
+            return DB::connection('pgsql_owner');
+        } catch (\Throwable) {
+            // Sem credencial de owner, a leitura pelo runtime é o que há — e o
+            // resultado pode ser cego. Melhor que derrubar o comando.
+            return DB::connection();
         }
     }
 

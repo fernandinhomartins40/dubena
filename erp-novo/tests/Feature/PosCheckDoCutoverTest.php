@@ -195,6 +195,40 @@ class PosCheckDoCutoverTest extends TestCase
     }
 
     /**
+     * `empresas` é lida pelo OWNER, não pela conexão do runtime.
+     *
+     * Ela está sob RLS, e o comando roda sem envelope de tenant: pelo runtime,
+     * `count()` devolve **zero mesmo com empresas no banco**. Aconteceu de
+     * verdade — rodei em homologação, que tem 12 empresas, e o pós-check
+     * reprovou dizendo "nenhuma empresa cadastrada".
+     *
+     * Portão que reprova por não ENXERGAR treina quem opera a ignorá-lo, e o
+     * sintoma é indistinguível do defeito real que ele procura.
+     *
+     * Em sqlite não há RLS, então este teste não reproduz o cenário — ele fixa
+     * a INTENÇÃO: se alguém trocar `owner()` por `DB::table()`, a verificação
+     * volta a ser cega em produção. Por isso a asserção é sobre a chamada, lida
+     * do código.
+     */
+    public function test_empresas_e_lida_pela_conexao_de_owner(): void
+    {
+        $fonte = (string) file_get_contents(app_path('Console/Commands/CutoverPosCheck.php'));
+
+        $this->assertStringNotContainsString(
+            "DB::table('empresas')",
+            $fonte,
+            '`empresas` está sob RLS: lida pela conexão do runtime, sem envelope de tenant, '.
+            'devolve zero mesmo com o banco cheio. Use `owner()`.',
+        );
+
+        $this->assertStringContainsString(
+            "\$this->owner()->table('empresas')",
+            $fonte,
+            'a leitura de `empresas` precisa passar pelo owner',
+        );
+    }
+
+    /**
      * O comando NÃO escreve nada.
      *
      * Roda com o sistema no ar: um diagnóstico que altera o que diagnostica é

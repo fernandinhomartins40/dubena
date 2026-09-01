@@ -270,6 +270,55 @@ Sequências
 É exatamente o cenário que trava a primeira venda depois do cutover, e o comando
 aponta a tabela e os dois números.
 
+### O falso positivo que só apareceu rodando em homologação
+
+Depois do deploy, rodei o comando no banco real e ele reprovou com **"nenhuma
+empresa cadastrada"** — num banco com **12 empresas**.
+
+A causa: `empresas` está sob RLS, e o comando roda como `erp_app` sem envelope de
+tenant. `count()` devolve zero, e o zero é indistinguível do defeito que a
+verificação procura.
+
+**Portão que reprova por não ENXERGAR é pior que portão nenhum**: treina quem
+opera a ignorá-lo, e o sintoma é idêntico ao do problema real.
+
+Corrigido lendo `empresas` pela conexão de owner — o mesmo padrão que
+`RlsCoberturaTest` já usava. As outras verificações não precisam: `conversao_*`
+são PLATFORM (sem policy) e `jobs`/`failed_jobs` são infraestrutura.
+
+O `owner()` só troca de conexão em PostgreSQL. Em sqlite, `pgsql_owner` aponta
+para outro lugar e usá-la abriria um banco vazio — reintroduzindo o mesmo defeito
+que ela existe para corrigir. Aprendi isso quebrando cinco testes na primeira
+tentativa.
+
+**Nenhum teste local pegaria**: sqlite não tem RLS. O defeito só existe onde o
+comando roda.
+
+### E o que o comando corrigido revelou
+
+Com a leitura funcionando, o aviso apareceu:
+
+```
+Tenancy
+  PASS há empresa cadastrada
+  WARN toda empresa tem tenant — 12 de 12 sem tenant: ficam invisíveis para a RLS
+```
+
+Conferido no banco: **11 das 12 empresas têm vínculo em `tenant_companies`, e
+nenhuma tem `tenant_account_id` preenchido**.
+
+Não é defeito — é F1-10 pendente, e por decisão explícita. A migration
+`2026_08_29_000300` diz, no próprio cabeçalho: *"Nenhuma migration faz backfill:
+F1-10 só poderá preencher a partir de `tenant_companies` aprovado"*. E o plano
+reforça: *"conforme titularidade aprovada, nunca copiando automaticamente a
+fronteira de `grupo`"*.
+
+Preencher a coluna sozinho seria exatamente o que o plano proíbe. O pós-check faz
+o certo: **aponta a lacuna e não a resolve**.
+
+Vale como registro de que homologação, hoje, tem RLS que não alcança empresa
+nenhuma — o que é coerente com o ambiente ainda não ter feito a conversão.
+
 ### Um teste meu que não cobria o que prometia
 
 `test_execucao_sem_desfecho_reprova` passava — mas passava porque a verificação
