@@ -7,7 +7,6 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Cadastros contábeis e fiscais que nenhum migrador cobria.
@@ -41,6 +40,8 @@ final class CadastrosContabeisMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         $origens = ['planocontas', 'centrocustos', 'nfoperacaos'];
@@ -54,7 +55,7 @@ final class CadastrosContabeisMigrator implements Migrator
         $pulados = 0;
         $avisos = [];
 
-        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
+        $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 1);
 
         [$n, $g, $p] = $this->planoDeContas($ctx, $grupoPadrao);
         $lidos += $n;
@@ -253,13 +254,13 @@ final class CadastrosContabeisMigrator implements Migrator
             return 0;
         }
 
-        $existentes = DB::table($tabela)->pluck('id')->flip();
+        $existentes = $this->destino()->table($tabela)->pluck('id')->flip();
         $n = 0;
         foreach ($pais as $filho => $pai) {
             if (! $existentes->has($pai) || ! $existentes->has($filho)) {
                 continue;
             }
-            DB::table($tabela)->where('id', $filho)->update(['pai_id' => $pai]);
+            $this->destino()->table($tabela)->where('id', $filho)->update(['pai_id' => $pai]);
             $n++;
         }
 
@@ -278,12 +279,12 @@ final class CadastrosContabeisMigrator implements Migrator
     private function religarFinanceiro(MigrationContext $ctx): int
     {
         if (! $this->tabelaExiste($ctx, 'financeirorateios')
-            || DB::table('financeiros')->whereNotNull('planoconta_id')->exists()) {
+            || $this->destino()->table('financeiros')->whereNotNull('planoconta_id')->exists()) {
             return 0;
         }
 
-        $planos = DB::table('planos_conta')->pluck('id')->flip();
-        $centros = DB::table('centros_custo')->pluck('id')->flip();
+        $planos = $this->destino()->table('planos_conta')->pluck('id')->flip();
+        $centros = $this->destino()->table('centros_custo')->pluck('id')->flip();
         if ($planos->isEmpty()) {
             return 0;
         }
@@ -315,7 +316,7 @@ final class CadastrosContabeisMigrator implements Migrator
                 if ($plano === null && $centro === null) {
                     continue;
                 }
-                DB::table('financeiros')->where('id', $fid)->update([
+                $this->destino()->table('financeiros')->where('id', $fid)->update([
                     'planoconta_id' => $plano,
                     'centrocusto_id' => $centro,
                 ]);

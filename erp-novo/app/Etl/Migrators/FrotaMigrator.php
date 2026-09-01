@@ -40,6 +40,8 @@ final class FrotaMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'veiculos')) {

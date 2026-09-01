@@ -9,7 +9,6 @@ use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
 use App\Models\Empresa;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N2 — migra geográfico (cidades/bairros/ruas) do legado. Base do endereço.
@@ -32,6 +31,8 @@ final class GeograficoMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         $cidades = $this->ler($ctx, 'cidades', ['id', 'grupo_id', 'descricao', 'uf', 'cod_ibge', 'ativo']);
@@ -202,11 +203,11 @@ final class GeograficoMigrator implements Migrator
             return 0;
         }
 
-        $idsDestino = DB::table('cidades')->pluck('id')
+        $idsDestino = $this->destino()->table('cidades')->pluck('id')
             ->map(fn ($v) => (string) $v)->flip();
 
         $destinoPorNome = [];
-        foreach (DB::table('cidades')->get(['descricao', 'uf']) as $c) {
+        foreach ($this->destino()->table('cidades')->get(['descricao', 'uf']) as $c) {
             $destinoPorNome[$this->chaveCidade($c->descricao, $c->uf)] = true;
         }
 
@@ -294,11 +295,11 @@ final class GeograficoMigrator implements Migrator
             return;
         }
 
-        $idsCidade = DB::table('cidades')->pluck('id')->flip();
-        $idsBairro = DB::table('bairros')->pluck('id')->flip();
-        $idsRua = DB::table('ruas')->pluck('id')->flip();
-        $idsRegiao = DB::table('regioes')->pluck('id')->flip();
-        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+        $idsCidade = $this->destino()->table('cidades')->pluck('id')->flip();
+        $idsBairro = $this->destino()->table('bairros')->pluck('id')->flip();
+        $idsRua = $this->destino()->table('ruas')->pluck('id')->flip();
+        $idsRegiao = $this->destino()->table('regioes')->pluck('id')->flip();
+        $idsEmpresa = $this->destino()->table('empresas')->pluck('id')->flip();
 
         foreach ($ctx->legado()->table('empresas')->get() as $r) {
             $id = (int) $r->id;
@@ -318,7 +319,7 @@ final class GeograficoMigrator implements Migrator
                 'regiao_id' => isset($idsRegiao[(int) ($r->regiao_id ?? 0)]) ? (int) $r->regiao_id : null,
             ];
 
-            DB::table('empresas')->where('id', $id)->update($dados);
+            $this->destino()->table('empresas')->where('id', $id)->update($dados);
         }
 
         // Texto derivado das FKs (o que a DANFE imprime).

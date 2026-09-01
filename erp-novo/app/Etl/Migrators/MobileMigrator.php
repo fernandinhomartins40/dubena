@@ -8,7 +8,6 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N10 — migra os DEVICES do legado (tablets/celulares dos entregadores).
@@ -37,6 +36,8 @@ final class MobileMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'androids')) {
@@ -46,11 +47,11 @@ final class MobileMigrator implements Migrator
         }
 
         $idsUser = [];
-        foreach (DB::table('users')->pluck('id') as $id) {
+        foreach ($this->destino()->table('users')->pluck('id') as $id) {
             $idsUser[(int) $id] = true;
         }
         $idsEmpresa = [];
-        foreach (DB::table('empresas')->pluck('id') as $id) {
+        foreach ($this->destino()->table('empresas')->pluck('id') as $id) {
             $idsEmpresa[(int) $id] = true;
         }
 

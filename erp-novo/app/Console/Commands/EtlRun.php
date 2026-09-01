@@ -32,6 +32,19 @@ class EtlRun extends Command
     protected $description = 'Executa a migração de dados do banco legado para o schema novo (ETL).';
 
     /**
+     * A partir de quanto o descarte deixa de ser aviso e vira falha.
+     *
+     * 50% é folgado de propósito: há migrador que legitimamente descarta muito
+     * (o espelho traz linhas órfãs do legado). O que este portão persegue não é
+     * o descarte comum — é o caso em que o ETL perde quase tudo e mesmo assim
+     * imprime "concluído", que foi o que aconteceu quando ele passou a ler o
+     * destino sob RLS.
+     *
+     * Um limiar apertado viraria ruído, e portão que vira ruído é desligado.
+     */
+    private const LIMIAR_DESCARTE_PCT = 50;
+
+    /**
      * F7-09 — exclusão mútua entre execuções.
      *
      * Duas horas é folga sobre a carga completa (o dump inteiro leva ~40 min) e
@@ -156,6 +169,27 @@ class EtlRun extends Command
         /** @var list<string> $inconclusivas — invariantes que nao puderam ser verificadas. */
         $inconclusivas = [];
 
+        // Descarte em massa: quanto foi lido e quanto foi jogado fora.
+        //
+        // Medido separado do resto porque descartar é a forma mais silenciosa de
+        // perder dado: cada migrador trata "referência ausente" pulando a linha,
+        // e o resultado sai como AVISO — o ETL imprime "concluído" tendo
+        // descartado tudo.
+        //
+        // Aconteceu: com a RLS ligada e o ETL lendo pelo runtime restrito, o
+        // dry-run descartou 507.006 linhas de estoque (100%) e 806.953 pedidos
+        // (99,99%) e saiu com SUCESSO. A causa foi corrigida
+        // (`MigrationContext::novo()`), mas a causa não é o ponto: o ponto é que
+        // o ETL não pode ter um jeito de perder tudo e chamar isso de sucesso.
+        $descartePorMigrator = [];
+
+        // O total lido de TODAS as origens. Serve a uma pergunta que nenhum
+        // aviso responde: a conversão chegou a ler alguma coisa?
+        $totalLido = 0;
+
+        /** @var array<string,int> quanto cada migrador leu — usado abaixo. */
+        $lidoPorMigrator = [];
+
         foreach ($migrators as $m) {
             $this->info("→ {$m->nome()}".($ctx->dryRun ? ' (dry-run)' : ''));
             $res = $m->migrar($ctx);
@@ -163,6 +197,17 @@ class EtlRun extends Command
             foreach ($res->avisos as $aviso) {
                 $this->warn('  ! '.$aviso);
                 $todosAvisos[] = "{$m->nome()}: {$aviso}";
+            }
+
+            $totalLido += $res->lidos;
+            $lidoPorMigrator[$m->nome()] = $res->lidos;
+
+            if ($res->lidos > 0 && $res->pulados > 0) {
+                $descartePorMigrator[$m->nome()] = [
+                    'lidos' => $res->lidos,
+                    'pulados' => $res->pulados,
+                    'percentual' => (int) round($res->pulados * 100 / $res->lidos),
+                ];
             }
 
             if ($this->option('check')) {
@@ -221,12 +266,58 @@ class EtlRun extends Command
             return self::FAILURE;
         }
 
+        // ── A ORIGEM não pôde ser lida ──
+        //
         // "Origem indisponível" é diferente de "origem vazia": a primeira
         // significa que a carga rodou com dado FALTANDO e não deve ser tratada
         // como sucesso por um script de deploy.
+        //
+        // O filtro procurava só por `leitura falhou`, e por isso deixava passar
+        // os dois casos mais comuns: quando a TABELA não existe no espelho, os
+        // migradores dizem "ausente no espelho"; quando o schema inteiro está
+        // inacessível, dizem "legado indisponível".
+        //
+        // Reproduzi por acidente apontando o ETL para um banco onde a role não
+        // tinha permissão no schema `legado`: os 27 migradores leram ZERO e o
+        // comando saiu com sucesso. Num cutover isso entrega o sistema vazio
+        // dizendo que deu certo.
+        $frasesDeOrigemIlegivel = [
+            'leitura falhou',
+            'ausente no espelho',
+            'legado indisponível',
+            'legado indisponivel',
+        ];
+
+        // A frase sozinha não basta: um migrador pode dizer "legado indisponível"
+        // e MESMO ASSIM ter lido — o `EstadosMigrator` cai num conjunto-semente
+        // de 27 UFs, e isso é fallback funcionando, não origem ilegível.
+        //
+        // O que reprova é a combinação: avisou que não conseguiu ler E não leu
+        // nada. Sem essa segunda parte, o portão bloquearia o próprio dry-run
+        // que existe para diagnosticar — e portão que atrapalha o diagnóstico é
+        // portão que se desliga.
         $indisponiveis = array_values(array_filter(
             $todosAvisos,
-            fn (string $a) => str_contains($a, 'leitura falhou'),
+            function (string $a) use ($frasesDeOrigemIlegivel, $lidoPorMigrator): bool {
+                $casa = false;
+
+                foreach ($frasesDeOrigemIlegivel as $frase) {
+                    if (str_contains($a, $frase)) {
+                        $casa = true;
+
+                        break;
+                    }
+                }
+
+                if (! $casa) {
+                    return false;
+                }
+
+                // O aviso vem prefixado com o nome do migrador ("estados: ...").
+                $nome = str_contains($a, ':') ? trim(explode(':', $a, 2)[0]) : '';
+
+                return ($lidoPorMigrator[$nome] ?? 0) === 0;
+            },
         ));
 
         if ($indisponiveis !== []) {
@@ -235,6 +326,74 @@ class EtlRun extends Command
                 'ETL concluído com %d falha(s) de LEITURA da origem — a carga está incompleta.',
                 count($indisponiveis),
             ));
+
+            // A orientação vai aqui TAMBÉM, e não só no portão de origem vazia:
+            // este filtro dispara primeiro, e é por ele que passa o caso mais
+            // comum — schema errado ou role sem permissão no `legado`.
+            $this->line('Confira a conexão do legado: banco, schema (`LEGADO_DB_SCHEMA`) e');
+            $this->line('permissão da role sobre esse schema.');
+
+            return self::FAILURE;
+        }
+
+        // ── A origem inteira veio VAZIA ──
+        //
+        // O filtro de frases acima depende de o migrador AVISAR. Mas um migrador
+        // pode ler zero e não avisar nada — e aí zero linhas em tudo passa por
+        // sucesso, que é o pior desfecho possível: o script de deploy recebe
+        // exit 0 e o sistema entra em produção vazio.
+        //
+        // Nenhum filtro de texto pega isso. O que pega é a soma: uma conversão
+        // que não leu UMA linha sequer não é uma conversão bem-sucedida — é uma
+        // conversão que não aconteceu.
+        //
+        // Mesma família do registry vazio imprimindo "ETL concluído", e do teste
+        // que varria zero arquivos e passava. Ausência precisa ser afirmada,
+        // nunca inferida do vazio.
+        if ($totalLido === 0) {
+            $registro->encerrar('FALHOU', 'a origem não devolveu nenhuma linha');
+
+            $this->newLine();
+            $this->error('A ORIGEM NÃO DEVOLVEU NENHUMA LINHA — isto não é uma carga concluída.');
+            $this->line('Confira a conexão do legado: banco, schema (`LEGADO_DB_SCHEMA`) e');
+            $this->line('permissão da role. Ler zero e sair com sucesso entregaria o sistema vazio.');
+
+            return self::FAILURE;
+        }
+
+        // ── Portão de DESCARTE ──
+        //
+        // Descartar em massa não é aviso, é falha. A diferença entre os dois é
+        // quem precisa agir: aviso alguém lê depois; falha impede o deploy de
+        // seguir tratando a carga como boa.
+        //
+        // O limiar é por MIGRADOR, não global: 90% de descarte em `pedidos` é
+        // catastrófico e some numa média com dez migradores limpos.
+        $graves = array_filter(
+            $descartePorMigrator,
+            fn (array $d) => $d['percentual'] >= self::LIMIAR_DESCARTE_PCT,
+        );
+
+        if ($graves !== []) {
+            $detalhe = [];
+
+            foreach ($graves as $nome => $d) {
+                $detalhe[] = "{$nome}: {$d['pulados']}/{$d['lidos']} ({$d['percentual']}%)";
+            }
+
+            $registro->encerrar('FALHOU', 'descarte em massa: '.implode(' | ', $detalhe));
+
+            $this->newLine();
+            $this->error('DESCARTE EM MASSA — a carga NÃO pode ser tratada como concluída:');
+
+            foreach ($detalhe as $d) {
+                $this->error('  '.$d);
+            }
+
+            $this->newLine();
+            $this->line('Descarte alto costuma ser referência que o ETL não ENXERGA, não que');
+            $this->line('falta: confira se o destino está sendo lido pela conexão de owner');
+            $this->line('(a RLS esconde tudo do runtime sem envelope de tenant).');
 
             return self::FAILURE;
         }

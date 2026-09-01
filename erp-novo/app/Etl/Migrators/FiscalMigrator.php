@@ -48,6 +48,8 @@ final class FiscalMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'nfemitidas')) {
@@ -144,7 +146,7 @@ final class FiscalMigrator implements Migrator
         if ($this->tabelaExiste($ctx, 'nfemitidaitems')) {
             $empresaDaNota = $this->empresaPorNota();
             $produtoPorCodigo = $this->produtoPorCodigo();
-            $fallbackProduto = (int) (DB::table('produtos')->min('id') ?? 0);
+            $fallbackProduto = (int) ($this->destino()->table('produtos')->min('id') ?? 0);
             $itemPorNota = [];
 
             $ctx->legado()->table('nfemitidaitems')->orderBy('id')->chunk(2000,
@@ -367,7 +369,7 @@ final class FiscalMigrator implements Migrator
         }
 
         $empresaDaNota = [];
-        foreach (DB::table('nf_recebidas')->select('id', 'empresa_id')->cursor() as $r) {
+        foreach ($this->destino()->table('nf_recebidas')->select('id', 'empresa_id')->cursor() as $r) {
             $empresaDaNota[(int) $r->id] = (int) $r->empresa_id;
         }
 
@@ -474,7 +476,7 @@ final class FiscalMigrator implements Migrator
     private function empresaPorNota(): array
     {
         $out = [];
-        foreach (DB::table('notas_fiscais')->select('id', 'empresa_id')->cursor() as $n) {
+        foreach ($this->destino()->table('notas_fiscais')->select('id', 'empresa_id')->cursor() as $n) {
             $out[(int) $n->id] = (int) $n->empresa_id;
         }
 
@@ -491,7 +493,7 @@ final class FiscalMigrator implements Migrator
     private function produtoPorCodigo(): array
     {
         $out = [];
-        foreach (DB::table('produtos')->select('id', 'descricao')->cursor() as $p) {
+        foreach ($this->destino()->table('produtos')->select('id', 'descricao')->cursor() as $p) {
             $out[(string) $p->id] = (int) $p->id;
             $desc = trim(mb_strtoupper((string) $p->descricao));
             if ($desc !== '') {
@@ -518,7 +520,7 @@ final class FiscalMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 
@@ -557,8 +559,8 @@ final class FiscalMigrator implements Migrator
             return [];
         }
 
-        $idsNota = DB::table('notas_fiscais')->pluck('id')->flip();
-        $idsPedido = DB::table('pedidos')->pluck('id')->flip();
+        $idsNota = $this->destino()->table('notas_fiscais')->pluck('id')->flip();
+        $idsPedido = $this->destino()->table('pedidos')->pluck('id')->flip();
         $ligados = 0;
         $semNota = 0;
 
@@ -582,7 +584,7 @@ final class FiscalMigrator implements Migrator
 
                 foreach (array_chunk($porNota, 1000, true) as $bloco) {
                     foreach ($bloco as $nota => $pedido) {
-                        DB::table('notas_fiscais')->where('id', $nota)->update(['pedido_id' => $pedido]);
+                        $this->destino()->table('notas_fiscais')->where('id', $nota)->update(['pedido_id' => $pedido]);
                         $ligados++;
                     }
                 }
@@ -638,14 +640,14 @@ final class FiscalMigrator implements Migrator
 
         // 2) O que foi REALMENTE emitido — a verdade que a Receita conhece.
         $emitido = [];
-        foreach (DB::table('notas_fiscais')
+        foreach ($this->destino()->table('notas_fiscais')
             ->selectRaw('empresa_id, modelo, serie, MAX(numero) AS maxnum')
             ->groupBy('empresa_id', 'modelo', 'serie')
             ->get() as $n) {
             $emitido[(int) $n->empresa_id.':'.$n->modelo.':'.(int) $n->serie] = (int) $n->maxnum;
         }
 
-        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+        $idsEmpresa = $this->destino()->table('empresas')->pluck('id')->flip();
         $divergentes = 0;
 
         foreach (array_unique([...array_keys($contador), ...array_keys($emitido)]) as $chave) {

@@ -6,6 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,6 +47,19 @@ final class MatrizTributariaMigrator implements Migrator
         // Precisa das operações fiscais (cadastros contábeis), dos grupos fiscais
         // (malha fiscal) e dos produtos.
         return ['cadastros-contabeis', 'fiscal-config', 'produtos'];
+    }
+
+    /**
+     * A conexão de DESTINO, vinda do contexto (owner, no Postgres).
+     *
+     * `nf_impostos` está sob RLS. Pela conexão do runtime, sem envelope de
+     * tenant, a leitura devolve zero e a escrita é recusada — e este migrador
+     * concluiria que não há matriz tributária, deixando a emissão de NF-e cair
+     * em CST/alíquota padrão. Ver `MigrationContext::novo()`.
+     */
+    private function destino(): ConnectionInterface
+    {
+        return $this->ctxAtual?->novo() ?? DB::connection();
     }
 
     public function migrar(MigrationContext $ctx): MigrationResult
@@ -94,7 +108,7 @@ final class MatrizTributariaMigrator implements Migrator
 
             // UNIQUE (empresa, operacao, grupo_fiscal): o dedup da operação pode
             // fazer duas regras legadas caírem na mesma chave — a primeira vence.
-            $existente = DB::table('nf_impostos')
+            $existente = $this->destino()->table('nf_impostos')
                 ->where('empresa_id', $dados['empresa_id'])
                 ->where('operacao_fiscal_id', $dados['operacao_fiscal_id'])
                 ->where(fn ($q) => $dados['grupo_fiscal_id'] === null
@@ -109,7 +123,7 @@ final class MatrizTributariaMigrator implements Migrator
                 continue;
             }
 
-            $novoId = (int) DB::table('nf_impostos')->insertGetId($dados);
+            $novoId = (int) $this->destino()->table('nf_impostos')->insertGetId($dados);
             $mapaImposto[(int) $linha['id']] = $novoId;
             $gravados++;
         }
@@ -133,10 +147,10 @@ final class MatrizTributariaMigrator implements Migrator
                     continue;
                 }
 
-                $pai = DB::table('nf_impostos')->where('id', $impostoId)
+                $pai = $this->destino()->table('nf_impostos')->where('id', $impostoId)
                     ->first(['empresa_id', 'grupo_id']);
 
-                $gravou = DB::table('nf_imposto_estados')->upsert(
+                $gravou = $this->destino()->table('nf_imposto_estados')->upsert(
                     [$this->regraUf($linha, $cst, $impostoId, (int) $pai->empresa_id, (int) $pai->grupo_id, $origem, $destino)],
                     ['nf_imposto_id', 'origem_uf', 'destino_uf'],
                     ['aliq_icms', 'pf_aliq_icms', 'updated_at'],
@@ -151,7 +165,7 @@ final class MatrizTributariaMigrator implements Migrator
         // ── 3) Produtos habilitados por operação fiscal ──
         if ($this->tabelaExiste($ctx, 'nfoperacaoprodutos')) {
             $produtos = [];
-            foreach (DB::table('produtos')->pluck('id') as $id) {
+            foreach ($this->destino()->table('produtos')->pluck('id') as $id) {
                 $produtos[(int) $id] = true;
             }
 
@@ -182,7 +196,7 @@ final class MatrizTributariaMigrator implements Migrator
             }
 
             if (! $ctx->dryRun && $vinculos !== []) {
-                DB::table('produto_operacao_fiscal')->upsert(
+                $this->destino()->table('produto_operacao_fiscal')->upsert(
                     array_values($vinculos),
                     ['operacao_fiscal_id', 'produto_id'],
                     ['updated_at'],
@@ -208,7 +222,7 @@ final class MatrizTributariaMigrator implements Migrator
 
                     continue;
                 }
-                $gravados += DB::table('produtos')->where('id', (int) $r->id)
+                $gravados += $this->destino()->table('produtos')->where('id', (int) $r->id)
                     ->update(['grupo_fiscal_id' => $destino]);
             }
             if ($semGrupo > 0) {
@@ -418,7 +432,7 @@ final class MatrizTributariaMigrator implements Migrator
     private function mapaOperacoes(MigrationContext $ctx): array
     {
         $porChave = [];
-        foreach (DB::table('operacoes_fiscais')->get(['id', 'grupo_id', 'descricao']) as $o) {
+        foreach ($this->destino()->table('operacoes_fiscais')->get(['id', 'grupo_id', 'descricao']) as $o) {
             $porChave[$o->grupo_id.'|'.mb_strtolower(trim((string) $o->descricao))] = [
                 'id' => (int) $o->id,
                 'grupo_id' => (int) $o->grupo_id,
@@ -458,7 +472,7 @@ final class MatrizTributariaMigrator implements Migrator
 
         $porDescricao = [];
         foreach (
-            DB::table('malha_fiscal')->where('tipo', 'grupos-fiscais')
+            $this->destino()->table('malha_fiscal')->where('tipo', 'grupos-fiscais')
                 ->get(['id', 'grupo_id', 'descricao']) as $m
         ) {
             $porDescricao[$m->grupo_id.'|'.mb_strtolower(trim((string) $m->descricao))] = (int) $m->id;
@@ -479,7 +493,7 @@ final class MatrizTributariaMigrator implements Migrator
     private function empresasValidas(): array
     {
         $mapa = [];
-        foreach (DB::table('empresas')->get(['id', 'grupo_id']) as $e) {
+        foreach ($this->destino()->table('empresas')->get(['id', 'grupo_id']) as $e) {
             $mapa[(int) $e->id] = (int) $e->grupo_id;
         }
 

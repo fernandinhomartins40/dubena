@@ -8,7 +8,6 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N3 — setores, saldos e histórico de estoque.
@@ -42,6 +41,8 @@ final class EstoqueMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'setors')) {
@@ -265,7 +266,7 @@ final class EstoqueMigrator implements Migrator
     private function empresaPorSetor(): array
     {
         $out = [];
-        foreach (DB::table('setores')->select('id', 'empresa_id')->get() as $s) {
+        foreach ($this->destino()->table('setores')->select('id', 'empresa_id')->get() as $s) {
             $out[(int) $s->id] = (int) $s->empresa_id;
         }
 
@@ -276,7 +277,7 @@ final class EstoqueMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->pluck('id') as $id) {
+        foreach ($this->destino()->table($tabela)->pluck('id') as $id) {
             $ids[(int) $id] = true;
         }
 

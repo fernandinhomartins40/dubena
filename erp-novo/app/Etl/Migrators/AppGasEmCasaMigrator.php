@@ -58,6 +58,8 @@ final class AppGasEmCasaMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->appDisponivel()) {
@@ -188,7 +190,7 @@ final class AppGasEmCasaMigrator implements Migrator
         }
 
         $telefones = $this->telefonesPorCliente();
-        $proximoId = (int) DB::table('clientes')->max('id');
+        $proximoId = (int) $this->destino()->table('clientes')->max('id');
         $criados = [];
 
         foreach ($rows as $r) {
@@ -280,13 +282,13 @@ final class AppGasEmCasaMigrator implements Migrator
         $clienteIds = array_values(array_unique(array_column($linhas, 'cliente_id')));
 
         foreach (array_chunk($clienteIds, 5000) as $bloco) {
-            foreach (DB::table('clientetelefones')->whereIn('cliente_id', $bloco)
+            foreach ($this->destino()->table('clientetelefones')->whereIn('cliente_id', $bloco)
                 ->get(['id', 'cliente_id', 'telefone']) as $t) {
                 $existentes[$t->cliente_id.'|'.$t->telefone] = (int) $t->id;
             }
         }
 
-        $proximo = (int) DB::table('clientetelefones')->max('id');
+        $proximo = (int) $this->destino()->table('clientetelefones')->max('id');
 
         foreach ($linhas as &$linha) {
             $chave = $linha['cliente_id'].'|'.$linha['telefone'];
@@ -319,10 +321,10 @@ final class AppGasEmCasaMigrator implements Migrator
         }
 
         $itensPorPedido = $this->itensPorPedidoDoApp();
-        $proximoId = (int) DB::table('pedidos')->max('id');
+        $proximoId = (int) $this->destino()->table('pedidos')->max('id');
         $novos = [];
         $novosItens = [];
-        $produtoPadrao = (int) (DB::table('produtos')->min('id') ?? 0);
+        $produtoPadrao = (int) ($this->destino()->table('produtos')->min('id') ?? 0);
 
         foreach ($rows as $r) {
             $idApp = (int) $r->id;
@@ -378,12 +380,12 @@ final class AppGasEmCasaMigrator implements Migrator
 
         if ($novosItens !== []) {
             // Só grava item de produto que existe no destino.
-            $idsProduto = DB::table('produtos')->pluck('id')->flip();
+            $idsProduto = $this->destino()->table('produtos')->pluck('id')->flip();
             $novosItens = array_values(array_filter(
                 $novosItens,
                 fn ($i) => isset($idsProduto[$i['produto_id']])
             ));
-            $proximoItem = (int) DB::table('pedidoitens')->max('id');
+            $proximoItem = (int) $this->destino()->table('pedidoitens')->max('id');
             foreach ($novosItens as &$i) {
                 $i['id'] = ++$proximoItem;
             }
@@ -402,7 +404,7 @@ final class AppGasEmCasaMigrator implements Migrator
     private function mapaSituacoes(): array
     {
         $out = [];
-        foreach (DB::table('pedidosituacoes')->orderBy('id')->get() as $s) {
+        foreach ($this->destino()->table('pedidosituacoes')->orderBy('id')->get() as $s) {
             $out[(string) $s->efeito] ??= (int) $s->id;
         }
 
@@ -485,7 +487,7 @@ final class AppGasEmCasaMigrator implements Migrator
         // Âncora preferida: a empresa dos clientes que JÁ vieram do app pelo
         // ERP — é literalmente a revenda que opera o canal.
         if ($this->mapaClientes !== []) {
-            $id = DB::table('clientes')
+            $id = $this->destino()->table('clientes')
                 ->whereIn('id', array_slice(array_values($this->mapaClientes), 0, 500))
                 ->selectRaw('empresa_id, grupo_id, COUNT(*) as n')
                 ->groupBy('empresa_id', 'grupo_id')
@@ -496,7 +498,7 @@ final class AppGasEmCasaMigrator implements Migrator
             }
         }
 
-        $matriz = DB::table('empresas')->orderByDesc('matriz')->orderBy('id')->first();
+        $matriz = $this->destino()->table('empresas')->orderByDesc('matriz')->orderBy('id')->first();
 
         return $matriz === null
             ? null
@@ -549,7 +551,7 @@ final class AppGasEmCasaMigrator implements Migrator
         // reexecução escolhia uma faixa de ids nova — o upsert por `id` inseria
         // em vez de atualizar. É a correção central da idempotência.
         if (Schema::hasColumn('clientes', 'api_id')) {
-            foreach (DB::table('clientes')->whereNotNull('api_id')->pluck('id', 'api_id') as $apiId => $id) {
+            foreach ($this->destino()->table('clientes')->whereNotNull('api_id')->pluck('id', 'api_id') as $apiId => $id) {
                 $this->mapaClientes[(int) $apiId] = (int) $id;
             }
         }
@@ -699,8 +701,8 @@ final class AppGasEmCasaMigrator implements Migrator
             },
         );
 
-        $idsProduto = DB::table('produtos')->pluck('id')->flip();
-        $idsCondicao = DB::table('condicaopagamentos')->pluck('id')->flip();
+        $idsProduto = $this->destino()->table('produtos')->pluck('id')->flip();
+        $idsCondicao = $this->destino()->table('condicaopagamentos')->pluck('id')->flip();
 
         $n = 0;
         $this->puladosPrecos = 0;
@@ -713,7 +715,7 @@ final class AppGasEmCasaMigrator implements Migrator
                 continue;
             }
 
-            DB::table('produto_condicao_precos')->updateOrInsert(
+            $this->destino()->table('produto_condicao_precos')->updateOrInsert(
                 [
                     'empresa_id' => $empresa['empresa_id'],
                     'produto_id' => $produto,
@@ -744,13 +746,13 @@ final class AppGasEmCasaMigrator implements Migrator
         $n = 0;
         foreach ($rows as $r) {
             $pedidoId = (int) ($r->erppedido_id ?? 0);
-            $pedido = DB::table('pedidos')
+            $pedido = $this->destino()->table('pedidos')
                 ->where('id', $pedidoId)->first(['id', 'empresa_id', 'cliente_id', 'valor_venda']);
             if ($pedido === null) {
                 continue;
             }
 
-            DB::table('pagamentos_online')->updateOrInsert(
+            $this->destino()->table('pagamentos_online')->updateOrInsert(
                 ['pedido_id' => $pedido->id, 'tid' => (string) $r->tid],
                 [
                     'empresa_id' => $pedido->empresa_id,
@@ -777,7 +779,7 @@ final class AppGasEmCasaMigrator implements Migrator
             collect(),
         );
 
-        $grupo = (int) (DB::table('grupos')->min('id') ?? 0);
+        $grupo = (int) ($this->destino()->table('grupos')->min('id') ?? 0);
         if ($grupo === 0) {
             return 0;
         }
@@ -790,7 +792,7 @@ final class AppGasEmCasaMigrator implements Migrator
             }
             $percentual = mb_strtolower((string) ($r->tipo ?? '')) === 'percentual';
 
-            DB::table('promocoes')->updateOrInsert(
+            $this->destino()->table('promocoes')->updateOrInsert(
                 ['grupo_id' => $grupo, 'codigo' => $codigo],
                 [
                     'descricao' => 'Cupom '.$codigo.' (app)',
@@ -820,7 +822,7 @@ final class AppGasEmCasaMigrator implements Migrator
     {
         static $cache = [];
 
-        return $cache[$pedidoId] ??= DB::table('pedidos')
+        return $cache[$pedidoId] ??= $this->destino()->table('pedidos')
             ->where('id', $pedidoId)->value('empresa_id');
     }
 

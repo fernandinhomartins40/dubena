@@ -8,7 +8,6 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * F15 — migra CRM: pós-venda (pesquisas com questionário), metas, sorteios,
@@ -45,6 +44,8 @@ final class CrmMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         $origens = ['posvendapesquisas', 'metavendas', 'sorteios', 'checklists', 'promocoes'];
@@ -60,8 +61,8 @@ final class CrmMigrator implements Migrator
         $idsCliente = $this->idsDe('clientes');
         $idsPedido = $this->idsDe('pedidos');
         $empresaDoCliente = $this->mapa('clientes', 'empresa_id');
-        $empresaPadrao = (int) (DB::table('empresas')->min('id') ?? 0);
-        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 0);
+        $empresaPadrao = (int) ($this->destino()->table('empresas')->min('id') ?? 0);
+        $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 0);
 
         // ── Pós-venda: campanha + questionário → pos_vendas ──
         if ($this->tabelaExiste($ctx, 'posvendapesquisas')) {
@@ -278,7 +279,7 @@ final class CrmMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->pluck('id') as $id) {
+        foreach ($this->destino()->table($tabela)->pluck('id') as $id) {
             $ids[(int) $id] = true;
         }
 
@@ -289,7 +290,7 @@ final class CrmMigrator implements Migrator
     private function mapa(string $tabela, string $coluna): array
     {
         $out = [];
-        foreach (DB::table($tabela)->select('id', $coluna)->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id', $coluna)->cursor() as $r) {
             $out[(int) $r->id] = (int) $r->{$coluna};
         }
 

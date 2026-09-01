@@ -56,6 +56,8 @@ final class MonitoraLegadoMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->disponivel()) {
@@ -106,9 +108,9 @@ final class MonitoraLegadoMigrator implements Migrator
             // pontos velhos misturados aos novos.
             if ($this->pontos !== []) {
                 $idsCerca = array_column($cercas, 'id');
-                DB::table('monitora_cerca_pontos')->whereIn('cerca_id', $idsCerca)->delete();
+                $this->destino()->table('monitora_cerca_pontos')->whereIn('cerca_id', $idsCerca)->delete();
                 foreach (array_chunk($this->pontos, 500) as $bloco) {
-                    DB::table('monitora_cerca_pontos')->insert(array_map(
+                    $this->destino()->table('monitora_cerca_pontos')->insert(array_map(
                         fn ($p) => $p + ['created_at' => now(), 'updated_at' => now()],
                         $bloco,
                     ));
@@ -171,7 +173,7 @@ final class MonitoraLegadoMigrator implements Migrator
     private function mapearEmpresas(): array
     {
         $doErp = [];
-        foreach (DB::table('empresas')->select('id', 'grupo_id', 'razao_social')->get() as $e) {
+        foreach ($this->destino()->table('empresas')->select('id', 'grupo_id', 'razao_social')->get() as $e) {
             $doErp[$this->normalizar((string) $e->razao_social)] ??= [
                 'empresa_id' => (int) $e->id,
                 'grupo_id' => (int) $e->grupo_id,
@@ -208,9 +210,9 @@ final class MonitoraLegadoMigrator implements Migrator
         }
 
         // Herdam o grupo da primeira empresa já existente (mesma rede Dubena).
-        $grupoId = (int) (DB::table('empresas')->min('grupo_id')
-            ?? DB::table('grupos')->min('id'));
-        $proximoId = (int) DB::table('empresas')->max('id');
+        $grupoId = (int) ($this->destino()->table('empresas')->min('grupo_id')
+            ?? $this->destino()->table('grupos')->min('id'));
+        $proximoId = (int) $this->destino()->table('empresas')->max('id');
 
         $novas = [];
         foreach ($semEmpresa as $e) {

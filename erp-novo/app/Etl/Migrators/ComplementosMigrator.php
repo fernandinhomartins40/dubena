@@ -43,6 +43,8 @@ final class ComplementosMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
         $this->avisos = [];
         $this->lidos = $this->gravados = $this->pulados = 0;
@@ -360,7 +362,7 @@ final class ComplementosMigrator implements Migrator
         // canônica — 61 de 88 parcelas se perdiam (auditoria 2026-08-14).
         $remapCondicao = [];
         if ($this->tabelaExiste($ctx, 'condicaopagamentos')) {
-            $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
+            $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 1);
             $lote = [];
             // O destino tem UNIQUE (grupo_id, descricao) e o legado repete
             // descrições ("NÃO USAR" aparece várias vezes). Fica a primeira;
@@ -394,7 +396,7 @@ final class ComplementosMigrator implements Migrator
                     'created_at' => $r->created_at ?? null,
                 ];
             }
-            if (DB::table('condicaopagamentos')->count() === 0) {
+            if ($this->destino()->table('condicaopagamentos')->count() === 0) {
                 $this->gravar($ctx, 'condicaopagamentos', $lote);
             }
         }
@@ -519,7 +521,7 @@ final class ComplementosMigrator implements Migrator
     /** Venda ativa (telemarketing): a campanha e os clientes trabalhados. */
     private function vendaAtiva(MigrationContext $ctx): void
     {
-        $empresaPadrao = (int) (DB::table('empresas')->min('id') ?? 0);
+        $empresaPadrao = (int) ($this->destino()->table('empresas')->min('id') ?? 0);
 
         if ($this->tabelaExiste($ctx, 'vendaativas') && $empresaPadrao > 0) {
             $empresas = $this->idsDe('empresas');
@@ -584,7 +586,7 @@ final class ComplementosMigrator implements Migrator
         }
         $empresaDoPedido = $this->mapa('pedidos', 'empresa_id');
         $efeitoDaSituacao = [];
-        foreach (DB::table('pedidosituacoes')->get(['id', 'efeito']) as $s) {
+        foreach ($this->destino()->table('pedidosituacoes')->get(['id', 'efeito']) as $s) {
             $efeitoDaSituacao[(int) $s->id] = (string) $s->efeito;
         }
 
@@ -854,7 +856,7 @@ final class ComplementosMigrator implements Migrator
     private function mapa(string $tabela, string $coluna): array
     {
         $out = [];
-        foreach (DB::table($tabela)->select('id', $coluna)->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id', $coluna)->cursor() as $r) {
             $out[(int) $r->id] = (int) $r->{$coluna};
         }
 
@@ -865,7 +867,7 @@ final class ComplementosMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 

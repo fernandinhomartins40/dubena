@@ -18,7 +18,6 @@ use App\Models\Rh\ComissaoExcecao;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * F15 — migra RH: cargos, colaboradores e sub-tabelas (família, exames, férias,
@@ -58,6 +57,8 @@ final class RhMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'colaboradores')) {
@@ -97,7 +98,7 @@ final class RhMigrator implements Migrator
 
         // Quem já entregou pedido é entregador (o legado não tem a flag).
         $usersEntregadores = [];
-        foreach (DB::table('pedidos')->whereNotNull('entregador_user_id')
+        foreach ($this->destino()->table('pedidos')->whereNotNull('entregador_user_id')
             ->distinct()->pluck('entregador_user_id') as $id) {
             $usersEntregadores[(int) $id] = true;
         }
@@ -385,7 +386,7 @@ final class RhMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->pluck('id') as $id) {
+        foreach ($this->destino()->table($tabela)->pluck('id') as $id) {
             $ids[(int) $id] = true;
         }
 

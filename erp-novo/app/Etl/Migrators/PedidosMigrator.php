@@ -9,7 +9,6 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N4 — migra operações/situações de pedido, pedidos e itens.
@@ -41,6 +40,8 @@ final class PedidosMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->legadoDisponivel($ctx)) {
@@ -115,7 +116,7 @@ final class PedidosMigrator implements Migrator
         // Item herda a empresa do pedido: `empresa_id` é NOT NULL nas filhas
         // (isolamento multi-tenant) e o legado não o traz no item.
         $empresaDoPedido = [];
-        foreach (DB::table('pedidos')->select('id', 'empresa_id')->cursor() as $p) {
+        foreach ($this->destino()->table('pedidos')->select('id', 'empresa_id')->cursor() as $p) {
             $empresaDoPedido[(int) $p->id] = (int) $p->empresa_id;
         }
         $idsProduto = $this->idsExistentes('produtos');
@@ -209,7 +210,7 @@ final class PedidosMigrator implements Migrator
         }
 
         $extras = 0;
-        foreach (DB::table('pedidos')->select('id')->cursor() as $p) {
+        foreach ($this->destino()->table('pedidos')->select('id')->cursor() as $p) {
             if (! isset($doOracle[(int) $p->id])) {
                 $extras++;
             }
@@ -291,7 +292,7 @@ final class PedidosMigrator implements Migrator
     private function idsExistentes(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->pluck('id') as $id) {
+        foreach ($this->destino()->table($tabela)->pluck('id') as $id) {
             $ids[(int) $id] = true;
         }
 
@@ -319,8 +320,8 @@ final class PedidosMigrator implements Migrator
             return [];
         }
 
-        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
-        $jaCarregada = DB::table('condicaopagamentos')->count() > 0;
+        $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 1);
+        $jaCarregada = $this->destino()->table('condicaopagamentos')->count() > 0;
 
         $remap = [];
         $canonicaDaDescricao = [];

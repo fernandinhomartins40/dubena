@@ -55,6 +55,8 @@ final class EmpresaConfigMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'empresaconfigs')) {
@@ -137,7 +139,7 @@ final class EmpresaConfigMigrator implements Migrator
             $chavesOperacionais += count($operacional);
 
             if ($integracoes !== [] || $operacional !== []) {
-                $atual = json_decode((string) DB::table('empresa_configs')
+                $atual = json_decode((string) $this->destino()->table('empresa_configs')
                     ->where('empresa_id', $empresa)->value('dados'), true) ?: [];
                 if ($integracoes !== []) {
                     $atual['integracoes'] = array_merge($atual['integracoes'] ?? [], $integracoes);
@@ -153,7 +155,7 @@ final class EmpresaConfigMigrator implements Migrator
 
             if (! $ctx->dryRun) {
                 // Chave natural: uma config por empresa.
-                DB::table('empresa_configs')->updateOrInsert(
+                $this->destino()->table('empresa_configs')->updateOrInsert(
                     ['empresa_id' => $empresa],
                     $linha + ['updated_at' => now()],
                 );
@@ -353,7 +355,7 @@ final class EmpresaConfigMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 
@@ -380,7 +382,7 @@ final class EmpresaConfigMigrator implements Migrator
             return 0;
         }
 
-        $grupoDaEmpresa = DB::table('empresas')
+        $grupoDaEmpresa = $this->destino()->table('empresas')
             ->whereIn('id', array_keys($mapsPorEmpresa))
             ->pluck('grupo_id', 'id');
 
@@ -393,7 +395,7 @@ final class EmpresaConfigMigrator implements Migrator
         }
 
         foreach ($porGrupo as $grupo => $key) {
-            DB::table('config_globais')->updateOrInsert(
+            $this->destino()->table('config_globais')->updateOrInsert(
                 ['grupo_id' => $grupo],
                 ['google_maps_key' => $key, 'updated_at' => now()],
             );

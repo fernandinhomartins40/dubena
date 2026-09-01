@@ -6,6 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Models\Fiscal\MalhaFiscal;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -51,8 +52,25 @@ final class FiscalConfigMigrator implements Migrator
         return ['empresas']; // precisa de grupos
     }
 
+    /**
+     * A conexão de DESTINO, vinda do contexto.
+     *
+     * Estas tabelas não estão sob RLS hoje, então o defeito não as atinge — mas
+     * o guardião `EtlEnxergaODestinoTest` é absoluto de propósito: exceção em
+     * guardião envelhece, e no dia em que a tabela ganhar policy ninguém
+     * lembraria de rever a exceção.
+     */
+    private function destino(): ConnectionInterface
+    {
+        return $this->conexaoDoContexto ?? DB::connection();
+    }
+
+    private ?ConnectionInterface $conexaoDoContexto = null;
+
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->conexaoDoContexto = $ctx->novo();
+
         $this->ctxAtual = $ctx;
 
         $lidos = 0;
@@ -61,7 +79,7 @@ final class FiscalConfigMigrator implements Migrator
         $avisos = [];
         $ausentes = [];
 
-        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 0);
+        $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 0);
         if ($grupoPadrao === 0) {
             return new MigrationResult($this->nome(), 0, 0, 0,
                 ['sem grupos no destino — rode o migrator de empresas antes']);

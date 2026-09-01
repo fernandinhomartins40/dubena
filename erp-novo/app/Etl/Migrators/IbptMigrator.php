@@ -6,6 +6,7 @@ use App\Etl\Contracts\Migrator;
 use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,8 +45,25 @@ final class IbptMigrator implements Migrator
         return []; // tabela global (não-tenant): não depende de empresa/grupo
     }
 
+    /**
+     * A conexão de DESTINO, vinda do contexto.
+     *
+     * Estas tabelas não estão sob RLS hoje, então o defeito não as atinge — mas
+     * o guardião `EtlEnxergaODestinoTest` é absoluto de propósito: exceção em
+     * guardião envelhece, e no dia em que a tabela ganhar policy ninguém
+     * lembraria de rever a exceção.
+     */
+    private function destino(): ConnectionInterface
+    {
+        return $this->conexaoDoContexto ?? DB::connection();
+    }
+
+    private ?ConnectionInterface $conexaoDoContexto = null;
+
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->conexaoDoContexto = $ctx->novo();
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'produtoleiimpostos')) {
@@ -114,7 +132,7 @@ final class IbptMigrator implements Migrator
                     return;
                 }
 
-                DB::table('ibpt_aliquotas')->upsert(
+                $this->destino()->table('ibpt_aliquotas')->upsert(
                     $lote,
                     ['ncm', 'uf', 'ex'],
                     ['nacional', 'importado', 'estadual', 'municipal',
@@ -125,7 +143,7 @@ final class IbptMigrator implements Migrator
 
         $avisos = [];
         if ($gravados > 0) {
-            $versao = DB::table('ibpt_aliquotas')->max('versao');
+            $versao = $this->destino()->table('ibpt_aliquotas')->max('versao');
             $avisos[] = "IBPT carregado do legado (versão {$versao}) — tabela do IBPT "
                 .'é mensal: rodar `ibpt:atualizar` para a vigência corrente';
         }

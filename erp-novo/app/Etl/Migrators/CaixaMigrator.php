@@ -8,7 +8,6 @@ use App\Etl\Invariants\CountInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N6 — contas (caixa/banco) e seus movimentos (~410 mil).
@@ -39,6 +38,8 @@ final class CaixaMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'contas')) {
@@ -208,7 +209,7 @@ final class CaixaMigrator implements Migrator
     private function empresaPorConta(): array
     {
         $out = [];
-        foreach (DB::table('contas')->select('id', 'empresa_id')->get() as $c) {
+        foreach ($this->destino()->table('contas')->select('id', 'empresa_id')->get() as $c) {
             $out[(int) $c->id] = (int) $c->empresa_id;
         }
 
@@ -226,7 +227,7 @@ final class CaixaMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 

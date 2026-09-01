@@ -38,6 +38,8 @@ final class CobrancaMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'boletos')) {
@@ -157,10 +159,10 @@ final class CobrancaMigrator implements Migrator
         }
 
         $empresaDoPedido = [];
-        foreach (DB::table('pedidos')->select('id', 'empresa_id', 'cliente_id')->cursor() as $p) {
+        foreach ($this->destino()->table('pedidos')->select('id', 'empresa_id', 'cliente_id')->cursor() as $p) {
             $empresaDoPedido[(int) $p->id] = [(int) $p->empresa_id, $p->cliente_id !== null ? (int) $p->cliente_id : null];
         }
-        $empresaPadrao = (int) (DB::table('empresas')->orderByDesc('matriz')->orderBy('id')->value('id') ?? 0);
+        $empresaPadrao = (int) ($this->destino()->table('empresas')->orderByDesc('matriz')->orderBy('id')->value('id') ?? 0);
 
         $lidos = 0;
         $gravados = 0;
@@ -231,7 +233,7 @@ final class CobrancaMigrator implements Migrator
         $porRemessa = [];
         if ($this->tabelaExiste($ctx, 'boletoremessafinanceiros')) {
             $valorParcela = [];
-            foreach (DB::table('financeiroparcelas')->select('id', 'valor')->cursor() as $p) {
+            foreach ($this->destino()->table('financeiroparcelas')->select('id', 'valor')->cursor() as $p) {
                 $valorParcela[(int) $p->id] = (float) $p->valor;
             }
             foreach ($ctx->legado()->table('boletoremessafinanceiros')
@@ -247,10 +249,10 @@ final class CobrancaMigrator implements Migrator
         }
 
         $empresaDaConta = [];
-        foreach (DB::table('contas')->select('id', 'empresa_id')->cursor() as $c) {
+        foreach ($this->destino()->table('contas')->select('id', 'empresa_id')->cursor() as $c) {
             $empresaDaConta[(int) $c->id] = (int) $c->empresa_id;
         }
-        $empresaPadrao = (int) (DB::table('empresas')->min('id') ?? 0);
+        $empresaPadrao = (int) ($this->destino()->table('empresas')->min('id') ?? 0);
 
         $lidos = 0;
         $gravados = 0;
@@ -310,7 +312,7 @@ final class CobrancaMigrator implements Migrator
     private function dadosDaParcela(): array
     {
         $out = [];
-        DB::table('financeiroparcelas as p')
+        $this->destino()->table('financeiroparcelas as p')
             ->leftJoin('financeiros as f', 'f.id', '=', 'p.financeiro_id')
             ->select('p.id', 'p.valor', 'p.vencimento', 'p.baixado', 'f.cliente_id')
             ->orderBy('p.id')
@@ -353,7 +355,7 @@ final class CobrancaMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 

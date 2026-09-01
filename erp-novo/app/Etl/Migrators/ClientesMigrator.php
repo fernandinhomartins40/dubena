@@ -9,7 +9,6 @@ use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
 use App\Etl\Support\RegistraFalhaDeLeitura;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N2 — migra clientes + telefones do legado.
@@ -37,6 +36,8 @@ final class ClientesMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
         $this->limparAvisosDeLeitura();
 
@@ -113,7 +114,7 @@ final class ClientesMigrator implements Migrator
 
             foreach (array_chunk($vinculos, 500, true) as $lote) {
                 foreach ($lote as $id => $titular) {
-                    DB::table('clientes')->where('id', $id)
+                    $this->destino()->table('clientes')->where('id', $id)
                         ->update(['convenio_id' => $titular]);
                 }
             }
@@ -157,7 +158,7 @@ final class ClientesMigrator implements Migrator
             // desenho se misturava às falhas reais no mesmo placar vermelho.
             new CountInvariant(
                 $ctx, 'clientes', 'clientes',
-                acrescimosEsperados: fn () => (int) DB::table('clientes')
+                acrescimosEsperados: fn () => (int) $this->destino()->table('clientes')
                     ->whereNotNull('api_id')->count(),
             ),
 
@@ -165,7 +166,7 @@ final class ClientesMigrator implements Migrator
             // pertencem a cliente vindo do app.
             new CountInvariant(
                 $ctx, 'clientetelefones', 'clientetelefones',
-                acrescimosEsperados: fn () => (int) DB::table('clientetelefones')
+                acrescimosEsperados: fn () => (int) $this->destino()->table('clientetelefones')
                     ->join('clientes', 'clientes.id', '=', 'clientetelefones.cliente_id')
                     ->whereNotNull('clientes.api_id')
                     ->count(),

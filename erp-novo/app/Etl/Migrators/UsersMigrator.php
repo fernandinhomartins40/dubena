@@ -7,7 +7,6 @@ use App\Etl\Invariants\IntegrityInvariant;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\MigrationResult;
 use App\Etl\Support\PreservaIdsDoLegado;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Migra os USUÁRIOS do ERP legado (+ vínculo empresa_user).
@@ -46,6 +45,8 @@ final class UsersMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'users')) {
@@ -55,12 +56,12 @@ final class UsersMigrator implements Migrator
         }
 
         $grupoDaEmpresa = [];
-        foreach (DB::table('empresas')->get(['id', 'grupo_id']) as $e) {
+        foreach ($this->destino()->table('empresas')->get(['id', 'grupo_id']) as $e) {
             $grupoDaEmpresa[(int) $e->id] = (int) $e->grupo_id;
         }
 
         $existentes = [];
-        foreach (DB::table('users')->get(['id', 'email']) as $u) {
+        foreach ($this->destino()->table('users')->get(['id', 'email']) as $u) {
             $existentes[(int) $u->id] = (string) $u->email;
         }
 
@@ -106,11 +107,11 @@ final class UsersMigrator implements Migrator
         // insert só do que falta — sem preservação de id aqui.
         if ($this->tabelaExiste($ctx, 'empresa_user')) {
             $idsUser = [];
-            foreach (DB::table('users')->pluck('id') as $id) {
+            foreach ($this->destino()->table('users')->pluck('id') as $id) {
                 $idsUser[(int) $id] = true;
             }
             $paresExistentes = [];
-            foreach (DB::table('empresa_user')->get(['user_id', 'empresa_id']) as $p) {
+            foreach ($this->destino()->table('empresa_user')->get(['user_id', 'empresa_id']) as $p) {
                 $paresExistentes[$p->user_id.':'.$p->empresa_id] = true;
             }
 
@@ -135,7 +136,7 @@ final class UsersMigrator implements Migrator
                 ];
             }
             if (! $ctx->dryRun && $vinculos !== []) {
-                DB::table('empresa_user')->insert($vinculos);
+                $this->destino()->table('empresa_user')->insert($vinculos);
                 $gravados += count($vinculos);
             }
         }
@@ -218,17 +219,17 @@ final class UsersMigrator implements Migrator
 
         // roles por (grupo, nome) — o cadastro é por grupo econômico.
         $roles = [];
-        foreach (DB::table('roles')->get(['id', 'grupo_id', 'nome']) as $r) {
+        foreach ($this->destino()->table('roles')->get(['id', 'grupo_id', 'nome']) as $r) {
             $roles[$r->grupo_id.'|'.mb_strtolower(trim((string) $r->nome))] = (int) $r->id;
         }
 
         $jaTemPapel = [];
-        foreach (DB::table('role_user')->pluck('user_id') as $id) {
+        foreach ($this->destino()->table('role_user')->pluck('user_id') as $id) {
             $jaTemPapel[(int) $id] = true;
         }
 
         $usersDoDestino = [];
-        foreach (DB::table('users')->get(['id', 'empresa_id']) as $u) {
+        foreach ($this->destino()->table('users')->get(['id', 'empresa_id']) as $u) {
             $usersDoDestino[(int) $u->id] = $u->empresa_id === null ? null : (int) $u->empresa_id;
         }
 
@@ -263,7 +264,7 @@ final class UsersMigrator implements Migrator
         }
 
         if ($vinculos !== []) {
-            DB::table('role_user')->insert($vinculos);
+            $this->destino()->table('role_user')->insert($vinculos);
         }
 
         $avisos = [];

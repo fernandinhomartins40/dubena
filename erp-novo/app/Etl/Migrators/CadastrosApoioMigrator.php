@@ -15,7 +15,6 @@ use App\Models\Apoio\ContaMovimentoTipo;
 use App\Models\Apoio\Segmento;
 use App\Models\Apoio\TelefoneTipo;
 use App\Models\Apoio\TipoPessoa;
-use Illuminate\Support\Facades\DB;
 
 /**
  * N1 — migra os cadastros de apoio (escopo por grupo) do legado para o schema novo.
@@ -58,6 +57,8 @@ final class CadastrosApoioMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
         $lidos = 0;
         $gravados = 0;
@@ -136,7 +137,7 @@ final class CadastrosApoioMigrator implements Migrator
 
         // Grupo de fallback: cadastros "globais" do legado (BANCOS vem com
         // grupo_id=0/null) caem no primeiro grupo — a FK do destino é NOT NULL.
-        $grupoPadrao = (int) (DB::table('grupos')->min('id') ?? 1);
+        $grupoPadrao = (int) ($this->destino()->table('grupos')->min('id') ?? 1);
 
         return $rows->map(function ($r) use ($cfg, $grupoPadrao) {
             $linha = [

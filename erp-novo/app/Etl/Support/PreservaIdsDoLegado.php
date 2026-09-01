@@ -2,6 +2,7 @@
 
 namespace App\Etl\Support;
 
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,9 +17,44 @@ use Illuminate\Support\Facades\DB;
  * Escreve pelo Query Builder, em lotes, com `upsert` (recarga idempotente), e
  * ressincroniza a sequence no fim para o próximo insert da aplicação não colidir
  * com um id já ocupado pela carga.
+ *
+ * ## A conexão vem do CONTEXTO, não do default
+ *
+ * Este trait é usado por **22 dos 23 migradores**, e usava `DB::connection()`
+ * fixo — a conexão do runtime (`erp_app`), sob RLS.
+ *
+ * Depois que a RLS de tenant entrou, isso quebrou o ETL inteiro em silêncio: a
+ * leitura devolvia zero e a escrita era recusada com
+ * `new row violates row-level security policy`. Como cada migrador trata
+ * "referência ausente" descartando a linha, o resultado era descartar quase
+ * tudo e sair com SUCESSO.
+ *
+ * O ETL cria os tenants; não pode estar sujeito ao escopo deles. Ver
+ * `MigrationContext::novo()`.
  */
 trait PreservaIdsDoLegado
 {
+    /**
+     * A conexão de destino, injetada pelo migrador a partir do contexto.
+     *
+     * Nula significa "ainda não recebi contexto" — e aí cai no default, que é o
+     * comportamento antigo. Cada migrador chama `usarConexaoDe($ctx)` no início
+     * do `migrar()`; o guardião `EtlEnxergaODestinoTest` reprova quem esquecer.
+     */
+    private ?ConnectionInterface $conexaoDestino = null;
+
+    /** Liga este trait à conexão de destino do contexto (owner, no Postgres). */
+    protected function usarConexaoDe(MigrationContext $ctx): void
+    {
+        $this->conexaoDestino = $ctx->novo();
+    }
+
+    /** A conexão em que este trait lê e escreve o DESTINO. */
+    protected function destino(): ConnectionInterface
+    {
+        return $this->conexaoDestino ?? DB::connection();
+    }
+
     /**
      * @param  list<array<string, mixed>>  $linhas
      * @param  list<string>  $chave  colunas que identificam a linha (default: id)
@@ -42,7 +78,7 @@ trait PreservaIdsDoLegado
         }
         unset($l);
 
-        $conexao = DB::connection();
+        $conexao = $this->destino();
         foreach (array_chunk($linhas, $lote) as $bloco) {
             $conexao->table($tabela)->upsert($bloco, $chave);
         }
@@ -85,7 +121,7 @@ trait PreservaIdsDoLegado
 
             $existentes = [];
             foreach (array_chunk(array_keys($refs), 5000) as $bloco) {
-                foreach (DB::table($tabela)->whereIn('id', $bloco)->pluck('id') as $id) {
+                foreach ($this->destino()->table($tabela)->whereIn('id', $bloco)->pluck('id') as $id) {
                     $existentes[(int) $id] = true;
                 }
             }
@@ -105,7 +141,7 @@ trait PreservaIdsDoLegado
     /** Deixa a sequence acima do maior id carregado (só faz sentido no Postgres). */
     protected function ressincronizarSequence(string $tabela): void
     {
-        $conexao = DB::connection();
+        $conexao = $this->destino();
         if ($conexao->getDriverName() !== 'pgsql') {
             return;
         }

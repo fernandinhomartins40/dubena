@@ -43,6 +43,8 @@ final class SatelitesMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         // Sem nenhuma das origens não há o que migrar — e isso precisa ser
@@ -107,7 +109,7 @@ final class SatelitesMigrator implements Migrator
 
         // ── Comodato ──
         if ($this->tabelaExiste($ctx, 'comodatos')) {
-            $produtoPadrao = (int) (DB::table('produtos')->min('id') ?? 0);
+            $produtoPadrao = (int) ($this->destino()->table('produtos')->min('id') ?? 0);
 
             // Itens REAIS do contrato (COMODATOITEMS, 1.344 no dump auditado):
             // produto e quantidade vêm daqui — o "produto padrão qtde 1" só
@@ -244,12 +246,12 @@ final class SatelitesMigrator implements Migrator
         $colunasConvenio = DB::getSchemaBuilder()->getColumnListing('convenios');
         $convenioDoCliente = [];
         $novos = [];
-        $proximo = (int) (DB::table('convenios')->max('id') ?? 0);
+        $proximo = (int) ($this->destino()->table('convenios')->max('id') ?? 0);
 
         $grupoDaEmpresa = $this->grupoPorEmpresa();
         // O convênio no legado não tem nome próprio — é do cliente titular,
         // então é o nome dele que identifica o convênio na tela.
-        $nomeDoCliente = DB::table('clientes')
+        $nomeDoCliente = $this->destino()->table('clientes')
             ->whereIn('id', array_keys($clientes))
             ->pluck('nome', 'id');
 
@@ -320,7 +322,7 @@ final class SatelitesMigrator implements Migrator
     private function grupoPorEmpresa(): array
     {
         $out = [];
-        foreach (DB::table('empresas')->select('id', 'grupo_id')->get() as $e) {
+        foreach ($this->destino()->table('empresas')->select('id', 'grupo_id')->get() as $e) {
             $out[(int) $e->id] = (int) $e->grupo_id;
         }
 
@@ -331,7 +333,7 @@ final class SatelitesMigrator implements Migrator
     private function empresaPorCliente(): array
     {
         $out = [];
-        foreach (DB::table('clientes')->select('id', 'empresa_id')->cursor() as $c) {
+        foreach ($this->destino()->table('clientes')->select('id', 'empresa_id')->cursor() as $c) {
             $out[(int) $c->id] = (int) $c->empresa_id;
         }
 
@@ -349,7 +351,7 @@ final class SatelitesMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 

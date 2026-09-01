@@ -34,6 +34,8 @@ final class EmpresasMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         $grupos = $this->lerGrupos($ctx);
@@ -110,7 +112,7 @@ final class EmpresasMigrator implements Migrator
             return 0;
         }
 
-        return (int) DB::table('empresas')
+        return (int) $this->destino()->table('empresas')
             ->whereNotIn(DB::raw('id::text'), $doOracle)
             ->count();
     }
@@ -213,7 +215,7 @@ final class EmpresasMigrator implements Migrator
             return; // dump sem a tabela: nada a herdar
         }
 
-        $idsEmpresa = DB::table('empresas')->pluck('id')->flip();
+        $idsEmpresa = $this->destino()->table('empresas')->pluck('id')->flip();
 
         foreach ($doLegado as $r) {
             $id = (int) $r->id;
@@ -278,11 +280,11 @@ final class EmpresasMigrator implements Migrator
             // `dados` é compartilhado (integrações, etc.): mescla em vez de
             // sobrescrever, senão a carga apagaria o que outro migrator gravou.
             $atual = json_decode(
-                (string) DB::table('empresa_configs')->where('empresa_id', $id)->value('dados'),
+                (string) $this->destino()->table('empresa_configs')->where('empresa_id', $id)->value('dados'),
                 true,
             ) ?: [];
 
-            DB::table('empresa_configs')->updateOrInsert(
+            $this->destino()->table('empresa_configs')->updateOrInsert(
                 ['empresa_id' => $id],
                 [
                     'dados' => json_encode(array_merge($atual, $blocos), JSON_UNESCAPED_UNICODE),

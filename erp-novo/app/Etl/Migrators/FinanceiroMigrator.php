@@ -42,6 +42,8 @@ final class FinanceiroMigrator implements Migrator
 
     public function migrar(MigrationContext $ctx): MigrationResult
     {
+        $this->usarConexaoDe($ctx);
+
         $this->ctxAtual = $ctx;
 
         if (! $this->tabelaExiste($ctx, 'financeiros')) {
@@ -269,7 +271,7 @@ final class FinanceiroMigrator implements Migrator
     private function empresaPorTitulo(): array
     {
         $out = [];
-        foreach (DB::table('financeiros')->select('id', 'empresa_id')->cursor() as $f) {
+        foreach ($this->destino()->table('financeiros')->select('id', 'empresa_id')->cursor() as $f) {
             $out[(int) $f->id] = (int) $f->empresa_id;
         }
 
@@ -293,7 +295,7 @@ final class FinanceiroMigrator implements Migrator
     private function idsDe(string $tabela): array
     {
         $ids = [];
-        foreach (DB::table($tabela)->select('id')->cursor() as $r) {
+        foreach ($this->destino()->table($tabela)->select('id')->cursor() as $r) {
             $ids[(int) $r->id] = true;
         }
 
