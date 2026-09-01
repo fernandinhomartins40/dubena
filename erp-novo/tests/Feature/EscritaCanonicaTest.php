@@ -106,10 +106,17 @@ class EscritaCanonicaTest extends TestCase
     public function test_nome_de_revenda_nao_vira_literal_em_codigo(): void
     {
         $achados = [];
+        $varridos = 0;
 
         foreach ($this->arquivosPhp() as $arquivo) {
+            $varridos++;
+
             foreach ($this->linhasDeCodigo($arquivo) as $numero => $linha) {
-                foreach (['Dubena', 'Guarapuava'] as $termo) {
+                // `GASEMCASA` entrou junto (F8): é o nome da primeira revenda
+                // sem espaço, a forma que os campos de largura fixa usam — foi
+                // assim que ele apareceu no payload PIX. Um guardião que busca
+                // só a grafia bonita não pega a que de fato vaza.
+                foreach (['Dubena', 'Guarapuava', 'GASEMCASA', 'Gas em Casa'] as $termo) {
                     // Só dentro de string: um nome de classe ou variável que
                     // contenha o termo é outro assunto (e não existe hoje).
                     if (preg_match("/['\"][^'\"]*{$termo}[^'\"]*['\"]/i", $linha) === 1) {
@@ -119,6 +126,11 @@ class EscritaCanonicaTest extends TestCase
                 }
             }
         }
+
+        // A varredura tem de ter varrido algo. Sem isto, uma pasta renomeada
+        // faria a lista vir vazia e o teste passaria protegendo ZERO arquivo —
+        // que é como um guardião deste repositório passou meses aprovando nada.
+        $this->assertGreaterThan(300, $varridos, 'a varredura precisa ter alcançado o código');
 
         $this->assertSame([], $achados, implode("\n", array_merge(
             ['Nome da primeira revenda (ou da cidade dela) dentro de código:'],

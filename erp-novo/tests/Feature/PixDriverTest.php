@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Domain\Cobranca\Contracts\PixDriver;
 use App\Domain\Cobranca\Drivers\FakePixDriver;
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Tenant\TenantContext;
 use App\Models\Cliente\Cliente;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Empresa;
@@ -86,6 +87,34 @@ class PixDriverTest extends TestCase
             ->assertCreated();
 
         $this->assertNotEmpty($r->json('data.copia_e_cola'));
+    }
+
+    /**
+     * F8 — o nome do RECEBEDOR no BR Code vem do tenant, nao de uma constante.
+     *
+     * O campo 60 do payload EMV e o nome de quem recebe, e estava fixo em
+     * `GASEMCASA` — a primeira revenda. Aqui e um Fake, entao nada e cobrado de
+     * verdade; mas o payload sai na tela e no app do cliente durante toda a
+     * homologacao, e cada revenda que testasse o PIX veria a concorrente como
+     * recebedora.
+     *
+     * O tamanho vinha fixo em `09` junto com o nome: trocar um sem o outro
+     * produziria um EMV invalido, e por isso os dois sao derivados juntos.
+     */
+    public function test_o_recebedor_do_brcode_vem_do_tenant(): void
+    {
+        $empresa = Empresa::factory()->create(['nome_fantasia' => 'Revenda Teste F8']);
+        app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
+
+        $r = (new FakePixDriver)->criarCobranca(['txid' => 'abc123', 'valor' => 100.0], []);
+
+        $payload = (string) $r['copia_e_cola'];
+
+        $this->assertStringContainsString('REVENDA TESTE F8', $payload);
+        $this->assertStringNotContainsString('GASEMCASA', $payload);
+
+        // O comprimento declarado tem de casar com o nome — senao o EMV quebra.
+        $this->assertStringContainsString('60'.sprintf('%02d', strlen('REVENDA TESTE F8')), $payload);
     }
 
     public function test_producao_recusa_resolver_driver_pix_fake(): void
