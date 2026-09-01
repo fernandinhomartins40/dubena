@@ -114,6 +114,27 @@ confia. Vale o contrário também: defeito só-Postgres passa verde localmente.
 
 ### Testes
 
+**Teste que toca RLS não usa `RefreshDatabase`.** O runtime (`erp_app`) não é
+dono das tabelas, então recriar o schema falha com `must be owner of table
+agencias`. Use `DatabaseTransactions`, como `RlsCoberturaTest` — ou nada, se o
+teste só lê `information_schema`.
+
+**Sob RLS, conferir a linha que você acabou de gravar é uma armadilha dupla.**
+Pela conexão do runtime, o `USING` esconde a linha que não é do tenant; por
+`pgsql_owner`, é conexão **separada** e não enxerga a transação ainda aberta do
+teste. As duas dão zero por motivos diferentes do que se quer medir. Quando o
+que importa é o banco ter *aceitado* a escrita, asserte o aceite.
+
+**A RLS descarta, nem sempre lança.** Um insert barrado pelo `WITH CHECK` pode
+voltar como `INSERT 0 0`, sem erro. Teste que espera exceção passa verde num
+banco que não protege nada — asserte o efeito observável.
+
+**O gate Postgres roda localmente** com o container da app + `--network
+container:erpnovo-db`, passando `DB_*` como `-e` (o `phpunit.xml` fixa
+`DB_CONNECTION=sqlite`, e `<env>` só perde para variável já definida no
+ambiente — pôr no `.env` não adianta). ⚠️ Não altere a senha da role `erp_app`:
+o Postgres é compartilhado com homologação.
+
 **`Event::fake()` global mata os model events do Eloquent** — e com eles o
 `empresa_id` herdado por relação, deixando filhos órfãos de tenant. Use
 `Event::fake([EventoEspecifico])`.
