@@ -20,9 +20,28 @@ class GoogleRoutesDriver implements TracadorRota
     /** Circuito aberto: após uma falha, NENHUMA chamada por este intervalo. */
     private const CIRCUITO_TTL_S = 300;
 
-    private const CIRCUITO_KEY = 'groutes:circuito-aberto';
-
     public function __construct(private string $apiKey) {}
+
+    /**
+     * A chave do circuito é POR CREDENCIAL (F6-01).
+     *
+     * Era uma constante global. Com N revendas, cada uma com o seu
+     * credenciamento Google, a quota estourada de **uma** abria o circuito de
+     * **todas**: as demais paravam de traçar rota sem ter feito nada, e o
+     * traçado reto assumia em silêncio.
+     *
+     * O inverso também doía — a revenda com problema real ficava invisível,
+     * porque o circuito abria e fechava para o conjunto.
+     *
+     * O escopo certo é a credencial, não a empresa: é a chave que tem quota, e
+     * duas empresas que compartilham a mesma chave compartilham o mesmo limite
+     * de verdade. Só o hash entra no nome — a chave é segredo e cache não é
+     * lugar de segredo, nem em nome de entrada.
+     */
+    private function chaveDoCircuito(): string
+    {
+        return 'groutes:circuito-aberto:'.substr(hash('sha256', $this->apiKey), 0, 16);
+    }
 
     public function tracar(float $origLat, float $origLng, float $destLat, float $destLng): ?array
     {
@@ -30,7 +49,7 @@ class GoogleRoutesDriver implements TracadorRota
         // rota disparava dezenas de 403 (e Cache::remember NÃO guarda null) — o
         // endpoint levava 20s+ e o app dava timeout. Uma falha abre o circuito e
         // curto-circuita tudo por 5 min (traçado reto assume, nada quebra).
-        if (Cache::get(self::CIRCUITO_KEY)) {
+        if (Cache::get($this->chaveDoCircuito())) {
             return null;
         }
 
@@ -81,7 +100,7 @@ class GoogleRoutesDriver implements TracadorRota
     {
         Cache::put($chave, ['ok' => false], self::CACHE_TTL_S);
         if ($abrirCircuito) {
-            Cache::put(self::CIRCUITO_KEY, true, self::CIRCUITO_TTL_S);
+            Cache::put($this->chaveDoCircuito(), true, self::CIRCUITO_TTL_S);
         }
     }
 }

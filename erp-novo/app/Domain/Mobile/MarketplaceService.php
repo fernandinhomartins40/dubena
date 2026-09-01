@@ -126,13 +126,49 @@ class MarketplaceService
             return false;
         }
 
-        $cercas = Cerca::withoutTenant()
+        return $this->atende($empresa, $lat, $lng, $this->cercasDe($empresaId));
+    }
+
+    /**
+     * A empresa DECLAROU alguma área de entrega? (F6-05)
+     *
+     * Pergunta diferente de "atende este ponto", e a distinção é o que separa
+     * cobertura de canal.
+     *
+     * `atende()` devolve `false` tanto para "está fora da minha área" quanto
+     * para "não configurei área nenhuma". Confundir os dois transformaria a
+     * validação de cobertura num bloqueio para toda revenda que ainda não
+     * desenhou a cerca — que hoje é a maioria.
+     *
+     * Então a regra é: **quem declarou área, respeita a área**; quem não
+     * declarou não é restringido — e é a configuração, não a flag de canal, que
+     * decide isso.
+     */
+    public function empresaTemCoberturaDeclarada(int $empresaId): bool
+    {
+        $empresa = Empresa::query()->find($empresaId);
+
+        if (! $empresa) {
+            return false;
+        }
+
+        if ($this->cercasDe($empresaId)->isNotEmpty()) {
+            return true;
+        }
+
+        return $empresa->raio_entrega_km !== null
+            && $empresa->latitude !== null
+            && $empresa->longitude !== null;
+    }
+
+    /** @return Collection<int,Cerca> */
+    private function cercasDe(int $empresaId): Collection
+    {
+        return Cerca::withoutTenant()
             ->where('ativo', true)
             ->where('empresa_id', $empresaId)
             ->with('pontos')
             ->get();
-
-        return $this->atende($empresa, $lat, $lng, $cercas);
     }
 
     /**

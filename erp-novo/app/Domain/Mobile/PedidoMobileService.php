@@ -132,10 +132,12 @@ class PedidoMobileService
             GeocodificarClienteJob::dispatch($cliente->id);
         }
 
-        // F7 (segurança): empresa MARKETPLACE revalida a COBERTURA server-side — a
-        // escolha da loja no app é UX, não segurança. Sem coordenada ainda (geocode
-        // pendente) não bloqueia; builds white-label (sem marketplace) mantêm o
-        // comportamento atual.
+        // Revalida a COBERTURA server-side: a escolha da loja no app é UX, não
+        // segurança.
+        //
+        // Vale para toda revenda que DECLAROU área — não só as do marketplace
+        // (F6-05). A flag de canal decide se ela aparece na descoberta pública,
+        // e nada mais: a área de entrega que ela desenhou vale nos dois casos.
         $this->validarCobertura($empresaId, $lat, $lng);
 
         $setor = $this->setorDeEntrega($empresaId, $lat, $lng);
@@ -216,9 +218,29 @@ class PedidoMobileService
     }
 
     /**
-     * F7 — pedido de empresa marketplace só nasce se ela ATENDE o ponto de entrega
-     * (cerca/raio, mesma regra da descoberta). Sem coordenada não bloqueia (geocode
-     * assíncrono); empresa fora do marketplace não é restringida aqui.
+     * O pedido só nasce se a revenda atende o ponto de entrega.
+     *
+     * ## A cobertura não depende da flag de canal (F6-05)
+     *
+     * Antes, a validação só rodava quando `app_marketplace_ativo` era verdadeiro
+     * — a flag de **canal** governava a cobertura **geográfica**. Uma revenda
+     * fora do marketplace aceitava pedido do app de qualquer endereço, inclusive
+     * de outra cidade, e a área de entrega que ela mesma desenhou era ignorada.
+     *
+     * São perguntas diferentes: aparecer na descoberta pública é canal; entregar
+     * naquele endereço é cobertura. Quem decide a segunda é a configuração de
+     * área da revenda.
+     *
+     * ## Quem não declarou área não é bloqueado
+     *
+     * `empresaAtendePonto` devolve `false` tanto para "fora da minha área"
+     * quanto para "não configurei área nenhuma" — e a maioria das revendas ainda
+     * não desenhou cerca. Validar sem essa distinção derrubaria a operação atual
+     * inteira, que é pior que o defeito.
+     *
+     * Sem coordenada também não bloqueia: a geocodificação é assíncrona, e
+     * recusar o pedido enquanto ela não roda puniria o cliente por uma fila
+     * interna.
      */
     private function validarCobertura(int $empresaId, ?float $lat, ?float $lng): void
     {
@@ -226,9 +248,7 @@ class PedidoMobileService
             return;
         }
 
-        $marketplaceAtivo = (bool) Empresa::query()
-            ->whereKey($empresaId)->value('app_marketplace_ativo');
-        if (! $marketplaceAtivo) {
+        if (! $this->marketplace->empresaTemCoberturaDeclarada($empresaId)) {
             return;
         }
 

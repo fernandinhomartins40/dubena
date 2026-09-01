@@ -15,9 +15,16 @@ use Tests\TestCase;
 /**
  * FASE 7 do PLANO_SEGURANCA_MULTITENANT_APPS — cobertura revalidada SERVER-SIDE.
  *
- * A escolha da loja no app marketplace é UX; o pedido só nasce se a empresa
- * ATENDE o ponto de entrega (cerca/raio — mesma regra da descoberta pública).
- * Builds white-label (empresa fora do marketplace) mantêm o comportamento atual.
+ * A escolha da loja no app é UX; o pedido só nasce se a empresa ATENDE o ponto
+ * de entrega (cerca/raio — mesma regra da descoberta pública).
+ *
+ * **F6-05 mudou o alcance da regra.** A F7 abria exceção para builds
+ * white-label: empresa fora do marketplace "mantinha o comportamento atual", ou
+ * seja, aceitava qualquer endereço. O plano SaaS revoga isso — a flag de canal
+ * decide se a revenda aparece na descoberta pública, não até onde ela entrega.
+ *
+ * A fronteira passou a ser a configuração: quem declarou área respeita a área;
+ * quem não declarou não é restringido.
  */
 class AppPedidoCoberturaTest extends TestCase
 {
@@ -65,11 +72,40 @@ class AppPedidoCoberturaTest extends TestCase
         ])->assertCreated();
     }
 
-    public function test_white_label_sem_marketplace_nao_e_restringido(): void
+    /**
+     * F6-05 revogou a exceção do white-label: quem DECLAROU área respeita a
+     * área, marketplace ou não.
+     *
+     * O teste antigo afirmava o contrário — que uma revenda fora do marketplace
+     * "mantém o fluxo atual" e aceita qualquer endereço. Era a decisão da F7, e
+     * o plano SaaS a supera com razão: a flag de canal decide se a revenda
+     * **aparece na descoberta pública**, não até onde ela **entrega**.
+     *
+     * O efeito prático do comportamento antigo, com esta mesma empresa: raio de
+     * 5 km declarado, e um pedido de Curitiba — 250 km — era aceito.
+     */
+    public function test_white_label_com_area_declarada_respeita_a_area(): void
     {
         [$user, $produto] = $this->cenario(marketplace: false);
 
-        // Mesmo ponto longe: empresa fora do marketplace mantém o fluxo atual.
+        $this->actingAs($user, 'sanctum')->postJson('/api/app/v1/pedidos', [
+            'lat' => -25.4284, 'lng' => -49.2733,
+            'itens' => [['produto_id' => $produto->id, 'quantidade' => 1]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['endereco']);
+    }
+
+    /**
+     * Quem NÃO declarou área continua sem restrição — é o que impede a correção
+     * de derrubar a operação de quem ainda não configurou cerca nem raio.
+     */
+    public function test_sem_area_declarada_o_pedido_distante_passa(): void
+    {
+        [$user, $produto] = $this->cenario(marketplace: false);
+
+        Empresa::query()->where('id', $user->empresa_id)->update([
+            'raio_entrega_km' => null,
+        ]);
+
         $this->actingAs($user, 'sanctum')->postJson('/api/app/v1/pedidos', [
             'lat' => -25.4284, 'lng' => -49.2733,
             'itens' => [['produto_id' => $produto->id, 'quantidade' => 1]],
