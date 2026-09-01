@@ -22,11 +22,16 @@ cutover. Ver [`docs/gauntlet/GUIA_DO_DONO.md`](docs/gauntlet/GUIA_DO_DONO.md).
 
 | Pergunta | Onde |
 |---|---|
-| O que falta para virar? | `docs/gauntlet/GUIA_DO_DONO.md` |
-| O que foi entregue e por quê? | `docs/gauntlet/STATUS_FINAL.md` |
-| O plano técnico (46 tarefas) | `docs/gauntlet/PLANO_PRODUCAO.md` |
+| **O plano vigente (SaaS, F0–F10)** | `docs/01-vigente/PLANO_TRANSFORMACAO_SAAS.md` |
+| **Em que pé está cada fase** | `docs/01-vigente/implementacao-saas/F*_PROGRESSO.md` e `F*_FECHAMENTO.md` |
+| O que falta para virar (cutover) | `docs/gauntlet/GUIA_DO_DONO.md` |
+| O que foi entregue e por quê | `docs/gauntlet/STATUS_FINAL.md` |
 | Contrato de um módulo | `docs/01-vigente/IMPL_*.md` |
 | Como o legado se comporta | `docs/02-auditoria-legado/` |
+
+⚠️ **`docs/gauntlet/PLANO_PRODUCAO.md` está concluído.** As 46 tarefas dele
+foram entregues; ele descreve o cutover da Dubena, não o SaaS. O plano em curso é
+o `PLANO_TRANSFORMACAO_SAAS.md`.
 
 ⚠️ **`docs/00-ARQUIVO-HISTORICO/` não é fonte de verdade.** Contém planos
 descartados (Filament) e auditorias já implementadas. Útil para entender *por
@@ -75,6 +80,12 @@ validadas pelo sqlite. Confira o tamanho na migration antes de escrever seed.
 **`whereBetween` em coluna datetime perde o último dia.** `'2026-08-19 00:00:00'
 > '2026-08-19'` na comparação de string. Use `whereDate`.
 
+**O cast `date` do Eloquent grava com HORA.** Ele serializa `'AAAA-MM-DD
+00:00:00'`; o Postgres trunca ao gravar numa coluna `date`, o **sqlite não**.
+Consequência: o mesmo relatório perdia o último dia do período **só na suíte** e
+funcionava em produção — a pior forma da divergência, porque a suíte é onde se
+confia. Vale o contrário também: defeito só-Postgres passa verde localmente.
+
 ### Testes
 
 **`Event::fake()` global mata os model events do Eloquent** — e com eles o
@@ -86,6 +97,17 @@ proposital: o manifesto é contrato.
 
 **Campo novo em model = lembrar do `$fillable`.** Um campo de config foi
 descartado silenciosamente por esquecimento disso.
+
+**Guardião só vale se você provar que ele detecta.** Antes de aceitar o verde,
+plante a regressão que ele deveria pegar. Nesta base já houve: teste que varria
+zero arquivos e passava; `assertSame(f($x), f($x))` na matemática CNAB; guardião
+de `whereBetween` que não pegou a regressão nas duas primeiras versões. Todo
+teste que varre arquivo precisa de `assertGreaterThan(N, $varridos)`.
+
+**Teste preso ao formato de serialização vira falso positivo.** Um teste fixava
+`'2026-09-15T00:00:00.000000Z'`; ao corrigir o fuso da plataforma a data
+continuou certa e só a representação mudou — mas o teste quebrou, fazendo a
+correção parecer regressão. Asserte a **data**, não a string ISO.
 
 ### PHP / Laravel
 
@@ -102,6 +124,18 @@ acentos. Para normalizar texto, use tabela explícita de transliteração.
 
 **dompdf: use `DejaVu Sans`.** É a única fonte embarcada com acentuação latina —
 com a padrão, "endereço" sai "endere?o" no papel entregue ao cliente.
+
+### Investigação
+
+**`grep` confirma presença, nunca ausência.** Concluí que não havia ingestão de
+posição por rastreador porque `where('imei'` não retornava nada — e havia: o
+`TraccarDriver` casa o `uniqueId` do provedor com o `imei` **em memória**, sem
+`where` nenhum. A varredura por padrão acha o que você procura, não o que está
+lá. "Não achei" só vira "não existe" depois de ler o fluxo completo.
+
+**Corrija o registro quando o diagnóstico mudar.** O documento de fase tinha uma
+seção afirmando que aquilo era trabalho futuro; ela foi **reescrita explicando o
+erro**, não apagada — quem ler depois precisa saber por que a conclusão mudou.
 
 ### Windows (ambiente de dev)
 
@@ -141,7 +175,7 @@ não autentica — não caia para um default da plataforma.
 ```bash
 cd erp-novo
 
-php artisan test                      # 839 testes
+php artisan test                      # 1720 testes
 php artisan api:manifest              # após criar/alterar rota
 cd frontend && npx tsc --noEmit       # typecheck da SPA
 
@@ -175,10 +209,20 @@ php artisan etl:run --dry-run         # simula a migração, não grava
 
 | | |
 |---|---|
-| Testes | **839 verdes** |
+| Testes (backend) | **1720 verdes** |
+| Testes (SPA) | **47 verdes** |
 | Invariantes do ETL | **71 OK / 0 falhas** |
-| Endpoints | 490 |
+| Endpoints | 600 |
 | Domínios / controllers admin | 26 / 49 |
-| Migrations | 95 |
+| Migrations | 162 |
 | Policies RLS | 154 |
 | Ambiente na VPS | **homologação** (produção é o cutover) |
+
+⚠️ **O objetivo mudou de escopo.** O alvo não é mais só virar o cutover da
+Dubena, e sim **transformar isto num SaaS para N revendas**. O plano é
+`docs/01-vigente/PLANO_TRANSFORMACAO_SAAS.md` (F0–F10); o estado de cada fase
+está em `docs/01-vigente/implementacao-saas/F*_PROGRESSO.md` e `F*_FECHAMENTO.md`.
+
+O que isso muda na prática: **convenção de uma revenda não é regra do produto**.
+Preço, teto, grade e limiar de negócio são configuração do tenant, editáveis no
+painel — nunca constante no código.
