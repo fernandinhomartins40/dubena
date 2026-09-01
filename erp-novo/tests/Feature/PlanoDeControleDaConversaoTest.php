@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Etl\Support\InvariantResult;
 use App\Etl\Support\RegistroDaConversao;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -177,6 +178,50 @@ class PlanoDeControleDaConversaoTest extends TestCase
         $registro->encerrar('CONCLUIDA');
 
         $this->assertTrue(true, 'a carga segue mesmo sem as tabelas de controle');
+    }
+
+    /**
+     * F7-10 — invariante que NAO PODE ser verificada nao e aprovacao.
+     *
+     * `BalanceInvariant` devolvia `ok` para "sem movimentos no recorte", com o
+     * raciocinio de nao gritar num banco recem-criado. O problema e que a mesma
+     * resposta serve para dois fatos opostos: ANTES da carga, "sem movimentos" e
+     * o esperado; DEPOIS dela, significa que a carga nao trouxe nada — e o
+     * portao do cutover aprovava assim mesmo.
+     *
+     * Mesma familia do registry vazio que imprimia "ETL concluido" e do guardiao
+     * que varria zero arquivos: ausencia de dado tratada como aprovacao.
+     */
+    public function test_inconclusiva_nao_vale_como_aprovacao(): void
+    {
+        $r = InvariantResult::inconclusiva('saldo', 'legado indisponivel');
+
+        $this->assertFalse($r->ok, 'nao verificado nunca libera o portao');
+        $this->assertTrue($r->naoVerificada());
+        $this->assertStringContainsString('INCONCLUSIVA', $r->resumo());
+    }
+
+    /**
+     * E distinta da REPROVACAO, porque as acoes sao opostas.
+     *
+     * "Legado indisponivel" se resolve religando a conexao; "soma nao bate" se
+     * resolve investigando o dado. Misturar as duas manda quem opera para o
+     * lugar errado.
+     */
+    public function test_inconclusiva_e_distinta_de_reprovacao(): void
+    {
+        $inconclusiva = InvariantResult::inconclusiva('saldo', 'legado indisponivel');
+        $reprovada = InvariantResult::falha('saldo', 'soma nao bate', 100, 90);
+        $aprovada = InvariantResult::ok('saldo', 'fecha');
+
+        $this->assertTrue($inconclusiva->naoVerificada());
+        $this->assertFalse($reprovada->naoVerificada(), 'reprovacao foi verificada — e falhou');
+        $this->assertFalse($aprovada->naoVerificada());
+
+        // A reprovacao mostra esperado/obtido; a inconclusiva nao tem o que
+        // mostrar, e exibi-los como -1 (como era antes) inventa um numero.
+        $this->assertStringContainsString('esperado=', $reprovada->resumo());
+        $this->assertStringNotContainsString('esperado=', $inconclusiva->resumo());
     }
 
     /**

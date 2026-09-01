@@ -38,11 +38,15 @@ final class SumInvariant implements Invariant
         try {
             $temTabela = $this->ctx->legado()->getSchemaBuilder()->hasTable($this->tabelaLegado);
         } catch (\Throwable $e) {
-            return InvariantResult::falha(
+            // F7-10 — estado proprio, e nao `falha` com esperado/obtido = -1.
+            //
+            // Continua bloqueando (nao verificado nunca e aprovacao), mas a
+            // mensagem para de misturar "nao consegui verificar" com "verifiquei
+            // e esta errado" — que exigem acoes opostas: uma se resolve
+            // religando o legado, a outra investigando o dado.
+            return InvariantResult::inconclusiva(
                 $this->nome(),
-                'legado indisponível; verificação inconclusiva: '.$e->getMessage(),
-                -1,
-                -1,
+                'legado indisponível: '.$e->getMessage(),
             );
         }
 

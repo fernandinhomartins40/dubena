@@ -134,7 +134,16 @@ class CountInvariantAjustesTest extends TestCase
         $ctx = new MigrationContext(conexaoLegado: 'conexao_que_nao_existe');
         $r = (new CountInvariant($ctx, 'cidades', 'cidades'))->verificar();
 
+        // Continua BLOQUEANDO: não verificado nunca é aprovação.
         $this->assertFalse($r->ok);
-        $this->assertStringContainsString('inconclusiva', $r->mensagem);
+
+        // F7-10 — a asserção passou do texto da mensagem para o ESTADO.
+        //
+        // Antes a mensagem carregava a palavra "inconclusiva"; agora existe um
+        // estado próprio, e verificar o estado é mais forte — a mensagem pode
+        // ser reescrita sem que a semântica mude, e o teste não deve quebrar
+        // por isso (foi o que aconteceu quando a distinção foi introduzida).
+        $this->assertTrue($r->naoVerificada(), 'origem inacessível não foi verificada — não é reprovação');
+        $this->assertStringContainsString('indisponível', $r->mensagem);
     }
 }

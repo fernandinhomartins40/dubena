@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Empresa;
 use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\Concerns\ResolveSenhaSeed;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -28,6 +29,14 @@ use Illuminate\Support\Facades\Hash;
  */
 class AcessoRedeDubenaSeeder extends Seeder
 {
+    // F7-11 — a senha vem do ambiente, com o mesmo tratamento dos seeders de
+    // deploy: obrigatoria em producao, gerada e ANUNCIADA fora dela.
+    //
+    // Antes o default era `dono@2026` / `gerente@2026`: senha conhecida que
+    // entrava sozinha se a variavel nao estivesse definida — e o dono da rede
+    // enxerga TODAS as filiais.
+    use ResolveSenhaSeed;
+
     public function run(): void
     {
         $matriz = $this->matrizDaRede();
@@ -49,7 +58,7 @@ class AcessoRedeDubenaSeeder extends Seeder
             email: 'dono@dubena.com.br',
             nome: 'Vilso Dubena (dono da rede)',
             empresaPadrao: $matriz,
-            senha: env('DONO_SEED_PASSWORD', 'dono@2026'),
+            senha: $this->senhaSeed('DONO_SEED_PASSWORD', 'Dono da rede'),
             support: false,
         );
 
@@ -76,7 +85,7 @@ class AcessoRedeDubenaSeeder extends Seeder
                 email: 'gerente.filial@dubena.com.br',
                 nome: 'Gerente da Filial',
                 empresaPadrao: $filialSecundaria,
-                senha: env('GERENTE_SEED_PASSWORD', 'gerente@2026'),
+                senha: $this->senhaSeed('GERENTE_SEED_PASSWORD', 'Gerente da filial'),
                 support: false,
             );
             $this->papelNaEmpresa($gerente, $filialSecundaria, 'Gerente');

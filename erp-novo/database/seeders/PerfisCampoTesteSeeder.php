@@ -12,8 +12,8 @@ use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\Rh\Colaborador;
 use App\Models\Rh\ColaboradorComissao;
-use App\Models\User;
 use App\Models\Satelite\ValeGas;
+use App\Models\User;
 use App\Models\Venda\AlcadaDesconto;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -39,10 +39,25 @@ use Illuminate\Support\Facades\Hash;
  */
 class PerfisCampoTesteSeeder extends Seeder
 {
+    /**
+     * Senha FIXA de propósito: é o que permite testar o login pelo app sem
+     * combinar credencial a cada rodada.
+     *
+     * Por isso mesmo, este seeder é bloqueado em produção (F7-11) — senha
+     * conhecida num ambiente real é conta aberta, e `db:seed --class=` não
+     * pergunta em que ambiente está.
+     */
     private const SENHA = 'teste123';
 
     public function run(): void
     {
+        if (app()->environment('production')) {
+            throw new \RuntimeException(
+                'PerfisCampoTesteSeeder é fixture de teste e cria usuários com senha conhecida. '
+                .'Não pode rodar em produção.'
+            );
+        }
+
         $empresa = Empresa::query()->orderBy('id')->first();
 
         if ($empresa === null) {

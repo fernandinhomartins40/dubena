@@ -74,9 +74,14 @@ final class BalanceInvariant implements Invariant
             ->get();
 
         if ($somas->isEmpty()) {
-            // Nada no recorte: nada a contradizer. Reportar falha aqui faria a
-            // invariante gritar num banco recém-criado.
-            return InvariantResult::ok($this->nome(), 'sem movimentos no recorte');
+            // F7-10 — recorte vazio é INCONCLUSIVO, não aprovação.
+            //
+            // Antes devolvia `ok`, com o raciocínio de não gritar num banco
+            // recém-criado. O problema é que a mesma resposta serve para dois
+            // fatos opostos: antes da carga, "sem movimentos" é o esperado;
+            // DEPOIS dela, significa que a carga não trouxe nada — e o portão
+            // aprovava assim mesmo.
+            return InvariantResult::inconclusiva($this->nome(), 'sem movimentos no recorte: nada a verificar');
         }
 
         $divergencias = 0;

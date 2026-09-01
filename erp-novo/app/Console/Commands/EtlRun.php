@@ -153,6 +153,8 @@ class EtlRun extends Command
         $falhou = false;
         /** @var list<string> $todosAvisos */
         $todosAvisos = [];
+        /** @var list<string> $inconclusivas — invariantes que nao puderam ser verificadas. */
+        $inconclusivas = [];
 
         foreach ($migrators as $m) {
             $this->info("→ {$m->nome()}".($ctx->dryRun ? ' (dry-run)' : ''));
@@ -166,7 +168,24 @@ class EtlRun extends Command
             if ($this->option('check')) {
                 foreach ($m->invariantes() as $inv) {
                     $r = $inv->verificar();
-                    $r->ok ? $this->line('  '.$r->resumo()) : $this->error('  '.$r->resumo());
+
+                    // F7-10 — tres desfechos, nao dois.
+                    //
+                    // Inconclusiva BLOQUEIA (nao verificado nunca e aprovacao),
+                    // mas aparece distinta da reprovacao: as duas exigem acoes
+                    // opostas. "Legado indisponivel" se resolve religando a
+                    // conexao; "soma nao bate" se resolve investigando o dado.
+                    // Misturar as duas manda quem opera para o lugar errado.
+                    match (true) {
+                        $r->naoVerificada() => $this->warn('  '.$r->resumo()),
+                        $r->ok => $this->line('  '.$r->resumo()),
+                        default => $this->error('  '.$r->resumo()),
+                    };
+
+                    if ($r->naoVerificada()) {
+                        $inconclusivas[] = "{$m->nome()}: {$r->invariante}";
+                    }
+
                     $falhou = $falhou || ! $r->ok;
                 }
             }
@@ -185,8 +204,18 @@ class EtlRun extends Command
             }
         }
 
+        if ($inconclusivas !== []) {
+            $this->newLine();
+            $this->warn('Invariantes INCONCLUSIVAS (nao verificadas):');
+            foreach ($inconclusivas as $i) {
+                $this->warn('  ? '.$i);
+            }
+        }
+
         if ($falhou) {
-            $registro->encerrar('FALHOU', 'invariante reprovada');
+            $registro->encerrar('FALHOU', $inconclusivas !== []
+                ? 'invariante reprovada ou inconclusiva'
+                : 'invariante reprovada');
             $this->error('ETL concluído COM FALHA de invariante (portão NÃO liberado).');
 
             return self::FAILURE;
