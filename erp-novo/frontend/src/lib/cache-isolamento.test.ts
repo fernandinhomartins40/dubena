@@ -116,3 +116,56 @@ describe('isolamento de cache entre identidades', () => {
     expect(qc.getQueryData(['clientes'])).toBeUndefined()
   })
 })
+
+/**
+ * F9-03 — a fronteira entre plataforma e tenant no cache compartilhado.
+ *
+ * A aplicacao usa UM QueryClient. A separacao entre os dois mundos e o prefixo
+ * `['sa']` nas queries de plataforma — o que funciona, e so enquanto todas o
+ * carregarem.
+ *
+ * O logout do SuperAdmin remove por esse prefixo, e nao `clear()`, porque
+ * limpar tudo derrubaria a sessao de tenant que pode estar aberta na mesma aba.
+ */
+describe('fronteira entre plataforma e tenant no cache', () => {
+  it('o logout do SuperAdmin nao derruba o cache do tenant', async () => {
+    const qc = new QueryClient()
+
+    qc.setQueryData(['sa', 'me'], { id: 1 })
+    qc.setQueryData(['sa', 'empresas'], [{ id: 10 }, { id: 20 }])
+    qc.setQueryData(['clientes'], [{ id: 1, nome: 'Cliente do tenant' }])
+
+    await qc.cancelQueries({ queryKey: ['sa'] })
+    qc.removeQueries({ queryKey: ['sa'] })
+
+    expect(qc.getQueryData(['sa', 'me'])).toBeUndefined()
+    expect(qc.getQueryData(['sa', 'empresas'])).toBeUndefined()
+    expect(qc.getQueryData(['clientes'])).toBeDefined()
+  })
+
+  it('toda query de plataforma carrega o prefixo que a separa', () => {
+    // O prefixo e o que torna a remocao seletiva possivel: uma query de
+    // plataforma sem ele sobreviveria ao logout do SuperAdmin, com dado de
+    // TODAS as revendas em memoria.
+    //
+    // `import.meta.glob` com `eager` e `?raw` le o arquivo em tempo de build do
+    // Vite — deterministico, e sem depender de @types/node. A assercao de que
+    // ACHOU o arquivo vem primeiro: um glob que nao casa nada devolveria lista
+    // vazia e o teste passaria sem verificar coisa alguma, que e exatamente o
+    // guardiao que nao guarda.
+    const arquivos = import.meta.glob('../features/superadmin/api.ts', {
+      eager: true, query: '?raw', import: 'default',
+    }) as Record<string, string>
+
+    const fonte = Object.values(arquivos)[0] ?? ''
+
+    expect(fonte.length).toBeGreaterThan(500)
+
+    const chaves = fonte.match(/queryKey: \[[^\]]*\]/g) ?? []
+
+    expect(chaves.length).toBeGreaterThan(5)
+    for (const chave of chaves) {
+      expect(chave).toContain("'sa'")
+    }
+  })
+})

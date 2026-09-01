@@ -40,9 +40,24 @@ export function SaAuthProvider({ children }: { children: ReactNode }) {
       const a = await saLogin(email, password, otp)
       qc.setQueryData(['sa', 'me'], a)
     },
+    /**
+     * F9-03 — o logout do SuperAdmin apaga TODO o cache `sa`, não só o `me`.
+     *
+     * Aqui o risco é maior que no lado do tenant: o SuperAdmin enxerga **todas
+     * as revendas** — planos, limites, consumo, dados de empresas concorrentes.
+     * Deixar isso em memória depois do logout significa que quem entrar em
+     * seguida na mesma máquina, inclusive um usuário comum de uma revenda, tem
+     * dado de plataforma no cache do navegador.
+     *
+     * `removeQueries` com o prefixo `['sa']` e não `clear()`: a aplicação usa um
+     * QueryClient só, e limpar tudo derrubaria também a sessão de tenant que
+     * pode estar aberta na mesma aba. O prefixo é o que separa os dois mundos
+     * hoje — e é por isso que toda query de plataforma precisa carregá-lo.
+     */
     logout: async () => {
       await saLogout()
-      qc.setQueryData(['sa', 'me'], null)
+      await qc.cancelQueries({ queryKey: ['sa'] })
+      qc.removeQueries({ queryKey: ['sa'] })
     },
   }
 
