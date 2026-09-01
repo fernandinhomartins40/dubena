@@ -37,6 +37,9 @@ $register([
     'conversao_execucoes',
     'conversao_linhagem',
     'conversao_quarentena',
+    // F7-03 — retrato da fonte legada. PLATFORM: mede a fonte ANTES de existir
+    // tenant; e o processo que CRIA os tenants a partir do legado.
+    'conversao_snapshots',
     'plano_conta_modelos',
     'platform_admins',
     'platform_audit_logs',
@@ -209,6 +212,9 @@ $register([
     'pedidosituacaohistorico',
     'pedidosituacoes',
     'pix_cobrancas',
+    // F9-07 — quem ainda chama as pontes legadas. É a revenda que chama, e ela
+    // vê o próprio uso.
+    'ponte_usos',
     'pos_vendas',
     'produto_condicao_precos',
     'produto_operacao_fiscal',

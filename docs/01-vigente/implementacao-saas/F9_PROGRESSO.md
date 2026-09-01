@@ -67,9 +67,86 @@ a asserir a **data**.
 | Suíte frontend | **47 passes**, `tsc` limpo |
 | Guardiões | verificados com regressão plantada |
 
+## F9-07 — medir antes de remover
+
+A tarefa tem três partes em ordem de dependência: **medir uso**, **substituir
+por contratos canônicos**, **remover gradualmente**. A primeira estava faltando
+inteira, e sem ela as outras duas não são executáveis — só apostáveis.
+
+### O que já estava certo
+
+A terceira exigência da tarefa — *"falha HTTP não é estado de domínio"* — já
+estava atendida desde a F0. O `DialetoLegado` traduz 422 em `OPS` e o resto em
+`NOK`, sempre em HTTP 200: o app em campo mostra "sem limite no convênio" em vez
+de "erro de conexão". Não mexi nisso; conferi e registro aqui para que ninguém
+refaça.
+
+### O que faltava
+
+Ninguém contava nada. Os 29 endpoints de ponte não têm um número que diga quais
+ainda são chamados, por qual revenda, por qual versão de APK.
+
+Isso trava a remoção nos dois sentidos:
+
+ - **remover por leitura de código** é apostar. O MovelApp está em `targetSdk 28`
+   e **não publica na Play Store** — um endpoint removido cedo demais vira venda
+   travada em campo, sem correção rápida do outro lado;
+ - **não remover nada** faz a ponte "com data para morrer" virar permanente.
+
+### O desenho
+
+`ponte_usos`, agregado por **(ponte, endpoint, empresa, dia)** — o mesmo desenho
+de `integracao_consumos` (F6-01) e pela mesma razão: o app faz *polling* de
+`getPedidosPendentes`, e uma linha por chamada cresceria mais rápido que o pedido
+que ela acompanha.
+
+O ponto de captura é o **middleware**, não cada controller. Instrumentar
+controller a controller depende de alguém lembrar — e instrumentação incompleta é
+pior que nenhuma, porque autoriza remover justamente o que ela não viu.
+
+Três decisões que mudam a leitura do número:
+
+ - **recusa conta separado.** Endpoint muito chamado e sempre recusado não é uso,
+   é app velho insistindo. Somá-los faria "está em uso" ser falso, e a ponte
+   nunca sairia;
+ - **PDF conta.** `visualizarDanfe` e `visualizarBoleto` saem do middleware antes
+   da tradução de dialeto; deixá-los fora faria dois endpoints reais parecerem
+   mortos;
+ - **versão comparada como versão.** `'1.10' > '1.9'` é falso em string. Guardar
+   `1.9` como a mais nova inverteria a decisão: pareceria que só APK velho chama
+   o endpoint, e a ponte sairia embaixo de quem atualizou.
+
+### O relatório mostra o ZERO
+
+`ponte:uso` parte das **rotas registradas no router**, não da tabela de medição.
+A diferença não é cosmética: partindo da tabela, o endpoint nunca chamado não
+apareceria, e o silêncio se confundiria com ausência de dado — a mesma armadilha
+que esta base já pagou duas vezes (registry vazio imprimindo "concluído", teste
+que varria zero arquivos).
+
+Se o comando não enxergar rota nenhuma, ele **reprova**. A alternativa seria
+imprimir uma tabela vazia dizendo que ninguém usa nada — saída que autorizaria
+remover as 29 rotas de uma vez.
+
+### Um comentário meu que estava errado
+
+Escrevi que `where('empresa_id', null)` geraria `= NULL` e duplicaria linhas.
+Plantei a regressão para provar e o teste **não pegou** — porque o query builder
+do Laravel converte para `IS NULL` sozinho. Conferi com `toSql()`.
+
+O comentário virou o que é verdade: o `whereNull` é legibilidade, e quem guarda o
+agregado é o teste, que reprova qualquer reescrita (SQL à mão, `updateOrInsert`
+com chave em array) que perca a comparação com nulo. Com `whereRaw('empresa_id =
+NULL')` plantado, **quatro** testes falharam.
+
+### O que continua aberto
+
+**Substituir** e **remover** dependem do número que a medição vai produzir em
+produção. Hoje `ponte_usos` está vazia porque acabou de nascer — e remover com
+base numa tabela recém-criada seria exatamente o erro que ela existe para evitar.
+
 ## Aberto
 
-**F9-07** (medir uso das pontes legadas e substituí-las por contratos canônicos)
-e a parte de navegador do **F9-08** — duas abas, cache persistido e requests em
-voo exigem Playwright, que este projeto não usa. Os cenários de cache que dão
-para cobrir sem navegador já estão em `cache-isolamento.test.ts`.
+A parte de navegador do **F9-08** — duas abas, cache persistido e requests em voo
+exigem Playwright, que este projeto não usa. Os cenários de cache que dão para
+cobrir sem navegador já estão em `cache-isolamento.test.ts`.

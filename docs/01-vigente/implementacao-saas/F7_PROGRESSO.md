@@ -107,8 +107,65 @@ Há teste que **apaga as três tabelas** e confere que a carga segue.
 | CI (PostgreSQL, role restrita) | verde em todos os commits da rodada |
 | Guardiões | verificados com regressão plantada |
 
+## F7-03 — eu tinha classificado errado
+
+Este documento dizia que F7-03 "só faz sentido com uma área de staging". Reli a
+tarefa item a item e **estava errado**: das sete exigências, só duas dependem de
+staging.
+
+O plano pede *"fonte bruta imutável, manifesto nominal, schema, hashes,
+contagens, watermark e LOB integral; carga nova nunca derruba a última boa"*.
+
+| Exigência | Depende de staging? |
+|---|---|
+| manifesto nominal | não — é ler o schema da fonte |
+| schema | não |
+| hashes | não |
+| contagens | não |
+| watermark | não |
+| **LOB integral** | **sim** — copiar binário exige onde pôr |
+| **carga nova não derruba a boa** | **sim** — só se aplica havendo carga guardada |
+
+Eu tinha lido "fonte bruta imutável" como *cópia* da fonte e deixado a tarefa
+inteira de lado. Mas as cinco primeiras são **medições no instante da leitura**,
+e são justamente elas que respondem a pergunta que a tarefa existe para
+responder:
+
+> *A fonte mudou entre o ensaio e o cutover?*
+
+Sem isso, um ensaio bem-sucedido na sexta não diz nada sobre a virada no domingo.
+Alguém edita 300 clientes no sábado e a conversão os traz com o valor novo, sem
+que ninguém perceba que o ensaio validou outro estado. É exatamente o risco que
+o F8 tenta cobrir — e que eu tinha deixado descoberto por erro de leitura.
+
+### O que foi entregue
+
+`conversao_snapshots` + `SnapshotDaFonte` + `conversao:snapshot`.
+
+Roda-se antes do ensaio e de novo antes do cutover; `--comparar` **reprova** se a
+fonte mudou.
+
+Três decisões que valem registro:
+
+ - **hash por tabela, não do banco.** Um hash único responde "mudou?"; por
+   tabela, responde **onde** — o que separa a mudança inócua (log crescendo) da
+   fatal (cliente editado depois do ensaio);
+ - **soma dos hashes de linha, não concatenação.** A soma independe da ordem, e a
+   fonte legada não garante ordem estável entre leituras. Um hash sensível à
+   ordem acusaria mudança onde não houve — e alarme que dispara sozinho é alarme
+   que se aprende a ignorar, justamente quando estiver certo;
+ - **`lob_integral` declarado e FALSO.** É a entrega, não a omissão: o gate
+   precisa conseguir reprovar enquanto não houver staging. Campo ausente seria
+   lido como "não se aplica", e é o oposto.
+
+O caso que o guardião prova pegar é o pior de todos: **linha editada sem mudança
+de contagem**. Com o hash cego aos valores (regressão plantada), dois testes
+falharam.
+
 ## Aberto
 
-**F7-03** (snapshot imutável da fonte) e a parte de CAS/lock da **F7-02**. As
-duas só fazem sentido com uma área de staging, que é decisão de arquitetura do
-ETL — não uma correção pendente.
+Da **F7-03**, o que depende de staging: LOB integral e "carga nova nunca derruba
+a última boa". E a parte de CAS/lock da **F7-02** — a máquina de estados atual
+não tem transição concorrente que a exercite.
+
+As duas continuam sendo decisão de arquitetura do ETL, não correção pendente.

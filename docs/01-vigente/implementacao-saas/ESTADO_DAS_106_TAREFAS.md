@@ -21,10 +21,10 @@ O levantamento abaixo é por **verificação**, não por memória.
 | F3 | 12 | idem (F3-04 coberto pelo F3-04A) |
 | F4 | 7 | fechada — `F4_FECHAMENTO.md` |
 | F5 | 11 | 10 fechadas; F5-09 é operação |
-| F6 | 10 | 9 fechadas; falta quota/custo de F6-01 |
-| F7 | **14** | 10 fechadas; **F7-03, F7-12, F7-13 abertas**; CAS de F7-02 parcial |
+| F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
+| F7 | **14** | 12 fechadas; **F7-12 aberta**; F7-03 parcial (falta o que exige staging); CAS de F7-02 parcial |
 | F8 | 9 | só o item de código do gate; o resto é operação |
-| F9 | 9 | 7 fechadas; F9-07 aberta, F9-08 parcial |
+| F9 | 9 | 8 fechadas; F9-07 entregue (medicao); F9-08 parcial |
 | F10 | 7 | **intocada** — depende de um segundo cliente real |
 
 ## O que está aberto, nomeadamente
@@ -42,17 +42,28 @@ O levantamento abaixo é por **verificação**, não por memória.
 
 | Tarefa | Por quê |
 |---|---|
-| F7-03 | snapshot imutável da fonte pressupõe área de *staging*, que este ETL não usa |
+| F7-03 (parte) | LOB integral e "carga nova não derruba a boa" pressupõem área de *staging*. As outras cinco exigências — manifesto, schema, hashes, contagens, watermark — **foram entregues**: eu tinha classificado a tarefa inteira errado |
 | F7-02 (CAS) | idem — a máquina de estados atual não tem transição concorrente |
-| F7-13 | bundle de evidência: a matéria-prima existe (execução, linhagem, quarentena, invariantes), falta decidir o formato e quem assina |
 
 ### Trabalho de código ainda por fazer
 
 | Tarefa | O que falta |
 |---|---|
-| F6-01 | quota, custo, finalidade e health por conta de integração (o circuito e a credencial por tenant estão feitos) |
-| F9-07 | medir uso das pontes legadas e substituí-las por contratos canônicos |
+| F9-07 (2ª e 3ª partes) | **substituir** e **remover** as pontes. A medição está entregue (`ponte:uso`); a remoção depende do número que ela vai produzir em produção — hoje a tabela está vazia porque acabou de nascer |
 | F9-08 | cenários de navegador (duas abas, request em voo) exigem Playwright, que o projeto não usa |
+
+### O que foi fechado nesta rodada
+
+| Tarefa | Entrega |
+|---|---|
+| F6-01 | quota, custo, finalidade e health por conta de integração — `integracao_consumos` |
+| F7-10 / F7-11 | invariante `INCONCLUSIVA`; seeders sem senha conhecida |
+| F7-03 (5 de 7) | retrato da fonte legada com hash por tabela — `conversao:snapshot --comparar` reprova se a fonte mudou desde o ensaio |
+| F7-13 | bundle imutável de evidência com SHA-256 — `conversao:evidencia` |
+| F9-07 (1ª parte) | medição de uso das pontes por (ponte, endpoint, empresa, dia) — `ponte:uso` |
+| — | defeito de *grants*: `GRANT SELECT` não restringia, porque `ALTER DEFAULT PRIVILEGES` já dava escrita a toda tabela nova. Descoberto conferindo o banco de homologação, corrigido com `REVOKE` |
+| — | **defeito EM PRODUÇÃO, achado conferindo a VPS**: a policy de `integracao_consumos` (F6-01, deployada hoje) tinha `WITH CHECK (empresa_id IS NOT NULL AND ...)`. Com `FORCE ROW LEVEL SECURITY`, o Postgres **rejeitava toda escrita da plataforma** — e a tabela foi criada justamente para enxergar esse caso. `ERROR: new row violates row-level security policy`, reproduzido ao vivo. Como o registrador engole a exceção e a suíte roda em sqlite, nada acusava. Corrigido em `2026_09_01_000500` |
+| — | **e a correção do próprio conserto**: eu ia revogar a escrita das `conversao_*` alegando que "quem escreve é o console, como owner". É falso — `RegistroDaConversao` usa a conexão default (`erp_app`), confirmado ao vivo na VPS (`DB_USERNAME=erp_app`, `DB_OWNER_USERNAME=erp`). Teria quebrado o registro da conversão **em silêncio**, porque toda escrita dele é protegida por `catch` |
 
 ## Os gates transversais, verificados
 

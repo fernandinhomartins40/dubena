@@ -73,10 +73,16 @@ class TableClassificationManifestTest extends TestCase
             'conversao_execucoes',
             'conversao_linhagem',
             'conversao_quarentena',
+            // F7-03 — retrato da fonte legada.
+            'conversao_snapshots',
             // F5-01 — plano de contas modelo. PLATFORM pelo criterio da
             // reclassificacao de 2026-08-29: nao tem `grupo_id` e a revenda nao
             // o edita — ela edita a COPIA dela, em `planos_conta`.
             'plano_conta_modelos',
+            // F9-07 — uso das pontes legadas. COMPANY: e a revenda que chama, e
+            // ela ve o proprio uso. As linhas sem empresa (`login` antes de
+            // resolver tenant) ficam fora do alcance dela pela policy.
+            'ponte_usos',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

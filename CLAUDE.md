@@ -73,6 +73,32 @@ produção reportou "0 tabelas referenciam clientes.id" com 40 mil linhas filhas
 apontando para elas. Use **`pg_constraint`** para descobrir FKs, e aborte se a
 lista vier vazia.
 
+**`GRANT SELECT` não restringe — só `REVOKE` restringe.** A migration de grants
+faz `ALTER DEFAULT PRIVILEGES ... GRANT SELECT, INSERT, UPDATE, DELETE`, então
+**toda tabela nova nasce com escrita para `erp_app`**. Conceder `SELECT` numa
+tabela que deveria ser só-leitura apenas reafirma o que já existe. Quatro tabelas
+ficaram graváveis assim, e só a conferência no banco de homologação revelou — o
+código dizia uma coisa e o banco fazia outra, e nenhum teste comparava os dois.
+
+**Policy canônica + `empresa_id` nulo legítimo = escrita rejeitada em silêncio.**
+`WITH CHECK (empresa_id IS NOT NULL AND app_tenant_can_operate(...))` com `FORCE
+ROW LEVEL SECURITY` faz o Postgres recusar todo insert sem empresa. Onde o nulo é
+um caso REAL — consumo da chave da plataforma, `login`/`init` antes de resolver
+tenant —, use `WITH CHECK (empresa_id IS NULL OR app_tenant_can_operate(...))`:
+a linha sem empresa não pertence a tenant nenhum, o `USING` continua escondendo-a
+de toda revenda, e gravar linha de OUTRA segue barrado. Aconteceu em produção com
+`integracao_consumos`, na tabela criada exatamente para enxergar esse caso — e
+não acusou porque o registrador engole exceção e a suíte roda em sqlite.
+
+**Antes de revogar escrita numa tabela, confira qual role escreve nela.**
+`DB::table(...)` usa a conexão **default**, que é `erp_app` — só as *migrations*
+rodam como `pgsql_owner`. Quase revoguei a escrita das `conversao_*` alegando que
+"quem escreve é o console, como owner"; era falso, e teria quebrado o registro da
+conversão **em silêncio**, porque toda escrita dele é protegida por `catch`. A
+conversão rodaria inteira sem deixar registro, e o bundle de evidência sairia
+vazio como se nada tivesse acontecido. Nenhum teste local pegaria: sqlite não tem
+grants.
+
 **Teste passa em sqlite e quebra em Postgres.** Colunas com `varchar` curto
 (`cpf` = 11, `cor` = 7, `char(1)` para `especie`/`pagarreceber`) não são
 validadas pelo sqlite. Confira o tamanho na migration antes de escrever seed.

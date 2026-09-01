@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Legado\UsoDaPonte;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,11 +46,22 @@ class DialetoLegado
         $response = $next($request);
 
         if (! $response instanceof JsonResponse) {
-            return $response;   // PDF (DANFE, boleto) passa intacto
+            // PDF (DANFE, boleto) passa intacto — mas CONTA. `visualizarDanfe`
+            // e `visualizarBoleto` são endpoints como os outros, e deixá-los
+            // fora da medição faria dois deles parecerem mortos (F9-07).
+            $this->medir($request, $chave, recusada: false);
+
+            return $response;
         }
 
         $status = $response->getStatusCode();
         $corpo = $response->getData(true);
+
+        // A recusa de REGRA (422 → `OPS`) conta separada da chamada bem
+        // sucedida: endpoint muito chamado e sempre recusado não é uso, é app
+        // velho insistindo — e lê-lo como "está em uso" adiaria a remoção para
+        // sempre.
+        $this->medir($request, $chave, recusada: $status === 422);
 
         // 2xx → OK. A carga do erp-novo vem em `data`; o legado espera em
         // `data` (NFWEB) ou `dados` (MovelApp).
@@ -72,6 +84,53 @@ class DialetoLegado
             'msg' => $this->mensagem($corpo),
             'status' => $tipo,
         ], 200);   // sempre 200: é o contrato do legado
+    }
+
+    /**
+     * Conta a chamada (F9-07).
+     *
+     * Fica AQUI, e não em cada controller, porque este middleware já envolve as
+     * 29 rotas de ponte: um endpoint novo passa a ser medido sem que ninguém
+     * lembre de instrumentá-lo. Instrumentação que depende de lembrar é
+     * instrumentação que fica incompleta — e uma medição incompleta é pior que
+     * nenhuma, porque autoriza remover o que ela não viu.
+     *
+     * A chave do dialeto identifica a ponte: `dados` é o MovelApp, `data` é o
+     * NFWEB (ver a tabela no topo da classe). É o mesmo parâmetro que a rota já
+     * declara, então não há um segundo lugar para manter em sincronia.
+     *
+     * ## Síncrono, e não em fila
+     *
+     * A escrita acontece no ciclo da resposta, somando latência a um app que faz
+     * polling. É 1 SELECT + 1 UPDATE numa tabela indexada e agregada por dia —
+     * custo fixo, não proporcional ao volume, porque a mesma linha é
+     * incrementada o dia inteiro.
+     *
+     * Uma fila tiraria isso do caminho crítico ao preço de um job por chamada
+     * de ponte, com a fila competindo com a entrega de pedido. Se a medição
+     * aparecer no tempo de resposta, o passo certo é medir antes de mover.
+     */
+    private function medir(Request $request, string $chave, bool $recusada): void
+    {
+        $endpoint = $request->route()?->uri();
+
+        if ($endpoint === null) {
+            return;
+        }
+
+        // O nome no dialeto do legado é o último segmento — é ele que está
+        // compilado dentro do APK, e é por ele que se decide o que pode sair.
+        $endpoint = (string) (last(explode('/', $endpoint)) ?: $endpoint);
+
+        app(UsoDaPonte::class)->registrar(
+            ponte: $chave === 'dados' ? 'movelapp' : 'nfweb',
+            endpoint: $endpoint,
+            empresaId: $request->user()?->empresa_id,
+            recusada: $recusada,
+            // Os APKs mais antigos não mandam versão; nulo é o caso esperado, e
+            // o resumo trata isso como "versão desconhecida" em vez de fingir.
+            versaoApp: $request->header('X-App-Versao'),
+        );
     }
 
     /**

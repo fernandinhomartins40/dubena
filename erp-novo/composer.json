@@ -57,7 +57,7 @@
         ],
         "test:pgsql-rls": [
             "@php artisan migrate --database=pgsql_owner --force --no-interaction",
-            "@php artisan test --filter=RlsCoberturaTest --fail-on-skipped"
+            "@php artisan test --filter='RlsCoberturaTest|GrantsSomenteLeituraTest|EscritaDePlataformaSobRlsTest' --fail-on-skipped"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
