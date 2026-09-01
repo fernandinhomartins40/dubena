@@ -9,6 +9,7 @@ use App\Models\Logistica\EntregadorBloqueio;
 use App\Models\Logistica\Jornada;
 use App\Models\Logistica\PedidoAtribuicao;
 use App\Models\Mobile\EntregadorPosicao;
+use App\Models\Monitora\Veiculo;
 use App\Models\Pedido\Pedido;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -97,7 +98,13 @@ class CentralService
      * Atribui o pedido a um entregador (opcionalmente com veículo). Registra a
      * trilha, dispara push e emite o evento de tempo real.
      */
-    public function atribuir(Pedido $pedido, int $empresaId, int $entregadorUserId, ?int $veiculoId = null, ?int $operadorUserId = null, bool $automatico = false, ?string $motivo = null): Pedido
+    /**
+     * @param  array{regra?:string, parametros?:array<string,mixed>, score?:float}|null  $decisao
+     *                                                                                             F6-06 — a regra que decidiu, quando a atribuicao e automatica. Congelada
+     *                                                                                             na trilha porque a config de pesos e editavel: sem ela, reproduzir a
+     *                                                                                             decisao meses depois usaria os pesos de hoje e daria outra resposta.
+     */
+    public function atribuir(Pedido $pedido, int $empresaId, int $entregadorUserId, ?int $veiculoId = null, ?int $operadorUserId = null, bool $automatico = false, ?string $motivo = null, ?array $decisao = null): Pedido
     {
         $this->garantirDisponivel($empresaId, $entregadorUserId);
 
@@ -109,12 +116,12 @@ class CentralService
             ->latest('iniciada_em')
             ->value('veiculo_id');
 
-        if ($veiculoId !== null && ! \App\Models\Monitora\Veiculo::withoutTenant()
+        if ($veiculoId !== null && ! Veiculo::withoutTenant()
             ->whereKey($veiculoId)->where('empresa_id', $empresaId)->where('ativo', true)->exists()) {
             throw ValidationException::withMessages(['veiculo_id' => 'Veiculo invalido para a empresa ativa.']);
         }
 
-        [$atualizado, $de] = DB::transaction(function () use ($pedido, $empresaId, $entregadorUserId, $veiculoId, $operadorUserId, $automatico, $motivo) {
+        [$atualizado, $de] = DB::transaction(function () use ($pedido, $empresaId, $entregadorUserId, $veiculoId, $operadorUserId, $automatico, $motivo, $decisao) {
             $pedido = Pedido::withoutTenant()
                 ->whereKey($pedido->getKey())
                 ->where('empresa_id', $empresaId)
@@ -141,6 +148,9 @@ class CentralService
                 'acao' => $acao,
                 'automatico' => $automatico,
                 'motivo' => $motivo,
+                'regra' => $decisao['regra'] ?? null,
+                'regra_parametros' => $decisao['parametros'] ?? null,
+                'score' => $decisao['score'] ?? null,
             ]);
 
             return [$pedido->refresh(), $de];

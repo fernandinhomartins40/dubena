@@ -112,4 +112,35 @@ class DistribuidorService
 
         return null;
     }
+
+    /**
+     * Nome da regra que decide a auto-atribuição (F6-06).
+     *
+     * Só existe uma hoje — e é por isso que precisa ser nomeada. Quando a
+     * segunda aparecer, as atribuições antigas continuam dizendo qual foi a
+     * delas, em vez de virarem "alguma regra de antes".
+     */
+    public const REGRA = 'distancia_carga';
+
+    /**
+     * Os parâmetros efetivamente usados para esta empresa, congeláveis na trilha.
+     *
+     * Sem isto, o motivo gravado é só um rótulo: diz *que critério* decidiu e
+     * não *com quais valores*. E os valores são configuráveis por empresa e
+     * mudam — então reproduzir a decisão meses depois usaria os pesos de hoje e
+     * daria outra resposta.
+     *
+     * @return array<string, float|int|null>
+     */
+    public function parametrosDaRegra(int $empresaId): array
+    {
+        $config = LogisticaConfig::query()->where('empresa_id', $empresaId)->first();
+
+        return [
+            'peso_distancia' => (float) ($config?->peso_distancia ?? self::PESO_DISTANCIA),
+            'peso_carga' => (float) ($config?->peso_carga ?? self::PESO_CARGA),
+            'raio_maximo_km' => $config?->raio_maximo_km !== null ? (float) $config->raio_maximo_km : null,
+            'teto_carga' => $config?->teto_carga !== null ? (int) $config->teto_carga : null,
+        ];
+    }
 }

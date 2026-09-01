@@ -92,6 +92,16 @@ class AtribuirPedidoJob implements ShouldQueue
             null,
             true, // automático
             'Auto-atribuição (distância/carga)',
+            // F6-06 — a REGRA junto, não só o rótulo. O motivo diz que critério
+            // decidiu; isto diz com quais valores. Sem os pesos congelados, a
+            // pergunta "por que foi para ele?" só pode ser respondida rodando o
+            // ranking de novo — com a config de HOJE, que pode não ser a de
+            // então.
+            [
+                'regra' => DistribuidorService::REGRA,
+                'parametros' => $distribuidor->parametrosDaRegra($this->empresaId),
+                'score' => $melhor['score'] ?? null,
+            ],
         );
     }
 

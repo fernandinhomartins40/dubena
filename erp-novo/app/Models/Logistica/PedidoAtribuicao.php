@@ -21,11 +21,18 @@ class PedidoAtribuicao extends Model
     protected $fillable = [
         'empresa_id', 'pedido_id', 'de_entregador_user_id', 'para_entregador_user_id',
         'veiculo_id', 'operador_user_id', 'acao', 'automatico', 'motivo',
+        // F6-06 — a regra que decidiu. Sem isto no fillable o dado e descartado
+        // em silencio, e a trilha volta a guardar so o rotulo.
+        'regra', 'regra_parametros', 'score',
     ];
 
     protected function casts(): array
     {
-        return ['automatico' => 'boolean'];
+        return [
+            'automatico' => 'boolean',
+            'regra_parametros' => 'array',
+            'score' => 'float',
+        ];
     }
 
     public function pedido(): BelongsTo
