@@ -1,7 +1,7 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { apiPrefix, ensureCsrf, setToken, getToken } from './api'
+import { apiPrefix, ensureCsrf, setToken, getToken, TOKEN_KEY } from './api'
 import { can as canFn, canField as canFieldFn, hasFeature as hasFeatureFn } from './rbac'
 
 export interface AuthUser {
@@ -85,6 +85,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: true,
   })
 
+  /**
+   * F9-08 — duas abas.
+   *
+   * O token vive em `localStorage`, que é **compartilhado entre abas do mesmo
+   * navegador**. Sem escutar o evento `storage`, cada aba fica com uma visão
+   * própria da identidade, e as duas divergem em silêncio:
+   *
+   *  - **logout na aba A.** A aba B não sabe: continua exibindo a carteira, o
+   *    financeiro e os pedidos da sessão encerrada, do cache em memória. O
+   *    operador acha que está logado; a próxima requisição vai sem token e falha
+   *    de um jeito que não explica nada;
+   *  - **login de OUTRA pessoa na aba A.** É o caso grave num SaaS: a aba B
+   *    passa a mandar o token da revenda B, mas a tela continua renderizando o
+   *    dado da revenda A que já estava em cache. Dado de um concorrente na tela,
+   *    credencial de outro nas requisições.
+   *
+   * O tratamento é o mesmo do logout, e pela mesma razão de ordem:
+   * `cancelQueries` antes de `clear`, senão uma requisição em voo — disparada
+   * com a identidade velha — chega depois da limpeza e repovoa o cache já sob a
+   * identidade nova.
+   *
+   * `storage` só dispara nas OUTRAS abas, nunca na que escreveu. É exatamente o
+   * que se quer: quem fez a ação já tratou o próprio cache.
+   */
+  useEffect(() => {
+    const aoMudarStorage = (evento: StorageEvent) => {
+      // `key === null` é `localStorage.clear()` — trata como troca de
+      // identidade, porque o token pode ter ido junto.
+      if (evento.key !== null && evento.key !== TOKEN_KEY) {
+        return
+      }
+
+      void (async () => {
+        await qc.cancelQueries()
+        qc.clear()
+      })()
+    }
+
+    window.addEventListener('storage', aoMudarStorage)
+
+    return () => window.removeEventListener('storage', aoMudarStorage)
+  }, [qc])
+
   const loginMut = useMutation({
     mutationFn: async ({ email, password, otp, manterConectado = true }: { email: string; password: string; otp?: string; manterConectado?: boolean }) => {
       // Tenta o fluxo cookie (csrf). Se o cookie falhar, o token Bearer (abaixo)
@@ -136,7 +179,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * disparada com o token de A, chega depois do `clear()` e repovoa o cache
      * já sob a sessão de B. Cancelar antes de limpar fecha essa janela.
      */
-    onSuccess: async () => {
+    /**
+     * `onSettled`, e não `onSuccess`.
+     *
+     * O `setToken(null)` está num `finally` — some sempre, dê certo ou não o
+     * POST. Mas o `clear()` estava em `onSuccess`, que **só roda quando a
+     * requisição tem êxito**.
+     *
+     * O buraco aparece quando o operador clica em "Sair" com a rede caindo ou o
+     * backend fora: o token é apagado e a **carteira, os pedidos e o financeiro
+     * continuam na tela**. Ele acha que saiu — é o mesmo vazamento que a F9-03
+     * fechou, pela porta que ficou aberta.
+     *
+     * Falha de rede não pode manter dado de uma sessão encerrada na tela: a
+     * decisão de sair é do operador, não do servidor.
+     */
+    onSettled: async () => {
       await qc.cancelQueries()
       qc.clear()
     },

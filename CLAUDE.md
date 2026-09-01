@@ -181,6 +181,15 @@ com a padrão, "endereço" sai "endere?o" no papel entregue ao cliente.
 
 ### Investigação
 
+**"Não dá para fazer" precisa ser verificado como qualquer outra afirmação.**
+Nesta base já declarei **seis** tarefas bloqueadas que tinham código pendente
+dentro. O padrão do erro é sempre o mesmo: ler a exigência mais cara da lista e
+concluir que a tarefa inteira depende dela. F7-03 tem sete exigências e só duas
+precisam de staging; F9-08 tem sete cenários e eu disse "exige Playwright" sem
+rodar um `grep` no `package.json` — que tem vitest, jsdom e testing-library.
+Antes de escrever "bloqueado", leia a tarefa **item a item** e confira a
+ferramenta no repositório.
+
 **`grep` confirma presença, nunca ausência.** Concluí que não havia ingestão de
 posição por rastreador porque `where('imei'` não retornava nada — e havia: o
 `TraccarDriver` casa o `uniqueId` do provedor com o `imei` **em memória**, sem

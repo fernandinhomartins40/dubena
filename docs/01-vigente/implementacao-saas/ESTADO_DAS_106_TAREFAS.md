@@ -19,9 +19,16 @@ que não se programam: um **ensaio da conversão com dados reais** (F8), um
 homologação fiscal com contador (F5-09), titularidade dos tenants (F1-10),
 runbook de cutover com responsáveis nomeados (F7-12).
 
-Duas exceções conhecidas, e ambas por falta de ferramenta, não de decisão:
-os 4 cenários de navegador de F9-08 (exigem Playwright, que o projeto não usa) e
-a parte de F7-03 que pressupõe área de *staging*.
+Uma exceção conhecida: a parte de F7-03 que pressupõe área de *staging* — decisão
+de arquitetura do ETL.
+
+⚠️ Eu tinha escrito aqui uma segunda exceção — *"os 4 cenários de navegador de
+F9-08 exigem Playwright"* — e **estava errado**. O projeto tem `vitest`, `jsdom`
+e `@testing-library/react`. Três dos quatro já estavam cobertos, e o quarto
+("duas abas") escondia dois defeitos reais. Ver `F9_PROGRESSO.md`.
+
+É o mesmo erro descrito abaixo, cometido mais uma vez: declarei bloqueado sem
+verificar o que havia.
 
 ⚠️ Antes de aceitar qualquer linha desta página como "bloqueado", leia o aviso da
 seção **Cuidado com esta seção**: nesta rodada, **cinco** tarefas classificadas
@@ -40,7 +47,7 @@ como bloqueadas tinham código pendente dentro delas.
 | F6 | 10 | **fechada** — F6-01 entregue em `95a63fca` |
 | F7 | **14** | 13 fechadas + o pós-check de F7-12; o resto de F7-12 é operação; F7-03 parcial (falta o que exige staging) |
 | F8 | 9 | a **propriedade** de F8-07 (determinismo/idempotência) entregue; o ensaio com dados reais é operação |
-| F9 | 9 | 8 fechadas; F9-07 entregue (medição); F9-08 com os 3 cenários de backend cobertos — faltam os 4 de navegador |
+| F9 | 9 | **fechada** — F9-08 completo: eu tinha declarado 4 cenários como "exige Playwright" sem verificar que o projeto tem vitest+jsdom |
 | F10 | 7 | F10-06 **já é aplicado** pelo `ApiContratoDriftTest`; as outras 6 dependem de um segundo cliente real |
 
 ## O que está aberto, nomeadamente
@@ -80,7 +87,6 @@ tarefa — senão vira desculpa para não entregar as partes que dariam.
 | Tarefa | O que falta |
 |---|---|
 | F9-07 (2ª e 3ª partes) | **substituir** e **remover** as pontes. A medição está entregue (`ponte:uso`); a remoção depende do número que ela vai produzir em produção — hoje a tabela está vazia porque acabou de nascer |
-| F9-08 (4 de 7) | duas abas, cache persistido, requests em voo e sessão A→logout→B exigem navegador (Playwright), que o projeto não usa. Os **3 cenários de backend** — escalada para SuperAdmin, troca de empresa, IDs externos — estão cobertos |
 
 ### O que foi fechado nesta rodada
 
@@ -88,7 +94,8 @@ tarefa — senão vira desculpa para não entregar as partes que dariam.
 |---|---|
 | F6-01 | quota, custo, finalidade e health por conta de integração — `integracao_consumos` |
 | F7-10 / F7-11 | invariante `INCONCLUSIVA`; seeders sem senha conhecida |
-| F9-08 (3 de 7) | varredura adversarial das 34 rotas de plataforma. Havia teste, mas cobria **uma** rota — furo que só apareceria quando alguém adicionasse a 35ª sem guard |
+| F9-08 (3 de 7, backend) | varredura adversarial das 34 rotas de plataforma. Havia teste, mas cobria **uma** rota — furo que só apareceria quando alguém adicionasse a 35ª sem guard |
+| F9-08 (os 4 "de navegador") | **eu tinha errado**: o projeto tem vitest+jsdom+testing-library. Três já estavam cobertos; "duas abas" não existia e escondia **dois defeitos** — nada escutava o evento `storage`, e o `clear()` do logout estava em `onSuccess` (não rodava quando a rede falhava) |
 | F8-07 (a propriedade) | teste de determinismo: rodar duas vezes produz o mesmo estado, **com os mesmos ids**. A idempotência já estava implementada (`upsert`); o que faltava era a prova — todo teste de migrador rodava a carga uma vez |
 | F7-12 (pós-check) | `cutover:pos-check` — sequências atrás do maior id, execução sem desfecho, quarentena pendente, job falhado. Os portões que havia eram todos PRÉ-switch |
 | F7-02 | máquina de estados com enum e CAS — `encerrar()` não sobrescreve desfecho já registrado, e estado inventado lança em vez de virar linha invisível |

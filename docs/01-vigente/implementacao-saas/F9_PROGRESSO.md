@@ -180,6 +180,67 @@ apontando o nome dela.
 O `assertGreaterThan(20, ...)` não é decoração: varredura que varre zero e passa
 já aconteceu aqui mais de uma vez.
 
+## F9-08 — eu disse "exige Playwright" sem verificar
+
+Declarei quatro dos sete cenários como bloqueados por falta de Playwright. **Fui
+conferir e estava errado**: o projeto tem `vitest`, `jsdom` e
+`@testing-library/react`, e já rodava 47 testes de SPA.
+
+Dos quatro:
+
+| Cenário | Realidade |
+|---|---|
+| requests em voo | **já coberto** — `cache-isolamento.test.ts:95` |
+| cache persistido | **já coberto** — `cache-isolamento.test.ts:50` |
+| sessão A→logout→B | coberto, mas **simulando** (ver abaixo) |
+| **duas abas** | **não existia — e escondia um defeito** |
+
+### O defeito das duas abas
+
+**Nada no código escutava o evento `storage`.**
+
+O token vive em `localStorage`, que é compartilhado entre abas do mesmo
+navegador; o cache do React Query é por aba, em memória. Sem o listener, as duas
+visões divergem em silêncio:
+
+ - **logout na aba A** → a aba B segue exibindo carteira, financeiro e pedidos da
+   sessão encerrada. O operador acha que está logado, e a próxima requisição
+   falha sem explicar nada;
+ - **login de outra pessoa na aba A** → a aba B passa a mandar o token da revenda
+   B com o dado da revenda A ainda na tela. Dado de um concorrente na tela,
+   credencial de outro nas requisições.
+
+Corrigido com um `useEffect` no `AuthProvider` que trata `storage` como troca de
+identidade: `cancelQueries` antes de `clear`, pela mesma razão de ordem do
+logout. Escutar só a chave do token — se qualquer escrita limpasse tudo, uma
+preferência de UI salva em outra aba faria o operador perder a tela no meio de um
+lançamento, e guardião que vira ruído se desliga.
+
+### O segundo defeito, achado ao escrever o teste
+
+`cache-isolamento.test.ts` cobre o logout **simulando**: chama `cancelQueries()` e
+`clear()` à mão, sob o comentário *"o que o logout faz hoje"*. Isso prova que a
+cópia funciona — não que o provider funciona.
+
+Escrevi um teste que chama o `logout()` real, e ele **reprovou**: sem rede, o
+`setToken(null)` rodava (está num `finally`) mas o `qc.clear()` **não** — estava
+em `onSuccess`, que só roda quando o POST tem êxito.
+
+Em produção: o operador clica em "Sair" com a rede caindo ou o backend fora. O
+token é apagado e a **carteira continua na tela**. É o mesmo vazamento que a
+F9-03 fechou, pela porta que ficou aberta.
+
+Corrigido para `onSettled`. Falha de rede não pode manter dado de sessão
+encerrada visível — a decisão de sair é do operador, não do servidor.
+
+### O que ainda exigiria navegador
+
+Só a parte **visual**: duas janelas reais, foco, render concorrente. O
+comportamento que importa — o cache morrer quando a identidade muda em outro
+lugar — está coberto.
+
+Suíte SPA: **53 testes** (eram 47). Guardiões verificados com regressão plantada.
+
 ## Aberto
 
 A parte de navegador do **F9-08** — duas abas, cache persistido e requests em voo

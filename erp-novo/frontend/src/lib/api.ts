@@ -12,7 +12,16 @@ import axios from 'axios'
 // '/novo/app/' → '/novo' ; '/' → '' (dev)
 const PREFIX = import.meta.env.BASE_URL.replace(/\/app\/?$/, '').replace(/\/$/, '')
 
-const TOKEN_KEY = 'erpnovo_token'
+/**
+ * A chave do token no storage.
+ *
+ * Exportada porque o `AuthProvider` precisa reconhecê-la no evento `storage`
+ * (F9-08, cenário "duas abas"): quando outra aba troca ou apaga o token, esta
+ * aba tem de reagir. Duplicar a string faria as duas divergirem em silêncio no
+ * dia em que alguém a renomeasse — e o sintoma seria a aba parar de reagir, sem
+ * erro nenhum.
+ */
+export const TOKEN_KEY = 'erpnovo_token'
 
 /**
  * Persistência do token:
