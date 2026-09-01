@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -47,7 +46,17 @@ use Tests\TestCase;
  */
 class GrantsSomenteLeituraTest extends TestCase
 {
-    use RefreshDatabase;
+    // Sem `RefreshDatabase`, e sem transacao: este teste so LE
+    // `information_schema` — o catalogo que as migrations deixaram.
+    //
+    // `RefreshDatabase` tentaria `drop table` como `erp_app`, que NAO e dona das
+    // tabelas (o dono e `pgsql_owner`), e o teste morria com
+    // `must be owner of table agencias` antes de chegar a asserção. Foi o que
+    // derrubou o gate do CI na primeira vez — e o defeito era do teste, nao do
+    // que ele mede.
+    //
+    // `RlsCoberturaTest` ja resolvia isso com `DatabaseTransactions`; aqui nem
+    // isso e preciso, porque nada e escrito.
 
     /**
      * @return array<string, array{string, list<string>}>
