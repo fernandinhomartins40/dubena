@@ -100,6 +100,14 @@ final class PermissaoCatalogo
         'produto.campo.custo.edit' => 'Produto — Editar custos',
         // Export/import.
         'cliente.export' => 'Cliente — Exportar',
+        // Extração da base de clientes com endereço, documento e contato —
+        // separada de `cliente.export` de propósito. O CSV resumido serve à
+        // conferência do dia a dia; ESTE relatório é a base cadastral inteira,
+        // que sob a LGPD é operação de controlador: quem a executa responde
+        // pelo destino do arquivo. Por isso nasce apenas no papel do dono da
+        // rede, e a concessão a terceiros é ato consciente dele — não herança
+        // de um papel administrativo qualquer.
+        'cliente.export.completo' => 'Cliente — Exportar base completa (LGPD)',
         'produto.export' => 'Produto — Exportar',
         // Relatórios específicos.
         'relatorio.dre.view' => 'Relatório — DRE',

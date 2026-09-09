@@ -23,6 +23,7 @@ export { PageHeader } from './page-header'
 export { SearchBar } from './search-bar'
 export { DataTable, type Column } from './data-table'
 export { AsyncSelect, type Option } from './async-select'
+export { AsyncMultiSelect } from './async-multi-select'
 export { toast } from 'sonner'
 // Primitivos de composição do padrão (StatCard/FormDialog/RowActions/ResourceList).
 export { StatCard, type StatAccent } from './stat-card'

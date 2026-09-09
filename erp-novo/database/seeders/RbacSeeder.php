@@ -49,8 +49,13 @@ class RbacSeeder extends Seeder
         // Gerente: tudo, exceto exclusões, administração de empresa/grupo e a
         // Central de Acessos (usuarios/papeis) — administração de acesso é privilégio
         // do Administrador (default-deny + menor privilégio).
+        // A extração da base cadastral completa NÃO entra aqui: sob a LGPD ela
+        // é ato do controlador dos dados (o dono da rede), não da gerência
+        // operacional. Fica no Administrador, que pode conceder a quem julgar —
+        // conceder é decisão consciente, herdar por cargo não é.
         $gerente = $todas->reject(function ($id, string $chave) {
-            return str_ends_with($chave, '.delete')
+            return $chave === 'cliente.export.completo'
+                || str_ends_with($chave, '.delete')
                 || str_starts_with($chave, 'empresa.')
                 || str_starts_with($chave, 'grupo.')
                 || str_starts_with($chave, 'usuario.')

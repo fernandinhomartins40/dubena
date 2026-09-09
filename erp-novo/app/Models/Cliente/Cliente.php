@@ -153,6 +153,15 @@ class Cliente extends Model
         return $this->belongsTo(Segmento::class, 'segmento_id');
     }
 
+    /**
+     * Titular do convênio — `convenio_id` aponta para outro cliente, não para
+     * uma tabela de convênios: o dependente pendura o consumo em quem paga.
+     */
+    public function titularConvenio(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'convenio_id');
+    }
+
     /** Papeis da pessoa, com vigencia (F3-01). */
     public function papeis(): HasMany
     {

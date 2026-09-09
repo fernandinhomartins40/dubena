@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\CentralVendasController;
 use App\Http\Controllers\Api\Admin\ChequeController;
 use App\Http\Controllers\Api\Admin\CidadeController;
 use App\Http\Controllers\Api\Admin\ClienteController;
+use App\Http\Controllers\Api\Admin\ClienteExportacaoController;
 use App\Http\Controllers\Api\Admin\ClienteRevisaoController;
 use App\Http\Controllers\Api\Admin\ClienteSubrecursoController;
 use App\Http\Controllers\Api\Admin\ClienteTelefoneController;
@@ -300,6 +301,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
 
         // ── Clientes — N2 ──
         Route::get('clientes/exportar', [ClienteController::class, 'exportar']); // antes de /{id}
+        // Exportação personalizada (LGPD): colunas e filtros escolhidos no
+        // modal, em CSV/XLSX/PDF. Gate próprio — `cliente.export.completo`.
+        Route::get('clientes/exportacao/opcoes', [ClienteExportacaoController::class, 'opcoes']);
+        Route::get('clientes/exportacao/previa', [ClienteExportacaoController::class, 'previa']);
+        Route::post('clientes/exportacao', [ClienteExportacaoController::class, 'exportar']);
         // Identidade: sugestões de "quem pode ser esta pessoa" e a fila de
         // revisão dos pares suspeitos. ANTES de /{id} para não virarem id.
         Route::get('clientes/sugestoes', [ClienteController::class, 'sugestoes']);

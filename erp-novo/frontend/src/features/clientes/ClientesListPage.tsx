@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, MoreHorizontal, Pencil, Ban, RotateCcw, Users, Building2, User, Settings, Download } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Ban, RotateCcw, Users, Building2, User, Settings, Download, FileDown, SlidersHorizontal } from 'lucide-react'
+import { ExportarClientesDialog } from './exportacao/ExportarClientesDialog'
 import {
   useClientes, useDesativarCliente, useReativarCliente,
   type ClienteListItem, type SituacaoCliente,
@@ -8,7 +9,7 @@ import {
 import {
   Button, PageHeader, Badge, DataTable, type Column, EmptyState, SearchBar, Field, Textarea,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  ConfirmDialog, Can, toast,
+  ConfirmDialog, toast,
   Tabs, TabsList, TabsTrigger,
 } from '@/components/ui'
 import { api } from '@/lib/api'
@@ -31,6 +32,7 @@ export function ClientesListPage() {
   const [desativando, setDesativando] = useState<ClienteListItem | null>(null)
   const [motivo, setMotivo] = useState('')
   const [reativando, setReativando] = useState<ClienteListItem | null>(null)
+  const [exportando, setExportando] = useState(false)
   const { data, isLoading, isFetching } = useClientes(q, page, situacao)
   const desativar = useDesativarCliente()
   const reativar = useReativarCliente()
@@ -148,7 +150,28 @@ export function ClientesListPage() {
         subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} ${rotuloTotal}` : 'Carregando…'}
         action={
           <>
-            <Can permission="cliente.export"><Button variant="outline" onClick={exportar}><Download size={16} /> Exportar</Button></Can>
+            {/* Duas exportações com alcances diferentes: a rápida repete o que
+                está na tela; a personalizada extrai a base cadastral inteira e
+                por isso tem gate próprio (cliente.export.completo). */}
+            {(can('cliente.export') || can('cliente.export.completo')) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline"><Download size={16} /> Exportar</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {can('cliente.export') && (
+                    <DropdownMenuItem onClick={exportar}>
+                      <FileDown /> Exportação rápida (CSV)
+                    </DropdownMenuItem>
+                  )}
+                  {can('cliente.export.completo') && (
+                    <DropdownMenuItem onClick={() => setExportando(true)}>
+                      <SlidersHorizontal /> Exportação personalizada…
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {can('cliente.view') && <Button variant="outline" onClick={() => navigate('/configuracoes?tab=clientes')}><Settings size={16} /> Configurações</Button>}
             {can('cliente.create') && <Button onClick={() => navigate('/clientes/novo')}><Plus size={16} /> Novo cliente</Button>}
           </>
@@ -221,6 +244,16 @@ export function ClientesListPage() {
         loading={reativar.isPending}
         onConfirm={confirmarReativacao}
       />
+
+      {/* Montado só quando aberto: o catálogo de campos e a contagem só valem
+          a consulta quando alguém realmente vai exportar. */}
+      {exportando && (
+        <ExportarClientesDialog
+          open={exportando}
+          onOpenChange={setExportando}
+          situacaoInicial={situacao}
+        />
+      )}
     </div>
   )
 }
