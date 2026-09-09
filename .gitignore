@@ -62,3 +62,10 @@ legado-movelapp/app/google-services*.json
 legado-*/.gradle/
 legado-*/app/build/
 legado-*/android/app/debug.keystore*
+
+# === Grafo de código (graphify) ===
+# 44 MB regeneráveis com `graphify update .`, reconstruídos a cada commit pelo
+# hook. Nada daqui entra no git: o relatório também muda a todo commit e
+# poluiria o diff. O que precisa ficar disponível já está destilado no
+# CLAUDE.md (`node scripts/graph-map.js --write`).
+graphify-out/

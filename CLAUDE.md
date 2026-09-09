@@ -42,6 +42,160 @@ que passa, não.
 
 ---
 
+## Como investigar o código
+
+**Consulte o grafo antes de abrir arquivos.** São 10 mil símbolos; abrir os
+arquivos afetados por uma mudança custa ~100x mais contexto que perguntar ao
+grafo quem depende deles.
+
+```bash
+graphify explain "PedidoService"        # quem chama, o que chama, onde mora
+graphify affected "Empresa"             # o que quebra se eu mudar isto
+graphify path "PedidoController" "Nfe"  # como dois símbolos se ligam
+node scripts/graph-map.js               # visão geral (o mapa abaixo)
+```
+
+Ordem: mapa (onde estou) → `affected` (o que arrisco) → abrir **só** o que sobrou.
+
+Símbolo repetido em vários módulos dá "No unique node match": a ferramenta
+imprime os ids; repita com o id completo.
+
+### Onde o grafo NÃO ajuda
+
+- **Não atravessa HTTP.** `api.get('/pedidos')` na SPA e `Route::get('pedidos')`
+  no Laravel não têm ligação sintática — e aqui isso é a fronteira mais
+  movimentada do projeto. Para impacto de mudança de rota, use
+  `php artisan api:manifest` e grep pela string.
+- **Não enxerga o banco.** RLS, policies, grants e o que uma migration faz ao
+  Postgres não estão no grafo. Isso continua sendo pergunta para o banco.
+- **`graphify query` em linguagem natural não serve.** Casa nome de símbolo,
+  não intenção. Use `explain` / `affected` / `path`.
+- **O legado não está indexado.** `ctrl-web/` (4.049 arquivos, 73% do código)
+  fica fora de propósito — ver `.graphifyignore`. Perguntas sobre o legado se
+  respondem lendo `docs/02-auditoria-legado/` ou o próprio `ctrl-web/`.
+
+### Manter o mapa atualizado
+
+O grafo se reconstrói sozinho a cada commit (hook do graphify). O mapa abaixo
+**não** — escrever no `CLAUDE.md` durante o hook sujaria a árvore depois de todo
+commit. Depois de mudança estrutural (módulo novo, pasta movida):
+
+```bash
+graphify update .                    # se o hook não rodou
+node scripts/graph-map.js --write    # regenera SÓ o bloco entre os marcadores
+```
+
+O texto escrito à mão nunca é sobrescrito: `--write` só toca o que está entre
+`graph-map:begin` e `graph-map:end`.
+
+## Mapa da arquitetura
+
+<!-- graph-map:begin -->
+<!-- Gerado por scripts/graph-map.js. Nao editar a mao: rode `node scripts/graph-map.js --write`. -->
+
+Grafo: 10784 nos, 32577 arestas (commit `65961b75`).
+
+| Area | Nos | Hub (maior propagacao de mudanca) |
+|---|---|---|
+| `erp-novo` | 9367 | `Empresa` (961 arestas) - `erp-novo/app/Models/Empresa.php:21` |
+| `app-gas-em-casa` | 687 | `app-gas-em-casa/src/types/types.ts` (66 arestas) - `app-gas-em-casa/src/types/types.ts:1` |
+| `app-entregador` | 421 | `app-entregador/src/constants/app.ts` (37 arestas) - `app-entregador/src/constants/app.ts:1` |
+| `deploy` | 74 | `D-0 — a janela` (10 arestas) - `deploy/CUTOVER_RUNBOOK.md:57` |
+| `mobile-shared` | 25 | `mobile-shared/package.json` (11 arestas) - `mobile-shared/package.json:1` |
+
+**Acoplamento entre areas:**
+- `app-gas-em-casa -> mobile-shared`: 15 arestas
+- `app-entregador -> erp-novo`: 8 arestas
+- `app-entregador -> mobile-shared`: 8 arestas
+
+**Onde as coisas moram** (79 de 220 diretorios; corte em 30+ nos):
+
+```
+2333  erp-novo/tests/Feature
+ 648  erp-novo/app/Http/Controllers/Api/Admin
+ 593  erp-novo/database/migrations
+ 383  erp-novo/app/Etl/Migrators
+ 302  erp-novo/tests/Domain
+ 267  app-gas-em-casa
+ 245  erp-novo/app/Console/Commands
+ 178  app-entregador
+ 125  erp-novo/frontend
+ 118  erp-novo
+ 114  erp-novo/app/Domain/Fiscal
+ 109  erp-novo/app/Http/Controllers/Api/Mobile
+ 106  erp-novo/frontend/src/components/ui
+ 104  erp-novo/frontend/src/features/superadmin
+ 103  erp-novo/frontend/src/features/satelites
+  90  erp-novo/app/Models
+  87  erp-novo/database/seeders
+  87  erp-novo/app/Domain/Tenant
+  87  erp-novo/app/Domain/Satelite
+  84  erp-novo/tests/Migration
+  83  erp-novo/app/Models/Saas
+  82  erp-novo/app/Domain/Mobile
+  75  app-gas-em-casa/src/types
+  72  erp-novo/frontend/src/features/acessos
+  61  erp-novo/app/Domain/Identidade
+  60  erp-novo/app/Models/Cliente
+  60  erp-novo/frontend/src/features/comodatos
+  59  erp-novo/app/Domain/Saas
+  59  erp-novo/frontend/src
+  58  erp-novo/app/Domain/Financeiro
+  58  app-entregador/src/services
+  57  erp-novo/frontend/src/lib
+  55  erp-novo/app/Domain/Logistica
+  55  erp-novo/app/Domain/Cobranca/Drivers
+  55  erp-novo/app/Domain/Monitora
+  54  erp-novo/frontend/src/features/produtos
+  54  erp-novo/frontend/src/features/clientes
+  53  erp-novo/frontend/src/features/pedidos
+  52  erp-novo/app/Http/Controllers/Api/SuperAdmin
+  52  erp-novo/frontend/src/features/geografico
+  51  erp-novo/app/Domain/Shared
+  50  erp-novo/app/Etl/Support
+  50  app-gas-em-casa/src/services
+  47  erp-novo/app/Models/Apoio
+  47  erp-novo/app/Models/Fiscal
+  47  app-gas-em-casa/src/components/atoms
+  47  app-entregador/src/app/(app)
+  46  erp-novo/frontend/src/features/crm
+  46  erp-novo/tests/Unit
+  46  erp-novo/app/Models/Rh
+  45  erp-novo/frontend/src/features/empresas
+  44  erp-novo/app/Models/Satelite
+  43  erp-novo/app/Domain/Geografico
+  41  erp-novo/app/Http/Middleware
+  40  erp-novo/app/Models/Monitora
+  40  erp-novo/frontend/src/features/financeiro
+  39  erp-novo/app/Models/Pedido
+  39  erp-novo/app/Domain/Monitora/Drivers
+  39  erp-novo/frontend/src/features/pagamentos
+  38  erp-novo/frontend/src/features/gestao
+  37  erp-novo/app/Models/Frota
+  37  erp-novo/app/Http/Controllers/Api/Legado
+  36  erp-novo/app/Models/Financeiro
+  36  erp-novo/app/Domain/Venda
+  36  deploy
+  35  erp-novo/frontend/src/features/central-vendas
+  34  erp-novo/app/Models/Crm
+  34  app-entregador/src/helpers
+  33  erp-novo/app/Domain/Caixa
+  33  erp-novo/frontend/src/features/financeiro/tabs
+  32  erp-novo/app/Domain/Relatorio
+  32  erp-novo/app/Domain/Cobranca
+  32  app-gas-em-casa/src/helpers
+  31  erp-novo/app/Models/Geografico
+  30  erp-novo/app/Domain/Pedido
+  30  erp-novo/app/Models/Estoque
+  30  erp-novo/app/Models/Logistica
+  30  erp-novo/app/Domain/Apoio
+  30  erp-novo/app/Domain/Auditoria
+```
+
+<!-- graph-map:end -->
+
+---
+
 ## Regras deste repositório
 
 **Não altere `ctrl-web/`.** É o legado, referência do comportamento original, e

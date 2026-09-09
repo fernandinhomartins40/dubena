@@ -1,0 +1,32 @@
+# ── O que o grafo NÃO indexa, e por quê ────────────────────────────────────
+# O grafo existe para responder "onde mexo / o que quebra" no código VIVO.
+# Cada arquivo indexado dilui a resposta, então aqui só entra o que é código
+# que ainda se altera.
+
+# O legado é 4.049 arquivos (73% do código do monorepo) e a regra do projeto
+# proíbe alterá-lo — ele será desligado no cutover. Indexado, dominaria o
+# grafo e os hubs apontariam para código morto.
+ctrl-web/
+
+# Apps legados fora do escopo: referência de comportamento, não alvo de edição.
+legado-nfweb/
+legado-movelapp/
+
+# O kit é documentação, não código do projeto.
+kit-auditoria/
+
+# Dependências e artefatos regeneráveis.
+**/vendor/
+**/node_modules/
+**/public/app/
+**/storage/framework/
+**/bootstrap/cache/
+__pycache__/
+**/__pycache__/
+
+# Documentação e dumps: não têm grafo de chamadas.
+docs/
+apks/
+
+# Ferramenta de analise do proprio grafo, nao codigo do produto.
+scripts/graph-map.js
