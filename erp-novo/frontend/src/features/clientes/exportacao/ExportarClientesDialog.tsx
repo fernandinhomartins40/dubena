@@ -11,6 +11,7 @@ import {
   useOpcoesExportacao, usePreviaExportacao, baixarExportacao,
   type FormatoExportacao, type FiltrosExportacao, type CampoExportavel,
 } from './api'
+import { ProgressoExportacao } from './ProgressoExportacao'
 
 interface Props {
   open: boolean
@@ -141,9 +142,16 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
     }
   }
 
+  // Durante a geração o modal não fecha por Esc, clique fora ou no X: sumir no
+  // meio da espera pareceria erro, e o usuário perderia o progresso de vista
+  // sem saber se o arquivo ainda vem.
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+    <Dialog open={open} onOpenChange={(v) => { if (!gerando) onOpenChange(v) }}>
+      <DialogContent
+        className="max-w-4xl"
+        onEscapeKeyDown={(e) => { if (gerando) e.preventDefault() }}
+        onPointerDownOutside={(e) => { if (gerando) e.preventDefault() }}
+      >
         <DialogHeader>
           <DialogTitle>Exportar clientes</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -368,9 +376,15 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
             </p>
           )}
 
+          {/* Durante a geração, o progresso substitui os avisos: o que importa
+              ali é acompanhar, não mais decidir. */}
+          {gerando && (
+            <ProgressoExportacao formato={formato} totalLinhas={previa?.total ?? 0} />
+          )}
+
           {/* Aviso, não bloqueio: o volume é exportável, só demora. Quem quiser
               o Excel com a base inteira pode — só não deve achar que travou. */}
-          {xlsxLento && (
+          {!gerando && xlsxLento && (
             <p className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
               São {previa?.total.toLocaleString('pt-BR')} clientes: o Excel pode levar
               alguns minutos para ser gerado. O CSV sai em segundos e abre no Excel do mesmo jeito.
@@ -380,19 +394,24 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
 
         <DialogFooter className="items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            {/* Durante a geração o texto vira progresso: um XLSX grande leva
-                minutos, e sem isso a espera parece travamento. */}
-            {gerando ? 'Gerando o arquivo… pode levar alguns minutos.'
+            {/* Durante a geração o resumo cede lugar ao ProgressoExportacao,
+                que já mostra tudo — repetir aqui só competiria com ele. */}
+            {gerando ? ''
               : contando ? 'Contando…'
               : previa ? <><strong className="text-foreground">{previa.total.toLocaleString('pt-BR')}</strong> cliente{previa.total === 1 ? '' : 's'} · {campos.length} coluna{campos.length === 1 ? '' : 's'}</>
               : '—'}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            {/* Fechar durante a geração NÃO cancela: a requisição segue e o
+                download começa sozinho. Some o botão para não sugerir que
+                cancela algo — o que ele faria é só esconder o progresso. */}
+            {!gerando && (
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            )}
             <Button loading={gerando}
               disabled={campos.length === 0 || excedePdf || vazio || contando}
               onClick={exportar}>
-              Exportar
+              {gerando ? 'Gerando…' : 'Exportar'}
             </Button>
           </div>
         </DialogFooter>
