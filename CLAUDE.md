@@ -44,35 +44,80 @@ que passa, não.
 
 ## Como investigar o código
 
-**Consulte o grafo antes de abrir arquivos.** São 10 mil símbolos; abrir os
-arquivos afetados por uma mudança custa ~100x mais contexto que perguntar ao
-grafo quem depende deles.
+**Nunca leia um arquivo inteiro para mexer num método.** Três ferramentas
+respondem a perguntas diferentes; usar a errada custa contexto à toa.
+
+| Pergunta | Ferramenta |
+|---|---|
+| "me dá só este método" | **Serena** (`find_symbol`) |
+| "o que quebra se eu mudar isto" | **Graphify** (`affected`) |
+| "onde está a lógica que faz X" | **grep** nos comentários em pt-BR |
+
+### Serena (MCP) — ler o trecho, não o arquivo
+
+Language server (Intelephense/TS) exposto por MCP. Resposta verificável do
+compilador, não similaridade estatística.
+
+- `get_symbols_overview` — o que existe num arquivo (raso, ~60 bytes)
+- `find_symbol` com `depth: 1, include_body: false` — todos os métodos da
+  classe com as linhas de cada um, **sem os corpos**
+- `find_symbol` com `include_body: true` — o corpo de um método só
+- `find_referencing_symbols` — quem usa este símbolo, com o trecho de cada uso
+
+Medido aqui, na tarefa "alterar o método que cria pedido":
+
+| Caminho | Custo |
+|---|---|
+| Ler `PedidoService.php` inteiro | 18.578 bytes |
+| Panorama da classe + só o método | 3.864 bytes (**4,8x menos**) |
+| Já sabendo o nome do método | 1.713 bytes (**10,8x menos**) |
+
+Reindexar após mudança estrutural grande: `serena project index` (2min20s para
+1.116 PHP + 363 TS).
+
+### Graphify — impacto de uma mudança
 
 ```bash
-graphify explain "PedidoService"        # quem chama, o que chama, onde mora
-graphify affected "Empresa"             # o que quebra se eu mudar isto
-graphify path "PedidoController" "Nfe"  # como dois símbolos se ligam
-node scripts/graph-map.js               # visão geral (o mapa abaixo)
+graphify affected "erp_novo_app_models_empresa_empresa"  # o que quebra
+graphify explain "PedidoService"                         # quem chama, onde mora
+graphify path "PedidoController" "Nfe"                   # como dois se ligam
+node scripts/graph-map.js                                # visão geral (mapa abaixo)
 ```
 
-Ordem: mapa (onde estou) → `affected` (o que arrisco) → abrir **só** o que sobrou.
+Símbolo repetido dá "Ambiguous"/"No unique node match": a ferramenta imprime os
+ids; repita com o id completo.
 
-Símbolo repetido em vários módulos dá "No unique node match": a ferramenta
-imprime os ids; repita com o id completo.
+**O que ele acha e o grep não:** medido em `PedidoService` — os dois acham 50
+arquivos, mas 10 são **diferentes**. `AppPedidoController` não cita
+`PedidoService` em lugar nenhum e depende dele via `PedidoMobileService` (2
+saltos). Para dependência transitiva, grep dá falso negativo.
 
-### Onde o grafo NÃO ajuda
+**O que ele NÃO economiza:** para achar quem cita um nome, `grep` custou 12,8 KB
+e o grafo 7,4 KB — 1,7x, não as ordens de magnitude que a propaganda promete. O
+valor dele é a dependência indireta, não o token.
 
-- **Não atravessa HTTP.** `api.get('/pedidos')` na SPA e `Route::get('pedidos')`
-  no Laravel não têm ligação sintática — e aqui isso é a fronteira mais
-  movimentada do projeto. Para impacto de mudança de rota, use
-  `php artisan api:manifest` e grep pela string.
-- **Não enxerga o banco.** RLS, policies, grants e o que uma migration faz ao
-  Postgres não estão no grafo. Isso continua sendo pergunta para o banco.
-- **`graphify query` em linguagem natural não serve.** Casa nome de símbolo,
-  não intenção. Use `explain` / `affected` / `path`.
-- **O legado não está indexado.** `ctrl-web/` (4.049 arquivos, 73% do código)
-  fica fora de propósito — ver `.graphifyignore`. Perguntas sobre o legado se
-  respondem lendo `docs/02-auditoria-legado/` ou o próprio `ctrl-web/`.
+### grep — ainda é a primeira escolha para intenção
+
+O código aqui é comentado em português explicando o **porquê** (regra deste
+repositório), então buscar por intenção em texto puro funciona: `fail-closed`
+acha 24 arquivos, `sem credencial` acha 12. É por isso que **não** instalamos
+índice vetorial: embeddings competiriam com algo que aqui já funciona, e
+benchmarks independentes mostram busca semântica colapsando justamente em
+consultas curtas por palavra-chave.
+
+### Onde nenhuma das três ajuda
+
+- **Fronteira HTTP.** `api.get('/pedidos')` na SPA e `Route::get('pedidos')` no
+  Laravel não têm ligação sintática — e aqui é a fronteira mais movimentada.
+  Use `php artisan api:manifest` e grep pela string.
+- **O banco.** RLS, policies, grants e o efeito real de uma migration não estão
+  em índice nenhum. Continua sendo pergunta para o Postgres.
+- **O legado.** `ctrl-web/` (4.049 arquivos, 73% do código) está fora dos dois
+  índices de propósito — ver `.graphifyignore` e `.serena/project.yml`. Para o
+  legado, leia `docs/02-auditoria-legado/` ou o próprio `ctrl-web/`.
+
+Também não serve `graphify query` em linguagem natural: casa nome de símbolo,
+não intenção. Use `explain` / `affected` / `path`.
 
 ### Manter o mapa atualizado
 
@@ -93,7 +138,7 @@ O texto escrito à mão nunca é sobrescrito: `--write` só toca o que está ent
 <!-- graph-map:begin -->
 <!-- Gerado por scripts/graph-map.js. Nao editar a mao: rode `node scripts/graph-map.js --write`. -->
 
-Grafo: 10784 nos, 32577 arestas (commit `65961b75`).
+Grafo: 10783 nos, 32577 arestas (commit `edafcd75`).
 
 | Area | Nos | Hub (maior propagacao de mudanca) |
 |---|---|---|
