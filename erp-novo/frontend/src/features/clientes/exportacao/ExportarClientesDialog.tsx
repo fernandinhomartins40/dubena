@@ -97,7 +97,8 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
     .filter((c) => c.sensivel && campos.includes(c.chave))
 
   const excedePdf = formato === 'pdf' && (previa?.excede_pdf ?? false)
-  const excedeLimite = previa?.excede_limite ?? false
+  const xlsxLento = formato === 'xlsx' && opcoes !== undefined
+    && (previa?.total ?? 0) > opcoes.xlsx_lento_acima_de
   const vazio = previa?.total === 0
 
   function alternarCampo(chave: string) {
@@ -366,24 +367,30 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
               {opcoes?.limite_pdf.toLocaleString('pt-BR')}. Restrinja o filtro ou escolha Excel/CSV.
             </p>
           )}
-          {excedeLimite && (
-            <p className="rounded-md bg-destructive/10 p-2.5 text-xs text-destructive">
-              O filtro atinge {previa?.total.toLocaleString('pt-BR')} clientes, acima do limite de{' '}
-              {opcoes?.limite_linhas.toLocaleString('pt-BR')} por arquivo. Restrinja o filtro.
+
+          {/* Aviso, não bloqueio: o volume é exportável, só demora. Quem quiser
+              o Excel com a base inteira pode — só não deve achar que travou. */}
+          {xlsxLento && (
+            <p className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+              São {previa?.total.toLocaleString('pt-BR')} clientes: o Excel pode levar
+              alguns minutos para ser gerado. O CSV sai em segundos e abre no Excel do mesmo jeito.
             </p>
           )}
         </div>
 
         <DialogFooter className="items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            {contando ? 'Contando…'
+            {/* Durante a geração o texto vira progresso: um XLSX grande leva
+                minutos, e sem isso a espera parece travamento. */}
+            {gerando ? 'Gerando o arquivo… pode levar alguns minutos.'
+              : contando ? 'Contando…'
               : previa ? <><strong className="text-foreground">{previa.total.toLocaleString('pt-BR')}</strong> cliente{previa.total === 1 ? '' : 's'} · {campos.length} coluna{campos.length === 1 ? '' : 's'}</>
               : '—'}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button loading={gerando}
-              disabled={campos.length === 0 || excedePdf || excedeLimite || vazio || contando}
+              disabled={campos.length === 0 || excedePdf || vazio || contando}
               onClick={exportar}>
               Exportar
             </Button>

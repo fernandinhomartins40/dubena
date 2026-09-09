@@ -15,7 +15,7 @@ export interface OpcoesExportacao {
   campos: CampoExportavel[]
   padrao: string[]
   limite_pdf: number
-  limite_linhas: number
+  xlsx_lento_acima_de: number
 }
 
 /** Filtros de QUAIS clientes entram. Tudo opcional = não restringe. */
@@ -64,7 +64,6 @@ export function useOpcoesExportacao(habilitado: boolean) {
 export interface PreviaExportacao {
   total: number
   excede_pdf: boolean
-  excede_limite: boolean
 }
 
 /** Quantos clientes o filtro atinge — mostrado ANTES de gerar o arquivo. */
@@ -89,7 +88,14 @@ export async function baixarExportacao(
   const resp = await api.post(
     '/clientes/exportacao',
     { formato, campos, ...limpar(filtros) },
-    { responseType: 'blob' },
+    {
+      responseType: 'blob',
+      // Um XLSX de 50 mil linhas leva ~100s para o PhpSpreadsheet montar e
+      // gravar (medido). O nginx corta em 300s, então damos a mesma folga:
+      // sem isso, um default menor abortaria no cliente um arquivo que o
+      // servidor ainda estava gerando.
+      timeout: 300_000,
+    },
   )
 
   const nome = nomeDoHeader(resp.headers?.['content-disposition'])

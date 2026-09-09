@@ -57,15 +57,15 @@ class ClienteExportacaoController extends Controller
             'campos' => $campos,
             'padrao' => ClienteExportacaoService::PADRAO,
             'limite_pdf' => ClienteExportacaoService::LIMITE_PDF,
-            'limite_linhas' => ClienteExportacaoService::LIMITE_LINHAS,
+            'xlsx_lento_acima_de' => ClienteExportacaoService::XLSX_LENTO_ACIMA_DE,
         ]]);
     }
 
     /**
      * GET /clientes/exportacao/previa — quantos clientes o filtro atinge.
      *
-     * Existe para o dono ver o tamanho ANTES de gerar: um PDF de 40 mil linhas
-     * só se descobre grande demais depois de esperar por ele.
+     * Existe para o dono ver o tamanho ANTES de gerar. CSV e XLSX não recusam
+     * volume nenhum; só o PDF avisa, porque ali o formato é que não comporta.
      */
     public function previa(Request $request): JsonResponse
     {
@@ -77,7 +77,6 @@ class ClienteExportacaoController extends Controller
         return response()->json(['data' => [
             'total' => $total,
             'excede_pdf' => $total > ClienteExportacaoService::LIMITE_PDF,
-            'excede_limite' => $total > ClienteExportacaoService::LIMITE_LINHAS,
         ]]);
     }
 
@@ -96,18 +95,21 @@ class ClienteExportacaoController extends Controller
         $campos = $this->service->camposValidos($dados['campos']);
         $filtros = $this->validarFiltros($request);
 
-        // O PDF é o único formato com teto próprio: dompdf monta a tabela
-        // inteira em memória antes de paginar. Recusar com o número na mão é
-        // mais útil que estourar a memória e devolver 500.
+        // CSV e XLSX exportam o que o filtro atingir, sem teto: o XLSX comporta
+        // 1.048.576 linhas e o CSV não tem limite. O PDF é o único que recusa,
+        // e por limitação do FORMATO — o dompdf monta a tabela inteira em
+        // memória antes de paginar, e 5 mil linhas já passam de 100 páginas.
         $limite = $formato === 'pdf'
             ? ClienteExportacaoService::LIMITE_PDF
-            : ClienteExportacaoService::LIMITE_LINHAS;
+            : ClienteExportacaoService::SEM_LIMITE;
 
-        $total = $this->service->contar($filtros);
-        if ($total > $limite) {
-            abort(422, $formato === 'pdf'
-                ? "O filtro atinge {$total} clientes e o PDF comporta ".ClienteExportacaoService::LIMITE_PDF.'. Restrinja o filtro ou exporte em Excel/CSV.'
-                : "O filtro atinge {$total} clientes, acima do limite de {$limite} por arquivo. Restrinja o filtro.");
+        if ($formato === 'pdf') {
+            $total = $this->service->contar($filtros);
+            if ($total > ClienteExportacaoService::LIMITE_PDF) {
+                abort(422, "O filtro atinge {$total} clientes e o PDF comporta "
+                    .ClienteExportacaoService::LIMITE_PDF
+                    .'. Restrinja o filtro ou exporte em Excel/CSV.');
+            }
         }
 
         $linhas = $this->service->linhas($campos, $filtros, $limite);
@@ -142,7 +144,7 @@ class ClienteExportacaoController extends Controller
             // BOM UTF-8: sem ele o Excel abre o CSV em ANSI e "João" vira
             // "JoÃ£o" — o mesmo defeito de acentuação que já mordeu no PDF.
             default => [
-                "\u{FEFF}".$this->relatorio->csv($linhas),
+                "\u{FEFF}".$this->relatorio->csv($this->service->semFormulas($linhas)),
                 'text/csv; charset=UTF-8',
                 "{$nome}.csv",
             ],

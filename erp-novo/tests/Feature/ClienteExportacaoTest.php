@@ -31,6 +31,14 @@ class ClienteExportacaoTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        // Estático não é reiniciado entre testes: sem isto, o lote reduzido de
+        // um teste vazaria para os seguintes.
+        ClienteExportacaoService::$tamanhoDoLote = 2000;
+        parent::tearDown();
+    }
+
     /**
      * Usuário com papel real (sem break-glass) e apenas as chaves informadas.
      *
@@ -64,12 +72,16 @@ class ClienteExportacaoTest extends TestCase
         $cidade = Cidade::firstOrCreate(
             ['grupo_id' => $empresa->grupo_id, 'descricao' => 'Guarapuava', 'uf' => 'PR'],
         );
-        $b = Bairro::create([
-            'grupo_id' => $empresa->grupo_id, 'cidade_id' => $cidade->id, 'descricao' => $bairro,
-        ]);
-        $r = Rua::create([
-            'grupo_id' => $empresa->grupo_id, 'cidade_id' => $cidade->id, 'descricao' => $rua,
-        ]);
+        // firstOrCreate: `bairros` e `ruas` têm unique (cidade_id, descricao),
+        // e vários clientes do mesmo bairro é justamente o caso a testar.
+        $b = Bairro::firstOrCreate(
+            ['cidade_id' => $cidade->id, 'descricao' => $bairro],
+            ['grupo_id' => $empresa->grupo_id],
+        );
+        $r = Rua::firstOrCreate(
+            ['cidade_id' => $cidade->id, 'descricao' => $rua],
+            ['grupo_id' => $empresa->grupo_id],
+        );
 
         return Cliente::create([
             'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id,
@@ -210,6 +222,92 @@ class ClienteExportacaoTest extends TestCase
         $this->assertStringStartsWith("\u{FEFF}", $csv);
     }
 
+    public function test_complemento_que_parece_formula_nao_derruba_a_exportacao(): void
+    {
+        // Regressão REAL de produção: 6 cadastros têm complemento '=', '+',
+        // '=======' ou '=-'. O PhpSpreadsheet lia como fórmula e a exportação
+        // inteira morria com 500 ("Formula Error: Unexpected operator '='") —
+        // um cadastro digitado errado derrubava o relatório de 51 mil clientes.
+        // É também o vetor de formula injection: '=HYPERLINK(...)' viraria
+        // fórmula ativa na máquina de quem abrisse a planilha.
+        [$user, $empresa] = $this->ator(['cliente.view', 'cliente.export.completo']);
+        $cliente = $this->cliente($empresa, 'Cliente com complemento estranho', 'Rua XV de Novembro', 'Centro');
+
+        // '==-' é o valor REAL que derrubava a exportação em produção. Ele
+        // importa: dos 16 complementos que começam com operador, só ESTE faz o
+        // PhpSpreadsheet lançar — '=', '+', '=======' e '=-' passam. Um teste
+        // escrito com qualquer um dos outros ficaria verde sem provar nada.
+        $cliente->update(['complemento' => '==-']);
+
+        $campos = ['nome', 'complemento'];
+
+        $xlsx = $this->actingAs($user, 'sanctum')->postJson('/api/admin/clientes/exportacao', [
+            'formato' => 'xlsx', 'campos' => $campos,
+        ])->assertOk()->getContent();
+        $this->assertStringStartsWith('PK', $xlsx);
+
+        // No CSV não há tipo de célula: a defesa é o apóstrofo, que o Excel
+        // consome como "isto é texto" e não mostra na planilha.
+        $csv = $this->actingAs($user, 'sanctum')->postJson('/api/admin/clientes/exportacao', [
+            'formato' => 'csv', 'campos' => $campos,
+        ])->assertOk()->getContent();
+        $this->assertStringContainsString("'==-", $csv);
+    }
+
+    public function test_csv_e_xlsx_nao_recusam_por_volume(): void
+    {
+        // Guardião contra o defeito que ISTO já foi: um teto de 50.000
+        // inventado no código recusava "exportar todos" numa base de 51.793
+        // clientes. Nenhum limite real o justificava — o XLSX comporta
+        // 1.048.576 linhas e o CSV não tem limite. Se alguém reintroduzir um
+        // teto de volume em CSV/XLSX, este teste falha.
+        $this->assertSame(
+            PHP_INT_MAX,
+            ClienteExportacaoService::SEM_LIMITE,
+            'CSV e XLSX não podem ter teto de linhas.',
+        );
+
+        $controller = file_get_contents(app_path('Http/Controllers/Api/Admin/ClienteExportacaoController.php'));
+        $this->assertStringNotContainsString(
+            'acima do limite de',
+            $controller,
+            'Voltou a existir recusa por volume fora do PDF.',
+        );
+    }
+
+    public function test_exportacao_em_lotes_nao_perde_nem_duplica_homonimos(): void
+    {
+        // O `chunk` (que evita hidratar 51 mil models de uma vez) pagina por
+        // ordenação: se a ordem não for determinística, um lote repete ou pula
+        // registros na fronteira. A base é cheia de homônimos — "MARIA
+        // APARECIDA" aparece dezenas de vezes —, então é exatamente o cenário
+        // que quebraria. Por isso o `orderBy('id')` de desempate.
+        [$user, $empresa] = $this->ator(['cliente.view', 'cliente.export.completo']);
+
+        // Lote pequeno para o teste ATRAVESSAR a fronteira entre lotes: com os
+        // 2000 de produção, 25 clientes caberiam num lote só e este teste
+        // passaria sem exercitar paginação nenhuma.
+        ClienteExportacaoService::$tamanhoDoLote = 5;
+
+        $quantos = 25;
+        for ($i = 0; $i < $quantos; $i++) {
+            $this->cliente($empresa, 'MARIA APARECIDA DA SILVA', 'Rua Um', 'Centro');
+        }
+
+        $csv = $this->actingAs($user, 'sanctum')->postJson('/api/admin/clientes/exportacao', [
+            'formato' => 'csv', 'campos' => ['id', 'nome'],
+        ])->assertOk()->getContent();
+
+        // -1 do cabeçalho; o arquivo termina com quebra de linha.
+        $linhas = array_filter(explode("\n", trim($csv)));
+        $this->assertCount($quantos + 1, $linhas, 'O chunk perdeu ou duplicou linhas.');
+
+        // Nenhum id repetido: duplicata é o sintoma clássico de paginação sem
+        // ordem estável, e passaria despercebida só contando linhas.
+        $ids = array_map(fn ($l) => (int) strtok($l, ';'), array_slice($linhas, 1));
+        $this->assertCount($quantos, array_unique($ids), 'Há id repetido na exportação.');
+    }
+
     public function test_coluna_fora_do_catalogo_e_ignorada(): void
     {
         // A requisição não pode virar `select` livre: pedir uma coluna que o
@@ -256,12 +354,9 @@ class ClienteExportacaoTest extends TestCase
 
         // Não criamos 5.001 clientes (custaria minutos): medimos a decisão
         // contra o teto declarado, que é a regra que se quer provar.
+        // O PDF é o ÚNICO com teto, e por limitação do formato: o dompdf monta
+        // a tabela inteira em memória, e 5 mil linhas já passam de 100 páginas.
         $this->assertSame(5000, ClienteExportacaoService::LIMITE_PDF);
-        $this->assertGreaterThan(
-            ClienteExportacaoService::LIMITE_PDF,
-            ClienteExportacaoService::LIMITE_LINHAS,
-            'O teto do PDF precisa ser MENOR que o geral: é ele que existe para evitar o estouro do dompdf.',
-        );
 
         $this->cliente($empresa, 'Jeann Ricardo de Goes', 'Rua XV de Novembro', 'Centro');
         $this->actingAs($user, 'sanctum')

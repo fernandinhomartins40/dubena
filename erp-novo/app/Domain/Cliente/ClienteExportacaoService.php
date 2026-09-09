@@ -29,11 +29,48 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  */
 class ClienteExportacaoService
 {
-    /** Teto de linhas por arquivo — acima disso o dompdf estoura a memória. */
+    /**
+     * Teto do PDF. O dompdf monta a tabela HTML inteira em memória antes de
+     * paginar, e um relatório de 5 mil linhas já passa de 100 páginas — acima
+     * disso o formato deixa de servir a quem vai LER.
+     */
     public const LIMITE_PDF = 5000;
 
-    /** Teto geral: exportar a base inteira é operação de banco, não de tela. */
-    public const LIMITE_LINHAS = 50000;
+    /**
+     * A partir daqui o XLSX fica lento e o CSV é o caminho melhor.
+     *
+     * Não é teto: é aviso. Medido com 55.000 linhas × 13 colunas — XLSX leva
+     * ~100s e 604 MB (51s montando a árvore de células do PhpSpreadsheet, 66s
+     * gravando), enquanto o MESMO conteúdo em CSV sai em 0,9s. O custo é
+     * intrínseco à biblioteca, não algo que dê para otimizar aqui.
+     *
+     * O usuário continua livre para escolher XLSX com qualquer volume; a tela
+     * só avisa que vai demorar e que o CSV abre no Excel do mesmo jeito.
+     */
+    public const XLSX_LENTO_ACIMA_DE = 20000;
+
+    /**
+     * CSV e XLSX NÃO têm teto de linhas.
+     *
+     * Havia um de 50.000 aqui, escolhido sem medir nada. Ele caía logo abaixo
+     * dos 51.793 clientes da base e transformava a operação mais óbvia do
+     * recurso — "exportar todos os clientes" — num erro. Nenhum limite real o
+     * justificava: o XLSX comporta 1.048.576 linhas (20x a base) e o CSV não
+     * tem limite algum. Era invenção do código, não restrição do formato nem
+     * do plano do tenant.
+     *
+     * Se um dia o volume pesar, a resposta é exportação assíncrona — gerar em
+     * fila e entregar o arquivo depois —, nunca recusar o que o usuário pediu.
+     */
+    public const SEM_LIMITE = PHP_INT_MAX;
+
+    /**
+     * Registros por lote do `chunk`. Ajustável só para o teste conseguir
+     * exercitar a FRONTEIRA entre lotes com poucos registros — com o valor de
+     * produção, 25 clientes caberiam num lote só e o teste de paginação
+     * passaria sem testar paginação nenhuma.
+     */
+    public static int $tamanhoDoLote = 2000;
 
     /**
      * Catálogo de campos exportáveis: chave => [rótulo, grupo, sensivel?].
@@ -137,16 +174,39 @@ class ClienteExportacaoService
      * @param  array<string,mixed>  $filtros
      * @return list<array<string,mixed>>
      */
-    public function linhas(array $campos, array $filtros, int $limite = self::LIMITE_LINHAS): array
+    public function linhas(array $campos, array $filtros, int $limite = self::SEM_LIMITE): array
     {
         $campos = $this->camposValidos($campos);
 
         $query = Cliente::query()->with($this->relacoesNecessarias($campos));
         $this->aplicarFiltros($query, $filtros);
+        $linhas = [];
+        // Em lotes, e não `get()`: sem teto de linhas, hidratar 51 mil models
+        // Eloquent de uma vez é o maior custo de memória do fluxo. O PHP libera
+        // cada lote antes do próximo, e o array de saída (arrays simples) pesa
+        // uma fração do que pesariam os models vivos.
+        //
+        // `chunkById` e não `chunk`: o `chunk` pagina com OFFSET, que só é
+        // confiável se a ordenação for única — e ordenar por `nome` numa base
+        // cheia de homônimos ("MARIA APARECIDA" aparece dezenas de vezes) não
+        // é. Um empate resolvido de formas diferentes entre duas consultas faz
+        // o OFFSET pular e repetir registros: a exportação sairia com linha
+        // faltando e ninguém notaria. `chunkById` pagina por `id > último`,
+        // imune ao problema por construção — e o preço é a ordenação sair por
+        // id, então quem quiser por nome ordena na planilha (o XLSX já vai com
+        // filtro automático).
+        $query->chunkById(self::$tamanhoDoLote, function ($lote) use (&$linhas, $campos, $limite) {
+            foreach ($lote as $cliente) {
+                if (count($linhas) >= $limite) {
+                    return false; // interrompe o chunk (só o PDF usa teto)
+                }
+                $linhas[] = $this->linha($cliente, $campos);
+            }
 
-        return $query->orderBy('nome')->limit($limite)->get()
-            ->map(fn (Cliente $c) => $this->linha($c, $campos))
-            ->all();
+            return true;
+        });
+
+        return $linhas;
     }
 
     /** Quantos clientes o filtro atinge — o modal mostra ANTES de exportar. */
@@ -352,6 +412,35 @@ class ClienteExportacaoService
     // ───────────────────────────── Formatos ─────────────────────────────
 
     /**
+     * Neutraliza texto que o Excel leria como FÓRMULA ao abrir o CSV.
+     *
+     * Mesmo problema do XLSX, por outro caminho: `=`, `+`, `-` ou `@` no
+     * início de uma célula viram fórmula na abertura. No XLSX resolvemos
+     * gravando como texto explícito; no CSV não existe tipo, então a defesa é
+     * prefixar com apóstrofo — o Excel o consome como "isto é texto" e ele não
+     * aparece na célula.
+     *
+     * Feito aqui e não no `RelatorioService::csv()` de propósito: aquele método
+     * é compartilhado por dezenas de relatórios e mudar o formato de todos por
+     * causa deste seria alterar o que já funciona.
+     *
+     * @param  list<array<string,mixed>>  $linhas
+     * @return list<array<string,mixed>>
+     */
+    public function semFormulas(array $linhas): array
+    {
+        foreach ($linhas as &$linha) {
+            foreach ($linha as &$valor) {
+                if (is_string($valor) && preg_match('/^[=+\-@]/', $valor) === 1) {
+                    $valor = "'".$valor;
+                }
+            }
+        }
+
+        return $linhas;
+    }
+
+    /**
      * XLSX real (PhpSpreadsheet): cabeçalho congelado, filtro automático e
      * largura por coluna. É o que permite ao dono ordenar por bairro e somar
      * limites de crédito na própria planilha — que é o motivo de existir XLSX
@@ -374,10 +463,24 @@ class ClienteExportacaoService
         foreach ($linhas as $l => $linha) {
             foreach ($colunas as $i => $rotulo) {
                 $valor = $linha[$rotulo] ?? null;
-                // setCellValueExplicit como texto onde o Excel destruiria o
-                // dado: CPF/CEP/telefone com zero à esquerda viram número e
-                // perdem o zero — "07..." vira "7...".
-                if (is_string($valor) && preg_match('/^0\d+$/', $valor)) {
+                // setCellValueExplicit como TEXTO em dois casos:
+                //
+                // 1. zero à esquerda (CPF/CEP/telefone) — o Excel converteria
+                //    para número e "07..." viraria "7...";
+                //
+                // 2. texto começando com = + - @, que o Excel (e o
+                //    PhpSpreadsheet ao gravar) trata como FÓRMULA. Não é
+                //    hipótese: a base tem 6 complementos assim ('=', '+',
+                //    '=======', '=-') e a exportação inteira morria com 500
+                //    — "Formula Error: Unexpected operator '='" —, derrubando
+                //    o relatório por causa de um cadastro digitado errado.
+                //    É também o vetor de CSV/formula injection: um cadastro
+                //    com `=HYPERLINK(...)` viraria fórmula ativa na máquina de
+                //    quem abrisse a planilha.
+                $texto = is_string($valor)
+                    && (preg_match('/^0\d+$/', $valor) === 1 || preg_match('/^[=+\-@]/', $valor) === 1);
+
+                if ($texto) {
                     $aba->setCellValueExplicit([$i + 1, $l + 2], $valor, DataType::TYPE_STRING);
                 } else {
                     $aba->setCellValue([$i + 1, $l + 2], $valor);
@@ -388,8 +491,6 @@ class ClienteExportacaoService
         if ($colunas !== []) {
             // getCellByColumnAndRow foi removido no PhpSpreadsheet 5; a
             // conversão índice→letra é o caminho suportado.
-            // getCellByColumnAndRow foi removido no PhpSpreadsheet 5; a
-            // conversão índice→letra é o caminho suportado.
             $ultima = Coordinate::stringFromColumnIndex(count($colunas));
             $cabecalho = $aba->getStyle("A1:{$ultima}1");
             $cabecalho->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
@@ -398,14 +499,27 @@ class ClienteExportacaoService
             $aba->getRowDimension(1)->setRowHeight(22);
             $aba->freezePane('A2');
             $aba->setAutoFilter("A1:{$ultima}".max(1, count($linhas) + 1));
-            foreach (range(1, count($colunas)) as $i) {
-                $aba->getColumnDimensionByColumn($i)->setAutoSize(true);
+            // Largura a partir do RÓTULO, não autoSize: o autoSize percorre
+            // todas as células para medir — em 51 mil linhas isso custa tempo
+            // e memória, e era ele que AVALIAVA o texto como fórmula. A largura
+            // pelo cabeçalho dá quase o mesmo resultado visual de graça.
+            foreach ($colunas as $i => $rotulo) {
+                $aba->getColumnDimensionByColumn($i + 1)
+                    ->setWidth(min(45, max(12, mb_strlen((string) $rotulo) + 4)));
             }
         }
 
         // O writer só escreve em arquivo/stream; php://temp evita disco.
         $stream = fopen('php://temp', 'r+');
-        (new Xlsx($planilha))->save($stream);
+        $writer = new Xlsx($planilha);
+        // Segunda barreira contra o defeito que derrubou a exportação em
+        // produção: sem pré-cálculo, o writer NÃO avalia nada como fórmula.
+        // A primeira barreira é gravar esses valores como texto explícito
+        // (acima); esta garante que, mesmo se um caso escapar da regex, o
+        // arquivo sai em vez de estourar 500 em cima do usuário.
+        // De quebra é mais rápido: não há motor de cálculo rodando.
+        $writer->setPreCalculateFormulas(false);
+        $writer->save($stream);
         rewind($stream);
         $bytes = (string) stream_get_contents($stream);
         fclose($stream);
