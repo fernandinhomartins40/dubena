@@ -20,10 +20,11 @@ class RotasSpaProtegidasTest extends TestCase
      * - '/'          Dashboard é a home de qualquer usuário logado.
      * - '/satelites' hub de satélites (qualquer logado).
      * - '/seguranca' conta do próprio usuário (2FA/sessões).
+     * - '*'          página 404, sem dados de domínio e ainda autenticada.
      *
      * @var list<string>
      */
-    private const SO_AUTENTICADAS = ['/', '/satelites', '/seguranca'];
+    private const SO_AUTENTICADAS = ['/', '/satelites', '/seguranca', '*'];
 
     public function test_toda_rota_de_pagina_declara_permissao(): void
     {
@@ -33,6 +34,13 @@ class RotasSpaProtegidasTest extends TestCase
         }
 
         $src = (string) file_get_contents($arquivo);
+        // A exceção do wildcard é restrita à página de endereço inválido.
+        // Não pode se tornar uma página de negócio sem permissão declarada.
+        $this->assertMatchesRegularExpression(
+            '/path="\*"\s+element=\{p\(<NotFoundPage\s*\/>\)\}/',
+            $src,
+            'O wildcard só-auth deve continuar restrito à página 404.',
+        );
 
         // Captura cada <Route path="..." element={p(<Page />[, 'perm'])} />.
         // Só nos interessam as que usam o helper `p(` (rotas de página protegidas);

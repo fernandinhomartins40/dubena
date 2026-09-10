@@ -164,3 +164,11 @@ Preexistentes preservados: `erp-novo/config/cache.php`, `erp-novo/perda.sql`, `k
 - U0/U1/U14: capturas desktop/mobile/temas, teclado real, zoom, matriz completa de contraste, desempenho e piloto por perfil. CUA retornou ausência de navegador disponível nesta sessão.
 - U4: destino comercial e hierarquia final de marca ainda aguardam definição; landing usa descoberta de recursos e login existentes.
 - Retomada: conferir o commit remoto/CI; seguir pelas consultas auxiliares do financeiro e contrato de cheques antes de ampliar U12. Não tratar a entrega Git como conclusão integral do plano.
+
+## Microlote 19 — contrato de cheques e datas civis
+
+- Push anterior confirmado em `origin/main`: `abddbcc804ecd99d47d6d715bc0860a6cbcc4d0d`, sem branch adicional. Arquivos preexistentes permaneceram fora do commit.
+- Cadastro/lista de cheques passam a usar numero, conta_corrente, titular e bom_para do controller atual. Payload restrito aos campos aceitos; situação inicial em carteira é definida pelo backend, e o formulário deixa de chamar a rota inexistente de situações.
+- Teste revelou data civil um dia anterior no Brasil. Formatador trata YYYY-MM-DD como calendário local, preserva tratamento de instantes completos e identifica data inválida. Data bom_para usa a parte civil do cast recebido.
+- Revisão independente somente-leitura dos quatro arquivos contratuais não encontrou perda de dados/regressão introduzida. Testes cobrem POST exato e apresentação da data/número, além do formatador.
+- Próximo: finalizar estados das consultas auxiliares financeiras/fiscais e reenviar o checkpoint validado à main.

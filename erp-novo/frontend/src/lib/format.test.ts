@@ -30,4 +30,10 @@ describe('format', () => {
     expect(data(null)).toBe('—')
     expect(data(undefined)).toBe('—')
   })
+  it('preserva datas civis e rejeita datas impossíveis', () => {
+    expect(data('2026-09-30')).toBe('30/09/2026')
+    expect(data('2024-02-29')).toBe('29/02/2024')
+    expect(data('2026-02-30')).toBe('Data inválida')
+    expect(data('invalida')).toBe('Data inválida')
+  })
 })

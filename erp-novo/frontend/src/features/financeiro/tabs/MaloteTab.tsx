@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Briefcase, CheckCircle2, Search } from 'lucide-react'
 import {
-  Button, Card, CardContent, Badge, DataTable, type Column, EmptyState, Field, Input,
+  AsyncState, Button, Card, CardContent, Badge, DataTable, type Column, EmptyState, Field, Input,
   AsyncSelect, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useConferenciaMalote, useFecharMalote, type MalotePedido } from '../api'
@@ -28,10 +28,11 @@ export function MaloteTab() {
   const [run, setRun] = useState(false)
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set())
   const [confirmando, setConfirmando] = useState(false)
+  const filtros = { inicio, fim, setor_id: setorId, entregador_user_id: entregadorId }
+  const [aplicados, setAplicados] = useState(filtros)
+  const filtrosAlterados = JSON.stringify(filtros) !== JSON.stringify(aplicados)
 
-  const { data, isLoading, refetch } = useConferenciaMalote(
-    { inicio, fim, setor_id: setorId, entregador_user_id: entregadorId }, run,
-  )
+  const { data, isLoading, isFetching, error, refetch } = useConferenciaMalote(aplicados, run)
   const fechar = useFecharMalote()
 
   // Só o que ainda tem parcela em aberto pode ser fechado — o resto já foi
@@ -56,16 +57,18 @@ export function MaloteTab() {
   }
 
   async function onFechar() {
+    if (filtrosAlterados || isFetching || error) return
+    const pedidos = fechaveis.filter((p) => selecionados.has(p.pedido_id)).map((p) => p.pedido_id)
+    if (!pedidos.length) return
     try {
-      const r = await fechar.mutateAsync({ pedidos: [...selecionados] })
+      const r = await fechar.mutateAsync({ pedidos })
       const ignorados = r.ignorados.length ? ` (${r.ignorados.length} já estavam baixados)` : ''
       toast.success(`${r.baixadas} parcela(s) baixada(s) — ${brl(r.valor)}${ignorados}.`)
       setSelecionados(new Set())
+      setConfirmando(false)
       refetch()
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Erro ao fechar o malote.')
-    } finally {
-      setConfirmando(false)
     }
   }
 
@@ -74,7 +77,7 @@ export function MaloteTab() {
       key: 'sel', header: '', width: 'w-10',
       cell: (p) => p.ja_baixado
         ? null
-        : <input type="checkbox" className="size-4 accent-primary"
+        : <input type="checkbox" className="size-4 accent-primary" aria-label={`Selecionar pedido ${p.pedido_id}`} disabled={filtrosAlterados || isFetching}
             checked={selecionados.has(p.pedido_id)}
             onChange={() => alternar(p.pedido_id)}
             onClick={(e) => e.stopPropagation()} />,
@@ -109,12 +112,13 @@ export function MaloteTab() {
               onChange={(id, o) => { setEntregadorId(id); setEntregadorLabel(o?.label ?? null) }} />
           </Field>
         </div>
-        <Button onClick={() => { setSelecionados(new Set()); setRun(true); refetch() }}>
+        <Button disabled={!inicio || !fim || inicio > fim || isFetching} onClick={() => { setSelecionados(new Set()); if (run && !filtrosAlterados) void refetch(); setAplicados(filtros); setRun(true) }}>
           <Search size={16} /> Conferir
         </Button>
       </CardContent></Card>
 
-      {run && data && (
+      {run && filtrosAlterados && <p role="status" className="mb-3 text-sm text-muted-foreground">Os filtros foram alterados. Clique em Conferir para atualizar a lista antes de fechar o malote.</p>}
+      {run && <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }}>{data && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <Card><CardContent className="pt-6">
@@ -145,10 +149,10 @@ export function MaloteTab() {
           )}
 
           <div className="mb-3 flex items-center justify-between gap-3">
-            <Button variant="outline" size="sm" onClick={alternarTodos} disabled={fechaveis.length === 0}>
+            <Button variant="outline" size="sm" onClick={alternarTodos} disabled={fechaveis.length === 0 || filtrosAlterados || isFetching}>
               {selecionados.size === fechaveis.length && fechaveis.length > 0 ? 'Limpar seleção' : 'Selecionar todos'}
             </Button>
-            <Button disabled={selecionados.size === 0} onClick={() => setConfirmando(true)}>
+            <Button disabled={selecionados.size === 0 || filtrosAlterados || isFetching || fechar.isPending} onClick={() => setConfirmando(true)}>
               <CheckCircle2 size={16} /> Fechar malote ({selecionados.size}) — {brl(totalSelecionado)}
             </Button>
           </div>
@@ -157,7 +161,7 @@ export function MaloteTab() {
             rowKey={(p) => p.pedido_id}
             empty={<EmptyState icon={<Briefcase />} title="Nenhum pedido no período" />} />
         </>
-      )}
+      )}</AsyncState>}
 
       <ConfirmDialog open={confirmando} onOpenChange={setConfirmando} title="Fechar malote"
         description={<>Baixar <strong>{brl(totalSelecionado)}</strong> em {selecionados.size} pedido(s)

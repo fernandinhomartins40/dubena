@@ -44,15 +44,17 @@ function ChequesRecebidosTab() {
   }
 
   async function onSalvar() {
-    const req = ['numerocheque', 'valor', 'banco_id', 'chequesituacao_id', 'dataemissao', 'datavencimento']
-    if (req.some((k) => !edit?.[k])) { toast.error('Preencha número, valor, banco, situação e datas.'); return }
-    try { await salvar.mutateAsync({ ...edit, valor: Number(edit.valor) }); toast.success('Cheque salvo.'); setEdit(null) }
+    if (!edit || !Number.isFinite(Number(edit.valor)) || Number(edit.valor) <= 0) { toast.error('Informe um valor maior que zero.'); return }
+    const payload = { id: edit.id, numero: edit.numero || null, valor: Number(edit.valor), banco_id: edit.banco_id || null,
+      agencia: edit.agencia || null, conta_corrente: edit.conta_corrente || null, titular: edit.titular || null,
+      bom_para: edit.bom_para ? String(edit.bom_para).slice(0, 10) : null }
+    try { await salvar.mutateAsync(payload); toast.success('Cheque salvo.'); setEdit(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
   }
   const columns: Column<any>[] = [
-    { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numerocheque}</span> },
+    { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numero ?? '—'}</span> },
     { key: 'valor', header: 'Valor', align: 'right', cell: (c) => <span className="tabular-nums">{brl(c.valor)}</span> },
-    { key: 'venc', header: 'Vencimento', cell: (c) => fmtData(c.datavencimento) },
+    { key: 'venc', header: 'Bom para', cell: (c) => fmtData(c.bom_para?.slice(0, 10)) },
     { key: 'sit', header: 'Situação', cell: (c) => <Badge variant="secondary">{c.situacao || '—'}</Badge> },
     { key: 'acoes', header: '', align: 'right', width: 'w-32', cell: (c) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" title="Mudar situação" onClick={() => { setSit(c); setNovaSit(''); setContaId(null) }}><ArrowRightLeft size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setEdit(c)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setDel(c)}><Trash2 size={16} /></Button></div> },
   ]
@@ -67,21 +69,21 @@ function ChequesRecebidosTab() {
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} widthClass="max-w-2xl"
         title={edit?.id ? 'Editar cheque' : 'Novo cheque recebido'} loading={salvar.isPending} onConfirm={onSalvar}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Número" required><Input value={edit?.numerocheque ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numerocheque: e.target.value }))} /></Field>
+          <Field label="Número"><Input maxLength={30} value={edit?.numero ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numero: e.target.value }))} /></Field>
           <Field label="Valor" required><Input type="number" step="0.01" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
-          <Field label="Banco" required><AsyncSelect endpoint="/cadastros/bancos" labelField="descricao" value={edit?.banco_id ?? null} valueLabel={labels.banco} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
-          <Field label="Situação" required><AsyncSelect endpoint="/cheques/situacoes" params={{ tipo: 'recebido' }} value={edit?.chequesituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { setEdit((s: any) => ({ ...s, chequesituacao_id: id })); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
+          <Field label="Banco"><AsyncSelect endpoint="/cadastros/bancos" labelField="descricao" value={edit?.banco_id ?? null} valueLabel={labels.banco ?? (edit?.banco_id ? `Banco #${edit.banco_id}` : null)} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
+          <p className="text-sm text-muted-foreground">{edit?.id ? `Situação atual: ${edit.situacao ?? 'não informada'}. Use Mudar situação após salvar.` : 'O cheque será registrado em carteira. O depósito e a compensação são realizados em Mudar situação.'}</p>
           <Field label="Agência"><Input value={edit?.agencia ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, agencia: e.target.value }))} /></Field>
-          <Field label="Conta"><Input value={edit?.numeroconta ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numeroconta: e.target.value }))} /></Field>
-          <Field label="Emissão" required><Input type="date" value={edit?.dataemissao ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, dataemissao: e.target.value }))} /></Field>
-          <Field label="Vencimento" required><Input type="date" value={edit?.datavencimento ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, datavencimento: e.target.value }))} /></Field>
+          <Field label="Conta corrente"><Input maxLength={30} value={edit?.conta_corrente ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, conta_corrente: e.target.value }))} /></Field>
+          <Field label="Titular"><Input maxLength={200} value={edit?.titular ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, titular: e.target.value }))} /></Field>
+          <Field label="Bom para"><Input type="date" value={edit?.bom_para?.slice(0, 10) ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, bom_para: e.target.value }))} /></Field>
         </div>
       </FormDialog>
       <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)}
         title="Excluir cheque"
-        description={<>Excluir o cheque <strong>{del?.numerocheque}</strong>?</>}
+        description={<>Excluir o cheque <strong>{del?.numero ?? `#${del?.id}`}</strong>?</>}
         loading={excluir.isPending}
-        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }}
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.'); setDel(null) } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } }}
       />
       {/* Mudar situação (depósito/compensação/devolução) — F07 */}
       <FormDialog open={!!sit} onOpenChange={(o) => !o && setSit(null)}
@@ -114,9 +116,9 @@ function ChequesEmitidosTab() {
   const { busca, setBusca, q, submit } = useBusca()
   const { data, isLoading, error, refetch } = useChequesEmitidos(q)
   const columns: Column<any>[] = [
-    { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numerocheque}</span> },
+    { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numero ?? '—'}</span> },
     { key: 'valor', header: 'Valor', align: 'right', cell: (c) => <span className="tabular-nums">{brl(c.valor)}</span> },
-    { key: 'venc', header: 'Vencimento', cell: (c) => fmtData(c.datavencimento) },
+    { key: 'venc', header: 'Bom para', cell: (c) => fmtData(c.bom_para?.slice(0, 10)) },
     { key: 'sit', header: 'Situação', cell: (c) => <Badge variant="secondary">{c.situacao || '—'}</Badge> },
   ]
   return (

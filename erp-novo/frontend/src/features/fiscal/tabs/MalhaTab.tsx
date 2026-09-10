@@ -11,7 +11,7 @@ import {
 
 export function MalhaTab() {
   return (
-    <Tabs defaultValue="grupos-fiscais">
+    <Tabs urlKey="malha" defaultValue="grupos-fiscais">
       <TabsList className="overflow-x-auto">
         <TabsTrigger value="grupos-fiscais">Grupos</TabsTrigger>
         <TabsTrigger value="operacoes">Operações</TabsTrigger>
@@ -35,7 +35,7 @@ export function MalhaTab() {
 }
 
 function MalhaCadastro({ tipo, titulo, comCodigo = true }: { tipo: string; titulo: string; comCodigo?: boolean }) {
-  const { data, isLoading } = useMalha(tipo)
+  const { data, isLoading, error, refetch } = useMalha(tipo)
   const salvar = useSalvarMalha(tipo); const excluir = useExcluirMalha(tipo)
   const [edit, setEdit] = useState<Partial<MalhaRow> | null>(null); const [del, setDel] = useState<MalhaRow | null>(null)
 
@@ -47,25 +47,25 @@ function MalhaCadastro({ tipo, titulo, comCodigo = true }: { tipo: string; titul
   const columns: Column<MalhaRow>[] = [
     ...(comCodigo ? [{ key: 'codigo', header: 'Código', width: 'w-24', cell: (r: MalhaRow) => <span className="tabular-nums text-muted-foreground">{r.codigo || '—'}</span> }] : []),
     { key: 'descricao', header: 'Descrição', cell: (r) => <span className="font-medium">{r.descricao}</span> },
-    { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (r) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => setEdit(r)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setDel(r)}><Trash2 size={16} /></Button></div> },
+    { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (r) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" aria-label="Editar registro" onClick={() => setEdit(r)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" aria-label="Excluir registro" onClick={() => setDel(r)}><Trash2 size={16} /></Button></div> },
   ]
   return (
     <>
       <div className="mb-3 flex justify-end"><Button onClick={() => setEdit({})}><Plus size={16} /> Novo</Button></div>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} onRowClick={(r) => setEdit(r)} empty={<EmptyState icon={<FileText />} title={`Nenhum registro em ${titulo}`} />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} onRowClick={(r) => setEdit(r)} empty={<EmptyState icon={<FileText />} title={`Nenhum registro em ${titulo}`} />} />
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? `Editar ${titulo}` : `Novo ${titulo}`} loading={salvar.isPending} onConfirm={onSalvar}>
         {comCodigo && <Field label="Código"><Input value={edit?.codigo ?? ''} onChange={(e) => setEdit((s) => ({ ...s, codigo: e.target.value }))} /></Field>}
         <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
       </FormDialog>
       <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)} title="Excluir"
         description={<>Excluir <strong>{del?.descricao}</strong>?</>} loading={excluir.isPending}
-        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluído.'); setDel(null) } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } }} />
     </>
   )
 }
 
 function OperacoesTab() {
-  const { data, isLoading } = useOperacoes()
+  const { data, isLoading, error, refetch } = useOperacoes()
   const salvar = useSalvarOperacao(); const excluir = useExcluirOperacao()
   const [edit, setEdit] = useState<Partial<OperacaoRow> | null>(null); const [del, setDel] = useState<OperacaoRow | null>(null)
 
@@ -78,12 +78,12 @@ function OperacoesTab() {
     { key: 'descricao', header: 'Descrição', cell: (o) => <span className="font-medium">{o.descricao}</span> },
     { key: 'cfop', header: 'CFOP', width: 'w-24', cell: (o) => <span className="tabular-nums text-muted-foreground">{o.cfop || '—'}</span> },
     { key: 'mov', header: 'Movimenta', cell: (o) => <div className="flex gap-1">{Number(o.movimentaestoque) ? <Badge variant="secondary">Estoque</Badge> : null}{Number(o.movimentafinanceiro) ? <Badge variant="secondary">Financeiro</Badge> : null}</div> },
-    { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (o) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => setEdit(o)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={() => setDel(o)}><Trash2 size={16} /></Button></div> },
+    { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (o) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" aria-label="Editar registro" onClick={() => setEdit(o)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" aria-label="Excluir registro" onClick={() => setDel(o)}><Trash2 size={16} /></Button></div> },
   ]
   return (
     <>
       <div className="mb-3 flex justify-end"><Button onClick={() => setEdit({})}><Plus size={16} /> Nova operação</Button></div>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(o) => o.id} onRowClick={(o) => setEdit(o)} empty={<EmptyState icon={<FileText />} title="Nenhuma operação fiscal" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(o) => o.id} onRowClick={(o) => setEdit(o)} empty={<EmptyState icon={<FileText />} title="Nenhuma operação fiscal" />} />
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? 'Editar operação' : 'Nova operação'} loading={salvar.isPending} onConfirm={onSalvar}>
         <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
         <Field label="Descrição fiscal"><Input value={edit?.descricaofiscal ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricaofiscal: e.target.value }))} /></Field>
@@ -95,7 +95,7 @@ function OperacoesTab() {
       </FormDialog>
       <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)} title="Excluir operação"
         description={<>Excluir <strong>{del?.descricao}</strong>?</>} loading={excluir.isPending}
-        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } finally { setDel(null) } }} />
+        onConfirm={async () => { try { await excluir.mutateAsync(del!.id); toast.success('Excluída.'); setDel(null) } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') } }} />
     </>
   )
 }

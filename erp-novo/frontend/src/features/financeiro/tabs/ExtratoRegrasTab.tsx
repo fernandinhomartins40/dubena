@@ -21,7 +21,7 @@ import {
 export function ExtratoRegrasTab() {
   const [contaId, setContaId] = useState<number | null>(null)
   const [contaLabel, setContaLabel] = useState<string | null>(null)
-  const { data, isLoading } = useExtratoRegras(contaId)
+  const { data, isLoading, error, refetch } = useExtratoRegras(contaId)
   const salvar = useSalvarExtratoRegra(contaId)
   const excluir = useExcluirExtratoRegra(contaId)
   const [edit, setEdit] = useState<Partial<ExtratoRegra> | null>(null)
@@ -75,8 +75,8 @@ export function ExtratoRegrasTab() {
       key: 'acoes', header: '', align: 'right', width: 'w-24',
       cell: (r) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" onClick={() => abrir(r)}><Pencil size={16} /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setDel(r)}><Trash2 size={16} /></Button>
+          <Button variant="ghost" size="icon" aria-label="Editar regra" onClick={() => abrir(r)}><Pencil size={16} /></Button>
+          <Button variant="ghost" size="icon" aria-label="Excluir registro" onClick={() => setDel(r)}><Trash2 size={16} /></Button>
         </div>
       ),
     },
@@ -101,7 +101,7 @@ export function ExtratoRegrasTab() {
       {contaId === null ? (
         <EmptyState icon={<ListFilter />} title="Escolha uma conta" description="As regras são cadastradas por conta bancária." />
       ) : (
-        <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(r) => r.id}
+        <DataTable columns={columns} rows={data?.data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id}
           onRowClick={(r) => abrir(r)}
           empty={<EmptyState icon={<ListFilter />} title="Nenhuma regra nesta conta" description="Sem regras, o extrato importado volta sem classificação." />} />
       )}
@@ -169,9 +169,9 @@ export function ExtratoRegrasTab() {
         description={<>Excluir a regra <strong>{del?.descricao}</strong>? O extrato volta a exigir classificação manual para essas linhas.</>}
         loading={excluir.isPending}
         onConfirm={async () => {
-          try { await excluir.mutateAsync(del!.id); toast.success('Regra excluída.') }
+          try { await excluir.mutateAsync(del!.id); toast.success('Regra excluída.'); setDel(null) }
           catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao excluir.') }
-          finally { setDel(null) }
+         
         }} />
     </>
   )
