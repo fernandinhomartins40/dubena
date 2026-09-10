@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { Plus, Handshake, Lock } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, CheckboxField, AsyncSelect,
-  ResourceList, FormDialog, toast,
+  ResourceList, FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useConvenios, useCriarConvenio, useFecharConvenio, type Convenio } from './api'
 
 export function ConvenioPage() {
-  const { data, isLoading } = useConvenios()
+  const { data, isLoading, error, refetch } = useConvenios()
   const criar = useCriarConvenio()
   const fechar = useFecharConvenio()
+  const [confirmando, setConfirmando] = useState<Convenio | null>(null)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({ ativo: true })
   const [clienteLabel, setClienteLabel] = useState('')
@@ -21,8 +22,7 @@ export function ConvenioPage() {
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao criar.') }
   }
   async function onFechar(c: Convenio) {
-    if (!confirm(`Fechar o convênio "${c.descricao}"? Gera o título do período.`)) return
-    try { await fechar.mutateAsync(c.id); toast.success('Convênio fechado.') }
+    try { await fechar.mutateAsync(c.id); toast.success('Convênio fechado.'); setConfirmando(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao fechar.') }
   }
 
@@ -34,7 +34,7 @@ export function ConvenioPage() {
     { key: 'ativo', header: 'Ativo', cell: (v) => v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge> },
     {
       key: 'acoes', header: '', align: 'right',
-      cell: (v) => <Button variant="ghost" size="sm" loading={fechar.isPending} onClick={() => onFechar(v)}><Lock size={15} /> Fechar período</Button>,
+      cell: (v) => <Button variant="ghost" size="sm" loading={fechar.isPending} onClick={() => setConfirmando(v)}><Lock size={15} /> Fechar período</Button>,
     },
   ]
 
@@ -44,11 +44,16 @@ export function ConvenioPage() {
         title="Convênios"
         subtitle="Faturamento por convênio (fechamento mensal)"
         action={<Button onClick={abrir}><Plus size={16} /> Novo convênio</Button>}
-        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(v) => v.id}
         emptyIcon={<Handshake />} emptyTitle="Nenhum convênio"
       />
 
+      <ConfirmDialog open={!!confirmando} onOpenChange={(open) => { if (!open) setConfirmando(null) }}
+        title="Fechar período do convênio" confirmLabel="Fechar período" variant="default" loading={fechar.isPending}
+        description={<>Fechar o período de <strong>{confirmando?.descricao}</strong>? O fechamento gera o título financeiro do período.</>} onConfirm={() => { if (confirmando) void onFechar(confirmando) }} />
+
       <FormDialog
+        dirty={JSON.stringify(form) !== JSON.stringify({ ativo: true })}
         open={open} onOpenChange={setOpen}
         title="Novo convênio" confirmLabel="Criar"
         loading={criar.isPending} onConfirm={onCriar}

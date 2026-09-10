@@ -37,7 +37,7 @@ export function CentralVendasPage() {
       {/* As três frentes do atendente num lugar só. Pós-venda e missões já
           existiam como páginas próprias e são REUSADAS aqui — duplicá-las faria
           duas telas divergirem com o tempo. */}
-      <Tabs defaultValue="solicitacoes">
+      <Tabs urlKey="tab" defaultValue="solicitacoes">
         <TabsList>
           <TabsTrigger value="solicitacoes">Solicitações</TabsTrigger>
           {can('missao.view') && <TabsTrigger value="missoes">Missões</TabsTrigger>}
@@ -64,19 +64,21 @@ function FilaSolicitacoes() {
     <div className="pt-3">
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <StatCard titulo="Aguardando decisão" valor={String(solicitacoes.length)} icon={ShoppingCart} accent="primary" />
-        <StatCard titulo="Desconto pedido" valor={brl(totalPedido)} icon={BadgePercent} accent="destructive" />
-        <StatCard
+        <StatCard loading={fila.isLoading} error={fila.error} titulo="Aguardando decisão" valor={String(solicitacoes.length)} icon={ShoppingCart} accent="primary" />
+        <StatCard loading={fila.isLoading} error={fila.error} titulo="Desconto pedido" valor={brl(totalPedido)} icon={BadgePercent} accent="destructive" />
+        <StatCard loading={fila.isLoading} error={fila.error}
           titulo="Mais antiga"
-          valor={solicitacoes.length > 0 ? dataHora(solicitacoes[0].created_at) : '—'}
+          valor={solicitacoes.length > 0 ? dataHora(solicitacoes.reduce((oldest, current) => current.created_at < oldest.created_at ? current : oldest).created_at) : '—'}
           icon={TriangleAlert}
           accent="neutral"
         />
       </div>
 
+      {fila.dataUpdatedAt > 0 && <p className="mb-3 text-xs text-muted-foreground">Última consulta: {dataHora(new Date(fila.dataUpdatedAt).toISOString())}</p>}
       <AsyncState
         loading={fila.isLoading}
         error={fila.error}
+        onRetry={() => { void fila.refetch() }}
         empty={solicitacoes.length === 0}
         emptyTitle="Nenhuma solicitação"
         emptyDescription="O campo não pediu nada aguardando decisão."
@@ -99,7 +101,7 @@ function SolicitacaoCard({ solicitacao: s, onAbrir }: { solicitacao: Solicitacao
 
   return (
     <Card>
-      <CardContent className="p-3 flex items-center justify-between gap-3">
+      <CardContent className="p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="font-medium truncate">{s.cliente?.nome ?? 'Cliente sem nome'}</div>
           <div className="text-xs text-muted-foreground truncate">
@@ -130,6 +132,7 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
   const [desconto, setDesconto] = useState('')
   const [motivo, setMotivo] = useState('')
 
+  const busy = aprovar.isPending || recusar.isPending || faturar.isPending
   const s = detalhe.data?.data
   const alcada = detalhe.data?.alcada
 
@@ -175,13 +178,13 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
   }
 
   return (
-    <Dialog open={id !== null} onOpenChange={(o) => !o && fechar()}>
+    <Dialog open={id !== null} onOpenChange={(o) => !o && !busy && fechar()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Solicitação de venda</DialogTitle>
         </DialogHeader>
 
-        <AsyncState loading={detalhe.isLoading} error={detalhe.error}>
+        <AsyncState loading={detalhe.isLoading} error={detalhe.error} onRetry={() => { void detalhe.refetch() }}>
           {s && (
             <div className="space-y-3">
               <div>
@@ -252,14 +255,14 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
         </AsyncState>
 
         <DialogFooter>
-          <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+          <DialogClose asChild><Button variant="outline" disabled={busy}>Fechar</Button></DialogClose>
 
           {s?.situacao === 'pendente' && (
             <Can permission="venda.aprovar">
-              <Button variant="outline" onClick={onRecusar} disabled={recusar.isPending}>
+              <Button variant="outline" onClick={onRecusar} disabled={busy || !!detalhe.error}>
                 <XCircle size={15} className="mr-1" /> Recusar
               </Button>
-              <Button onClick={onAprovar} disabled={aprovar.isPending}>
+              <Button onClick={onAprovar} disabled={busy || !!detalhe.error}>
                 <CheckCircle2 size={15} className="mr-1" /> Aprovar
               </Button>
             </Can>
@@ -267,7 +270,7 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
 
           {s?.situacao === 'aprovada' && (
             <Can permission="venda.faturar">
-              <Button onClick={onFaturar} disabled={faturar.isPending}>
+              <Button onClick={onFaturar} disabled={busy || !!detalhe.error}>
                 <Receipt size={15} className="mr-1" /> Faturar
               </Button>
             </Can>

@@ -40,16 +40,16 @@ export function CentralPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        <StatCard titulo="Na fila" valor={String(pedidos.length)} icon={PackageOpen} accent="primary" />
-        <StatCard titulo="Em serviço" valor={String(lista.length)} icon={Bike} accent="success" />
-        <StatCard titulo="Urgentes" valor={String(pedidos.filter((p) => p.urgente).length)} icon={Zap} accent="destructive" />
+        <StatCard loading={fila.isLoading} error={fila.error} titulo="Na fila" valor={String(pedidos.length)} icon={PackageOpen} accent="primary" />
+        <StatCard loading={entregadores.isLoading} error={entregadores.error} titulo="Em serviço" valor={String(lista.length)} icon={Bike} accent="success" />
+        <StatCard loading={fila.isLoading} error={fila.error} titulo="Urgentes" valor={String(pedidos.filter((p) => p.urgente).length)} icon={Zap} accent="destructive" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Coluna: fila */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1"><PackageOpen size={15} /> Fila de distribuição</h3>
-          <AsyncState loading={fila.isLoading} error={fila.error} empty={pedidos.length === 0}
+          <AsyncState loading={fila.isLoading} error={fila.error} onRetry={() => { void fila.refetch() }} empty={pedidos.length === 0}
             emptyTitle="Fila vazia" emptyDescription="Nenhum pedido aguardando distribuição.">
             <div className="space-y-2">
               {pedidos.map((p) => <PedidoCard key={p.id} pedido={p} onAtribuir={() => setAtribuir(p)} />)}
@@ -60,7 +60,7 @@ export function CentralPage() {
         {/* Coluna: entregadores */}
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1"><Bike size={15} /> Entregadores em campo</h3>
-          <AsyncState loading={entregadores.isLoading} error={entregadores.error} empty={lista.length === 0}
+          <AsyncState loading={entregadores.isLoading} error={entregadores.error} onRetry={() => { void entregadores.refetch() }} empty={lista.length === 0}
             emptyTitle="Ninguém em serviço" emptyDescription="Nenhum entregador iniciou a jornada.">
             <div className="space-y-2">
               {lista.map((e) => <EntregadorCard key={e.entregador_user_id} entregador={e} />)}
@@ -88,13 +88,13 @@ function PedidoCard({ pedido, onAtribuir }: { pedido: FilaPedido; onAtribuir: ()
               {pedido.entregador && <Badge variant="success">{pedido.entregador.nome}</Badge>}
             </div>
             <p className="text-sm truncate">{pedido.cliente ?? 'Cliente'}</p>
-            <p className="text-xs text-muted-foreground truncate flex items-center gap-1"><MapPin size={12} /> {pedido.endereco || 'Endereço não informado'}</p>
+            <p className="text-xs text-muted-foreground break-words flex items-start gap-1"><MapPin size={12} /> {pedido.endereco || 'Endereço não informado'}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{brl(pedido.valor_venda)} · {dataHora(pedido.datahora)}</p>
           </div>
           <Can permission="logistica.distribuir">
             <div className="flex flex-col gap-1 shrink-0">
               <Button size="sm" onClick={onAtribuir}><UserCheck size={14} className="mr-1" /> {pedido.entregador ? 'Trocar' : 'Atribuir'}</Button>
-              <Button size="sm" variant="ghost" onClick={() => priorizar.mutate({ pedidoId: pedido.id, urgente: !pedido.urgente })}>
+              <Button size="sm" variant="ghost" disabled={priorizar.isPending} onClick={() => priorizar.mutate({ pedidoId: pedido.id, urgente: !pedido.urgente }, { onError: () => toast.error('Não foi possível alterar a prioridade.') })}>
                 <Zap size={14} className="mr-1" /> {pedido.urgente ? 'Normal' : 'Priorizar'}
               </Button>
             </div>
@@ -110,7 +110,7 @@ function EntregadorCard({ entregador }: { entregador: EntregadorStatus }) {
   const desbloquear = useDesbloquear()
   return (
     <Card>
-      <CardContent className="p-3 flex items-center justify-between gap-2">
+      <CardContent className="p-3 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="font-semibold truncate">{entregador.nome ?? `Entregador #${entregador.entregador_user_id}`}</p>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -124,8 +124,8 @@ function EntregadorCard({ entregador }: { entregador: EntregadorStatus }) {
             : <Badge variant="success">Ativo</Badge>}
           <Can permission="logistica.distribuir">
             {entregador.bloqueado
-              ? <Button size="sm" variant="ghost" onClick={() => desbloquear.mutate(entregador.entregador_user_id)}>Desbloquear</Button>
-              : <Button size="sm" variant="ghost" onClick={() => bloquear.mutate({ entregadorId: entregador.entregador_user_id })}><Ban size={14} /></Button>}
+              ? <Button size="sm" variant="ghost" disabled={desbloquear.isPending || bloquear.isPending} onClick={() => desbloquear.mutate(entregador.entregador_user_id, { onError: () => toast.error('Não foi possível desbloquear o entregador.') })}>Desbloquear</Button>
+              : <Button size="sm" variant="ghost" aria-label={`Bloquear ${entregador.nome ?? 'entregador'}`} disabled={bloquear.isPending || desbloquear.isPending} onClick={() => bloquear.mutate({ entregadorId: entregador.entregador_user_id }, { onError: () => toast.error('Não foi possível bloquear o entregador.') })}><Ban size={14} /></Button>}
           </Can>
         </div>
       </CardContent>
@@ -147,18 +147,18 @@ function AtribuirDialog({ pedido, onClose }: { pedido: FilaPedido | null; onClos
   }
 
   return (
-    <Dialog open={pedido !== null} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={pedido !== null} onOpenChange={(o) => !o && !atribuir.isPending && onClose()}>
       <DialogContent>
         <DialogHeader><DialogTitle>Atribuir pedido #{pedido?.id}</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground -mt-1 mb-1 flex items-center gap-1"><Sparkles size={14} /> Sugestões por proximidade e carga</p>
-        <AsyncState loading={sugestoes.isLoading} error={sugestoes.error} empty={lista.length === 0}
+        <AsyncState loading={sugestoes.isLoading} error={sugestoes.error} onRetry={() => { void sugestoes.refetch() }} empty={lista.length === 0}
           emptyTitle="Sem entregadores" emptyDescription="Ninguém em jornada para receber agora.">
           <div className="space-y-2 max-h-80 overflow-auto">
             {lista.map((s, i) => (
               <div key={s.entregador_user_id} className="flex items-center justify-between border rounded-lg p-2">
                 <div>
                   <p className="text-sm font-medium flex items-center gap-1">
-                    {i === 0 && <Badge variant="success">Melhor</Badge>} {s.nome ?? `#${s.entregador_user_id}`}
+                    {i === 0 && s.elegivel && <Badge variant="success">Sugerido</Badge>} {s.nome ?? `#${s.entregador_user_id}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {s.distancia_km != null ? `${s.distancia_km} km · ` : 'sem GPS · '}{s.carga} na carga
@@ -170,7 +170,7 @@ function AtribuirDialog({ pedido, onClose }: { pedido: FilaPedido | null; onClos
             ))}
           </div>
         </AsyncState>
-        <DialogFooter><DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose></DialogFooter>
+        <DialogFooter><DialogClose asChild><Button variant="outline" disabled={atribuir.isPending}>Fechar</Button></DialogClose></DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -207,9 +207,10 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && !salvar.isPending && onClose()}>
       <DialogContent>
         <DialogHeader><DialogTitle>Distribuição de entregas</DialogTitle></DialogHeader>
+        <AsyncState loading={config.isLoading} error={config.error} onRetry={() => { void config.refetch() }}>
         <div className="space-y-3">
           <Field label="Modo">
             <Select value={modo} onValueChange={(v) => setModo(v as 'sugerir' | 'auto')}>
@@ -227,9 +228,10 @@ function ConfigDialog({ open, onClose }: { open: boolean; onClose: () => void })
           </div>
           <p className="text-xs text-muted-foreground">No modo automático, o ERP atribui o entregador mais próximo e menos carregado assim que o pedido entra na fila (respeitando raio e teto). "Ociosidade" é o tempo sem entregas para o motor de missões de campo agir.</p>
         </div>
+        </AsyncState>
         <DialogFooter>
-          <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button onClick={onSalvar} disabled={salvar.isPending}>Salvar</Button>
+          <DialogClose asChild><Button variant="outline" disabled={salvar.isPending}>Cancelar</Button></DialogClose>
+          <Button onClick={onSalvar} disabled={salvar.isPending || config.isLoading || !!config.error || !config.data}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

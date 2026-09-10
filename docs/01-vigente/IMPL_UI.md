@@ -1,5 +1,7 @@
 # IMPL_UI — Contrato de DESIGN SYSTEM (camada visual moderna) · vigente
 
+> Atualização 10/09/2026: as referências históricas de azul/roxo abaixo estão substituídas pela identidade efetiva em `erp-novo/frontend/PADRAO_UI.md` e `src/index.css`: laranja, lime e grafite. Texto sobre laranja usa grafite; textos de ação usam derivação escura da família laranja no tema claro. Recursos descritos neste documento precisam ser verificados no código, não presumidos pela biblioteca instalada. Evolução atual: `PLANO_MODERNIZACAO_UI_UX_ERP_NOVO.md` e `UI_UX_ERP_NOVO_EXECUCAO.md`.
+
 > **Por que existe:** os IMPL_<modulo> definem PARIDADE (campos/regras) e REORGANIZAÇÃO
 > (de-para, abas, visão nova) — mas NÃO definiam como a tela deve **parecer**. Resultado: as
 > primeiras telas (Cliente/Produto) ficaram com paridade de dados, porém visual cru (Input/Card

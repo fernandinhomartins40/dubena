@@ -34,10 +34,10 @@ export interface ButtonProps
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  function Button({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) {
+  function Button({ className, variant, size, asChild = false, loading = false, children, disabled, type = 'button', ...props }, ref) {
     const Comp = asChild ? Slot : 'button'
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} disabled={disabled || loading} {...props}>
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} disabled={disabled || loading} {...(!asChild ? { type } : {})} {...props}>
         {loading && <Loader2 className="animate-spin" />}
         {children}
       </Comp>

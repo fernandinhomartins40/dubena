@@ -25,7 +25,7 @@
 
     /* Laranja PURO #FF6200 — ações (botões, item ativo, links, foco) */
     --primary: 23 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 12%;
 
     --secondary: 75 12% 92%;
     --secondary-foreground: 0 0% 18%;
@@ -35,7 +35,7 @@
 
     /* Acento = laranja translúcido p/ realces sutis (hover/seleção) */
     --accent: 23 100% 96%;
-    --accent-foreground: 23 100% 38%;
+    --accent-foreground: 23 100% 32%;
 
     /* Lime #DBFB3B — DESTAQUE pontual (badges/KPIs). Texto sempre grafite. */
     --destaque: 68 96% 61%;
@@ -44,8 +44,8 @@
     --destructive: 0 72% 47%;
     --destructive-foreground: 0 0% 100%;
 
-    /* "success" passa a usar o lime (energia) p/ coerência da paleta */
-    --success: 84 60% 40%;
+    /* Sucesso operacional é distinto do lime de destaque da marca. */
+    --success: 140 55% 29%;
     --success-foreground: 0 0% 100%;
 
     --border: 75 10% 88%;
@@ -73,7 +73,7 @@
 
     /* Laranja vibrante sobre grafite */
     --primary: 23 100% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 12%;
 
     --secondary: 0 0% 16%;
     --secondary-foreground: 75 10% 94%;
@@ -91,7 +91,7 @@
     --destructive: 0 70% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 68 90% 55%;
+    --success: 140 48% 65%;
     --success-foreground: 0 0% 10%;
 
     --border: 0 0% 20%;
@@ -106,11 +106,22 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
+.dark { color-scheme: dark; }
 
 html, body, #root {
   height: 100%;
+}
+
+@layer utilities {
+  /* O laranja de superfície mantém a marca; texto usa sua derivação legível. */
+  .text-primary { color: hsl(var(--accent-foreground)); }
+}
+
+[data-density="compact"] table td, [data-density="compact"] table th { padding-top: .5rem; padding-bottom: .5rem; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
 @layer base {

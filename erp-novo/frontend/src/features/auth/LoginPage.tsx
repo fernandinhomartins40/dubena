@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Wand2 } from 'lucide-react'
 import { CheckboxField } from '@/components/ui'
+import { loginError } from '@/lib/loginError'
 import { useAuth } from '@/lib/auth'
 
 const EMAIL_KEY = 'erpnovo_lembrar_email'
@@ -29,8 +30,10 @@ export function LoginPage() {
 
   // Recupera o e-mail salvo (se o usuário marcou "lembrar" antes).
   useEffect(() => {
-    const salvo = localStorage.getItem(EMAIL_KEY)
-    if (salvo) { setEmail(salvo); setLembrar(true) }
+    try {
+      const salvo = localStorage.getItem(EMAIL_KEY)
+      if (salvo) { setEmail(salvo); setLembrar(true) }
+    } catch { /* Login disponível mesmo com armazenamento desabilitado. */ }
   }, [])
 
   function preencherTeste() {
@@ -45,8 +48,10 @@ export function LoginPage() {
     setEnviando(true)
     try {
       await login(email, password, manterConectado, pedirOtp ? otp : undefined)
-      if (lembrar) localStorage.setItem(EMAIL_KEY, email)
-      else localStorage.removeItem(EMAIL_KEY)
+      try {
+        if (lembrar) localStorage.setItem(EMAIL_KEY, email)
+        else localStorage.removeItem(EMAIL_KEY)
+      } catch { /* Preferência opcional. */ }
       navigate('/')
     } catch (e: any) {
       const status = e?.response?.status
@@ -54,10 +59,8 @@ export function LoginPage() {
         // 2FA exigido: revela o campo de código (mantém e-mail/senha).
         setPedirOtp(true)
         setErro(pedirOtp ? 'Código inválido. Tente novamente.' : null)
-      } else if (status === 429) {
-        setErro('Muitas tentativas. Aguarde alguns minutos e tente de novo.')
       } else {
-        setErro('E-mail e/ou senha inválidos.')
+        setErro(loginError(e))
       }
     } finally {
       setEnviando(false)
@@ -78,11 +81,11 @@ export function LoginPage() {
             </div>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form aria-busy={enviando} onSubmit={onSubmit} className="space-y-4">
             <div>
               <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-foreground">E-mail / usuário</label>
               <input
-                id="login-email" type="text" value={email} onChange={(e) => setEmail(e.target.value)}
+                id="login-email" type="text" disabled={enviando} value={email} onChange={(e) => setEmail(e.target.value)}
                 autoFocus required autoComplete="username"
                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
@@ -92,7 +95,7 @@ export function LoginPage() {
               <label htmlFor="login-senha" className="mb-1.5 block text-sm font-medium text-foreground">Senha</label>
               <div className="relative">
                 <input
-                  id="login-senha" type={verSenha ? 'text' : 'password'} value={password}
+                  id="login-senha" disabled={enviando} type={verSenha ? 'text' : 'password'} value={password}
                   onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password"
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 pr-10 text-sm outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/30"
                 />
@@ -111,12 +114,12 @@ export function LoginPage() {
               <div>
                 <label htmlFor="login-otp" className="mb-1.5 block text-sm font-medium text-foreground">Código de verificação (2FA)</label>
                 <input
-                  id="login-otp" type="text" inputMode="numeric" autoComplete="one-time-code"
+                  id="login-otp" type="text" required disabled={enviando} autoComplete="one-time-code" aria-describedby="login-otp-hint"
                   value={otp} onChange={(e) => setOtp(e.target.value)} autoFocus
                   placeholder="000000"
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm tracking-widest outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/30"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Abra seu app autenticador ou use um código de recuperação.</p>
+                <p id="login-otp-hint" className="mt-1 text-xs text-muted-foreground">Abra seu app autenticador ou use um código de recuperação.</p>
               </div>
             )}
 
@@ -125,13 +128,13 @@ export function LoginPage() {
               <CheckboxField label="Manter conectado" checked={manterConectado} onChange={setManterConectado} />
             </div>
 
-            {erro && <p className="text-sm text-destructive">{erro}</p>}
+            {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
 
             <button
               type="submit" disabled={enviando}
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
-              {enviando ? 'Entrando…' : 'Entrar'}
+              {enviando ? 'Entrando…' : pedirOtp ? 'Verificar e entrar' : 'Entrar'}
             </button>
 
             {MOSTRAR_DEMO && (

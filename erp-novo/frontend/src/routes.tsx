@@ -2,6 +2,7 @@ import React, { Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { AppShell } from '@/layouts/AppShell'
+import { NotFoundPage } from '@/features/auth/NotFoundPage'
 
 /**
  * Roteamento da SPA (F17.R2) — code-splitting por rota com React.lazy + Suspense,
@@ -187,7 +188,7 @@ export function AppRoutes() {
       <Route path="/auditoria" element={p(<AuditoriaPage />, 'auditoria.view')} />
       <Route path="/seguranca" element={p(<SegurancaPage />)} />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={p(<NotFoundPage />)} />
     </Routes>
   )
 }

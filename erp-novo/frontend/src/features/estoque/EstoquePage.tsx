@@ -12,7 +12,7 @@ export function EstoquePage() {
   return (
     <div>
       <PageHeader title="Estoque" subtitle="Saldos, movimentações, inventário e fechamento" />
-      <Tabs defaultValue="saldos">
+      <Tabs urlKey="tab" defaultValue="saldos">
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="saldos">Saldos</TabsTrigger>
           <TabsTrigger value="acerto">Acerto</TabsTrigger>

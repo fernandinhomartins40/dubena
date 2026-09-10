@@ -1,3 +1,7 @@
+import { useTheme } from '@/lib/theme'
+import { ResponsiveSidebar } from '@/layouts/ResponsiveSidebar'
+import { ModuleFinder, RouteTrail } from '@/layouts/ModuleFinder'
+import { usePreference } from '@/lib/usePreference'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
@@ -91,16 +95,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const navigate = useNavigate()
   // `open` = sidebar recolhida/expandida no DESKTOP (md+).
-  const [open, setOpen] = useState(true)
+  const userKey = `erp.${user?.id ?? 'anon'}`
+  const [open, setOpen] = usePreference(`erpnovo.ui.sidebar.${userKey}`, true)
   // `mobileOpen` = drawer da sidebar ABERTO no MOBILE (overlay).
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [scopeRevision, setScopeRevision] = useState(0)
+  const { dark, toggleDark } = useTheme()
+  const [compact, setCompact] = usePreference(`erpnovo.ui.compact.${userKey}`, false)
 
-  const toggleDark = () => {
-    const next = !dark
-    setDark(next)
-    document.documentElement.classList.toggle('dark', next)
-  }
+
 
   // No mobile a sidebar é overlay e está sempre "expandida" (mostra rótulos).
   const expandida = open || mobileOpen
@@ -114,36 +117,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...presentes.filter((g) => !ORDEM_GRUPOS.includes(g)),
   ]
   // Seções recolhidas (colapsadas) — por padrão todas abertas.
-  const [recolhidos, setRecolhidos] = useState<Record<string, boolean>>({})
+  const [recolhidos, setRecolhidos] = usePreference<Record<string, boolean>>(`erpnovo.ui.groups.${userKey}`, {})
   const toggleGrupo = (g: string) => setRecolhidos((r) => ({ ...r, [g]: !r[g] }))
   const iniciais = (user?.name ?? '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase()
 
   return (
-    <div className="flex h-full">
-      {/* Backdrop do drawer (só mobile, quando aberto) */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-      )}
-
-      {/* Sidebar: overlay fixo no mobile, em fluxo (recolhível) no md+ */}
-      <aside
-        className={cn(
-          'bg-sidebar text-sidebar-foreground transition-all duration-200 flex flex-col',
-          // mobile: drawer fixo que desliza; desktop: parte do layout
-          'fixed inset-y-0 left-0 z-50 w-64 md:static md:z-auto md:shrink-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          open ? 'md:w-64' : 'md:w-16',
-        )}
-      >
+    <div data-density={compact ? "compact" : "comfortable"} className="flex h-full">
+      <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
+      <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
         <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
           <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">D</div>
           {expandida && <span className="font-bold tracking-wide text-lg text-white">Dubena</span>}
         </div>
-        <nav className="flex-1 overflow-y-auto py-3">
+        {expandida && <ModuleFinder items={visiveis} userKey={userKey} onNavigate={() => setMobileOpen(false)} />}
+        <nav aria-label="Módulos" className="flex-1 overflow-y-auto py-3">
           {grupos.map((g) => {
             const colapsado = expandida && recolhidos[g]
             return (
@@ -152,7 +139,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => toggleGrupo(g)}
-                  className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors"
+                  aria-expanded={!colapsado}
+                  className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground hover:text-white transition-colors"
                 >
                   <span>{g}</span>
                   <ChevronDown size={13} className={cn('transition-transform', colapsado && '-rotate-90')} />
@@ -169,7 +157,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       cn(
                         'mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-sidebar-accent font-medium text-white shadow-sm shadow-black/20'
+                          ? 'bg-sidebar-accent font-medium text-primary-foreground shadow-sm shadow-black/20'
                           : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
                         !expandida && 'justify-center',
                       )
@@ -186,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )
           })}
         </nav>
-      </aside>
+      </ResponsiveSidebar>
 
       {/* Conteúdo */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -199,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               size="icon"
               className="md:hidden"
               onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Abrir menu"
+              id="abrir-menu" aria-expanded={mobileOpen} aria-label="Abrir menu"
             >
               <MenuIcon size={18} />
             </Button>
@@ -212,10 +200,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {open ? <ChevronLeft size={18} /> : <MenuIcon size={18} />}
             </Button>
-            <EmpresaSwitcher />
+            <EmpresaSwitcher onScopeChange={() => setScopeRevision((value) => value + 1)} />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={toggleDark} aria-label="Tema">
+            <Button variant="ghost" size="icon" onClick={toggleDark} aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}>
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </Button>
             <DropdownMenu>
@@ -231,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCompact((value) => !value)}>{compact ? 'Usar tabelas confortáveis' : 'Usar tabelas compactas'}</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/seguranca')}>
                   <ShieldCheck /> Segurança
                 </DropdownMenuItem>
@@ -243,7 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+        <main id="conteudo-principal" tabIndex={-1} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"><RouteTrail items={visiveis} /><div key={`${user?.id}:${user?.empresa_id}:${scopeRevision}`}>{children}</div></main>
       </div>
     </div>
   )

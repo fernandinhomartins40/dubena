@@ -22,7 +22,7 @@ export function ProdutosListPage() {
   const { can } = useAuth()
   const { busca, setBusca, q, page, setPage, submit } = useBusca()
   const [excluindo, setExcluindo] = useState<ProdutoListItem | null>(null)
-  const { data, isLoading, isFetching } = useProdutos(q, page)
+  const { data, isLoading, isFetching, error, refetch } = useProdutos(q, page)
   const excluir = useExcluirProduto()
 
   async function confirmarExclusao() {
@@ -30,10 +30,9 @@ export function ProdutosListPage() {
     try {
       await excluir.mutateAsync(excluindo.id)
       toast.success(`Produto "${excluindo.descricao}" excluído.`)
+      setExcluindo(null)
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Não foi possível excluir o produto.')
-    } finally {
-      setExcluindo(null)
     }
   }
 
@@ -87,7 +86,7 @@ export function ProdutosListPage() {
     <div>
       <PageHeader
         title="Produtos"
-        subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} produtos cadastrados` : 'Carregando…'}
+        subtitle={error ? 'Consulta indisponível' : data ? `${data.meta.total.toLocaleString('pt-BR')} produtos cadastrados` : 'Carregando…'}
         action={
           <>
             {can('produto.view') && (
@@ -109,6 +108,8 @@ export function ProdutosListPage() {
         columns={columns}
         rows={data?.data}
         loading={isLoading}
+        error={error}
+        onRetry={() => { void refetch() }}
         rowKey={(p) => p.id}
         onRowClick={can('produto.edit') ? (p) => navigate(`/produtos/${p.id}`) : undefined}
         page={data?.meta.current_page}

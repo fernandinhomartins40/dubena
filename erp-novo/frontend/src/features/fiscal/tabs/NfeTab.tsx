@@ -28,9 +28,8 @@ const fmtMoeda = (v: string | number | null | undefined) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function NfeTab() {
-  const { busca, setBusca, q, submit } = useBusca()
-  const [pagina, setPagina] = useState(1)
-  const { data: resposta, isLoading, isFetching } = useNfe(q, pagina)
+  const { busca, setBusca, q, submit, page: pagina, setPage: setPagina } = useBusca()
+  const { data: resposta, isLoading, isFetching, error, refetch } = useNfe(q, pagina)
   const data = resposta?.data
   const meta = resposta?.meta
   const transmitir = useTransmitirNfe(); const cancelar = useCancelarNfe()
@@ -127,6 +126,8 @@ export function NfeTab() {
         columns={columns}
         rows={data}
         loading={isLoading}
+        error={error}
+        onRetry={() => { void refetch() }}
         fetching={isFetching}
         rowKey={(n) => n.id}
         page={meta?.current_page}

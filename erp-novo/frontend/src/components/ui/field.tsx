@@ -1,11 +1,11 @@
-import { type ReactNode, useId } from 'react'
+import { type ReactNode, useId, useCallback, useState } from 'react'
+import { FieldContext } from './field-context'
 import { Label } from './label'
 import { cn } from '@/lib/cn'
 
 /**
  * Padrão de campo de formulário: rótulo + controle + (erro | hint).
- * Use envolvendo um Input/Select/Textarea. `htmlFor` é gerado e injetado no filho
- * via render-prop quando preciso; por simplicidade, passe o id você mesmo se quiser.
+ * Controles do design system registram seu ID e recebem nome/descrição acessíveis.
  */
 export function Field({
   label, required, error, hint, children, className,
@@ -18,20 +18,28 @@ export function Field({
   className?: string
 }) {
   const id = useId()
+  const [controls, setControls] = useState<string[]>([])
+  const register = useCallback((controlId: string) => {
+    setControls((ids) => ids.includes(controlId) ? ids : [...ids, controlId])
+    return () => setControls((ids) => ids.filter((value) => value !== controlId))
+  }, [])
+  const labelId = label ? `${id}-label` : undefined
+  const descriptionId = error || hint ? `${id}-description` : undefined
   return (
+    <FieldContext.Provider value={{ labelId, descriptionId, invalid: !!error, required, register }}>
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <Label htmlFor={id}>
+        <Label id={labelId} htmlFor={controls[0]}>
           {label} {required && <span className="text-destructive">*</span>}
         </Label>
       )}
-      {/* passa o id por contexto simples: o consumidor pode ignorar */}
-      <div id={id}>{children}</div>
+      <div>{children}</div>
       {error ? (
-        <p className="text-xs font-medium text-destructive">{error}</p>
+        <p id={descriptionId} role="alert" className="text-xs font-medium text-destructive">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p id={descriptionId} className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
+    </FieldContext.Provider>
   )
 }

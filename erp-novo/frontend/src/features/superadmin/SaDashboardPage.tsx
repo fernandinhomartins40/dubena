@@ -13,10 +13,13 @@ import { useSaDashboard, useSaPlanos, useSaAuditoria, useSaEmpresas } from './ap
  * suspensas e a atividade recente da auditoria. Mesmo nível do painel do ERP.
  */
 export function SaDashboardPage() {
-  const { data: d, isLoading, error } = useSaDashboard()
-  const { data: planosData } = useSaPlanos()
-  const { data: auditoria } = useSaAuditoria()
-  const { data: empresas } = useSaEmpresas()
+  const { data: d, isLoading, error, refetch } = useSaDashboard()
+  const planosQuery = useSaPlanos()
+  const { data: planosData } = planosQuery
+  const auditoriaQuery = useSaAuditoria()
+  const { data: auditoria } = auditoriaQuery
+  const empresasQuery = useSaEmpresas()
+  const { data: empresas } = empresasQuery
 
   const nomePlano = (id: string) =>
     planosData?.planos.find((p) => String(p.id) === String(id))?.nome ?? `Plano #${id}`
@@ -29,7 +32,7 @@ export function SaDashboardPage() {
     <>
       <PageHeader title="Visão geral" subtitle="Indicadores agregados de toda a plataforma" />
 
-      <AsyncState loading={isLoading} error={error} empty={!d}>
+      <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }} empty={!d}>
         {d && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -50,6 +53,7 @@ export function SaDashboardPage() {
                   </Link>
                 </CardHeader>
                 <CardContent>
+                  <AsyncState loading={planosQuery.isLoading} error={planosQuery.error} onRetry={() => { void planosQuery.refetch() }}>
                   {totalAssinaturas === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhuma assinatura ativa ainda.</p>
                   ) : (
@@ -70,6 +74,7 @@ export function SaDashboardPage() {
                       })}
                     </ul>
                   )}
+                </AsyncState>
                 </CardContent>
               </Card>
 
@@ -82,8 +87,9 @@ export function SaDashboardPage() {
                   </Link>
                 </CardHeader>
                 <CardContent>
+                  <AsyncState loading={empresasQuery.isLoading} error={empresasQuery.error} onRetry={() => { void empresasQuery.refetch() }}>
                   {suspensas.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma empresa suspensa. 🎉</p>
+                    <p className="text-sm text-muted-foreground">Nenhuma empresa suspensa.</p>
                   ) : (
                     <ul className="divide-y divide-border">
                       {suspensas.slice(0, 6).map((e) => (
@@ -97,6 +103,7 @@ export function SaDashboardPage() {
                       ))}
                     </ul>
                   )}
+                </AsyncState>
                 </CardContent>
               </Card>
             </div>
@@ -110,7 +117,8 @@ export function SaDashboardPage() {
                 </Link>
               </CardHeader>
               <CardContent>
-                {atividade.length === 0 ? (
+                <AsyncState loading={auditoriaQuery.isLoading} error={auditoriaQuery.error} onRetry={() => { void auditoriaQuery.refetch() }}>
+                  {atividade.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem ações registradas ainda.</p>
                 ) : (
                   <ul className="divide-y divide-border">
@@ -131,7 +139,8 @@ export function SaDashboardPage() {
                     ))}
                   </ul>
                 )}
-              </CardContent>
+              </AsyncState>
+                </CardContent>
             </Card>
           </div>
         )}

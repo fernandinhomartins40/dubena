@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, TrendingUp, Wallet, ArrowRightLeft } from 'lucide-react'
 import {
-  Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
+  AsyncState, Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
   AsyncSelect, Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   FormDialog, ConfirmDialog, SearchBar, toast,
@@ -17,7 +17,7 @@ import { useBusca } from '@/lib/useBusca'
 // ---------- CHEQUES ----------
 export function ChequesTab() {
   return (
-    <Tabs defaultValue="recebidos">
+    <Tabs urlKey="cheques" defaultValue="recebidos">
       <TabsList><TabsTrigger value="recebidos">Recebidos</TabsTrigger><TabsTrigger value="emitidos">Emitidos</TabsTrigger></TabsList>
       <TabsContent value="recebidos"><ChequesRecebidosTab /></TabsContent>
       <TabsContent value="emitidos"><ChequesEmitidosTab /></TabsContent>
@@ -27,7 +27,7 @@ export function ChequesTab() {
 
 function ChequesRecebidosTab() {
   const { busca, setBusca, q, submit } = useBusca()
-  const { data, isLoading } = useChequesRecebidos(q)
+  const { data, isLoading, error, refetch } = useChequesRecebidos(q)
   const salvar = useSalvarChequeRecebido(); const excluir = useExcluirChequeRecebido()
   const mudarSit = useMudarSituacaoCheque(); const { data: contas } = useContasCaixa()
   const [edit, setEdit] = useState<any | null>(null); const [del, setDel] = useState<any | null>(null)
@@ -63,13 +63,13 @@ function ChequesRecebidosTab() {
         <Button variant="secondary" onClick={submit}>Buscar</Button>
         <Button onClick={() => { setEdit({}); setLabels({}) }}><Plus size={16} /> Novo</Button>
       </div></Card>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} onRowClick={(c) => setEdit(c)} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque recebido" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(c) => c.id} onRowClick={(c) => setEdit(c)} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque recebido" />} />
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} widthClass="max-w-2xl"
         title={edit?.id ? 'Editar cheque' : 'Novo cheque recebido'} loading={salvar.isPending} onConfirm={onSalvar}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Número" required><Input value={edit?.numerocheque ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numerocheque: e.target.value }))} /></Field>
           <Field label="Valor" required><Input type="number" step="0.01" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
-          <Field label="Banco" required><AsyncSelect endpoint="/cadastros/bancos" value={edit?.banco_id ?? null} valueLabel={labels.banco} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
+          <Field label="Banco" required><AsyncSelect endpoint="/cadastros/bancos" labelField="descricao" value={edit?.banco_id ?? null} valueLabel={labels.banco} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
           <Field label="Situação" required><AsyncSelect endpoint="/cheques/situacoes" params={{ tipo: 'recebido' }} value={edit?.chequesituacao_id ?? null} valueLabel={labels.sit} onChange={(id, o) => { setEdit((s: any) => ({ ...s, chequesituacao_id: id })); setLabels((l) => ({ ...l, sit: o?.label ?? null })) }} /></Field>
           <Field label="Agência"><Input value={edit?.agencia ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, agencia: e.target.value }))} /></Field>
           <Field label="Conta"><Input value={edit?.numeroconta ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numeroconta: e.target.value }))} /></Field>
@@ -112,7 +112,7 @@ function ChequesRecebidosTab() {
 
 function ChequesEmitidosTab() {
   const { busca, setBusca, q, submit } = useBusca()
-  const { data, isLoading } = useChequesEmitidos(q)
+  const { data, isLoading, error, refetch } = useChequesEmitidos(q)
   const columns: Column<any>[] = [
     { key: 'num', header: 'Número', cell: (c) => <span className="font-medium tabular-nums">{c.numerocheque}</span> },
     { key: 'valor', header: 'Valor', align: 'right', cell: (c) => <span className="tabular-nums">{brl(c.valor)}</span> },
@@ -123,7 +123,7 @@ function ChequesEmitidosTab() {
     <>
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar nº do cheque…" />
       <p className="text-xs text-muted-foreground mb-2">Cheques emitidos são gerados a partir do talão no fluxo de pagamento; aqui é consulta.</p>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(c) => c.id} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque emitido" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(c) => c.id} empty={<EmptyState icon={<Wallet />} title="Nenhum cheque emitido" />} />
     </>
   )
 }
@@ -132,9 +132,11 @@ function ChequesEmitidosTab() {
 export function BoletosTab() {
   const [status, setStatus] = useState('pendente')
   const { busca, setBusca, q, submit } = useBusca()
-  const { data, isLoading } = useBoletos(status, q)
-  const { data: resumo } = useResumoBoletos()
-  const { data: pix } = usePixStatus()
+  const { data, isLoading, error, refetch } = useBoletos(status, q)
+  const resumoQuery = useResumoBoletos()
+  const resumo = resumoQuery.data
+  const pixQuery = usePixStatus()
+  const pix = pixQuery.data
 
   const columns: Column<any>[] = [
     { key: 'nn', header: 'Nosso número', cell: (b) => <span className="font-medium tabular-nums">{b.nossonumero || '—'}</span> },
@@ -145,16 +147,18 @@ export function BoletosTab() {
   ]
   return (
     <>
+      <AsyncState loading={resumoQuery.isLoading || pixQuery.isLoading} error={resumoQuery.error || pixQuery.error} onRetry={() => { void resumoQuery.refetch(); void pixQuery.refetch() }}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Total</p><p className="mt-1 text-2xl font-bold tabular-nums">{resumo?.total ?? '—'}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Pendentes</p><p className="mt-1 text-2xl font-bold tabular-nums">{resumo?.pendentes ?? '—'}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Com remessa</p><p className="mt-1 text-2xl font-bold tabular-nums">{resumo?.com_remessa ?? '—'}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">PIX</p><p className="mt-1 text-lg font-semibold">{pix?.configurado ? <Badge variant="success">Configurado</Badge> : <Badge variant="secondary">Não configurado</Badge>}</p></CardContent></Card>
       </div>
+      </AsyncState>
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar nosso número ou cliente…">
         <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pendente">Pendentes</SelectItem><SelectItem value="cancelado">Cancelados</SelectItem><SelectItem value="todos">Todos</SelectItem></SelectContent></Select>
       </SearchBar>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(b) => b.id} empty={<EmptyState icon={<Wallet />} title="Nenhum boleto" description="A geração de boletos (remessa CNAB) ocorre no fluxo de cobrança." />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(b) => b.id} empty={<EmptyState icon={<Wallet />} title="Nenhum boleto" description="A geração de boletos (remessa CNAB) ocorre no fluxo de cobrança." />} />
     </>
   )
 }
@@ -165,16 +169,18 @@ export function DRETab() {
   const [inicio, setInicio] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10))
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10))
   const [run, setRun] = useState(false)
-  const { data, isLoading } = useDRE(inicio, fim, run)
+  const [periodo, setPeriodo] = useState({ inicio, fim })
+  const { data, isLoading, error, refetch } = useDRE(periodo.inicio, periodo.fim, run)
 
   return (
     <>
       <Card className="mb-4"><CardContent className="pt-6 flex flex-wrap items-end gap-3">
         <Field label="Início"><Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></Field>
         <Field label="Fim"><Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></Field>
-        <Button onClick={() => setRun(true)}>Gerar DRE</Button>
+        <Button disabled={!inicio || !fim || inicio > fim} onClick={() => { if (run && periodo.inicio === inicio && periodo.fim === fim) void refetch(); setPeriodo({ inicio, fim }); setRun(true) }}>Gerar DRE</Button>
       </CardContent></Card>
-      {!run ? <EmptyState icon={<TrendingUp />} title="Informe o período e gere a DRE" /> : isLoading ? <p className="text-sm text-muted-foreground">Calculando…</p> : data && (
+      {run && <p className="mb-3 text-sm text-muted-foreground">Período consultado: {fmtData(periodo.inicio)} a {fmtData(periodo.fim)}</p>}
+      {!run ? <EmptyState icon={<TrendingUp />} title="Informe o período e gere a DRE" /> : <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }}>{data && (
         <div className="grid gap-4 md:grid-cols-2">
           <Card><CardContent className="pt-6">
             <p className="font-medium text-success mb-2">Receitas</p>
@@ -191,7 +197,7 @@ export function DRETab() {
             <p className={`text-2xl font-bold tabular-nums ${data.resultado >= 0 ? 'text-success' : 'text-destructive'}`}>{brl(data.resultado)}</p>
           </CardContent></Card>
         </div>
-      )}
+      )}</AsyncState>}
     </>
   )
 }
@@ -203,7 +209,8 @@ export function ConciliacaoTab() {
   const [inicio, setInicio] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10))
   const [fim, setFim] = useState(hoje.toISOString().slice(0, 10))
   const [run, setRun] = useState(false)
-  const { data, isLoading } = useConciliacao(contaId, inicio, fim, run && contaId !== null)
+  const [periodo, setPeriodo] = useState({ inicio, fim })
+  const { data, isLoading, error, refetch } = useConciliacao(contaId, periodo.inicio, periodo.fim, run && contaId !== null)
 
   const columns: Column<any>[] = [
     { key: 'data', header: 'Data', cell: (m) => fmtData(m.datahorabaixa) },
@@ -217,9 +224,10 @@ export function ConciliacaoTab() {
         <div className="w-56"><Field label="Conta"><AsyncSelect endpoint="/lookups/contas" value={contaId} valueLabel={contaLabel} onChange={(id, o) => { setContaId(id); setContaLabel(o?.label ?? null); setRun(false) }} /></Field></div>
         <Field label="Início"><Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></Field>
         <Field label="Fim"><Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></Field>
-        <Button disabled={!contaId} onClick={() => setRun(true)}>Gerar extrato</Button>
+        <Button disabled={!contaId || !inicio || !fim || inicio > fim} onClick={() => { if (run && periodo.inicio === inicio && periodo.fim === fim) void refetch(); setPeriodo({ inicio, fim }); setRun(true) }}>Gerar extrato</Button>
       </CardContent></Card>
-      {run && data && (
+      {run && <p className="mb-3 text-sm text-muted-foreground">Período consultado: {fmtData(periodo.inicio)} a {fmtData(periodo.fim)}</p>}
+      {run && <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }}>{data && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Entradas</p><p className="mt-1 text-xl font-bold tabular-nums text-success">{brl(data.entradas)}</p></CardContent></Card>
@@ -228,7 +236,7 @@ export function ConciliacaoTab() {
           </div>
           <DataTable columns={columns} rows={data.movimentos} loading={isLoading} rowKey={(m: any) => m.id} empty={<EmptyState icon={<Wallet />} title="Sem movimentos no período" />} />
         </>
-      )}
+      )}</AsyncState>}
     </>
   )
 }

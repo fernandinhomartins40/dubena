@@ -9,7 +9,7 @@ export function FiscalPage() {
   return (
     <div>
       <PageHeader title="Fiscal" subtitle="Malha fiscal, NF-e/NFC-e e SPED" />
-      <Tabs defaultValue="malha">
+      <Tabs urlKey="tab" defaultValue="malha">
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="malha">Malha Fiscal</TabsTrigger>
           <TabsTrigger value="nfe">NF-e</TabsTrigger>

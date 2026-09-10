@@ -1,5 +1,7 @@
 # Estado atual — transformação SaaS
 
+> Frente UI/UX autorizada em 10/09/2026: retomada em `../UI_UX_ERP_NOVO_EXECUCAO.md` (microlotes 01–18). Esta frente altera apresentação/fluxos da SPA e landing; não aprova gates nem antecipa cutover deste plano SaaS. Commit/push direto na main solicitado pelo usuário; pendências UI e verificações registradas no diário próprio.
+
 **Objetivo durável:** ativo  
 **Estado:** IMPLEMENTANDO  
 **Fase:** F1 — **CONCLUÍDA** (gate aprovado em homologação; ver `F1_16_GATE_APROVADO.md`)  

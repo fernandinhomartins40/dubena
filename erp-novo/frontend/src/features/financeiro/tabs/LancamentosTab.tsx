@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Search, Plus, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import {
-  Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
+  AsyncState, Button, Card, CardContent, Input, Badge, DataTable, type Column, EmptyState, Field,
   AsyncSelect, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, FormDialog, toast,
 } from '@/components/ui'
 import { useLancamentos, useResumoFinanceiro, useCriarLancamento, type Lancamento } from '../api'
@@ -11,8 +11,9 @@ import { useBusca } from '@/lib/useBusca'
 export function LancamentosTab() {
   const [pr, setPr] = useState(''); const [status, setStatus] = useState('aberto')
   const { busca, setBusca, q, page, setPage, submit } = useBusca()
-  const { data, isLoading, isFetching } = useLancamentos(pr, status, q, page)
-  const { data: resumo } = useResumoFinanceiro()
+  const { data, isLoading, isFetching, error, refetch } = useLancamentos(pr, status, q, page)
+  const resumoQuery = useResumoFinanceiro()
+  const resumo = resumoQuery.data
 
   const columns: Column<Lancamento>[] = [
     { key: 'cliente', header: 'Cliente', cell: (l) => <div><div className="font-medium">{l.cliente ?? '—'}</div><div className="text-xs text-muted-foreground">{l.descricao || l.documento || ''}</div></div> },
@@ -24,31 +25,33 @@ export function LancamentosTab() {
 
   return (
     <>
+      <AsyncState loading={resumoQuery.isLoading} error={resumoQuery.error} onRetry={() => { void resumoQuery.refetch() }}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <CardResumo titulo="A receber (aberto)" valor={resumo?.receber_aberto} icon={<TrendingUp className="text-success" />} />
         <CardResumo titulo="Recebido" valor={resumo?.receber_baixado} icon={<TrendingUp className="text-muted-foreground" />} />
         <CardResumo titulo="A pagar (aberto)" valor={resumo?.pagar_aberto} icon={<TrendingDown className="text-destructive" />} />
         <CardResumo titulo="Pago" valor={resumo?.pagar_baixado} icon={<TrendingDown className="text-muted-foreground" />} />
       </div>
+      </AsyncState>
 
       <Card className="mb-4 p-3"><div className="flex flex-wrap gap-2 items-center">
         <Select value={pr || 'todos'} onValueChange={(v) => { setPage(1); setPr(v === 'todos' ? '' : v) }}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Tipo do lançamento" className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="todos">Receber + Pagar</SelectItem><SelectItem value="R">A receber</SelectItem><SelectItem value="P">A pagar</SelectItem></SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => { setPage(1); setStatus(v) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Situação do lançamento" className="w-36"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="aberto">Em aberto</SelectItem><SelectItem value="baixado">Baixados</SelectItem><SelectItem value="todos">Todos</SelectItem></SelectContent>
         </Select>
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, documento ou descrição…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+          <Input aria-label="Buscar lançamentos" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, documento ou descrição…" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
         <Button variant="secondary" onClick={submit}>Buscar</Button>
         <NovoLancamentoDialog />
       </div></Card>
 
-      <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(l) => l.id}
+      <DataTable columns={columns} rows={data?.data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(l) => l.id}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<Wallet />} title="Nenhum lançamento" />} />
     </>
@@ -83,7 +86,7 @@ function NovoLancamentoDialog() {
   return (
     <>
       <Button onClick={() => setOpen(true)}><Plus size={16} /> Novo lançamento</Button>
-      <FormDialog open={open} onOpenChange={setOpen} title="Novo lançamento" widthClass="max-w-2xl" loading={criar.isPending} onConfirm={salvar}>
+      <FormDialog dirty={JSON.stringify(f) !== JSON.stringify({ pagarreceber: 'R' })} open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setF({ pagarreceber: 'R' }); setLabels({}) } }} title="Novo lançamento" widthClass="max-w-2xl" loading={criar.isPending} onConfirm={salvar}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Tipo" required>
             <Select value={f.pagarreceber} onValueChange={(v) => set('pagarreceber', v)}>

@@ -18,7 +18,7 @@ export function PedidosPage() {
       <PageHeader title="Pedidos" subtitle="Painel de vendas e jornada do pedido" action={<NovoPedidoDialog />} />
       {/* Bina (T4.4): some sozinho quando nao ha chamada tocando. */}
       <PainelChamadas />
-      <Tabs defaultValue="kanban">
+      <Tabs urlKey="tab" defaultValue="kanban">
         <TabsList><TabsTrigger value="kanban"><LayoutGrid size={15} className="mr-1" /> Kanban</TabsTrigger><TabsTrigger value="lista"><List size={15} className="mr-1" /> Lista</TabsTrigger></TabsList>
         <TabsContent value="kanban"><KanbanView onOpen={setVerFicha} /></TabsContent>
         <TabsContent value="lista"><ListaView onOpen={setVerFicha} /></TabsContent>

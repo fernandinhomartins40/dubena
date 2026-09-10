@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
-import { Button, Input, Field, toast } from '@/components/ui'
+import { Button, Input, Field } from '@/components/ui'
+import { loginError } from '@/lib/loginError'
 import { useSaAuth } from './auth'
 
 // Atalho de preenchimento: credencial vem SÓ de env var de build, e só em dev.
@@ -23,9 +24,11 @@ export function SaLoginPage() {
   const [senha, setSenha] = useState('')
   const [otp, setOtp] = useState('')
   const [precisa2fa, setPrecisa2fa] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
 
   async function entrar(emailArg: string, senhaArg: string, otpArg?: string) {
+    setErro(null)
     setCarregando(true)
     try {
       await login(emailArg.trim(), senhaArg, otpArg?.trim() || undefined)
@@ -33,9 +36,9 @@ export function SaLoginPage() {
     } catch (err: any) {
       if (err?.response?.status === 423) {
         setPrecisa2fa(true)
-        toast.info('Informe o código de verificação (2FA).')
+        setErro(precisa2fa ? 'Código inválido. Tente novamente.' : null)
       } else {
-        toast.error(err?.response?.data?.message ?? 'Credenciais inválidas.')
+        setErro(loginError(err))
       }
     } finally {
       setCarregando(false)
@@ -59,25 +62,24 @@ export function SaLoginPage() {
       {/* Painel de marca — mesma linguagem do ERP (sidebar grafite + acento laranja) */}
       <div className="hidden lg:flex flex-col justify-between bg-sidebar p-10 text-sidebar-foreground">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-10 place-items-center rounded-lg bg-sidebar-accent text-white shadow-md shadow-black/30">
+          <div className="grid size-10 place-items-center rounded-lg bg-sidebar-accent text-primary-foreground shadow-md shadow-black/30">
             <ShieldCheck size={22} strokeWidth={2.2} />
           </div>
           <div className="leading-tight">
             <span className="text-lg font-bold tracking-wide text-white">Dubena</span>
-            <p className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">SuperAdmin</p>
+            <p className="text-[11px] uppercase tracking-wider text-sidebar-foreground">SuperAdmin</p>
           </div>
         </div>
         <div className="max-w-md space-y-3">
           <h2 className="text-3xl font-bold leading-tight text-white">
             Administração da <span className="text-sidebar-accent">plataforma</span>
           </h2>
-          <p className="text-sm leading-relaxed text-sidebar-foreground/70">
-            Gestão cross-tenant de empresas, planos, recursos e cidades — com toda
-            ação registrada em trilha de auditoria imutável.
+          <p className="text-sm leading-relaxed text-sidebar-foreground">
+            Gestão de empresas, planos, recursos e cidades, com histórico das ações administrativas.
           </p>
         </div>
-        <p className="text-xs text-sidebar-foreground/40">
-          Acesso restrito · guard isolado da operação dos tenants
+        <p className="text-xs text-sidebar-foreground">
+          Acesso restrito à administração da plataforma
         </p>
       </div>
 
@@ -97,20 +99,21 @@ export function SaLoginPage() {
             <p className="text-sm text-muted-foreground">Use sua credencial de administrador da plataforma.</p>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <form aria-busy={carregando} onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
           <Field label="E-mail" required>
-            <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} disabled={carregando} />
+            <Input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} disabled={carregando} />
           </Field>
           <Field label="Senha" required>
-            <Input type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} disabled={carregando} />
+            <Input type="password" required autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} disabled={carregando} />
           </Field>
           {precisa2fa && (
-            <Field label="Código de verificação (2FA)" required>
-              <Input inputMode="numeric" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" disabled={carregando} />
+            <Field label="Código de verificação (2FA)" required hint="Abra seu app autenticador ou use um código de recuperação.">
+              <Input autoFocus required autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" disabled={carregando} />
             </Field>
           )}
+          {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
           <Button type="submit" className="w-full" disabled={carregando}>
-            {carregando ? 'Entrando…' : 'Entrar'}
+            {carregando ? 'Entrando…' : precisa2fa ? 'Verificar e entrar' : 'Entrar'}
           </Button>
 
           {MOSTRAR_TESTE && (

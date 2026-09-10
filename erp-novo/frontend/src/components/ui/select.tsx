@@ -1,3 +1,4 @@
+import { useFieldControl } from './field-context'
 import { forwardRef, type ComponentPropsWithoutRef, type ElementRef } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown } from 'lucide-react'
@@ -11,6 +12,7 @@ export const SelectTrigger = forwardRef<
   ElementRef<typeof SelectPrimitive.Trigger>,
   ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { error?: boolean }
 >(function SelectTrigger({ className, children, error, ...props }, ref) {
+    const accessible = useFieldControl(props, error)
   return (
     <SelectPrimitive.Trigger
       ref={ref}
@@ -22,6 +24,7 @@ export const SelectTrigger = forwardRef<
         className,
       )}
       {...props}
+        {...accessible}
     >
       {children}
       <SelectPrimitive.Icon asChild>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ShoppingCart } from 'lucide-react'
 import {
-  DataTable, type Column, EmptyState, AsyncSelect, SearchBar,
+  DataTable, type Column, EmptyState, Field, AsyncSelect, SearchBar,
 } from '@/components/ui'
 import { useBusca } from '@/lib/useBusca'
 import { usePedidos, usePedidoSituacoes, type PedidoListItem } from './api'
@@ -11,7 +11,7 @@ import { situacaoBadge } from './shared'
 export function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
   const [sit, setSit] = useState(0)
   const { busca, setBusca, q, page, setPage, submit } = useBusca()
-  const { data, isLoading, isFetching } = usePedidos(sit, q, page)
+  const { data, isLoading, isFetching, error, refetch } = usePedidos(sit, q, page)
   const { data: situacoes } = usePedidoSituacoes()
 
   const columns: Column<PedidoListItem>[] = [
@@ -24,10 +24,10 @@ export function ListaView({ onOpen }: { onOpen: (id: number) => void }) {
   return (
     <>
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar cliente ou nº…">
-        <div className="w-56"><AsyncSelect endpoint="/lookups/pedido-situacoes" value={sit || null} valueLabel={situacoes?.find((s) => s.id === sit)?.descricao ?? null} placeholder="Todas as situações"
-          onChange={(id) => { setPage(1); setSit(id ?? 0) }} /></div>
+        <div className="w-56"><Field label="Situação"><AsyncSelect endpoint="/lookups/pedido-situacoes" value={sit || null} valueLabel={situacoes?.find((s) => s.id === sit)?.descricao ?? null} placeholder="Todas as situações"
+          onChange={(id) => { setPage(1); setSit(id ?? 0) }} /></Field></div>
       </SearchBar>
-      <DataTable columns={columns} rows={data?.data} loading={isLoading} rowKey={(p) => p.id} onRowClick={(p) => onOpen(p.id)}
+      <DataTable columns={columns} rows={data?.data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(p) => p.id} onRowClick={(p) => onOpen(p.id)}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<ShoppingCart />} title="Nenhum pedido" />} />
     </>

@@ -8,7 +8,7 @@ import { brl, dataHora as fmtData } from '@/lib/format'
 
 /** F06 — NF de Entrada: importa o XML do fornecedor e processa (estoque + CP). */
 export function NfEntradaTab() {
-  const { data, isLoading } = useNfEntrada()
+  const { data, isLoading, error, refetch } = useNfEntrada()
   const importar = useImportarNfEntrada()
   const processar = useProcessarNfEntrada()
   const [xml, setXml] = useState('')
@@ -54,6 +54,8 @@ export function NfEntradaTab() {
         columns={columns}
         rows={data?.data}
         loading={isLoading}
+        error={error}
+        onRetry={() => { void refetch() }}
         rowKey={(r) => r.id}
         empty={<EmptyState icon={<FileText />} title="Nenhuma NF de entrada" description="Importe o XML de uma NF do fornecedor." />}
       />
@@ -67,7 +69,7 @@ export function NfEntradaTab() {
       </FormDialog>
 
       {/* Processar (escolher setor) */}
-      <FormDialog open={proc !== null} onOpenChange={(o) => !o && setProc(null)} title={`Processar NF ${proc?.numero ?? ''}`}
+      <FormDialog dirty={setorId !== null} open={proc !== null} onOpenChange={(o) => { if (!o) { setProc(null); setSetorId(null); setSetorLabel(null) } }} title={`Processar NF ${proc?.numero ?? ''}`}
         confirmLabel="Processar" loading={processar.isPending} onConfirm={onProcessar}>
         <p className="text-sm text-muted-foreground">Dá entrada no estoque do setor escolhido e gera o contas a pagar ao fornecedor.</p>
         <Field label="Setor de destino" required>

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
 import {
-  Button, Card, CardContent, Field, Input, Textarea, CheckboxField, PageHeader, AsyncSelect,
+  AsyncState, Button, Card, CardContent, Field, Input, Textarea, CheckboxField, PageHeader, AsyncSelect,
   Tabs, TabsList, TabsTrigger, TabsContent,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
@@ -24,6 +24,8 @@ const VAZIO: ClienteForm = {
   numero: '', cidade_id: null, bairro_id: null, rua_id: null, uf: '', cep: '', complemento: '', ponto_referencia: '', email: '',
 }
 
+const ENDERECO = new Set(['cidade_id', 'bairro_id', 'rua_id', 'numero', 'cep', 'uf', 'complemento', 'ponto_referencia'])
+
 const INDICADOR_IE = [
   { v: 1, l: 'Contribuinte ICMS' },
   { v: 2, l: 'Contribuinte Isento' },
@@ -35,18 +37,19 @@ export function ClienteFormPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
   const editId = id && id !== 'novo' ? Number(id) : null
-  const { data: existente } = useCliente(editId)
+  const { data: existente, isLoading, error, refetch } = useCliente(editId)
   const salvar = useSalvarCliente()
 
+  const container = useRef<HTMLDivElement>(null)
   const [aba, setAba] = useState('dados')
-  const { form, campo, erros, submit } = useResourceForm<ClienteForm>({
+  const { form, campo, erros, submit, dirty } = useResourceForm<ClienteForm>({
     vazio: VAZIO, existente,
     booleanKeys: ['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'],
   })
   const [labels, setLabels] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
-    if (existente) {
+    if (existente && !dirty) {
       setLabels({
         cidade: existente.cidade_label ?? null, bairro: existente.bairro_label ?? null,
         rua: existente.rua_label ?? null, segmento: existente.segmento_label ?? null,
@@ -64,14 +67,26 @@ export function ClienteFormPage() {
       navigate(`/clientes/${salvo.id}`)
     } catch (e: any) {
       if (e?.response?.status === 422) {
-        setAba('dados')
+        const primeiro = Object.keys(e.response.data?.errors ?? {})[0]
+        setAba(ENDERECO.has(primeiro) ? 'endereco' : 'dados')
         toast.error('Verifique os campos destacados.')
       } else toast.error('Erro ao salvar o cliente.')
     }
   }
 
+  useEffect(() => {
+    if (!Object.keys(erros).length) return
+    const frame = requestAnimationFrame(() => container.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [erros, aba])
+
+  if (editId && (isLoading || error || !existente)) return <div>
+    <PageHeader title="Cliente" action={<Button variant="outline" onClick={() => navigate('/clientes')}>Voltar aos clientes</Button>} />
+    <AsyncState loading={isLoading} error={error || (!isLoading ? new Error('Cadastro não retornado pelo servidor.') : undefined)} onRetry={() => { void refetch() }}>{null}</AsyncState>
+  </div>
+
   return (
-    <div>
+    <div ref={container}>
       <PageHeader
         breadcrumb={<button onClick={() => navigate('/clientes')} className="hover:text-foreground">Clientes</button>}
         title={editId ? (form.nome || 'Cliente') : 'Novo cliente'}
@@ -84,6 +99,12 @@ export function ClienteFormPage() {
         }
       />
 
+      {!!Object.keys(erros).length && <div role="alert" className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <p className="font-semibold">Revise os campos antes de salvar</p>
+        <ul className="mt-2 list-disc pl-5 text-sm">{Object.entries(erros).map(([key, message]) => <li key={key}>
+          <button type="button" className="underline underline-offset-2" onClick={() => setAba(ENDERECO.has(key) ? 'endereco' : 'dados')}>{message}</button>
+        </li>)}</ul>
+      </div>}
       <Tabs value={aba} onValueChange={setAba}>
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="dados">Dados Gerais</TabsTrigger>
@@ -101,22 +122,22 @@ export function ClienteFormPage() {
         <TabsContent value="dados">
           <Card><CardContent className="pt-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Tipo de Pessoa">
+              <Field label="Tipo de Pessoa" error={erros.tipopessoa_id}>
                 <AsyncSelect endpoint="/lookups/tipo-pessoa" value={form.tipopessoa_id ?? null} valueLabel={labels.tipopessoa}
                   onChange={(id, opt) => { campo('tipopessoa_id', id); setLabels((l) => ({ ...l, tipopessoa: opt?.label ?? null })) }} />
               </Field>
-              <Field label="Segmento">
+              <Field label="Segmento" error={erros.segmento_id}>
                 <AsyncSelect endpoint="/lookups/segmentos" value={form.segmento_id ?? null} valueLabel={labels.segmento}
                   onChange={(id, opt) => { campo('segmento_id', id); setLabels((l) => ({ ...l, segmento: opt?.label ?? null })) }} />
               </Field>
               <Field label={ehJuridica ? 'Razão Social' : 'Nome'} required error={erros.nome}>
                 <Input value={form.nome} error={!!erros.nome} onChange={(e) => campo('nome', e.target.value)} />
               </Field>
-              {ehJuridica && <Field label="Fantasia / Apelido"><Input value={form.fantasia ?? ''} onChange={(e) => campo('fantasia', e.target.value)} /></Field>}
-              {!ehJuridica && <Field label="Nascimento"><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>}
-              {!ehJuridica && <Field label="Sexo (F/M)"><Input maxLength={1} value={form.sexo ?? ''} onChange={(e) => campo('sexo', e.target.value.toUpperCase())} /></Field>}
+              {ehJuridica && <Field label="Fantasia / Apelido" error={erros.fantasia}><Input value={form.fantasia ?? ''} onChange={(e) => campo('fantasia', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="Nascimento" error={erros.datanascimento}><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="Sexo (F/M)" error={erros.sexo}><Input maxLength={1} value={form.sexo ?? ''} onChange={(e) => campo('sexo', e.target.value.toUpperCase())} /></Field>}
               <Field label="E-mail" error={erros.email}><Input type="email" value={form.email ?? ''} error={!!erros.email} onChange={(e) => campo('email', e.target.value)} /></Field>
-              <Field label="Observações" className="md:col-span-2"><Textarea value={form.observacoes ?? ''} onChange={(e) => campo('observacoes', e.target.value)} /></Field>
+              <Field label="Observações" className="md:col-span-2" error={erros.observacoes}><Textarea value={form.observacoes ?? ''} onChange={(e) => campo('observacoes', e.target.value)} /></Field>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-border pt-3">
@@ -130,11 +151,11 @@ export function ClienteFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
               <p className="md:col-span-2 text-sm font-semibold text-muted-foreground">Documentos / Fiscal</p>
               {!ehJuridica && <Field label="CPF" error={erros.cpf}><Input value={form.cpf ?? ''} error={!!erros.cpf} onChange={(e) => campo('cpf', e.target.value)} /></Field>}
-              {!ehJuridica && <Field label="RG"><Input value={form.rg ?? ''} onChange={(e) => campo('rg', e.target.value)} /></Field>}
+              {!ehJuridica && <Field label="RG" error={erros.rg}><Input value={form.rg ?? ''} onChange={(e) => campo('rg', e.target.value)} /></Field>}
               {ehJuridica && <Field label="CNPJ" error={erros.cnpj}><Input value={form.cnpj ?? ''} error={!!erros.cnpj} onChange={(e) => campo('cnpj', e.target.value)} /></Field>}
-              <Field label="Inscrição Estadual"><Input value={form.inscricao_estadual ?? ''} onChange={(e) => campo('inscricao_estadual', e.target.value)} /></Field>
-              {ehJuridica && <Field label="Suframa"><Input value={form.suframa ?? ''} onChange={(e) => campo('suframa', e.target.value)} /></Field>}
-              <Field label="Indicador I.E.">
+              <Field label="Inscrição Estadual" error={erros.inscricao_estadual}><Input value={form.inscricao_estadual ?? ''} onChange={(e) => campo('inscricao_estadual', e.target.value)} /></Field>
+              {ehJuridica && <Field label="Suframa" error={erros.suframa}><Input value={form.suframa ?? ''} onChange={(e) => campo('suframa', e.target.value)} /></Field>}
+              <Field label="Indicador I.E." error={erros.indicador_ie}>
                 <Select value={String(form.indicador_ie ?? '')} onValueChange={(v) => campo('indicador_ie', v ? Number(v) : null)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>{INDICADOR_IE.map((o) => <SelectItem key={o.v} value={String(o.v)}>{o.l}</SelectItem>)}</SelectContent>
@@ -154,20 +175,20 @@ export function ClienteFormPage() {
               <AsyncSelect endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={!!erros.cidade_id}
                 onChange={(id, opt) => { campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: opt?.label ?? null, bairro: null })); campo('bairro_id', null); if (opt?.uf) campo('uf', String(opt.uf)) }} />
             </Field>
-            <Field label="Bairro">
+            <Field label="Bairro" error={erros.bairro_id}>
               <AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: form.cidade_id }} value={form.bairro_id ?? null} valueLabel={labels.bairro} disabled={!form.cidade_id}
                 placeholder={form.cidade_id ? 'Selecione…' : 'Escolha a cidade primeiro'}
                 onChange={(id, opt) => { campo('bairro_id', id); setLabels((l) => ({ ...l, bairro: opt?.label ?? null })) }} />
             </Field>
-            <Field label="Rua">
+            <Field label="Rua" error={erros.rua_id}>
               <AsyncSelect endpoint="/lookups/ruas" params={{ bairro_id: form.bairro_id }} value={form.rua_id ?? null} valueLabel={labels.rua}
                 onChange={(id, opt) => { campo('rua_id', id); setLabels((l) => ({ ...l, rua: opt?.label ?? null })) }} />
             </Field>
             <Field label="Número" required error={erros.numero}><Input value={form.numero} error={!!erros.numero} onChange={(e) => campo('numero', e.target.value)} /></Field>
-            <Field label="CEP"><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>
-            <Field label="UF"><Input maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} /></Field>
-            <Field label="Complemento"><Input value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} /></Field>
-            <Field label="Ponto de referência" className="md:col-span-2"><Input value={form.ponto_referencia ?? ''} onChange={(e) => campo('ponto_referencia', e.target.value)} /></Field>
+            <Field label="CEP" error={erros.cep}><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>
+            <Field label="UF" error={erros.uf}><Input maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} /></Field>
+            <Field label="Complemento" error={erros.complemento}><Input value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} /></Field>
+            <Field label="Ponto de referência" className="md:col-span-2" error={erros.ponto_referencia}><Input value={form.ponto_referencia ?? ''} onChange={(e) => campo('ponto_referencia', e.target.value)} /></Field>
           </CardContent></Card>
         </TabsContent>
 

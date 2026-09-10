@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { Plus, Gift, Hash, Trophy } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect,
-  ResourceList, FormDialog, toast,
+  ResourceList, FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import { data as fmtData } from '@/lib/format'
 import { useSorteios, useSalvarSorteio, useAddNumeroSorteio, useSortear, type Sorteio } from './api'
 
 export function SorteioPage() {
-  const { data, isLoading } = useSorteios()
+  const { data, isLoading, error, refetch } = useSorteios()
   const salvar = useSalvarSorteio()
   const addNumero = useAddNumeroSorteio()
   const sortear = useSortear()
 
+  const [confirmando, setConfirmando] = useState<Sorteio | null>(null)
   const [open, setOpen] = useState(false)
   const [edit, setEdit] = useState<Sorteio | null>(null)
   const [form, setForm] = useState<Record<string, any>>({})
@@ -36,8 +37,7 @@ export function SorteioPage() {
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
   }
   async function onSortear(reg: Sorteio) {
-    if (!confirm(`Sortear "${reg.descricao}"? A ação é definitiva.`)) return
-    try { const r = await sortear.mutateAsync(reg.id); toast.success(`Número sorteado: ${r.numero}`) }
+    try { const r = await sortear.mutateAsync(reg.id); toast.success(`Número sorteado: ${r.numero}`); setConfirmando(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao sortear.') }
   }
 
@@ -54,7 +54,7 @@ export function SorteioPage() {
       key: 'acoes', header: '', align: 'right', cell: (v) => (
         <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="sm" onClick={() => abrirNumeros(v)}><Hash size={15} /> Números</Button>
-          {v.situacao !== 'sorteado' && <Button variant="secondary" size="sm" loading={sortear.isPending} onClick={() => onSortear(v)}><Trophy size={15} /> Sortear</Button>}
+          {v.situacao !== 'sorteado' && <Button variant="secondary" size="sm" loading={sortear.isPending} onClick={() => setConfirmando(v)}><Trophy size={15} /> Sortear</Button>}
         </div>
       ),
     },
@@ -66,9 +66,13 @@ export function SorteioPage() {
         title="Sorteios"
         subtitle="Campanhas de sorteio e ganhadores"
         action={<Button onClick={() => abrir()}><Plus size={16} /> Novo sorteio</Button>}
-        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(v) => v.id}
         emptyIcon={<Gift />} emptyTitle="Nenhum sorteio"
       />
+
+      <ConfirmDialog open={!!confirmando} onOpenChange={(open) => { if (!open) setConfirmando(null) }}
+        title="Realizar sorteio" confirmLabel="Sortear" variant="default" loading={sortear.isPending}
+        description={<>Sortear <strong>{confirmando?.descricao}</strong>? O resultado é definitivo e ficará registrado na campanha.</>} onConfirm={() => { if (confirmando) void onSortear(confirmando) }} />
 
       <FormDialog
         open={open} onOpenChange={setOpen}
@@ -80,6 +84,7 @@ export function SorteioPage() {
       </FormDialog>
 
       <FormDialog
+        dirty={!!numero || clienteId !== null}
         open={numOpen} onOpenChange={setNumOpen}
         title={`Números — ${alvo?.descricao ?? ''}`}
         confirmLabel="Adicionar número" loading={addNumero.isPending} onConfirm={onAddNumero}

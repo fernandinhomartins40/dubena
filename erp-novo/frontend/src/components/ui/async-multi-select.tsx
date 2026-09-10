@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useFieldControl } from './field-context'
+import { useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react'
-import { api } from '@/lib/api'
+import { useLookup } from '@/lib/useLookup'
 import { cn } from '@/lib/cn'
 import type { Option } from './async-select'
 
@@ -27,23 +28,11 @@ interface Props {
 export function AsyncMultiSelect({
   endpoint, params, value, onChange, placeholder = 'Todos', disabled, className,
 }: Props) {
+  const accessible = useFieldControl({})
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
-  const [options, setOptions] = useState<Option[]>([])
-  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    const t = setTimeout(async () => {
-      try {
-        const { data } = await api.get(endpoint, { params: { q: busca, ...params } })
-        const lista = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
-        setOptions(lista as Option[])
-      } catch { setOptions([]) } finally { setLoading(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [busca, open, endpoint, JSON.stringify(params)])
+  const { options, loading, error: loadError, retry } = useLookup(open, endpoint, busca, params)
 
   function alternar(o: Option) {
     onChange(value.some((v) => v.id === o.id) ? value.filter((v) => v.id !== o.id) : [...value, o])
@@ -55,6 +44,7 @@ export function AsyncMultiSelect({
         <Popover.Trigger asChild disabled={disabled}>
           <button
             type="button"
+          {...accessible}
             className={cn(
               'flex h-10 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
@@ -74,7 +64,7 @@ export function AsyncMultiSelect({
             <div className="flex items-center border-b border-border px-3">
               <Search className="size-4 shrink-0 text-muted-foreground" />
               <input
-                autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…"
+                autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…" aria-label="Buscar opções"
                 className="flex h-10 w-full bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -89,7 +79,12 @@ export function AsyncMultiSelect({
               )}
               {loading ? (
                 <li className="px-2 py-3 text-sm text-muted-foreground">Carregando…</li>
-              ) : options.length === 0 ? (
+              ) : loadError ? (
+              <li role="alert" className="px-2 py-3 text-sm">
+                <p>{loadError}</p>
+                <button type="button" onClick={retry} className="mt-2 rounded px-2 py-2 font-medium text-accent-foreground underline">Tentar novamente</button>
+              </li>
+            ) : options.length === 0 ? (
                 <li className="px-2 py-3 text-sm text-muted-foreground">Nenhum resultado.</li>
               ) : options.map((o) => (
                 <li key={o.id}>

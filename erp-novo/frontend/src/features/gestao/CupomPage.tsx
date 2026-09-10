@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus, Receipt, Send, X } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect,
-  ResourceList, FormDialog, toast,
+  ResourceList, FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import { brl, dataHora } from '@/lib/format'
 import { useCupons, useCriarCupom, useEmitirCupom, type Cupom } from './api'
@@ -10,9 +10,10 @@ import { useCupons, useCriarCupom, useEmitirCupom, type Cupom } from './api'
 interface ItemForm { produto_id: number | null; produtoLabel: string; quantidade: number; valor_unitario: number }
 
 export function CupomPage() {
-  const { data, isLoading } = useCupons()
+  const { data, isLoading, error, refetch } = useCupons()
   const criar = useCriarCupom()
   const emitir = useEmitirCupom()
+  const [confirmando, setConfirmando] = useState<Cupom | null>(null)
   const [open, setOpen] = useState(false)
   const [itens, setItens] = useState<ItemForm[]>([{ produto_id: null, produtoLabel: '', quantidade: 1, valor_unitario: 0 }])
 
@@ -27,8 +28,7 @@ export function CupomPage() {
     } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao criar.') }
   }
   async function onEmitir(c: Cupom) {
-    if (!confirm('Emitir cupom? A transmissão ao SAT/CFe é gate regional.')) return
-    try { await emitir.mutateAsync(c.id); toast.success('Cupom emitido.') }
+    try { await emitir.mutateAsync(c.id); toast.success('Cupom emitido.'); setConfirmando(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao emitir.') }
   }
 
@@ -46,7 +46,7 @@ export function CupomPage() {
     },
     {
       key: 'acoes', header: '', align: 'right', cell: (v) => v.situacao === 'rascunho'
-        ? <Button variant="secondary" size="sm" loading={emitir.isPending} onClick={() => onEmitir(v)}><Send size={15} /> Emitir</Button>
+        ? <Button variant="secondary" size="sm" loading={emitir.isPending} onClick={() => setConfirmando(v)}><Send size={15} /> Emitir</Button>
         : null,
     },
   ]
@@ -57,24 +57,29 @@ export function CupomPage() {
         title="Cupons fiscais (SAT/CFe)"
         subtitle="Cupom fiscal eletrônico — emissão e consulta"
         action={<Button onClick={() => { reset(); setOpen(true) }}><Plus size={16} /> Novo cupom</Button>}
-        columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}
+        columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(v) => v.id}
         emptyIcon={<Receipt />} emptyTitle="Nenhum cupom"
       />
 
+      <ConfirmDialog open={!!confirmando} onOpenChange={(open) => { if (!open) setConfirmando(null) }}
+        title="Emitir cupom fiscal" confirmLabel="Emitir" variant="default" loading={emitir.isPending}
+        description={<>Emitir o cupom <strong>#{confirmando?.numero ?? confirmando?.id}</strong>? Confira os itens e valores antes de confirmar a emissão fiscal.</>} onConfirm={() => { if (confirmando) void onEmitir(confirmando) }} />
+
       <FormDialog
+        dirty={JSON.stringify(itens) !== JSON.stringify([{ produto_id: null, produtoLabel: '', quantidade: 1, valor_unitario: 0 }])}
         open={open} onOpenChange={setOpen}
         title="Novo cupom" confirmLabel="Criar rascunho"
         loading={criar.isPending} onConfirm={onCriar}
       >
         {itens.map((it, i) => (
-          <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2">
-            <Field label={i === 0 ? 'Produto' : ''}>
+          <div key={i} className="grid grid-cols-2 sm:grid-cols-[1fr_auto_auto_auto] items-end gap-2">
+            <Field label={`Produto ${i + 1}`}>
               <AsyncSelect endpoint="/lookups/produtos" value={it.produto_id} valueLabel={it.produtoLabel}
                 onChange={(id, opt) => setItens((arr) => arr.map((x, j) => j === i ? { ...x, produto_id: id, produtoLabel: opt?.label ?? '' } : x))} />
             </Field>
-            <Field label={i === 0 ? 'Qtd' : ''}><Input type="number" min={0} step="0.001" className="w-20" value={it.quantidade} onChange={(e) => setItens((arr) => arr.map((x, j) => j === i ? { ...x, quantidade: Number(e.target.value) } : x))} /></Field>
-            <Field label={i === 0 ? 'Vlr unit.' : ''}><Input type="number" min={0} step="0.01" className="w-28" value={it.valor_unitario} onChange={(e) => setItens((arr) => arr.map((x, j) => j === i ? { ...x, valor_unitario: Number(e.target.value) } : x))} /></Field>
-            <Button variant="ghost" size="icon" onClick={() => setItens((arr) => arr.filter((_, j) => j !== i))}><X size={15} /></Button>
+            <Field label={`Quantidade ${i + 1}`}><Input type="number" min={0} step="0.001" className="w-20" value={it.quantidade} onChange={(e) => setItens((arr) => arr.map((x, j) => j === i ? { ...x, quantidade: Number(e.target.value) } : x))} /></Field>
+            <Field label={`Valor unitário ${i + 1}`}><Input type="number" min={0} step="0.01" className="w-28" value={it.valor_unitario} onChange={(e) => setItens((arr) => arr.map((x, j) => j === i ? { ...x, valor_unitario: Number(e.target.value) } : x))} /></Field>
+            <Button variant="ghost" size="icon" aria-label={`Remover item ${i + 1}`} onClick={() => setItens((arr) => arr.filter((_, j) => j !== i))}><X size={15} /></Button>
           </div>
         ))}
         <Button variant="outline" size="sm" onClick={() => setItens((arr) => [...arr, { produto_id: null, produtoLabel: '', quantidade: 1, valor_unitario: 0 }])}><Plus size={14} /> Item</Button>

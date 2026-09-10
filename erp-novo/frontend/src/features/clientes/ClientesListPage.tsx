@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, MoreHorizontal, Pencil, Ban, RotateCcw, Users, Building2, User, Settings, Download, FileDown, SlidersHorizontal } from 'lucide-react'
 import { ExportarClientesDialog } from './exportacao/ExportarClientesDialog'
 import {
@@ -28,17 +28,21 @@ export function ClientesListPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
   const { busca, setBusca, q, page, setPage, submit } = useBusca()
-  const [situacao, setSituacao] = useState<SituacaoCliente>('ativos')
+  const [params, setParams] = useSearchParams()
+  const requested = params.get('situacao')
+  const situacao: SituacaoCliente = requested === 'inativos' || requested === 'todos' ? requested : 'ativos'
+  const [confirmarCsv, setConfirmarCsv] = useState(false)
+  const [baixandoCsv, setBaixandoCsv] = useState(false)
   const [desativando, setDesativando] = useState<ClienteListItem | null>(null)
   const [motivo, setMotivo] = useState('')
   const [reativando, setReativando] = useState<ClienteListItem | null>(null)
   const [exportando, setExportando] = useState(false)
-  const { data, isLoading, isFetching } = useClientes(q, page, situacao)
+  const { data, isLoading, isFetching, error, refetch } = useClientes(q, page, situacao)
   const desativar = useDesativarCliente()
   const reativar = useReativarCliente()
 
   function trocarAba(valor: string) {
-    setSituacao(valor as SituacaoCliente)
+    setParams((current) => { const next = new URLSearchParams(current); next.set('situacao', valor); return next })
     setPage(1) // a página 3 de "ativos" não existe em "desativados"
   }
 
@@ -65,22 +69,24 @@ export function ClientesListPage() {
     try {
       await reativar.mutateAsync(reativando.id)
       toast.success(`Cliente "${reativando.nome}" reativado.`)
+      setReativando(null)
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Não foi possível reativar.')
-    } finally {
-      setReativando(null)
     }
   }
 
   async function exportar() {
+    setBaixandoCsv(true)
     try {
-      // Exporta o que está à vista: o CSV segue o filtro de situação da tela.
+      // O endpoint aplica situação, mas não termo de busca nem paginação.
       const resp = await api.get('/clientes/exportar', { params: { situacao }, responseType: 'blob' })
       const url = URL.createObjectURL(resp.data as Blob)
       const a = document.createElement('a')
       a.href = url; a.download = 'clientes.csv'; a.click()
       URL.revokeObjectURL(url)
+      setConfirmarCsv(false)
     } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível exportar.') }
+    finally { setBaixandoCsv(false) }
   }
 
   const columns: Column<ClienteListItem>[] = [
@@ -147,12 +153,10 @@ export function ClientesListPage() {
     <div>
       <PageHeader
         title="Clientes"
-        subtitle={data ? `${data.meta.total.toLocaleString('pt-BR')} ${rotuloTotal}` : 'Carregando…'}
+        subtitle={error ? 'Consulta indisponível' : data ? `${data.meta.total.toLocaleString('pt-BR')} ${rotuloTotal}` : 'Carregando…'}
         action={
           <>
-            {/* Duas exportações com alcances diferentes: a rápida repete o que
-                está na tela; a personalizada extrai a base cadastral inteira e
-                por isso tem gate próprio (cliente.export.completo). */}
+            {/* O alcance do CSV é informado antes do download. */}
             {(can('cliente.export') || can('cliente.export.completo')) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -160,8 +164,8 @@ export function ClientesListPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {can('cliente.export') && (
-                    <DropdownMenuItem onClick={exportar}>
-                      <FileDown /> Exportação rápida (CSV)
+                    <DropdownMenuItem onClick={() => setConfirmarCsv(true)}>
+                      <FileDown /> CSV por situação…
                     </DropdownMenuItem>
                   )}
                   {can('cliente.export.completo') && (
@@ -190,6 +194,8 @@ export function ClientesListPage() {
         columns={columns}
         rows={data?.data}
         loading={isLoading}
+        error={error}
+        onRetry={() => { void refetch() }}
         rowKey={(c) => c.id}
         onRowClick={can('cliente.edit') ? (c) => navigate(`/clientes/${c.id}`) : undefined}
         page={data?.meta.current_page}
@@ -213,6 +219,10 @@ export function ClientesListPage() {
           />
         }
       />
+
+      <ConfirmDialog open={confirmarCsv} onOpenChange={setConfirmarCsv} title="Exportar clientes em CSV"
+        variant="default" confirmLabel="Baixar CSV" loading={baixandoCsv} onConfirm={exportar}
+        description={<>O arquivo inclui todos os clientes da situação <strong>{ABAS.find((a) => a.valor === situacao)?.rotulo}</strong> no escopo de empresa atual, em todas as páginas. A busca por nome, documento ou código não é aplicada.</>} />
 
       <ConfirmDialog
         open={!!desativando}

@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { ArrowRightLeft } from 'lucide-react'
 import {
   Button, DataTable, type Column, EmptyState, Field, AsyncSelect, Input,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
+  FormDialog, toast,
 } from '@/components/ui'
 import { useTransferencias, useCriarTransferencia } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 import { ItensEditor } from './ItensEditor'
 
 export function TransferenciaTab() {
-  const { data, isLoading } = useTransferencias()
+  const { data, isLoading, error, refetch } = useTransferencias()
   const criar = useCriarTransferencia()
   const [open, setOpen] = useState(false)
   const [origem, setOrigem] = useState<number | null>(null); const [origemL, setOrigemL] = useState<string | null>(null)
@@ -32,10 +32,9 @@ export function TransferenciaTab() {
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><ArrowRightLeft size={16} /> Nova transferência</Button></DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader><DialogTitle>Nova transferência entre setores</DialogTitle></DialogHeader>
+        <Button onClick={() => { setOrigem(null); setOrigemL(null); setDestino(null); setDestinoL(null); setObs(''); setItens([]); setOpen(true) }}><ArrowRightLeft size={16} /> Nova transferência</Button>
+        <FormDialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setOrigem(null); setOrigemL(null); setDestino(null); setDestinoL(null); setObs(''); setItens([]) } }} title="Nova transferência entre setores"
+          dirty={origem !== null || destino !== null || !!obs || itens.length > 0} widthClass="max-w-3xl" loading={criar.isPending} onConfirm={salvar} confirmLabel="Transferir">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Setor de origem" required><AsyncSelect endpoint="/lookups/setores" value={origem} valueLabel={origemL} onChange={(id, o) => { setOrigem(id); setOrigemL(o?.label ?? null) }} /></Field>
@@ -44,11 +43,9 @@ export function TransferenciaTab() {
               <Field label="Observações"><Input value={obs} onChange={(e) => setObs(e.target.value)} /></Field>
               <ItensEditor itens={itens} setItens={setItens} />
             </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={criar.isPending} onClick={salvar}>Transferir</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        </FormDialog>
       </div>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<ArrowRightLeft />} title="Nenhuma transferência" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} empty={<EmptyState icon={<ArrowRightLeft />} title="Nenhuma transferência" />} />
     </>
   )
 }

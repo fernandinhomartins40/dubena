@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { ClipboardList } from 'lucide-react'
 import {
   Button, DataTable, type Column, EmptyState, Badge, Field, Input,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
+  FormDialog, toast,
 } from '@/components/ui'
 import { useRequisicoes, useCriarRequisicao } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 import { ItensEditor } from './ItensEditor'
 
 export function RequisicaoTab() {
-  const { data, isLoading } = useRequisicoes()
+  const { data, isLoading, error, refetch } = useRequisicoes()
   const criar = useCriarRequisicao()
   const [open, setOpen] = useState(false)
   const [obs, setObs] = useState(''); const [itens, setItens] = useState<any[]>([])
@@ -30,19 +30,16 @@ export function RequisicaoTab() {
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><ClipboardList size={16} /> Nova requisição</Button></DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader><DialogTitle>Nova requisição de estoque</DialogTitle></DialogHeader>
+        <Button onClick={() => { setObs(''); setItens([]); setOpen(true) }}><ClipboardList size={16} /> Nova requisição</Button>
+        <FormDialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setObs(''); setItens([]) } }} title="Nova requisição de estoque"
+          dirty={!!obs || itens.length > 0} widthClass="max-w-3xl" loading={criar.isPending} onConfirm={salvar} confirmLabel="Registrar">
             <div className="space-y-4">
               <Field label="Observações"><Input value={obs} onChange={(e) => setObs(e.target.value)} /></Field>
               <ItensEditor itens={itens} setItens={setItens} comSetor />
             </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={criar.isPending} onClick={salvar}>Registrar</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        </FormDialog>
       </div>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<ClipboardList />} title="Nenhuma requisição" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} empty={<EmptyState icon={<ClipboardList />} title="Nenhuma requisição" />} />
     </>
   )
 }

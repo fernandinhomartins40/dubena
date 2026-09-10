@@ -8,7 +8,7 @@ import { useFechamentos, useFechar, useAbrirFechamento } from '../api'
 import { dataHora as fmtData } from '@/lib/format'
 
 export function FechamentoTab() {
-  const { data, isLoading } = useFechamentos()
+  const { data, isLoading, error, refetch } = useFechamentos()
   const fechar = useFechar()
   const abrir = useAbrirFechamento()
   const [dataF, setDataF] = useState('')
@@ -47,7 +47,7 @@ export function FechamentoTab() {
           </DialogContent>
         </Dialog>
       </CardContent></Card>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<Lock />} title="Nenhum fechamento" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} empty={<EmptyState icon={<Lock />} title="Nenhum fechamento" />} />
     </>
   )
 }

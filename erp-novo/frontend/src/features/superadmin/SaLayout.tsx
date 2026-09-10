@@ -1,3 +1,7 @@
+import { useTheme } from '@/lib/theme'
+import { ResponsiveSidebar } from '@/layouts/ResponsiveSidebar'
+import { ModuleFinder, RouteTrail } from '@/layouts/ModuleFinder'
+import { usePreference } from '@/lib/usePreference'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
@@ -40,16 +44,14 @@ const ORDEM_GRUPOS = ['Geral', 'Gestão', 'Segurança']
 export function SaLayout({ children }: { children: ReactNode }) {
   const { admin, logout } = useSaAuth()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(true)
+  const userKey = `sa.${admin?.id ?? 'anon'}`
+  const [open, setOpen] = usePreference(`erpnovo.ui.sidebar.${userKey}`, true)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
-  const [recolhidos, setRecolhidos] = useState<Record<string, boolean>>({})
+  const { dark, toggleDark } = useTheme()
+  const [compact, setCompact] = usePreference(`erpnovo.ui.compact.${userKey}`, false)
+  const [recolhidos, setRecolhidos] = usePreference<Record<string, boolean>>(`erpnovo.ui.groups.${userKey}`, {})
 
-  const toggleDark = () => {
-    const next = !dark
-    setDark(next)
-    document.documentElement.classList.toggle('dark', next)
-  }
+
   const toggleGrupo = (g: string) => setRecolhidos((r) => ({ ...r, [g]: !r[g] }))
 
   const expandida = open || mobileOpen
@@ -66,21 +68,9 @@ export function SaLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-full min-h-screen">
-      {/* Backdrop do drawer (só mobile) */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)} aria-hidden />
-      )}
-
-      {/* Sidebar — mesma estética do ERP */}
-      <aside
-        className={cn(
-          'bg-sidebar text-sidebar-foreground transition-all duration-200 flex flex-col',
-          'fixed inset-y-0 left-0 z-50 w-64 md:static md:z-auto md:shrink-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          open ? 'md:w-64' : 'md:w-16',
-        )}
-      >
+    <div data-density={compact ? "compact" : "comfortable"} className="flex h-full min-h-screen">
+      <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
+      <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
         <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
           <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent text-white shadow-md shadow-black/30">
             <ShieldCheck size={20} strokeWidth={2.2} />
@@ -93,7 +83,8 @@ export function SaLayout({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3">
+        {expandida && <ModuleFinder items={NAV} userKey={userKey} onNavigate={() => setMobileOpen(false)} />}
+        <nav aria-label="Módulos" className="flex-1 overflow-y-auto py-3">
           {grupos.map((g) => {
             const colapsado = expandida && recolhidos[g]
             return (
@@ -102,7 +93,8 @@ export function SaLayout({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => toggleGrupo(g)}
-                    className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors"
+                  aria-expanded={!colapsado}
+                    className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground hover:text-white transition-colors"
                   >
                     <span>{g}</span>
                     <ChevronDown size={13} className={cn('transition-transform', colapsado && '-rotate-90')} />
@@ -119,7 +111,7 @@ export function SaLayout({ children }: { children: ReactNode }) {
                         cn(
                           'mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                           isActive
-                            ? 'bg-sidebar-accent font-medium text-white shadow-sm shadow-black/20'
+                            ? 'bg-sidebar-accent font-medium text-primary-foreground shadow-sm shadow-black/20'
                             : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
                           !expandida && 'justify-center',
                         )
@@ -135,25 +127,25 @@ export function SaLayout({ children }: { children: ReactNode }) {
             )
           })}
         </nav>
-      </aside>
+      </ResponsiveSidebar>
 
       {/* Conteúdo */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar — mesma do ERP, com selo de contexto de plataforma */}
         <header className="h-16 shrink-0 bg-card border-b border-border flex items-center justify-between px-3 sm:px-4">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen((v) => !v)} aria-label="Abrir menu">
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen((v) => !v)} id="abrir-menu" aria-expanded={mobileOpen} aria-label="Abrir menu">
               <MenuIcon size={18} />
             </Button>
             <Button variant="ghost" size="icon" className="hidden md:inline-flex" onClick={() => setOpen((v) => !v)} aria-label="Recolher menu">
               {open ? <ChevronLeft size={18} /> : <MenuIcon size={18} />}
             </Button>
             <Badge variant="outline" className="gap-1.5">
-              <ShieldCheck size={13} /> Plataforma · cross-tenant
+              <ShieldCheck size={13} /> Plataforma
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={toggleDark} aria-label="Tema">
+            <Button variant="ghost" size="icon" onClick={toggleDark} aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}>
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </Button>
             <DropdownMenu>
@@ -169,6 +161,7 @@ export function SaLayout({ children }: { children: ReactNode }) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{admin?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCompact((value) => !value)}>{compact ? 'Usar tabelas confortáveis' : 'Usar tabelas compactas'}</DropdownMenuItem>
                 <DropdownMenuItem destructive onClick={sair}>
                   <LogOut /> Sair
                 </DropdownMenuItem>
@@ -177,8 +170,8 @@ export function SaLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">{children}</div>
+        <main id="conteudo-principal" tabIndex={-1} className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6"><RouteTrail items={NAV} home="/superadmin" />{children}</div>
         </main>
       </div>
     </div>

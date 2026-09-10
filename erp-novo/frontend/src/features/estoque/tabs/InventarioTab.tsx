@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { PackageCheck } from 'lucide-react'
 import {
   Button, DataTable, type Column, EmptyState, Field, Input,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
+  FormDialog, toast,
 } from '@/components/ui'
 import { useInventarios, useCriarInventario } from '../api'
 import { brl } from '@/lib/format'
 import { ItensEditor } from './ItensEditor'
 
 export function InventarioTab() {
-  const { data, isLoading } = useInventarios()
+  const { data, isLoading, error, refetch } = useInventarios()
   const criar = useCriarInventario()
   const [open, setOpen] = useState(false)
   const [dataInv, setDataInv] = useState(''); const [mes, setMes] = useState(''); const [itens, setItens] = useState<any[]>([])
@@ -30,10 +30,9 @@ export function InventarioTab() {
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><PackageCheck size={16} /> Novo inventário</Button></DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader><DialogTitle>Novo inventário (valoração)</DialogTitle></DialogHeader>
+        <Button onClick={() => { setDataInv(''); setMes(''); setItens([]); setOpen(true) }}><PackageCheck size={16} /> Novo inventário</Button>
+        <FormDialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setDataInv(''); setMes(''); setItens([]) } }} title="Novo inventário (valoração)"
+          dirty={!!dataInv || !!mes || itens.length > 0} widthClass="max-w-3xl" loading={criar.isPending} onConfirm={salvar} confirmLabel="Gravar">
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Data do inventário" required><Input type="date" value={dataInv} onChange={(e) => setDataInv(e.target.value)} /></Field>
@@ -41,11 +40,9 @@ export function InventarioTab() {
               </div>
               <ItensEditor itens={itens} setItens={setItens} comValor />
             </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={criar.isPending} onClick={salvar}>Gravar</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        </FormDialog>
       </div>
-      <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<PackageCheck />} title="Nenhum inventário" />} />
+      <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} empty={<EmptyState icon={<PackageCheck />} title="Nenhum inventário" />} />
     </>
   )
 }

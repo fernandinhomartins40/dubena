@@ -1,8 +1,10 @@
+import { useFieldControl } from './field-context'
 import { forwardRef, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: boolean }>(
   function Textarea({ className, error, ...props }, ref) {
+    const accessible = useFieldControl(props, error)
     return (
       <textarea
         ref={ref}
@@ -14,6 +16,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
           className,
         )}
         {...props}
+        {...accessible}
       />
     )
   },

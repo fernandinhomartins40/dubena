@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription,
 } from './dialog'
 import { Button } from './button'
 
@@ -30,15 +30,15 @@ export function ConfirmDialog({
   onConfirm, loading, variant = 'destructive', children,
 }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!loading) onOpenChange(next) }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          <DialogDescription asChild><div>{description ?? 'Confirme para continuar com esta ação.'}</div></DialogDescription>
         </DialogHeader>
         {children && <div className="space-y-4">{children}</div>}
         <DialogFooter>
-          <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+          <DialogClose asChild><Button disabled={loading} variant="outline">Cancelar</Button></DialogClose>
           <Button variant={variant} loading={loading} onClick={onConfirm}>{confirmLabel}</Button>
         </DialogFooter>
       </DialogContent>

@@ -12,7 +12,7 @@ export function FinanceiroPage() {
   return (
     <div>
       <PageHeader title="Financeiro" subtitle="Lançamentos, caixa e plano de contas" />
-      <Tabs defaultValue="lancamentos">
+      <Tabs urlKey="tab" defaultValue="lancamentos">
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
           <TabsTrigger value="caixa">Caixa</TabsTrigger>

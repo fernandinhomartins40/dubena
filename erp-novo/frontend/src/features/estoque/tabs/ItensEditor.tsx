@@ -23,7 +23,7 @@ export function ItensEditor({ itens, setItens, comSetor, comValor }: {
           {comSetor && <div className="md:col-span-2"><Field label="Mov."><Select value={it.entradasaida} onValueChange={(v) => set(i, { entradasaida: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ENTRADA">Entrada</SelectItem><SelectItem value="SAIDA">Saída</SelectItem></SelectContent></Select></Field></div>}
           <div className="md:col-span-2"><Field label="Qtde"><Input type="number" step="0.0001" value={it.quantidade} onChange={(e) => set(i, { quantidade: e.target.value })} /></Field></div>
           {comValor && <div className="md:col-span-2"><Field label="Vlr unit."><Input type="number" step="0.0001" value={it.valorunitario} onChange={(e) => set(i, { valorunitario: e.target.value })} /></Field></div>}
-          <div className="md:col-span-1 flex justify-end"><Button variant="ghost" size="icon" onClick={() => rm(i)}><Trash2 size={16} /></Button></div>
+          <div className="md:col-span-1 flex justify-end"><Button variant="ghost" size="icon" aria-label={`Remover item ${i + 1}`} onClick={() => rm(i)}><Trash2 size={16} /></Button></div>
         </div>
       ))}
     </div>

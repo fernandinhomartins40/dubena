@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Skeleton } from './skeleton'
 import { EmptyState } from './empty-state'
+import { Button } from './button'
 
 /**
  * AsyncState — contrato único de carregamento/erro/vazio para blocos que NÃO
@@ -15,6 +16,7 @@ import { EmptyState } from './empty-state'
 interface Props {
   loading?: boolean
   error?: unknown
+  onRetry?: () => void
   /** condição de vazio (avaliada só quando não há loading/erro) */
   empty?: boolean
   /** nº de linhas de esqueleto durante o loading (default 3) */
@@ -31,7 +33,7 @@ function mensagemErro(error: unknown): string {
 }
 
 export function AsyncState({
-  loading, error, empty, skeletonRows = 3,
+  loading, error, onRetry, empty, skeletonRows = 3,
   emptyIcon, emptyTitle = 'Nenhum registro', emptyDescription, children,
 }: Props) {
   if (loading) {
@@ -42,7 +44,8 @@ export function AsyncState({
     )
   }
   if (error) {
-    return <EmptyState title="Erro ao carregar" description={mensagemErro(error)} />
+    return <div role="alert"><EmptyState title="Não foi possível carregar" description={mensagemErro(error)}
+      action={onRetry && <Button variant="outline" onClick={onRetry}>Tentar novamente</Button>} /></div>
   }
   if (empty) {
     return <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />

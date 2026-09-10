@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Lock, Unlock, Wallet } from 'lucide-react'
-import { Button, Card, CardContent, Badge, DataTable, type Column, EmptyState, toast } from '@/components/ui'
+import { AsyncState, Button, Card, CardContent, Badge, DataTable, type Column, EmptyState, toast } from '@/components/ui'
 import { useContasCaixa, useMovimentosCaixa, useAbrirCaixa, useFecharCaixa, type ContaCaixa } from '../api'
 import { brl, data as fmtData } from '@/lib/format'
 
 export function CaixaTab() {
-  const { data: contas, isLoading } = useContasCaixa()
+  const { data: contas, isLoading, error, refetch } = useContasCaixa()
   const [sel, setSel] = useState<ContaCaixa | null>(null)
-  const { data: mov } = useMovimentosCaixa(sel?.id ?? null)
+  const movimentos = useMovimentosCaixa(sel?.id ?? null)
+  const mov = movimentos.data
   const abrir = useAbrirCaixa(); const fechar = useFecharCaixa()
 
   async function toggle(c: ContaCaixa) {
@@ -25,7 +26,7 @@ export function CaixaTab() {
     {
       key: 'acoes', header: '', align: 'right', cell: (c) => (
         <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-          <Button variant="outline" size="sm" onClick={() => toggle(c)}>{Number(c.fechado) ? <><Unlock size={14} /> Abrir</> : <><Lock size={14} /> Fechar</>}</Button>
+          <Button variant="outline" size="sm" disabled={abrir.isPending || fechar.isPending} onClick={() => toggle(c)}>{Number(c.fechado) ? <><Unlock size={14} /> Abrir</> : <><Lock size={14} /> Fechar</>}</Button>
         </div>
       ),
     },
@@ -34,12 +35,13 @@ export function CaixaTab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div>
-        <DataTable columns={columns} rows={contas} loading={isLoading} rowKey={(c) => c.id} onRowClick={(c) => setSel(c)}
+        <DataTable columns={columns} rows={contas} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(c) => c.id} onRowClick={(c) => setSel(c)}
           empty={<EmptyState icon={<Wallet />} title="Nenhum caixa" />} />
       </div>
       <Card><CardContent className="pt-6">
         <p className="font-medium mb-1">{sel ? `Movimentos · ${sel.descricao}` : 'Selecione um caixa'}</p>
-        {sel && <p className="text-sm text-muted-foreground mb-3">Saldo atual: <span className="tabular-nums font-medium">{brl(mov?.saldo ?? sel.saldoatual)}</span></p>}
+        {sel && <AsyncState loading={movimentos.isLoading} error={movimentos.error} onRetry={() => { void movimentos.refetch() }}>
+        <p className="text-sm text-muted-foreground mb-3">Saldo atual: <span className="tabular-nums font-medium">{mov?.saldo == null ? '—' : brl(mov.saldo)}</span></p>
         {sel && mov?.data?.length ? (
           <div className="space-y-2 max-h-[420px] overflow-y-auto">
             {mov.data.map((m: any) => (
@@ -50,6 +52,7 @@ export function CaixaTab() {
             ))}
           </div>
         ) : sel ? <EmptyState icon={<Wallet />} title="Sem movimentos" /> : null}
+        </AsyncState>}
       </CardContent></Card>
     </div>
   )

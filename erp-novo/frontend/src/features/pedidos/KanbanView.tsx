@@ -19,7 +19,7 @@ type ArrastoCard = { pedidoId: number; deSituacao: number }
 type MoverPendente = { pedido: KanbanColuna['pedidos'][number]; destino: KanbanColuna }
 
 export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
-  const { data, isLoading } = usePedidosKanban()
+  const { data, isLoading, error, refetch } = usePedidosKanban()
   const { can } = useAuth()
   const excluir = useExcluirSituacao()
   const reordenar = useReordenarSituacoes()
@@ -46,7 +46,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   const podeExcluir = can('pedidosituacao.delete')
   const podeMover = can('pedido.edit')
 
-  if (isLoading) return <AsyncState loading skeletonRows={4}>{null}</AsyncState>
+  if (isLoading || error) return <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }} skeletonRows={4}>{null}</AsyncState>
 
   /** Limpa todo o estado visual de arraste. */
   function limparArraste() {
@@ -58,8 +58,8 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   }
 
   /** Reordena colunas localmente e persiste. */
-  function soltarColuna(alvoId: number) {
-    const origemId = dragCol.current
+  function reordenarColuna(origemId: number | null, alvoId: number) {
+    if (reordenar.isPending) return
     if (origemId == null || origemId === alvoId) { limparArraste(); return }
     const atual = [...colunas]
     const de = atual.findIndex((c) => c.situacao_id === origemId)
@@ -70,7 +70,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
     setColunas(atual)
     limparArraste()
     reordenar.mutate(atual.map((c) => c.situacao_id), {
-      onError: () => toast.error('Não foi possível salvar a ordem.'),
+      onError: () => { setColunas(colunas); toast.error('Não foi possível salvar a ordem. A ordem anterior foi restaurada.') },
     })
   }
 
@@ -83,6 +83,11 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
     const pedido = origem?.pedidos.find((p) => p.id === arrasto.pedidoId)
     if (!pedido) return
 
+    await solicitarMover(pedido, destino)
+  }
+
+  async function solicitarMover(pedido: MoverPendente['pedido'], destino: KanbanColuna) {
+    if (!podeMover || mudar.isPending) return
     if (destino.efeito === 'PENDENTE') {
       await aplicarMover(pedido.id, destino.situacao_id)
     } else {
@@ -91,8 +96,8 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
   }
 
   async function aplicarMover(pedidoId: number, situacaoId: number) {
-    try { await mudar.mutateAsync({ pedidoId, situacaoId }); toast.success('Pedido movido.') }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível mover o pedido.') }
+    try { await mudar.mutateAsync({ pedidoId, situacaoId }); toast.success('Pedido movido.'); return true }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível mover o pedido.'); return false }
   }
 
   return (
@@ -116,13 +121,13 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
               // Card sobre área vazia da coluna → inserir no fim.
               if (dragCard.current) setAlvo({ situacao: col.situacao_id, indice: pedidos.length })
             }}
-            onDrop={() => { if (dragCard.current) moverCardPara(col); else if (dragCol.current != null) soltarColuna(col.situacao_id) }}
+            onDrop={() => { if (dragCard.current) moverCardPara(col); else if (dragCol.current != null) reordenarColuna(dragCol.current, col.situacao_id) }}
           >
             {/* Cabeçalho da coluna — faixa de cor no topo + título/contador/ações */}
             <div
               className={`rounded-t-xl border-b border-border ${podeEditar ? 'cursor-grab active:cursor-grabbing' : ''}`}
               style={{ borderTop: `3px solid ${col.cor ?? 'hsl(var(--border))'}` }}
-              draggable={podeEditar}
+              draggable={podeEditar && !reordenar.isPending}
               onDragStart={() => { dragCol.current = col.situacao_id; setColArrastando(col.situacao_id) }}
               onDragEnd={limparArraste}
             >
@@ -136,9 +141,13 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                   <StatusBadge efeito={col.efeito} />
                   {(podeEditar || podeExcluir) && (
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-7"><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-7" aria-label={`Ações da coluna ${col.descricao}`}><MoreHorizontal size={16} /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {podeEditar && <DropdownMenuItem onClick={() => setEditar({ id: col.situacao_id, descricao: col.descricao, efeito: col.efeito, cor: col.cor })}><Pencil /> Editar coluna</DropdownMenuItem>}
+                        {podeEditar && <>
+                          <DropdownMenuItem disabled={reordenar.isPending || col === colunas[0]} onClick={() => reordenarColuna(col.situacao_id, colunas[colunas.indexOf(col) - 1].situacao_id)}>Mover coluna à esquerda</DropdownMenuItem>
+                          <DropdownMenuItem disabled={reordenar.isPending || col === colunas[colunas.length - 1]} onClick={() => reordenarColuna(col.situacao_id, colunas[colunas.indexOf(col) + 1].situacao_id)}>Mover coluna à direita</DropdownMenuItem>
+                        </>}
                         {podeExcluir && (<><DropdownMenuSeparator /><DropdownMenuItem destructive onClick={() => setExcluindo(col)}><Trash2 /> Excluir coluna</DropdownMenuItem></>)}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -155,7 +164,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                 <Card
                   key={p.id}
                   className={`shrink-0 cursor-grab active:cursor-grabbing border-border bg-card shadow-sm hover:border-primary/60 hover:shadow-md transition-all duration-150 ${cardArrastando === p.id ? 'opacity-40 scale-[0.97] rotate-1 ring-2 ring-primary shadow-lg' : ''}`}
-                  draggable={podeMover}
+                  draggable={podeMover && !mudar.isPending}
                   onDragStart={(e) => {
                     dragCard.current = { pedidoId: p.id, deSituacao: col.situacao_id }
                     e.dataTransfer.effectAllowed = 'move'
@@ -173,9 +182,17 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
                   onClick={() => onOpen(p.id)}
                 >
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between"><span className="font-semibold text-sm">#{p.id}</span><span className="tabular-nums text-sm font-medium">{brl(p.valorvenda)}</span></div>
+                    <div className="flex items-center justify-between"><button type="button" className="font-semibold text-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded" aria-label={`Abrir pedido #${p.id}`} onClick={(e) => { e.stopPropagation(); onOpen(p.id) }}>#{p.id}</button><span className="tabular-nums text-sm font-medium">{brl(p.valorvenda)}</span></div>
                     <div className="text-xs text-muted-foreground truncate mt-1.5">{p.cliente || '—'}</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{fmtData(p.datahora)}</div>
+                    {podeMover && <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={mudar.isPending} aria-label={`Mover pedido #${p.id}`}>Mover para…</Button></DropdownMenuTrigger>
+                        <DropdownMenuContent>{colunas.filter((destino) => destino.situacao_id !== col.situacao_id).map((destino) =>
+                          <DropdownMenuItem key={destino.situacao_id} onClick={() => { void solicitarMover(p, destino) }}>{destino.descricao}</DropdownMenuItem>
+                        )}</DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>}
                   </CardContent>
                 </Card>,
               ])}
@@ -200,7 +217,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
         )}
       </div>
 
-      {podeMover && <p className="mt-2 text-xs text-muted-foreground">Dica: arraste um card entre colunas para mudar a situação{podeEditar ? '; arraste o cabeçalho para reordenar as colunas' : ''}.</p>}
+      {podeMover && <p className="mt-2 text-xs text-muted-foreground">Use “Mover para…” no pedido ou arraste o cartão para mudar a situação{podeEditar ? '; arraste o cabeçalho para reordenar as colunas' : ''}.</p>}
 
       <SituacaoDialog value={editar} onClose={() => setEditar(null)} />
       <ConfirmDialog
@@ -208,7 +225,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
         title="Excluir coluna"
         description={<>Excluir a coluna <strong>{excluindo?.descricao}</strong>? Só é possível se ela não tiver pedidos.</>}
         loading={excluir.isPending}
-        onConfirm={async () => { try { await excluir.mutateAsync(excluindo!.situacao_id); toast.success('Coluna excluída.') } catch (e: any) { toast.error(e?.response?.data?.message ?? e?.response?.data?.errors?.situacao?.[0] ?? 'Não foi possível excluir.') } finally { setExcluindo(null) } }}
+        onConfirm={async () => { try { await excluir.mutateAsync(excluindo!.situacao_id); toast.success('Coluna excluída.'); setExcluindo(null) } catch (e: any) { toast.error(e?.response?.data?.message ?? e?.response?.data?.errors?.situacao?.[0] ?? 'Não foi possível excluir.') } }}
       />
       <ConfirmDialog
         open={!!mover} onOpenChange={(o) => !o && setMover(null)}
@@ -218,7 +235,7 @@ export function KanbanView({ onOpen }: { onOpen: (id: number) => void }) {
           ? <>Mover o pedido <strong>#{mover?.pedido.id}</strong> para esta coluna vai <strong>concluir a venda</strong>: baixa o estoque e gera o financeiro. Confirmar?</>
           : <>Mover o pedido <strong>#{mover?.pedido.id}</strong> para esta coluna vai <strong>cancelar a venda</strong>: estorna estoque e financeiro. Confirmar?</>}
         loading={mudar.isPending}
-        onConfirm={async () => { const m = mover!; setMover(null); await aplicarMover(m.pedido.id, m.destino.situacao_id) }}
+        onConfirm={async () => { const m = mover!; if (await aplicarMover(m.pedido.id, m.destino.situacao_id)) setMover(null) }}
       />
     </>
   )
@@ -263,9 +280,9 @@ function SituacaoDialog({ value, onClose }: { value: SituacaoForm | null; onClos
   }
 
   return (
-    <FormDialog open={!!value} onOpenChange={(o) => !o && onClose()} title={form.id ? 'Editar coluna' : 'Nova coluna'} loading={salvar.isPending} onConfirm={onConfirm}>
+    <FormDialog dirty={!!value && JSON.stringify(form) !== JSON.stringify(value)} open={!!value} onOpenChange={(o) => !o && onClose()} title={form.id ? 'Editar coluna' : 'Nova coluna'} loading={salvar.isPending} onConfirm={onConfirm}>
       <Field label="Nome da coluna" required><Input autoFocus value={form.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Ex.: Em separação" /></Field>
-      <Field label="Status (efeito na máquina de estados)" required hint="CONCLUÍDO baixa estoque + gera financeiro; CANCELADO estorna. Mudar afeta como os pedidos desta coluna se comportam.">
+      <Field label="Efeito da situação" required hint="CONCLUÍDO baixa estoque + gera financeiro; CANCELADO estorna. Mudar afeta como os pedidos desta coluna se comportam.">
         <Select value={form.efeito} onValueChange={(v) => set('efeito', v as EfeitoPedido)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -290,7 +307,7 @@ function SituacaoDialog({ value, onClose }: { value: SituacaoForm | null; onClos
       <Field label="Cor">
         <div className="flex items-center gap-2 flex-wrap">
           {CORES.map((c) => (
-            <button key={c} type="button" onClick={() => set('cor', c)} aria-label={`Cor ${c}`}
+            <button key={c} type="button" onClick={() => set('cor', c)} aria-pressed={form.cor === c} aria-label={`Cor ${c}`}
               className={`size-7 rounded-full border-2 transition ${form.cor === c ? 'border-foreground scale-110' : 'border-transparent'}`} style={{ background: c }} />
           ))}
           <button type="button" onClick={() => set('cor', null)}

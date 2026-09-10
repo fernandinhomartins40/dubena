@@ -5,6 +5,7 @@ import { Card } from './card'
 import { Button } from './button'
 import { Skeleton } from './skeleton'
 import { EmptyState } from './empty-state'
+import { AsyncState } from './async-state'
 
 export interface Column<T> {
   /** chave/identificador da coluna */
@@ -23,6 +24,8 @@ interface DataTableProps<T> {
   columns: Column<T>[]
   rows: T[] | undefined
   loading?: boolean
+  error?: unknown
+  onRetry?: () => void
   rowKey: (row: T) => string | number
   onRowClick?: (row: T) => void
   /** estado vazio customizado */
@@ -39,16 +42,17 @@ interface DataTableProps<T> {
 const alignClass = { left: 'text-left', right: 'text-right', center: 'text-center' }
 
 export function DataTable<T>({
-  columns, rows, loading, rowKey, onRowClick, empty,
+  columns, rows, loading, error, onRetry, rowKey, onRowClick, empty,
   page, lastPage, onPageChange, fetching, pageInfo, className,
 }: DataTableProps<T>) {
   const hasPagination = page != null && lastPage != null && onPageChange && lastPage > 1
+  if (error) return <AsyncState error={error} onRetry={onRetry}>{null}</AsyncState>
 
   return (
     <div className={className}>
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-busy={loading || fetching || undefined} className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur text-muted-foreground">
               <tr className="border-b border-border">
                 {columns.map((c) => (
@@ -77,9 +81,16 @@ export function DataTable<T>({
                       onRowClick && 'cursor-pointer hover:bg-secondary/60',
                     )}
                   >
-                    {columns.map((c) => (
+                    {columns.map((c, index) => (
                       <td key={c.key} className={cn('px-4 py-3', alignClass[c.align ?? 'left'], c.className)}>
                         {c.cell(row)}
+                        {index === 0 && onRowClick && (
+                          <button type="button" className="mt-1 block rounded text-xs font-medium text-accent-foreground underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                            aria-label={`Abrir registro ${rowKey(row)}`}
+                            onClick={(event) => { event.stopPropagation(); onRowClick(row) }}>
+                            Abrir
+                          </button>
+                        )}
                       </td>
                     ))}
                   </tr>

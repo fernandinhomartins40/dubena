@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useLocation } from 'react-router-dom'
@@ -10,6 +10,10 @@ import { AppRoutes } from '@/routes'
 import { SaRoutes } from '@/features/superadmin/SaRoutes'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import './index.css'
+import { initializeTheme } from '@/lib/theme'
+import { UnsavedChangesProvider } from '@/lib/UnsavedChanges'
+
+initializeTheme()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
@@ -46,12 +50,12 @@ function Raiz() {
   )
 }
 
+const router = createBrowserRouter([{ path: '*', element: <UnsavedChangesProvider><Raiz /></UnsavedChangesProvider> }], { basename: basename || '/' })
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={basename}>
-        <Raiz />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </React.StrictMode>,
 )

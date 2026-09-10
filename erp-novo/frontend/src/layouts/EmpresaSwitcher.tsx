@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { useRequestLeave } from '@/lib/UnsavedChanges'
 import { Building2, Check, ChevronsUpDown, Network } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -19,11 +20,12 @@ import { useEmpresas, useAtivarEmpresa } from '@/features/empresas/api'
  * caixa e numeração fiscal), porque quem opera uma filial precisa estar
  * posicionado nela. São coisas distintas, mas a escolha do usuário é uma só.
  */
-export function EmpresaSwitcher() {
+export function EmpresaSwitcher({ onScopeChange }: { onScopeChange?: () => void }) {
   const { user, can, refresh } = useAuth()
   const { data: empresas } = useEmpresas()
   const ativar = useAtivarEmpresa()
   const qc = useQueryClient()
+  const requestLeave = useRequestLeave()
 
   const filtro = getFiltroEmpresa()
   const podeTrocar = can('empresa.view') && (empresas?.length ?? 0) > 1
@@ -38,9 +40,9 @@ export function EmpresaSwitcher() {
   if (!podeTrocar) {
     if (!ativa) return null
     return (
-      <div className="hidden md:flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
+      <div className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2 sm:px-3 py-1.5 text-sm">
         <Building2 size={15} className="text-muted-foreground" />
-        <span className="font-medium truncate max-w-[160px]">{nomeDe(ativa)}</span>
+        <div className="min-w-0"><span className="block text-[11px] text-muted-foreground">Operando em</span><span className="block font-medium truncate max-w-[160px]" title={nomeDe(ativa)}>{nomeDe(ativa)}</span></div>
       </div>
     )
   }
@@ -71,6 +73,7 @@ export function EmpresaSwitcher() {
   async function verTodaARede() {
     setFiltroEmpresa(null)
     await recarregar()
+    onScopeChange?.()
     toast.success('Mostrando toda a rede.')
   }
 
@@ -83,6 +86,7 @@ export function EmpresaSwitcher() {
         await refresh()
       }
       await recarregar()
+      onScopeChange?.()
       toast.success(`Mostrando ${nome}.`)
     } catch {
       setFiltroEmpresa(filtro)
@@ -93,19 +97,22 @@ export function EmpresaSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary transition-colors max-w-[240px]">
+        <button disabled={ativar.isPending} aria-label={`Visualizando ${rotulo}. Operando em ${ativa ? nomeDe(ativa) : 'empresa não identificada'}`}
+          className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2 sm:px-3 py-1.5 text-sm hover:bg-secondary transition-colors max-w-[240px]">
           {empresaFiltrada
             ? <Building2 size={15} className="text-muted-foreground shrink-0" />
             : <Network size={15} className="text-muted-foreground shrink-0" />}
-          <span className="font-medium truncate">{rotulo}</span>
+          <span className="min-w-0 text-left"><span className="block truncate text-[11px] text-muted-foreground">{ativar.isPending ? 'Trocando empresa…' : `Visualizando: ${rotulo}`}</span>
+            <span className="block truncate text-xs font-medium" title={ativa ? nomeDe(ativa) : undefined}>Operando em: {ativa ? nomeDe(ativa) : 'não identificada'}</span></span>
           <ChevronsUpDown size={14} className="text-muted-foreground shrink-0" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Empresa exibida</DropdownMenuLabel>
+        <DropdownMenuLabel>Escopo de visualização</DropdownMenuLabel>
+        <p className="px-2 pb-2 text-xs text-muted-foreground">Escolher uma empresa também muda a operação. Toda a rede mantém a empresa operacional atual.</p>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={verTodaARede}>
+        <DropdownMenuItem disabled={ativar.isPending} onClick={() => { if (filtro !== null) requestLeave(() => { void verTodaARede() }) }}>
           <Network />
           <span className="flex-1">Toda a rede</span>
           {!filtro && <Check className="text-primary" />}
@@ -114,7 +121,7 @@ export function EmpresaSwitcher() {
         <DropdownMenuSeparator />
 
         {empresas.map((e) => (
-          <DropdownMenuItem key={e.id} onClick={() => selecionar(e.id, nomeDe(e))}>
+          <DropdownMenuItem disabled={ativar.isPending} key={e.id} onClick={() => { if (filtro !== e.id || ativa?.id !== e.id) requestLeave(() => { void selecionar(e.id, nomeDe(e)) }) }}>
             <Building2 />
             <span className="flex-1 truncate">{nomeDe(e)}</span>
             {filtro === e.id && <Check className="text-primary" />}

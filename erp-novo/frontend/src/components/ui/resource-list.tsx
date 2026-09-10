@@ -18,6 +18,8 @@ interface Props<T> {
   columns: Column<T>[]
   rows: T[] | undefined
   loading?: boolean
+  error?: unknown
+  onRetry?: () => void
   rowKey: (row: T) => string | number
   onRowClick?: (row: T) => void
   /** estado vazio: ícone + título (description opcional) */
@@ -27,7 +29,7 @@ interface Props<T> {
 }
 
 export function ResourceList<T>({
-  title, subtitle, action, filtros, columns, rows, loading, rowKey, onRowClick,
+  title, subtitle, action, filtros, columns, rows, loading, error, onRetry, rowKey, onRowClick,
   emptyIcon, emptyTitle = 'Nenhum registro', emptyDescription,
 }: Props<T>) {
   return (
@@ -38,6 +40,8 @@ export function ResourceList<T>({
         columns={columns}
         rows={rows}
         loading={loading}
+        error={error}
+        onRetry={onRetry}
         rowKey={rowKey}
         onRowClick={onRowClick}
         empty={<EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />}

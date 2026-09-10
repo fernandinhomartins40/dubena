@@ -1,7 +1,8 @@
+import { useFieldControl } from './field-context'
 import { useEffect, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react'
-import { api } from '@/lib/api'
+import { useLookup } from '@/lib/useLookup'
 import { cn } from '@/lib/cn'
 
 export interface Option { id: number; label: string; [k: string]: unknown }
@@ -9,6 +10,7 @@ export interface Option { id: number; label: string; [k: string]: unknown }
 interface Props {
   /** endpoint relativo à API admin, ex.: '/lookups/cidades' */
   endpoint: string
+  labelField?: string
   params?: Record<string, unknown>
   value: number | null
   /** label inicial p/ exibir quando já há value (modo edição) */
@@ -22,35 +24,23 @@ interface Props {
 
 /** Seleção assíncrona moderna (Radix Popover + busca server-side com debounce). */
 export function AsyncSelect({
-  endpoint, params, value, valueLabel, onChange, placeholder = 'Selecione…', disabled, error, className,
+  endpoint, params, value, valueLabel, onChange, placeholder = 'Selecione…', disabled, error, className, labelField,
 }: Props) {
+  const accessible = useFieldControl({}, error)
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
-  const [options, setOptions] = useState<Option[]>([])
   const [selectedLabel, setSelectedLabel] = useState<string | null>(valueLabel ?? null)
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => { setSelectedLabel(valueLabel ?? null) }, [valueLabel])
 
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    const t = setTimeout(async () => {
-      try {
-        const { data } = await api.get(endpoint, { params: { q: busca, ...params } })
-        // Aceita array puro OU { data: [...] } (lista paginada) — robustez contra endpoint que não é lookup.
-        const lista = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
-        setOptions(lista as Option[])
-      } catch { setOptions([]) } finally { setLoading(false) }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [busca, open, endpoint, JSON.stringify(params)])
+  const { options, loading, error: loadError, retry } = useLookup(open, endpoint, busca, params, labelField)
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild disabled={disabled}>
         <button
           type="button"
+          {...accessible}
           className={cn(
             'flex h-10 w-full items-center justify-between rounded-md border bg-card px-3 py-2 text-sm shadow-sm transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
@@ -72,7 +62,7 @@ export function AsyncSelect({
           <div className="flex items-center border-b border-border px-3">
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <input
-              autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…"
+              autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar…" aria-label="Buscar opções"
               className="flex h-10 w-full bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
@@ -88,6 +78,11 @@ export function AsyncSelect({
             )}
             {loading ? (
               <li className="px-2 py-3 text-sm text-muted-foreground">Carregando…</li>
+            ) : loadError ? (
+              <li role="alert" className="px-2 py-3 text-sm">
+                <p>{loadError}</p>
+                <button type="button" onClick={retry} className="mt-2 rounded px-2 py-2 font-medium text-accent-foreground underline">Tentar novamente</button>
+              </li>
             ) : options.length === 0 ? (
               <li className="px-2 py-3 text-sm text-muted-foreground">Nenhum resultado.</li>
             ) : options.map((o) => (

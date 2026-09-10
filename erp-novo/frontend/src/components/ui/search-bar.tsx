@@ -29,7 +29,7 @@ export function SearchBar({ value, onChange, onSearch, placeholder = 'Buscar…'
         {children}
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
+          <Input aria-label={placeholder} type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
         </div>
         <Button type="submit" variant="secondary">Buscar</Button>
       </form>

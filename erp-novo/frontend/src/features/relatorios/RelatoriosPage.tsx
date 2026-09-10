@@ -1,13 +1,15 @@
+import { ReportResult } from './ReportResult'
 import { useState } from 'react'
 import { FileBarChart, FileText, FileSpreadsheet, Search } from 'lucide-react'
 import {
-  Button, Card, CardContent, PageHeader, Input, Field, EmptyState, Skeleton,
+  Button, Card, CardContent, PageHeader, Input, Field, EmptyState, AsyncState,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
 import { RELATORIOS, useRelatorio, baixarRelatorio, type RelatorioDef } from './api'
 
-const hoje = new Date().toISOString().slice(0, 10)
-const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const hoje = localDate(new Date())
+const inicioMes = localDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 
 export function RelatoriosPage() {
   const [sel, setSel] = useState<RelatorioDef>(RELATORIOS[0])
@@ -17,7 +19,7 @@ export function RelatoriosPage() {
   // 60 dias: o giro tipico de um P13 domestico fica entre 30 e 45, entao quem
   // passou disso nao esta atrasado — esta comprando de outro.
   const [dias, setDias] = useState('60')
-  const [run, setRun] = useState(0)
+  const [submitted, setSubmitted] = useState<{ slug: string; title: string; params: Record<string, unknown> } | null>(null)
   const [baixando, setBaixando] = useState(false)
 
   const params: Record<string, unknown> = {}
@@ -25,7 +27,14 @@ export function RelatoriosPage() {
   if (sel.mes) params.mes = Number(mes)
   if (sel.dias) params.dias = Number(dias)
 
-  const { data, isLoading, isFetching } = useRelatorio(sel.slug, params, run > 0)
+  const { data, isLoading, isFetching, error, refetch } = useRelatorio(submitted?.slug ?? sel.slug, submitted?.params ?? params, !!submitted)
+  const changed = !!submitted && (submitted.slug !== sel.slug || JSON.stringify(submitted.params) !== JSON.stringify(params))
+  const invalid = (sel.periodo && (!inicio || !fim || inicio > fim)) || (sel.dias && (!Number.isInteger(Number(dias)) || Number(dias) < 1))
+  function consultar() {
+    if (invalid) return
+    if (submitted && !changed) { void refetch(); return }
+    setSubmitted({ slug: sel.slug, title: sel.titulo, params: { ...params } })
+  }
 
   async function exportar(formato: 'csv' | 'pdf') {
     setBaixando(true)
@@ -33,10 +42,6 @@ export function RelatoriosPage() {
     catch { toast.error('Erro ao exportar.') }
     finally { setBaixando(false) }
   }
-
-  // O relatório pode vir como array (lista) ou objeto (resumo/dre). Normaliza p/ preview.
-  const linhas = Array.isArray(data) ? (data as Record<string, unknown>[]) : null
-  const colunas = linhas && linhas.length ? Object.keys(linhas[0]) : []
 
   return (
     <div>
@@ -70,41 +75,25 @@ export function RelatoriosPage() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setRun((n) => n + 1)}><Search size={16} /> Consultar</Button>
-            <Button variant="outline" loading={baixando} onClick={() => exportar('csv')}><FileSpreadsheet size={16} /> CSV</Button>
-            <Button variant="outline" loading={baixando} onClick={() => exportar('pdf')}><FileText size={16} /> PDF</Button>
+            <Button disabled={!!invalid} loading={isFetching} onClick={consultar}><Search size={16} /> Consultar</Button>
+            <Button variant="outline" disabled={!!invalid || changed} loading={baixando} onClick={() => exportar('csv')}><FileSpreadsheet size={16} /> CSV</Button>
+            <Button variant="outline" disabled={!!invalid || changed} loading={baixando} onClick={() => exportar('pdf')}><FileText size={16} /> PDF</Button>
           </div>
         </CardContent>
       </Card>
 
-      {run === 0 ? (
+      {invalid && <p role="alert" className="mb-4 text-sm text-destructive">Confira o período e os parâmetros antes de consultar.</p>}
+      {changed && <p role="status" className="mb-4 rounded-lg border bg-card p-3 text-sm">Filtros alterados. Clique em Consultar para atualizar o resultado e a exportação.</p>}
+      {!submitted ? (
         <EmptyState icon={<FileBarChart />} title="Selecione e consulte" description="Escolha um relatório e clique em Consultar, ou exporte direto em CSV/PDF." />
-      ) : isLoading || isFetching ? (
-        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
-      ) : linhas ? (
-        linhas.length === 0
-          ? <EmptyState icon={<FileBarChart />} title="Sem dados no período" />
-          : (
-            <Card><CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>{colunas.map((c) => <th key={c} className="px-3 py-2 font-medium uppercase text-xs text-muted-foreground">{c}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {linhas.map((l, i) => (
-                    <tr key={i} className="border-t border-border">
-                      {colunas.map((c) => <td key={c} className="px-3 py-2 tabular-nums">{String(l[c] ?? '—')}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent></Card>
-          )
       ) : (
-        // resumo/objeto (ex.: financeiro, dre) → renderiza chave/valor
-        <Card><CardContent className="p-4">
-          <pre className="text-sm overflow-x-auto whitespace-pre-wrap">{JSON.stringify(data, null, 2)}</pre>
-        </CardContent></Card>
+        <section aria-label={submitted.title}>
+          <h2 className="mb-3 text-lg font-semibold">{submitted.title}</h2>
+          <p className="mb-4 text-sm text-muted-foreground">{Object.entries(submitted.params).map(([key, value]) => `${key === 'inicio' ? 'Início' : key === 'fim' ? 'Fim' : key === 'mes' ? 'Mês' : 'Dias'}: ${value}`).join(' · ') || 'Consulta sem filtro de período'}</p>
+          <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }}>
+            <ReportResult value={data} title={submitted.title} />
+          </AsyncState>
+        </section>
       )}
     </div>
   )

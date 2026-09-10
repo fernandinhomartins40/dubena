@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useDirtyRegistration } from './UnsavedChanges'
 
 /**
  * useResourceForm — abstrai o boilerplate das form-pages (cliente/produto/…):
@@ -27,9 +28,17 @@ export function useResourceForm<T extends Record<string, any>>(opts: ResourceFor
   const [form, setForm] = useState<T>(vazio)
   const [inicial, setInicial] = useState<T>(vazio)
   const [erros, setErros] = useState<Record<string, string>>({})
+  const dirty = JSON.stringify(form) !== JSON.stringify(inicial)
+  const markClean = useDirtyRegistration(dirty)
+  const dirtyRef = useRef(dirty)
+  dirtyRef.current = dirty
+  const entityRef = useRef<unknown>(undefined)
 
   useEffect(() => {
     if (!existente) return
+    // Refetch do mesmo cadastro não sobrescreve o trabalho em andamento.
+    if (entityRef.current === existente.id && dirtyRef.current) return
+    entityRef.current = existente.id
     let f: T
     if (hidratar) {
       f = hidratar(existente, vazio)
@@ -51,13 +60,25 @@ export function useResourceForm<T extends Record<string, any>>(opts: ResourceFor
     setForm((prev) => ({ ...prev, [k]: v }))
   }
 
-  const dirty = JSON.stringify(form) !== JSON.stringify(inicial)
+  useEffect(() => {
+    const protect = (event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', protect)
+    return () => window.removeEventListener('beforeunload', protect)
+  }, [])
 
   /** Persiste via `fn`; em 422 popula `erros` e relança. */
   async function submit<R>(fn: (data: T) => Promise<R>): Promise<R> {
     setErros({})
     try {
-      return await fn(form)
+      const result = await fn(form)
+      setInicial(form)
+      dirtyRef.current = false
+      markClean()
+      return result
     } catch (e: any) {
       if (e?.response?.status === 422 && e.response.data?.errors) {
         const ve = e.response.data.errors as Record<string, string[]>
