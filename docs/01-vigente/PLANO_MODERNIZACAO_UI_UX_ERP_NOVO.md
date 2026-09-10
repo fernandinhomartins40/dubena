@@ -4,12 +4,11 @@ Data: 10/09/2026. Estado: planejamento, sem implementação de interfaces.
 Base: branch `main`, commit `2b53d9fdc3b7ac4c72a25f531787afa0df260f3a`.
 Escopo: landing pública, autenticação, SPA do ERP e SuperAdmin de `erp-novo`.
 
-> ⚠️ **A seção 3 (identidade visual) foi revisada.** A implementação escureceu a
-> marca além do necessário porque o gate visual deste plano nunca chegou a rodar
-> — sem navegador, a paleta foi alterada sem ser vista. A direção de cor vigente,
-> com contraste medido e inspeção em navegador, está em
-> [`PLANO_UI_COR_E_VIDA.md`](PLANO_UI_COR_E_VIDA.md). O resto deste plano
-> (achados UX01–UX22, microlotes, gates) continua válido.
+> ⚠️ **Revisado em 10/09/2026, depois da primeira inspeção em navegador.** A
+> seção 3 foi reescrita: a implementação escureceu a marca além do necessário
+> porque o gate visual nunca chegou a rodar. A seção 5 recebeu os achados da
+> landing renderizada, e a seção 8 ganhou o lote U15. O restante (achados
+> UX01–UX22, microlotes, gates) permanece como estava.
 
 ## 1. Direção recomendada
 
@@ -55,11 +54,102 @@ Fontes de identidade efetiva: `erp-novo/frontend/src/index.css`, `erp-novo/front
 
 **Divergência documental confirmada:** `docs/01-vigente/IMPL_UI.md` descreve azul/roxo/amarelo e capacidades de tabela diferentes do código atual. Na implementação, reconciliar esse documento com `PADRAO_UI.md`; não restaurar a paleta antiga. Também não assumir que uma dependência instalada, como TanStack Table, significa que suas capacidades estão implementadas.
 
-**Contraste confirmado por cálculo:** branco sobre `#FF6200` resulta em aproximadamente **3,0004:1**; grafite `#1F1F1F` sobre o mesmo laranja resulta em **5,4936:1**. O botão da landing usa branco sobre esse laranja com texto de 15px. Essa combinação não atende ao mínimo de 4,5:1 para texto comum. A aproximação HSL do painel e os demais estados devem ser medidos separadamente.
+### 3.1 Revisão de 10/09/2026 — a paleta foi alterada sem o gate visual
 
-Solução preferida a prototipar: preservar o laranja de marca e usar grafite no texto das superfícies laranja quando adequado. Para links sobre fundo claro, criar derivação mais escura da mesma família. Comparar visualmente as variantes antes da adoção; não escurecer toda a marca indiscriminadamente.
+⚠️ **Esta subseção corrige a orientação anterior, não a complementa.** A
+implementação (commit `abddbcc8`) aplicou o parágrafo abaixo sobre contraste e
+escureceu a marca além do necessário. A causa é registrada em
+`UI_UX_ERP_NOVO_EXECUCAO.md`: o gate visual deste plano nunca rodou, por
+ausência de navegador na sessão. A cor foi decidida por cálculo isolado, sem
+ninguém ver o resultado.
 
-Proposta de escala, sujeita ao gate visual: corpo 14–16px, metadados 12–13px, títulos de página 24–28px, números principais 28–36px; espaçamento 4/8/12/16/24/32px; raio derivado do token atual de 10px, com 12–16px em superfícies maiores. Densidade compacta para operação e confortável para consulta. Não reduzir informação crítica para caber em um card.
+O cálculo original estava certo e continua valendo: branco sobre `#FF6200` dá
+**3,00:1** e grafite `#1F1F1F` sobre o mesmo laranja dá **5,49:1**. O erro foi de
+escopo — tratou-se todo uso do laranja como se fosse texto pequeno.
+
+**O que o WCAG realmente exige, por papel do laranja:**
+
+| Papel | Mínimo | `#FF6200` puro | Pode usar puro? |
+|---|---|---|---|
+| Texto corrido (< 18,66px bold) | 4,5:1 | 3,00:1 | **Não** |
+| Texto grande (≥ 24px, ou ≥ 18,66px bold) | 3:1 | 3,00:1 | **Sim** |
+| Borda, ícone, indicador, gráfico | 3:1 | 3,00:1 | **Sim** |
+| Superfície com texto grafite por cima | 4,5:1 (do texto) | 5,49:1 | **Sim** |
+
+O laranja da marca só reprova em **texto pequeno sobre branco**. Escurecer a
+marca inteira para resolver esse caso foi desproporcional, e é exatamente o que o
+parágrafo anterior alertava para não fazer.
+
+**Três desvios medidos na implementação:**
+
+| Mudança aplicada | Medição | Veredito |
+|---|---|---|
+| `--primary-foreground` branco → grafite | 3,00:1 → 5,51:1 | **Correto.** Mantém |
+| `.text-primary` → laranja L32% (`#A33F00`) | 6,44:1, quando **L38% já dá 4,91:1** | **Exagerado.** Escureceu 6 pontos além do exigido |
+| `--success` lime → verde | — | **Correto** conceitualmente, mas deixou o lime órfão em 1 uso na SPA inteira |
+
+Há ainda um erro de método a desfazer: o override foi escrito como
+`@layer utilities { .text-primary { color: hsl(var(--accent-foreground)); } }`,
+que sequestra **toda** ocorrência de `text-primary` — inclusive ícones, bordas e
+gráficos, medidos em 3:1, onde o laranja puro já passava. Requisito de texto
+aplicado a coisas que não são texto.
+
+**Tokens vigentes após esta revisão:**
+
+| Token | Valor | Contraste medido | Papel |
+|---|---|---|---|
+| `--primary` | `#FF6200` | 3,00:1 s/ branco | Marca. Superfícies, bordas, ícones, texto grande |
+| `--primary-foreground` | grafite 12% | 5,51:1 | Texto sobre superfície laranja |
+| `--primary-acao` *(novo)* | `#CC4E00` (L40%) | **4,50:1 c/ branco** | Só o botão de ação primária, com texto branco |
+| `--primary-texto` | L38% (`#C24A00`) | **4,91:1** | Links e texto laranja sobre claro |
+| `--destaque` (lime) | `#DBFB3B` | **14,26:1 sobre grafite** | Ver 3.2 |
+| `--success` | verde 140° | — | Sucesso operacional, distinto da marca |
+
+`--primary-acao` é a peça central: o botão primário recupera o texto branco — o
+que o faz parecer clicável — pagando 10% de luminosidade **num componente**, em
+vez de escurecer a marca inteira. Hoje, no login, "Entrar" tem texto quase preto
+e parece desabilitado.
+
+### 3.2 O lime precisa de território, não de uso pontual
+
+O lime é a cor mais saturada da marca e hoje aparece em **um único lugar** da SPA
+(variante `warning` do badge). A medição mostra o desperdício: **14,26:1 sobre
+grafite**, contraste altíssimo, seguro para texto e número grande. Sobre branco
+dá 1,16:1 — invisível.
+
+Daí a regra: **o lime vive em fundo escuro, nunca sobre branco.** Isso lhe dá um
+território próprio em vez de competir com o laranja pelos mesmos lugares.
+
+| Lugar | Uso | Por quê |
+|---|---|---|
+| Sidebar grafite | Indicador do item ativo | A sidebar já é escura; hoje o ativo é laranja, competindo com os botões |
+| KPI do dashboard | Acento `lime` do `StatCard` | Já implementado no componente, sem nenhum consumidor |
+| Landing, hero grafite | Manter | É o único lugar onde o lime está certo hoje |
+
+Nenhum componente novo é necessário.
+
+### 3.3 Onde gastar a ousadia
+
+Concentrar a boldness em um elemento e manter o resto disciplinado. Para um ERP
+de GLP, esse elemento é **o número**.
+
+Quem opera este sistema passa o dia com quantidade: botijões em poder do cliente,
+pedidos na fila, parcelas em aberto, saldo por setor. O número é o conteúdo — não
+o card que o embrulha, não o ícone ao lado. Hoje os KPIs usam `text-3xl` e têm o
+mesmo peso visual de todo o resto.
+
+Direção: o número é o elemento tipográfico da interface — grande, tabular,
+tracking apertado, rótulo discreto embaixo; borda, sombra e tint recuam. É a
+única licença estética que este plano pede, e ela vem do assunto, não de
+tendência visual.
+
+Corolário: sem gradiente decorativo, sem sombra colorida, sem animação de entrada
+por seção. Movimento fica reservado para responder a uma ação da pessoa (abrir,
+confirmar, mover), que é onde ele informa.
+
+### 3.4 Escala tipográfica e espaçamento
+
+Proposta, sujeita ao gate visual: corpo 14–16px, metadados 12–13px, títulos de página 24–28px, números principais 28–36px; espaçamento 4/8/12/16/24/32px; raio derivado do token atual de 10px, com 12–16px em superfícies maiores. Densidade compacta para operação e confortável para consulta. Não reduzir informação crítica para caber em um card.
 
 ## 4. Achados prioritários com evidência
 
@@ -109,6 +199,26 @@ Ordem proposta:
 9. **Rodapé:** identidade, contato e documentos institucionais existentes. Decidir manutenção do link clássico como item de transição sem tocar no legado.
 
 Tratamento visual: preservar hero grafite, cores de marca e família tipográfica; reduzir efeitos decorativos que competem com o conteúdo; usar lime em realces menores; revisar a faixa lime extensa à luz da regra atual de predominância neutra. Seções com ritmo consistente, imagem de produto maior e botões sem competição de hierarquia. Não adicionar vídeo pesado, carrossel automático ou números fictícios para parecer moderno.
+
+### 5.1 Achados da landing renderizada (10/09/2026)
+
+Primeira inspeção em navegador do projeto, contra homologação
+(`gasemcasa.com/novo/`), com a skill `browser-automation`. A estrutura entregue
+melhorou de fato; o que a captura revelou são marcas de layout genérico que não
+vêm da marca nem do negócio:
+
+| Achado | Onde | Correção |
+|---|---|---|
+| Eyebrow em CAIXA ALTA espaçada acima de **toda** seção | `GESTÃO PARA GÁS E ÁGUA`, `MENOS RETRABALHO`, `O PRODUTO POR DENTRO`, `UMA ROTINA CONECTADA`, `ANTES DE COMEÇAR` | Remover. Onde a seção precisa de contexto, o título já diz |
+| Marcadores `01/02/03` em conteúdo que **não é sequência** | Os três benefícios (atendimento, vasilhame, fechamento) são paralelos | Remover a numeração. Mantê-la só no fluxo pedido→entrega→conferência, que é sequência real |
+| Metadados unidos por `·` | `Clientes · pedidos · relacionamento` | Reescrever como frase ou lista |
+| Seta colada ao texto do botão | `Entrar ↗`, `Conhecer o sistema ↓` | Tirar do rótulo; seta é ícone, não palavra |
+| Cards idênticos, mesmo raio e mesma sombra | Benefícios, módulos, CTA | Diferenciar por hierarquia: o mais importante ganha peso, não outro card |
+
+Preservar o que está correto: hero grafite com lime, mockup honestamente marcado
+como ilustrativo, ausência de número inventado, sem depoimento falso, sem
+carrossel. A disciplina de não inventar prova comercial não deve ser desfeita ao
+mexer no visual.
 
 Gate da landing: destino de cada CTA verificado, navegação por teclado, textos e ativos revisados, layout estreito sem estouro, âncoras não cobertas pelo header, imagens com dimensões/alternativas e versão compartilhável coerente. Formulário comercial, se escolhido, exige API/destino, estados de envio/erro e confirmação de recebimento; um botão bonito sem jornada não conclui a tarefa.
 
@@ -196,6 +306,18 @@ Estimativas são tamanho relativo de trabalho, não prazos garantidos: S = recor
 | U12 | P2 / L | Ondas dos demais domínios da seção 7 | U7; priorização por frequência | Cada domínio tem percurso próprio validado; até três tarefas por vez |
 | U13 | P1 / M | SuperAdmin shell; estados independentes; detalhes administrativos | U1–U3 | Sem mistura de sessão/escopo; ação com alvo explícito |
 | U14 | P1 / M | Regressão visual/funcional; piloto com operadores; documentação final | Lotes do escopo liberado | Aceites abaixo aprovados com evidência |
+| U15 | P0 / M | Correção da paleta (seção 3): tokens, lime com território, número como elemento tipográfico, limpeza da landing | Navegador disponível — hoje há | Cada item com captura antes/depois; contraste recalculado por script |
+
+**U15 é P0 porque corrige uma regressão visual já em homologação.** Ordem
+interna, cada item revertível isoladamente e sem tocar backend, schema ou dado:
+
+| Passo | Entrega | Gate |
+|---|---|---|
+| U15-a | Tokens `--primary-acao` e `--primary-texto` L38%; remover o override de `.text-primary`; ajustar `button.tsx` | Contraste recalculado; captura do login e de uma lista |
+| U15-b | Lime na sidebar (item ativo) e nos KPIs pelo acento já existente do `StatCard` | Captura da sidebar e do dashboard, dois temas |
+| U15-c | Número como elemento tipográfico no `StatCard` | Captura do dashboard; rótulo continua legível |
+| U15-d | Landing: remover eyebrows, numeração não-sequencial, `·` e setas no rótulo (seção 5.1) | Captura da página inteira; nenhum texto novo inventado |
+| U15-e | Tema escuro completo dos quatro acima | Captura em ambos os temas, larguras 390 e 1280 |
 
 Primeira entrega funcional recomendada: U0–U3, landing U4, dashboard U6 e uma lista/formulário canônicos U7. Isso melhora a experiência pública e a entrada no produto, com base segura para expansão. Não começar redesenhando trinta módulos de forma independente.
 
@@ -208,6 +330,18 @@ Toda entrega deve registrar IDs UX cobertos, arquivos, cenários executados, evi
 Meta: WCAG 2.2 AA no recorte entregue. Verificar contraste de texto comum ≥ 4,5:1, texto grande ≥ 3:1 e componentes/indicadores relevantes ≥ 3:1; navegação por teclado, foco visível/não encoberto, nomes acessíveis e mensagens de status. Alvos de ponteiro devem atender 24×24 CSS px ou exceção aplicável; adotar 44×44 como meta de conforto para ações frequentes no celular. Esses critérios e exceções devem ser conferidos no [W3C — WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
 Matriz visual inicial: larguras 360, 390, 768, 1280 e 1440px; ambos os temas da SPA; zoom 200%; reflow a 320 CSS px onde aplicável. Validar menu aberto/fechado, tabelas longas, nome de empresa longo, modal alto e teclado virtual. Guardar screenshots por rota/estado. Screenshot sem interação não comprova acessibilidade.
+
+**O gate visual deixou de ser bloqueado.** A skill `browser-automation` está
+instalada e verificada contra homologação (`gasemcasa.com/novo/`): carrega a
+página, captura PNG, lista erros de console e requests falhados, e avalia JS na
+página. Foi assim que os achados de 5.1 apareceram. A skill `frontend-design`
+está instalada para a direção estética.
+
+Consequência prática: **nenhum lote que mexa em cor, espaçamento ou hierarquia
+fecha sem captura antes/depois.** A regressão da seção 3 aconteceu precisamente
+por decidir paleta sem olhar a tela — cálculo de contraste sozinho não substitui
+a inspeção, como o caso do botão "Entrar" demonstrou: aprovado em 5,51:1 e, na
+tela, parecendo desabilitado.
 
 ### Estados e fluxos obrigatórios
 
