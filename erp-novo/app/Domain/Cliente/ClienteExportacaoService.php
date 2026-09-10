@@ -4,12 +4,11 @@ namespace App\Domain\Cliente;
 
 use App\Models\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Builder;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Color;
+use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Writer\XLSX\Writer;
 
 /**
  * Exportação personalizada da base de clientes (CSV / XLSX / PDF).
@@ -440,91 +439,93 @@ class ClienteExportacaoService
         return $linhas;
     }
 
+
     /**
-     * XLSX real (PhpSpreadsheet): cabeçalho congelado, filtro automático e
-     * largura por coluna. É o que permite ao dono ordenar por bairro e somar
-     * limites de crédito na própria planilha — que é o motivo de existir XLSX
-     * em vez de só CSV.
+     * XLSX escrito em STREAMING (openspout), com memória constante.
+     *
+     * Por que não é mais PhpSpreadsheet: aquela biblioteca monta a planilha
+     * inteira em memória, um objeto por célula. Com 51.793 clientes × 20
+     * colunas isso deu 986 MB de um `memory_limit` de 1 GB — e com mais
+     * colunas o processo morria com "Allowed memory size exhausted". Era um
+     * fatal do PHP, que mata o worker antes do Laravel registrar: por isso o
+     * erro nunca apareceu no `laravel.log`, só no stdout do FPM, e a tela via
+     * apenas um 500 seco depois de minutos de espera.
+     *
+     * O openspout escreve linha a linha direto no arquivo e descarta o que já
+     * gravou, então a memória não cresce com o volume. O PhpSpreadsheet
+     * continua em uso por outros relatórios; aqui o volume é que não cabia.
+     *
+     * Efeito colateral bem-vindo: `StringCell` grava texto como texto por
+     * construção. O complemento '==-' que derrubava a exportação com "Formula
+     * Error" deixa de ser um caso a tratar — não existe motor de fórmula.
      *
      * @param  list<array<string,mixed>>  $linhas
      */
     public function xlsx(array $linhas, string $titulo): string
     {
-        $planilha = new Spreadsheet;
-        $aba = $planilha->getActiveSheet();
-        // O Excel recusa aba com >31 chars ou com : \ / ? * [ ]
-        $aba->setTitle(mb_substr(preg_replace('/[:\\\\\/?*\[\]]/', '', $titulo) ?: 'Clientes', 0, 31));
-
         $colunas = $linhas === [] ? [] : array_keys($linhas[0]);
 
-        foreach ($colunas as $i => $rotulo) {
-            $aba->setCellValue([$i + 1, 1], $rotulo);
-        }
-        foreach ($linhas as $l => $linha) {
-            foreach ($colunas as $i => $rotulo) {
-                $valor = $linha[$rotulo] ?? null;
-                // setCellValueExplicit como TEXTO em dois casos:
-                //
-                // 1. zero à esquerda (CPF/CEP/telefone) — o Excel converteria
-                //    para número e "07..." viraria "7...";
-                //
-                // 2. texto começando com = + - @, que o Excel (e o
-                //    PhpSpreadsheet ao gravar) trata como FÓRMULA. Não é
-                //    hipótese: a base tem 6 complementos assim ('=', '+',
-                //    '=======', '=-') e a exportação inteira morria com 500
-                //    — "Formula Error: Unexpected operator '='" —, derrubando
-                //    o relatório por causa de um cadastro digitado errado.
-                //    É também o vetor de CSV/formula injection: um cadastro
-                //    com `=HYPERLINK(...)` viraria fórmula ativa na máquina de
-                //    quem abrisse a planilha.
-                $texto = is_string($valor)
-                    && (preg_match('/^0\d+$/', $valor) === 1 || preg_match('/^[=+\-@]/', $valor) === 1);
+        // O writer só escreve em arquivo (é o ponto de escrever em streaming):
+        // um temporário do sistema, lido e removido no fim.
+        $caminho = tempnam(sys_get_temp_dir(), 'exp_') ?: throw new \RuntimeException(
+            'Não foi possível criar o arquivo temporário da exportação.',
+        );
 
-                if ($texto) {
-                    $aba->setCellValueExplicit([$i + 1, $l + 2], $valor, DataType::TYPE_STRING);
-                } else {
-                    $aba->setCellValue([$i + 1, $l + 2], $valor);
+        $writer = new Writer;
+        $writer->openToFile($caminho);
+
+        try {
+            // O Excel recusa aba com mais de 31 caracteres ou contendo
+            // : \ / ? * [ ] — str_replace em vez de regex porque escapar essa
+            // lista dentro de um padrão é onde se erra (e errou).
+            $limpo = str_replace([':', '\\', '/', '?', '*', '[', ']'], '', $titulo);
+            $writer->getCurrentSheet()->setName(mb_substr($limpo ?: 'Clientes', 0, 31));
+
+            if ($colunas !== []) {
+                $cabecalho = (new Style)
+                    ->setFontBold()
+                    ->setFontColor(Color::WHITE)
+                    ->setBackgroundColor('2A54AD');
+
+                $writer->addRow(Row::fromValues($colunas, $cabecalho));
+
+                foreach ($linhas as $linha) {
+                    $celulas = [];
+                    foreach ($colunas as $rotulo) {
+                        $celulas[] = $this->celula($linha[$rotulo] ?? null);
+                    }
+                    $writer->addRow(new Row($celulas));
                 }
             }
+        } finally {
+            $writer->close();
         }
 
-        if ($colunas !== []) {
-            // getCellByColumnAndRow foi removido no PhpSpreadsheet 5; a
-            // conversão índice→letra é o caminho suportado.
-            $ultima = Coordinate::stringFromColumnIndex(count($colunas));
-            $cabecalho = $aba->getStyle("A1:{$ultima}1");
-            $cabecalho->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-            $cabecalho->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2A54AD');
-            $cabecalho->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-            $aba->getRowDimension(1)->setRowHeight(22);
-            $aba->freezePane('A2');
-            $aba->setAutoFilter("A1:{$ultima}".max(1, count($linhas) + 1));
-            // Largura a partir do RÓTULO, não autoSize: o autoSize percorre
-            // todas as células para medir — em 51 mil linhas isso custa tempo
-            // e memória, e era ele que AVALIAVA o texto como fórmula. A largura
-            // pelo cabeçalho dá quase o mesmo resultado visual de graça.
-            foreach ($colunas as $i => $rotulo) {
-                $aba->getColumnDimensionByColumn($i + 1)
-                    ->setWidth(min(45, max(12, mb_strlen((string) $rotulo) + 4)));
-            }
-        }
-
-        // O writer só escreve em arquivo/stream; php://temp evita disco.
-        $stream = fopen('php://temp', 'r+');
-        $writer = new Xlsx($planilha);
-        // Segunda barreira contra o defeito que derrubou a exportação em
-        // produção: sem pré-cálculo, o writer NÃO avalia nada como fórmula.
-        // A primeira barreira é gravar esses valores como texto explícito
-        // (acima); esta garante que, mesmo se um caso escapar da regex, o
-        // arquivo sai em vez de estourar 500 em cima do usuário.
-        // De quebra é mais rápido: não há motor de cálculo rodando.
-        $writer->setPreCalculateFormulas(false);
-        $writer->save($stream);
-        rewind($stream);
-        $bytes = (string) stream_get_contents($stream);
-        fclose($stream);
-        $planilha->disconnectWorksheets();
+        $bytes = (string) file_get_contents($caminho);
+        @unlink($caminho);
 
         return $bytes;
+    }
+
+    /**
+     * Converte um valor da linha na célula certa.
+     *
+     * Texto vai como texto SEMPRE, e é isso que protege dois casos que já
+     * morderam: CPF/CEP com zero à esquerda (que o Excel converteria para
+     * número, perdendo o zero) e valores começando com = + - @ (que viram
+     * fórmula ao abrir — e que a base realmente tem, como o complemento
+     * '==-'). Número continua numérico para poder somar na planilha.
+     */
+    private function celula(mixed $valor): Cell
+    {
+        if ($valor === null || $valor === '') {
+            return new Cell\EmptyCell(null, null);
+        }
+
+        if (is_int($valor) || is_float($valor)) {
+            return new Cell\NumericCell($valor, null);
+        }
+
+        return new Cell\StringCell((string) $valor, null);
     }
 }
