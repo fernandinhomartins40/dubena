@@ -4,6 +4,13 @@ Data: 10/09/2026. Estado: planejamento, sem implementação de interfaces.
 Base: branch `main`, commit `2b53d9fdc3b7ac4c72a25f531787afa0df260f3a`.
 Escopo: landing pública, autenticação, SPA do ERP e SuperAdmin de `erp-novo`.
 
+> ⚠️ **A seção 3 (identidade visual) foi revisada.** A implementação escureceu a
+> marca além do necessário porque o gate visual deste plano nunca chegou a rodar
+> — sem navegador, a paleta foi alterada sem ser vista. A direção de cor vigente,
+> com contraste medido e inspeção em navegador, está em
+> [`PLANO_UI_COR_E_VIDA.md`](PLANO_UI_COR_E_VIDA.md). O resto deste plano
+> (achados UX01–UX22, microlotes, gates) continua válido.
+
 ## 1. Direção recomendada
 
 Modernizar a experiência a partir da identidade existente: laranja para ações, lime para destaques pontuais, grafite na estrutura e superfícies neutras. O maior ganho virá da hierarquia da informação, clareza dos estados, orientação por tarefa e consistência dos componentes.
