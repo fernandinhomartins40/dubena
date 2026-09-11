@@ -302,6 +302,14 @@ permissão ou dado.
   Nginx explícita e cache imutável; o fundo publicado foi renomeado para
   `bg-landing-dubena.png` e tem hash idêntico ao `bg_landing_dubena.png`
   indicado pelo dono.
+- Diagnóstico na VPS após a entrega confirmou uma segunda fronteira: o Nginx
+  do host encaminhava somente `/` e `/novo/` ao container, portanto
+  `/landing/img/...` retornava 500 publicamente embora respondesse 200 em
+  `127.0.0.1:3120`. Foi adicionada ao vhost `gasemcasa.com` a regra explícita
+  `location ^~ /landing/img/ { proxy_pass http://127.0.0.1:3120; }`, com
+  `nginx -t` e reload. Fundo, logo e mascote foram conferidos na URL HTTPS com
+  `200 image/png`. Backup reversível do vhost foi salvo em `/root/` fora de
+  `sites-enabled`, evitando novo servidor duplicado.
 - Limite: a sessão não expõe navegador para captura ou inspeção em 390px/zoom;
   esses itens de U0/U1/U14 permanecem abertos. Uma edição de IA que devolveu
   PNG RGB com quadriculado opaco foi descartada, sem substituir o asset usado.

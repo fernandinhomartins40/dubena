@@ -1795,6 +1795,12 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   As referências usam `/landing/img/...` e o Nginx agora declara essa rota
   estática explicitamente; o fundo é a cópia com hash idêntico a
   `bg_landing_dubena.png` indicada pelo dono.
+- Evidência remota: o container da release `db3d89de` já respondia 200 para os
+  assets, mas o proxy TLS do host só encaminhava `/` e `/novo/`; por isso o
+  navegador recebia 500. A rota `/landing/img/` foi acrescentada no vhost,
+  validada com `nginx -t`, recarregada e confirmada externamente em HTTPS com
+  `200 image/png` para os três arquivos. Há backup do vhost fora de
+  `sites-enabled` para rollback.
 - A sessão não tinha navegador disponível para inspeção em 390px/zoom; U0/U1/U14
   seguem abertos. `erp-novo/perda.sql` e `kit-auditoria/` permanecem
   preexistentes e intocados; os assets da landing ainda estão não commitados.
