@@ -27,6 +27,10 @@ ARG DEBIAN_SNAPSHOT=20260824T000000Z
 RUN set -eux; \
     sed -i -e "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|" -e "s|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources; \
     printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snapshot; \
+    # snapshot.debian.org e um servico publico que responde 503 sob carga e ja
+    # derrubou o build sem nada ter mudado no codigo. Retry nao afrouxa a
+    # reprodutibilidade: o snapshot continua fixo, so a busca insiste.
+    printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/99retries; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         git \
@@ -74,13 +78,26 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 FROM php-base AS application
 
 COPY composer.json composer.lock ./
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-progress \
-    --no-scripts \
-    --prefer-dist \
-    --classmap-authoritative
+# `api.github.com` ja devolveu 504 para cinco pacotes e derrubou o build sem
+# nada ter mudado no codigo. O Composer aborta o comando inteiro no primeiro
+# lote que falha, entao a insistencia fica aqui fora: tres tentativas do
+# comando completo, com pausa. Nao afrouxa nada — o composer.lock continua
+# mandando na versao, so a busca ganha mais uma chance quando a rede oscila.
+# O paralelismo menor reduz a chance de esbarrar em rate limit no pico.
+ENV COMPOSER_MAX_PARALLEL_HTTP=12
+RUN set -eux; \
+    for tentativa in 1 2 3; do \
+        composer install \
+            --no-dev \
+            --no-interaction \
+            --no-progress \
+            --no-scripts \
+            --prefer-dist \
+            --classmap-authoritative && break; \
+        echo "composer install falhou (tentativa ${tentativa}/3); repetindo em 15s" >&2; \
+        sleep 15; \
+        [ "$tentativa" -lt 3 ] || exit 1; \
+    done
 
 COPY . ./
 COPY --from=frontend /build/public/app ./public/app
