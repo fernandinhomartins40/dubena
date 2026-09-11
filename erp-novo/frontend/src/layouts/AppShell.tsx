@@ -48,7 +48,10 @@ const NAV: NavItem[] = [
   { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
   { label: 'Central de Logística', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Operações' },
   { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Operações' },
-  { label: 'Alçadas de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Configurações' },
+  // Alçada é a regra de quem aprova desconto na Central de Vendas — mora ao
+  // lado dela. Estava num grupo "Configurações" fora da ORDEM_GRUPOS, o que a
+  // jogava sozinha para o fim do menu, longe do que ela governa.
+  { label: 'Alçadas de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Operações' },
   { label: 'Missões de Campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Operações' },
   { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Operações' },
   { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Operações' },
@@ -84,6 +87,20 @@ const NAV: NavItem[] = [
 
 // Ordem fixa das seções (grupos não listados vão ao fim, na ordem de aparição).
 const ORDEM_GRUPOS = ['Geral', 'Cadastros', 'Operações', 'Financeiro', 'CRM', 'Gestão', 'RH & Frota', 'Administração']
+
+/**
+ * Itens cujo caminho é prefixo do caminho de OUTRO item do menu — para eles o
+ * NavLink precisa de `end`, senão os dois acendem juntos. Derivado do NAV em
+ * vez de escrito à mão: item novo entra e a regra continua valendo sozinha.
+ */
+export function prefixosDeOutroItem(itens: { to: string }[]): Set<string> {
+  return new Set(itens.filter((a) => itens.some((b) => b !== a && b.to.startsWith(a.to + '/'))).map((a) => a.to))
+}
+
+const PREFIXO_DE_OUTRO = prefixosDeOutroItem(NAV)
+
+/** Exportado para o teste conferir a regra contra o menu REAL, não uma cópia. */
+export const NAV_ITENS = NAV.map((i) => ({ to: i.to, label: i.label, group: i.group }))
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout, can, hasFeature } = useAuth()
@@ -125,33 +142,45 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div data-density={compact ? "compact" : "comfortable"} className="flex h-full">
       <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
       <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
-        <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
-          <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">D</div>
-          {expandida && <span className="font-bold tracking-wide text-lg text-white">Dubena</span>}
+        <div className={cn('flex h-16 shrink-0 items-center gap-2.5', expandida ? 'px-4' : 'justify-center px-0')}>
+          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">D</div>
+          {expandida && <span className="truncate text-[17px] font-bold tracking-wide text-white">Dubena</span>}
         </div>
         {expandida && <ModuleFinder items={visiveis} userKey={userKey} onNavigate={() => setMobileOpen(false)} />}
-        <nav aria-label="Módulos" className="flex-1 overflow-y-auto py-3">
-          {grupos.map((g) => {
+        {/* Ritmo vertical: o respiro que separa GRUPOS (mt-6) é maior que o
+            que separa ITENS do mesmo grupo (gap-0.5). É essa diferença — não
+            uma linha divisória — que agrupa as coisas aos olhos. */}
+        <nav aria-label="Módulos" className={cn('flex-1 overflow-y-auto pb-4', expandida ? 'px-2 pt-2' : 'px-2 pt-3')}>
+          {grupos.map((g, gi) => {
             const colapsado = expandida && recolhidos[g]
             return (
-            <div key={g} className="mb-4">
+            <div key={g} className={cn(gi > 0 && (expandida ? 'mt-6' : 'mt-4 border-t border-white/10 pt-4'))}>
               {expandida && (
                 <button
                   type="button"
                   onClick={() => toggleGrupo(g)}
                   aria-expanded={!colapsado}
-                  className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground hover:text-white transition-colors"
+                  // O título de seção recua em peso e cor para o item de menu
+                  // poder liderar: 10px, tracking largo, cor esmaecida. Antes
+                  // os dois brigavam pelo mesmo destaque.
+                  className="group/sec mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
                 >
-                  <span>{g}</span>
-                  <ChevronDown size={13} className={cn('transition-transform', colapsado && '-rotate-90')} />
+                  <ChevronDown size={12} className={cn('shrink-0 transition-transform duration-200', colapsado && '-rotate-90')} />
+                  <span className="truncate">{g}</span>
                 </button>
               )}
+              <div className={cn('flex flex-col', expandida ? 'gap-0.5' : 'gap-1')}>
               {!colapsado && visiveis.filter((i) => i.group === g).map((i) => {
                 const link = (
                   <NavLink
                     key={i.to}
                     to={i.to}
-                    end={i.to === '/'}
+                    // `end` em todo item cujo caminho é prefixo de outro do
+                    // menu: sem isso, `/clientes/revisoes` acendia o indicador
+                    // de "Clientes" TAMBÉM, e dois itens apareciam ativos ao
+                    // mesmo tempo. Só quem tem subrota própria (abas internas,
+                    // detalhe de registro) casa por prefixo.
+                    end={i.to === '/' || PREFIXO_DE_OUTRO.has(i.to)}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
@@ -159,21 +188,37 @@ export function AppShell({ children }: { children: ReactNode }) {
                         // os botões de ação pela mesma cor. Vira barra lime +
                         // texto branco: 14,26:1 e 16,56:1 sobre a sidebar,
                         // contra 5,51:1 de antes — e devolve o laranja à ação.
-                        'relative mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                        'group relative flex h-9 items-center rounded-md text-[13px] outline-none transition-colors',
+                        'focus-visible:ring-2 focus-visible:ring-destaque focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
+                        expandida ? 'gap-2.5 px-3' : 'justify-center px-0',
                         isActive
-                          ? 'bg-white/10 font-medium text-white before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-full before:bg-destaque'
-                          : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
-                        !expandida && 'justify-center',
+                          ? 'bg-white/[0.11] font-semibold text-white'
+                          : 'text-sidebar-foreground hover:bg-white/[0.055] hover:text-white',
                       )
                     }
                   >
-                    {i.icon}
-                    {expandida && <span>{i.label}</span>}
+                    {({ isActive }) => (
+                      <>
+                        {/* A barra lime fica FORA do fluxo e ancorada na borda
+                            da sidebar; como ícone e rótulo não se deslocam
+                            entre ativo e inativo, a lista não "pula". */}
+                        {isActive && (
+                          <span aria-hidden className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-destaque" />
+                        )}
+                        {/* Caixa fixa do ícone: todos ocupam a mesma largura,
+                            então os rótulos alinham numa coluna só. */}
+                        <span className={cn('grid size-[18px] shrink-0 place-items-center transition-colors', isActive ? 'text-destaque' : 'text-current')}>
+                          {i.icon}
+                        </span>
+                        {expandida && <span className="truncate">{i.label}</span>}
+                      </>
+                    )}
                   </NavLink>
                 )
                 // Tooltip só faz sentido no modo recolhido do desktop.
                 return expandida ? link : <Tooltip key={i.to} label={i.label}>{link}</Tooltip>
               })}
+              </div>
             </div>
             )
           })}

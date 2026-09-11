@@ -3,9 +3,36 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ModuleFinder, RouteTrail } from './ModuleFinder'
+import { prefixosDeOutroItem, NAV_ITENS } from './AppShell'
 
 beforeEach(() => localStorage.clear())
 const items = [{ label: 'Pedidos', to: '/pedidos', group: 'Operações' }, { label: 'Clientes', to: '/clientes', group: 'Cadastros' }]
+
+describe('Indicador de item ativo', () => {
+  it('marca como exato todo item cujo caminho é prefixo de outro do menu', () => {
+    // O bug: `/clientes/revisoes` começa com `/clientes`, então sem `end` os
+    // DOIS itens acendiam ao mesmo tempo — visto em produção na sidebar.
+    const exatos = prefixosDeOutroItem([
+      { to: '/clientes' }, { to: '/clientes/revisoes' }, { to: '/pedidos' },
+    ])
+    expect(exatos.has('/clientes')).toBe(true)
+    expect(exatos.has('/clientes/revisoes')).toBe(false)
+    expect(exatos.has('/pedidos')).toBe(false)
+  })
+
+  it('protege o menu real: nenhum par prefixo/filho fica sem marcação exata', () => {
+    const exatos = prefixosDeOutroItem(NAV_ITENS)
+    const pares = NAV_ITENS.filter((a) => NAV_ITENS.some((b) => b.to !== a.to && b.to.startsWith(a.to + '/')))
+    // Guardião precisa provar que varreu algo, não só que passou.
+    expect(NAV_ITENS.length).toBeGreaterThan(20)
+    for (const p of pares) expect(exatos.has(p.to)).toBe(true)
+  })
+
+  it('cada item do menu aponta para um caminho único', () => {
+    const vistos = NAV_ITENS.map((i) => i.to)
+    expect(new Set(vistos).size).toBe(vistos.length)
+  })
+})
 
 describe('Navegação orientada a tarefas', () => {
   it('busca sem acento e persiste favoritos somente para a pessoa atual', async () => {

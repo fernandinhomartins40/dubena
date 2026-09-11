@@ -223,3 +223,57 @@ operadores (U14), que segue aberto. Não foram feitas capturas em 390px nem zoom
 
 **Rollback:** cada passo é isolado — tokens, sidebar, `StatCard` e landing
 revertem separadamente. Nada toca backend, schema, permissão ou dado.
+
+## Microlote 21 (U15-f) — sidebar: hierarquia, ritmo e um só item ativo
+
+Pedido do dono a partir de captura da sidebar em produção. Nenhuma
+funcionalidade foi alterada, removida ou escondida: os 36 itens, os grupos, o
+ModuleFinder, favoritos, tooltips do modo recolhido, permissões e `feature`
+continuam exatamente como estavam.
+
+**Defeito funcional encontrado na captura.** Dois itens apareciam ativos ao
+mesmo tempo — "Clientes" e "Cadastros a revisar". Causa: `/clientes/revisoes`
+começa com `/clientes` e o `NavLink` só usava `end` na home, então o pai casava
+por prefixo. Corrigido com `prefixosDeOutroItem()`, que deriva do próprio NAV
+quais caminhos precisam de correspondência exata — item novo entra e a regra
+segue valendo, sem lista manual. Três testes novos, com a regressão plantada:
+zerando a função, dois deles reprovam.
+
+**Grupo órfão.** "Alçadas de desconto" estava no grupo `Configurações`, ausente
+do `ORDEM_GRUPOS` — caía sozinho no fim do menu, longe da Central de Vendas que
+ele governa. Passou para `Operações`.
+
+**Hierarquia visual.** O título de seção e o item de menu competiam pelo mesmo
+peso. O título recua (10px, tracking 0.12em, cor a 60%) e o item lidera (13px,
+h-9). O chevron migrou para antes do rótulo, onde indica direção em vez de
+enfeitar a borda.
+
+**Ritmo vertical.** O respiro entre GRUPOS (mt-6) passou a ser maior que o
+respiro entre ITENS do mesmo grupo (gap-0.5). É essa diferença que agrupa aos
+olhos — nenhuma divisória foi necessária no modo expandido. No recolhido, onde
+não há título, os grupos ganham divisória, porque ali o espaço sozinho não
+distingue.
+
+**Estados.** Ativo: fundo a 11%, peso semibold, ícone lime e barra lime de 3px
+ancorada na borda da sidebar. Hover: fundo a 5,5%. Foco: anel lime com offset —
+antes não havia indicação visível de foco por teclado. A barra fica fora do
+fluxo, então ícone e rótulo não deslocam entre estados e a lista não "pula".
+
+**Alinhamento.** Caixa fixa de 18px para todo ícone: os rótulos passam a alinhar
+numa coluna só, independente do glifo.
+
+**Campo de busca.** Tinha fundo claro dentro da sidebar escura. Passa a
+`bg-white/5` com borda sutil, placeholder legível e anel de foco lime.
+
+O `SaLayout` recebeu a mesma anatomia — o selo Plataforma continua distinguindo
+a sessão.
+
+**Validação:** `tsc` limpo; Vitest **106/106** (103 + 3 do indicador ativo);
+regressão plantada e detectada. Capturas do modo expandido e do recolhido
+conferidas em navegador.
+
+**Limite:** não foram feitas capturas em 390px nem com zoom 200% — a matriz da
+seção 9 segue pendente, e o drawer mobile não foi exercitado com teclado real.
+
+**Rollback:** diff dos dois shells e do ModuleFinder; nada toca backend, schema,
+permissão ou dado.

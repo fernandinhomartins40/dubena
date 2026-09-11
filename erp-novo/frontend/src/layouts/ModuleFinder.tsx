@@ -12,14 +12,14 @@ export function ModuleFinder({ items, userKey, onNavigate }: { items: ModuleLink
   const [query, setQuery] = useState('')
   const [favorites, setFavorites] = usePreference<string[]>(`erpnovo.ui.favorites.${userKey}`, [])
   const found = query.trim() ? items.filter((item) => normalize(`${item.label} ${item.group}`).includes(normalize(query))) : items.filter((item) => favorites.includes(item.to))
-  return <div className="border-b border-white/10 p-3">
-    <div className="relative"><Search className="pointer-events-none absolute left-3 top-3 text-muted-foreground" size={16} />
-      <Input aria-label="Buscar módulos" placeholder="Buscar módulos…" value={query} onChange={(event) => setQuery(event.target.value)} className="pl-9 text-foreground" />
+  return <div className="shrink-0 px-3 pb-3">
+    <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-2.5 text-sidebar-foreground/70" size={16} />
+      <Input aria-label="Buscar módulos" placeholder="Buscar módulos…" value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 border-white/10 bg-white/5 pl-8 text-[13px] text-white placeholder:text-sidebar-foreground/70 focus-visible:ring-destaque" />
     </div>
     {found.length > 0 && <div className="mt-3 max-h-56 overflow-y-auto">
-      <p className="mb-1 px-1 text-xs text-sidebar-foreground">{query ? 'Resultados' : 'Favoritos'}</p>
+      <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60">{query ? 'Resultados' : 'Favoritos'}</p>
       {found.map((item) => <div key={item.to} className="flex items-center rounded hover:bg-white/5">
-        <Link className="flex-1 rounded px-2 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2" to={item.to} onClick={() => { setQuery(''); onNavigate() }}>{item.label}</Link>
+        <Link className="flex-1 rounded px-2 py-1.5 text-[13px] text-white focus-visible:outline focus-visible:outline-2" to={item.to} onClick={() => { setQuery(''); onNavigate() }}>{item.label}</Link>
         <button type="button" aria-label={`${favorites.includes(item.to) ? 'Remover' : 'Adicionar'} ${item.label} ${favorites.includes(item.to) ? 'dos' : 'aos'} favoritos`}
           aria-pressed={favorites.includes(item.to)} className="grid size-9 shrink-0 place-items-center rounded text-sidebar-foreground focus-visible:outline focus-visible:outline-2"
           onClick={() => setFavorites((current) => current.includes(item.to) ? current.filter((to) => to !== item.to) : [...current, item.to])}>

@@ -71,8 +71,8 @@ export function SaLayout({ children }: { children: ReactNode }) {
     <div data-density={compact ? "compact" : "comfortable"} className="flex h-full min-h-screen">
       <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
       <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
-        <div className="h-16 flex items-center gap-2.5 px-4 border-b border-white/10">
-          <div className="grid size-9 place-items-center rounded-lg bg-sidebar-accent text-white shadow-md shadow-black/30">
+        <div className={cn("flex h-16 shrink-0 items-center gap-2.5", expandida ? "px-4" : "justify-center px-0")}>
+          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-sidebar-accent text-white shadow-md shadow-black/30">
             <ShieldCheck size={20} strokeWidth={2.2} />
           </div>
           {expandida && (
@@ -84,22 +84,23 @@ export function SaLayout({ children }: { children: ReactNode }) {
         </div>
 
         {expandida && <ModuleFinder items={NAV} userKey={userKey} onNavigate={() => setMobileOpen(false)} />}
-        <nav aria-label="Módulos" className="flex-1 overflow-y-auto py-3">
-          {grupos.map((g) => {
+        <nav aria-label="Módulos" className={cn('flex-1 overflow-y-auto pb-4', expandida ? 'px-2 pt-2' : 'px-2 pt-3')}>
+          {grupos.map((g, gi) => {
             const colapsado = expandida && recolhidos[g]
             return (
-              <div key={g} className="mb-4">
+              <div key={g} className={cn(gi > 0 && (expandida ? 'mt-6' : 'mt-4 border-t border-white/10 pt-4'))}>
                 {expandida && (
                   <button
                     type="button"
                     onClick={() => toggleGrupo(g)}
-                  aria-expanded={!colapsado}
-                    className="flex w-full items-center justify-between px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground hover:text-white transition-colors"
+                    aria-expanded={!colapsado}
+                    className="mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
                   >
-                    <span>{g}</span>
-                    <ChevronDown size={13} className={cn('transition-transform', colapsado && '-rotate-90')} />
+                    <ChevronDown size={12} className={cn('shrink-0 transition-transform duration-200', colapsado && '-rotate-90')} />
+                    <span className="truncate">{g}</span>
                   </button>
                 )}
+                <div className={cn('flex flex-col', expandida ? 'gap-0.5' : 'gap-1')}>
                 {!colapsado && NAV.filter((i) => i.group === g).map((i) => {
                   const link = (
                     <NavLink
@@ -109,23 +110,32 @@ export function SaLayout({ children }: { children: ReactNode }) {
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          // Mesmo indicador do ERP (ver AppShell): barra lime +
-                          // texto branco. O selo Plataforma segue distinguindo
-                          // a sessão; o item ativo não precisa de outra cor.
-                          'relative mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                          // Mesma anatomia do ERP (ver AppShell): barra lime
+                          // ancorada na borda, caixa fixa do ícone, altura h-9.
+                          // O selo Plataforma segue distinguindo a sessão.
+                          'group relative flex h-9 items-center rounded-md text-[13px] outline-none transition-colors',
+                          'focus-visible:ring-2 focus-visible:ring-destaque focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
+                          expandida ? 'gap-2.5 px-3' : 'justify-center px-0',
                           isActive
-                            ? 'bg-white/10 font-medium text-white before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-full before:bg-destaque'
-                            : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
-                          !expandida && 'justify-center',
+                            ? 'bg-white/[0.11] font-semibold text-white'
+                            : 'text-sidebar-foreground hover:bg-white/[0.055] hover:text-white',
                         )
                       }
                     >
-                      {i.icon}
-                      {expandida && <span>{i.label}</span>}
+                      {({ isActive }) => (
+                        <>
+                          {isActive && <span aria-hidden className="absolute -left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-destaque" />}
+                          <span className={cn('grid size-[18px] shrink-0 place-items-center transition-colors', isActive ? 'text-destaque' : 'text-current')}>
+                            {i.icon}
+                          </span>
+                          {expandida && <span className="truncate">{i.label}</span>}
+                        </>
+                      )}
                     </NavLink>
                   )
                   return expandida ? link : <Tooltip key={i.to} label={i.label}>{link}</Tooltip>
                 })}
+                </div>
               </div>
             )
           })}
