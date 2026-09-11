@@ -1781,3 +1781,18 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   apressada levaria a criar uma tabela ao lado de uma que ja fazia o trabalho.
 - Estado do plano: F0, F1, F2, F3 (com 4 parciais registradas) e F4 fechadas.
   Restam F5 a F10.
+
+## Atualizacao de retomada - 2026-09-11 (UI/UX paralelo: landing)
+
+- O plano SaaS continua no mesmo estado: este checkpoint não avança F5 nem
+  declara gate SaaS aprovado. A execução visual paralela está registrada em
+  `UI_UX_ERP_NOVO_EXECUCAO.md`, microlote 22.
+- A landing ganhou logo, fundo e arte de marca. Foi corrigido um erro deixado
+  no CSS responsivo: três blocos `@media` estavam sem fechamento. Checagem
+  estática: CSS 122/122 chaves, assets locais existentes e mascote RGBA.
+- A sessão não tinha navegador disponível para inspeção em 390px/zoom; U0/U1/U14
+  seguem abertos. `erp-novo/perda.sql` e `kit-auditoria/` permanecem
+  preexistentes e intocados; os assets da landing ainda estão não commitados.
+- Próximo passo SaaS: iniciar F5 pelo microlote financeiro/fiscal compatível com
+  as dependências, retomando a releitura obrigatória e sem tratar o trabalho UI
+  como substituto dos gates de domínio.

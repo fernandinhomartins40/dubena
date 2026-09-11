@@ -277,3 +277,28 @@ seção 9 segue pendente, e o drawer mobile não foi exercitado com teclado real
 
 **Rollback:** diff dos dois shells e do ModuleFinder; nada toca backend, schema,
 permissão ou dado.
+
+## Microlote 22 (U15-g) — landing: arte de marca e correção responsiva
+
+- A landing em `public/landing/` recebeu a identidade visual fornecida para a
+  marca: logo oficial no cabeçalho, fundo de hero e a arte do entregador com
+  botijão, notebook e celular. O mockup genérico foi removido; a legenda mantém
+  que as telas são ilustrativas e que os recursos dependem de acesso e
+  configuração.
+- O hero foi reestruturado sem alterar os destinos seguros existentes: acesso
+  continua em `/novo/app/`, e a descoberta segue por âncoras locais. A imagem
+  foi preparada como PNG RGBA; o arquivo de origem continua preservado no
+  recorte da landing.
+- Corrigido um defeito introduzido durante a edição: os três `@media` não
+  fechavam seus blocos, invalidando o CSS responsivo. Os blocos agora estão
+  balanceados e incluem layout de uma coluna abaixo de 960px e tipografia/logo
+  ajustadas abaixo de 640px.
+- Validação: servidor local respondeu 200 para landing e asset; uma checagem
+  estrutural confirmou um único bloco `<style>`, 122/122 chaves CSS, referências
+  dos três assets existentes e PNG do mascote como RGBA (color type 6).
+- Limite: a sessão não expõe navegador para captura ou inspeção em 390px/zoom;
+  esses itens de U0/U1/U14 permanecem abertos. Uma edição de IA que devolveu
+  PNG RGB com quadriculado opaco foi descartada, sem substituir o asset usado.
+- Rollback: reverter `public/landing/index.html` e remover apenas os três
+  assets adicionados neste microlote; nenhum backend, schema, permissão ou dado
+  foi alterado.

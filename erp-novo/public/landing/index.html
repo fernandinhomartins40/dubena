@@ -15,29 +15,39 @@
     .wrap{width:min(1160px,100% - 48px);margin:auto}.skip{position:absolute;left:16px;top:-100px;z-index:100;background:white;padding:12px}.skip:focus{top:12px}
     .header{position:sticky;top:0;z-index:40;background:var(--graphite);border-bottom:1px solid #ffffff20;color:white}
     .nav{height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}
-    .brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-size:18px;font-weight:750;white-space:nowrap}
-    .mark{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:var(--orange);color:var(--graphite);font-weight:900;position:relative}
-    .mark:after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--lime)}
+    /* A marca agora é a arte oficial. Altura fixa e largura automática para o
+       PNG escalar sem deformar em nenhuma largura de tela. */
+    .brand{display:inline-flex;align-items:center;text-decoration:none;flex:none}
+    .brand img{display:block;width:auto;height:46px}
     .links{display:flex;align-items:center;gap:26px;font-size:14px}.links a{text-decoration:none;color:#deded5}.links a:hover{text-decoration:underline}
     .button{display:inline-flex;justify-content:center;align-items:center;gap:12px;min-height:48px;padding:12px 22px;border:1px solid transparent;border-radius:10px;background:var(--orange-acao);color:var(--white);font-size:14px;font-weight:750;text-decoration:none;transition:background .15s,box-shadow .15s}
     .button:hover{background:#ff7d2d;box-shadow:0 3px 12px #00000010}.button.secondary{background:transparent;border-color:#ffffff50;color:white}.button.secondary:hover{background:#ffffff10}
     .mobile-nav{display:none}.mobile-nav summary{cursor:pointer;min-height:44px;display:flex;align-items:center;padding:8px}
     .mobile-links{position:absolute;top:76px;left:0;right:0;background:var(--graphite);padding:16px 24px;border-top:1px solid #ffffff25}
     .mobile-links a{display:block;padding:12px;color:white;text-decoration:none}
-    .hero{background:var(--graphite);color:white;padding:76px 0 0;overflow:hidden}
-    .hero-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:48px}
-    .eyebrow{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}.eyebrow:before{content:"";width:20px;height:3px;background:var(--orange)}
-    .hero .eyebrow{color:#d1d1c5}.hero h1{font-size:clamp(38px,4.7vw,62px);max-width:15ch;margin-top:24px;font-weight:800}.hero h1 em{font-style:normal;color:var(--lime)}
-    .hero p{color:#d1d1c5;font-size:18px;max-width:43ch;margin-top:24px}.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+    /* Foto do depósito ao fundo; o gradiente por cima escurece a ESQUERDA,
+       que é onde o texto vive — sem ele a headline cairia sobre a área clara
+       da imagem e perderia contraste. */
+    .hero{position:relative;isolation:isolate;background:var(--graphite) url("/landing/img/bg-hero.png") center/cover no-repeat;color:white;padding:64px 0 0;overflow:hidden}
+    .hero:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(100deg,#0d0b09 0%,#0d0b09f2 28%,#14100cc4 52%,#1a120a70 74%,#1a120a40 100%)}
+    .hero-grid{display:grid;grid-template-columns:1.02fr 1.28fr;align-items:center;gap:24px}
+    .hero-copy{position:relative;z-index:2;padding-bottom:8px}
+    .hero-kicker{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#ffb37a;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+    .hero-kicker:before{content:"";width:26px;height:3px;border-radius:2px;background:var(--orange);flex:none}
+    .hero-pills{display:flex;flex-wrap:wrap;gap:10px 30px;margin:34px 0 0;padding:0;list-style:none;color:#e7e2da;font-size:13.5px;font-weight:600}
+    .hero-pills li{display:flex;align-items:center;gap:9px;max-width:15ch;line-height:1.25}
+    .hero-pills li:before{content:"";flex:none;width:20px;height:20px;border-radius:6px;background:var(--orange);
+      -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);
+      -webkit-mask-composite:xor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);mask-composite:exclude}
+    /* A arte já traz os dizeres e o selo embutidos; ela sangra um pouco para
+       fora da coluna, como na referência, sem empurrar o texto. */
+    .hero-art{display:block;width:calc(100% + 7%);max-width:none;height:auto;margin:0 -7% -8px 0;filter:drop-shadow(0 26px 60px #00000075)}
+    .hero h1{font-size:clamp(40px,4.4vw,60px);max-width:13ch;margin:0;font-weight:800;letter-spacing:-.042em;text-shadow:0 2px 22px #00000060}
+    .hero h1 em{font-style:normal;color:var(--orange)}
+    .hero-lead{color:#ddd7cf;font-size:17px;max-width:44ch;margin-top:22px;text-shadow:0 1px 14px #00000055}
+    .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
     .hero-foot{display:flex;flex-wrap:wrap;gap:16px 32px;margin-top:64px;padding:24px 0;border-top:1px solid #ffffff20;color:#cecec4;font-size:13px}
-    .hero-foot strong{color:white}.preview{color:var(--ink)}.preview-window{background:var(--paper);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px #00000035;border:1px solid #ffffff25}
-    .preview-top{display:flex;align-items:center;gap:8px;padding:13px 16px;background:#e9eae2;font-size:11px;color:var(--muted)}.dot{width:8px;height:8px;border-radius:50%;background:#babcb0}.dot.orange{background:var(--orange)}.preview-top span:last-child{margin-left:auto}
-    .preview-body{display:flex;min-height:330px}.preview-side{width:46px;flex-shrink:0;background:#292929;display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:22px}
-    .preview-side i{display:block;width:22px;height:22px;border-radius:5px;background:#ffffff16}.preview-side i:first-child{background:var(--orange)}
-    .preview-main{padding:24px;flex:1;min-width:0}.preview-heading{font-size:18px;font-weight:750}.preview-label{font-size:11px;color:var(--muted);margin-top:4px}
-    .preview-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}.preview-card{border:1px solid var(--line);background:white;padding:14px;border-radius:10px}.preview-card b{display:block;font-size:26px;line-height:1.2}.preview-card small{font-size:11px;color:var(--muted)}
-    .preview-card:first-child{border-top:3px solid var(--orange)}.preview-card:last-child{border-top:3px solid var(--lime)}.preview-row{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:12px}
-    .preview-row strong{font-weight:600}.preview-status{color:#39602a;background:#edf4e5;padding:2px 7px;border-radius:5px;font-size:10px;white-space:nowrap}
+    .hero-foot strong{color:white}.preview{color:var(--ink)}
     .preview figcaption{margin-top:12px;color:#bfc0b4;font-size:11px;text-align:center}.preview{margin:0}
     .section{padding:88px 0}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:36px}.section-heading h2{font-size:clamp(28px,3.4vw,42px);max-width:20ch;margin-top:16px}.section-heading p{max-width:40ch;color:var(--muted)}
     .benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.benefit{padding:30px;background:white;border:1px solid var(--line);border-radius:var(--radius)}.number{display:grid;place-items:center;width:38px;height:38px;background:var(--paper);border:1px solid var(--line);border-radius:10px;color:var(--orange-text);font-size:13px;font-weight:750;margin-bottom:28px}
@@ -50,40 +60,39 @@
     .faq{max-width:800px;margin:0 auto}.faq details{border-bottom:1px solid var(--line);padding:22px 0}.faq summary{font-size:17px;font-weight:650;cursor:pointer}.faq p{margin-top:14px;color:var(--muted);max-width:68ch}
     .final{padding:64px 0}.final-box{border:1px solid var(--line);border-radius:20px;background:white;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:30px}.final h2{font-size:30px;max-width:20ch}.final p{margin-top:14px;color:var(--muted)}
     footer{padding:32px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}.footer .brand{color:var(--ink);font-size:16px}
-    @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:36px}.hero h1{max-width:20ch}.preview{max-width:580px;width:100%}.hero{padding-top:48px}.hero-foot{margin-top:40px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
-    @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand{font-size:15px;gap:8px}.mark{width:30px;height:30px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:40px}.hero p{font-size:16px}.preview-main{padding:16px}.preview-side{width:36px}.preview-body{min-height:290px}.preview-card{padding:12px}.final-box{padding:28px;align-items:start;flex-direction:column}.hero-foot{gap:12px 24px}.final{padding:40px 0}}
-    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
-  </style>
+    @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}.hero-art{width:100%;max-width:620px;margin:0 auto -6px}.preview{max-width:none;width:100%}.hero{padding-top:44px}.hero-foot{margin-top:36px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
+    @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand img{height:38px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:34px;max-width:none}.hero-lead{font-size:15.5px}.hero-kicker{font-size:11px}.hero-pills{gap:10px 20px;font-size:12.5px}.final-box{padding:28px;align-items:start;flex-direction:column}.hero-foot{gap:12px 24px}.final{padding:40px 0}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}</style>
 </head>
 <body>
   <a class="skip" href="#conteudo">Ir para o conteúdo</a>
   <header class="header">
     <div class="wrap nav">
-      <a class="brand" href="#inicio" aria-label="Gás em Casa — início"><span class="mark" aria-hidden="true">G</span>Gás em Casa</a>
-      <nav class="links" aria-label="Navegação principal"><a href="#beneficios">Vantagens</a><a href="#recursos">Produto</a><a href="#operacao">Como funciona</a><a href="#duvidas">Dúvidas</a></nav>
-      <details class="mobile-nav"><summary aria-label="Abrir navegação">Menu</summary><nav class="mobile-links" aria-label="Navegação móvel"><a href="#beneficios">Vantagens</a><a href="#recursos">Produto</a><a href="#operacao">Como funciona</a><a href="#duvidas">Dúvidas</a></nav></details>
-      <a class="button" href="/novo/app/">Entrar</a>
+      <a class="brand" href="#inicio" aria-label="Gás em Casa — início"><img src="/landing/img/logo-gas-em-casa.png" alt="Gás em Casa" width="1884" height="724" decoding="async"></a>
+      <nav class="links" aria-label="Navegação principal"><a href="#beneficios">Vantagens</a><a href="#recursos">Recursos</a><a href="#operacao">Como Funciona</a><a href="#duvidas">Dúvidas</a></nav>
+      <details class="mobile-nav"><summary aria-label="Abrir navegação">Menu</summary><nav class="mobile-links" aria-label="Navegação móvel"><a href="#beneficios">Vantagens</a><a href="#recursos">Recursos</a><a href="#operacao">Como Funciona</a><a href="#duvidas">Dúvidas</a></nav></details>
+      <a class="button" href="/novo/app/">Acessar o sistema</a>
     </div>
   </header>
   <main id="conteudo" tabindex="-1">
     <section class="hero" id="inicio">
       <div class="wrap">
         <div class="hero-grid">
-          <div><h1>Sua revenda inteira.<br><em>Um só lugar.</em></h1>
-            <p>Do primeiro atendimento ao fechamento: pedidos, entregas, vasilhames e financeiro conectados à rotina da sua operação.</p>
-            <div class="actions"><a class="button" href="#recursos">Conhecer o sistema</a><a class="button secondary" href="#operacao">Ver como funciona</a></div>
+          <div class="hero-copy">
+            <p class="hero-kicker">Sistema completo para revendedores de gás e água</p>
+            <h1>Sua revenda inteira <em>no controle</em>, num só lugar.</h1>
+            <p class="hero-lead">Pedidos, entrega, vasilhame, rota, fiscal e financeiro conversando entre si. Você digitaliza uma vez — e o sistema cuida do resto.</p>
+            <div class="actions"><a class="button" href="/novo/app/">Acessar o sistema</a><a class="button secondary" href="#beneficios">Ver vantagens</a></div>
+            <ul class="hero-pills">
+              <li>Mais vendas</li>
+              <li>Menos erros</li>
+              <li>Clientes mais satisfeitos</li>
+              <li>Seu tempo de volta</li>
+            </ul>
           </div>
           <figure class="preview">
-            <div class="preview-window" role="img" aria-label="Ilustração de um painel com pedidos, parcelas em aberto e atalhos. Valores fictícios.">
-              <div class="preview-top"><i class="dot orange"></i><i class="dot"></i><i class="dot"></i><span>Visão da operação</span></div>
-              <div class="preview-body"><div class="preview-side" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                <div class="preview-main"><div class="preview-heading">Tudo pronto para trabalhar.</div><div class="preview-label">Empresa operacional · exemplo ilustrativo</div>
-                  <div class="preview-cards"><div class="preview-card"><b>128</b><small>Pedidos registrados</small></div><div class="preview-card"><b>24</b><small>Parcelas em aberto</small></div></div>
-                  <div class="preview-row"><strong>Pedidos e entregas</strong><span class="preview-status">Acompanhar</span></div>
-                  <div class="preview-row"><strong>Clientes e histórico</strong><span>↗</span></div><div class="preview-row"><strong>Estoque e vasilhames</strong><span>↗</span></div>
-                </div>
-              </div>
-            </div><figcaption>Interface ilustrativa com dados fictícios. Recursos dependem do acesso e da configuração.</figcaption>
+            <img class="hero-art" src="/landing/img/mascote-hero.png" width="1484" height="1060" alt="Entregador do Gás em Casa segurando um botijão, ao lado de um notebook e um celular mostrando o sistema." fetchpriority="high" decoding="async">
+            <figcaption>Telas ilustrativas com dados fictícios. Recursos dependem do acesso e da configuração.</figcaption>
           </figure>
         </div>
         <div class="hero-foot"><strong>Feito para sua rotina</strong><span>Revendas de GLP</span><span>Distribuidoras de água</span><span>Tele-entrega</span><span>Operação multifilial</span></div>
