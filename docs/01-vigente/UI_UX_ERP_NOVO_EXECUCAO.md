@@ -296,6 +296,13 @@ permissão ou dado.
 - Validação: servidor local respondeu 200 para landing e asset; uma checagem
   estrutural confirmou um único bloco `<style>`, 122/122 chaves CSS, referências
   dos três assets existentes e PNG do mascote como RGBA (color type 6).
+- Correção posterior à captura: os assets usavam URLs absolutas
+  `/landing/img/...`, que quebram ao abrir o HTML por `file://` ou preview com
+  outra raiz — logo e mascote apareciam quebrados, e o fundo não carregava.
+  As três referências agora são relativas a `index.html` (`img/...`); funcionam
+  tanto no arquivo local quanto em `/landing/index.html`. O fundo publicado foi
+  renomeado para `bg-landing-dubena.png` e tem hash idêntico ao
+  `bg_landing_dubena.png` indicado pelo dono.
 - Limite: a sessão não expõe navegador para captura ou inspeção em 390px/zoom;
   esses itens de U0/U1/U14 permanecem abertos. Uma edição de IA que devolveu
   PNG RGB com quadriculado opaco foi descartada, sem substituir o asset usado.
