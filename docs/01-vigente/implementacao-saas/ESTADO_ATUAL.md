@@ -1790,9 +1790,10 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - A landing ganhou logo, fundo e arte de marca. Foi corrigido um erro deixado
   no CSS responsivo: três blocos `@media` estavam sem fechamento. Checagem
   estática: CSS 122/122 chaves, assets locais existentes e mascote RGBA.
-- A captura posterior revelou que URLs absolutas de assets quebravam em preview
-  local. As referências passaram a `img/...`, compatíveis com arquivo local e
-  URL `/landing/index.html`; o fundo é a cópia com hash idêntico a
+- A captura posterior revelou que URLs relativas de assets quebravam na landing
+  entregue: ela vive em `/`, mas os arquivos vivem em `public/landing/img`.
+  As referências usam `/landing/img/...` e o Nginx agora declara essa rota
+  estática explicitamente; o fundo é a cópia com hash idêntico a
   `bg_landing_dubena.png` indicada pelo dono.
 - A sessão não tinha navegador disponível para inspeção em 390px/zoom; U0/U1/U14
   seguem abertos. `erp-novo/perda.sql` e `kit-auditoria/` permanecem
