@@ -1789,7 +1789,7 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   `UI_UX_ERP_NOVO_EXECUCAO.md`, microlote 22.
 - A landing ganhou logo, fundo e arte de marca. Foi corrigido um erro deixado
   no CSS responsivo: três blocos `@media` estavam sem fechamento. Checagem
-  estática: CSS 122/122 chaves, assets locais existentes e mascote RGBA.
+  estática: CSS 122/122 chaves e assets locais existentes.
 - A captura posterior revelou que URLs relativas de assets quebravam na landing
   entregue: ela vive em `/`, mas os arquivos vivem em `public/landing/img`.
   As referências usam `/landing/img/...` e o Nginx agora declara essa rota
@@ -1801,6 +1801,9 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   validada com `nginx -t`, recarregada e confirmada externamente em HTTPS com
   `200 image/png` para os três arquivos. Há backup do vhost fora de
   `sites-enabled` para rollback.
+- O mascote foi restaurado byte a byte à cópia PNG original fornecida; não deve
+  receber recorte, remoção de fundo, IA ou conversão de formato sem solicitação
+  expressa do dono.
 - A sessão não tinha navegador disponível para inspeção em 390px/zoom; U0/U1/U14
   seguem abertos. `erp-novo/perda.sql` e `kit-auditoria/` permanecem
   preexistentes e intocados; os assets da landing ainda estão não commitados.

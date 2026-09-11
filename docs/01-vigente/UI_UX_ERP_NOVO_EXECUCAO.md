@@ -287,15 +287,15 @@ permissão ou dado.
   configuração.
 - O hero foi reestruturado sem alterar os destinos seguros existentes: acesso
   continua em `/novo/app/`, e a descoberta segue por âncoras locais. A imagem
-  foi preparada como PNG RGBA; o arquivo de origem continua preservado no
-  recorte da landing.
+  usa o asset PNG original fornecido, sem recorte, remoção de fundo, IA ou
+  conversão de formato.
 - Corrigido um defeito introduzido durante a edição: os três `@media` não
   fechavam seus blocos, invalidando o CSS responsivo. Os blocos agora estão
   balanceados e incluem layout de uma coluna abaixo de 960px e tipografia/logo
   ajustadas abaixo de 640px.
 - Validação: servidor local respondeu 200 para landing e asset; uma checagem
-  estrutural confirmou um único bloco `<style>`, 122/122 chaves CSS, referências
-  dos três assets existentes e PNG do mascote como RGBA (color type 6).
+  estrutural confirmou um único bloco `<style>`, 122/122 chaves CSS e referências
+  dos três assets existentes.
 - Correção posterior à captura: o servidor expõe a landing na raiz `/`, mas os
   arquivos vivem em `public/landing/img`. URLs relativas viravam `/img/...` e
   retornavam 404. As três referências usam `/landing/img/...`, agora com rota
@@ -310,6 +310,10 @@ permissão ou dado.
   `nginx -t` e reload. Fundo, logo e mascote foram conferidos na URL HTTPS com
   `200 image/png`. Backup reversível do vhost foi salvo em `/root/` fora de
   `sites-enabled`, evitando novo servidor duplicado.
+- Correção de procedência: a primeira versão publicada do mascote tinha sido
+  alterada por uma tentativa indevida de recorte. Ela foi restaurada byte a
+  byte a partir da cópia original importada antes desse tratamento (SHA-256
+  `4E80E4D529808F9AB76C5B419F406EA1150F73BB87943E34D9C343E3F689FD79`).
 - Limite: a sessão não expõe navegador para captura ou inspeção em 390px/zoom;
   esses itens de U0/U1/U14 permanecem abertos. Uma edição de IA que devolveu
   PNG RGB com quadriculado opaco foi descartada, sem substituir o asset usado.
