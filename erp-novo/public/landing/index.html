@@ -7,7 +7,7 @@
   <title>Gás em Casa — Gestão para revendas de gás e água</title>
   <meta name="description" content="Conheça o Gás em Casa: pedidos, entregas, estoque, vasilhames, fiscal e financeiro para a rotina da sua revenda.">
   <style>
-    :root{--orange:#ff6200;--orange-text:#a63f00;--lime:#dbfb3b;--graphite:#1f1f1f;--ink:#242422;--muted:#625f58;--paper:#f7f7f2;--white:#fff;--line:#ddded5;--radius:16px}
+    :root{--orange:#ff6200;--orange-acao:#cc4e00;--orange-text:#c24a00;--lime:#dbfb3b;--graphite:#1f1f1f;--ink:#242422;--muted:#625f58;--paper:#f7f7f2;--white:#fff;--line:#ddded5;--radius:16px}
     *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:100px}
     body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
     h1,h2,h3,p{margin:0}h1,h2,h3{line-height:1.12;letter-spacing:-.035em}a{color:inherit}button{font:inherit}
@@ -19,7 +19,7 @@
     .mark{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:var(--orange);color:var(--graphite);font-weight:900;position:relative}
     .mark:after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:var(--lime)}
     .links{display:flex;align-items:center;gap:26px;font-size:14px}.links a{text-decoration:none;color:#deded5}.links a:hover{text-decoration:underline}
-    .button{display:inline-flex;justify-content:center;align-items:center;gap:12px;min-height:48px;padding:12px 22px;border:1px solid transparent;border-radius:10px;background:var(--orange);color:var(--graphite);font-size:14px;font-weight:750;text-decoration:none;transition:background .15s,box-shadow .15s}
+    .button{display:inline-flex;justify-content:center;align-items:center;gap:12px;min-height:48px;padding:12px 22px;border:1px solid transparent;border-radius:10px;background:var(--orange-acao);color:var(--white);font-size:14px;font-weight:750;text-decoration:none;transition:background .15s,box-shadow .15s}
     .button:hover{background:#ff7d2d;box-shadow:0 3px 12px #00000010}.button.secondary{background:transparent;border-color:#ffffff50;color:white}.button.secondary:hover{background:#ffffff10}
     .mobile-nav{display:none}.mobile-nav summary{cursor:pointer;min-height:44px;display:flex;align-items:center;padding:8px}
     .mobile-links{position:absolute;top:76px;left:0;right:0;background:var(--graphite);padding:16px 24px;border-top:1px solid #ffffff25}
@@ -62,16 +62,16 @@
       <a class="brand" href="#inicio" aria-label="Gás em Casa — início"><span class="mark" aria-hidden="true">G</span>Gás em Casa</a>
       <nav class="links" aria-label="Navegação principal"><a href="#beneficios">Vantagens</a><a href="#recursos">Produto</a><a href="#operacao">Como funciona</a><a href="#duvidas">Dúvidas</a></nav>
       <details class="mobile-nav"><summary aria-label="Abrir navegação">Menu</summary><nav class="mobile-links" aria-label="Navegação móvel"><a href="#beneficios">Vantagens</a><a href="#recursos">Produto</a><a href="#operacao">Como funciona</a><a href="#duvidas">Dúvidas</a></nav></details>
-      <a class="button" href="/novo/app/">Entrar <span aria-hidden="true">↗</span></a>
+      <a class="button" href="/novo/app/">Entrar</a>
     </div>
   </header>
   <main id="conteudo" tabindex="-1">
     <section class="hero" id="inicio">
       <div class="wrap">
         <div class="hero-grid">
-          <div><div class="eyebrow">Gestão para gás e água</div><h1>Sua revenda inteira.<br><em>Um só lugar.</em></h1>
+          <div><h1>Sua revenda inteira.<br><em>Um só lugar.</em></h1>
             <p>Do primeiro atendimento ao fechamento: pedidos, entregas, vasilhames e financeiro conectados à rotina da sua operação.</p>
-            <div class="actions"><a class="button" href="#recursos">Conhecer o sistema <span aria-hidden="true">↓</span></a><a class="button secondary" href="#operacao">Ver como funciona</a></div>
+            <div class="actions"><a class="button" href="#recursos">Conhecer o sistema</a><a class="button secondary" href="#operacao">Ver como funciona</a></div>
           </div>
           <figure class="preview">
             <div class="preview-window" role="img" aria-label="Ilustração de um painel com pedidos, parcelas em aberto e atalhos. Valores fictícios.">
@@ -90,24 +90,24 @@
       </div>
     </section>
     <section class="section" id="beneficios"><div class="wrap">
-      <div class="section-heading"><div><div class="eyebrow">Menos retrabalho</div><h2>Mais clareza em cada etapa.</h2></div><p>Informação organizada para quem atende, entrega e acompanha o negócio.</p></div>
+      <div class="section-heading"><div><h2>Mais clareza em cada etapa.</h2></div><p>Informação organizada para quem atende, entrega e acompanha o negócio.</p></div>
       <div class="benefits">
-        <article class="benefit"><span class="number">01</span><h3>Atendimento com contexto.</h3><p>Encontre o cliente, consulte seu histórico e acompanhe os pedidos sem perder o fio da conversa.</p><a href="#recursos">Conhecer a operação de vendas</a></article>
-        <article class="benefit"><span class="number">02</span><h3>Vasilhame sob controle.</h3><p>Consulte saldos por setor, comodatos e devoluções. Saiba o que movimentou e o que precisa de acompanhamento.</p><a href="#recursos">Conhecer o controle de estoque</a></article>
-        <article class="benefit"><span class="number">03</span><h3>Fechamento mais claro.</h3><p>Reúna lançamentos, caixa, documentos fiscais e relatórios para conferir a operação com informação acessível.</p><a href="#recursos">Conhecer os controles de gestão</a></article>
+        <article class="benefit"><h3>Atendimento com contexto.</h3><p>Encontre o cliente, consulte seu histórico e acompanhe os pedidos sem perder o fio da conversa.</p><a href="#recursos">Conhecer a operação de vendas</a></article>
+        <article class="benefit"><h3>Vasilhame sob controle.</h3><p>Consulte saldos por setor, comodatos e devoluções. Saiba o que movimentou e o que precisa de acompanhamento.</p><a href="#recursos">Conhecer o controle de estoque</a></article>
+        <article class="benefit"><h3>Fechamento mais claro.</h3><p>Reúna lançamentos, caixa, documentos fiscais e relatórios para conferir a operação com informação acessível.</p><a href="#recursos">Conhecer os controles de gestão</a></article>
       </div>
     </div></section>
     <section class="section product" id="recursos"><div class="wrap">
-      <div class="section-heading"><div><div class="eyebrow">O produto por dentro</div><h2>Encontre o que sua equipe precisa.</h2></div><p>Abra uma área para conhecer os recursos. O acesso a cada módulo depende das permissões e dos recursos contratados.</p></div>
+      <div class="section-heading"><div><h2>Encontre o que sua equipe precisa.</h2></div><p>Abra uma área para conhecer os recursos. O acesso a cada módulo depende das permissões e dos recursos contratados.</p></div>
       <div class="modules">
-        <details class="module" open><summary><div><h3>Vender e atender</h3><div class="caption">Clientes · pedidos · relacionamento</div></div></summary><ul><li>Cadastro e histórico de clientes.</li><li>Pedidos em lista e kanban, com jornada de atendimento.</li><li>Solicitações do campo, pós-venda e promoções.</li></ul></details>
-        <details class="module" open><summary><div><h3>Entregar e acompanhar</h3><div class="caption">Logística · frota · campo</div></div></summary><ul><li>Fila de entregas e atribuição aos entregadores.</li><li>Consulta de veículos e acompanhamento de posições GPS.</li><li>Missões de campo e integração com aplicativos.</li></ul></details>
-        <details class="module"><summary><div><h3>Controlar estoque e vasilhames</h3><div class="caption">Saldos · inventário · comodatos</div></div></summary><ul><li>Saldos e movimentações por setor.</li><li>Transferências, inventário e conferência.</li><li>Comodatos, devoluções e acompanhamento de pendências.</li></ul></details>
-        <details class="module"><summary><div><h3>Administrar o negócio</h3><div class="caption">Financeiro · fiscal · relatórios</div></div></summary><ul><li>Lançamentos, caixa e contas a pagar e receber.</li><li>Documentos fiscais e acompanhamento de suas situações.</li><li>Relatórios, exportação e controle de acessos.</li></ul></details>
+        <details class="module" open><summary><div><h3>Vender e atender</h3><div class="caption">Cadastro, pedidos e histórico de atendimento</div></div></summary><ul><li>Cadastro e histórico de clientes.</li><li>Pedidos em lista e kanban, com jornada de atendimento.</li><li>Solicitações do campo, pós-venda e promoções.</li></ul></details>
+        <details class="module" open><summary><div><h3>Entregar e acompanhar</h3><div class="caption">Fila de entregas, frota e equipe em campo</div></div></summary><ul><li>Fila de entregas e atribuição aos entregadores.</li><li>Consulta de veículos e acompanhamento de posições GPS.</li><li>Missões de campo e integração com aplicativos.</li></ul></details>
+        <details class="module"><summary><div><h3>Controlar estoque e vasilhames</h3><div class="caption">Saldos por setor, inventário e comodatos</div></div></summary><ul><li>Saldos e movimentações por setor.</li><li>Transferências, inventário e conferência.</li><li>Comodatos, devoluções e acompanhamento de pendências.</li></ul></details>
+        <details class="module"><summary><div><h3>Administrar o negócio</h3><div class="caption">Lançamentos, documentos fiscais e relatórios</div></div></summary><ul><li>Lançamentos, caixa e contas a pagar e receber.</li><li>Documentos fiscais e acompanhamento de suas situações.</li><li>Relatórios, exportação e controle de acessos.</li></ul></details>
       </div>
     </div></section>
     <section class="section flow-section" id="operacao"><div class="wrap flow-grid">
-      <div><div class="eyebrow">Uma rotina conectada</div><h2>Do pedido à conferência.</h2><p>Cada etapa mantém seu contexto. As ações e integrações seguem a configuração e as permissões da empresa.</p></div>
+      <div><h2>Do pedido à conferência.</h2><p>Cada etapa mantém seu contexto. As ações e integrações seguem a configuração e as permissões da empresa.</p></div>
       <ol class="flow">
         <li><h3>Atenda e registre</h3><p>Selecione cliente, endereço e itens para iniciar o pedido.</p></li>
         <li><h3>Organize a entrega</h3><p>Acompanhe a fila e atribua o trabalho à equipe em campo.</p></li>
@@ -116,7 +116,7 @@
       </ol>
     </div></section>
     <section class="section" id="duvidas"><div class="wrap">
-      <div class="section-heading"><div><div class="eyebrow">Antes de começar</div><h2>O próximo passo, sem dúvida.</h2></div></div>
+      <div class="section-heading"><div><h2>O próximo passo, sem dúvida.</h2></div></div>
       <div class="faq">
         <details><summary>Já tenho acesso. Por onde entro?</summary><p>Use o botão Entrar e informe suas credenciais. Os módulos disponíveis seguem o perfil atribuído à sua conta.</p></details>
         <details><summary>Esta página oferece acesso de demonstração?</summary><p>Esta página apresenta os recursos do produto. O botão Entrar é destinado a quem já possui acesso; a imagem do painel é ilustrativa.</p></details>
@@ -124,7 +124,7 @@
         <details><summary>Como funciona em uma operação com várias empresas?</summary><p>O painel identifica o contexto da empresa. A visualização consolidada e as ações disponíveis dependem das autorizações da conta.</p></details>
       </div>
     </div></section>
-    <section class="final"><div class="wrap final-box"><div><h2>Uma visão mais clara da sua operação.</h2><p>Explore as áreas do sistema ou entre com seu acesso.</p></div><div class="actions"><a class="button" href="#recursos">Explorar recursos <span aria-hidden="true">↑</span></a></div></div></section>
+    <section class="final"><div class="wrap final-box"><div><h2>Uma visão mais clara da sua operação.</h2><p>Explore as áreas do sistema ou entre com seu acesso.</p></div><div class="actions"><a class="button" href="#recursos">Explorar recursos</a></div></div></section>
   </main>
   <footer><div class="wrap footer"><a class="brand" href="#inicio"><span class="mark" aria-hidden="true">G</span>Gás em Casa</a><span>Gestão para distribuidoras de gás e água.</span><span>Usa o sistema anterior? <a href="/login">Acessar versão clássica</a></span></div></footer>
   <script>

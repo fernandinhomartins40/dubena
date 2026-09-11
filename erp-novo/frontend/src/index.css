@@ -23,9 +23,22 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 12%;
 
-    /* Laranja PURO #FF6200 — ações (botões, item ativo, links, foco) */
+    /* Laranja PURO #FF6200 — a marca. 3,00:1 sobre branco: passa em borda,
+       ícone, indicador e texto grande (mínimo 3:1); reprova só em texto
+       pequeno. Por isso ele fica puro aqui e as exceções ganham token próprio
+       abaixo, em vez de escurecer a marca inteira. */
     --primary: 23 100% 50%;
     --primary-foreground: 0 0% 12%;
+
+    /* Ação primária (#CC4E00): o único lugar que escurece, para caber texto
+       BRANCO com 4,50:1. Botão com texto quase preto passa no medidor e parece
+       desabilitado na tela — foi o que aconteceu no login. */
+    --primary-acao: 23 100% 40%;
+    --primary-acao-foreground: 0 0% 100%;
+
+    /* Texto/link laranja sobre claro (#C24A00): 4,91:1. L32% dava 6,44:1 —
+       escuro além do exigido, e era o que apagava o laranja da interface. */
+    --primary-texto: 23 100% 38%;
 
     --secondary: 75 12% 92%;
     --secondary-foreground: 0 0% 18%;
@@ -75,6 +88,13 @@
     --primary: 23 100% 53%;
     --primary-foreground: 0 0% 12%;
 
+    /* No escuro o laranja NÃO precisa de derivação: sobre #141414 ele já mede
+       6,44:1 como texto. E no botão o grafite (5,81:1) ganha do branco
+       (2,85:1) — o oposto do tema claro. Por isso a ação aqui fica na marca. */
+    --primary-acao: 23 100% 53%;
+    --primary-acao-foreground: 0 0% 12%;
+    --primary-texto: 23 100% 60%;
+
     --secondary: 0 0% 16%;
     --secondary-foreground: 75 10% 94%;
 
@@ -114,10 +134,10 @@ html, body, #root {
   height: 100%;
 }
 
-@layer utilities {
-  /* O laranja de superfície mantém a marca; texto usa sua derivação legível. */
-  .text-primary { color: hsl(var(--accent-foreground)); }
-}
+/* `text-primary` volta a ser o laranja da marca: ele veste ícone, borda e
+   indicador, medidos em 3:1, onde o puro passa. Texto pequeno em laranja usa
+   `text-marcaTexto` (token no tailwind.config). O override anterior aplicava
+   exigência de texto a tudo indistintamente, e foi o que apagou a cor. */
 
 [data-density="compact"] table td, [data-density="compact"] table th { padding-top: .5rem; padding-bottom: .5rem; }
 @media (prefers-reduced-motion: reduce) {

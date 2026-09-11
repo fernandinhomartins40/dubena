@@ -109,9 +109,12 @@ export function SaLayout({ children }: { children: ReactNode }) {
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          'mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                          // Mesmo indicador do ERP (ver AppShell): barra lime +
+                          // texto branco. O selo Plataforma segue distinguindo
+                          // a sessão; o item ativo não precisa de outra cor.
+                          'relative mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                           isActive
-                            ? 'bg-sidebar-accent font-medium text-primary-foreground shadow-sm shadow-black/20'
+                            ? 'bg-white/10 font-medium text-white before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-full before:bg-destaque'
                             : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
                           !expandida && 'justify-center',
                         )

@@ -36,7 +36,7 @@ function PosicoesTab() {
     { key: 'placa', header: 'Veículo', cell: (v) => <span className="font-medium">{v.placa || `#${v.veiculo_id}`}</span> },
     {
       key: 'pos', header: 'Posição', cell: (v) => (
-        <a className="text-primary hover:underline tabular-nums" target="_blank" rel="noreferrer"
+        <a className="text-marcaTexto hover:underline tabular-nums" target="_blank" rel="noreferrer"
           href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`}>
           {v.latitude.toFixed(5)}, {v.longitude.toFixed(5)}
         </a>

@@ -172,3 +172,54 @@ Preexistentes preservados: `erp-novo/config/cache.php`, `erp-novo/perda.sql`, `k
 - Teste revelou data civil um dia anterior no Brasil. Formatador trata YYYY-MM-DD como calendário local, preserva tratamento de instantes completos e identifica data inválida. Data bom_para usa a parte civil do cast recebido.
 - Revisão independente somente-leitura dos quatro arquivos contratuais não encontrou perda de dados/regressão introduzida. Testes cobrem POST exato e apresentação da data/número, além do formatador.
 - Próximo: finalizar estados das consultas auxiliares financeiras/fiscais e reenviar o checkpoint validado à main.
+
+## Microlote 20 (U15) — a cor volta, com o gate visual rodando
+
+Primeira entrega deste plano com inspeção em navegador. A skill
+`browser-automation` foi verificada contra homologação e usada em todos os
+passos; `frontend-design` orientou a direção estética. O que U0/U1/U14 listavam
+como bloqueado por ausência de navegador deixou de estar.
+
+- **U15-a — tokens.** `--primary` volta a ser `#FF6200` puro: ele veste ícone,
+  borda e indicador, medidos em 3:1, onde passa. Token novo `--primary-acao`
+  (`#CC4E00`) só no botão primário, com texto branco a **4,50:1** — medido como
+  o teto exato: L41% já cai para 4,32 e reprova. `--primary-texto` a L38%
+  (**4,91:1**) substitui o L32% (6,44:1), escuro além do exigido.
+  O override de `.text-primary` em `@layer utilities` saiu: ele aplicava
+  exigência de texto a ícone e borda. Auditados os 33 usos de `text-primary` —
+  a maioria é ícone e permanece em laranja puro; os 9 que são texto pequeno
+  passaram a `text-marcaTexto`.
+- **U15-b — o lime ganha território.** Item ativo da sidebar era bloco laranja
+  sólido (5,51:1), competindo com os botões pela mesma cor. Vira barra lime +
+  texto branco: **14,26:1** e **16,56:1** sobre a sidebar. No `StatCard`, o
+  acento `lime` era `bg-lime/25` sobre card branco — um tint de luminância 0,95,
+  indistinguível do fundo. Passa a superfície sólida com grafite (14,26:1).
+- **U15-c — o número.** KPI vai de `text-3xl` para 2,75rem com tracking
+  negativo e leading colado. É a única licença estética do plano, e vem do
+  assunto: quem opera revenda passa o dia com quantidade.
+- **U15-d — landing.** Removidos os 5 eyebrows em caixa alta, a numeração
+  01/02/03 dos benefícios (que são paralelos, não sequência — o `<ol>` do fluxo
+  pedido→conferência é sequência real e foi preservado), os `·` dos metadados
+  (reescritos como frase) e as setas coladas ao rótulo dos botões. O botão da
+  landing tinha o mesmo defeito do login e recebeu `--orange-acao`.
+- **U15-e — tema escuro.** Medido separadamente, e o resultado inverte o claro:
+  sobre `#141414` o laranja puro já dá **6,44:1** como texto, e no botão o
+  grafite (5,81:1) ganha do branco (2,85:1). Por isso a ação no escuro fica na
+  marca, sem derivação.
+
+**Evidência visual.** Login antes: "Entrar" com texto quase preto, lendo como
+campo desabilitado — aprovado em 5,51:1 pelo medidor e morto na tela. Depois:
+texto branco, lê como botão. Landing e KPIs capturados nos dois temas; o card de
+pedidos com lime sólido salta, e os três papéis do laranja coexistem na mesma
+tela (ícone puro, botão `#CC4E00`, link `#C24A00`).
+
+**Validação:** `tsc` limpo; Vitest **103/103**; PHPUnit do recorte **110/110**.
+Duas execuções intermediárias do Vitest acusaram 2 falhas por timeout de 5s
+nesta máquina — reexecutadas, passam; é lentidão local, não regressão.
+
+**Limite:** medição de contraste e captura não substituem o piloto com
+operadores (U14), que segue aberto. Não foram feitas capturas em 390px nem zoom
+200% — a matriz completa da seção 9 continua pendente.
+
+**Rollback:** cada passo é isolado — tokens, sidebar, `StatCard` e landing
+revertem separadamente. Nada toca backend, schema, permissão ou dado.

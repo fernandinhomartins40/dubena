@@ -10,7 +10,10 @@ export type StatAccent = 'primary' | 'lime' | 'neutral' | 'success' | 'destructi
 
 const ACCENTS: Record<StatAccent, string> = {
   primary: 'bg-primary/12 text-primary',
-  lime: 'bg-lime/25 text-[hsl(84_70%_30%)] dark:bg-lime/15 dark:text-lime',
+  // O lime só existe de verdade em superfície sólida com grafite por cima
+  // (14,26:1). Diluído a 25% sobre o card branco ele virava um tint de
+  // luminância 0,95 — indistinguível do fundo, que era o efeito anterior.
+  lime: 'bg-destaque text-destaque-foreground',
   neutral: 'bg-foreground/8 text-foreground',
   success: 'bg-success/15 text-success',
   destructive: 'bg-destructive/12 text-destructive',
@@ -33,10 +36,14 @@ export function StatCard({ titulo, valor, icon: Icon, accent = 'primary', hint, 
       <div className={cn('grid size-11 place-items-center rounded-lg', ACCENTS[accent])}>
         <Icon size={20} strokeWidth={2.2} />
       </div>
-      <p className="mt-4 text-3xl font-bold tracking-tight tabular-nums text-foreground">
+      {/* Quem opera uma revenda passa o dia com quantidade: botijões em poder
+          do cliente, pedidos na fila, parcelas em aberto. O número é o
+          conteúdo — não o card que o embrulha. É aqui, e só aqui, que a
+          interface levanta a voz. */}
+      <p className="mt-4 text-[2.75rem] font-bold leading-none tracking-[-0.03em] tabular-nums text-foreground">
         {loading || error ? '—' : typeof valor === 'number' ? valor.toLocaleString('pt-BR') : valor}
       </p>
-      <p className="text-sm text-muted-foreground">{titulo}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{titulo}</p>
       {(loading || error || hint) && <p className="mt-1 text-xs text-muted-foreground">{loading ? 'Carregando…' : error ? 'Consulta indisponível' : hint}</p>}
     </div>
   )

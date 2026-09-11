@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Ocorreu um erro inesperado. Você pode voltar e tentar de novo — o resto do sistema segue funcionando.
             </p>
             <button
-              className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="mt-2 rounded-md bg-acao px-4 py-2 text-sm font-medium text-acao-foreground"
               onClick={() => window.location.reload()}
             >
               Recarregar

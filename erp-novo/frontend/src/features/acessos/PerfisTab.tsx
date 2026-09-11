@@ -130,7 +130,7 @@ export function PerfisTab() {
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{modulo}</span>
                     <button
                       type="button"
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs text-marcaTexto hover:underline"
                       onClick={() => toggleModulo(itens, !todasMarcadas)}
                     >
                       {todasMarcadas ? 'Limpar' : 'Marcar tudo'}

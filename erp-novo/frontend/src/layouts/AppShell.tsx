@@ -155,9 +155,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                        // O ativo era um bloco laranja sólido, que competia com
+                        // os botões de ação pela mesma cor. Vira barra lime +
+                        // texto branco: 14,26:1 e 16,56:1 sobre a sidebar,
+                        // contra 5,51:1 de antes — e devolve o laranja à ação.
+                        'relative mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-sidebar-accent font-medium text-primary-foreground shadow-sm shadow-black/20'
+                          ? 'bg-white/10 font-medium text-white before:absolute before:inset-y-1 before:left-0 before:w-1 before:rounded-full before:bg-destaque'
                           : 'text-sidebar-foreground hover:bg-white/5 hover:text-white',
                         !expandida && 'justify-center',
                       )

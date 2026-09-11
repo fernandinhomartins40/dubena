@@ -18,6 +18,11 @@ export default {
         background: hsl('--background'),
         foreground: hsl('--foreground'),
         primary: { DEFAULT: hsl('--primary'), foreground: hsl('--primary-foreground') },
+        // Ação primária: escurece só aqui para caber texto branco (4,50:1).
+        acao: { DEFAULT: hsl('--primary-acao'), foreground: hsl('--primary-acao-foreground') },
+        // Laranja legível como TEXTO pequeno sobre claro (4,91:1). Ícone,
+        // borda e indicador continuam em `primary` — lá o mínimo é 3:1.
+        marcaTexto: hsl('--primary-texto'),
         secondary: { DEFAULT: hsl('--secondary'), foreground: hsl('--secondary-foreground') },
         muted: { DEFAULT: hsl('--muted'), foreground: hsl('--muted-foreground') },
         accent: { DEFAULT: hsl('--accent'), foreground: hsl('--accent-foreground') },

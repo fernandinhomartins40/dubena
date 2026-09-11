@@ -182,7 +182,7 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
                     <div className="mb-1 flex items-center justify-between border-b border-border pb-1">
                       <h3 className="text-sm font-semibold">{grupo}</h3>
                       <button type="button" onClick={() => alternarGrupo(itens, !todos)}
-                        className="text-xs text-primary hover:underline">
+                        className="text-xs text-marcaTexto hover:underline">
                         {todos ? 'Desmarcar' : 'Marcar'} todos
                       </button>
                     </div>
@@ -209,7 +209,7 @@ export function ExportarClientesDialog({ open, onOpenChange, situacaoInicial = '
             {/* ───────────────────────── Filtros ───────────────────────── */}
             <TabsContent value="filtros" className="max-h-[52vh] space-y-5 overflow-y-auto pr-1">
               <div className="flex justify-end">
-                <button type="button" onClick={limparFiltros} className="text-xs text-primary hover:underline">
+                <button type="button" onClick={limparFiltros} className="text-xs text-marcaTexto hover:underline">
                   Limpar todos os filtros
                 </button>
               </div>

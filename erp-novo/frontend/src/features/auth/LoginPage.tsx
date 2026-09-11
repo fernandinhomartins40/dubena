@@ -132,7 +132,7 @@ export function LoginPage() {
 
             <button
               type="submit" disabled={enviando}
-              className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+              className="w-full rounded-md bg-acao py-2.5 font-medium text-acao-foreground transition-colors hover:bg-acao/90 disabled:opacity-60"
             >
               {enviando ? 'Entrando…' : pedirOtp ? 'Verificar e entrar' : 'Entrar'}
             </button>

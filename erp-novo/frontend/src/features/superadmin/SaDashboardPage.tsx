@@ -48,7 +48,7 @@ export function SaDashboardPage() {
               <Card>
                 <CardHeader className="flex-row items-center justify-between">
                   <CardTitle>Assinaturas por plano</CardTitle>
-                  <Link to="/superadmin/planos" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1">
+                  <Link to="/superadmin/planos" className="text-xs font-medium text-marcaTexto hover:underline inline-flex items-center gap-1">
                     Gerir planos <ArrowRight size={12} />
                   </Link>
                 </CardHeader>
@@ -82,7 +82,7 @@ export function SaDashboardPage() {
               <Card>
                 <CardHeader className="flex-row items-center justify-between">
                   <CardTitle>Empresas suspensas</CardTitle>
-                  <Link to="/superadmin/empresas" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1">
+                  <Link to="/superadmin/empresas" className="text-xs font-medium text-marcaTexto hover:underline inline-flex items-center gap-1">
                     Ver todas <ArrowRight size={12} />
                   </Link>
                 </CardHeader>
@@ -112,7 +112,7 @@ export function SaDashboardPage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle>Atividade recente</CardTitle>
-                <Link to="/superadmin/auditoria" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1">
+                <Link to="/superadmin/auditoria" className="text-xs font-medium text-marcaTexto hover:underline inline-flex items-center gap-1">
                   Trilha completa <ArrowRight size={12} />
                 </Link>
               </CardHeader>
