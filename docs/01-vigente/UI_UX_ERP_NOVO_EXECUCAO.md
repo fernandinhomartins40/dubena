@@ -365,3 +365,20 @@ permissão ou dado.
 - Validação: `git diff --check`; CSS com chaves balanceadas e marcadores de
   escala, deslocamento e reset móvel confirmados. Rollback: reverter somente
   `public/landing/index.html`.
+
+## Microlote 26 (U15-k) — landing: camadas independentes de mascote e laptop
+
+- Os PNGs RGBA fornecidos na raiz como `mascote.png` e `laptop.png` foram
+  movidos para `public/landing/img/mascote-hero.png` e
+  `public/landing/img/laptop-hero.png`, respectivamente. Seus hashes de origem
+  são `436E425F013CEED183265EA872FE319BE5DA6B7D3C4631CDAD122AD2C57426FA`
+  e `349795066AA113758063093DE0B79ECB8ABA49AF6CB53850162E9511981B5BCA`.
+- O mascote agora pertence ao hero e é contido pela sua curva/seção clara; o
+  laptop/celular/chamada é uma camada irmã, com z-index superior, que cruza
+  visualmente o hero e a seção de benefícios. Assim os dois recortes seguem a
+  composição de referência sem alterar ou recortar os PNGs.
+- Em até 960px, as camadas passam para a composição vertical: mascote centrado
+  no hero e laptop em fluxo relativo, sem sobreposição fora da tela.
+- Validação: CSS com chaves balanceadas, HTML com as duas camadas esperadas,
+  referências públicas existentes e `git diff --check`. Rollback: reverter o
+  HTML e restaurar/remover apenas estes dois assets de landing.

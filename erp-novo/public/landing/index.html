@@ -38,14 +38,14 @@
        a arte precisa vazar para baixo, e cortar aqui era o que a prendia.
        O `--curva` é a altura da curva branca que fecha a cena; a arte usa o
        mesmo valor para saber o quanto atravessar. */
-    .hero{--curva:clamp(48px,7vw,104px);position:relative;isolation:isolate;background:var(--graphite) url("/landing/img/bg-landing-dubena.png") center/cover no-repeat;color:white;margin-top:-76px;padding:140px 0 calc(var(--curva) - 18px)}
+    .hero{--curva:clamp(48px,7vw,104px);position:relative;isolation:isolate;background:var(--graphite) url("/landing/img/bg-landing-dubena.png") center/cover no-repeat;color:white;margin-top:-76px;padding:140px 0 calc(var(--curva) - 18px);overflow:hidden}
     .hero:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(100deg,#0d0b09 0%,#0d0b09f2 28%,#14100cc4 52%,#1a120a70 74%,#1a120a40 100%)}
     /* A curva que encerra a cena. É um elemento branco com o topo arredondado
        em elipse, colado no pé do hero e transbordando um pouco para baixo —
        assim ele cobre a emenda com a seção seguinte mesmo em zoom fracionário,
        onde 1px de subpixel apareceria como linha. */
     .hero:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:var(--curva);z-index:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 132' preserveAspectRatio='none'%3E%3Cpath fill='%23f7f7f2' d='M0 18C350 48 940 134 1440 35V132H0Z'/%3E%3C/svg%3E") center bottom/100% 100% no-repeat}
-    .hero-grid{display:grid;grid-template-columns:1fr 1.34fr;align-items:center;gap:24px}
+    .hero-grid{display:grid;grid-template-columns:1fr 1.34fr;align-items:end;gap:24px}
     .hero-copy{position:relative;z-index:2;padding-bottom:8px}
     .hero-kicker{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#ffb37a;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
     .hero-kicker:before{content:"";width:26px;height:3px;border-radius:2px;background:var(--orange);flex:none}
@@ -54,20 +54,17 @@
     .hero-pills li:before{content:"";flex:none;width:20px;height:20px;border-radius:6px;background:var(--orange);
       -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);
       -webkit-mask-composite:xor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);mask-composite:exclude}
-    /* A arte já traz os dizeres e o selo embutidos. Ela sangra para fora da
-       coluna e, principalmente, ATRAVESSA a curva: a margem negativa a puxa
-       para além do pé do hero, invadindo a seção de baixo. Por isso o
-       `.preview` fica acima da curva no empilhamento (z-index 2 contra 0) —
-       é o que produz o recorte da referência, com o mascote por cima. */
-    .preview{position:relative;z-index:2;margin:0;color:var(--ink)}
-    .hero-art{display:block;width:calc(100% + 12%);max-width:none;height:auto;margin:0 -12% calc(var(--curva) * -1 - 26px) 0;transform:translateY(clamp(26px,2.6vw,42px)) scale(1.055);transform-origin:50% top;filter:drop-shadow(0 30px 64px #00000080)}
+    /* Camadas independentes: o mascote fica dentro do hero e é coberto pela
+       curva/seção clara; o laptop é irmão do hero e continua acima das duas. */
+    .hero-composition{position:relative}.hero-stage{position:relative;height:clamp(430px,43vw,560px)}
+    .hero-mascot{position:absolute;z-index:0;left:-4%;bottom:calc(var(--curva) * -.22);width:78%;height:auto;filter:drop-shadow(0 28px 58px #00000078)}
+    .laptop-overlap{position:absolute;z-index:4;right:max(20px,calc((100vw - 1160px)/2 - 34px));bottom:clamp(-100px,-6.5vw,-56px);width:min(780px,60vw);margin:0;color:var(--ink)}
+    .laptop-art{display:block;width:100%;height:auto;filter:drop-shadow(0 30px 58px #00000070)}
     .hero h1{font-size:clamp(40px,4.4vw,60px);max-width:13ch;margin:0;font-weight:800;letter-spacing:-.042em;text-shadow:0 2px 22px #00000060}
     .hero h1 em{font-style:normal;color:var(--orange)}
     .hero-lead{color:#ddd7cf;font-size:17px;max-width:44ch;margin-top:22px;text-shadow:0 1px 14px #00000055}
     .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
-    /* A legenda desce junto com a arte, para o lado claro da curva — por isso
-       a cor é de texto sobre papel, não sobre a foto. */
-    .preview figcaption{position:relative;margin-top:14px;color:var(--muted);font-size:11px;text-align:center}
+    .laptop-overlap figcaption{position:absolute;left:0;right:0;bottom:-16px;color:var(--muted);font-size:11px;text-align:center}
     .section{padding:88px 0}
     /* A arte invade esta seção; o respiro extra evita que o mascote encoste no
        título. É a primeira seção depois do hero que paga essa conta. */
@@ -83,10 +80,9 @@
     .final{padding:64px 0}.final-box{border:1px solid var(--line);border-radius:20px;background:white;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:30px}.final h2{font-size:30px;max-width:20ch}.final p{margin-top:14px;color:var(--muted)}
     footer{padding:32px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}.footer .brand{color:var(--ink);font-size:16px}
     @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}
-      /* Empilhado, a arte não tem coluna para sangrar — mas continua cruzando
-         a curva, que é o ponto da composição. */
-      .hero-art{width:100%;max-width:620px;margin:0 auto calc(var(--curva) * -1 - 12px);transform:none}
-      .preview{max-width:none;width:100%}.hero{padding-top:116px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
+      .hero-stage{height:min(112vw,580px)}.hero-mascot{left:50%;bottom:calc(var(--curva) * -.18);width:min(560px,90vw);transform:translateX(-50%)}
+      .laptop-overlap{position:relative;right:auto;bottom:auto;width:min(700px,108%);margin:-74px auto -18px}.laptop-overlap figcaption{bottom:-10px}
+      .hero{padding-top:116px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
     @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand img{height:38px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:34px;max-width:none}.hero-lead{font-size:15.5px}.hero-kicker{font-size:11px}.hero-pills{gap:10px 20px;font-size:12.5px}.final-box{padding:28px;align-items:start;flex-direction:column}.final{padding:40px 0}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}</style>
 </head>
@@ -101,6 +97,7 @@
     </div>
   </header>
   <main id="conteudo" tabindex="-1">
+  <div class="hero-composition">
     <section class="hero" id="inicio">
       <div class="wrap">
         <div class="hero-grid">
@@ -116,13 +113,17 @@
               <li>Seu tempo de volta</li>
             </ul>
           </div>
-          <figure class="preview">
-            <img class="hero-art" src="/landing/img/mascote-hero.png" width="1484" height="1060" alt="Entregador do Gás em Casa segurando um botijão, ao lado de um notebook e um celular mostrando o sistema." fetchpriority="high" decoding="async">
-            <figcaption>Telas ilustrativas com dados fictícios. Recursos dependem do acesso e da configuração.</figcaption>
-          </figure>
+          <div class="hero-stage">
+            <img class="hero-mascot" src="/landing/img/mascote-hero.png" width="1145" height="1374" alt="Entregador do Gás em Casa segurando um botijão." fetchpriority="high" decoding="async">
+          </div>
         </div>
       </div>
     </section>
+    <figure class="laptop-overlap">
+      <img class="laptop-art" src="/landing/img/laptop-hero.png" width="1448" height="1086" alt="Notebook e celular mostrando o sistema Gás em Casa." decoding="async">
+      <figcaption>Telas ilustrativas com dados fictícios. Recursos dependem do acesso e da configuração.</figcaption>
+    </figure>
+  </div>
     <section class="section" id="beneficios"><div class="wrap">
       <div class="section-heading"><div><h2>Mais clareza em cada etapa.</h2></div><p>Informação organizada para quem atende, entrega e acompanha o negócio.</p></div>
       <div class="benefits">
