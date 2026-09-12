@@ -366,6 +366,20 @@ permissão ou dado.
   escala, deslocamento e reset móvel confirmados. Rollback: reverter somente
   `public/landing/index.html`.
 
+## Microlote 28 (U15-m) — landing: painéis estáveis de conteúdo e arte
+
+- O hero foi reorganizado em dois painéis sem emenda visual, sob o mesmo fundo
+  contínuo: `hero-copy-panel` contém somente texto, ações e benefícios; e
+  `hero-art-panel` ancora o mascote no seu lado esquerdo.
+- O laptop continua em uma camada independente, ancorada ao lado direito da
+  composição, para cruzar a curva sem participar do cálculo de largura da
+  cópia. Isso elimina o deslocamento horizontal causado pela arte em telas
+  intermediárias.
+- A partir de 960px ou menos, os painéis viram uma coluna com mascote centrado
+  e laptop em fluxo relativo. Validação: chaves CSS balanceadas, HTML com os
+  dois painéis, assets públicos existentes e `git diff --check`. Rollback:
+  reverter somente `public/landing/index.html`.
+
 ## Microlote 26 (U15-k) — landing: camadas independentes de mascote e laptop
 
 - Os PNGs RGBA fornecidos na raiz como `mascote.png` e `laptop.png` foram

@@ -45,8 +45,12 @@
        assim ele cobre a emenda com a seção seguinte mesmo em zoom fracionário,
        onde 1px de subpixel apareceria como linha. */
     .hero:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:var(--curva);z-index:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 132' preserveAspectRatio='none'%3E%3Cpath fill='%23f7f7f2' d='M0 18C350 48 940 134 1440 35V132H0Z'/%3E%3C/svg%3E") center bottom/100% 100% no-repeat}
-    .hero-grid{display:grid;grid-template-columns:1fr 1.34fr;align-items:end;gap:24px}
-    .hero-copy{position:relative;z-index:2;padding-bottom:8px}
+    /* Dois painéis sem emenda visual: ambos leem o fundo contínuo do hero.
+       O painel de arte não participa da largura da cópia, então o laptop não
+       desloca título, botões ou benefícios em nenhuma largura. */
+    .hero-panels{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);align-items:end;gap:0}
+    .hero-copy-panel{position:relative;z-index:2;display:flex;align-items:center;min-height:clamp(430px,43vw,560px);padding:0 24px 8px 0}
+    .hero-copy{width:100%}
     .hero-kicker{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#ffb37a;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
     .hero-kicker:before{content:"";width:26px;height:3px;border-radius:2px;background:var(--orange);flex:none}
     .hero-pills{display:flex;flex-wrap:wrap;gap:10px 30px;margin:34px 0 0;padding:0;list-style:none;color:#e7e2da;font-size:13.5px;font-weight:600}
@@ -56,8 +60,8 @@
       -webkit-mask-composite:xor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);mask-composite:exclude}
     /* Camadas independentes: o mascote fica dentro do hero e é coberto pela
        curva/seção clara; o laptop é irmão do hero e continua acima das duas. */
-    .hero-composition{position:relative}.hero-stage{position:relative;height:clamp(430px,43vw,560px)}
-    .hero-mascot{position:absolute;z-index:0;left:-4%;bottom:calc(var(--curva) * -.65);width:78%;height:auto;filter:drop-shadow(0 28px 58px #00000078)}
+    .hero-composition{position:relative}.hero-art-panel{position:relative;height:clamp(430px,43vw,560px)}
+    .hero-mascot{position:absolute;z-index:0;left:0;bottom:calc(var(--curva) * -.65);width:78%;height:auto;filter:drop-shadow(0 28px 58px #00000078)}
     .laptop-overlap{position:absolute;z-index:4;right:max(20px,calc((100vw - 1160px)/2 - 34px));bottom:clamp(-100px,-6.5vw,-56px);width:min(780px,60vw);margin:0;color:var(--ink)}
     .laptop-art{display:block;width:100%;height:auto;filter:drop-shadow(0 30px 58px #00000070)}
     .hero h1{font-size:clamp(40px,4.4vw,60px);max-width:13ch;margin:0;font-weight:800;letter-spacing:-.042em;text-shadow:0 2px 22px #00000060}
@@ -81,9 +85,9 @@
     footer{padding:32px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}.footer .brand{color:var(--ink);font-size:16px}
     /* Faixa intermediária: ainda há duas colunas, mas não existe área útil
        suficiente para a arte larga da versão desktop. */
-    @media(min-width:961px) and (max-width:1180px){.hero-stage{height:clamp(430px,46vw,520px)}.hero-mascot{left:-10%;bottom:calc(var(--curva) * -.9);width:88%}.laptop-overlap{right:0;bottom:clamp(-84px,-6vw,-50px);width:min(720px,56vw)}}
-    @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}
-      .hero-stage{height:min(112vw,580px)}.hero-mascot{left:50%;bottom:calc(var(--curva) * -.18);width:min(560px,90vw);transform:translateX(-50%)}
+    @media(min-width:961px) and (max-width:1180px){.hero-copy-panel{min-height:clamp(430px,46vw,520px)}.hero-art-panel{height:clamp(430px,46vw,520px)}.hero-mascot{left:0;bottom:calc(var(--curva) * -.9);width:88%}.laptop-overlap{right:0;bottom:clamp(-84px,-6vw,-50px);width:min(720px,56vw)}}
+    @media(max-width:960px){.hero-panels{grid-template-columns:1fr}.hero-copy-panel{display:block;min-height:auto;padding:0}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}
+      .hero-art-panel{height:min(112vw,580px)}.hero-mascot{left:50%;bottom:calc(var(--curva) * -.18);width:min(560px,90vw);transform:translateX(-50%)}
       .laptop-overlap{position:relative;right:auto;bottom:auto;width:min(700px,108%);margin:-74px auto -18px}.laptop-overlap figcaption{bottom:-10px}
       .hero{padding-top:116px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
     @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand img{height:38px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:34px;max-width:none}.hero-lead{font-size:15.5px}.hero-kicker{font-size:11px}.hero-pills{gap:10px 20px;font-size:12.5px}.final-box{padding:28px;align-items:start;flex-direction:column}.final{padding:40px 0}}
@@ -103,7 +107,8 @@
   <div class="hero-composition">
     <section class="hero" id="inicio">
       <div class="wrap">
-        <div class="hero-grid">
+        <div class="hero-panels">
+          <section class="hero-copy-panel" aria-label="Apresentação do sistema">
           <div class="hero-copy">
             <p class="hero-kicker">Sistema completo para revendedores de gás e água</p>
             <h1>Sua revenda inteira <em>no controle</em>, num só lugar.</h1>
@@ -116,9 +121,10 @@
               <li>Seu tempo de volta</li>
             </ul>
           </div>
-          <div class="hero-stage">
+          </section>
+          <section class="hero-art-panel" aria-label="Demonstração visual do sistema">
             <img class="hero-mascot" src="/landing/img/mascote-hero.png" width="1145" height="1374" alt="Entregador do Gás em Casa segurando um botijão." fetchpriority="high" decoding="async">
-          </div>
+          </section>
         </div>
       </div>
     </section>
