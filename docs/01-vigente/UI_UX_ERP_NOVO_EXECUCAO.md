@@ -356,3 +356,12 @@ permissão ou dado.
 - Validação: `git diff --check`; CSS com chaves balanceadas e confirmação dos
   marcadores de escala, deslocamento e reset responsivo. Rollback: reverter
   apenas `public/landing/index.html`.
+
+## Microlote 25 (U15-j) — landing: escala final do mascote
+
+- Após a conferência visual, a arte desktop foi ampliada de 3% para 5,5% e o
+  deslocamento vertical passou para a faixa responsiva de 26px a 42px. A
+  extremidade da perna alcança a curva, sem alterar o PNG nem o layout móvel.
+- Validação: `git diff --check`; CSS com chaves balanceadas e marcadores de
+  escala, deslocamento e reset móvel confirmados. Rollback: reverter somente
+  `public/landing/index.html`.
