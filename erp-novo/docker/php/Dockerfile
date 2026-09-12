@@ -21,7 +21,7 @@ RUN npm run build
 
 FROM php:8.3-fpm@sha256:d8236042c96700b2dd4439d7260ee0666b4864076b12b82f993be3847371442b AS php-base
 
-ARG DEBIAN_SNAPSHOT=20260824T000000Z
+ARG DEBIAN_SNAPSHOT=20260912T160000Z
 
 # A variante Debian é determinada pelo digest; não presumir codename pela tag.
 RUN set -eux; \
@@ -32,6 +32,15 @@ RUN set -eux; \
     # reprodutibilidade: o snapshot continua fixo, so a busca insiste.
     printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/99retries; \
     apt-get update; \
+    # A imagem PHP inclui Perl 5.40.1-6, bloqueado pelo gate Trivy por
+    # CVE-2026-13221, CVE-2026-42496 e CVE-2026-8376. Atualizar somente a
+    # família Perl para o patch presente no snapshot mantém o build auditável
+    # sem transformar a release em um upgrade amplo e não determinístico.
+    apt-get install -y --no-install-recommends --only-upgrade \
+        perl \
+        perl-base \
+        libperl5.40 \
+        perl-modules-5.40; \
     apt-get install -y --no-install-recommends \
         git \
         unzip \

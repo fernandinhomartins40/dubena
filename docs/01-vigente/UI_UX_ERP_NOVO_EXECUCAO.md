@@ -409,3 +409,19 @@ permissão ou dado.
   `git diff --check`, CSS com chaves balanceadas e presença das regras de
   contenção, faixa intermediária e posicionamento. Rollback: reverter somente
   `public/landing/index.html`.
+
+## Microlote 29 (release) — correção do gate Trivy
+
+- A release de `38271cc8` foi construída e publicada no GHCR, mas o deploy foi
+  corretamente interrompido pelo scan Trivy crítico da imagem PHP. A causa foi
+  reproduzida na base fixada: Perl 5.40.1-6 expunha CVE-2026-13221,
+  CVE-2026-42496 e CVE-2026-8376; o pacote corrigido é
+  `5.40.1-6+deb13u1`.
+- O snapshot Debian foi avançado para `20260912T160000Z` e o Dockerfile faz
+  upgrade explícito, estreito e reproduzível de `perl`, `perl-base`,
+  `libperl5.40` e `perl-modules-5.40`. A resolução no snapshot confirmou as
+  quatro versões corrigidas antes do restante da construção.
+- Validação local: `git diff --check`; Trivy na base anterior confirmou as
+  CVEs; `apt-get` com o novo snapshot selecionou e instalou as quatro versões
+  patchadas. A CI mantém a validação integral de build, Trivy, SBOM e deploy.
+  Rollback: reverter somente `docker/php/Dockerfile`.
