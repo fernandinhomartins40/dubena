@@ -344,3 +344,15 @@ permissão ou dado.
   captura visual local ou matriz 390px/zoom.
 - Rollback: reverter apenas `public/landing/index.html`; não toca backend,
   schema, permissões, dados nem os assets fornecidos.
+
+## Microlote 24 (U15-i) — landing: contato da perna com a curva
+
+- No desktop, a arte do mascote ganhou escala proporcional de 3%, ancorada no
+  topo, e deslocamento vertical responsivo de 16px a 28px. Esse ajuste leva a
+  extremidade inferior da perna até a curva sem deformar nem editar o PNG.
+- A transformação é desativada abaixo de 960px, onde a composição passa a uma
+  coluna e a arte já ocupa a largura disponível sem o espaço percebido no
+  desktop.
+- Validação: `git diff --check`; CSS com chaves balanceadas e confirmação dos
+  marcadores de escala, deslocamento e reset responsivo. Rollback: reverter
+  apenas `public/landing/index.html`.
