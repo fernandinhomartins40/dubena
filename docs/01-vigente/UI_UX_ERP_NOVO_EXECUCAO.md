@@ -382,3 +382,16 @@ permissão ou dado.
 - Validação: CSS com chaves balanceadas, HTML com as duas camadas esperadas,
   referências públicas existentes e `git diff --check`. Rollback: reverter o
   HTML e restaurar/remover apenas estes dois assets de landing.
+
+## Microlote 27 (U15-l) — landing: alinhamento da faixa intermediária
+
+- Corrigida a composição entre 961px e 1180px: mantém duas colunas, porém
+  reduz a largura do laptop, ancora-o à direita e aumenta/baixa o mascote para
+  evitar a competição com a cópia à esquerda.
+- O mascote também foi rebaixado no desktop amplo, com corte preservado pela
+  curva. A página passou a conter overflow horizontal, impedindo que a camada
+  sobreposta permita rolagem lateral em telas estreitas.
+- Até 960px continua valendo a composição vertical já registrada. Validação:
+  `git diff --check`, CSS com chaves balanceadas e presença das regras de
+  contenção, faixa intermediária e posicionamento. Rollback: reverter somente
+  `public/landing/index.html`.

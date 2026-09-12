@@ -9,7 +9,7 @@
   <style>
     :root{--orange:#ff6200;--orange-acao:#cc4e00;--orange-text:#c24a00;--lime:#dbfb3b;--graphite:#1f1f1f;--ink:#242422;--muted:#625f58;--paper:#f7f7f2;--white:#fff;--line:#ddded5;--radius:16px}
     *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:100px}
-    body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{margin:0;overflow-x:hidden;background:var(--paper);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
     h1,h2,h3,p{margin:0}h1,h2,h3{line-height:1.12;letter-spacing:-.035em}a{color:inherit}button{font:inherit}
     :focus-visible{outline:3px solid var(--orange);outline-offset:5px}
     .wrap{width:min(1160px,100% - 48px);margin:auto}.skip{position:absolute;left:16px;top:-100px;z-index:100;background:white;padding:12px}.skip:focus{top:12px}
@@ -57,7 +57,7 @@
     /* Camadas independentes: o mascote fica dentro do hero e é coberto pela
        curva/seção clara; o laptop é irmão do hero e continua acima das duas. */
     .hero-composition{position:relative}.hero-stage{position:relative;height:clamp(430px,43vw,560px)}
-    .hero-mascot{position:absolute;z-index:0;left:-4%;bottom:calc(var(--curva) * -.22);width:78%;height:auto;filter:drop-shadow(0 28px 58px #00000078)}
+    .hero-mascot{position:absolute;z-index:0;left:-4%;bottom:calc(var(--curva) * -.65);width:78%;height:auto;filter:drop-shadow(0 28px 58px #00000078)}
     .laptop-overlap{position:absolute;z-index:4;right:max(20px,calc((100vw - 1160px)/2 - 34px));bottom:clamp(-100px,-6.5vw,-56px);width:min(780px,60vw);margin:0;color:var(--ink)}
     .laptop-art{display:block;width:100%;height:auto;filter:drop-shadow(0 30px 58px #00000070)}
     .hero h1{font-size:clamp(40px,4.4vw,60px);max-width:13ch;margin:0;font-weight:800;letter-spacing:-.042em;text-shadow:0 2px 22px #00000060}
@@ -79,6 +79,9 @@
     .faq{max-width:800px;margin:0 auto}.faq details{border-bottom:1px solid var(--line);padding:22px 0}.faq summary{font-size:17px;font-weight:650;cursor:pointer}.faq p{margin-top:14px;color:var(--muted);max-width:68ch}
     .final{padding:64px 0}.final-box{border:1px solid var(--line);border-radius:20px;background:white;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:30px}.final h2{font-size:30px;max-width:20ch}.final p{margin-top:14px;color:var(--muted)}
     footer{padding:32px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}.footer .brand{color:var(--ink);font-size:16px}
+    /* Faixa intermediária: ainda há duas colunas, mas não existe área útil
+       suficiente para a arte larga da versão desktop. */
+    @media(min-width:961px) and (max-width:1180px){.hero-stage{height:clamp(430px,46vw,520px)}.hero-mascot{left:-10%;bottom:calc(var(--curva) * -.9);width:88%}.laptop-overlap{right:0;bottom:clamp(-84px,-6vw,-50px);width:min(720px,56vw)}}
     @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}
       .hero-stage{height:min(112vw,580px)}.hero-mascot{left:50%;bottom:calc(var(--curva) * -.18);width:min(560px,90vw);transform:translateX(-50%)}
       .laptop-overlap{position:relative;right:auto;bottom:auto;width:min(700px,108%);margin:-74px auto -18px}.laptop-overlap figcaption{bottom:-10px}
