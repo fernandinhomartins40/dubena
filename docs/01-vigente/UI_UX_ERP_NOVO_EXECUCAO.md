@@ -321,3 +321,26 @@ permissão ou dado.
 - Rollback: reverter `public/landing/index.html` e remover apenas os três
   assets adicionados neste microlote; nenhum backend, schema, permissão ou dado
   foi alterado.
+
+## Microlote 23 (U15-h) — landing: cena contínua do hero
+
+- A composição do primeiro bloco foi alinhada à referência: o cabeçalho ficou
+  transparente sobre o hero, e o próprio hero sobe sob os 76px da navegação.
+  Portanto fundo, marca, navegação e conteúdo leem visualmente como uma única
+  cena; ao sair dela durante a rolagem, o cabeçalho recebe fundo grafite para
+  preservar contraste e legibilidade.
+- A transição para benefícios deixou de ser uma linha reta. Uma curva clara
+  fecha a cena, descendo no centro como na referência. O PNG RGBA canônico do
+  mascote/notebook fica acima dessa camada e atravessa a curva, com espaço
+  reservado no início da próxima seção; não houve recorte, alteração ou nova
+  geração do asset.
+- A faixa textual inferior que mantinha o hero visualmente retangular foi
+  removida da composição. Os mesmos destinos de navegação e as âncoras foram
+  preservados.
+- Validação: `git diff --check`; CSS com chaves balanceadas; as três
+  referências `/landing/img/` existem no diretório público; verificados os
+  marcadores estruturais de cabeçalho transparente, sobreposição de 76px,
+  curva e margem negativa da arte. Não há navegador exposto nesta sessão para
+  captura visual local ou matriz 390px/zoom.
+- Rollback: reverter apenas `public/landing/index.html`; não toca backend,
+  schema, permissões, dados nem os assets fornecidos.

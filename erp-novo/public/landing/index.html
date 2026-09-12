@@ -13,7 +13,12 @@
     h1,h2,h3,p{margin:0}h1,h2,h3{line-height:1.12;letter-spacing:-.035em}a{color:inherit}button{font:inherit}
     :focus-visible{outline:3px solid var(--orange);outline-offset:5px}
     .wrap{width:min(1160px,100% - 48px);margin:auto}.skip{position:absolute;left:16px;top:-100px;z-index:100;background:white;padding:12px}.skip:focus{top:12px}
-    .header{position:sticky;top:0;z-index:40;background:var(--graphite);border-bottom:1px solid #ffffff20;color:white}
+    /* O header NÃO tem fundo próprio: ele flutua sobre a foto do hero, que
+       começa atrás dele. É isso que faz header e hero lerem como uma cena só.
+       Ao rolar, o script liga .is-rolado e aí sim entra o grafite — senão os
+       links cairiam sobre o conteúdo claro das seções de baixo. */
+    .header{position:sticky;top:0;z-index:40;background:transparent;color:white;transition:background .2s,border-color .2s;border-bottom:1px solid transparent}
+    .header.is-rolado{background:var(--graphite);border-bottom-color:#ffffff20}
     .nav{height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}
     /* A marca agora é a arte oficial. Altura fixa e largura automática para o
        PNG escalar sem deformar em nenhuma largura de tela. */
@@ -23,14 +28,24 @@
     .button{display:inline-flex;justify-content:center;align-items:center;gap:12px;min-height:48px;padding:12px 22px;border:1px solid transparent;border-radius:10px;background:var(--orange-acao);color:var(--white);font-size:14px;font-weight:750;text-decoration:none;transition:background .15s,box-shadow .15s}
     .button:hover{background:#ff7d2d;box-shadow:0 3px 12px #00000010}.button.secondary{background:transparent;border-color:#ffffff50;color:white}.button.secondary:hover{background:#ffffff10}
     .mobile-nav{display:none}.mobile-nav summary{cursor:pointer;min-height:44px;display:flex;align-items:center;padding:8px}
-    .mobile-links{position:absolute;top:76px;left:0;right:0;background:var(--graphite);padding:16px 24px;border-top:1px solid #ffffff25}
+    .mobile-links{position:absolute;top:76px;left:0;right:0;background:var(--graphite);padding:16px 24px;border-top:1px solid #ffffff25;z-index:3}
     .mobile-links a{display:block;padding:12px;color:white;text-decoration:none}
     /* Foto do depósito ao fundo; o gradiente por cima escurece a ESQUERDA,
        que é onde o texto vive — sem ele a headline cairia sobre a área clara
        da imagem e perderia contraste. */
-    .hero{position:relative;isolation:isolate;background:var(--graphite) url("/landing/img/bg-landing-dubena.png") center/cover no-repeat;color:white;padding:64px 0 0;overflow:hidden}
+    /* O hero sobe os 76px do header e devolve no padding: a foto passa ATRÁS
+       da navegação, e as duas viram uma cena só. Sem `overflow:hidden` —
+       a arte precisa vazar para baixo, e cortar aqui era o que a prendia.
+       O `--curva` é a altura da curva branca que fecha a cena; a arte usa o
+       mesmo valor para saber o quanto atravessar. */
+    .hero{--curva:clamp(48px,7vw,104px);position:relative;isolation:isolate;background:var(--graphite) url("/landing/img/bg-landing-dubena.png") center/cover no-repeat;color:white;margin-top:-76px;padding:140px 0 calc(var(--curva) - 18px)}
     .hero:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(100deg,#0d0b09 0%,#0d0b09f2 28%,#14100cc4 52%,#1a120a70 74%,#1a120a40 100%)}
-    .hero-grid{display:grid;grid-template-columns:1.02fr 1.28fr;align-items:center;gap:24px}
+    /* A curva que encerra a cena. É um elemento branco com o topo arredondado
+       em elipse, colado no pé do hero e transbordando um pouco para baixo —
+       assim ele cobre a emenda com a seção seguinte mesmo em zoom fracionário,
+       onde 1px de subpixel apareceria como linha. */
+    .hero:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:var(--curva);z-index:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 132' preserveAspectRatio='none'%3E%3Cpath fill='%23f7f7f2' d='M0 18C350 48 940 134 1440 35V132H0Z'/%3E%3C/svg%3E") center bottom/100% 100% no-repeat}
+    .hero-grid{display:grid;grid-template-columns:1fr 1.34fr;align-items:center;gap:24px}
     .hero-copy{position:relative;z-index:2;padding-bottom:8px}
     .hero-kicker{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#ffb37a;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
     .hero-kicker:before{content:"";width:26px;height:3px;border-radius:2px;background:var(--orange);flex:none}
@@ -39,17 +54,24 @@
     .hero-pills li:before{content:"";flex:none;width:20px;height:20px;border-radius:6px;background:var(--orange);
       -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);
       -webkit-mask-composite:xor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/13px no-repeat, linear-gradient(#000,#000);mask-composite:exclude}
-    /* A arte já traz os dizeres e o selo embutidos; ela sangra um pouco para
-       fora da coluna, como na referência, sem empurrar o texto. */
-    .hero-art{display:block;width:calc(100% + 7%);max-width:none;height:auto;margin:0 -7% -8px 0;filter:drop-shadow(0 26px 60px #00000075)}
+    /* A arte já traz os dizeres e o selo embutidos. Ela sangra para fora da
+       coluna e, principalmente, ATRAVESSA a curva: a margem negativa a puxa
+       para além do pé do hero, invadindo a seção de baixo. Por isso o
+       `.preview` fica acima da curva no empilhamento (z-index 2 contra 0) —
+       é o que produz o recorte da referência, com o mascote por cima. */
+    .preview{position:relative;z-index:2;margin:0;color:var(--ink)}
+    .hero-art{display:block;width:calc(100% + 12%);max-width:none;height:auto;margin:0 -12% calc(var(--curva) * -1 - 26px) 0;filter:drop-shadow(0 30px 64px #00000080)}
     .hero h1{font-size:clamp(40px,4.4vw,60px);max-width:13ch;margin:0;font-weight:800;letter-spacing:-.042em;text-shadow:0 2px 22px #00000060}
     .hero h1 em{font-style:normal;color:var(--orange)}
     .hero-lead{color:#ddd7cf;font-size:17px;max-width:44ch;margin-top:22px;text-shadow:0 1px 14px #00000055}
     .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
-    .hero-foot{display:flex;flex-wrap:wrap;gap:16px 32px;margin-top:64px;padding:24px 0;border-top:1px solid #ffffff20;color:#cecec4;font-size:13px}
-    .hero-foot strong{color:white}.preview{color:var(--ink)}
-    .preview figcaption{margin-top:12px;color:#bfc0b4;font-size:11px;text-align:center}.preview{margin:0}
-    .section{padding:88px 0}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:36px}.section-heading h2{font-size:clamp(28px,3.4vw,42px);max-width:20ch;margin-top:16px}.section-heading p{max-width:40ch;color:var(--muted)}
+    /* A legenda desce junto com a arte, para o lado claro da curva — por isso
+       a cor é de texto sobre papel, não sobre a foto. */
+    .preview figcaption{position:relative;margin-top:14px;color:var(--muted);font-size:11px;text-align:center}
+    .section{padding:88px 0}
+    /* A arte invade esta seção; o respiro extra evita que o mascote encoste no
+       título. É a primeira seção depois do hero que paga essa conta. */
+    #beneficios{padding-top:clamp(96px,11vw,168px)}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:32px;margin-bottom:36px}.section-heading h2{font-size:clamp(28px,3.4vw,42px);max-width:20ch;margin-top:16px}.section-heading p{max-width:40ch;color:var(--muted)}
     .benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.benefit{padding:30px;background:white;border:1px solid var(--line);border-radius:var(--radius)}.number{display:grid;place-items:center;width:38px;height:38px;background:var(--paper);border:1px solid var(--line);border-radius:10px;color:var(--orange-text);font-size:13px;font-weight:750;margin-bottom:28px}
     .benefit h3{font-size:22px;max-width:16ch}.benefit p{color:var(--muted);font-size:15px;margin-top:16px}.benefit a{display:inline-block;margin-top:24px;font-size:14px;font-weight:700;color:var(--orange-text);text-underline-offset:4px}
     .product{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#eeefe7}.modules{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
@@ -60,8 +82,12 @@
     .faq{max-width:800px;margin:0 auto}.faq details{border-bottom:1px solid var(--line);padding:22px 0}.faq summary{font-size:17px;font-weight:650;cursor:pointer}.faq p{margin-top:14px;color:var(--muted);max-width:68ch}
     .final{padding:64px 0}.final-box{border:1px solid var(--line);border-radius:20px;background:white;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:30px}.final h2{font-size:30px;max-width:20ch}.final p{margin-top:14px;color:var(--muted)}
     footer{padding:32px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px}.footer .brand{color:var(--ink);font-size:16px}
-    @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}.hero-art{width:100%;max-width:620px;margin:0 auto -6px}.preview{max-width:none;width:100%}.hero{padding-top:44px}.hero-foot{margin-top:36px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
-    @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand img{height:38px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:34px;max-width:none}.hero-lead{font-size:15.5px}.hero-kicker{font-size:11px}.hero-pills{gap:10px 20px;font-size:12.5px}.final-box{padding:28px;align-items:start;flex-direction:column}.hero-foot{gap:12px 24px}.final{padding:40px 0}}
+    @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:8px}.hero h1{max-width:18ch}.hero-copy{text-align:left}.hero-lead{max-width:52ch}
+      /* Empilhado, a arte não tem coluna para sangrar — mas continua cruzando
+         a curva, que é o ponto da composição. */
+      .hero-art{width:100%;max-width:620px;margin:0 auto calc(var(--curva) * -1 - 12px)}
+      .preview{max-width:none;width:100%}.hero{padding-top:116px}.links{display:none}.mobile-nav{display:block}.nav{gap:14px}.flow-grid{gap:40px}.benefit{padding:24px}}
+    @media(max-width:640px){.wrap{width:calc(100% - 32px)}.brand img{height:38px}.nav{gap:8px}.nav>.button{padding:10px 14px;min-height:44px}.section{padding:56px 0}.section-heading{display:block}.section-heading p{margin-top:20px}.benefits,.modules,.flow-grid{grid-template-columns:1fr}.benefit h3{max-width:none}.number{margin-bottom:18px}.hero h1{font-size:34px;max-width:none}.hero-lead{font-size:15.5px}.hero-kicker{font-size:11px}.hero-pills{gap:10px 20px;font-size:12.5px}.final-box{padding:28px;align-items:start;flex-direction:column}.final{padding:40px 0}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}</style>
 </head>
 <body>
@@ -95,7 +121,6 @@
             <figcaption>Telas ilustrativas com dados fictícios. Recursos dependem do acesso e da configuração.</figcaption>
           </figure>
         </div>
-        <div class="hero-foot"><strong>Feito para sua rotina</strong><span>Revendas de GLP</span><span>Distribuidoras de água</span><span>Tele-entrega</span><span>Operação multifilial</span></div>
       </div>
     </section>
     <section class="section" id="beneficios"><div class="wrap">
@@ -137,6 +162,13 @@
   </main>
   <footer><div class="wrap footer"><a class="brand" href="#inicio"><span class="mark" aria-hidden="true">G</span>Gás em Casa</a><span>Gestão para distribuidoras de gás e água.</span><span>Usa o sistema anterior? <a href="/login">Acessar versão clássica</a></span></div></footer>
   <script>
+    // O header é transparente sobre o hero. Assim que a foto sai de baixo dele,
+    // o grafite entra — senão os links ficariam sobre as seções claras.
+    const header = document.querySelector('.header');
+    const marcarRolagem = () => header.classList.toggle('is-rolado', window.scrollY > 24);
+    marcarRolagem();
+    addEventListener('scroll', marcarRolagem, { passive: true });
+
     const mobileMenu = document.querySelector('.mobile-nav');
     mobileMenu.querySelectorAll('a').forEach(link => link.addEventListener('click', () => { mobileMenu.open = false; }));
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && mobileMenu.open) { mobileMenu.open = false; mobileMenu.querySelector('summary').focus(); } });
