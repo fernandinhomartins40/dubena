@@ -1801,9 +1801,9 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   validada com `nginx -t`, recarregada e confirmada externamente em HTTPS com
   `200 image/png` para os três arquivos. Há backup do vhost fora de
   `sites-enabled` para rollback.
-- O mascote foi restaurado byte a byte à cópia PNG original fornecida; não deve
-  receber recorte, remoção de fundo, IA ou conversão de formato sem solicitação
-  expressa do dono.
+- O mascote canônico é o PNG RGBA `mascote_hero.png` fornecido pelo dono, movido
+  para `public/landing/img/mascote-hero.png`; não deve receber recorte, remoção
+  de fundo, IA ou conversão de formato sem solicitação expressa do dono.
 - A sessão não tinha navegador disponível para inspeção em 390px/zoom; U0/U1/U14
   seguem abertos. `erp-novo/perda.sql` e `kit-auditoria/` permanecem
   preexistentes e intocados; os assets da landing ainda estão não commitados.

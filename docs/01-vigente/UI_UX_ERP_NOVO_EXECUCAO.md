@@ -310,10 +310,11 @@ permissão ou dado.
   `nginx -t` e reload. Fundo, logo e mascote foram conferidos na URL HTTPS com
   `200 image/png`. Backup reversível do vhost foi salvo em `/root/` fora de
   `sites-enabled`, evitando novo servidor duplicado.
-- Correção de procedência: a primeira versão publicada do mascote tinha sido
-  alterada por uma tentativa indevida de recorte. Ela foi restaurada byte a
-  byte a partir da cópia original importada antes desse tratamento (SHA-256
-  `4E80E4D529808F9AB76C5B419F406EA1150F73BB87943E34D9C343E3F689FD79`).
+- Correção de procedência: o asset canônico do mascote é o PNG RGBA fornecido
+  pelo dono como `mascote_hero.png`; ele foi movido para
+  `public/landing/img/mascote-hero.png` e é usado diretamente pelo hero, sem
+  recorte, remoção de fundo, IA ou conversão (SHA-256
+  `47DAE9EBFB11E7E321005EC67AE16230B4F66742D0C95345FFFC5CF48768BDDF`).
 - Limite: a sessão não expõe navegador para captura ou inspeção em 390px/zoom;
   esses itens de U0/U1/U14 permanecem abertos. Uma edição de IA que devolveu
   PNG RGB com quadriculado opaco foi descartada, sem substituir o asset usado.
