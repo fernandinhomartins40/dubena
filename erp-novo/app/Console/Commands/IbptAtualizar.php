@@ -84,7 +84,8 @@ class IbptAtualizar extends Command
             return (string) file_get_contents($arquivo);
         }
 
-        $url = env('IBPT_CSV_URL');
+        // config() e nao env(): com config:cache em producao o env() volta vazio.
+        $url = config('services.ibpt.csv_url');
         if ($url) {
             $resp = Http::timeout(30)->get($url);
 

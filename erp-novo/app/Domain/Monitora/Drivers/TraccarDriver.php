@@ -60,9 +60,16 @@ class TraccarDriver implements SgcasaDriver
             // Duas chamadas: `devices` dá o uniqueId (o IMEI), `positions` dá a
             // posição. A API não devolve as duas coisas juntas, e é o deviceId
             // numérico que liga uma à outra.
-            $dispositivos = Http::timeout(20)->withBasicAuth($usuario, $senha)
+            // Timeout curto de proposito. Sao DUAS chamadas por ciclo, e o ciclo
+            // se repete a cada minuto: com os 20s de antes, um provedor lento
+            // fazia um unico ciclo passar de 40s, ultrapassar a propria janela
+            // e empilhar processos do scheduler — foi assim que a VPS chegou a
+            // load 293. Alem disso, posicao de GPS que demora 20s para chegar
+            // ja nao serve ao mapa ao vivo, que e a razao deste polling existir:
+            // desistir rapido e esperar o proximo ciclo entrega mais.
+            $dispositivos = Http::connectTimeout(3)->timeout(5)->withBasicAuth($usuario, $senha)
                 ->acceptJson()->get("{$url}/api/devices");
-            $posicoes = Http::timeout(20)->withBasicAuth($usuario, $senha)
+            $posicoes = Http::connectTimeout(3)->timeout(5)->withBasicAuth($usuario, $senha)
                 ->acceptJson()->get("{$url}/api/positions");
 
             if (! $dispositivos->successful() || ! $posicoes->successful()) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\LoginSeguranca;
 use App\Domain\Seguranca\VerificadorDoisFatores;
+use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
@@ -113,5 +114,25 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Sessão encerrada.']);
+    }
+
+    /**
+     * Quem sou eu / qual empresa (substitui o "quem sou" do legado).
+     *
+     * Vive num controller, e nao numa closure na rota, porque closure de acao
+     * impede `route:cache` — e sem esse cache toda requisicao (e cada processo
+     * do scheduler) reparseia as ~1055 linhas de routes/api.php.
+     */
+    public function me(Request $request, TenantContext $tenant): JsonResponse
+    {
+        // payloadAuth inclui roles+permissions efetivas na empresa ATIVA
+        // (resolvida pelo middleware tenant) — a SPA depende disso para o RBAC.
+        return response()->json([
+            'user' => $request->user()->payloadAuth($tenant->empresaId()),
+            'tenant' => [
+                'empresa_id' => $tenant->empresaId(),
+                'grupo_id' => $tenant->grupoId(),
+            ],
+        ]);
     }
 }

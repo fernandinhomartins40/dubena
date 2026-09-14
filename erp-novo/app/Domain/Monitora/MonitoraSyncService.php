@@ -4,8 +4,10 @@ namespace App\Domain\Monitora;
 
 use App\Domain\Monitora\Contracts\SgcasaDriver;
 use App\Models\Empresa;
+use App\Models\Monitora\UltimaPosicao;
 use App\Models\Monitora\Veiculo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * MonitoraSyncService (N11 — GATE SGCasa). Busca posições no provedor externo
@@ -38,38 +40,60 @@ class MonitoraSyncService
         }
 
         $posicoes = $this->sgcasa->buscarPosicoes($veiculos->keys()->all());
+
+        if ($posicoes === []) {
+            return 0;
+        }
+
+        // Instante do ultimo fix de cada veiculo, em UMA query.
+        //
+        // Antes isto era `ultimaPosicao()->first()` DENTRO do laco: uma consulta
+        // por veiculo, a cada ciclo, para descobrir algo que cabe numa consulta
+        // so. Com a frota pequena de hoje passa despercebido; o polling e por
+        // minuto e por empresa, entao o desperdicio se multiplica por N frotas
+        // sem nunca aparecer como lentidao numa tela.
+        $ultimas = UltimaPosicao::query()
+            ->whereIn('veiculo_id', $veiculos->pluck('id')->all())
+            ->pluck('registrado_em', 'veiculo_id');
+
         $ingeridas = 0;
 
-        foreach ($posicoes as $p) {
-            $veiculo = $veiculos->get($p['imei']);
+        // Uma transacao para o ciclo inteiro, e nao uma por posicao. Cada
+        // BEGIN/COMMIT e ida e volta ao Postgres; com a frota inteira reportando
+        // ao mesmo tempo, eram dezenas de transacoes por minuto para gravar
+        // poucas linhas.
+        DB::transaction(function () use ($posicoes, $veiculos, $ultimas, &$ingeridas) {
+            foreach ($posicoes as $p) {
+                $veiculo = $veiculos->get($p['imei']);
 
-            if (! $veiculo) {
-                // Rede de segurança: o driver já filtra por IMEI conhecido (e é
-                // lá que o device desconhecido fica registrado, F6-02). Chegar
-                // aqui significaria driver devolvendo o que não foi pedido.
-                continue;
+                if (! $veiculo) {
+                    // Rede de segurança: o driver já filtra por IMEI conhecido (e é
+                    // lá que o device desconhecido fica registrado, F6-02). Chegar
+                    // aqui significaria driver devolvendo o que não foi pedido.
+                    continue;
+                }
+
+                // O provedor devolve a ÚLTIMA posição conhecida, tendo ela mudado
+                // ou não. Com polling a cada 30 s, um veículo parado a noite toda
+                // regravaria a mesma leitura milhares de vezes: em produção deram
+                // 27.891 linhas num dia para 3.749 posições reais, uma delas
+                // repetida 1.859 vezes. No traçado isso empilha pontos no mesmo
+                // lugar, e no banco cresce sem trazer informação nova.
+                if ($this->jaGravada($ultimas->get($veiculo->id), $p)) {
+                    continue;
+                }
+
+                $this->monitora->registrarPosicao($veiculo, [
+                    'latitude' => $p['latitude'],
+                    'longitude' => $p['longitude'],
+                    'velocidade' => $p['velocidade'] ?? 0,
+                    'direcao' => $p['direcao'] ?? null,
+                    'ignicao' => $p['ignicao'] ?? false,
+                    'registrado_em' => $p['registrado_em'] ?? now(),
+                ]);
+                $ingeridas++;
             }
-
-            // O provedor devolve a ÚLTIMA posição conhecida, tendo ela mudado
-            // ou não. Com polling a cada 30 s, um veículo parado a noite toda
-            // regravaria a mesma leitura milhares de vezes: em produção deram
-            // 27.891 linhas num dia para 3.749 posições reais, uma delas
-            // repetida 1.859 vezes. No traçado isso empilha pontos no mesmo
-            // lugar, e no banco cresce sem trazer informação nova.
-            if ($this->jaGravada($veiculo, $p)) {
-                continue;
-            }
-
-            $this->monitora->registrarPosicao($veiculo, [
-                'latitude' => $p['latitude'],
-                'longitude' => $p['longitude'],
-                'velocidade' => $p['velocidade'] ?? 0,
-                'direcao' => $p['direcao'] ?? null,
-                'ignicao' => $p['ignicao'] ?? false,
-                'registrado_em' => $p['registrado_em'] ?? now(),
-            ]);
-            $ingeridas++;
-        }
+        });
 
         return $ingeridas;
     }
@@ -84,18 +108,16 @@ class MonitoraSyncService
      *
      * @param  array{registrado_em?:string}  $nova
      */
-    private function jaGravada(Veiculo $veiculo, array $nova): bool
+    private function jaGravada(?Carbon $ultimoFix, array $nova): bool
     {
-        // `fresh` e não a relação já carregada: o próprio loop acabou de
-        // gravar posição para este veículo, e a relação em memória ficaria com
-        // o valor de antes — toda leitura nova seria aceita como inédita.
-        $ultima = $veiculo->ultimaPosicao()->first();
-
-        if ($ultima?->registrado_em === null || ! isset($nova['registrado_em'])) {
+        // Recebe o instante ja carregado (uma query para a frota toda) em vez de
+        // consultar por veiculo. O provedor devolve no maximo um fix por veiculo
+        // por ciclo, entao o valor nao fica velho dentro do laco.
+        if ($ultimoFix === null || ! isset($nova['registrado_em'])) {
             return false;
         }
 
-        return $ultima->registrado_em->equalTo(Carbon::parse($nova['registrado_em']));
+        return $ultimoFix->equalTo(Carbon::parse($nova['registrado_em']));
     }
 
     /**

@@ -76,7 +76,35 @@ else
     ln -sf /usr/local/etc/php/opcache-mutable.ini /usr/local/etc/php/conf.d/zz-opcache-runtime.ini
 fi
 
-php artisan config:clear
+# Diretorio do opcache.file_cache (php.ini). Precisa existir E ser gravavel pelo
+# usuario que roda o processo: o scheduler roda como root, o php-fpm como
+# www-data, e os dois compartilham esta imagem.
+mkdir -p /tmp/opcache
+chmod 1777 /tmp/opcache
+
+# 3b) Cache de configuracao, rotas e eventos.
+#
+# Sem isto, CADA processo artisan reinterpretava os 16 arquivos de config e
+# reparseava as ~1055 linhas de routes/api.php so para existir. Num pedido HTTP
+# isso ja custa; no scheduler, que cria um processo por tarefa, era o grosso do
+# trabalho da maquina.
+#
+# So em ambiente servido: em dev o cache atrapalha (alterar .env deixaria de ter
+# efeito ate limpar na mao, e essa e a pegadinha classica do config:cache).
+#
+# Pre-requisito ja cumprido: nenhum env() sobrou fora de config/ no runtime
+# (IBPT_CSV_URL foi o ultimo, movido para config/services.php) - com config
+# cacheada, env() devolve vazio e a falha seria SILENCIOSA.
+# Mesma condicao dos blocos acima (`production` ou `homologation`) — sao os
+# valores REAIS do .env da VPS. Escrever "homolog" aqui deixaria a homologacao
+# sem cache nenhum, e o defeito seria invisivel: tudo funciona, so que lento.
+if [ "$APP_ENV" = "production" ] || [ "$APP_ENV" = "homologation" ]; then
+    php artisan config:cache
+    php artisan route:cache
+    php artisan event:cache
+else
+    php artisan config:clear
+fi
 
 # 4) Permissões (storage e bootstrap/cache em volumes nomeados em prod).
 chown -R www-data:www-data storage bootstrap/cache

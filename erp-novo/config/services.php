@@ -163,4 +163,17 @@ return [
         'empresa_id' => env('PABX_EMPRESA_ID'),
     ],
 
+    /**
+     * IBPT (Lei 12.741) — origem do CSV da tabela de tributos aproximados.
+     *
+     * Declarada aqui, e nao lida por env() no comando, porque com `config:cache`
+     * ligado o env() em runtime devolve vazio: o `ibpt:atualizar` simplesmente
+     * deixaria de baixar a tabela, em silencio, e o gate do proprio comando
+     * ("so roda se a URL estiver configurada") faria isso parecer desligado de
+     * proposito.
+     */
+    'ibpt' => [
+        'csv_url' => env('IBPT_CSV_URL'),
+    ],
+
 ];

@@ -20,7 +20,13 @@ Schedule::command('notify:alertas')->dailyAt('07:00')->withoutOverlapping();
 // dono deixa aberta durante a operação; um minuto de atraso já faz o caminhão
 // aparecer numa esquina que ele passou faz tempo. `withoutOverlapping` impede
 // que uma consulta lenta ao provedor acumule execuções.
-Schedule::command('monitora:sync-positions')->everyThirtySeconds()->withoutOverlapping();
+// O TTL de 5 min no lock nao e detalhe: `withoutOverlapping()` sem argumento
+// usa 24 HORAS. Se o processo morre sem soltar o lock — OOM, container
+// recriado, deploy no meio do ciclo — a sincronizacao fica travada o dia
+// inteiro e o mapa congela, sem erro em lugar nenhum. Cinco minutos e folgado
+// para um ciclo que deve durar segundos, e curto o bastante para se recuperar
+// sozinho.
+Schedule::command('monitora:sync-positions')->everyThirtySeconds()->withoutOverlapping(5);
 
 // Expira cobranças PIX vencidas — a cada minuto (espelha pix:expired do legado). C9.
 Schedule::command('pix:expirar')->everyMinute()->withoutOverlapping();
@@ -48,6 +54,13 @@ Schedule::command('ibpt:atualizar')->monthlyOn(1, '05:00')->withoutOverlapping()
 // Missões de campo (L7) — a cada 10 min atribui missões aos entregadores ociosos
 // (em jornada, sem entregas há mais de `ociosidade_min` da config da empresa).
 Schedule::command('logistica:gerar-missoes')->everyTenMinutes()->withoutOverlapping();
+
+// Expurgo do historico de rastreamento — diario 03:30.
+//
+// A tabela e append-only e ate aqui nunca teve limpeza: so cresce. Roda antes
+// da vigilancia do comodato (04:00) e depois do backup (03:15 no cron do host),
+// para que o dia apagado ja tenha sido salvo pelo menos uma vez.
+Schedule::command('monitora:expurgar-posicoes')->dailyAt('03:30')->withoutOverlapping(60);
 
 // Vigilância do comodato — segunda 04:00. Semanal e não diária de propósito: o
 // giro se mede em janela de 180 dias, e a variação de um dia para o outro é

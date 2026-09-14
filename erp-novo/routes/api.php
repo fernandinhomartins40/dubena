@@ -1,6 +1,5 @@
 <?php
 
-use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Api\Admin\AlcadaDescontoController;
 use App\Http\Controllers\Api\Admin\AlertaController;
 use App\Http\Controllers\Api\Admin\AssinaturaController;
@@ -81,7 +80,6 @@ use App\Http\Controllers\Api\SuperAdmin\EmpresaController as SuperAdminEmpresaCo
 use App\Http\Controllers\Api\SuperAdmin\MigracaoController as SuperAdminMigracaoController;
 use App\Http\Controllers\Api\SuperAdmin\PainelController as SuperAdminPainelController;
 use App\Http\Controllers\Api\SuperAdmin\PlanoController as SuperAdminPlanoController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -131,17 +129,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Usuário autenticado + tenant ativo (substitui o "quem sou / qual empresa" do legado).
-    Route::get('/me', function (Request $request, TenantContext $tenant) {
-        // payloadAuth inclui roles+permissions efetivas na empresa ATIVA
-        // (resolvida pelo middleware tenant) — a SPA depende disso para o RBAC.
-        return response()->json([
-            'user' => $request->user()->payloadAuth($tenant->empresaId()),
-            'tenant' => [
-                'empresa_id' => $tenant->empresaId(),
-                'grupo_id' => $tenant->grupoId(),
-            ],
-        ]);
-    });
+    // Controller, e não closure: closure de ação impede `route:cache`.
+    Route::get('/me', [AuthController::class, 'me']);
 
     // ── Admin (consumido pela SPA em /api/admin) — N1 ──
     Route::prefix('admin')->group(function () {
