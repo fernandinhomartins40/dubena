@@ -99,6 +99,16 @@ class PedidoService
     public function mudarSituacao(Pedido $pedido, int $novaSituacaoId, ?int $userId = null): Pedido
     {
         $atualizado = DB::transaction(function () use ($pedido, $novaSituacaoId, $userId) {
+            // F4-01: o `estoque_movimentado` que decide se baixa o estoque era
+            // lido do model EM MEMÓRIA, carregado antes da transação. Dois
+            // "Concluir" simultâneos (painel e app do entregador, duplo clique,
+            // reenvio do app após timeout) liam ambos `false` e baixavam o
+            // estoque e geravam o financeiro DUAS vezes. O lock serializa as
+            // transições do mesmo pedido, e o refresh faz a segunda enxergar o
+            // que a primeira gravou.
+            Pedido::withoutTenant()->whereKey($pedido->id)->lockForUpdate()->first();
+            $pedido->refresh();
+
             $anterior = $pedido->situacao; // efeito atual
             $nova = $this->situacao($novaSituacaoId);
 

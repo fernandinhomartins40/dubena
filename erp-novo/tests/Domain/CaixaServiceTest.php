@@ -20,7 +20,9 @@ class CaixaServiceTest extends TestCase
     use RefreshDatabase;
 
     private CaixaService $caixa;
+
     private FinanceiroService $financeiro;
+
     private Empresa $empresa;
 
     protected function setUp(): void
@@ -167,6 +169,28 @@ class CaixaServiceTest extends TestCase
 
         $this->assertEqualsWithDelta(0, (float) $conta->refresh()->saldo_atual, 0.001);
         $this->assertFalse($f->parcelas->first()->refresh()->baixado);
+        $this->assertSaldoConsistente($conta);
+    }
+
+    public function test_o_mesmo_movimento_nao_e_estornado_duas_vezes(): void
+    {
+        // A trava só impedia estornar um ESTORNO. Estornar duas vezes o mesmo
+        // movimento revertia o dinheiro em dobro: o caixa de R$ 100 ficava em
+        // R$ -100, e nada acusava — Σ movimentos continuava batendo com o saldo.
+        $conta = $this->conta(0);
+        $f = $this->financeiro->criar(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'pagarreceber' => 'R', 'valor' => 100]);
+        $mov = $this->caixa->baixarParcela($conta->id, $f->parcelas->first()->id, $this->empresa->id);
+
+        $this->caixa->estornar($mov->id, $this->empresa->id);
+
+        try {
+            $this->caixa->estornar($mov->id, $this->empresa->id);
+            $this->fail('O segundo estorno do mesmo movimento deveria ser recusado.');
+        } catch (ValidationException) {
+            // esperado
+        }
+
+        $this->assertEqualsWithDelta(0, (float) $conta->refresh()->saldo_atual, 0.001);
         $this->assertSaldoConsistente($conta);
     }
 

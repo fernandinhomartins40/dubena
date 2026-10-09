@@ -286,6 +286,15 @@ class CaixaService
                 throw ValidationException::withMessages(['movimento' => 'Movimento de estorno não pode ser estornado.']);
             }
 
+            // Só se impedia estornar um ESTORNO; estornar duas vezes o mesmo
+            // movimento revertia o dinheiro em dobro, e Σ movimentos seguia
+            // batendo com o saldo — a conferência não acusaria. O lock acima
+            // serializa duas requisições, e esta checagem roda depois dele.
+            // O índice único em `estorno_de_id` é a garantia no banco.
+            if (ContaMovimento::withoutTenant()->where('estorno_de_id', $original->id)->exists()) {
+                throw ValidationException::withMessages(['movimento' => 'Este movimento já foi estornado.']);
+            }
+
             // Estorno é correção: permitido mesmo com o caixa fechado.
             $inverso = $this->movimentar($original->conta_id, -(float) $original->valor, self::ESTORNO, $empresaId, [
                 'estorno_de_id' => $original->id,

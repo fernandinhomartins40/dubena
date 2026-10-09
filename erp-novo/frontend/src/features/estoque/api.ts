@@ -52,7 +52,11 @@ export const useAcerto = () => {
 export const useCriarTransferencia = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => (await api.post('/estoque/transferencias', data)).data,
+    // `chave` é gerada quando o formulário ABRE e reaproveitada em todo reenvio:
+    // se a rede cair depois que o servidor gravou, repetir não move a
+    // mercadoria de novo.
+    mutationFn: async ({ chave, ...data }: Record<string, unknown> & { chave: string }) =>
+      (await api.post('/estoque/transferencias', data, { headers: { 'Idempotency-Key': chave } })).data,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['estoque', 'transferencias'] }); qc.invalidateQueries({ queryKey: ['estoque-saldos'] }) },
   })
 }

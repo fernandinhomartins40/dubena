@@ -105,6 +105,15 @@ class NfEntradaService
         }
 
         return DB::transaction(function () use ($nota, $setorId) {
+            // F4-01: a checagem acima lê o model em memória. Duas requisições
+            // simultâneas passavam as duas por ela e davam entrada em dobro — e
+            // geravam a conta a pagar em dobro. Releitura com a linha travada.
+            NfRecebida::withoutTenant()->whereKey($nota->id)->lockForUpdate()->first();
+            $nota->refresh();
+            if ($nota->movimentou_estoque) {
+                return $nota;
+            }
+
             foreach ($nota->itens as $item) {
                 if ($item->produto_id) {
                     $this->estoque->entrada(
@@ -115,6 +124,10 @@ class NfEntradaService
                         'nf-entrada',
                         $nota->id,
                         empresaEsperada: (int) $nota->empresa_id,
+                        // Chave natural e PERMANENTE: um item de NF de entrada
+                        // entra no estoque uma única vez na vida. É a garantia
+                        // no banco (índice único parcial), além do lock.
+                        chaveIdempotencia: "nf-entrada-item:{$item->id}",
                     );
                 }
             }

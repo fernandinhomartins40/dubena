@@ -1838,3 +1838,51 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Próximo passo SaaS: iniciar F5 pelo microlote financeiro/fiscal compatível com
   as dependências, retomando a releitura obrigatória e sem tratar o trabalho UI
   como substituto dos gates de domínio.
+
+## Atualizacao de retomada - 2026-10-09 (F4-01 revisitada: idempotencia sob concorrencia)
+
+- O gate F4 dizia "rerun nao duplica: `chave_idempotencia` + indice unico". A
+  infraestrutura existia, mas **nenhum chamador passava a chave**: o indice
+  protegia zero movimentos. Medido com `grep` em todos os chamadores de
+  `entrada/saida/transferir`.
+- Pior: as tres portas que se diziam idempotentes decidiam por uma flag lida do
+  model EM MEMORIA, carregado antes da transacao e sem lock. Reproduzido com
+  duas instancias carregadas antes da primeira operacao (o que duas requisicoes
+  simultaneas enxergam):
+  - **pedido** concluido duas vezes: estoque 80 em vez de 90 e financeiro em
+    dobro (duplo clique, painel + app do entregador, reenvio do app);
+  - **NF de entrada** processada duas vezes: entrada e conta a pagar em dobro;
+  - **comodato**: duas devolucoes de 3 com 5 em posse passavam as duas; dois
+    acrescimos simultaneos baixavam o estoque duas vezes e o contrato
+    registrava um so.
+  O teste de idempotencia que ja existia para a NF fazia `->refresh()` antes de
+  repetir — o que a requisicao concorrente real nao faz — e por isso nunca
+  acusou.
+- Correcao: lock da linha + releitura DENTRO da transacao (pedido, NF,
+  comodato via `travar()`), revalidando ali o que antes so era checado fora.
+  NF de entrada ganhou tambem a chave natural `nf-entrada-item:{id}`.
+- ACHADO no caminho: a **tela de transferencia de estoque nunca funcionou**. Ela
+  mandava `origemsetor_id`/`destinosetor_id`/`itens[]`; o endpoint so aceitava
+  `setor_origem_id`/`produto_id`/`quantidade` — toda transferencia pela
+  interface tomava 422, e a lista lia campos (`datahora`, `observacoes`) que o
+  movimento nao tem. Endpoint aceita agora a carga com varios itens, atomica,
+  e `Idempotency-Key` gerada quando o formulario abre (reenvio nao move de
+  novo). O campo "Observacoes" saiu da tela: nao ha coluna, era descartado.
+- Validacao: `IdempotenciaSobConcorrenciaTest` (4 de 7 falhavam antes da
+  correcao) e `TransferenciaEstoqueApiTest` (5); regressao plantada na chave da
+  transferencia detectada; tsc limpo.
+- CAIXA medido na mesma rodada: a baixa de titulo JA estava certa (trava a
+  parcela dentro da transacao e confere `baixado` na linha relida). O estorno
+  nao: so impedia estornar um ESTORNO, e **estornar duas vezes o mesmo
+  movimento revertia o dinheiro em dobro** — em sequencia, sem precisar de
+  concorrencia. A conferencia Σ movimentos = saldo nao acusaria, porque os dois
+  estornos sao movimentos reais. Corrigido no servico (checagem depois do lock)
+  e no banco (`contamovimentos_estorno_unico`, indice unico parcial em
+  `estorno_de_id`; a migration FALHA de proposito se ja houver estorno duplo,
+  porque decidir qual vale e de quem conhece o caixa).
+- Validacao em PostgreSQL 15 real (banco descartavel, removido): todas as
+  migrations do zero, indice conferido em `pg_indexes`; os 23 testes novos e de
+  caixa contra PostgreSQL (onde `lockForUpdate` emite `FOR UPDATE` de verdade);
+  gate RLS com a role `erp_app` 14 testes/374 assertions sem skip.
+- ABERTO, registrado: entrada/saida manuais e acerto nao tem tela na SPA, entao
+  ficam sem chave do cliente por ora.

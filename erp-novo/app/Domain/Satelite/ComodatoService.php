@@ -3,10 +3,11 @@
 namespace App\Domain\Satelite;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Models\Produto\Produto;
 use App\Models\Satelite\Comodato;
 use App\Models\Satelite\ComodatoContrato;
 use App\Models\Satelite\ComodatoMovimento;
-use App\Models\Produto\Produto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,9 +37,7 @@ class ComodatoService
     /** Tolerância de arredondamento: o decimal do banco tem 3 casas. */
     private const EPSILON = 0.0001;
 
-    public function __construct(private EstoqueService $estoque)
-    {
-    }
+    public function __construct(private EstoqueService $estoque) {}
 
     /** @param array<string,mixed> $dados */
     public function emprestar(array $dados, ?int $userId = null): Comodato
@@ -112,7 +111,20 @@ class ComodatoService
             ]);
         }
 
-        return DB::transaction(function () use ($comodato, $quantidade, $userId, $data, $observacao, $pendente) {
+        return DB::transaction(function () use ($comodato, $quantidade, $userId, $data, $observacao) {
+            // As checagens acima são o caminho rápido; ESTA é a que vale. O
+            // pendente lido fora da transação deixava duas devoluções de 3 (com
+            // 5 em posse) passarem as duas, dando entrada em estoque de
+            // vasilhame que não estava com o cliente.
+            $this->travar($comodato);
+            $pendente = $this->emPosse($comodato);
+            if (in_array((string) $comodato->situacao, ['CANCELADO', 'ENCERRADO', 'DEVOLVIDO'], true)
+                || $quantidade > $pendente + self::EPSILON) {
+                throw ValidationException::withMessages([
+                    'quantidade' => "Devolução ({$this->num($quantidade)}) maior que o pendente ({$this->num($pendente)}).",
+                ]);
+            }
+
             if ($comodato->setor_id) {
                 $this->estoque->entrada($comodato->setor_id, $comodato->produto_id, $quantidade, null, 'comodato-devolucao', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
@@ -164,6 +176,14 @@ class ComodatoService
         $quantidade = (float) $movimento->quantidade;
 
         return DB::transaction(function () use ($comodato, $movimento, $quantidade, $userId, $observacao) {
+            // Sob concorrência real, as duas transações veriam "não estornado"
+            // antes de qualquer uma gravar. O lock no comodato serializa e a
+            // segunda reconfere já enxergando o estorno da primeira.
+            $this->travar($comodato);
+            if ($movimento->foiEstornado()) {
+                throw ValidationException::withMessages(['movimento' => 'Esta devolução já foi estornada.']);
+            }
+
             if ($comodato->setor_id) {
                 $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-estorno', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
@@ -219,6 +239,11 @@ class ComodatoService
         }
 
         return DB::transaction(function () use ($comodato, $quantidade, $userId, $observacao) {
+            // Dois acréscimos legítimos simultâneos somavam sobre a MESMA
+            // quantidade lida em memória: o estoque baixava os dois e o contrato
+            // registrava um só — custódia e estoque divergindo sem causa visível.
+            $this->travar($comodato);
+
             if ($comodato->setor_id) {
                 $this->estoque->saida($comodato->setor_id, $comodato->produto_id, $quantidade, 'comodato-acrescimo', $comodato->id, $userId, (int) $comodato->empresa_id);
             }
@@ -434,13 +459,27 @@ class ComodatoService
         return ['antes' => $antes, 'depois' => $devolvida, 'divergiu' => abs($devolvida - $antes) > self::EPSILON];
     }
 
-    /** @return list<array{contrato:ComodatoContrato}>|\Illuminate\Support\Collection<int,ComodatoContrato> */
+    /** @return list<array{contrato:ComodatoContrato}>|Collection<int,ComodatoContrato> */
     public function contratos(Comodato $comodato)
     {
         return ComodatoContrato::query()
             ->where('comodato_id', $comodato->id)
             ->orderByDesc('versao')
             ->get();
+    }
+
+    /**
+     * Trava a linha do comodato e relê o estado DENTRO da transação.
+     *
+     * Toda decisão daqui (quanto está em posse, se já foi estornado, quanto foi
+     * contratado) vinha do model carregado pela requisição — antes da
+     * transação, sem lock. É o ponto único de serialização das mutações de um
+     * mesmo comodato.
+     */
+    private function travar(Comodato $comodato): void
+    {
+        Comodato::withoutTenant()->whereKey($comodato->id)->lockForUpdate()->first();
+        $comodato->refresh();
     }
 
     /** Grava saldo e situação derivados da quantidade em posse. */

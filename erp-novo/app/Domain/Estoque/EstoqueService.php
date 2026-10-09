@@ -152,7 +152,7 @@ class EstoqueService
      *
      * @return array{saida: EstoqueHistorico, entrada: EstoqueHistorico}
      */
-    public function transferir(int $setorOrigem, int $setorDestino, int $produtoId, float $qtd, ?int $userId = null, ?int $empresaEsperada = null): array
+    public function transferir(int $setorOrigem, int $setorDestino, int $produtoId, float $qtd, ?int $userId = null, ?int $empresaEsperada = null, ?string $chaveIdempotencia = null): array
     {
         if ($setorOrigem === $setorDestino) {
             throw ValidationException::withMessages(['setor_destino' => 'Setores de origem e destino devem ser diferentes.']);
@@ -166,12 +166,16 @@ class EstoqueService
             throw ValidationException::withMessages(['setor_destino' => 'Transferência só é permitida entre setores da mesma empresa.']);
         }
 
-        return DB::transaction(function () use ($setorOrigem, $setorDestino, $produtoId, $qtd, $userId, $empOrigem) {
+        return DB::transaction(function () use ($setorOrigem, $setorDestino, $produtoId, $qtd, $userId, $empOrigem, $chaveIdempotencia) {
             $origem = EstoqueSaldo::withoutTenant()->where('empresa_id', $empOrigem)->where('setor_id', $setorOrigem)->where('produto_id', $produtoId)->first();
             $custo = $origem ? (float) $origem->custo_medio : null;
 
-            $saidaMov = $this->movimentar($setorOrigem, $produtoId, -abs($qtd), self::TRANSFERENCIA, null, 'transferencia', $setorDestino, $userId, $empOrigem);
-            $entradaMov = $this->movimentar($setorDestino, $produtoId, abs($qtd), self::TRANSFERENCIA, $custo, 'transferencia', $setorOrigem, $userId, $empOrigem);
+            // F4-01: as duas pernas com sufixo próprio — a mesma chave nas duas
+            // faria a entrada devolver a SAÍDA já gravada como se fosse ela.
+            $saidaMov = $this->movimentar($setorOrigem, $produtoId, -abs($qtd), self::TRANSFERENCIA, null, 'transferencia', $setorDestino, $userId, $empOrigem,
+                $chaveIdempotencia !== null ? "{$chaveIdempotencia}:saida" : null);
+            $entradaMov = $this->movimentar($setorDestino, $produtoId, abs($qtd), self::TRANSFERENCIA, $custo, 'transferencia', $setorOrigem, $userId, $empOrigem,
+                $chaveIdempotencia !== null ? "{$chaveIdempotencia}:entrada" : null);
 
             return ['saida' => $saidaMov, 'entrada' => $entradaMov];
         });

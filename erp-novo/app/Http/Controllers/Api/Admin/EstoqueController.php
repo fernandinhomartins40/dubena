@@ -17,6 +17,7 @@ use App\Models\Estoque\Setor;
 use App\Models\Produto\Produto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\ValidationException;
@@ -78,7 +79,10 @@ class EstoqueController extends Controller
     {
         $this->autorizar($request, 'estoque.view');
 
+        // Produto e setor carregados: a tela lista movimentos e, sem eles, só
+        // teria ids para mostrar.
         $rows = EstoqueHistorico::query()
+            ->with(['produto:id,descricao', 'setor:id,descricao'])
             ->where('origem', 'transferencia')
             ->latest()->limit(200)->get()
             ->map(fn (EstoqueHistorico $mov) => $this->serializarMovimento($request, $mov));
@@ -191,19 +195,50 @@ class EstoqueController extends Controller
     public function transferir(Request $request): JsonResponse
     {
         $this->autorizar($request, 'estoque.edit');
+        // Dois formatos: um produto (`produto_id` + `quantidade`) ou uma carga
+        // com vários (`itens[]`), que é o que a tela monta. A tela mandava
+        // `itens[]` com nomes que este endpoint nunca aceitou — toda
+        // transferência feita por ela tomava 422.
         $d = $request->validate([
             'setor_origem_id' => ['required', 'integer', $this->existsDaEmpresa('setores')],
             'setor_destino_id' => ['required', 'integer', $this->existsDaEmpresa('setores')],
-            'produto_id' => ['required', 'integer', $this->existsDaEmpresa('produtos')],
-            'quantidade' => 'required|numeric|gt:0',
+            'produto_id' => ['required_without:itens', 'integer', $this->existsDaEmpresa('produtos')],
+            'quantidade' => 'required_without:itens|numeric|gt:0',
+            'itens' => 'sometimes|array|min:1|max:200',
+            'itens.*.produto_id' => ['required', 'integer', $this->existsDaEmpresa('produtos')],
+            'itens.*.quantidade' => 'required|numeric|gt:0',
         ]);
 
-        $res = $this->service->transferir($d['setor_origem_id'], $d['setor_destino_id'], $d['produto_id'], $d['quantidade'], $request->user()->id, $this->tenant->requireEmpresaId());
+        // F4-01: o cliente gera a chave quando ABRE o formulário. Se a rede cair
+        // depois que o servidor gravou, o reenvio traz a mesma chave e devolve o
+        // que já foi feito, em vez de mover a mercadoria de novo.
+        $chave = $request->header('Idempotency-Key');
+        if ($chave !== null && ! preg_match('/^[A-Za-z0-9-]{8,64}$/', $chave)) {
+            throw ValidationException::withMessages(['Idempotency-Key' => 'Chave de idempotência inválida.']);
+        }
 
-        return response()->json(['data' => [
+        $itens = $d['itens'] ?? [['produto_id' => $d['produto_id'], 'quantidade' => $d['quantidade']]];
+        $empresaId = $this->tenant->requireEmpresaId();
+
+        // Atômica: uma carga transferida pela metade deixaria parte da
+        // mercadoria nos dois lugares ao mesmo tempo (ou em nenhum).
+        $resultados = DB::transaction(fn () => array_map(
+            fn (array $item, int $i) => $this->service->transferir(
+                $d['setor_origem_id'], $d['setor_destino_id'], (int) $item['produto_id'], (float) $item['quantidade'],
+                $request->user()->id, $empresaId,
+                $chave !== null ? "transferencia:{$chave}:{$i}" : null,
+            ),
+            $itens, array_keys($itens),
+        ));
+
+        $serializar = fn (array $res) => [
             'saida' => $this->serializarMovimento($request, $res['saida']),
             'entrada' => $this->serializarMovimento($request, $res['entrada']),
-        ]], 201);
+        ];
+
+        return response()->json([
+            'data' => isset($d['itens']) ? array_map($serializar, $resultados) : $serializar($resultados[0]),
+        ], 201);
     }
 
     public function acerto(Request $request): JsonResponse
