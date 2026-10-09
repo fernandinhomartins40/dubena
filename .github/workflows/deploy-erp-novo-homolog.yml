@@ -23,8 +23,11 @@ on:
         description: 'SHA completo a (re)implantar — imagens já publicadas no GHCR'
         required: true
 
+# Grupo novo de propósito: o run de 14/09 (a3e9c55b) ficou "queued" para sempre
+# no grupo antigo, esperando o runner self-hosted que não existe mais, e com
+# cancel-in-progress=false todo deploy novo esperaria atrás dele.
 concurrency:
-  group: deploy-erp-novo-homolog
+  group: deploy-erp-novo-homolog-ssh
   cancel-in-progress: false
 
 jobs:
