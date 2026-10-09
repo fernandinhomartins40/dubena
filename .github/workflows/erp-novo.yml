@@ -1,0 +1,420 @@
+name: erp-novo
+
+# WORKFLOW ÚNICO do repositório. Tudo roda em runner do GitHub; a VPS nunca
+# constrói nada e não mantém runner — só recebe as imagens prontas.
+#
+#   push na main ─┬─ test ───────────┐
+#                 ├─ test-postgres ──┤
+#                 ├─ frontend ───────┼─► deploy-homolog (SSH: pull + migrate + up)
+#                 ├─ build (app) ────┤
+#                 └─ build (web) ────┘
+#
+# Os cinco primeiros jobs rodam AO MESMO TEMPO: o pipeline dura o tempo do mais
+# lento, não a soma. As imagens são publicadas no GHCR antes de os testes
+# terminarem, mas só são implantadas se TODOS os jobs passarem.
+#
+# Produção: disparo manual (Run workflow → ambiente=producao). Promove os mesmos
+# bytes já homologados; não reconstrói nem retesta.
+#
+# Único secret: VPS_PASSWORD. O IP e a chave pública do servidor não são segredo
+# e ficam fixos abaixo — a identidade da VPS é conferida em toda conexão
+# (`StrictHostKeyChecking yes`), senão um intermediário poderia se passar por ela
+# e receber a senha. Para conferir a chave: ssh-keyscan -t ed25519 72.60.10.108
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'erp-novo/**'
+      - 'deploy/**'
+      - 'docs/01-vigente/implementacao-saas/CATALOGO_VIVO.json'
+      - '.github/workflows/erp-novo.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'erp-novo/**'
+      - 'deploy/**'
+      - 'docs/01-vigente/implementacao-saas/CATALOGO_VIVO.json'
+      - '.github/workflows/erp-novo.yml'
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: 'homolog = reimplanta uma release já construída; producao = promove a homologada'
+        type: choice
+        options: [homolog, producao]
+        default: homolog
+      release_id:
+        description: 'SHA completo da release (imagens já publicadas no GHCR)'
+        required: true
+      rollback_release:
+        description: 'Só produção: release anterior, para rollback automático'
+        required: false
+      confirmacao:
+        description: 'Só produção: digite PRODUCAO'
+        required: false
+
+env:
+  REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
+  VPS_IP: 72.60.10.108
+  VPS_HOSTKEY: '72.60.10.108 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIb/tiBRpe7IG8jNY9PjQAMGc5ORtR0TF/tKMVvfYTf3'
+  RELEASES_DIR: /opt/dubena-releases
+  BUNDLE_BASE: /opt/dubena/erp-novo/releases
+
+jobs:
+  # ── Testes ────────────────────────────────────────────────────────────────
+  # sqlite :memory: — rápido, feedback imediato (phpunit.xml).
+  test:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: erp-novo
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
+        with:
+          php-version: '8.3'
+          extensions: pdo, sqlite, pdo_sqlite, mbstring, bcmath, intl
+          # A suite roda num processo so e a memoria ACUMULA. O dompdf (fonte
+          # DejaVu embarcada, exigida para acentuacao) estoura os 128M do
+          # default do PHP na metade da suite, em Linux — no Windows o mesmo
+          # codigo passa, e foi por isso que a quebra so apareceu aqui.
+          ini-values: memory_limit=512M
+          coverage: none
+
+      - name: Cache de dependências Composer
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: erp-novo/vendor
+          key: composer-${{ hashFiles('erp-novo/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instala dependências
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Auditoria do lock de produção
+        run: composer audit --locked --no-dev
+
+      - name: Prepara ambiente de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Lint PHP (sintaxe)
+        run: |
+          err=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" >/dev/null 2>&1 || { php -l "$f"; err=1; }
+          done < <(find app database routes tests -name '*.php' -print0)
+          [ "$err" -eq 0 ] || { echo "Lint PHP falhou"; exit 1; }
+          echo "Lint OK"
+
+      - name: Gate Nginx TLS, proxy e headers
+        run: bash ../deploy/nginx/test-config.sh
+
+      - name: Suíte de testes (PHPUnit)
+        run: php artisan test
+
+  # A SPA: auditoria do lock, type-check e Vitest.
+  frontend:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: erp-novo/frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: erp-novo/frontend/package-lock.json
+
+      - name: Instala dependências
+        run: npm ci
+
+      - name: Auditoria do lock de produção
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Type-check (tsc)
+        run: npm run lint
+
+      - name: Testes (Vitest)
+        run: npm test
+
+  # A mesma base contra PostgreSQL, com role NOSUPERUSER/NOBYPASSRLS (como a
+  # erp_app de produção): é o único jeito de exercer RLS de verdade — superuser
+  # a ignora, e no sqlite ela é no-op.
+  test-postgres:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: erp-novo
+    services:
+      postgres:
+        image: postgres:15.14-alpine@sha256:64583b3cb4f2010277bdd9749456de78e5c36f8956466ba14b0b96922e510950
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: erp_teste
+      DB_USERNAME: erp_app
+      DB_PASSWORD: runtime_test_password_2026
+      DB_OWNER_USERNAME: postgres
+      DB_OWNER_PASSWORD: postgres
+      RLS_APP_DB_PASSWORD: runtime_test_password_2026
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, pgsql, mbstring, bcmath, intl
+          ini-values: memory_limit=512M
+          coverage: none
+
+      - name: Cache de dependências Composer
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: erp-novo/vendor
+          key: composer-${{ hashFiles('erp-novo/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Instala dependências
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Cria banco de teste (owner separado do runtime)
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -c \
+            "CREATE DATABASE erp_teste OWNER postgres;"
+
+      - name: Prepara ambiente de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Gate PostgreSQL/RLS (owner migra; runtime testa; zero skip)
+        run: composer test:pgsql-rls
+
+  # ── Build: um job por imagem, simultâneos, no GitHub ──────────────────────
+  # O cache de camadas fica no próprio GHCR (`:buildcache`): só o que mudou
+  # recompila. Não espera os testes — roda junto com eles.
+  build:
+    name: build (${{ matrix.nome }})
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - nome: app
+            target: runtime
+          - nome: web
+            target: web
+    defaults:
+      run:
+        working-directory: erp-novo
+    env:
+      IMAGEM: ghcr.io/${{ github.repository_owner }}/erpnovo-${{ matrix.nome }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Login no GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+      # O driver padrão (`docker`) não exporta cache para registry nem publica
+      # attestations (provenance/SBOM), exigidas pela release desde F0-05.
+      - name: Builder BuildKit
+        run: docker buildx create --name release --driver docker-container --use --bootstrap
+
+      - name: Build, provenance, SBOM e push
+        run: |
+          docker buildx build \
+            --file docker/php/Dockerfile \
+            --target '${{ matrix.target }}' \
+            --tag "${IMAGEM}:${GITHUB_SHA}" \
+            --cache-from "type=registry,ref=${IMAGEM}:buildcache" \
+            --cache-to "type=registry,ref=${IMAGEM}:buildcache,mode=max" \
+            --provenance=mode=max \
+            --sbom=true \
+            --push \
+            .
+
+      # CRITICAL com correção disponível reprova: a VPS nunca recebe imagem
+      # reprovada.
+      - name: Trivy (CRITICAL) e SBOM SPDX
+        run: |
+          set -eu
+          digest=$(docker buildx imagetools inspect "${IMAGEM}:${GITHUB_SHA}" | awk '/^Digest:/ {print $2; exit}')
+          ref="${IMAGEM}:${GITHUB_SHA}@${digest}"
+          docker pull "$ref"
+          mkdir -p "$RUNNER_TEMP/relatorios"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/relatorios:/reports" \
+            aquasec/trivy:0.66.0@sha256:086971aaf400beebd94e8300fd8ea623774419597169156cec56eec5b00dfb1e \
+            image --scanners vuln --ignore-unfixed --severity CRITICAL \
+            --exit-code 1 --format json --output /reports/trivy.json "$ref"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            anchore/syft:v1.33.0@sha256:f94e5d9fce1f2278491a8e3a63bd5f6ddb81fdfdbb8bf7a1637565c1d5344357 \
+            "$ref" -o spdx-json > "$RUNNER_TEMP/relatorios/sbom.spdx.json"
+          printf 'erpnovo-%s `%s` — %s\n' '${{ matrix.nome }}' "$digest" "$(docker image inspect "$ref" --format '{{.Size}}' | awk '{printf "%.0f MB", $1/1048576}')" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Evidências da release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-erpnovo-${{ matrix.nome }}
+          path: ${{ runner.temp }}/relatorios
+          retention-days: 90
+
+  # ── Deploy em homologação ─────────────────────────────────────────────────
+  # Automático no push (depois de TUDO passar) ou manual, para reimplantar uma
+  # release já construída. A VPS só faz pull + migrate + up.
+  deploy-homolog:
+    name: deploy (homologação)
+    needs: [test, frontend, test-postgres, build]
+    # `always()` porque no disparo manual os jobs acima são pulados de propósito;
+    # no push, exige que os quatro tenham passado.
+    if: >-
+      always() && (
+        (github.event_name == 'push' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && !contains(needs.*.result, 'skipped'))
+        || (github.event_name == 'workflow_dispatch' && inputs.ambiente == 'homolog')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: erp-novo-deploy-homolog
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      RELEASE_ID: ${{ inputs.release_id || github.sha }}
+      SSHPASS: ${{ secrets.VPS_PASSWORD }}
+    steps:
+      - name: Validar release e secret
+        run: |
+          case "$RELEASE_ID" in *[!0-9a-f]*|'') echo 'release inválida' >&2; exit 78;; esac
+          [ "${#RELEASE_ID}" -eq 40 ] || { echo 'release deve ser o SHA completo' >&2; exit 78; }
+          [ -n "$SSHPASS" ] || { echo '::error::secret VPS_PASSWORD ausente'; exit 78; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.RELEASE_ID }}
+
+      - name: Resolver digests imutáveis no GHCR
+        run: |
+          set -eu
+          echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          for nome in app web; do
+            tag="${REGISTRY_PREFIX}/erpnovo-${nome}:${RELEASE_ID}"
+            digest=$(docker buildx imagetools inspect "$tag" | awk '/^Digest:/ {print $2; exit}')
+            case "$digest" in sha256:*) ;; *) echo "digest não resolvido: $tag" >&2; exit 1;; esac
+            echo "$(echo "$nome" | tr a-z A-Z)_IMAGE=${tag}@${digest}" >> "$GITHUB_ENV"
+          done
+
+      - name: Configurar SSH (host verificado)
+        run: bash deploy/ci-ssh-setup.sh
+
+      # Só os arquivos de implantação (alguns KB) — nunca o repositório.
+      - name: Enviar bundle de implantação
+        run: bash deploy/ci-enviar-bundle.sh
+
+      # A senha vai por SSHPASS (ambiente), o token do GHCR pela entrada
+      # padrão: nenhum dos dois aparece em argumento de processo.
+      - name: Pull, migration e promoção na VPS
+        run: |
+          echo '${{ secrets.GITHUB_TOKEN }}' | sshpass -e ssh vps \
+            "GHCR_USER='${{ github.actor }}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/remote-deploy.sh' homolog '${RELEASE_ID}' '${APP_IMAGE}' '${WEB_IMAGE}'"
+
+      - name: Resumo
+        if: always()
+        run: |
+          printf '## Deploy homologação\n- Release: `%s`\n- App: `%s`\n- Web: `%s`\n- Resultado: %s\n' \
+            "$RELEASE_ID" "${APP_IMAGE:-?}" "${WEB_IMAGE:-?}" '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Deploy em produção (manual) ───────────────────────────────────────────
+  # Promove EXATAMENTE os bytes homologados: a imagem vem do manifesto que o
+  # deploy de homologação gravou na VPS, não de uma nova resolução da tag.
+  deploy-producao:
+    name: deploy (produção)
+    if: github.event_name == 'workflow_dispatch' && inputs.ambiente == 'producao'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: erp-novo-deploy-producao
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      RELEASE_ID: ${{ inputs.release_id }}
+      ROLLBACK_RELEASE: ${{ inputs.rollback_release }}
+      SSHPASS: ${{ secrets.VPS_PASSWORD }}
+    steps:
+      - name: Validar autorização, releases e secret
+        run: |
+          set -eu
+          [ '${{ inputs.confirmacao }}' = PRODUCAO ] || { echo 'confirmação ausente' >&2; exit 78; }
+          for release in "$RELEASE_ID" "$ROLLBACK_RELEASE"; do
+            case "$release" in *[!0-9a-f]*|'') exit 78;; esac
+            [ "${#release}" -eq 40 ] || exit 78
+          done
+          [ "$RELEASE_ID" != "$ROLLBACK_RELEASE" ] || exit 78
+          [ -n "$SSHPASS" ] || { echo '::error::secret VPS_PASSWORD ausente'; exit 78; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_id }}
+
+      - name: Configurar SSH (host verificado)
+        run: bash deploy/ci-ssh-setup.sh
+
+      - name: Carregar manifestos homologados
+        run: |
+          set -eu
+          manifesto=$(sshpass -e ssh vps "cat '${RELEASES_DIR}/${RELEASE_ID}.env'")
+          sshpass -e ssh vps "test -r '${RELEASES_DIR}/${ROLLBACK_RELEASE}.env'"
+          printf '%s\n' "$manifesto" | grep -qx "RELEASE_ID=${RELEASE_ID}"
+          printf '%s\n' "$manifesto" | grep -E '^(APP_IMAGE|WEB_IMAGE)=' >> "$GITHUB_ENV"
+
+      - name: Enviar bundle de implantação
+        run: bash deploy/ci-enviar-bundle.sh
+
+      - name: Backup, pull, migration, promoção e gate estrito
+        id: promote
+        run: |
+          echo 'started=true' >> "$GITHUB_OUTPUT"
+          echo '${{ secrets.GITHUB_TOKEN }}' | sshpass -e ssh vps \
+            "GHCR_USER='${{ github.actor }}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/remote-deploy.sh' producao '${RELEASE_ID}' '${APP_IMAGE}' '${WEB_IMAGE}'"
+
+      - name: Rollback automático para digest anterior
+        if: failure() && steps.promote.outputs.started == 'true'
+        run: |
+          sshpass -e ssh vps "RELEASES_DIR='${RELEASES_DIR}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/rollback.sh' '${ROLLBACK_RELEASE}'"
+
+      - name: Resumo auditável
+        if: always()
+        run: |
+          printf '## Deploy produção\n- Release: `%s`\n- Rollback: `%s`\n- Ator: %s\n- Resultado: %s\n' \
+            "$RELEASE_ID" "$ROLLBACK_RELEASE" '${{ github.actor }}' '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"

@@ -18,7 +18,7 @@ container** do erp-novo — não é mais um arquivo solto em `/var/www/html`.
   - `/novo/app` → a SPA React;
   - `/novo/api`, `/novo/sanctum` → a API Laravel.
 - **Deploy automático**: vai junto no deploy do erp-novo (GitHub Actions
-  `deploy-erp-novo-homolog.yml`, em push para `main` que toque `erp-novo/**`).
+  `erp-novo.yml` (job `deploy-homolog`), em push para `main` que toque `erp-novo/**`).
   Sem `sudo`, sem cópia manual.
 
 ## Nginx do HOST (uma vez, na VPS)
