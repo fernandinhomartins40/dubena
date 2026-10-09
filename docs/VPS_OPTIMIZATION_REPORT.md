@@ -102,7 +102,12 @@ teste**: as variáveis chegam como ambiente real do processo, e a role nasceu
 - O build saiu da VPS por completo, e a VPS não mantém mais processo para
   esperar job.
 - No CI, app e web constroem simultaneamente e em paralelo aos testes; o deploy
-  só dispara se o workflow inteiro passar.
+  só dispara se o workflow inteiro passar. MEASURED no run de `18685d3b`, com
+  cache: build da app **115 s** e da web **79 s** (incluindo Trivy e SBOM),
+  correndo junto com o `test` (172 s). O workflow fecha no tempo do job mais
+  lento, não na soma.
+- O deploy desse run disparou e parou no primeiro passo (`secret VPS_* ausente`),
+  como projetado.
 - Deploy medido localmente: **primeiro deploy ~25 s** (com o pull das imagens
   base) e **redeploy em 16 s**, migration idempotente.
 - Bundle enviado à VPS: só os arquivos de compose/deploy (KB), nunca o
@@ -128,7 +133,8 @@ Sem mudança nesta rodada; a frequência do GPS (30 s) segue como decisão do do
 | Gate `ldd`/`php -m` com regressão plantada | detectou |
 | `docker compose config` dos dois ambientes | passou |
 | YAML dos workflows, `bash -n`/`sh -n` dos scripts | passou |
-| Suíte PHP | ver mensagem de commit |
+| Suíte PHP (antes e depois da atualização de dependências) | 1832 passes, 16 skips, 0 falhas |
+| CI no GitHub (`18685d3b`) | test, test-postgres, frontend, build app, build web: todos verdes |
 
 ## Ações que exigem autorização
 
