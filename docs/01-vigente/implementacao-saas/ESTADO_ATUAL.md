@@ -3,12 +3,40 @@
 > Frente UI/UX autorizada em 10/09/2026: retomada em `../UI_UX_ERP_NOVO_EXECUCAO.md` (microlotes 01–18). Esta frente altera apresentação/fluxos da SPA e landing; não aprova gates nem antecipa cutover deste plano SaaS. Commit/push direto na main solicitado pelo usuário; pendências UI e verificações registradas no diário próprio.
 
 **Objetivo durável:** ativo  
-**Estado:** IMPLEMENTANDO  
-**Fase:** F1 — **CONCLUÍDA** (gate aprovado em homologação; ver `F1_16_GATE_APROVADO.md`)  
-**Último microlote concluído:** F1-16 — gate F1 aprovado com role de runtime sobre dados reais  
-**Próxima fase:** F2 — em andamento (F2-06 concluída)  
+**Estado:** CÓDIGO DO PLANO ESGOTADO — o que resta é operação e decisão do dono  
+**Fases:** F0–F4 fechadas; F5 10/11; F6 fechada; F7 13/14; F8 é o ensaio com
+dados reais; F9 fechada; F10 depende de um segundo cliente. Enumeração tarefa a
+tarefa em `ESTADO_DAS_106_TAREFAS.md` (a fonte para "o que falta").  
 **Pendência externa herdada:** F0-03 — rotação/revogação externa de segredos  
-**Última atualização:** 2026-08-29 (America/Sao_Paulo)
+**Última atualização:** 2026-10-09 (America/Sao_Paulo)
+
+> ⚠️ **Este arquivo é diário, não sumário.** As seções abaixo são cronológicas
+> e as mais antigas descrevem estados superados (ex.: "F2 em andamento",
+> "próximo passo: iniciar F5" — ambas já concluídas). Leia o topo e o
+> `ESTADO_DAS_106_TAREFAS.md`; o resto é registro de *como* se chegou aqui.
+
+## Checkpoint 2026-10-09 — retomada após quatro semanas paradas
+
+- Último commit: `a3e9c55b` (14/09, otimização de CPU da VPS — ver
+  `../OTIMIZACAO_CPU_STATUS.md`). CI verde; **o deploy dele nunca rodou**: o job
+  `Deploy erp-novo (HOMOLOGAÇÃO)` está `queued` desde 14/09, e uma nova tentativa
+  entrou na fila hoje. Causa, verificada na VPS: ela foi **reinstalada em
+  14/09** e o dono **removeu o Dubena de propósito** (contêineres, volumes,
+  vhost, runner self-hosted), para reimplantá-lo otimizado. O deploy dependia
+  de um runner dentro da VPS que deixou de existir.
+- ⚠️ Consequência para o SaaS: **a homologação com os dados reais migrados não
+  existe mais.** Tudo que este diário diz "verificado em homologação" (gate F1,
+  RLS sobre 55 mil clientes, `cutover:check`) precisa ser refeito depois da
+  reimplantação + nova carga. A fonte local continua em
+  `Desktop/Banco Dubena/` (dump Oracle de 12/08).
+- Otimização para a VPS e deploy novo (build no GitHub, um job por imagem →
+  GHCR → VPS só faz pull por SSH): ver `docs/VPS_OPTIMIZATION_PLAN.md` e
+  `docs/VPS_OPTIMIZATION_REPORT.md`.
+- Acesso à VPS passa a ser por chave dedicada (`ssh dubena-vps`), sem senha em
+  arquivo.
+- O que destrava o SaaS continua sendo o mesmo de 01/09: (1) desligar
+  `SAAS_FREEZE_MIGRATION_WRITES` para o ensaio F8; (2) homologação fiscal F5-09
+  com contador; (3) runbook F7-12 com responsáveis; (4) um segundo cliente (F10).
 
 > ⚠️ `tenant.saas` continua **fora das rotas** e `SAAS_ENFORCE_TENANT_ENVELOPE`
 > segue `false`. F1 entrega a fronteira **provada**; ligar o enforcement é

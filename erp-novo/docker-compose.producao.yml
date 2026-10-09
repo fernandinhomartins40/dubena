@@ -28,12 +28,23 @@
 # Uso obrigatório (o wrapper aplica o mesmo arquivo à interpolação e aos containers):
 #   sh docker/compose-production.sh up -d --no-build
 # ──────────────────────────────────────────────────────────────────────────
+# A VPS não tem /etc/docker/daemon.json, então o default do Docker é json-file
+# SEM limite: o log de cada contêiner cresce até encher o disco. 3 x 10 MB por
+# contêiner preserva o diagnóstico recente com teto conhecido. Logs de negócio
+# e auditoria vão para o banco, não para cá.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-app-comum: &app-comum
   image: ${APP_IMAGE:?defina APP_IMAGE como referencia completa terminada em @sha256:digest}
   restart: unless-stopped
   working_dir: /var/www
   env_file:
     - ${ENV_PRODUCAO:-/opt/dubena-env/erp-novo-producao.env}
+  logging: *logging
   # Só storage e cache são volumes: o código vem da imagem (ver diferença 2).
   volumes:
     - app_storage:/var/www/storage
@@ -62,6 +73,7 @@ services:
     image: ${WEB_IMAGE:?defina WEB_IMAGE como referencia completa terminada em @sha256:digest}
     container_name: erpnovo-prod-web
     restart: unless-stopped
+    logging: *logging
     # Só local: o Nginx do HOST faz o TLS e o proxy público.
     ports:
       - "127.0.0.1:3130:80"
@@ -136,6 +148,7 @@ services:
     image: postgres:15.14-alpine@sha256:64583b3cb4f2010277bdd9749456de78e5c36f8956466ba14b0b96922e510950
     container_name: erpnovo-prod-db
     restart: unless-stopped
+    logging: *logging
     environment:
       # Inicializado com a role OWNER (dona do schema). O RUNTIME usa a role
       # restrita `erp_app` (NOSUPERUSER/NOBYPASSRLS) — superuser IGNORA RLS, e
@@ -158,6 +171,7 @@ services:
     image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     container_name: erpnovo-prod-redis
     restart: unless-stopped
+    logging: *logging
     secrets:
       - redis_password
     # Gera config efêmera sem expor o segredo em argumentos/labels/Compose.

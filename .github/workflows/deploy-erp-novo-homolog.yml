@@ -1,10 +1,27 @@
 name: Deploy erp-novo (HOMOLOGAÇÃO)
 
+# Roda no runner do GitHub e entra na VPS por SSH. NÃO há mais runner
+# self-hosted: ele era um processo residente na VPS compartilhada só para
+# esperar job, e quando a VPS foi reinstalada (set/2026) sumiu junto — o deploy
+# ficou um mês "queued" sem acusar nada. A VPS agora só faz pull + up das
+# imagens que o CI já construiu e escaneou (ver `build-image` em ci-erp-novo.yml).
+#
+# Secrets do repositório exigidos (Settings > Secrets and variables > Actions):
+#   VPS_HOST         IP ou host da VPS
+#   VPS_SSH_KEY      chave privada DEDICADA ao deploy (não a de uma pessoa)
+#   VPS_KNOWN_HOSTS  saída de `ssh-keyscan -t ed25519 <host>` — a identidade do
+#                    servidor é conferida; sem isso um intermediário poderia se
+#                    passar pela VPS e receber o token do GHCR.
 on:
   workflow_run:
     workflows: ['CI erp-novo (backend reescrito)']
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'SHA completo a (re)implantar — imagens já publicadas no GHCR'
+        required: true
 
 concurrency:
   group: deploy-erp-novo-homolog
@@ -12,72 +29,80 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event.workflow_run.conclusion == 'success'
-    runs-on: self-hosted
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: read
-    defaults:
-      run:
-        working-directory: erp-novo
     env:
-      ENV_HOMOLOG: /opt/dubena-env/erp-novo-homolog.env
-      RELEASES_DIR: /opt/dubena-releases
-      RELEASE_ID: ${{ github.event.workflow_run.head_sha }}
+      RELEASE_ID: ${{ inputs.release_id || github.event.workflow_run.head_sha }}
       REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
+      BUNDLE_BASE: /opt/dubena/erp-novo/releases
 
     steps:
-      - name: Checkout exato da release aprovada
+      - name: Validar release e secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          case "$RELEASE_ID" in *[!0-9a-f]*|'') echo 'release inválida' >&2; exit 78;; esac
+          [ "${#RELEASE_ID}" -eq 40 ] || { echo 'release deve ser o SHA completo' >&2; exit 78; }
+          for s in VPS_HOST VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            eval "v=\${$s}"
+            [ -n "$v" ] || { echo "::error::secret $s ausente — ver cabeçalho deste workflow"; exit 78; }
+          done
+
+      - name: Checkout dos arquivos de implantação da release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          clean: false
+          ref: ${{ env.RELEASE_ID }}
 
-      - name: Validar ambiente e autenticar no GHCR
+      - name: Resolver digests imutáveis no GHCR
         run: |
-          test -r "$ENV_HOMOLOG" || { echo "env de homologação ausente" >&2; exit 78; }
+          set -eu
           echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-
-      - name: Resolver e registrar o manifesto imutável
-        run: |
-          set -eu
-          app_tag="${REGISTRY_PREFIX}/erpnovo-app:${RELEASE_ID}"
-          web_tag="${REGISTRY_PREFIX}/erpnovo-web:${RELEASE_ID}"
-          app_digest=$(docker buildx imagetools inspect "$app_tag" | awk '/^Digest:/ {print $2; exit}')
-          web_digest=$(docker buildx imagetools inspect "$web_tag" | awk '/^Digest:/ {print $2; exit}')
-          case "$app_digest:$web_digest" in sha256:*:sha256:*) ;; *) exit 1;; esac
-          APP_IMAGE="${app_tag}@${app_digest}"
-          WEB_IMAGE="${web_tag}@${web_digest}"
-          mkdir -p "$RELEASES_DIR"
-          umask 022
-          manifest_tmp="${RELEASES_DIR}/${RELEASE_ID}.env.tmp"
-          printf 'RELEASE_ID=%s\nAPP_IMAGE=%s\nWEB_IMAGE=%s\n' \
-            "$RELEASE_ID" "$APP_IMAGE" "$WEB_IMAGE" > "$manifest_tmp"
-          mv "$manifest_tmp" "${RELEASES_DIR}/${RELEASE_ID}.env"
-          echo "APP_IMAGE=$APP_IMAGE" >> "$GITHUB_ENV"
-          echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
-
-      - name: Pull, migration pelo owner e promoção sem rebuild
-        run: |
-          sh docker/compose-homolog.sh pull
-          sh docker/compose-homolog.sh run --rm app \
-            php artisan migrate --force --database=pgsql_owner
-          sh docker/compose-homolog.sh up -d --no-build --remove-orphans
-
-      - name: Provar digest executado e health
-        run: |
-          set -eu
-          esperado_app=$(docker image inspect "$APP_IMAGE" --format '{{.Id}}')
-          esperado_web=$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')
-          test "$(docker inspect erpnovo-app --format '{{.Image}}')" = "$esperado_app"
-          test "$(docker inspect erpnovo-web --format '{{.Image}}')" = "$esperado_web"
-          for attempt in $(seq 1 15); do
-            api=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/up || echo 000)
-            spa=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3120/novo/app/ || echo 000)
-            [ "$api:$spa" = '200:200' ] && exit 0
-            echo "health tentativa ${attempt}: api=${api}, spa=${spa}"
-            sleep 4
+          for nome in app web; do
+            tag="${REGISTRY_PREFIX}/erpnovo-${nome}:${RELEASE_ID}"
+            digest=$(docker buildx imagetools inspect "$tag" | awk '/^Digest:/ {print $2; exit}')
+            case "$digest" in sha256:*) ;; *) echo "digest não resolvido: $tag" >&2; exit 1;; esac
+            echo "$(echo "$nome" | tr a-z A-Z)_IMAGE=${tag}@${digest}" >> "$GITHUB_ENV"
           done
-          sh docker/compose-homolog.sh logs --tail=80 app web >&2
-          exit 1
+
+      - name: Configurar SSH (host verificado)
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -eu
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vps\n  HostName %s\n  User root\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  ConnectTimeout 20\n  ServerAliveInterval 15\n' \
+            "$VPS_HOST" > ~/.ssh/config
+
+      # Só os arquivos de implantação vão para a VPS (alguns KB) — nunca o
+      # repositório. Uma pasta por release permite rollback sem checkout.
+      - name: Enviar bundle de implantação
+        run: |
+          set -eu
+          tar -czf - \
+            erp-novo/docker-compose.homolog.yml erp-novo/docker-compose.producao.yml \
+            erp-novo/docker/compose-homolog.sh erp-novo/docker/compose-production.sh \
+            deploy/remote-deploy.sh deploy/rollback.sh deploy/backup \
+          | ssh vps "set -e; d='${BUNDLE_BASE}/${RELEASE_ID}'; mkdir -p \"\$d\"; tar -xzf - -C \"\$d\""
+
+      - name: Pull, migration e promoção na VPS
+        run: |
+          echo '${{ secrets.GITHUB_TOKEN }}' | ssh vps \
+            "GHCR_USER='${{ github.actor }}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/remote-deploy.sh' homolog '${RELEASE_ID}' '${APP_IMAGE}' '${WEB_IMAGE}'"
+
+      - name: Resumo
+        if: always()
+        run: |
+          printf '## Deploy homologação\n- Release: `%s`\n- App: `%s`\n- Web: `%s`\n- Resultado: %s\n' \
+            "$RELEASE_ID" "${APP_IMAGE:-?}" "${WEB_IMAGE:-?}" '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"
+          rm -f ~/.ssh/deploy

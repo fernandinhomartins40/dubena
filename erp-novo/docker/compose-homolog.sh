@@ -21,7 +21,12 @@ for image in "$app_image" "$web_image"; do
 done
 
 export APP_IMAGE="$app_image" WEB_IMAGE="$web_image" ENV_HOMOLOG="$env_file"
+# Nome FIXO por ambiente. Derivado da pasta (o default do Compose), homologação
+# e produção ganhavam o mesmo nome ("erp-novo") e o `--remove-orphans` de um
+# deploy derrubaria os contêineres do outro; e com o deploy rodando de uma pasta
+# por release, cada release viraria uma pilha nova.
 exec docker compose \
+    --project-name "${COMPOSE_PROJECT_NAME:-erpnovo-homolog}" \
     --env-file "$env_file" \
     -f "$compose_file" \
     "$@"

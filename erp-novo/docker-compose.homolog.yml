@@ -1,14 +1,28 @@
 # ──────────────────────────────────────────────────────────────────────────
 # erp-novo (backend reescrito) — HOMOLOGAÇÃO na VPS.
 #
-# COEXISTE com o ctrl-web (legado) SEM colidir:
+# COEXISTE com as demais aplicações da VPS SEM colidir:
 #   - rede própria (erpnovo), containers próprios (erpnovo-*), volumes próprios;
-#   - BANCO PRÓPRIO (Postgres isolado) — NÃO toca o banco de produção do legado;
-#   - porta interna 127.0.0.1:3120 (legado usa 3110/3111/3112; faixa 3100-3299).
+#   - BANCO PRÓPRIO (Postgres isolado);
+#   - porta interna 127.0.0.1:3120 (faixa 3100-3299).
 #
-# O Nginx do HOST faz TLS e proxy por domínio (ex.: homolog-erp.gasemcasa.com.br
-# → 127.0.0.1:3120). Segredos vêm de .env (NÃO versionado).
+# O Nginx do HOST faz TLS e proxy por domínio (→ 127.0.0.1:3120). Segredos vêm
+# do env de homologação (NÃO versionado). O nome do projeto Compose é fixado no
+# wrapper (docker/compose-homolog.sh), não derivado da pasta: o deploy roda de
+# uma pasta por release, e um nome que mudasse a cada release criaria uma pilha
+# nova a cada deploy.
 # ──────────────────────────────────────────────────────────────────────────
+
+# A VPS não tem /etc/docker/daemon.json, então o default do Docker é json-file
+# SEM limite: o log de cada contêiner cresce até encher o disco. 3 x 10 MB por
+# contêiner preserva o diagnóstico recente (o que se lê num incidente) com teto
+# conhecido. Logs de negócio e auditoria vão para o banco, não para cá.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-app-comum: &app-comum
   image: ${APP_IMAGE:?defina APP_IMAGE como referencia completa terminada em @sha256:digest}
   restart: unless-stopped
@@ -17,7 +31,8 @@ x-app-comum: &app-comum
     - app_storage:/var/www/storage
     - app_bootstrap_cache:/var/www/bootstrap/cache
   env_file:
-    - ${ENV_HOMOLOG:-.env}
+    - ${ENV_HOMOLOG:-/opt/dubena-env/erp-novo-homolog.env}
+  logging: *logging
   networks:
     - erpnovo
 
@@ -26,13 +41,16 @@ services:
     <<: *app-comum
     container_name: erpnovo-app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
     image: ${WEB_IMAGE:?defina WEB_IMAGE como referencia completa terminada em @sha256:digest}
     container_name: erpnovo-web
     restart: unless-stopped
+    logging: *logging
     # Só local: o Nginx do HOST faz o TLS e o proxy público.
     ports:
       - "127.0.0.1:3120:80"
@@ -52,10 +70,8 @@ services:
     command: php artisan queue:work --sleep=1 --tries=3 --max-time=3600
     depends_on:
       - app
-      - db
-      - redis
 
-  # SCHEDULER (PF-6) — dispara os 8 comandos agendados (expirar PIX, gerar missões,
+  # SCHEDULER (PF-6) — dispara os comandos agendados (expirar PIX, gerar missões,
   # notificar vencidos, sync GPS…). `schedule:work` é um loop que executa o
   # schedule:run a cada minuto no próprio processo (sem precisar de crontab no host).
   scheduler:
@@ -64,14 +80,10 @@ services:
     command: php artisan schedule:work
     depends_on:
       - app
-      - db
-      - redis
 
   # REVERB (PF-8) — servidor WebSocket nativo do Laravel (tempo real: posição do
-  # entregador, status do pedido, PIX confirmado). Sem ele BROADCAST_CONNECTION cai
-  # para `log` e os apps ficam só no polling. Exposto ao Nginx do host, que faz o
-  # proxy/TLS de wss:// para 127.0.0.1:3121. Requer BROADCAST_CONNECTION=reverb +
-  # REVERB_* no .env.
+  # entregador, status do pedido, PIX confirmado). Exposto ao Nginx do host, que
+  # faz o proxy/TLS de wss:// para 127.0.0.1:3121.
   reverb:
     <<: *app-comum
     container_name: erpnovo-reverb
@@ -80,12 +92,12 @@ services:
       - "127.0.0.1:3121:8080"
     depends_on:
       - app
-      - redis
 
   db:
     image: postgres:15.14-alpine@sha256:64583b3cb4f2010277bdd9749456de78e5c36f8956466ba14b0b96922e510950
     container_name: erpnovo-db
     restart: unless-stopped
+    logging: *logging
     environment:
       # O Postgres é INICIALIZADO com a role OWNER (dona do schema, cria tabelas).
       # O RUNTIME da app NÃO usa esta role — conecta com a role restrita erp_app
@@ -96,6 +108,15 @@ services:
       POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?defina DB_OWNER_PASSWORD no .env}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # O deploy roda a migration logo depois de subir o banco. Num volume novo o
+    # Postgres leva alguns segundos inicializando; sem healthcheck a migration
+    # pegaria "connection refused" justamente no primeiro deploy.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_OWNER_USERNAME:-${DB_USERNAME:-erp}} -d ${DB_DATABASE:-erp_novo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks:
       - erpnovo
 
@@ -103,8 +124,10 @@ services:
     image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     container_name: erpnovo-redis
     restart: unless-stopped
-    env_file:
-      - .env
+    logging: *logging
+    # Sem `env_file`: o Redis só precisa da própria senha, que chega por
+    # `secrets`. Antes recebia o .env inteiro da aplicação (APP_KEY, senhas do
+    # banco, chaves de integração) sem usar nada dele.
     secrets:
       - redis_password
     command:
@@ -123,6 +146,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # `appendonly yes` sem volume era persistência de mentira: o arquivo morria
+    # com o contêiner a cada deploy, levando sessões e jobs ainda na fila.
+    volumes:
+      - redis_data:/data
     networks:
       - erpnovo
 
@@ -130,6 +157,7 @@ volumes:
   db_data:
   app_storage:
   app_bootstrap_cache:
+  redis_data:
 
 networks:
   erpnovo:

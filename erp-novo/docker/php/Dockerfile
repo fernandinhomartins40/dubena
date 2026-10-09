@@ -19,7 +19,7 @@ RUN npm ci \
 COPY frontend/ ./
 RUN npm run build
 
-FROM php:8.3-fpm@sha256:d8236042c96700b2dd4439d7260ee0666b4864076b12b82f993be3847371442b AS php-base
+FROM php:8.3-fpm@sha256:d8236042c96700b2dd4439d7260ee0666b4864076b12b82f993be3847371442b AS php-os
 
 ARG DEBIAN_SNAPSHOT=20260912T160000Z
 
@@ -30,20 +30,17 @@ RUN set -eux; \
     # snapshot.debian.org e um servico publico que responde 503 sob carga e ja
     # derrubou o build sem nada ter mudado no codigo. Retry nao afrouxa a
     # reprodutibilidade: o snapshot continua fixo, so a busca insiste.
-    printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/99retries; \
+    printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/99retries
+
+# Compilação das extensões em estágio PRÓPRIO. Os headers `-dev` (libicu-dev
+# sozinho tem 50 MB, libpq-dev arrasta libssl-dev) e o git só servem para
+# compilar; antes ficavam na imagem que vai para a VPS, somando ~150 MB a cada
+# pull e superfície extra para o gate Trivy. A imagem final recebe só os .so.
+FROM php-os AS php-ext-build
+
+RUN set -eux; \
     apt-get update; \
-    # A imagem PHP inclui Perl 5.40.1-6, bloqueado pelo gate Trivy por
-    # CVE-2026-13221, CVE-2026-42496 e CVE-2026-8376. Atualizar somente a
-    # família Perl para o patch presente no snapshot mantém o build auditável
-    # sem transformar a release em um upgrade amplo e não determinístico.
-    apt-get install -y --no-install-recommends --only-upgrade \
-        perl \
-        perl-base \
-        libperl5.40 \
-        perl-modules-5.40; \
     apt-get install -y --no-install-recommends \
-        git \
-        unzip \
         libzip-dev \
         zlib1g-dev \
         libpng-dev \
@@ -69,8 +66,49 @@ RUN set -eux; \
         sodium \
         opcache; \
     pecl install redis; \
-    docker-php-ext-enable redis; \
+    docker-php-ext-enable redis
+
+FROM php-os AS php-base
+
+# Só as bibliotecas que os .so compilados acima carregam em runtime. A lista é
+# CONFERIDA logo abaixo por `ldd`: se uma extensão nova precisar de outra lib,
+# o build falha aqui, e não o php-fpm em produção.
+RUN set -eux; \
+    apt-get update; \
+    # A imagem PHP inclui Perl 5.40.1-6, bloqueado pelo gate Trivy por
+    # CVE-2026-13221, CVE-2026-42496 e CVE-2026-8376. Atualizar somente a
+    # família Perl para o patch presente no snapshot mantém o build auditável
+    # sem transformar a release em um upgrade amplo e não determinístico.
+    apt-get install -y --no-install-recommends --only-upgrade \
+        perl \
+        perl-base \
+        libperl5.40 \
+        perl-modules-5.40; \
+    # `unzip` fica: é o que o Composer usa para extrair pacotes no entrypoint
+    # de desenvolvimento. `git` não: com --prefer-dist o Composer baixa zip.
+    apt-get install -y --no-install-recommends \
+        unzip \
+        libzip5 \
+        libpng16-16t64 \
+        libjpeg62-turbo \
+        libfreetype6 \
+        libicu76 \
+        libonig5 \
+        libxml2 \
+        libsodium23 \
+        libpq5; \
     rm -rf /var/lib/apt/lists/*
+
+COPY --from=php-ext-build /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=php-ext-build /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+RUN set -eux; \
+    faltando="$(find /usr/local/lib/php/extensions -name '*.so' -exec ldd {} + | grep 'not found' || true)"; \
+    [ -z "$faltando" ] || { echo "bibliotecas ausentes: $faltando" >&2; exit 1; }; \
+    for ext in pdo_pgsql pgsql mbstring gd zip intl bcmath pcntl exif soap sodium redis "Zend OPcache"; do \
+        php -m | grep -qix "$ext" || { echo "extensao nao carregou: $ext" >&2; exit 1; }; \
+    done; \
+    php -v 2>&1 | grep -qi warning && exit 1 || true
 
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 
@@ -116,12 +154,17 @@ RUN composer dump-autoload --no-dev --no-interaction --no-scripts --classmap-aut
     mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache; \
     chown -R www-data:www-data storage bootstrap/cache
 
-# O Nginx recebe o public/ da mesma construção, sem volume vazio ou checkout.
+# O Nginx recebe o public/ do repositório + a SPA compilada. Antes copiava de
+# `application`, o que obrigava o build da `web` a esperar o `composer install`
+# inteiro — sem motivo: nada em public/ vem do Composer (o install usa
+# --no-scripts, então nem `vendor:publish` roda). Agora a `web` depende só do
+# estágio do Vite e constrói em paralelo com a app.
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de AS web
 
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx/security-headers.conf /etc/nginx/erpnovo-security-headers.conf
-COPY --from=application /var/www/public /var/www/public
+COPY public/ /var/www/public/
+COPY --from=frontend /build/public/app /var/www/public/app
 
 # Target padrão preservado para homolog/dev que não informam `target`.
 FROM application AS runtime

@@ -189,17 +189,37 @@ jobs:
       - name: Gate PostgreSQL/RLS (owner migra; runtime testa; zero skip)
         run: composer test:pgsql-rls
 
-  build-release:
+  # BUILD — um job por imagem, no runner do GitHub, NUNCA na VPS.
+  #
+  # Antes era um job só, construindo as duas imagens em série e sem cache: cada
+  # push recompilava as extensões PHP (gd, intl, soap…) do zero. Agora:
+  #  - app e web constroem em PARALELO, cada uma no seu job;
+  #  - o cache de camadas fica no próprio GHCR (`:buildcache`), então só o que
+  #    mudou recompila — mexer em PHP não reconstrói a base, mexer na SPA não
+  #    reinstala o Composer;
+  #  - os builds NÃO esperam os testes: rodam ao mesmo tempo. Imagem publicada
+  #    sem teste verde não é promovida — o deploy só dispara quando o workflow
+  #    INTEIRO (testes + builds) termina em sucesso.
+  build-image:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, frontend, test-postgres]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - imagem: erpnovo-app
+            target: runtime
+          - imagem: erpnovo-web
+            target: web
     defaults:
       run:
         working-directory: erp-novo
+    env:
+      IMAGEM: ghcr.io/${{ github.repository_owner }}/${{ matrix.imagem }}
     steps:
       - name: Checkout exato da release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -207,8 +227,46 @@ jobs:
       - name: Login no GHCR
         run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-      - name: Build único, provenance, SBOM e push
-        env:
-          REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
-          RELEASE_ID: ${{ github.sha }}
-        run: sh docker/build-release.sh
+      # O driver padrão (`docker`) não exporta cache para registry nem publica
+      # attestations (provenance/SBOM), exigidas pela release desde F0-05.
+      - name: Builder BuildKit
+        run: docker buildx create --name release --driver docker-container --use --bootstrap
+
+      - name: Build, provenance, SBOM e push (${{ matrix.imagem }})
+        run: |
+          docker buildx build \
+            --file docker/php/Dockerfile \
+            --target '${{ matrix.target }}' \
+            --tag "${IMAGEM}:${GITHUB_SHA}" \
+            --cache-from "type=registry,ref=${IMAGEM}:buildcache" \
+            --cache-to "type=registry,ref=${IMAGEM}:buildcache,mode=max" \
+            --provenance=mode=max \
+            --sbom=true \
+            --push \
+            .
+
+      # Gate de vulnerabilidade por imagem (mesmo critério de antes: CRITICAL
+      # com correção disponível reprova). Roda aqui para a VPS nunca receber
+      # uma imagem reprovada.
+      - name: Trivy (CRITICAL) e SBOM SPDX
+        run: |
+          set -eu
+          digest=$(docker buildx imagetools inspect "${IMAGEM}:${GITHUB_SHA}" | awk '/^Digest:/ {print $2; exit}')
+          ref="${IMAGEM}:${GITHUB_SHA}@${digest}"
+          docker pull "$ref"
+          mkdir -p "$RUNNER_TEMP/relatorios"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/relatorios:/reports" \
+            aquasec/trivy:0.66.0@sha256:086971aaf400beebd94e8300fd8ea623774419597169156cec56eec5b00dfb1e \
+            image --scanners vuln --ignore-unfixed --severity CRITICAL \
+            --exit-code 1 --format json --output /reports/trivy.json "$ref"
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            anchore/syft:v1.33.0@sha256:f94e5d9fce1f2278491a8e3a63bd5f6ddb81fdfdbb8bf7a1637565c1d5344357 \
+            "$ref" -o spdx-json > "$RUNNER_TEMP/relatorios/sbom.spdx.json"
+          printf '%s `%s` — %s\n' '${{ matrix.imagem }}' "$digest" "$(docker image inspect "$ref" --format '{{.Size}}' | awk '{printf "%.0f MB", $1/1048576}')" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Evidências da release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.imagem }}
+          path: ${{ runner.temp }}/relatorios
+          retention-days: 90

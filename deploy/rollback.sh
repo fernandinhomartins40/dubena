@@ -4,7 +4,7 @@
 # Rollback de código não desfaz migrations destrutivas; nesse caso, usar restore.
 set -Eeuo pipefail
 
-DIR_APP="${DIR_APP:-/opt/actions-runner-dubena/_work/dubena/dubena/erp-novo}"
+DIR_APP="${DIR_APP:-/opt/dubena/erp-novo/releases/producao-current/erp-novo}"
 RELEASES_DIR="${RELEASES_DIR:-/opt/dubena-releases}"
 ENV_PRODUCAO="${ENV_PRODUCAO:-/opt/dubena-env/erp-novo-producao.env}"
 CONTAINER_APP="${CONTAINER_APP:-erpnovo-prod-app}"

@@ -1,5 +1,9 @@
 name: Deploy erp-novo (PRODUÇÃO)
 
+# Mesmo mecanismo da homologação (runner do GitHub + SSH; a VPS não constrói
+# nada) e os mesmos secrets VPS_HOST / VPS_SSH_KEY / VPS_KNOWN_HOSTS. Promove
+# EXATAMENTE os bytes já homologados: a release precisa ter manifesto na VPS,
+# que só existe se ela passou pelo deploy de homologação.
 on:
   workflow_dispatch:
     inputs:
@@ -19,24 +23,23 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       packages: read
-    defaults:
-      run:
-        working-directory: erp-novo
     env:
-      ENV_PRODUCAO: /opt/dubena-env/erp-novo-producao.env
-      RELEASES_DIR: /opt/dubena-releases
       RELEASE_ID: ${{ inputs.release_id }}
       ROLLBACK_RELEASE: ${{ inputs.rollback_release }}
-      DEPLOY_ACTOR: ${{ github.actor }}
+      RELEASES_DIR: /opt/dubena-releases
+      BUNDLE_BASE: /opt/dubena/erp-novo/releases
 
     steps:
-      - name: Validar autorização e releases
-        working-directory: .
+      - name: Validar autorização, releases e secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -eu
           [ '${{ inputs.confirmacao }}' = PRODUCAO ] || exit 78
@@ -45,76 +48,69 @@ jobs:
             [ "${#release}" -eq 40 ] || exit 78
           done
           [ "$RELEASE_ID" != "$ROLLBACK_RELEASE" ] || exit 78
-          test -r "${RELEASES_DIR}/${RELEASE_ID}.env"
-          test -r "${RELEASES_DIR}/${ROLLBACK_RELEASE}.env"
+          for s in VPS_HOST VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            eval "v=\${$s}"
+            [ -n "$v" ] || { echo "::error::secret $s ausente"; exit 78; }
+          done
 
-      - name: Checkout exato da release homologada
+      - name: Checkout dos arquivos de implantação da release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.release_id }}
-          clean: false
 
-      - name: Carregar manifesto e validar ambiente
+      - name: Configurar SSH (host verificado)
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           set -eu
-          test -r "$ENV_PRODUCAO" || exit 78
-          grep -qx 'APP_ENV=production' "$ENV_PRODUCAO"
-          grep -qx 'APP_DEBUG=false' "$ENV_PRODUCAO"
-          manifest="${RELEASES_DIR}/${RELEASE_ID}.env"
-          grep -qx "RELEASE_ID=${RELEASE_ID}" "$manifest"
-          APP_IMAGE=$(sed -n 's/^APP_IMAGE=//p' "$manifest")
-          WEB_IMAGE=$(sed -n 's/^WEB_IMAGE=//p' "$manifest")
-          echo "APP_IMAGE=$APP_IMAGE" >> "$GITHUB_ENV"
-          echo "WEB_IMAGE=$WEB_IMAGE" >> "$GITHUB_ENV"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vps\n  HostName %s\n  User root\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  ConnectTimeout 20\n  ServerAliveInterval 15\n' \
+            "$VPS_HOST" > ~/.ssh/config
 
-      - name: Backup obrigatório antes de qualquer escrita
-        working-directory: .
-        run: bash deploy/backup/backup.sh
-
-      - name: Pull e migration pela imagem homologada
+      # A imagem promovida é a do MANIFESTO de homologação, não uma resolução
+      # nova da tag: a tag poderia ter sido reescrita no registry depois.
+      - name: Carregar manifestos homologados
         run: |
-          sh docker/compose-production.sh pull
-          sh docker/compose-production.sh run --rm app \
-            php artisan migrate --force --database=pgsql_owner
+          set -eu
+          manifesto=$(ssh vps "cat '${RELEASES_DIR}/${RELEASE_ID}.env'")
+          ssh vps "test -r '${RELEASES_DIR}/${ROLLBACK_RELEASE}.env'"
+          printf '%s\n' "$manifesto" | grep -qx "RELEASE_ID=${RELEASE_ID}"
+          printf '%s\n' "$manifesto" | sed -n 's/^\(APP_IMAGE\|WEB_IMAGE\)=/\1=/p' >> "$GITHUB_ENV"
 
-      - name: Promover os mesmos bytes sem rebuild
+      - name: Enviar bundle de implantação
+        run: |
+          set -eu
+          tar -czf - \
+            erp-novo/docker-compose.homolog.yml erp-novo/docker-compose.producao.yml \
+            erp-novo/docker/compose-homolog.sh erp-novo/docker/compose-production.sh \
+            deploy/remote-deploy.sh deploy/rollback.sh deploy/backup \
+          | ssh vps "set -e; d='${BUNDLE_BASE}/${RELEASE_ID}'; mkdir -p \"\$d\"; tar -xzf - -C \"\$d\""
+
+      - name: Backup, pull, migration, promoção e gate estrito
         id: promote
         run: |
           echo 'started=true' >> "$GITHUB_OUTPUT"
-          sh docker/compose-production.sh up -d --no-build --remove-orphans
-
-      - name: Caches, gate estrito, digest e health
-        run: |
-          set -eu
-          sh docker/compose-production.sh exec -T app php artisan optimize
-          sh docker/compose-production.sh exec -T app php artisan golive:check --strict
-          esperado_app=$(docker image inspect "$APP_IMAGE" --format '{{.Id}}')
-          esperado_web=$(docker image inspect "$WEB_IMAGE" --format '{{.Id}}')
-          test "$(docker inspect erpnovo-prod-app --format '{{.Image}}')" = "$esperado_app"
-          test "$(docker inspect erpnovo-prod-web --format '{{.Image}}')" = "$esperado_web"
-          for attempt in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3130/up || echo 000)
-            [ "$code" = 200 ] && break
-            echo "health tentativa ${attempt}: ${code}"
-            sleep 5
-          done
-          [ "$code" = 200 ]
-          ln -sfn "${RELEASES_DIR}/${RELEASE_ID}.env" "${RELEASES_DIR}/production-current.env"
+          echo '${{ secrets.GITHUB_TOKEN }}' | ssh vps \
+            "GHCR_USER='${{ github.actor }}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/remote-deploy.sh' producao '${RELEASE_ID}' '${APP_IMAGE}' '${WEB_IMAGE}'"
 
       - name: Rollback automático para digest anterior
         if: failure() && steps.promote.outputs.started == 'true'
-        working-directory: .
         run: |
-          RELEASES_DIR="$RELEASES_DIR" ENV_PRODUCAO="$ENV_PRODUCAO" \
-            bash deploy/rollback.sh "$ROLLBACK_RELEASE"
+          ssh vps "RELEASES_DIR='${RELEASES_DIR}' bash '${BUNDLE_BASE}/${RELEASE_ID}/deploy/rollback.sh' '${ROLLBACK_RELEASE}'"
 
       - name: Resumo auditável
         if: always()
-        working-directory: .
         env:
           DEPLOY_RESULT: ${{ job.status }}
+          DEPLOY_ACTOR: ${{ github.actor }}
         run: |
           # shellcheck disable=SC2016
           printf '## Deploy produção\n- Release: `%s`\n- Rollback: `%s`\n- Ator: %s\n- Resultado: %s\n' \
             "$RELEASE_ID" "$ROLLBACK_RELEASE" "$DEPLOY_ACTOR" "$DEPLOY_RESULT" \
             >> "$GITHUB_STEP_SUMMARY"
+          rm -f ~/.ssh/deploy
