@@ -92,7 +92,11 @@ final class UsersMigrator implements Migrator
                 'empresa_id' => isset($grupoDaEmpresa[$empresa]) ? $empresa : null,
                 'grupo_id' => $grupoDaEmpresa[$empresa] ?? null,
                 'support' => (bool) ($r->support ?? false),
-                'ativo' => (bool) ($r->ativo ?? true),
+                // Só `ativo = 1` entrava no legado: o login envia `ativo=1`
+                // escondido e o `Auth::attempt` o exige. NULO era gente
+                // desligada (20 de 74 no dump de 12/08) — o `?? true` antigo os
+                // reativava, devolvendo acesso a quem tinha sido bloqueado.
+                'ativo' => (string) ($r->ativo ?? '') === '1',
                 'created_at' => $r->created_at ?? null,
             ];
         }

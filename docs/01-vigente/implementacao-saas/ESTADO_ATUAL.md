@@ -1886,3 +1886,31 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   gate RLS com a role `erp_app` 14 testes/374 assertions sem skip.
 - ABERTO, registrado: entrada/saida manuais e acerto nao tem tela na SPA, entao
   ficam sem chave do cliente por ora.
+
+## Atualizacao de retomada - 2026-10-09 (acesso da rede Dubena restaurado na homologacao)
+
+- A VPS reinstalada deixou o banco de homologacao VAZIO (0 usuarios): por isso o
+  dono "nao acessava". Restaurado a partir do dump Oracle de 12/08 (backup
+  local), so a IDENTIDADE: grupo, 7 empresas, 74 usuarios, 135 vinculos. Sem
+  clientes/pedidos/financeiro — isso e a carga completa (ensaio F8).
+- Caminho: Oracle local (somente as tabelas de identidade) -> espelho
+  PostgreSQL -> schema `legado` na homologacao -> `etl:run empresas/users` com a
+  trava liberada SO no comando -> titularidade (`saas:tenant:importar`, tenant
+  Distribuidora Dubena dono das 7 empresas, confirmado pelo dono hoje) ->
+  `tenant:preencher-chave` -> RbacSeeder -> AcessoRedeDubenaSeeder ->
+  `saas:tenant:importar-memberships` (56 memberships, 106 grants).
+- `legado.pedidos` na homologacao e EVIDENCIA PARCIAL (so `id` e
+  `entregadoruser_id`, para a trava pos-cutover e a derivacao de papeis). NAO
+  serve para migrar pedidos — esta comentado na propria tabela.
+- DOIS ACHADOS:
+  1. Seeder rodando como `erp_app` sob RLS FORCADA nao enxerga empresa sem tenant
+     e termina SEM erro e SEM efeito (o RbacSeeder "rodou" e criou zero papeis).
+     Rodar seeders de setup com `DB_CONNECTION=pgsql_owner`.
+  2. **Defeito do ETL corrigido**: `ativo ?? true` reativava os 20 usuarios com
+     `ativo` NULO, que NAO entravam no legado (o login envia `ativo=1` e o
+     `Auth::attempt` exige). Dado corrigido na homologacao e mapeamento
+     corrigido no `UsersMigrator` (so `'1'` e ativo), com teste.
+- Dono: `dono@dubena.com.br` (id 1039), Administrador da rede, OWNER do tenant,
+  7 empresas. Login verificado na propria VPS (200, 151 permissoes). Senha so em
+  `/root/dubena-ops/acesso-rede.txt` (root, 600). O Vilso do legado (`vilso`,
+  id 314) tambem entra, com a senha antiga, como Operador.
