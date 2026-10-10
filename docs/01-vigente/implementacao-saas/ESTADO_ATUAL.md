@@ -105,6 +105,15 @@ Fecha a pendência aberta desde 27/08 (F1): em nome de quem o cron opera.
   rodado localmente: 18 testes / 403 assertions. `AutomacaoSobRlsTest` entrou
   no `composer test:pgsql-rls`.
 
+- **Conferido na homologação** depois do deploy de `98a7e021` (CI verde com o
+  teste sob RLS no gate). Antes de provisionar: `golive:check` acusa as 7
+  empresas e `monitora:sync-positions` diz "0 em 0 empresa(s)" com as 7
+  puladas. Depois de `saas:automacao:provisionar` (usuário 1041, 1 membership
+  `AUTOMATION`, 7 grants, 1 linha `automacao.provisionada` na trilha; a
+  segunda execução não mudou nada): o item do `golive:check` passa, e sync de
+  GPS, missões e alertas dizem "em 7 empresa(s)". Os totais são zero porque o
+  banco não tem dados; `failed_jobs` segue vazio.
+
 ### ⚠️ `SAAS_ENFORCE_TENANT_ENVELOPE=false` com policies canônicas no banco
 
 Achado lendo o middleware: `ResolveTenantEnvelope` só aplica o envelope com a
