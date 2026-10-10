@@ -6,6 +6,7 @@ use App\Domain\Cobranca\SituacaoPix;
 use App\Domain\Tenant\TenantContext;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Empresa;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -21,6 +22,9 @@ class JobsAgendadosTest extends TestCase
     public function test_pix_expirar_expira_apenas_vencidas(): void
     {
         $empresa = Empresa::factory()->create();
+        // O cron opera com a identidade de automação do tenant; sem ela a
+        // empresa é pulada e nenhuma cobrança expira.
+        FronteiraTenant::automacao($empresa);
         app(TenantContext::class)->set($empresa->id, $empresa->grupo_id);
 
         $vencida = PixCobranca::create([

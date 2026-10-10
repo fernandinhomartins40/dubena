@@ -58,6 +58,84 @@ abertas — `uCom = 'UN'` fixo no `XmlNfeBuilder`, conciliação de frota só na
 relatório por canal sem tela, `Setor::scopeArmazens()` sem chamador, três
 catálogos de cidade e duas tabelas de veículo.
 
+## Atualização 2026-10-10 (4) — identidade de automação, e o espelho do Oracle que se recusa a rodar
+
+### Identidade de automação (decisão do dono em 10/10)
+
+Fecha a pendência aberta desde 27/08 (F1): em nome de quem o cron opera.
+
+- **CORREÇÃO DE UMA COISA QUE EU DISSE AO DONO.** Propus "o cron lista as
+  empresas pelo owner e aplica o contexto de cada uma, como os jobs fazem", e
+  afirmei que a RLS continuaria valendo. Não bastava: as policies canônicas só
+  liberam linha para um MEMBERSHIP com grant na empresa
+  (`app_tenant_can_read/operate`), e membership exige usuário. Definir só
+  `app.empresa_id`/`app.grupo_id` deixaria visíveis as tabelas de policy
+  legada e invisíveis as ~180 canônicas. Voltei ao dono com a correção antes
+  de implementar; a escolha foi o usuário de serviço.
+- **O que é:** um `User` por tenant que não entra (`ativo = false`, senha
+  aleatória descartada, sem empresa padrão — então não ocupa vaga do plano nem
+  aparece em lista de usuários), com membership de papel `AUTOMATION` e grant
+  de leitura e operação em cada empresa APROVADA do tenant, e só nelas.
+  Nasce de `saas:automacao:provisionar` (idempotente, `--dry-run`, registra na
+  trilha de plataforma quando muda algo). Nunca é criado por deploy.
+- **Como o cron usa:** `AutomacaoPorEmpresa::paraCada()`. A LISTA de empresas
+  vem pela conexão de owner; o TRABALHO roda pelo runtime, dentro do envelope
+  da identidade. Empresa sem identidade é PULADA e reportada — nunca
+  processada por outro caminho. A falha de uma revenda não para as outras.
+- **Armadilha achada só em PostgreSQL:** o envelope lê o grupo da empresa em
+  `empresas`, cuja policy ainda é a de grupo. Sem `app.grupo_id` definido
+  ANTES, a leitura devolve nada e o envelope recusa toda empresa. Numa
+  requisição quem define isso é o middleware `tenant`; no cron não há
+  middleware. Removi essa linha de propósito: 2 dos 4 testes sob RLS falham
+  com "Empresa ativa aprovada sem grupo legado válido".
+- **Convertidos:** `monitora:sync-positions`, `logistica:gerar-missoes`,
+  `comodato:vigiar`, `notify:alertas`, `monitora:expurgar-posicoes` e
+  `pix:expirar` (gravam: usam a identidade). `fiscal:certificado-vigilancia`,
+  `financeiro:notificar-vencidos`, `vendas:diaria` e `notify:inconsistencias`
+  (só leem, visão de plataforma: conexão de owner). O `pix:expirar` não estava
+  na minha lista de ontem e tinha o mesmo defeito: cobrança vencida ficava
+  ATIVA para sempre.
+- `notify:alertas` deixou de recusar rodar com o enforcement ligado — a
+  recusa existia por faltar identidade.
+- `golive:check` ganhou o item "Identidade de automação por empresa".
+- **Prova:** PostgreSQL 15 local (binários portáteis, banco descartável), as
+  170 migrations como owner e os testes com a role `erp_app`:
+  `AutomacaoSobRlsTest` 4/25 — o runtime lê e grava só no próprio tenant,
+  `UPDATE` cruzado devolve 0, e `pix:expirar` expira a cobrança. O gate do CI
+  rodado localmente: 18 testes / 403 assertions. `AutomacaoSobRlsTest` entrou
+  no `composer test:pgsql-rls`.
+
+### ⚠️ `SAAS_ENFORCE_TENANT_ENVELOPE=false` com policies canônicas no banco
+
+Achado lendo o middleware: `ResolveTenantEnvelope` só aplica o envelope com a
+flag ligada, e a homologação reinstalada está com ela desligada. As policies
+canônicas estão no banco de qualquer jeito. Resultado: numa requisição o
+runtime não tem `app.tenant_membership_id`, e toda tabela canônica devolve
+zero para o usuário logado. Ninguém viu porque o banco não tem dados. **Depois
+da carga a aplicação vai parecer vazia até a flag ser ligada na VPS.** Em
+agosto ela estava `true`; é configuração de ambiente, decisão do dono.
+
+### Carga dos dados: o Oracle subiu, o espelho não roda
+
+- Na VPS: Oracle XE 11 temporário (`dubena-ora`, sem porta publicada, 2 CPUs e
+  4 GB), dump de 7,6 GB importado em 4 min — 222 tabelas, os mesmos 32 avisos
+  de compilação do log de agosto. O espelho roda num contêiner Python
+  descartável; nada foi instalado no host.
+- **`espelhar_oracle.py` recusa as tabelas.** Desde `e244eff9` (26/08, F0) ele
+  LANÇA em vez de pular quando acha coluna binária ou uma das colunas de XML:
+  `EMPRESAS.LOGOIMG (BLOB) nao possui transporte fiel; recusado em vez de
+  omitir dado bruto`. `empresas` e `empresasgrupos` falham; as tabelas de nota
+  fiscal vão falhar pelas colunas de XML. Como `empresas` é a raiz, nada
+  depois dela carrega.
+- É a parte de F7-03 que ficou como "decisão de arquitetura": o plano pede
+  fonte bruta fiel, e transportar LOB por `sqlplus` não é viável (limite de
+  4000 caracteres na concatenação). Então o ensaio F8, que os documentos
+  classificam como "operação", está **bloqueado por código** desde 26/08 — e a
+  restauração de identidade de 09/10 teve de contornar isso por fora.
+- Não contornei. As saídas são: omissão DECLARADA por coluna (o espelho segue
+  e reporta o que não transportou, que permanece no Oracle); ou transporte
+  real de LOB por outro mecanismo. Aguarda o dono.
+
 ## Atualização 2026-10-10 (3) — portão F1 verde, licença assinada, e o agendador que não faz nada
 
 Escritas na homologação, todas autorizadas pelo dono nesta data. Retrato

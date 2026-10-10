@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EnxergaAtravesDaRls;
+use App\Domain\Tenant\IdentidadeDeAutomacao;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use Illuminate\Console\Command;
@@ -221,6 +222,14 @@ class GoliveCheck extends Command
         if ($totalEmpresas === 0) {
             return;
         }
+
+        // Empresa dentro da fronteira e sem identidade de automação é pulada
+        // por TODA rotina agendada (GPS, missões, PIX, alertas) — e o agendador
+        // registra DONE do mesmo jeito. É aqui que isso aparece.
+        $descobertas = app(IdentidadeDeAutomacao::class)->empresasDescobertas();
+        $this->item('Identidade de automação por empresa', $descobertas === [],
+            count($descobertas).' empresa(s) sem identidade (#'.implode(', #', array_keys($descobertas))
+            .') — as rotinas agendadas não passam por elas; rode saas:automacao:provisionar', aviso: true);
 
         // Se o gate fiscal é real, toda empresa precisa de certificado A1 (config
         // existente COM cert_path). Conta empresas sem config OU com cert nulo.

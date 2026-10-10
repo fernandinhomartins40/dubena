@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RelataAutomacao;
 use App\Domain\Satelite\GerarAlertasComodato;
 use App\Domain\Satelite\VigilanciaComodatoService;
-use App\Models\Empresa;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
+use App\Models\Satelite\ComodatoAvaliacao;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -20,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ComodatoVigiar extends Command
 {
+    // `relatar` já é o nome do relatório por empresa deste comando.
+    use RelataAutomacao { relatar as relatarAutomacao; }
+
     protected $signature = 'comodato:vigiar
         {--empresa= : Id da empresa; sem isto, todas as ativas.}
         {--aplicar : Grava as avaliações e sincroniza os alertas.}
@@ -27,22 +32,22 @@ class ComodatoVigiar extends Command
 
     protected $description = 'Cruza comodato com histórico de compra e alerta desproporções.';
 
-    public function handle(VigilanciaComodatoService $vigilancia, GerarAlertasComodato $gerador): int
+    public function handle(VigilanciaComodatoService $vigilancia, GerarAlertasComodato $gerador, AutomacaoPorEmpresa $automacao): int
     {
-        $empresas = $this->option('empresa') !== null
-            ? [(int) $this->option('empresa')]
-            : Empresa::query()->where('ativo', true)->pluck('id')->all();
-
-        foreach ($empresas as $empresaId) {
-            $this->porEmpresa($empresaId, $vigilancia, $gerador);
-        }
+        // Com a identidade de automação de cada tenant. Listando as empresas
+        // pelo runtime (sob RLS, sem envelope) a vigilância não passava por
+        // nenhuma — e "nenhum alerta" é exatamente o que se espera ler.
+        $resultado = $automacao->paraCada(
+            fn (int $empresaId) => $this->porEmpresa($empresaId, $vigilancia, $gerador),
+            $this->option('empresa') !== null ? (int) $this->option('empresa') : null,
+        );
 
         if (! $this->option('aplicar')) {
             $this->newLine();
             $this->warn('Somente leitura: nada foi gravado. Use --aplicar para registrar avaliações e alertas.');
         }
 
-        return self::SUCCESS;
+        return $this->relatarAutomacao($resultado);
     }
 
     private function porEmpresa(int $empresaId, VigilanciaComodatoService $vigilancia, GerarAlertasComodato $gerador): void
@@ -72,7 +77,7 @@ class ComodatoVigiar extends Command
         $this->relatar($empresaId, $avaliacoes);
     }
 
-    /** @param list<\App\Models\Satelite\ComodatoAvaliacao> $avaliacoes */
+    /** @param list<ComodatoAvaliacao> $avaliacoes */
     private function relatar(int $empresaId, array $avaliacoes): void
     {
         if ($avaliacoes === []) {

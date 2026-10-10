@@ -2,36 +2,39 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RelataAutomacao;
 use App\Domain\Relatorio\NotificarEstoqueBaixoJob;
-use App\Models\Empresa;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
 use Illuminate\Console\Command;
 
 /**
  * notify:alertas (N12) — cron diário (07:00). Enfileira a notificação de estoque
  * baixo por empresa ativa. Substitui o notify:alertas do legado.
+ *
+ * Este comando recusava rodar com o enforcement ligado: o cron não tinha
+ * identidade, e escolher um usuário em nome da empresa não era aceitável. Agora
+ * a identidade existe (`IdentidadeDeAutomacao`). O job é despachado DENTRO do
+ * envelope dela, que é o que ele captura e confere no `handle()` — sem
+ * identidade provisionada a empresa é pulada, e nenhum job é enfileirado.
  */
 class NotifyAlertas extends Command
 {
+    use RelataAutomacao;
+
     protected $signature = 'notify:alertas';
 
     protected $description = 'Enfileira alertas diários (estoque baixo) por empresa.';
 
-    public function handle(): int
+    public function handle(AutomacaoPorEmpresa $automacao): int
     {
-        if (config('saas_transformation.enforcement.tenant_envelope')) {
-            $this->error('notify:alertas exige uma identidade de automação com membership/grant explícitos; o cron não pode assumir papel de plataforma.');
-
-            return self::FAILURE;
-        }
-
-        $empresas = Empresa::query()->where('ativo', true)->pluck('id');
-
-        foreach ($empresas as $empresaId) {
+        $resultado = $automacao->paraCada(function (int $empresaId): int {
             NotificarEstoqueBaixoJob::dispatch($empresaId);
-        }
 
-        $this->info("Alertas enfileirados para {$empresas->count()} empresa(s).");
+            return 1;
+        });
 
-        return self::SUCCESS;
+        $this->info("Alertas enfileirados para {$resultado->processadas()} empresa(s).");
+
+        return $this->relatar($resultado);
     }
 }

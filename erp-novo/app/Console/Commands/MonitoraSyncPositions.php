@@ -2,30 +2,34 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RelataAutomacao;
 use App\Domain\Monitora\MonitoraSyncService;
-use App\Models\Empresa;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
 use Illuminate\Console\Command;
 
 /**
  * monitora:sync-positions (N12/N11) — cron a cada minuto. Sincroniza posições do
  * SGCasa por empresa ativa (gate externo; sem driver real configurado, retorna 0).
  * Substitui o report:positions do legado.
+ *
+ * Passa pelas empresas com a identidade de automação do tenant: listando-as
+ * pelo runtime, sob RLS e sem envelope, o laço não tinha nenhuma volta — o
+ * comando saía com "Posições ingeridas: 0" a cada 30 segundos, para sempre.
  */
 class MonitoraSyncPositions extends Command
 {
+    use RelataAutomacao;
+
     protected $signature = 'monitora:sync-positions';
 
     protected $description = 'Sincroniza posições de GPS (SGCasa) por empresa.';
 
-    public function handle(MonitoraSyncService $sync): int
+    public function handle(MonitoraSyncService $sync, AutomacaoPorEmpresa $automacao): int
     {
-        $total = 0;
-        foreach (Empresa::query()->where('ativo', true)->pluck('id') as $empresaId) {
-            $total += $sync->sincronizar((int) $empresaId);
-        }
+        $resultado = $automacao->paraCada(fn (int $empresaId) => $sync->sincronizar($empresaId));
 
-        $this->info("Posições ingeridas: {$total}.");
+        $this->info("Posições ingeridas: {$resultado->total()} em {$resultado->processadas()} empresa(s).");
 
-        return self::SUCCESS;
+        return $this->relatar($resultado);
     }
 }

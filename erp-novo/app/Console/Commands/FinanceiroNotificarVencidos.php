@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Console\Command;
 
@@ -16,13 +17,20 @@ class FinanceiroNotificarVencidos extends Command
 
     protected $description = 'Apura parcelas a receber vencidas e em aberto (lembrete de cobrança).';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(): int
     {
-        $vencidas = FinanceiroParcela::query()
+        // Apuração de plataforma, só leitura: pela conexão de owner. Pelo
+        // runtime, sob RLS e sem envelope, a contagem era sempre zero.
+        //
+        // `whereDate`: `vencimento` sai do cast com hora, e a comparação por
+        // texto com 'AAAA-MM-DD' dá resultado diferente em sqlite e Postgres.
+        $vencidas = $this->comoOwner(fn () => FinanceiroParcela::query()
             ->where('baixado', false)
-            ->where('vencimento', '<', now()->toDateString())
+            ->whereDate('vencimento', '<', now()->toDateString())
             ->whereHas('financeiro', fn ($q) => $q->where('cancelado', false)->where('pagarreceber', 'R'))
-            ->count();
+            ->count());
 
         $this->info("{$vencidas} parcela(s) a receber vencida(s) em aberto.");
 

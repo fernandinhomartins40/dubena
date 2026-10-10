@@ -452,7 +452,7 @@ não autentica — não caia para um default da plataforma.
 ```bash
 cd erp-novo
 
-php artisan test                      # 1902 testes, ~15 min
+php artisan test                      # 1918 testes, ~15 min
 php artisan api:manifest              # após criar/alterar rota
 cd frontend && npx tsc --noEmit       # typecheck da SPA
 
@@ -486,7 +486,7 @@ php artisan etl:run --dry-run         # simula a migração, não grava
 
 | | |
 |---|---|
-| Testes (backend) | **1902 verdes**, 16 pulados (os de PostgreSQL/RLS, que só rodam no CI) — sqlite, 2026-10-10 |
+| Testes (backend) | **1918 verdes**, 20 pulados (os de PostgreSQL/RLS, que só rodam no CI) — sqlite, 2026-10-10 |
 | Testes (SPA) | **119 verdes** — 2026-10-10 |
 | Invariantes do ETL | **71 OK / 0 falhas** (medido no banco de agosto, que não existe mais) |
 | Endpoints | 609 |

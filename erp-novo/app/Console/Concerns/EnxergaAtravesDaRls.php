@@ -2,7 +2,7 @@
 
 namespace App\Console\Concerns;
 
-use Illuminate\Support\Facades\DB;
+use App\Domain\Tenant\ConexaoDeOwner;
 
 /**
  * Comando de conferência que precisa ler dado de TODAS as empresas.
@@ -20,14 +20,6 @@ use Illuminate\Support\Facades\DB;
 trait EnxergaAtravesDaRls
 {
     /**
-     * Executa a leitura pela conexão de owner e devolve a conexão padrão ao
-     * estado anterior — o resto do comando pode depender de ser o runtime
-     * (o `golive:check` confere justamente a role dele).
-     *
-     * Só em PostgreSQL: em sqlite não há RLS, e `pgsql_owner` apontaria para
-     * outro banco. Sem credencial de owner, lê pelo runtime mesmo: o resultado
-     * pode ser cego, mas derrubar o comando não ajudaria ninguém.
-     *
      * @template T
      *
      * @param  callable(): T  $leitura
@@ -35,23 +27,6 @@ trait EnxergaAtravesDaRls
      */
     protected function comoOwner(callable $leitura): mixed
     {
-        if (DB::connection()->getDriverName() !== 'pgsql') {
-            return $leitura();
-        }
-
-        try {
-            DB::connection('pgsql_owner')->getPdo();
-        } catch (\Throwable) {
-            return $leitura();
-        }
-
-        $padrao = DB::getDefaultConnection();
-        DB::setDefaultConnection('pgsql_owner');
-
-        try {
-            return $leitura();
-        } finally {
-            DB::setDefaultConnection($padrao);
-        }
+        return ConexaoDeOwner::executar($leitura);
     }
 }

@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RelataAutomacao;
 use App\Domain\Missao\GeradorMissaoService;
-use App\Models\Empresa;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
 use Illuminate\Console\Command;
 
 /**
@@ -11,22 +12,23 @@ use Illuminate\Console\Command;
  * de campo aos entregadores OCIOSOS (em jornada, sem entregas há mais de
  * `ociosidade_min`). A inteligência (área/janela/1 por vez) vive no
  * GeradorMissaoService.
+ *
+ * Opera com a identidade de automação de cada tenant (ver `AutomacaoPorEmpresa`).
  */
 class MissoesGerar extends Command
 {
+    use RelataAutomacao;
+
     protected $signature = 'logistica:gerar-missoes';
 
     protected $description = 'Atribui missões de campo aos entregadores ociosos (por empresa).';
 
-    public function handle(GeradorMissaoService $gerador): int
+    public function handle(GeradorMissaoService $gerador, AutomacaoPorEmpresa $automacao): int
     {
-        $total = 0;
-        foreach (Empresa::query()->where('ativo', true)->pluck('id') as $empresaId) {
-            $total += $gerador->gerarParaEmpresa((int) $empresaId);
-        }
+        $resultado = $automacao->paraCada(fn (int $empresaId) => $gerador->gerarParaEmpresa($empresaId));
 
-        $this->info("Missões atribuídas: {$total}.");
+        $this->info("Missões atribuídas: {$resultado->total()} em {$resultado->processadas()} empresa(s).");
 
-        return self::SUCCESS;
+        return $this->relatar($resultado);
     }
 }

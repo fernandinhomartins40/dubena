@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\RelataAutomacao;
 use App\Domain\Cobranca\PixService;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
 use Illuminate\Console\Command;
 
 /**
@@ -15,11 +17,22 @@ class PixExpirar extends Command
 
     protected $description = 'Expira cobranças PIX ativas cujo prazo já passou.';
 
-    public function handle(PixService $pix): int
-    {
-        $qtd = $pix->expirarVencidas();
-        $this->info("{$qtd} cobrança(s) PIX expirada(s).");
+    use RelataAutomacao;
 
-        return self::SUCCESS;
+    public function handle(PixService $pix, AutomacaoPorEmpresa $automacao): int
+    {
+        // Este comando GRAVA, então roda com a identidade de automação de cada
+        // tenant, e não pela conexão de owner: o UPDATE passa pela RLS e só
+        // alcança cobrança do próprio tenant. Pelo runtime sem envelope ele
+        // não alcançava nenhuma — cobrança vencida ficava ATIVA para sempre.
+        //
+        // `expirarVencidas()` não filtra por empresa: a primeira empresa de um
+        // tenant expira as de todas as dele, e as seguintes acham zero. A soma
+        // fecha.
+        $resultado = $automacao->paraCada(fn () => $pix->expirarVencidas());
+
+        $this->info("{$resultado->total()} cobrança(s) PIX expirada(s).");
+
+        return $this->relatar($resultado);
     }
 }

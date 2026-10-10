@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -15,15 +16,19 @@ class VendaDiaria extends Command
 
     protected $description = 'Apura o total de vendas do dia por empresa.';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(): int
     {
         $data = $this->option('data') ?: now()->toDateString();
-        $linhas = DB::table('pedidos')
+        // Apuração de plataforma, só leitura: pela conexão de owner. Pelo
+        // runtime, sob RLS e sem envelope, saía "0 empresa(s)" todo dia.
+        $linhas = $this->comoOwner(fn () => DB::table('pedidos')
             ->where('estoque_movimentado', true)
             ->whereDate('datahora', $data)
             ->groupBy('empresa_id')
             ->selectRaw('empresa_id, count(*) as qtd, sum(valor_venda) as total')
-            ->get();
+            ->get());
 
         foreach ($linhas as $l) {
             $this->info("Empresa {$l->empresa_id}: {$l->qtd} venda(s), R$ ".number_format((float) $l->total, 2, ',', '.'));

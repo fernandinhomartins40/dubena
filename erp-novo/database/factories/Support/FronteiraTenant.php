@@ -5,6 +5,7 @@ namespace Database\Factories\Support;
 use App\Domain\Saas\LicencaService;
 use App\Domain\Saas\RecursoCatalogo;
 use App\Domain\Shared\PermissaoCatalogo;
+use App\Domain\Tenant\IdentidadeDeAutomacao;
 use App\Models\Empresa;
 use App\Models\Permission;
 use App\Models\Role;
@@ -134,6 +135,20 @@ final class FronteiraTenant
             ->update(['status' => Assinatura::STATUS_CANCELADA, 'fim' => now()]);
 
         app(LicencaService::class)->invalidar($empresa->id);
+    }
+
+    /**
+     * Provisiona a identidade de automacao do tenant da empresa.
+     *
+     * NAO e feito por padrao em `paraEmpresa()`: so os testes das rotinas
+     * agendadas precisam dela, e cria-la sempre acrescentaria um usuario e um
+     * membership a todo cenario — quebrando os testes que CONTAM usuarios,
+     * memberships ou grants. Usa o mesmo servico de producao, de proposito: o
+     * que o teste exercita e o caminho real.
+     */
+    public static function automacao(Empresa $empresa): void
+    {
+        app(IdentidadeDeAutomacao::class)->provisionar(self::paraEmpresa($empresa));
     }
 
     /**

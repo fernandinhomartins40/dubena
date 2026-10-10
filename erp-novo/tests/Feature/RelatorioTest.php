@@ -13,6 +13,7 @@ use App\Models\Estoque\Setor;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
 use App\Models\User;
+use Database\Factories\Support\FronteiraTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -146,24 +147,42 @@ class RelatorioTest extends TestCase
         $this->artisan('cutover:check')->assertExitCode(1);
     }
 
+    /**
+     * Com a identidade de automação provisionada, o cron enfileira o alerta —
+     * nos dois modos. Antes ele recusava rodar com o enforcement ligado, por
+     * não ter em nome de quem agir.
+     */
     public function test_notify_alertas_enfileira_job_por_empresa(): void
     {
-        // Comportamento do modo LEGADO. Com o enforcement ligado o cron falha
-        // fechado de proposito (ver o teste seguinte), entao o modo precisa ser
-        // fixado aqui — senao o resultado depende da variavel de ambiente.
-        config()->set('saas_transformation.enforcement.tenant_envelope', false);
-        Queue::fake();
+        FronteiraTenant::automacao($this->empresa);
 
-        $this->artisan('notify:alertas')->assertExitCode(0);
+        foreach ([false, true] as $enforcement) {
+            config()->set('saas_transformation.enforcement.tenant_envelope', $enforcement);
+            Queue::fake();
 
-        Queue::assertPushed(NotificarEstoqueBaixoJob::class);
+            $this->artisan('notify:alertas')->assertExitCode(0);
+
+            Queue::assertPushed(
+                NotificarEstoqueBaixoJob::class,
+                fn (NotificarEstoqueBaixoJob $job) => $job->empresaId === $this->empresa->id,
+            );
+        }
     }
 
-    public function test_notify_alertas_nega_cron_sem_identidade_saas_explicita(): void
+    /**
+     * Sem identidade, a empresa é PULADA: nenhum job é enfileirado para ela. O
+     * cron não escolhe um usuário em nome da empresa, nem opera sem fronteira.
+     */
+    public function test_notify_alertas_sem_identidade_de_automacao_nao_alerta_ninguem(): void
     {
         config()->set('saas_transformation.enforcement.tenant_envelope', true);
+        Queue::fake();
 
-        $this->artisan('notify:alertas')->assertExitCode(1);
+        $this->artisan('notify:alertas')
+            ->expectsOutputToContain('PULADA(S) por falta de identidade de automação')
+            ->assertExitCode(0);
+
+        Queue::assertNothingPushed();
     }
 
     public function test_relatorio_sem_permissao_403(): void

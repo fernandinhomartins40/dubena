@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use Illuminate\Console\Command;
@@ -37,6 +38,8 @@ use Illuminate\Support\Facades\Log;
  */
 class FiscalCertificadoVigilancia extends Command
 {
+    use EnxergaAtravesDaRls;
+
     protected $signature = 'fiscal:certificado-vigilancia
                             {--dias=30 : a partir de quantos dias antes do vencimento avisar}
                             {--empresa= : limitar a uma empresa}';
@@ -57,12 +60,20 @@ class FiscalCertificadoVigilancia extends Command
         // acesso passa pela empresa), então `query()` já enxerga tudo. Se um dia
         // ganhar o trait, esta linha precisa virar `withoutTenant()` — e o teste
         // que conta as empresas é o que vai avisar.
-        $configs = EmpresaConfig::query()
-            ->when($empresaId !== null, fn ($q) => $q->where('empresa_id', $empresaId))
-            ->whereNotNull('cert_path')
-            ->get();
-
-        $nomes = Empresa::query()->pluck('nome_fantasia', 'id');
+        //
+        // O comentário acima estava certo sobre o escopo do Eloquent e errado
+        // sobre o banco: `empresa_configs` e `empresas` estão sob RLS, e o
+        // runtime sem envelope lê zero linhas das duas. O comando respondia
+        // "0 empresa(s) com certificado" — o silêncio que ele mesmo descreve.
+        // Por isso a leitura vai pela conexão de owner: é conferência de
+        // plataforma, só lê, e precisa ver todas.
+        [$configs, $nomes] = $this->comoOwner(fn () => [
+            EmpresaConfig::query()
+                ->when($empresaId !== null, fn ($q) => $q->where('empresa_id', $empresaId))
+                ->whereNotNull('cert_path')
+                ->get(),
+            Empresa::query()->pluck('nome_fantasia', 'id'),
+        ]);
 
         $vencidos = [];
         $vencendo = [];

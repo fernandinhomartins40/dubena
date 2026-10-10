@@ -2,7 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Empresa;
+use App\Console\Concerns\RelataAutomacao;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
 use App\Models\EmpresaConfig;
 use App\Models\Monitora\Posicao;
 use App\Models\Monitora\Veiculo;
@@ -24,6 +25,8 @@ use Illuminate\Console\Command;
  */
 class MonitoraExpurgarPosicoes extends Command
 {
+    use RelataAutomacao;
+
     protected $signature = 'monitora:expurgar-posicoes
                             {--dias= : Sobrepõe a retenção configurada (todas as empresas)}
                             {--empresa= : Limita a uma empresa}
@@ -41,62 +44,69 @@ class MonitoraExpurgarPosicoes extends Command
      */
     private const LOTE = 1000;
 
-    public function handle(): int
+    public function handle(AutomacaoPorEmpresa $automacao): int
     {
-        $empresas = Empresa::query()
-            ->when($this->option('empresa'), fn ($q, $id) => $q->where('id', (int) $id))
-            ->pluck('id');
+        // Com a identidade de automação de cada tenant — o DELETE roda sob a
+        // RLS, então só alcança posição de veículo da própria empresa.
+        //
+        // `soAtivas: false`: empresa desativada continua guardando histórico
+        // que a retenção manda apagar; deixá-la de fora faria o dado de quem
+        // saiu ficar para sempre.
+        $resultado = $automacao->paraCada(
+            fn (int $empresaId) => $this->expurgar($empresaId),
+            $this->option('empresa') !== null ? (int) $this->option('empresa') : null,
+            soAtivas: false,
+        );
 
-        $totalGeral = 0;
+        $this->info("Total: {$resultado->total()} posição(ões).");
 
-        foreach ($empresas as $empresaId) {
-            $dias = $this->retencaoDias((int) $empresaId);
+        return $this->relatar($resultado);
+    }
 
-            // Retenção zero/negativa = "guardar para sempre". Precisa ser uma
-            // escolha explícita possível: apagar histórico é irreversível, e o
-            // default silencioso nunca deve ser a opção destrutiva.
-            if ($dias <= 0) {
-                $this->line("Empresa {$empresaId}: retenção desligada, nada a fazer.");
+    private function expurgar(int $empresaId): int
+    {
+        $dias = $this->retencaoDias($empresaId);
 
-                continue;
-            }
+        // Retenção zero/negativa = "guardar para sempre". Precisa ser uma
+        // escolha explícita possível: apagar histórico é irreversível, e o
+        // default silencioso nunca deve ser a opção destrutiva.
+        if ($dias <= 0) {
+            $this->line("Empresa {$empresaId}: retenção desligada, nada a fazer.");
 
-            $corte = now()->subDays($dias);
-
-            // Filtra pelos veículos DA EMPRESA: monitora_posicoes não tem
-            // empresa_id próprio, a empresa vem do veículo.
-            $veiculoIds = Veiculo::query()->where('empresa_id', $empresaId)->pluck('id');
-
-            if ($veiculoIds->isEmpty()) {
-                continue;
-            }
-
-            $alvo = Posicao::query()
-                ->whereIn('veiculo_id', $veiculoIds)
-                ->where('registrado_em', '<', $corte);
-
-            if ($this->option('dry-run')) {
-                $qtd = (clone $alvo)->count();
-                $this->line("Empresa {$empresaId}: {$qtd} posição(ões) anterior(es) a {$corte->toDateString()} (dry-run).");
-                $totalGeral += $qtd;
-
-                continue;
-            }
-
-            $apagadas = 0;
-            do {
-                // `limit` no delete e laço: ver LOTE acima.
-                $n = (clone $alvo)->limit(self::LOTE)->delete();
-                $apagadas += $n;
-            } while ($n > 0);
-
-            $this->line("Empresa {$empresaId}: {$apagadas} posição(ões) apagada(s) (retenção {$dias}d).");
-            $totalGeral += $apagadas;
+            return 0;
         }
 
-        $this->info("Total: {$totalGeral} posição(ões).");
+        $corte = now()->subDays($dias);
 
-        return self::SUCCESS;
+        // Filtra pelos veículos DA EMPRESA: monitora_posicoes não tem
+        // empresa_id próprio, a empresa vem do veículo.
+        $veiculoIds = Veiculo::query()->where('empresa_id', $empresaId)->pluck('id');
+
+        if ($veiculoIds->isEmpty()) {
+            return 0;
+        }
+
+        $alvo = Posicao::query()
+            ->whereIn('veiculo_id', $veiculoIds)
+            ->where('registrado_em', '<', $corte);
+
+        if ($this->option('dry-run')) {
+            $qtd = (clone $alvo)->count();
+            $this->line("Empresa {$empresaId}: {$qtd} posição(ões) anterior(es) a {$corte->toDateString()} (dry-run).");
+
+            return $qtd;
+        }
+
+        $apagadas = 0;
+        do {
+            // `limit` no delete e laço: ver LOTE acima.
+            $n = (clone $alvo)->limit(self::LOTE)->delete();
+            $apagadas += $n;
+        } while ($n > 0);
+
+        $this->line("Empresa {$empresaId}: {$apagadas} posição(ões) apagada(s) (retenção {$dias}d).");
+
+        return $apagadas;
     }
 
     /** Janela de retenção desta empresa, em dias. */
