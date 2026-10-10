@@ -487,7 +487,13 @@ def espelha(pg, tabela_ora, destino):
 
         buf = io.StringIO()
         n = 0
-        for linha in saida.splitlines():
+        # `split("\n")`, e NAO `splitlines()`: o segundo quebra tambem em
+        # U+0085, U+2028, VT e FF — caracteres que existem DENTRO do dado.
+        # `PRODUTOLEIIMPOSTOS` tem 243 descricoes com U+0085 (Windows-1252
+        # mal convertido): cada uma virava duas linhas, as duas eram
+        # descartadas por terem colunas de menos, e a reconciliacao recusava a
+        # tabela inteira (origem=317763 destino=317520 descartadas=486).
+        for linha in saida.split("\n"):
             if SEP not in linha:
                 continue  # cabecalho/aviso/linha vazia do sqlplus
             campos = linha.rstrip("\r\n").split(SEP)

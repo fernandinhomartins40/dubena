@@ -105,12 +105,45 @@ pontos de referência de entrega com no máximo 99 caracteres.
   e os logotipos. É a área de staging de F7-03. O ensaio deixa de estar
   bloqueado por isso, mas a nota migrada não carrega o XML autorizado.
 
-### Infraestrutura temporária na VPS (remover ao concluir)
+### O espelho completo e o dry-run do ETL
 
-`dubena-ora` (Oracle XE 11, sem porta publicada, 2 CPUs / 4 GB, 12 GB de
-disco), `/root/dubena-ops/dumps` (8,5 GB) e a imagem `python:3.12-slim`. Para
-remover: `docker rm -f dubena-ora && docker rmi gvenzl/oracle-xe:11 && rm -rf
-/root/dubena-ops/dumps`.
+- **Espelho: 127 tabelas, 6.669.288 linhas**, no schema `legado` do banco de
+  homologação (1.057 MB). 36 colunas ficaram de fora, todas declaradas e
+  impressas no log (`/root/dubena-ops/espelho.log`). O `legado.pedidos`, que
+  desde 09/10 era um recorte de duas colunas, agora é a tabela inteira.
+- **Um defeito do script, achado pela própria reconciliação:**
+  `produtoleiimpostos` (IBPT) foi recusada — origem 317.763, destino 317.520,
+  486 linhas descartadas. Causa medida no Oracle: 243 descrições contêm U+0085
+  (Windows-1252 mal convertido), e `str.splitlines()` do Python quebra linha
+  nesse caractere; cada registro virava duas linhas inválidas. Trocado por
+  `split("\n")`; reespelhada com 317.763 linhas.
+- **Dry-run (`etl:run --dry-run --check`): os 28 migradores leram a base real
+  sem nenhuma exceção**, em 16 minutos. Roda num contêiner descartável da
+  própria imagem (`/root/dubena-ops/etl-dry-run.sh`), com a conexão `legado`
+  apontada para o schema espelhado — a variável não pode ser passada por
+  `docker exec`, por causa do cache de config.
+- ⚠️ **O dry-run termina com "FALHA de invariante" e isso NÃO é um achado.** É
+  limite do próprio dry-run num destino vazio: como nada é gravado, cada
+  migrador filho descarta por "referência ausente no destino" (806.953 em
+  pedidos, 917.477 no financeiro) e toda contagem compara com zero. O dry-run
+  prova que a leitura funciona de ponta a ponta; **não** prova a conversão. O
+  ensaio de verdade é a carga, que exige desligar o freeze — decisão do dono,
+  ainda não tomada.
+- Fora do alcance desta rodada: `monitora-legado` e `app-gasemcasa` dependem
+  dos dumps MySQL (`monitora-001.sql`, 3,1 GB, e `sgcm_api.sql`), que não foram
+  restaurados. São as 16 milhões de posições de GPS e os cadastros do app.
+- Observações da leitura, para conferir na carga: `empresas` lê 8 (as 7 mais a
+  de teste); `users` lê 209 e pula 135; `cadastros-contabeis` pula 9.
+
+### Infraestrutura temporária na VPS — removida
+
+Oracle XE, as imagens `gvenzl/oracle-xe:11` e `python:3.12-slim`, o dump e os
+scripts auxiliares foram apagados ao fim do espelho. Ficaram em
+`/root/dubena-ops/`: os logs do espelho e do dry-run, `etl-dry-run.sh`,
+`login-check.sh`, `ligar-enforcement.sh` e os retratos de antes das escritas.
+O dump original segue no computador do dono
+(`Downloads\BACKUP NOTEBOOK\...\Banco Dubena\DBDubena\`); repetir o espelho
+leva cerca de duas horas (envio, importação e cópia).
 
 ## Atualização 2026-10-10 (4) — identidade de automação, e o espelho do Oracle que se recusa a rodar
 
