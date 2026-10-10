@@ -204,3 +204,22 @@ export const useConflitosDeCerca = () =>
  *  O endpoint embrulha em { data: {...} }: o valor vem em response.data.data. */
 export const useGoogleMapsKey = () =>
   useQuery<string | null>({ queryKey: ['google-maps-key'], staleTime: Infinity, queryFn: async () => (await api.get('/config-global')).data?.data?.google_maps_key ?? null })
+
+// ---- Conciliação com a frota (F3-09) ----
+export interface CandidatoFrota { id: number; placa: string; descricao: string | null }
+export interface VeiculoSemVinculo { id: number; placa: string; descricao: string | null; ativo: boolean; candidatos: CandidatoFrota[] }
+
+/** Rastreados ainda não ligados ao cadastro de frota, com os candidatos pela placa. */
+export const useConciliacaoFrota = () =>
+  useQuery<VeiculoSemVinculo[]>({ queryKey: ['monitora-conciliacao'], queryFn: async () => (await api.get('/monitora/conciliacao')).data.data })
+
+export function useVincularFrota() {
+  const qc = useQueryClient()
+  return useMutation({
+    // A placa vai junto porque a edição do veículo a exige; os demais campos
+    // ficam de fora de propósito — o servidor só altera o que recebe.
+    mutationFn: async ({ id, placa, veiculo_frota_id }: { id: number; placa: string; veiculo_frota_id: number }) =>
+      (await api.put(`/monitora/veiculos/${id}`, { placa, veiculo_frota_id })).data.data,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['monitora-conciliacao'] }); qc.invalidateQueries({ queryKey: ['monitora-veiculos'] }) },
+  })
+}

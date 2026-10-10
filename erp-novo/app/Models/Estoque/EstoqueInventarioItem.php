@@ -3,6 +3,7 @@
 namespace App\Models\Estoque;
 
 use App\Domain\Tenant\BelongsToTenant;
+use App\Models\Produto\Produto;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,5 +29,10 @@ class EstoqueInventarioItem extends Model
     public function inventario(): BelongsTo
     {
         return $this->belongsTo(EstoqueInventario::class, 'estoque_inventario_id');
+    }
+
+    public function produto(): BelongsTo
+    {
+        return $this->belongsTo(Produto::class);
     }
 }

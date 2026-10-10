@@ -18,6 +18,55 @@ export interface SaldoRow {
   produto: string
 }
 
+/**
+ * As linhas abaixo são tipadas de propósito. Estas telas nasceram com os nomes
+ * do ERP antigo (`datahora`, `datacompetencia`, `quantidadefisica`,
+ * `datahorafechamento`) e `any` em tudo: o envio tomava 422 e a lista mostrava
+ * colunas vazias, sem o compilador acusar nada. Com o tipo, o nome errado não
+ * compila.
+ */
+interface Rotulado { id: number; descricao: string }
+
+export interface RequisicaoRow {
+  id: number
+  setor_origem_id: number | null
+  setor_destino_id: number
+  produto_id: number
+  quantidade: string | number
+  situacao: 'pendente' | 'atendida' | 'cancelada'
+  observacao: string | null
+  created_at: string
+  produto?: Rotulado | null
+  setor_origem?: Rotulado | null
+  setor_destino?: Rotulado | null
+}
+
+export interface InventarioRow {
+  id: number
+  setor_id: number
+  data: string
+  situacao: 'aberto' | 'efetivado'
+  setor?: Rotulado | null
+  itens: Array<{
+    id: number
+    produto_id: number
+    quantidade_contada: string | number
+    quantidade_sistema: string | number | null
+    produto?: Rotulado | null
+  }>
+}
+
+export interface FechamentoRow {
+  id: number
+  setor_id: number
+  produto_id: number
+  data_fechamento: string
+  saldo_inicial: string | number
+  saldo_final: string | number
+  setor?: Rotulado | null
+  produto?: Rotulado | null
+}
+
 export function useSaldos(setorId: number | null, q: string) {
   return useQuery<SaldoRow[]>({
     queryKey: ['estoque-saldos', setorId, q],
@@ -29,59 +78,106 @@ function useLista<T>(rota: string) {
   return useQuery<T[]>({ queryKey: ['estoque', rota], queryFn: async () => (await api.get(`/estoque/${rota}`)).data.data })
 }
 export const useTransferencias = () => useLista<any>('transferencias')
-export const useRequisicoes = () => useLista<any>('requisicoes')
-export const useInventarios = () => useLista<any>('inventarios')
-export const useFisicos = () => useLista<any>('fisico')
-export const useFechamentos = () => useLista<any>('fechamentos')
+export const useRequisicoes = () => useLista<RequisicaoRow>('requisicoes')
+export const useFisicos = () => useLista<InventarioRow>('fisico')
+export const useFechamentos = () => useLista<FechamentoRow>('fechamentos')
 
-function usePost(rota: string, invalidate: string[]) {
+/** Invalida uma lista do módulo e os saldos, que toda movimentação altera. */
+function useAtualizar(lista?: string) {
   const qc = useQueryClient()
+  return () => {
+    if (lista) void qc.invalidateQueries({ queryKey: ['estoque', lista] })
+    void qc.invalidateQueries({ queryKey: ['estoque-saldos'] })
+  }
+}
+
+export interface LancamentoManual {
+  /** Gerada quando o formulário abre e reaproveitada em todo reenvio. */
+  chave: string
+  movimentacao: 'ENTRADA' | 'SAIDA'
+  setor_id: number
+  produto_id: number
+  quantidade: number
+  motivo: string
+}
+
+/**
+ * Lançamento manual (aba Acerto): entrada ou saída avulsa, com motivo.
+ *
+ * Vai para `/estoque/entrada` ou `/estoque/saida`, não para `/estoque/acerto` —
+ * este último ajusta o saldo para uma quantidade CONTADA, que é o que a aba
+ * Físico faz. A tela mandava movimentação/quantidade para ele e tomava 422.
+ */
+export const useLancamentoManual = () => {
+  const atualizar = useAtualizar()
   return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => (await api.post(`/estoque/${rota}`, data)).data,
-    onSuccess: () => invalidate.forEach((k) => qc.invalidateQueries({ queryKey: ['estoque', k] }).catch?.(() => {})),
+    mutationFn: async ({ chave, movimentacao, ...data }: LancamentoManual) =>
+      (await api.post(movimentacao === 'ENTRADA' ? '/estoque/entrada' : '/estoque/saida', data, { headers: { 'Idempotency-Key': chave } })).data,
+    onSuccess: atualizar,
   })
 }
 
-export const useAcerto = () => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => (await api.post('/estoque/acerto', data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['estoque-saldos'] }),
-  })
-}
 export const useCriarTransferencia = () => {
-  const qc = useQueryClient()
+  const atualizar = useAtualizar('transferencias')
   return useMutation({
     // `chave` é gerada quando o formulário ABRE e reaproveitada em todo reenvio:
     // se a rede cair depois que o servidor gravou, repetir não move a
     // mercadoria de novo.
     mutationFn: async ({ chave, ...data }: Record<string, unknown> & { chave: string }) =>
       (await api.post('/estoque/transferencias', data, { headers: { 'Idempotency-Key': chave } })).data,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['estoque', 'transferencias'] }); qc.invalidateQueries({ queryKey: ['estoque-saldos'] }) },
+    onSuccess: atualizar,
   })
+}
+
+export interface NovaRequisicao {
+  setor_origem_id: number | null
+  setor_destino_id: number
+  produto_id: number
+  quantidade: number
+  observacao: string | null
+  atender: boolean
 }
 export const useCriarRequisicao = () => {
-  const qc = useQueryClient()
+  const atualizar = useAtualizar('requisicoes')
   return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => (await api.post('/estoque/requisicoes', data)).data,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['estoque', 'requisicoes'] }); qc.invalidateQueries({ queryKey: ['estoque-saldos'] }) },
+    mutationFn: async (data: NovaRequisicao) => (await api.post('/estoque/requisicoes', data)).data,
+    onSuccess: atualizar,
   })
 }
-export const useCriarInventario = () => usePost('inventarios', ['inventarios'])
-export const useCriarFisico = () => usePost('fisico', ['fisico'])
-export const useFechar = () => usePost('fechamentos', ['fechamentos'])
+export const useAtenderRequisicao = () => {
+  const atualizar = useAtualizar('requisicoes')
+  return useMutation({
+    mutationFn: async ({ id, setor_origem_id }: { id: number; setor_origem_id: number | null }) =>
+      (await api.post(`/estoque/requisicoes/${id}/atender`, { setor_origem_id })).data,
+    onSuccess: atualizar,
+  })
+}
 
+export interface NovoFisico {
+  setor_id: number
+  data: string
+  itens: Array<{ produto_id: number; quantidade_contada: number }>
+}
+export const useCriarFisico = () => {
+  const atualizar = useAtualizar('fisico')
+  return useMutation({
+    mutationFn: async (data: NovoFisico) => (await api.post('/estoque/fisico', data)).data,
+    onSuccess: atualizar,
+  })
+}
 export const useEfetivarFisico = () => {
-  const qc = useQueryClient()
+  const atualizar = useAtualizar('fisico')
   return useMutation({
     mutationFn: async (id: number) => (await api.post(`/estoque/fisico/${id}/efetivar`)).data,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['estoque', 'fisico'] }); qc.invalidateQueries({ queryKey: ['estoque-saldos'] }) },
+    onSuccess: atualizar,
   })
 }
-export const useAbrirFechamento = () => {
-  const qc = useQueryClient()
+
+export const useFechar = () => {
+  const atualizar = useAtualizar('fechamentos')
   return useMutation({
-    mutationFn: async (data: Record<string, unknown>) => (await api.post('/estoque/fechamentos/abrir', data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['estoque', 'fechamentos'] }),
+    mutationFn: async (data: { setor_id: number; produto_id: number; data_fechamento: string }) =>
+      (await api.post('/estoque/fechamentos', data)).data,
+    onSuccess: atualizar,
   })
 }

@@ -378,6 +378,7 @@
     "POST api/admin/estoque/fisico/{id}/efetivar",
     "POST api/admin/estoque/inventarios",
     "POST api/admin/estoque/requisicoes",
+    "POST api/admin/estoque/requisicoes/{id}/atender",
     "POST api/admin/estoque/saida",
     "POST api/admin/estoque/transferencias",
     "POST api/admin/financeiro/centros-custo",

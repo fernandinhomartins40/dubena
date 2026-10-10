@@ -367,6 +367,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         // Estoque — requisições / inventário / físico / abertura de fechamento.
         Route::get('estoque/requisicoes', [EstoqueController::class, 'requisicoesIndex']);
         Route::post('estoque/requisicoes', [EstoqueController::class, 'requisicaoCriar']);
+        Route::post('estoque/requisicoes/{id}/atender', [EstoqueController::class, 'requisicaoAtender'])->whereNumber('id');
         Route::get('estoque/inventarios', [EstoqueController::class, 'inventariosIndex']);
         Route::post('estoque/inventarios', [EstoqueController::class, 'inventarioCriar']);
         // "físico" é a contagem (alias do inventário).

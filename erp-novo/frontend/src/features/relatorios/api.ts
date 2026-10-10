@@ -29,6 +29,8 @@ export const RELATORIOS: RelatorioDef[] = [
   { slug: 'vendas-entregador', titulo: 'Vendas por entregador', periodo: true },
   { slug: 'vendas-operacao', titulo: 'Vendas por operação (PDV/Disk)', periodo: true },
   { slug: 'vendas-produto', titulo: 'Vendas por produto', periodo: true },
+  // F3-05 — o canal era gravado desde então e não aparecia em tela nenhuma.
+  { slug: 'vendas-canal', titulo: 'Vendas por canal (painel, app, campo, central)', periodo: true },
   { slug: 'nf-emitidas', titulo: 'NF-e emitidas', periodo: true },
   { slug: 'nf-recebidas', titulo: 'NF de entrada (recebidas)', periodo: true },
   { slug: 'promocoes', titulo: 'Promoções e adesão', periodo: false },

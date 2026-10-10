@@ -1,51 +1,47 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
-import {
-  Button, Card, CardContent, DataTable, type Column, EmptyState, Badge, Field, Input,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
-} from '@/components/ui'
-import { useFechamentos, useFechar, useAbrirFechamento } from '../api'
-import { dataHora as fmtData } from '@/lib/format'
+import { Button, Card, CardContent, DataTable, type Column, EmptyState, Field, Input, AsyncSelect, toast } from '@/components/ui'
+import { useFechamentos, useFechar, type FechamentoRow } from '../api'
+import { data as fmtData, qtd } from '@/lib/format'
 
+/**
+ * Fechamento: fotografia do saldo de um produto num setor, numa data.
+ *
+ * É por setor × produto porque é assim que o servidor o registra (saldo inicial
+ * = final do fechamento anterior daquele par). A tela antiga fechava "o estoque
+ * até uma data", sem dizer de quê, e oferecia "reabrir período" — operação que
+ * não existe: o fechamento é um registro, não uma trava sobre os movimentos.
+ */
 export function FechamentoTab() {
   const { data, isLoading, error, refetch } = useFechamentos()
   const fechar = useFechar()
-  const abrir = useAbrirFechamento()
+  const [setor, setSetor] = useState<number | null>(null); const [setorL, setSetorL] = useState<string | null>(null)
+  const [produto, setProduto] = useState<number | null>(null); const [produtoL, setProdutoL] = useState<string | null>(null)
   const [dataF, setDataF] = useState('')
-  const [abrirData, setAbrirData] = useState(''); const [motivo, setMotivo] = useState(''); const [openAbrir, setOpenAbrir] = useState(false)
 
   async function onFechar() {
-    if (!dataF) { toast.error('Informe a data/hora de fechamento.'); return }
-    try { await fechar.mutateAsync({ datahorafechamento: dataF.replace('T', ' ') + ':00' }); toast.success('Estoque fechado.'); setDataF('') }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao fechar.') }
-  }
-  async function onAbrir() {
-    if (!abrirData || !motivo) { toast.error('Informe data e motivo.'); return }
-    try { await abrir.mutateAsync({ datahorafechamento: abrirData.replace('T', ' ') + ':00', motivo }); toast.success('Estoque reaberto.'); setOpenAbrir(false); setMotivo('') }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao reabrir.') }
+    if (!setor || !produto || !dataF) { toast.error('Informe setor, produto e data do fechamento.'); return }
+    try {
+      await fechar.mutateAsync({ setor_id: setor, produto_id: produto, data_fechamento: dataF })
+      toast.success('Fechamento registrado.'); setProduto(null); setProdutoL(null)
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao fechar.') }
   }
 
-  const columns: Column<any>[] = [
+  const columns: Column<FechamentoRow>[] = [
     { key: 'id', header: 'Nº', cell: (r) => `#${r.id}` },
-    { key: 'data', header: 'Fechamento', cell: (r) => fmtData(r.datahorafechamento) },
-    { key: 'reaberto', header: 'Status', cell: (r) => Number(r.reaberto) ? <Badge variant="warning">Reaberto</Badge> : <Badge variant="success">Fechado</Badge> },
+    { key: 'data', header: 'Fechamento', cell: (r) => fmtData(r.data_fechamento.slice(0, 10)) },
+    { key: 'setor', header: 'Setor', cell: (r) => r.setor?.descricao ?? `#${r.setor_id}` },
+    { key: 'produto', header: 'Produto', cell: (r) => <span className="font-medium">{r.produto?.descricao ?? `#${r.produto_id}`}</span> },
+    { key: 'inicial', header: 'Saldo inicial', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{qtd(Number(r.saldo_inicial))}</span> },
+    { key: 'final', header: 'Saldo final', align: 'right', cell: (r) => <span className="tabular-nums font-medium">{qtd(Number(r.saldo_final))}</span> },
   ]
   return (
     <>
-      <Card className="mb-4"><CardContent className="pt-6 flex flex-wrap items-end gap-3">
-        <Field label="Fechar estoque até"><Input type="datetime-local" value={dataF} onChange={(e) => setDataF(e.target.value)} /></Field>
-        <Button loading={fechar.isPending} onClick={onFechar}><Lock size={16} /> Fechar estoque</Button>
-        <Dialog open={openAbrir} onOpenChange={setOpenAbrir}>
-          <DialogTrigger asChild><Button variant="outline">Reabrir período</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Reabrir estoque</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <Field label="Reabrir a partir de" required><Input type="datetime-local" value={abrirData} onChange={(e) => setAbrirData(e.target.value)} /></Field>
-              <Field label="Motivo" required><Input value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Field>
-            </div>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose><Button loading={abrir.isPending} onClick={onAbrir}>Reabrir</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <Card className="mb-4"><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <Field label="Setor" required><AsyncSelect endpoint="/lookups/setores" value={setor} valueLabel={setorL} onChange={(id, o) => { setSetor(id); setSetorL(o?.label ?? null) }} /></Field>
+        <Field label="Produto" required><AsyncSelect endpoint="/lookups/produtos" value={produto} valueLabel={produtoL} onChange={(id, o) => { setProduto(id); setProdutoL(o?.label ?? null) }} /></Field>
+        <Field label="Data do fechamento" required><Input type="date" value={dataF} onChange={(e) => setDataF(e.target.value)} /></Field>
+        <div><Button loading={fechar.isPending} onClick={onFechar}><Lock size={16} /> Registrar fechamento</Button></div>
       </CardContent></Card>
       <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(r) => r.id} empty={<EmptyState icon={<Lock />} title="Nenhum fechamento" />} />
     </>

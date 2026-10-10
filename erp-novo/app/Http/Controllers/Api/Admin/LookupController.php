@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Apoio\CadastroSlugs;
+use App\Domain\Estoque\TipoLocalEstoque;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -173,6 +174,18 @@ class LookupController extends Controller
             ->when(
                 $cidadeId !== null && $cidadeId !== '' && Schema::hasColumn($tabela, 'cidade_id'),
                 fn ($b) => $b->where('cidade_id', (int) $cidadeId),
+            )
+            // F3-06: `?armazens=1` restringe aos locais que aceitam entrada
+            // direta. O seletor de "onde lançar a entrada" oferecia também "Em
+            // poder de Fulano" e a carga de veículo; a API recusava depois, mas
+            // o operador só descobria ao salvar. A transferência continua
+            // pedindo a lista inteira — ali custódia é destino válido.
+            ->when(
+                $tipo === 'setores' && $request->boolean('armazens'),
+                fn ($b) => $b->whereIn('tipo', array_map(
+                    fn (TipoLocalEstoque $t) => $t->value,
+                    array_filter(TipoLocalEstoque::cases(), fn (TipoLocalEstoque $t) => $t->aceitaEntradaDireta()),
+                )),
             )
             ->when(Schema::hasColumn($tabela, 'ativo'), fn ($b) => $b->where('ativo', true))
             ->when($q !== '', fn ($b) => $b->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']))

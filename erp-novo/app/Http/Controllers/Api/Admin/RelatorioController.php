@@ -175,6 +175,8 @@ class RelatorioController extends Controller
         'vendas-entregador' => ['vendasPorEntregador', true, false, 'Vendas por entregador'],
         'vendas-operacao' => ['vendasPorOperacao', true, false, 'Vendas por operação (PDV/Disk)'],
         'vendas-produto' => ['vendasPorProduto', true, false, 'Vendas por produto'],
+        // F3-05 — o canal era gravado e não aparecia em tela nenhuma.
+        'vendas-canal' => ['vendasPorCanal', true, false, 'Vendas por canal (painel, app, campo, central)'],
         'nf-emitidas' => ['nfEmitidas', true, false, 'NF-e emitidas'],
         'nf-recebidas' => ['nfRecebidas', true, false, 'NF de entrada (recebidas)'],
         'promocoes' => ['promocoes', false, false, 'Promoções e adesão'],

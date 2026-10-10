@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Acesso\CamposPermitidos;
+use App\Domain\Auditoria\RegistroAcao;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -67,7 +68,9 @@ class EstoqueController extends Controller
     {
         $this->autorizar($request, 'estoque.view');
 
+        // Setor e produto carregados: sem eles a lista só teria ids para mostrar.
         $rows = EstoqueFechamento::query()
+            ->with(['setor:id,descricao', 'produto:id,descricao'])
             ->when($request->query('setor_id'), fn ($q, $s) => $q->where('setor_id', $s))
             ->orderByDesc('data_fechamento')->limit(200)->get();
 
@@ -177,7 +180,8 @@ class EstoqueController extends Controller
         $d = $this->validarMov($request, comCusto: true);
         $this->recusarLancamentoEmCustodia((int) $d['setor_id']);
 
-        $mov = $this->service->entrada($d['setor_id'], $d['produto_id'], $d['quantidade'], $d['custo_unitario'] ?? null, 'manual', null, $request->user()->id, $this->tenant->requireEmpresaId());
+        $mov = $this->service->entrada($d['setor_id'], $d['produto_id'], $d['quantidade'], $d['custo_unitario'] ?? null, 'manual', null, $request->user()->id, $this->tenant->requireEmpresaId(), $this->chaveManual($request));
+        $this->registrarMotivo($mov, $d['motivo'] ?? null);
 
         return response()->json(['data' => $this->serializarMovimento($request, $mov)], 201);
     }
@@ -187,9 +191,45 @@ class EstoqueController extends Controller
         $this->autorizar($request, 'estoque.edit');
         $d = $this->validarMov($request);
 
-        $mov = $this->service->saida($d['setor_id'], $d['produto_id'], $d['quantidade'], 'manual', null, $request->user()->id, $this->tenant->requireEmpresaId());
+        $mov = $this->service->saida($d['setor_id'], $d['produto_id'], $d['quantidade'], 'manual', null, $request->user()->id, $this->tenant->requireEmpresaId(), $this->chaveManual($request));
+        $this->registrarMotivo($mov, $d['motivo'] ?? null);
 
         return response()->json(['data' => $this->serializarMovimento($request, $mov)], 201);
+    }
+
+    /**
+     * F4-01: chave do lançamento manual, gerada pela tela quando o formulário
+     * abre. Prefixada para não colidir com a de outra origem que use o mesmo
+     * uuid (a unicidade é por empresa, não por origem).
+     */
+    private function chaveManual(Request $request): ?string
+    {
+        $chave = $this->chaveIdempotencia($request);
+
+        return $chave !== null ? "manual:{$chave}" : null;
+    }
+
+    private function chaveIdempotencia(Request $request): ?string
+    {
+        $chave = $request->header('Idempotency-Key');
+        if ($chave !== null && ! preg_match('/^[A-Za-z0-9-]{8,64}$/', $chave)) {
+            throw ValidationException::withMessages(['Idempotency-Key' => 'Chave de idempotência inválida.']);
+        }
+
+        return $chave;
+    }
+
+    /**
+     * O porquê do lançamento manual vai para a trilha de auditoria: o ledger
+     * não tem coluna de observação, e a tela antiga pedia o motivo e o
+     * descartava. Só na primeira gravação — um reenvio com a mesma chave
+     * devolve o movimento já gravado e não deve somar outra linha na trilha.
+     */
+    private function registrarMotivo(EstoqueHistorico $mov, ?string $motivo): void
+    {
+        if ($motivo !== null && $motivo !== '' && $mov->wasRecentlyCreated) {
+            app(RegistroAcao::class)->registrar($mov, 'lancamento_manual', $motivo);
+        }
     }
 
     public function transferir(Request $request): JsonResponse
@@ -212,10 +252,7 @@ class EstoqueController extends Controller
         // F4-01: o cliente gera a chave quando ABRE o formulário. Se a rede cair
         // depois que o servidor gravou, o reenvio traz a mesma chave e devolve o
         // que já foi feito, em vez de mover a mercadoria de novo.
-        $chave = $request->header('Idempotency-Key');
-        if ($chave !== null && ! preg_match('/^[A-Za-z0-9-]{8,64}$/', $chave)) {
-            throw ValidationException::withMessages(['Idempotency-Key' => 'Chave de idempotência inválida.']);
-        }
+        $chave = $this->chaveIdempotencia($request);
 
         $itens = $d['itens'] ?? [['produto_id' => $d['produto_id'], 'quantidade' => $d['quantidade']]];
         $empresaId = $this->tenant->requireEmpresaId();
@@ -279,6 +316,7 @@ class EstoqueController extends Controller
             'setor_id' => ['required', 'integer', $this->existsDaEmpresa('setores')],
             'produto_id' => ['required', 'integer', $this->existsDaEmpresa('produtos')],
             'quantidade' => 'required|numeric|gt:0',
+            'motivo' => 'nullable|string|max:255',
         ];
         if ($comCusto) {
             $regras['custo_unitario'] = 'nullable|numeric|gte:0';
@@ -292,7 +330,34 @@ class EstoqueController extends Controller
     {
         $this->autorizar($request, 'estoque.view');
 
-        return response()->json(['data' => EstoqueRequisicao::query()->latest()->limit(200)->get()]);
+        return response()->json(['data' => EstoqueRequisicao::query()
+            ->with(['produto:id,descricao', 'setorOrigem:id,descricao', 'setorDestino:id,descricao'])
+            ->latest()->limit(200)->get()]);
+    }
+
+    /**
+     * POST /estoque/requisicoes/{id}/atender — atende uma requisição pendente.
+     *
+     * Sem esta porta, a requisição criada sem `atender` ficava "pendente" para
+     * sempre: o serviço sabia atender, mas só no instante da criação.
+     */
+    public function requisicaoAtender(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $d = $request->validate([
+            'setor_origem_id' => ['nullable', 'integer', $this->existsDaEmpresa('setores')],
+        ]);
+
+        $req = EstoqueRequisicao::query()->findOrFail($id);
+        // A origem pode ter ficado em aberto no pedido ("preciso de 10 no
+        // balcão") e só ser decidida por quem atende.
+        if (! empty($d['setor_origem_id']) && $req->situacao === 'pendente') {
+            $req->update(['setor_origem_id' => $d['setor_origem_id']]);
+        }
+
+        $req = $this->service->atenderRequisicao($req, $request->user()->id, $this->tenant->requireEmpresaId());
+
+        return response()->json(['data' => $req, 'message' => 'Requisição atendida.']);
     }
 
     public function requisicaoCriar(Request $request): JsonResponse
@@ -325,7 +390,9 @@ class EstoqueController extends Controller
     {
         $this->autorizar($request, 'estoque.view');
 
-        return response()->json(['data' => EstoqueInventario::query()->with('itens')->latest()->limit(100)->get()]);
+        return response()->json(['data' => EstoqueInventario::query()
+            ->with(['itens.produto:id,descricao', 'setor:id,descricao'])
+            ->latest()->limit(100)->get()]);
     }
 
     public function inventarioCriar(Request $request): JsonResponse

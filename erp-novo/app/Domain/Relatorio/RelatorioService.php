@@ -2,6 +2,7 @@
 
 namespace App\Domain\Relatorio;
 
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Rh\ComissaoService;
 use App\Models\Rh\ColaboradorComissao;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -466,6 +467,47 @@ class RelatorioService
             ->get()
             ->map(fn ($r) => ['operacao' => $r->operacao, 'pedidos' => (int) $r->pedidos, 'total' => round((float) $r->total, 2)])
             ->all();
+    }
+
+    /**
+     * F3-05 — vendas por canal (por qual porta o pedido entrou) no período.
+     *
+     * Responde "quanto do meu faturamento já vem do app?". O dado existia desde
+     * F3-05 e não aparecia em tela nenhuma.
+     *
+     * "Origem não registrada" entra na lista como qualquer outro canal, com a
+     * sua fatia: são os pedidos anteriores a F3-05, que não foram convertidos
+     * por palpite. Escondê-la faria as participações dos outros canais somarem
+     * 100% de um total que não é o faturamento.
+     */
+    public function vendasPorCanal(int $empresaId, string $inicio, string $fim): array
+    {
+        [$di, $df] = [Carbon::parse($inicio)->startOfDay(), Carbon::parse($fim)->endOfDay()];
+
+        $linhas = DB::table('pedidos as p')
+            ->where('p.empresa_id', $empresaId)->where('p.estoque_movimentado', true)
+            ->whereBetween('p.datahora', [$di, $df])
+            ->groupBy('p.canal')
+            ->selectRaw('p.canal as canal, count(p.id) as pedidos, sum(p.valor_venda) as total')
+            ->orderByDesc('total')
+            ->get();
+
+        $geral = (float) $linhas->sum('total');
+
+        return $linhas->map(function ($r) use ($geral) {
+            $total = round((float) $r->total, 2);
+            $pedidos = (int) $r->pedidos;
+
+            return [
+                // Valor fora do enum não some nem derruba o relatório: aparece
+                // com o próprio texto, que é como se descobre que ele existe.
+                'canal' => CanalVenda::tryFrom((string) $r->canal)?->rotulo() ?? (string) $r->canal,
+                'pedidos' => $pedidos,
+                'total' => $total,
+                'ticket_medio' => $pedidos > 0 ? round($total / $pedidos, 2) : 0.0,
+                'participacao_pct' => $geral > 0 ? round($total / $geral * 100, 1) : 0.0,
+            ];
+        })->all();
     }
 
     /** Vendas por produto (quantidade e valor) no período. */

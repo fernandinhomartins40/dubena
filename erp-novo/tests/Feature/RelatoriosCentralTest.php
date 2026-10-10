@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Estoque\EstoqueService;
+use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
@@ -45,14 +46,70 @@ class RelatoriosCentralTest extends TestCase
         app(EstoqueService::class)->entrada($this->setor->id, $this->produto->id, 1000, 10);
     }
 
-    private function venda(float $qtd, ?int $entregadorUserId = null): void
+    private function venda(float $qtd, ?int $entregadorUserId = null, ?CanalVenda $canal = null): void
     {
         $situacao = PedidoSituacao::factory()->efeito(EfeitoPedido::CONCLUIDO)->create(['grupo_id' => $this->empresa->grupo_id, 'descricao' => 'C'.uniqid()]);
-        app(PedidoService::class)->criar([
+        app(PedidoService::class)->criar(array_filter([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
             'cliente_id' => $this->cliente->id, 'pedidosituacao_id' => $situacao->id, 'setor_id' => $this->setor->id,
             'entregador_user_id' => $entregadorUserId, 'datahora' => now(),
-        ], [['produto_id' => $this->produto->id, 'quantidade' => $qtd, 'preco_unitario' => 100]]);
+            'canal' => $canal,
+        ], fn ($v) => $v !== null), [['produto_id' => $this->produto->id, 'quantidade' => $qtd, 'preco_unitario' => 100]]);
+    }
+
+    /**
+     * F3-05 — "quanto do meu faturamento já vem do app?". O canal era gravado
+     * desde F3-05 e não aparecia em tela nenhuma.
+     */
+    public function test_vendas_por_canal_separa_faturamento_e_participacao(): void
+    {
+        $this->venda(3, null, CanalVenda::APP_CLIENTE);   // 300
+        $this->venda(1, null, CanalVenda::APP_CLIENTE);   // 100
+        $this->venda(4, null, CanalVenda::INTERNO);       // 400
+        $this->venda(2);                                  // 200, sem canal declarado
+
+        $data = collect($this->actingAs($this->user, 'sanctum')
+            ->getJson('/api/admin/relatorios/vendas-canal'.$this->periodo())->assertOk()->json('data'))
+            ->keyBy('canal');
+
+        $this->assertSame(2, $data['App do cliente']['pedidos']);
+        $this->assertEqualsWithDelta(400.0, $data['App do cliente']['total'], 0.01);
+        $this->assertEqualsWithDelta(200.0, $data['App do cliente']['ticket_medio'], 0.01);
+        $this->assertEqualsWithDelta(40.0, $data['App do cliente']['participacao_pct'], 0.01);
+        $this->assertEqualsWithDelta(40.0, $data['Atendimento interno']['participacao_pct'], 0.01);
+
+        // A fatia sem origem NÃO some: escondê-la faria os outros canais
+        // somarem 100% de um total que não é o faturamento.
+        $this->assertEqualsWithDelta(20.0, $data['Origem não registrada']['participacao_pct'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $data->sum('participacao_pct'), 0.2);
+    }
+
+    /** Pedido que não concretizou não é faturamento, venha de onde vier. */
+    public function test_vendas_por_canal_ignora_pedido_nao_concretizado(): void
+    {
+        $this->venda(1, null, CanalVenda::CAMPO);
+        $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id, 'descricao' => 'P'.uniqid()]);
+        app(PedidoService::class)->criar([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'cliente_id' => $this->cliente->id, 'pedidosituacao_id' => $pendente->id, 'setor_id' => $this->setor->id,
+            'datahora' => now(), 'canal' => CanalVenda::APP_CLIENTE,
+        ], [['produto_id' => $this->produto->id, 'quantidade' => 9, 'preco_unitario' => 100]]);
+
+        $data = $this->actingAs($this->user, 'sanctum')
+            ->getJson('/api/admin/relatorios/vendas-canal'.$this->periodo())->assertOk()->json('data');
+
+        $this->assertSame(['Venda em campo'], array_column($data, 'canal'));
+    }
+
+    /** Venda de outra empresa não entra na conta. */
+    public function test_vendas_por_canal_e_da_empresa_ativa(): void
+    {
+        $this->venda(1, null, CanalVenda::CENTRAL);
+        $outra = Empresa::factory()->create();
+        $outroUser = User::factory()->create(['empresa_id' => $outra->id, 'grupo_id' => $outra->grupo_id]);
+
+        $this->actingAs($outroUser, 'sanctum')
+            ->getJson('/api/admin/relatorios/vendas-canal'.$this->periodo())->assertOk()->assertJsonCount(0, 'data');
     }
 
     private function periodo(): string

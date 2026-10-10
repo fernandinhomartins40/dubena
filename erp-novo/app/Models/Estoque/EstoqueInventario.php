@@ -4,6 +4,7 @@ namespace App\Models\Estoque;
 
 use App\Domain\Tenant\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Inventário (contagem de estoque) — C11. Escopo por empresa. */
@@ -29,5 +30,10 @@ class EstoqueInventario extends Model
     public function itens(): HasMany
     {
         return $this->hasMany(EstoqueInventarioItem::class);
+    }
+
+    public function setor(): BelongsTo
+    {
+        return $this->belongsTo(Setor::class);
     }
 }

@@ -1,4 +1,4 @@
-import { Navigation, Power, MapPin, Map, Route as RouteIcon } from 'lucide-react'
+import { Navigation, Power, MapPin, Map, Route as RouteIcon, Link2 } from 'lucide-react'
 import {
   Badge, type Column, ResourceList, PageHeader,
   Tabs, TabsList, TabsTrigger, TabsContent,
@@ -8,6 +8,7 @@ import { useUltimasPosicoes, type UltimaPosicao } from './extraApi'
 import { CercasTab } from './CercasTab'
 import { MapaAoVivoTab } from './MapaAoVivoTab'
 import { RotaTab } from './RotaTab'
+import { ConciliacaoFrotaTab } from './ConciliacaoFrotaTab'
 
 export function MonitoraPage() {
   return (
@@ -19,11 +20,13 @@ export function MonitoraPage() {
           <TabsTrigger value="rota"><RouteIcon size={15} className="mr-1" /> Rota</TabsTrigger>
           <TabsTrigger value="posicoes"><Navigation size={15} className="mr-1" /> Posições</TabsTrigger>
           <TabsTrigger value="cercas"><MapPin size={15} className="mr-1" /> Cercas</TabsTrigger>
+          <TabsTrigger value="conciliacao"><Link2 size={15} className="mr-1" /> Conciliação</TabsTrigger>
         </TabsList>
         <TabsContent value="mapa"><MapaAoVivoTab /></TabsContent>
         <TabsContent value="rota"><RotaTab /></TabsContent>
         <TabsContent value="posicoes"><PosicoesTab /></TabsContent>
         <TabsContent value="cercas"><CercasTab /></TabsContent>
+        <TabsContent value="conciliacao"><ConciliacaoFrotaTab /></TabsContent>
       </Tabs>
     </div>
   )

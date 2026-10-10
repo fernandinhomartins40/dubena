@@ -76,6 +76,7 @@ final class CatalogoAuditoria
         'aprovou' => 'Aprovou',
         'recusou' => 'Recusou',
         'cancelou' => 'Cancelou',
+        'lancamento_manual' => 'Lançou manualmente no estoque',
         'emitiu' => 'Emitiu',
         'vendeu_em_campo' => 'Vendeu em campo',
     ];
