@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\Admin\GeoController;
 use App\Http\Controllers\Api\Admin\GestaoController;
 use App\Http\Controllers\Api\Admin\GrupoController;
 use App\Http\Controllers\Api\Admin\ImportacaoLogradouroController;
+use App\Http\Controllers\Api\Admin\InventarioFiscalController;
 use App\Http\Controllers\Api\Admin\LogradouroOficialController;
 use App\Http\Controllers\Api\Admin\LookupController;
 use App\Http\Controllers\Api\Admin\MalaDiretaController;
@@ -363,6 +364,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::post('estoque/acerto', [EstoqueController::class, 'acerto']);
         Route::get('estoque/fechamentos', [EstoqueController::class, 'fechamentos']);
         Route::post('estoque/fechamentos', [EstoqueController::class, 'fechar']);
+        Route::post('estoque/fechamentos/{id}/reabrir', [EstoqueController::class, 'reabrirFechamento'])->whereNumber('id');
 
         // Estoque — requisições / inventário / físico / abertura de fechamento.
         Route::get('estoque/requisicoes', [EstoqueController::class, 'requisicoesIndex']);
@@ -576,6 +578,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::get('fiscal/nf-entrada/{id}', [NfEntradaController::class, 'show'])->whereNumber('id');
         Route::post('fiscal/nf-entrada/importar', [NfEntradaController::class, 'importar']);
         Route::post('fiscal/nf-entrada/{id}/processar', [NfEntradaController::class, 'processar'])->whereNumber('id');
+
+        // Inventário fiscal — o estoque declarado no Bloco H do SPED.
+        Route::get('fiscal/inventarios', [InventarioFiscalController::class, 'index']);
+        Route::get('fiscal/inventarios/sugestao', [InventarioFiscalController::class, 'sugestao']);
+        Route::post('fiscal/inventarios', [InventarioFiscalController::class, 'store']);
+        Route::delete('fiscal/inventarios/{id}', [InventarioFiscalController::class, 'destroy'])->whereNumber('id');
 
         Route::get('fiscal/sped', [NotaFiscalController::class, 'sped']);
         Route::get('fiscal/sped-contribuicoes', [NotaFiscalController::class, 'spedContribuicoes']);

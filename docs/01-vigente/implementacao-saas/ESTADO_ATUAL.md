@@ -58,6 +58,80 @@ abertas — `uCom = 'UN'` fixo no `XmlNfeBuilder`, conciliação de frota só na
 relatório por canal sem tela, `Setor::scopeArmazens()` sem chamador, três
 catálogos de cidade e duas tabelas de veículo.
 
+## Atualização 2026-10-10 (2) — trava de período, inventário fiscal e três portões cegos
+
+O commit `c216eea8` passou no CI (inclusive o gate PostgreSQL/RLS) e está na
+homologação: conferido pela imagem dos contêineres `erpnovo-*`.
+
+### O que a homologação mostrou (SSH, somente leitura)
+
+- Banco: 7 empresas (todas `OWNERSHIP_APPROVED`, 7 `tenant_companies`
+  APPROVED), 76 usuários, 56 memberships, 169 migrations. **Zero** clientes,
+  pedidos, produtos e financeiro — a carga não foi refeita. Runtime `erp_app`
+  sem superuser nem bypass; RLS forçada em 184 de 229 tabelas.
+- Flags efetivas: `SAAS_FREEZE_MIGRATION_WRITES=true`,
+  `SAAS_ENFORCE_TENANT_ENVELOPE=false`, `SAAS_ENFORCE_LICENCA=false`.
+- `planos` vazia e nenhuma assinatura: o deploy não roda seeder. Antes de
+  ligar a licença: `PlanosSeeder` (como owner), `saas:legacy-full --dry-run`,
+  conferir, executar.
+- **O portão F1 reprova lá (exit 1).** O manifesto exigia
+  `_bkp_autocadastro_20260820`, backup feito à mão na base de agosto, que o
+  banco reinstalado não tem. Uma tabela de UMA base dentro do contrato do
+  produto: nenhum banco novo passaria. Virou entrada `opcional` — se existir,
+  tem de estar classificada; se não existir, não é divergência.
+- **Dois comandos de conferência liam zero empresas** por rodarem como
+  `erp_app` sob RLS e sem envelope: `golive:check` dizia "Empresas cadastradas
+  (0)" e `saas:licenca:status` dizia "nenhuma empresa com vínculo aprovado" e
+  saía com SUCCESS — o retrato que autoriza ligar o enforcement aprovava por
+  não enxergar. Os dois passam a ler pela conexão de owner
+  (`EnxergaAtravesDaRls`). ⚠️ Em sqlite o trait é no-op: **a prova é rodar os
+  dois na homologação depois do deploy**, e ela ainda não foi feita.
+
+### Trava de período do estoque (decisão do dono em 10/10)
+
+- O fechamento era só um retrato. Agora trava: fechamento vigente com data de
+  hoje em diante recusa todo movimento do par setor × produto, em qualquer
+  origem (pedido, NF, transferência, acerto) — o ponto único é
+  `EstoqueService::movimentar`. Regra espelhada do legado
+  (`isSetorestoqueFechadoData`).
+- O ledger novo não tem data de competência: o movimento é sempre de agora.
+  Então fechamento de data passada não trava nada, e é isso que impede os
+  fechamentos migrados do legado de bloquearem a operação no cutover.
+- Reabrir exige motivo, vai para a trilha (`reabriu_fechamento`, ação
+  sensível) e não apaga a linha. Não se fecha no futuro nem "para trás" de um
+  fechamento vigente.
+- ⚠️ **Consequência a conhecer:** fechar HOJE um produto num setor impede
+  concluir pedido daquele produto naquele setor pelo resto do dia. É o que uma
+  trava significa, mas é a primeira regra do estoque que BLOQUEIA venda. Se a
+  operação reclamar, a saída é reabrir — não há configuração para desligar.
+- `estoquefechamentos` continua classificada DERIVED no manifesto, e deixou de
+  ser só projeção. Reclassificar para COMPANY exige conferir chave de tenant e
+  policy canônica na tabela; não foi feito.
+
+### Inventário fiscal — SPED Bloco H (decisão do dono em 10/10)
+
+- A "valoração" do legado é a tela Inventário do menu SPED: o estoque
+  DECLARADO ao fisco. Não existia no sistema novo. Tabelas
+  `inventarios_fiscais` e `inventario_fiscal_itens` (RLS canônica, COMPANY),
+  API em `/fiscal/inventarios`, aba "Inventário fiscal" na página de Estoque.
+- É documento, não operação: gravar não move saldo. Quantidade, valor e
+  descrição ficam congelados no item. Sem edição — corrigir é excluir (com
+  motivo, na trilha) e gravar de novo.
+- Exige `fiscal.*` **e** a permissão de campo do custo, como o download do SPED.
+- **O SPED passa a usar o declarado**: havendo inventário com mês de entrega no
+  período, o Bloco H leva a data, as quantidades e os valores dele, e os
+  produtos entram no 0200.
+- ⚠️ **NÃO alterado, e é pendência fiscal para o contador (F5-09):** sem
+  inventário declarado, o SPED continua montando o Bloco H em TODA
+  escrituração com o saldo do instante da geração e a data do fim do período.
+  Isso não é a posição na data nem algo que a revenda declarou. O que um mês
+  sem inventário deve levar é decisão fiscal.
+
+### Verificação
+
+Suíte do backend e da SPA: ver o commit. O gate PostgreSQL/RLS das duas
+tabelas novas só roda no CI.
+
 ## Atualização 2026-10-10 — o módulo de estoque da SPA não gravava, e três pendências de tela
 
 Conferido por SSH (somente leitura): os contêineres `erpnovo-*` da VPS rodam a

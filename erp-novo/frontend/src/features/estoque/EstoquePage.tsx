@@ -4,6 +4,7 @@ import { AcertoTab } from './tabs/AcertoTab'
 import { TransferenciaTab } from './tabs/TransferenciaTab'
 import { RequisicaoTab } from './tabs/RequisicaoTab'
 import { FisicoTab } from './tabs/FisicoTab'
+import { InventarioFiscalTab } from './tabs/InventarioFiscalTab'
 import { FechamentoTab } from './tabs/FechamentoTab'
 
 /** Estoque (F17.R7) — shell de abas; cada aba vive em ./tabs/*. */
@@ -18,6 +19,7 @@ export function EstoquePage() {
           <TabsTrigger value="transferencia">Transferência</TabsTrigger>
           <TabsTrigger value="requisicao">Requisição</TabsTrigger>
           <TabsTrigger value="fisico">Inventário físico</TabsTrigger>
+          <TabsTrigger value="inventario-fiscal">Inventário fiscal</TabsTrigger>
           <TabsTrigger value="fechamento">Fechamento</TabsTrigger>
         </TabsList>
         <TabsContent value="saldos"><SaldosTab /></TabsContent>
@@ -25,6 +27,7 @@ export function EstoquePage() {
         <TabsContent value="transferencia"><TransferenciaTab /></TabsContent>
         <TabsContent value="requisicao"><RequisicaoTab /></TabsContent>
         <TabsContent value="fisico"><FisicoTab /></TabsContent>
+        <TabsContent value="inventario-fiscal"><InventarioFiscalTab /></TabsContent>
         <TabsContent value="fechamento"><FechamentoTab /></TabsContent>
       </Tabs>
     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Models\Empresa;
 use App\Models\Saas\Assinatura;
 use App\Models\Saas\Plano;
@@ -30,7 +31,16 @@ class SaasLicencaStatus extends Command
 
     protected $description = 'Mostra quem está sem assinatura e quem ainda depende do plano de transição (F2-04).';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(): int
+    {
+        // Pela conexão de owner: este é o retrato que autoriza ligar o
+        // enforcement, e pelo runtime ele lia zero empresas e saía com SUCCESS.
+        return $this->comoOwner(fn () => $this->conferir());
+    }
+
+    private function conferir(): int
     {
         $empresas = TenantCompany::query()
             ->where('status', TenantCompany::STATUS_APPROVED)

@@ -23,6 +23,49 @@ class TableClassificationManifestTest extends TestCase
         $manifest->assertComplete(['empresas', 'pedidos']);
     }
 
+    /**
+     * O manifesto exigia `_bkp_autocadastro_20260820`, backup feito à mão na
+     * base de agosto. No banco reinstalado ele não existe, e o portão F1
+     * reprovava por uma tabela que nenhum banco novo vai ter.
+     */
+    public function test_tabela_opcional_ausente_nao_e_divergencia(): void
+    {
+        $manifest = new TableClassificationManifest([
+            'empresas' => ['class' => 'COMPANY', 'owner' => 'x', 'justification' => 'y'],
+            '_bkp' => ['class' => 'STAGING', 'owner' => 'x', 'justification' => 'y', 'opcional' => true],
+        ]);
+
+        $manifest->assertComplete(['empresas']);
+        // Presente também passa: opcional não é "proibida".
+        $manifest->assertComplete(['empresas', '_bkp']);
+        $this->addToAssertionCount(2);
+    }
+
+    /** A folga é só para quem a declara: tabela comum ausente continua reprovando. */
+    public function test_tabela_obrigatoria_ausente_continua_reprovando(): void
+    {
+        $manifest = new TableClassificationManifest([
+            'empresas' => ['class' => 'COMPANY', 'owner' => 'x', 'justification' => 'y'],
+            'pedidos' => ['class' => 'COMPANY', 'owner' => 'x', 'justification' => 'y'],
+            '_bkp' => ['class' => 'STAGING', 'owner' => 'x', 'justification' => 'y', 'opcional' => true],
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Obsoletas: [pedidos]');
+        $manifest->assertComplete(['empresas']);
+    }
+
+    /** Opcional ainda precisa de classe, owner e justificativa. */
+    public function test_tabela_opcional_ainda_precisa_estar_classificada(): void
+    {
+        $manifest = new TableClassificationManifest([
+            '_bkp' => ['class' => 'STAGING', 'owner' => '', 'justification' => 'y', 'opcional' => true],
+        ]);
+
+        $this->expectException(LogicException::class);
+        $manifest->assertComplete([]);
+    }
+
     public function test_exige_classe_owner_e_justificativa_para_toda_tabela(): void
     {
         $manifest = new TableClassificationManifest([
@@ -83,6 +126,10 @@ class TableClassificationManifestTest extends TestCase
             // ela ve o proprio uso. As linhas sem empresa (`login` antes de
             // resolver tenant) ficam fora do alcance dela pela policy.
             'ponte_usos',
+            // Inventário fiscal (SPED Bloco H). COMPANY: é o estoque que UMA
+            // revenda declarou ao fisco, com o custo dela.
+            'inventarios_fiscais',
+            'inventario_fiscal_itens',
         ]);
 
         $entries = require dirname(__DIR__, 2).'/config/saas_table_classification.php';

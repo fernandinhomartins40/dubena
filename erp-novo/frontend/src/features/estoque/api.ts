@@ -63,6 +63,8 @@ export interface FechamentoRow {
   data_fechamento: string
   saldo_inicial: string | number
   saldo_final: string | number
+  /** `true` = reaberto: deixou de travar os movimentos do par. */
+  aberto: boolean
   setor?: Rotulado | null
   produto?: Rotulado | null
 }
@@ -179,5 +181,57 @@ export const useFechar = () => {
     mutationFn: async (data: { setor_id: number; produto_id: number; data_fechamento: string }) =>
       (await api.post('/estoque/fechamentos', data)).data,
     onSuccess: atualizar,
+  })
+}
+
+/** Reabre um fechamento: ele deixa de travar os movimentos do par. O motivo vai para a trilha. */
+export const useReabrirFechamento = () => {
+  const atualizar = useAtualizar('fechamentos')
+  return useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) =>
+      (await api.post(`/estoque/fechamentos/${id}/reabrir`, { motivo })).data,
+    onSuccess: atualizar,
+  })
+}
+
+// ---- Inventário fiscal (SPED Fiscal, Bloco H) ----
+// O estoque DECLARADO ao fisco. Não é a contagem física: não tem setor, tem
+// valor, e gravar não mexe em saldo nenhum.
+export interface InventarioFiscalRow {
+  id: number
+  mes_entrega: string
+  data_inventario: string
+  motivo: string
+  valor_total: string | number
+  itens: Array<{ id: number; produto_id: number; descricao_snapshot: string | null; quantidade: string | number; valor_unitario: string | number }>
+}
+export interface SugestaoInventarioFiscal { produto_id: number; descricao: string; quantidade: number; valor_unitario: number | null }
+export interface NovoInventarioFiscal {
+  mes_entrega: string
+  data_inventario: string
+  itens: Array<{ produto_id: number; quantidade: number; valor_unitario: number }>
+}
+
+export const useInventariosFiscais = () =>
+  useQuery<InventarioFiscalRow[]>({ queryKey: ['inventarios-fiscais'], queryFn: async () => (await api.get('/fiscal/inventarios')).data.data })
+
+/** Saldo e custo médio de AGORA — ponto de partida, a conferir. Só busca quando pedido. */
+export async function buscarSugestaoInventarioFiscal(): Promise<SugestaoInventarioFiscal[]> {
+  return (await api.get('/fiscal/inventarios/sugestao')).data.data
+}
+
+export const useCriarInventarioFiscal = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: NovoInventarioFiscal) => (await api.post('/fiscal/inventarios', data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventarios-fiscais'] }),
+  })
+}
+export const useExcluirInventarioFiscal = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) =>
+      (await api.delete(`/fiscal/inventarios/${id}`, { data: { motivo } })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventarios-fiscais'] }),
   })
 }

@@ -233,7 +233,7 @@ class EstoqueOperacoesTest extends TestCase
             'itens' => [['produto_id' => $this->produto->id, 'quantidade_contada' => 99]],
         ])->assertStatus(201);
         $this->actingAs($this->user, 'sanctum')->postJson('/api/admin/estoque/fechamentos', [
-            'setor_id' => $this->deposito->id, 'produto_id' => $this->produto->id, 'data_fechamento' => '2026-10-10',
+            'setor_id' => $this->deposito->id, 'produto_id' => $this->produto->id, 'data_fechamento' => now()->toDateString(),
         ])->assertStatus(201);
 
         $this->actingAs($this->user, 'sanctum')->getJson('/api/admin/estoque/requisicoes')

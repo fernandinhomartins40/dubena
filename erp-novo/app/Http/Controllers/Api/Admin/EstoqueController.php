@@ -309,6 +309,24 @@ class EstoqueController extends Controller
         return response()->json(['data' => $fech], 201);
     }
 
+    /**
+     * POST /estoque/fechamentos/{id}/reabrir — destrava o período, com motivo.
+     *
+     * O motivo é obrigatório e vai para a trilha: reabrir um fechamento é o que
+     * permite alterar um saldo que alguém já deu por conferido.
+     */
+    public function reabrirFechamento(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'estoque.edit');
+        $d = $request->validate(['motivo' => 'required|string|min:3|max:255']);
+
+        $fech = EstoqueFechamento::query()->findOrFail($id);
+        $fech = $this->service->reabrirFechamento($fech, $this->tenant->requireEmpresaId());
+        app(RegistroAcao::class)->registrar($fech, 'reabriu_fechamento', $d['motivo']);
+
+        return response()->json(['data' => $fech, 'message' => 'Fechamento reaberto.']);
+    }
+
     /** @return array<string, mixed> */
     private function validarMov(Request $request, bool $comCusto = false): array
     {

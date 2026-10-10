@@ -4,8 +4,10 @@ namespace App\Domain\Fiscal;
 
 use App\Models\Empresa;
 use App\Models\Estoque\EstoqueSaldo;
+use App\Models\Fiscal\InventarioFiscal;
 use App\Models\Fiscal\NotaFiscal;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * SpedFiscalService (C7d) — gera o arquivo da EFD ICMS/IPI (SPED Fiscal) do
@@ -78,9 +80,25 @@ class SpedFiscalService
             ]);
         }
 
+        // Inventários fiscais ENTREGUES nesta escrituração (pelo mês de entrega,
+        // não pela data do inventário: o de 31/12 costuma ir em fevereiro).
+        $inventarios = InventarioFiscal::query()
+            ->with('itens.produto')
+            ->where('empresa_id', $empresa->id)
+            ->whereDate('mes_entrega', '>=', $dtIni->toDateString())
+            ->whereDate('mes_entrega', '<=', $dtFim->toDateString())
+            ->orderBy('data_inventario')->orderBy('motivo')
+            ->get();
+
         // 0200 — itens (produtos das notas).
         $produtos = $notas->flatMap->itens->pluck('produto')->filter()->unique('id');
-        foreach ($produtos as $prod) {
+        // Todo COD_ITEM citado no arquivo precisa estar no 0200 — inclusive o
+        // que só aparece no inventário declarado (produto em estoque e sem
+        // venda no mês é justamente o caso comum num inventário).
+        $itens0200 = $produtos
+            ->concat($inventarios->flatMap->itens->pluck('produto')->filter())
+            ->unique('id');
+        foreach ($itens0200 as $prod) {
             $this->reg('0200', [
                 (string) $prod->id,
                 $prod->descricao,
@@ -181,7 +199,71 @@ class SpedFiscalService
         ]);
         $this->fecharBloco('E990', 'E');
 
-        // ── Bloco H (inventário) — saldo por produto, derivado de estoquesaldos ──
+        // ── Bloco H (inventário) ──
+        // O declarado manda: se a revenda gravou um inventário fiscal para
+        // esta entrega, é ele que vai — com a data, as quantidades e os valores
+        // que ela declarou.
+        if ($inventarios->isNotEmpty()) {
+            $this->blocoHDeclarado($inventarios);
+        } else {
+            $this->blocoHDerivado($empresa, $produtos, $dtFim);
+        }
+
+        // ── Bloco 9 (encerramento) ──
+        $this->bloco9();
+
+        return implode("\r\n", $this->linhas)."\r\n";
+    }
+
+    /**
+     * Bloco H a partir do inventário fiscal declarado.
+     *
+     * Um H005 por inventário (pode haver mais de um na mesma entrega, com
+     * motivos diferentes), seguido dos H010 dele.
+     *
+     * @param  Collection<int, InventarioFiscal>  $inventarios
+     */
+    private function blocoHDeclarado(Collection $inventarios): void
+    {
+        $this->reg('H001', ['0']);
+        foreach ($inventarios as $inventario) {
+            $this->reg('H005', [
+                $inventario->data_inventario->format('dmY'),
+                $this->num($inventario->valor_total),
+                $inventario->motivo,
+            ]);
+            foreach ($inventario->itens as $item) {
+                $qtd = (float) $item->quantidade;
+                $unitario = (float) $item->valor_unitario;
+                $this->reg('H010', [
+                    (string) $item->produto_id, 'UN',
+                    $this->num($qtd, 3),
+                    // 6 casas, como o leiaute admite: com 2 o unitário
+                    // declarado com fração de centavo sairia diferente do que
+                    // produziu o VL_ITEM.
+                    $this->num($unitario, 6),
+                    // Mesmo arredondamento usado para o `valor_total` gravado:
+                    // a soma dos VL_ITEM tem de fechar com o VL_INV do H005.
+                    $this->num(round($qtd * $unitario, 2)),
+                    '0', '', '', '',
+                ]);
+            }
+        }
+        $this->fecharBloco('H990', 'H');
+    }
+
+    /**
+     * Bloco H quando NÃO há inventário declarado para a entrega: saldo por
+     * produto derivado de estoquesaldos. É o comportamento que já existia.
+     *
+     * ⚠️ É o saldo de AGORA com a data do fim do período, e sai em toda
+     * escrituração — não é a posição na data, nem algo que a revenda declarou.
+     * Não foi alterado de propósito: o que um mês SEM inventário deve levar no
+     * Bloco H (H001 sem dados?) é decisão fiscal, pendente da homologação com
+     * contador (F5-09).
+     */
+    private function blocoHDerivado(Empresa $empresa, Collection $produtos, Carbon $dtFim): void
+    {
         // Quantidade = Σ saldos dos setores da empresa; custo = custo médio do saldo.
         $saldos = EstoqueSaldo::query()
             ->where('empresa_id', $empresa->id)
@@ -207,11 +289,6 @@ class SpedFiscalService
             ]);
         }
         $this->fecharBloco('H990', 'H');
-
-        // ── Bloco 9 (encerramento) ──
-        $this->bloco9();
-
-        return implode("\r\n", $this->linhas)."\r\n";
     }
 
     /** Adiciona um registro "|REG|campos...|" e conta para o bloco 9. */

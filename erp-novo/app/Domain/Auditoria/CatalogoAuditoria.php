@@ -77,6 +77,7 @@ final class CatalogoAuditoria
         'recusou' => 'Recusou',
         'cancelou' => 'Cancelou',
         'lancamento_manual' => 'Lançou manualmente no estoque',
+        'reabriu_fechamento' => 'Reabriu o fechamento de estoque',
         'emitiu' => 'Emitiu',
         'vendeu_em_campo' => 'Vendeu em campo',
     ];
@@ -91,7 +92,7 @@ final class CatalogoAuditoria
      */
     public const ACOES_SENSIVEIS = [
         'desativou', 'reativou', 'excluido', 'encerrou_conta',
-        'estornou', 'aprovou', 'recusou', 'cancelou',
+        'estornou', 'aprovou', 'recusou', 'cancelou', 'reabriu_fechamento',
     ];
 
     public static function rotuloEntidade(string $tabela): string

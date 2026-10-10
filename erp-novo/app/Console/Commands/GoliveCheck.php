@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
 use Illuminate\Console\Command;
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class GoliveCheck extends Command
 {
+    use EnxergaAtravesDaRls;
+
     protected $signature = 'golive:check {--strict : trata avisos (WARN) como falha}';
 
     protected $description = 'Valida a prontidão de produção (config, gates, RLS, tenant) — portão do go-live.';
@@ -40,7 +43,9 @@ class GoliveCheck extends Command
         $this->verificarTenantRls();
         $this->verificarInfraAssincrona();
         $this->verificarGatesFiscalCobranca();
-        $this->verificarConfigPorEmpresa();
+        // Pela conexão de owner: sob RLS e sem envelope o runtime lê zero
+        // empresas, e a checagem saía "nada a operar" com o banco cheio.
+        $this->comoOwner(fn () => $this->verificarConfigPorEmpresa());
 
         $this->newLine();
         $this->line("Resultado: {$this->fail} FALHA(s), {$this->warn} aviso(s).");

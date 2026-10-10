@@ -10,6 +10,7 @@ use App\Models\Estoque\EstoqueRequisicao;
 use App\Models\Estoque\EstoqueSaldo;
 use App\Models\Estoque\Setor;
 use App\Models\Produto\Produto;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -80,6 +81,11 @@ class EstoqueService
                     return $existente;
                 }
             }
+
+            // Depois da idempotência de propósito: o reenvio de um movimento
+            // JÁ gravado devolve o que existe, mesmo que o período tenha sido
+            // fechado entre uma tentativa e outra.
+            $this->recusarSeFechado($empresaId, $setorId, $produtoId);
 
             // Lock pessimista do saldo (cria se não existir) — base anti-corrida.
             $saldo = EstoqueSaldo::withoutTenant()
@@ -212,13 +218,37 @@ class EstoqueService
     public function fechar(int $setorId, int $produtoId, string $dataFechamento, ?int $empresaEsperada = null): EstoqueFechamento
     {
         $empresaId = $this->validarParEstoque($setorId, $produtoId, $empresaEsperada);
+        $data = Carbon::parse($dataFechamento)->toDateString();
 
-        return DB::transaction(function () use ($setorId, $produtoId, $dataFechamento, $empresaId) {
-            $saldo = EstoqueSaldo::withoutTenant()->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)->first();
+        // Fechar no futuro travaria dias que ainda não aconteceram: a trava
+        // vale para todo movimento até a data do fechamento, inclusive.
+        if ($data > now()->toDateString()) {
+            throw ValidationException::withMessages(['data_fechamento' => 'Não é possível fechar o estoque em data futura.']);
+        }
+
+        return DB::transaction(function () use ($setorId, $produtoId, $data, $empresaId) {
+            // Trava o saldo: sem isto um movimento concorrente poderia entrar
+            // entre a leitura do saldo e a gravação do fechamento, e o retrato
+            // nasceria diferente do que ficou travado.
+            $saldo = EstoqueSaldo::withoutTenant()->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)->lockForUpdate()->first();
             $saldoFinal = $saldo ? (float) $saldo->quantidade : 0.0;
 
-            $anterior = EstoqueFechamento::withoutTenant()
+            $vigentes = EstoqueFechamento::withoutTenant()
                 ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
+                // Fechamento reaberto deixou de valer: não trava e não serve
+                // de saldo inicial para o seguinte.
+                ->where('aberto', false);
+
+            // Regra do legado: não se fecha "para trás" de um fechamento que
+            // já vale. O saldo gravado é o de AGORA, e um retrato de hoje com
+            // data anterior à de outro retrato contaria a história fora de ordem.
+            if ((clone $vigentes)->whereDate('data_fechamento', '>=', $data)->exists()) {
+                throw ValidationException::withMessages([
+                    'data_fechamento' => 'Já existe fechamento vigente nesta data ou depois dela. Reabra-o antes de fechar de novo.',
+                ]);
+            }
+
+            $anterior = $vigentes
                 ->orderByDesc('data_fechamento')->first();
             $saldoInicial = $anterior ? (float) $anterior->saldo_final : 0.0;
 
@@ -226,12 +256,78 @@ class EstoqueService
                 'empresa_id' => $empresaId,
                 'setor_id' => $setorId,
                 'produto_id' => $produtoId,
-                'data_fechamento' => $dataFechamento,
+                'data_fechamento' => $data,
                 'saldo_inicial' => $saldoInicial,
                 'saldo_final' => $saldoFinal,
                 'aberto' => false,
             ]);
         });
+    }
+
+    /**
+     * Reabre um fechamento: ele deixa de travar os movimentos do par.
+     *
+     * A linha não é apagada — fica marcada como reaberta, com o retrato que
+     * tinha. Apagar faria parecer que o período nunca foi fechado, e a pergunta
+     * "quem reabriu e por quê" (que vai para a trilha) ficaria sem alvo.
+     */
+    public function reabrirFechamento(EstoqueFechamento $fechamento, ?int $empresaEsperada = null): EstoqueFechamento
+    {
+        if ($empresaEsperada !== null && (int) $fechamento->empresa_id !== $empresaEsperada) {
+            throw ValidationException::withMessages(['fechamento' => 'Fechamento invalido para a empresa ativa.']);
+        }
+
+        return DB::transaction(function () use ($fechamento) {
+            // Relido sob lock: duas reaberturas simultâneas não podem passar
+            // as duas pela checagem feita no model em memória.
+            $atual = EstoqueFechamento::withoutTenant()->whereKey($fechamento->id)->lockForUpdate()->firstOrFail();
+
+            if ($atual->aberto) {
+                throw ValidationException::withMessages(['fechamento' => 'Este fechamento já foi reaberto.']);
+            }
+
+            $atual->update(['aberto' => true]);
+
+            return $atual;
+        });
+    }
+
+    /**
+     * Período fechado não recebe movimento.
+     *
+     * O fechamento é um retrato do saldo numa data. Sem a trava, qualquer
+     * movimento posterior no mesmo dia fazia o retrato deixar de corresponder
+     * ao que ele afirma — e nada avisava.
+     *
+     * O movimento aqui é sempre de AGORA (o ledger não tem data de
+     * competência), então a pergunta é se existe fechamento vigente com data de
+     * hoje em diante. Fechamento de data passada não trava nada: o passado já
+     * não recebe movimento. É por isso que os fechamentos migrados do legado,
+     * todos anteriores ao cutover, não bloqueiam a operação.
+     *
+     * Vale para TODA origem (pedido, NF, transferência, acerto), porque é em
+     * `movimentar` que todas passam: uma trava com exceções não é trava.
+     */
+    private function recusarSeFechado(int $empresaId, int $setorId, int $produtoId): void
+    {
+        $fechamento = EstoqueFechamento::withoutTenant()
+            ->where('empresa_id', $empresaId)->where('setor_id', $setorId)->where('produto_id', $produtoId)
+            ->where('aberto', false)
+            ->whereDate('data_fechamento', '>=', now()->toDateString())
+            ->orderByDesc('data_fechamento')
+            ->first();
+
+        if ($fechamento === null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'estoque' => sprintf(
+                'Estoque fechado até %s para este produto neste setor. Reabra o fechamento #%d para movimentar.',
+                $fechamento->data_fechamento->format('d/m/Y'),
+                $fechamento->id,
+            ),
+        ]);
     }
 
     /** Saldo derivado do histórico (a fonte da verdade) — usado em testes/invariantes. */

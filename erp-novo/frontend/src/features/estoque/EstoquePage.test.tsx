@@ -10,7 +10,7 @@ afterEach(() => vi.restoreAllMocks())
 function mount(tab: string) {
   render(<MemoryRouter initialEntries={['/estoque?tab=' + tab]}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><EstoquePage /></QueryClientProvider></MemoryRouter>)
 }
-it.each(['saldos', 'transferencia', 'requisicao', 'fisico', 'fechamento'])('consulta %s não representa falha como lista vazia', async (tab) => {
+it.each(['saldos', 'transferencia', 'requisicao', 'fisico', 'inventario-fiscal', 'fechamento'])('consulta %s não representa falha como lista vazia', async (tab) => {
   vi.spyOn(api, 'get').mockRejectedValue(new Error('Offline'))
   mount(tab)
   expect(await screen.findByRole('alert')).toHaveTextContent('Offline')

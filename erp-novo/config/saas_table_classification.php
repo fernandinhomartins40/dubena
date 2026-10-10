@@ -83,8 +83,18 @@ $register([
     'venda_ativa_clientes',
 ], 'DERIVED', 'Domain Data Lifecycle', 'Projecao/cache reconstruivel; deve ter origem catalogada, TTL ou mecanismo de recomposicao antes do cutover.');
 
+// Backup feito à mão na base Dubena de agosto. Fica classificado para o caso de
+// o banco em questão tê-lo, mas não é exigido: a homologação reinstalada em
+// 14/09 não o tem, e o portão F1 reprovava lá só por isso (exit 1 em 10/10).
+// Nenhum banco de outra revenda vai ter esta tabela.
+$entries['_bkp_autocadastro_20260820'] = [
+    'class' => 'STAGING',
+    'owner' => 'Data Migration Operations',
+    'justification' => 'Backup operacional de uma base especifica; temporario, sem consumidor no codigo.',
+    'opcional' => true,
+];
+
 $register([
-    '_bkp_autocadastro_20260820',
     'importacoes_cnefe',
     'importacoes_logradouro',
     'migracao_descartes',
@@ -162,6 +172,9 @@ $register([
     'estoque_acertos',
     'estoque_inventario_itens',
     'estoque_inventarios',
+    // Inventário fiscal (SPED Bloco H): documento declarado por UMA revenda.
+    'inventario_fiscal_itens',
+    'inventarios_fiscais',
     'estoque_requisicoes',
     'estoque_transferencia_itens',
     'estoque_transferencias',

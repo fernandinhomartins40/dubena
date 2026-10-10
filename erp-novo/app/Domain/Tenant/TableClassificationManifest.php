@@ -11,10 +11,8 @@ final class TableClassificationManifest
 {
     public const CLASSES = ['PLATFORM', 'TENANT', 'COMPANY', 'DERIVED', 'STAGING'];
 
-    /** @param array<string, array{class: string, owner: string, justification: string}> $entries */
-    public function __construct(private readonly array $entries)
-    {
-    }
+    /** @param array<string, array{class: string, owner: string, justification: string, opcional?: bool}> $entries */
+    public function __construct(private readonly array $entries) {}
 
     /** @param list<string> $effectiveTables */
     public function assertComplete(array $effectiveTables): void
@@ -24,8 +22,15 @@ final class TableClassificationManifest
         $declared = array_keys($this->entries);
         sort($declared);
 
+        // Tabela `opcional` é a que só existe em ALGUM banco — um backup feito à
+        // mão numa base específica, por exemplo. Se estiver lá, tem de estar
+        // classificada (por isso fica no manifesto); se não estiver, não é
+        // divergência. Sem isto o portão só aprovava no banco onde o backup
+        // foi feito e reprovava em todo banco novo, que é o caso do SaaS.
+        $obrigatorias = array_keys(array_filter($this->entries, fn (array $e) => empty($e['opcional'])));
+
         $missing = array_values(array_diff($effective, $declared));
-        $obsolete = array_values(array_diff($declared, $effective));
+        $obsolete = array_values(array_diff($obrigatorias, $effective));
         if ($missing !== [] || $obsolete !== []) {
             throw new LogicException(sprintf(
                 'Manifesto de classificacao divergente. Ausentes: [%s]. Obsoletas: [%s].',

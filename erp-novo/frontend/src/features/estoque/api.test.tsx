@@ -3,7 +3,10 @@ import { renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { it, expect, vi, afterEach, describe } from 'vitest'
 import { api } from '@/lib/api'
-import { useLancamentoManual, useCriarRequisicao, useAtenderRequisicao, useCriarFisico, useFechar } from './api'
+import {
+  useLancamentoManual, useCriarRequisicao, useAtenderRequisicao, useCriarFisico, useFechar,
+  useReabrirFechamento, useCriarInventarioFiscal, useExcluirInventarioFiscal,
+} from './api'
 
 /**
  * O contrato de escrita do estoque, do lado da SPA.
@@ -82,4 +85,31 @@ it('fechamento envia setor, produto e data_fechamento', async () => {
   const corpo = { setor_id: 3, produto_id: 9, data_fechamento: '2026-10-10' }
   await result.current.mutateAsync(corpo)
   expect(spy).toHaveBeenCalledWith('/estoque/fechamentos', corpo)
+})
+
+it('reabrir fechamento usa a rota do registro e leva o motivo', async () => {
+  const spy = post()
+  const { result } = renderHook(() => useReabrirFechamento(), { wrapper })
+  await result.current.mutateAsync({ id: 8, motivo: 'Nota lançada depois' })
+  expect(spy).toHaveBeenCalledWith('/estoque/fechamentos/8/reabrir', { motivo: 'Nota lançada depois' })
+})
+
+describe('inventário fiscal', () => {
+  it('grava em /fiscal/inventarios — nunca no endpoint da contagem física', async () => {
+    const spy = post()
+    const { result } = renderHook(() => useCriarInventarioFiscal(), { wrapper })
+    const corpo = { mes_entrega: '2026-02-01', data_inventario: '2025-12-31', itens: [{ produto_id: 9, quantidade: 120, valor_unitario: 92.5 }] }
+    await result.current.mutateAsync(corpo)
+    expect(spy).toHaveBeenCalledWith('/fiscal/inventarios', corpo)
+    // Era o defeito original: a tela de valoração postava em /estoque/inventarios,
+    // que efetiva contagem e AJUSTA saldo.
+    expect(spy.mock.calls.some(([url]) => String(url).startsWith('/estoque/'))).toBe(false)
+  })
+
+  it('excluir manda o motivo no corpo do DELETE', async () => {
+    const spy = vi.spyOn(api, 'delete').mockResolvedValue({ data: {} })
+    const { result } = renderHook(() => useExcluirInventarioFiscal(), { wrapper })
+    await result.current.mutateAsync({ id: 4, motivo: 'Quantidade errada' })
+    expect(spy).toHaveBeenCalledWith('/fiscal/inventarios/4', { data: { motivo: 'Quantidade errada' } })
+  })
 })
