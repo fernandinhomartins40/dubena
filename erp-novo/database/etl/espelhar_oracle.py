@@ -241,6 +241,72 @@ IGNORA_COLUNAS = {
     "INFORMACAOADICIONALFISCO",
 }
 
+# ── Omissoes DECLARADAS ─────────────────────────────────────────────────────
+#
+# Desde F0 (e244eff9) o espelho RECUSA a tabela que tem coluna sem transporte
+# fiel, em vez de pular a coluna calado. A regra esta certa e ficou incompleta:
+# sem um jeito de DECLARAR a omissao, `EMPRESAS` (logotipo em BLOB) era recusada
+# — e como ela e a raiz, nada depois carregava. O ensaio da conversao (F8) ficou
+# impossivel de rodar, medido em 10/10/2026 com o dump de 12/08.
+#
+# O que a regra protege e o SILENCIO, nao a omissao: uma coluna que fica de fora
+# sem ninguem ter decidido. Aqui cada uma e decidida, por nome, com o motivo —
+# e o espelho IMPRIME a lista ao final de toda execucao. Coluna binaria ou de
+# XML que NAO esteja nesta lista continua recusando a tabela.
+#
+# O dado omitido NAO some: permanece no Oracle de origem. Transporta-lo de
+# verdade exige outro mecanismo que nao o sqlplus (ORA-01489 limita a
+# concatenacao a 4000 caracteres) — e a area de staging de F7-03, em aberto.
+#
+# Levantado no dump real com `user_tab_columns`: estas sao TODAS as colunas das
+# tabelas do MAPA que caem na recusa.
+_LOGO = ("imagem em BLOB; o schema novo guarda o logotipo como arquivo "
+         "(`empresa_configs`), recadastrado no painel")
+_FOTO = "foto do usuario em BLOB; o schema novo nao tem foto de usuario"
+_XML_NOTA = ("XML/retorno da SEFAZ em CLOB (~6 GB so em NFEMITIDAS); o schema "
+             "novo nao guarda o XML legado — a chave e os valores sao migrados, "
+             "e o documento original permanece no Oracle")
+_TEXTO_NOTA = ("texto livre da nota em CLOB, acima do limite de 4000 do "
+               "sqlplus; nao tem coluna no schema novo")
+
+_XML_DA_NOTA = (
+    "XML", "XMLRETORNO", "XMLASSINADO", "XMLRETORNOCANCELAMENTO",
+    "XMLRETORNOCOMPLETO", "XMLRETORNOCOMPLETOPATH", "DPECXMLRETORNO",
+    "CANCELAMENTOEVEXMLRETORNO", "XMLRETORNOEVENTOCARTACORRECAO",
+    "EPECXML", "PRODUTOSJSON",
+)
+_TEXTO_DA_NOTA = ("INFORMACAOCOMPLEMENTAR", "INFORMACAOADICIONALFISCO")
+
+# Maior CLOB, em caracteres, que viaja por sqlplus sem risco de corte: a linha
+# inteira e concatenada num VARCHAR2 de 4000 BYTES, e texto em portugues usa
+# ate 2 bytes por caractere acentuado.
+#
+# Medido no dump de 12/08: fora as colunas declaradas abaixo, o maior CLOB das
+# tabelas do MAPA tem 1137 caracteres (PIXPEDIDOS.JSON_DATA). Antes desta regra
+# TODO CLOB era recusado, inclusive PEDIDOS.ENTREGAPONTOREFERENCIA — 194 mil
+# pontos de referencia de entrega, com no maximo 99 caracteres cada.
+CLOB_MAX_CHARS = 2000
+
+OMISSOES_DECLARADAS = {
+    ("EMPRESAS_GRUPOS", "LOGOIMG"): _LOGO,
+    ("EMPRESAS", "LOGOIMG"): _LOGO,
+    # `LOGO` e a mesma imagem em base64 dentro de um CLOB (ate 18.824 chars).
+    ("EMPRESAS_GRUPOS", "LOGO"): _LOGO,
+    ("EMPRESAS", "LOGO"): _LOGO,
+    ("USERS", "FOTO"): _FOTO,
+    # Retorno da SEFAZ do evento de carta de correcao (ate 5.656 chars).
+    ("NFEMITIDACARTACORRECAOS", "XMLRETORNOEVENTO"): _XML_NOTA,
+    **{("NFEMITIDAS", c): _XML_NOTA for c in _XML_DA_NOTA},
+    **{("NFEMITIDAS", c): _TEXTO_NOTA for c in _TEXTO_DA_NOTA},
+    **{("NFRECEBIDAS", c): _XML_NOTA for c in _XML_DA_NOTA},
+    **{("NFRECEBIDAS", c): _TEXTO_NOTA for c in _TEXTO_DA_NOTA},
+    **{("CUPONSFISCAIS", c): _XML_NOTA
+       for c in ("XML", "XMLRETORNO", "XMLRETORNOCANCELAMENTO", "PRODUTOSJSON")},
+}
+
+# (tabela, coluna, tipo, motivo) do que ficou de fora NESTA execucao.
+OMITIDAS = []
+
 
 def sqlplus(sql):
     """Roda SQL no Oracle e devolve o stdout.
@@ -284,15 +350,46 @@ def colunas(tabela):
         if not nome or " " in nome:
             continue
         base = tipo.split("(")[0].strip()
-        if base in IGNORA or nome in IGNORA_COLUNAS:
-            raise RuntimeError(
-                f"{tabela}.{nome} ({base}) nao possui transporte fiel; "
-                "recusado em vez de omitir dado bruto"
-            )
+        declarada = (tabela, nome) in OMISSOES_DECLARADAS
+        if declarada or base in IGNORA or nome in IGNORA_COLUNAS:
+            motivo = OMISSOES_DECLARADAS.get((tabela, nome))
+            if motivo is None:
+                raise RuntimeError(
+                    f"{tabela}.{nome} ({base}) nao possui transporte fiel; "
+                    "recusado em vez de omitir dado bruto. Se a omissao for "
+                    "uma decisao, declare-a em OMISSOES_DECLARADAS com o motivo"
+                )
+            if (tabela, nome, base, motivo) not in OMITIDAS:
+                OMITIDAS.append((tabela, nome, base, motivo))
+            continue
+        if base in ("CLOB", "NCLOB"):
+            # Texto longo so viaja se couber INTEIRO. A medida e do dado real,
+            # coluna a coluna, antes de transportar: nada e cortado por
+            # suposicao.
+            maior = maior_clob(tabela, nome)
+            if maior > CLOB_MAX_CHARS:
+                raise RuntimeError(
+                    f"{tabela}.{nome} ({base}) tem valor de {maior} caracteres; "
+                    f"o transporte por sqlplus leva ate {CLOB_MAX_CHARS} sem "
+                    "cortar. Recusado em vez de truncar: declare a omissao em "
+                    "OMISSOES_DECLARADAS ou transporte o LOB por outro meio"
+                )
         pg = "timestamp" if base.startswith("TIMESTAMP") else TIPOS.get(base)
         if pg:
             cols.append((nome, pg, base))
     return cols
+
+
+def maior_clob(tabela, coluna):
+    """Maior tamanho, em caracteres, gravado numa coluna CLOB. -1 se nao mediu."""
+    out = sqlplus(
+        f'SELECT NVL(MAX(DBMS_LOB.GETLENGTH("{coluna}")),0) FROM {tabela};\nEXIT;\n'
+    )
+    for linha in out.splitlines():
+        if linha.strip().isdigit():
+            return int(linha.strip())
+    # Sem medida nao ha como afirmar que cabe: o chamador recusa.
+    return CLOB_MAX_CHARS + 1
 
 
 def expr(nome, base):
@@ -300,9 +397,16 @@ def expr(nome, base):
     nome = f'"{nome}"'  # aspas: ha colunas com nome reservado (PASSWORD, ...)
     if base == "DATE" or base.startswith("TIMESTAMP"):
         txt = f"TO_CHAR({nome},'YYYY-MM-DD HH24:MI:SS')"
-    elif base in ("CLOB", "NCLOB", "LONG"):
+    elif base in ("CLOB", "NCLOB"):
+        # So chega aqui a coluna que `colunas()` MEDIU e viu caber inteira
+        # (ate CLOB_MAX_CHARS). O SUBSTR converte para VARCHAR2 — sem ele a
+        # concatenacao da linha nao aceita CLOB. Se o valor for multibyte a
+        # ponto de passar dos 4000 BYTES, o Oracle falha alto (ORA-06502) e a
+        # tabela e recusada pela reconciliacao; nada e cortado em silencio.
+        txt = f"DBMS_LOB.SUBSTR({nome}, 4000, 1)"
+    elif base == "LONG":
         raise RuntimeError(
-            f"Coluna {nome} e {base}; o transporte sqlplus atual nao preserva LOB integral"
+            f"Coluna {nome} e LONG; o transporte sqlplus atual nao preserva LOB integral"
         )
     elif base in ("NUMBER", "FLOAT", "BINARY_FLOAT", "BINARY_DOUBLE"):
         # TM9 evita notacao cientifica e o '.5' sem zero a esquerda
@@ -470,6 +574,14 @@ def main():
             pg.commit()
 
     print(f"\nTotal espelhado: {total} linhas")
+
+    # Sempre impresso, inclusive quando tudo deu certo: a omissao declarada so
+    # e aceitavel se quem roda o espelho a VE.
+    if OMITIDAS:
+        print(f"\nColunas NAO transportadas (omissao declarada): {len(OMITIDAS)}")
+        print("O dado permanece no Oracle de origem.")
+        for tabela, coluna, tipo, motivo in OMITIDAS:
+            print(f"  {tabela}.{coluna} ({tipo}) - {motivo}")
     if falhas:
         print("Falharam: " + ", ".join(falhas), file=sys.stderr)
         return 1

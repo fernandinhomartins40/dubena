@@ -58,6 +58,60 @@ abertas — `uCom = 'UN'` fixo no `XmlNfeBuilder`, conciliação de frota só na
 relatório por canal sem tela, `Setor::scopeArmazens()` sem chamador, três
 catálogos de cidade e duas tabelas de veículo.
 
+## Atualização 2026-10-10 (5) — enforcement ligado na homologação e o espelho destravado
+
+Decisões do dono nesta data: omissão declarada no espelho; ligar o enforcement
+agora; manter o Oracle temporário até concluir.
+
+### `SAAS_ENFORCE_TENANT_ENVELOPE=true` na homologação
+
+- Acrescentado ao `/opt/dubena-env/erp-novo-homolog.env` (backup em
+  `/root/dubena-ops/erp-novo-homolog.env.bak-20261010-195703`) e recriados só
+  `app`, `queue`, `scheduler` e `reverb`, com as mesmas imagens por digest.
+  Banco e Redis não foram tocados. Config efetiva conferida:
+  `{"tenant_envelope":true,"licenca":false}`.
+- Login do dono e sete rotas (`/api/me`, empresas, produtos, clientes, lookup
+  de setores, saldos, pedidos): HTTP 200 antes e depois. `golive:check` 0
+  falhas, portão F1 exit 0, `notify:alertas` enfileirou 7 jobs e `failed_jobs`
+  segue em zero — os jobs rodaram com o envelope da identidade de automação.
+- ⚠️ O que isto NÃO prova: que o usuário enxerga os dados DELE com a flag
+  ligada. As listas voltam vazias nos dois estados porque o banco não tem
+  cliente, produto nem pedido. Só a carga mostra.
+- `/api/admin/empresas` devolve 1 item para o dono da rede, que tem grant em 7.
+  Não investigado: pode ser a listagem mostrando só a empresa ativa.
+
+### O espelho do Oracle, destravado
+
+A recusa era mais larga do que eu tinha registrado: além de BLOB e das colunas
+de XML, o script recusava **todo** CLOB ("o transporte sqlplus atual não
+preserva LOB integral") — inclusive `PEDIDOS.ENTREGAPONTOREFERENCIA`, 194 mil
+pontos de referência de entrega com no máximo 99 caracteres.
+
+- **Omissão declarada** (`OMISSOES_DECLARADAS`): cada coluna que fica de fora
+  consta por nome, com o motivo, e o espelho imprime a lista ao final de toda
+  execução. Coluna binária ou de XML fora da lista continua recusando a
+  tabela. O dado permanece no Oracle. Declaradas, todas levantadas no dump
+  real: logotipo (`LOGOIMG` em BLOB e `LOGO` em base64) de `EMPRESAS` e
+  `EMPRESAS_GRUPOS`; `USERS.FOTO`; os XML e textos longos de `NFEMITIDAS`,
+  `NFRECEBIDAS` e `CUPONSFISCAIS`; `NFEMITIDACARTACORRECAOS.XMLRETORNOEVENTO`.
+- **CLOB que cabe inteiro passa a viajar.** Antes de transportar, o espelho
+  MEDE o maior valor gravado na coluna; até 2.000 caracteres vai inteiro, acima
+  disso recusa. Medido: fora as declaradas, o maior CLOB das tabelas do mapa
+  tem 1.137 caracteres. Não é corte por suposição — e se um valor multibyte
+  passar dos 4.000 bytes o Oracle falha alto e a reconciliação recusa a tabela.
+- `EMPRESAS.CERTIFICADODIGITAL` está vazio nas 7 empresas do dump: o A1 não
+  vem pelo legado, é upload novo (já era pendência externa).
+- ⚠️ O que continua sem solução: transportar de fato os XML das notas (6 GB)
+  e os logotipos. É a área de staging de F7-03. O ensaio deixa de estar
+  bloqueado por isso, mas a nota migrada não carrega o XML autorizado.
+
+### Infraestrutura temporária na VPS (remover ao concluir)
+
+`dubena-ora` (Oracle XE 11, sem porta publicada, 2 CPUs / 4 GB, 12 GB de
+disco), `/root/dubena-ops/dumps` (8,5 GB) e a imagem `python:3.12-slim`. Para
+remover: `docker rm -f dubena-ora && docker rmi gvenzl/oracle-xe:11 && rm -rf
+/root/dubena-ops/dumps`.
+
 ## Atualização 2026-10-10 (4) — identidade de automação, e o espelho do Oracle que se recusa a rodar
 
 ### Identidade de automação (decisão do dono em 10/10)
