@@ -129,8 +129,27 @@ homologação: conferido pela imagem dos contêineres `erpnovo-*`.
 
 ### Verificação
 
-Suíte do backend e da SPA: ver o commit. O gate PostgreSQL/RLS das duas
-tabelas novas só roda no CI.
+Local: 1902 testes verdes / 16 pulados; SPA 119 verdes. Com a trava removida
+de propósito, 4 testes falham.
+
+Na homologação, depois do deploy de `5ec59664` (CI verde, inclusive o gate
+PostgreSQL/RLS):
+
+- `golive:check`: "Empresas cadastradas (7)" — era (0). 0 falhas, 4 avisos
+  (drivers fake e ambiente não-produção).
+- `saas:licenca:status`: **exit 1**, "SEM assinatura (7)" — era SUCCESS com
+  "nenhuma empresa". Agora reprova pelo motivo certo.
+- Migration `2026_10_10_000100_inventario_fiscal` aplicada; as duas tabelas com
+  RLS ativa e forçada, uma policy cada, e grants de escrita para `erp_app`.
+- **O portão F1 continua exit 1, por outro motivo — e este é legítimo.** A
+  tabela de backup saiu da lista; o que resta são as 37 tabelas de
+  configuração por grupo sem policy canônica. No banco de agosto isso tinha
+  sido resolvido com `saas:tenant:proteger-configuracao-grupo --apply`; o
+  banco reinstalado nunca recebeu esse passo. O preview hoje diz
+  `ready:true` com `rows:0` — está pronto porque as tabelas estão VAZIAS.
+  ⚠️ Não aplicado: é escrita em homologação (aguarda o dono), e a ordem
+  importa — em agosto o protetor rodou DEPOIS da carga, com as linhas já
+  ligadas ao tenant. Rodar antes e carregar depois não foi ensaiado.
 
 ## Atualização 2026-10-10 — o módulo de estoque da SPA não gravava, e três pendências de tela
 
