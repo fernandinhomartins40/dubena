@@ -58,6 +58,73 @@ abertas — `uCom = 'UN'` fixo no `XmlNfeBuilder`, conciliação de frota só na
 relatório por canal sem tela, `Setor::scopeArmazens()` sem chamador, três
 catálogos de cidade e duas tabelas de veículo.
 
+## Atualização 2026-10-10 (3) — portão F1 verde, licença assinada, e o agendador que não faz nada
+
+Escritas na homologação, todas autorizadas pelo dono nesta data. Retrato
+anterior em `/root/dubena-ops/` na VPS: `f1-pre-apply-20261010-160025.json`
+(fronteira) e `policies-pre-apply-20261010-160025.txt` (199 policies).
+
+- **Portão F1: exit 0.** `saas:tenant:proteger-configuracao-grupo --apply`
+  instalou a policy canônica nas 37 tabelas de configuração por grupo
+  (`{"tables":37,"rows":0}` — estavam vazias). ⚠️ Carregar dados DEPOIS, sob
+  essas policies, é caminho não ensaiado: em agosto a ordem foi a inversa. É o
+  primeiro ponto a observar no dry-run da carga.
+- **Licença:** `PlanosSeeder` rodado (essencial, completo, legacy-full) e as 7
+  empresas assinadas em `legacy-full`, com 7 linhas `assinatura.criada` na
+  trilha de plataforma. `saas:licenca:status` em exit 0. A flag
+  `SAAS_ENFORCE_LICENCA` continua `false`.
+- **Mais três comandos cegos sob RLS**, achados ao executar: `saas:legacy-full`
+  respondia "todas já têm assinatura" com zero assinaturas; `estoque:conferir`
+  e `financeiro:conferir` — os dois PORTÕES de F4 e F5 — liam zero linhas e
+  aprovavam. Corrigidos (`d4d9c499`) e conferidos lá: os dois agora dizem "7
+  empresa(s) conferida(s)". Ainda não provam muito — o banco não tem movimento.
+- `DB_CONNECTION=pgsql_owner` na linha de comando **não vale** no contêiner
+  (config em cache). A nota de 09/10 que mandava rodar seeder assim estava
+  errada na prática: o `PlanosSeeder` rodou como `erp_app` e funcionou porque
+  `planos` é tabela de plataforma.
+
+### ⚠️ ACHADO SEM CORREÇÃO: as rotinas agendadas não fazem nada
+
+Conferido por SQL na homologação: como `erp_app` sem contexto,
+`select count(*) from empresas` devolve **0**. Os comandos agendados listam as
+empresas exatamente assim (`Empresa::query()->where('ativo', true)`) e não
+definem contexto de banco para o que vem depois:
+
+| Comando | Frequência | Efeito hoje |
+|---|---|---|
+| `monitora:sync-positions` | 30 s | nenhuma posição de GPS ingerida |
+| `logistica:gerar-missoes` | 10 min | nenhuma missão gerada |
+| `comodato:vigiar --aplicar` | semanal | nenhum contrato vigiado |
+| `fiscal:certificado-vigilancia` | diário | nenhum certificado conferido |
+| `notify:alertas` | diário | nenhum alerta |
+
+O agendador registra `DONE` em todas. Não há erro, log nem métrica: é o tipo de
+defeito que só aparece semanas depois, como "o rastreamento parou".
+
+Não corrigi porque a correção é uma decisão de segurança, não um ajuste: em
+nome de QUEM o cron lê e grava dado de cada revenda. A pendência está
+registrada desde 27/08 (F1, "a identidade de automação e seus grants continuam
+uma decisão explícita do próximo recorte") e nunca foi tomada. As saídas
+possíveis: (a) o cron lista as empresas pela conexão de owner e aplica o
+contexto de cada uma antes de trabalhar, como `TenantAwareJob` faz para job; ou
+(b) uma identidade de automação com membership e grants explícitos por tenant.
+A (a) é pequena e mantém a RLS valendo dentro de cada iteração; a (b) é o
+desenho que o plano pede e exige definir quem concede esses grants.
+
+Não verificado: se `financeiro:notificar-vencidos`, `vendas:diaria`,
+`pix:expirar` e `notify:inconsistencias` têm o mesmo problema.
+
+### Carga dos dados reais — bloqueada por ambiente
+
+O dump (`ctrl2qti.DO.2026-08-12.dmp`, Data Pump do Oracle XE 11.2, 7,6 GB) está
+em `Downloads\BACKUP NOTEBOOK\...\Banco Dubena\DBDubena\` nesta máquina. O
+procedimento de `MIGRACAO_DADOS_LEGADOS.md` restaura num contêiner
+`gvenzl/oracle-xe:11` e espelha para PostgreSQL com
+`database/etl/espelhar_oracle.py` — exige Docker e Python, e esta máquina não
+tem nenhum dos dois funcionando (WSL não registrado). A VPS tem folga (133 GB
+livres, ~9 GB de RAM disponível, carga ~1 em 4 núcleos), mas é compartilhada
+com dezenas de contêineres de outras aplicações. Aguarda decisão do dono.
+
 ## Atualização 2026-10-10 (2) — trava de período, inventário fiscal e três portões cegos
 
 O commit `c216eea8` passou no CI (inclusive o gate PostgreSQL/RLS) e está na

@@ -289,6 +289,21 @@ de toda revenda, e gravar linha de OUTRA segue barrado. Aconteceu em produção 
 `integracao_consumos`, na tabela criada exatamente para enxergar esse caso — e
 não acusou porque o registrador engole exceção e a suíte roda em sqlite.
 
+**Comando de console lê ZERO linhas sob RLS — e portão que não enxerga aprova.**
+O console roda como `erp_app`, sem envelope de tenant: `Empresa::query()`,
+`TenantCompany::query()` e qualquer tabela de empresa devolvem vazio num banco
+cheio (`withoutGlobalScopes()` não ajuda, a barreira é do Postgres). Em 10/10
+cinco comandos faziam isso na homologação: `golive:check` ("0 empresas"),
+`saas:licenca:status` e `saas:legacy-full` ("nada a fazer", com SUCCESS), e os
+portões `estoque:conferir` e `financeiro:conferir`. Conferência que precisa ver
+todas as empresas usa o trait `EnxergaAtravesDaRls`. Sqlite não tem RLS: só a
+execução no banco real prova.
+
+**`DB_CONNECTION=pgsql_owner php artisan ...` não funciona no contêiner.** A
+imagem roda com `config:cache`, e a variável de ambiente é ignorada sem erro —
+o comando segue como `erp_app`. Use `--database=`/`--connection=` quando o
+comando oferece, ou a conexão de owner no próprio código.
+
 **Antes de revogar escrita numa tabela, confira qual role escreve nela.**
 `DB::table(...)` usa a conexão **default**, que é `erp_app` — só as *migrations*
 rodam como `pgsql_owner`. Quase revoguei a escrita das `conversao_*` alegando que
