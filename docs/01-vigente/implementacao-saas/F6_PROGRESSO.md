@@ -6,13 +6,13 @@ Data: 2026-08-31 (America/Sao_Paulo)
 
 | Tarefa | Estado | Onde |
 |---|---|---|
-| F6-01 — IntegrationAccount | **parcial** | circuito por credencial; quota/custo em aberto |
+| F6-01 — IntegrationAccount | fechada (01/09) | circuito por credencial; quota, custo, finalidade e health em `integracao_consumos` — commit `95a63fca` |
 | F6-02 — Frota/rastreador | fechada | quarentena registrada no `TraccarDriver` |
 | F6-03 — Geocodificação | **já estava** | chave por grupo, falha observável, retry real |
 | F6-03A — Casos geográficos | fechada | `GeometriaPontoUnicoTest` |
 | F6-04 — Logística | fechada | `Geo` único + defeito da `boundingBox` |
 | F6-05 — Marketplace | fechada | cobertura independente do canal |
-| F6-06 — Autoria | aberta | |
+| F6-06 — Autoria | fechada (31/08) | atribuição automática guarda a regra e os parâmetros — commit `1079e6d1` |
 | F6-06A — Dados legados | fechada | normalizador canônico + `identidade:reparar` |
 | F6-07 — Tempo real | fechada | `TempoRealCruzadoTest` |
 | F6-08 — Falhas | fechada | `INDETERMINADO` ≠ recusa |
@@ -99,3 +99,14 @@ que não exige ação imediata treina quem opera a ignorar erros.
 
 **F6-01** (quota, custo, finalidade e health por conta de integração) e **F6-06**
 (autoria de atribuição, missão, vale, convênio e telefonia).
+
+> ⚠️ **Seção superada, anotada em 2026-10-10.** As duas tarefas foram entregues
+> depois que este documento foi escrito e ele não foi atualizado: F6-01 em
+> `95a63fca` (01/09, migration `2026_09_01_000100_consumo_de_integracao_por_dono`)
+> e F6-06 em `1079e6d1` (31/08, migration
+> `2026_08_31_001600_atribuicao_guarda_a_regra_que_decidiu`). A tabela do topo
+> foi corrigida.
+>
+> Ressalva sobre F6-06: o commit trata da **atribuição** e afirma que a autoria
+> humana já estava resolvida em `pedido_atribuicoes`. Missão, vale, convênio e
+> telefonia, citados acima, **não foram reconferidos** nesta revisão.

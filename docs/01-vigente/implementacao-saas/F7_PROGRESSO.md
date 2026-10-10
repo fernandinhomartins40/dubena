@@ -7,8 +7,8 @@ Data: 2026-08-31 (America/Sao_Paulo)
 | Tarefa | Estado | Onde |
 |---|---|---|
 | F7-01 — Entidades | **parcial (3 de 8)** | `conversao_execucoes`, `conversao_linhagem`, `conversao_quarentena` |
-| F7-02 — Estados | parcial | `EM_ANDAMENTO`/`CONCLUIDA`/`FALHOU`/`INTERROMPIDA`; sem CAS |
-| F7-03 — Snapshot | **aberta** | exige área de staging que este ETL não usa |
+| F7-02 — Estados | fechada (01/09) | máquina de estados com enum e CAS — commit `cf603e76` |
+| F7-03 — Snapshot | **parcial (5 de 7)** | `conversao:snapshot --comparar` — commit `9c8125f3`; LOB integral e "carga nova não derruba a boa" exigem staging |
 | F7-04 — Registry | **já estava** | ordenação topológica; migrador desconhecido falha |
 | F7-04A — Progresso | fechada | lista vazia nunca produz sucesso |
 | F7-05 — Contexto | **já estava** | mapa tenant/empresa governa; ver F1 |
@@ -18,8 +18,14 @@ Data: 2026-08-31 (America/Sao_Paulo)
 | F7-09 — Exclusão mútua | fechada | lock por destino, liberado em `finally` |
 | F7-10 — Invariantes | fechada | `INCONCLUSIVA` — fonte ausente não é aprovação |
 | F7-11 — Seed | fechada | senha do ambiente; fixture recusa produção |
-| F7-12 — Cutover | **aberta** | runbook com RTO/RPO é artefato de operação |
-| F7-13 — Evidência | **aberta** | matéria-prima existe; falta formato e quem assina |
+| F7-12 — Cutover | **parcial** | pós-check entregue (`cutover:pos-check`, commit `e38ad3b4`); runbook com RTO/RPO é artefato de operação |
+| F7-13 — Evidência | fechada (01/09) | bundle com SHA-256 — `conversao:evidencia`, commit `9c8125f3` |
+
+> ⚠️ **Tabela corrigida em 2026-10-10.** Ela marcava F7-02 "parcial, sem CAS",
+> F7-03 "aberta", F7-12 "aberta" e F7-13 "aberta" — o estado de 31/08. As
+> seções abaixo já descreviam as entregas de 01/09, mas a tabela, que é o que se
+> lê primeiro, ficou para trás. Conferido no código: os comandos
+> `conversao:snapshot`, `conversao:evidencia` e `cutover:pos-check` existem.
 
 ## O que o ETL já tinha, e é bastante
 

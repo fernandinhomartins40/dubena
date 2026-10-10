@@ -437,7 +437,7 @@ não autentica — não caia para um default da plataforma.
 ```bash
 cd erp-novo
 
-php artisan test                      # 1720 testes
+php artisan test                      # 1873 testes, ~15 min
 php artisan api:manifest              # após criar/alterar rota
 cd frontend && npx tsc --noEmit       # typecheck da SPA
 
@@ -471,14 +471,18 @@ php artisan etl:run --dry-run         # simula a migração, não grava
 
 | | |
 |---|---|
-| Testes (backend) | **1720 verdes** |
-| Testes (SPA) | **47 verdes** |
-| Invariantes do ETL | **71 OK / 0 falhas** |
-| Endpoints | 600 |
-| Domínios / controllers admin | 26 / 49 |
-| Migrations | 162 |
-| Policies RLS | 154 |
-| Ambiente na VPS | **homologação** (produção é o cutover) |
+| Testes (backend) | **1873 verdes**, 16 pulados (os de PostgreSQL/RLS, que só rodam no CI) — sqlite, 2026-10-10 |
+| Testes (SPA) | **115 verdes** — 2026-10-10 |
+| Invariantes do ETL | **71 OK / 0 falhas** (medido no banco de agosto, que não existe mais) |
+| Endpoints | 604 |
+| Domínios / controllers admin | 34 / 59 |
+| Migrations | 169 |
+| Policies RLS | 154 (não reconferido) |
+| Ambiente na VPS | **homologação**, reinstalada em 14/09 — só a identidade foi restaurada |
+
+Testes, endpoints, domínios, controllers e migrations medidos em 2026-10-10.
+Invariantes do ETL e policies **não** foram remedidas nesse dia (sem Postgres
+local): são o último valor registrado, não uma execução recente.
 
 ⚠️ **O objetivo mudou de escopo.** O alvo não é mais só virar o cutover da
 Dubena, e sim **transformar isto num SaaS para N revendas**. O plano é

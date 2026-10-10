@@ -8,14 +8,112 @@
 dados reais; F9 fechada; F10 depende de um segundo cliente. Enumeração tarefa a
 tarefa em `ESTADO_DAS_106_TAREFAS.md` (a fonte para "o que falta").  
 **Pendência externa herdada:** F0-03 — rotação/revogação externa de segredos  
-**Última atualização:** 2026-10-09 (America/Sao_Paulo)
+**Última atualização:** 2026-10-10 (America/Sao_Paulo)
 
 > ⚠️ **Este arquivo é diário, não sumário.** As seções abaixo são cronológicas
 > e as mais antigas descrevem estados superados (ex.: "F2 em andamento",
 > "próximo passo: iniciar F5" — ambas já concluídas). Leia o topo e o
 > `ESTADO_DAS_106_TAREFAS.md`; o resto é registro de *como* se chegou aqui.
 
+## Correção de registro 2026-10-10 — o diário conferido contra o código
+
+Conferência por leitura e `grep` do repositório no commit `40d471e6`. **Não** foi
+rodada a suíte (Docker parado, sem `php` no shell) nem consultada a VPS: o que
+está abaixo é o que o código diz, não o que a homologação faz.
+
+O que este arquivo afirmava e o código desmente:
+
+- **`tenant.saas` "fora das rotas"** (aviso que ficava no topo): falso. O
+  middleware está nos três grupos autenticados de `routes/api.php` (linhas 128,
+  942 e 963). A correção já constava na entrada de 29/08 (F1-17), mas o aviso
+  do topo nunca foi atualizado e continuava sendo a primeira coisa lida.
+- **"Último commit `a3e9c55b`" / deploy `queued`** (checkpoint de 09/10): era
+  verdade de manhã. No mesmo dia entraram sete commits, e o workflow único
+  `.github/workflows/erp-novo.yml` passou a fazer build no GitHub e deploy por
+  SSH, sem runner na VPS. Se o deploy de `40d471e6` rodou não foi conferido.
+- **"Próximo passo SaaS: iniciar F5"** (entrada de 11/09): F5 a F9 já tinham
+  sido executadas em 31/08 e 01/09. A entrada foi escrita pela frente de UI sem
+  reler o estado das fases.
+- **"Acerto não tem tela na SPA"** (entrada de 09/10): tem —
+  `frontend/src/features/estoque/tabs/AcertoTab.tsx`. O que falta nele é a
+  `Idempotency-Key`. Entrada e saída manuais é que não têm tela.
+
+O que falta neste arquivo:
+
+- **Nenhuma entrada para F5, F6, F7 e F9.** O diário pula de "F4 fechada"
+  (31/08) para a landing (11/09). O registro dessas fases está só em
+  `F5_FECHAMENTO.md`, `F6_PROGRESSO.md`, `F7_PROGRESSO.md`, `F9_PROGRESSO.md` e
+  `ESTADO_DAS_106_TAREFAS.md`. O commit `0064ff07` (F1-10, titularidade que não
+  chegava na RLS, 01/09) também não tem entrada aqui.
+- **Os números de fronteira mudaram de banco.** As entradas de agosto falam em
+  11 empresas, 81 memberships e 152 grants; a restauração de 09/10 registra 7
+  empresas, 56 memberships e 106 grants. São dois bancos diferentes — o de
+  agosto não existe mais. A diferença de 11 para 7 empresas não foi investigada.
+
+O que foi conferido e bate: os 15 comandos artisan citados no diário existem; os
+defaults das flags são `SAAS_FREEZE_MIGRATION_WRITES=true`,
+`SAAS_ENFORCE_TENANT_ENVELOPE=false` e `SAAS_ENFORCE_LICENCA=false` (o valor
+efetivo na VPS não foi visto); e as pendências de código registradas seguem
+abertas — `uCom = 'UN'` fixo no `XmlNfeBuilder`, conciliação de frota só na API,
+relatório por canal sem tela, `Setor::scopeArmazens()` sem chamador, três
+catálogos de cidade e duas tabelas de veículo.
+
+## Atualização 2026-10-10 — o módulo de estoque da SPA não gravava, e três pendências de tela
+
+Conferido por SSH (somente leitura): os contêineres `erpnovo-*` da VPS rodam a
+imagem do commit `40d471e6`. O deploy novo, por SSH e sem runner, funciona.
+
+- **ACHADO: cinco das sete abas de Estoque não conseguiam gravar.** A
+  transferência tinha sido consertada em 09/10; o mesmo defeito estava em
+  Acerto, Requisição, Inventário, Físico e Fechamento. As telas enviavam os
+  nomes do ERP antigo (`movimentacao`, `observacoes`, `datacompetencia`,
+  `quantidadefisica`, `datahorafechamento`) e o `EstoqueController` respondia
+  422 a todas. As listas liam colunas que não existem (`datahora`,
+  `cancelado`, `efetivado`, `reaberto`) e saíam vazias. Nenhum teste acusava:
+  os da SPA só cobriam a leitura, e os do backend usam os nomes certos.
+- Correção, alinhando a SPA ao contrato que o backend já testava:
+  - **Acerto** virou o lançamento manual que a tela sempre desenhou (entrada ou
+    saída + motivo), indo para `/estoque/entrada` e `/estoque/saida` com
+    `Idempotency-Key`. Ia para `/estoque/acerto`, que ajusta o saldo para uma
+    quantidade CONTADA — outra operação. O motivo, que a tela pedia e ninguém
+    guardava, vai para a trilha de auditoria (`lancamento_manual`). O seletor
+    de setor da entrada usa `/lookups/setores?armazens=1` (F3-06).
+  - **Requisição** passou ao modelo do servidor (um produto, origem opcional,
+    destino). Faltava a porta de atender depois:
+    `POST /estoque/requisicoes/{id}/atender`. Sem ela, requisição criada sem
+    "atender agora" ficava pendente para sempre.
+  - **Físico** deixou de pedir a "quantidade do sistema": o servidor a lê do
+    ledger na efetivação. Digitada, estaria velha quando alguém aprovasse.
+  - **Fechamento** passou a ser por setor × produto, como o servidor registra.
+  - Listas com nome de setor e produto, não ids.
+- **REMOVIDO, e é decisão a confirmar com o dono:** a aba "Inventário
+  (valoração)" e o botão "Reabrir período". A primeira postava no mesmo
+  endpoint do Físico com campos de valoração (`valorunitario`, `mesentrega`)
+  que o backend não tem; o segundo chamava `/estoque/fechamentos/abrir`, que
+  apesar do nome CRIA um fechamento. Nenhum dos dois jamais funcionou no
+  sistema novo. Se o inventário de valoração do legado for necessário (o
+  `IMPL_ESTOQUE.md` o lista), é funcionalidade a construir, não a consertar.
+- **F3-09:** a conciliação de frota ganhou tela (Monitora → Conciliação). O
+  diário dizia "a tela de veículos rastreados não existe"; a página Monitora
+  existe, faltava a aba. Vincula só por clique, mesmo com um único candidato.
+- **F3-05:** relatório "Vendas por canal" (`/relatorios/vendas-canal`), com
+  ticket médio e participação. "Origem não registrada" aparece com a sua fatia.
+  A lista de relatórios da SPA é fixa em `relatorios/api.ts`, não vem do
+  catálogo — relatório novo no backend não aparece sozinho.
+- **NÃO FEITO, de propósito:** filtro de lookup de pessoas por papel (F3-01).
+  Nenhum seletor da SPA pede "só fornecedores" hoje; seria filtro sem
+  consumidor.
+- ABERTO: `/estoque/acerto` e `/estoque/fechamentos/abrir` ficaram sem
+  consumidor na SPA (não removidos: o manifesto é contrato). A trava de período
+  fechado não existe — fechamento é registro, não bloqueia movimento.
+- Ambiente: esta máquina não tinha PHP, `vendor/` nem `node_modules/`, e o
+  Docker Desktop não sobe (WSL não registrado). A suíte rodou com PHP 8.3
+  portátil (winget) em sqlite. **O gate PostgreSQL/RLS não foi rodado
+  localmente** — fica para o CI.
+
 ## Checkpoint 2026-10-09 — retomada após quatro semanas paradas
+
+> ⚠️ Superado no mesmo dia: ver a correção de registro de 10/10 acima.
 
 - Último commit: `a3e9c55b` (14/09, otimização de CPU da VPS — ver
   `../OTIMIZACAO_CPU_STATUS.md`). CI verde; **o deploy dele nunca rodou**: o job
@@ -38,9 +136,12 @@ tarefa em `ESTADO_DAS_106_TAREFAS.md` (a fonte para "o que falta").
   `SAAS_FREEZE_MIGRATION_WRITES` para o ensaio F8; (2) homologação fiscal F5-09
   com contador; (3) runbook F7-12 com responsáveis; (4) um segundo cliente (F10).
 
-> ⚠️ `tenant.saas` continua **fora das rotas** e `SAAS_ENFORCE_TENANT_ENVELOPE`
-> segue `false`. F1 entrega a fronteira **provada**; ligar o enforcement é
-> decisão de cutover, não consequência automática do gate.
+> ⚠️ **Aviso reescrito em 10/10.** Aqui se lia que `tenant.saas` continuava
+> "fora das rotas". Era falso desde antes de 29/08: o middleware está em todas
+> as rotas `auth:sanctum`. O que continua valendo é a segunda metade — o
+> default de `SAAS_ENFORCE_TENANT_ENVELOPE` é `false`, e ligar o enforcement é
+> decisão de cutover, não consequência automática do gate F1. O valor efetivo
+> na homologação reinstalada precisa ser conferido na VPS.
 
 ## Referências obrigatórias
 
@@ -1838,6 +1939,8 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
 - Próximo passo SaaS: iniciar F5 pelo microlote financeiro/fiscal compatível com
   as dependências, retomando a releitura obrigatória e sem tratar o trabalho UI
   como substituto dos gates de domínio.
+  ⚠️ **Errado, anotado em 10/10:** F5 a F9 já estavam executadas desde 31/08 e
+  01/09 (ver `ESTADO_DAS_106_TAREFAS.md`). Não há F5 a iniciar.
 
 ## Atualizacao de retomada - 2026-10-09 (F4-01 revisitada: idempotencia sob concorrencia)
 
@@ -1886,6 +1989,10 @@ F0-05.07/08: PostgreSQL real com role runtime aprovou 6 testes/346 assertions e 
   gate RLS com a role `erp_app` 14 testes/374 assertions sem skip.
 - ABERTO, registrado: entrada/saida manuais e acerto nao tem tela na SPA, entao
   ficam sem chave do cliente por ora.
+  ⚠️ **Corrigido em 10/10:** o acerto TEM tela (`estoque/tabs/AcertoTab.tsx`);
+  afirmei a ausencia sem abrir a pasta. O que falta nele e enviar a
+  `Idempotency-Key`, como a transferencia ja faz. Entrada e saida manuais
+  seguem sem tela.
 
 ## Atualizacao de retomada - 2026-10-09 (acesso da rede Dubena restaurado na homologacao)
 

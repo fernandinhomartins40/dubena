@@ -117,7 +117,7 @@ Rodei cada um, e não confiei no documento:
 | Jobs | `TenantEnvelopeRuntimeTest` + `JobsTratamentoFalhaTest` — 12 testes | passa |
 | API | `TrocaAdversarialDeIdsTest` — varre rotas e exige mapeamento explícito | passa |
 | RBAC/licença | 85 testes de licença/permissão/manifesto | passa |
-| SPA | `cache-isolamento.test.ts`; parte de navegador exige Playwright | parcial |
+| SPA | `cache-isolamento.test.ts` + os cenários de navegador em vitest/jsdom (F9-08) | passa — esta linha dizia "exige Playwright, parcial" e contradizia a correção do topo deste mesmo documento; corrigida em 2026-10-10, sem reexecutar a suíte |
 | Segredos | `GatesTransversaisTest` + `SeedSemSenhaConhecidaTest` | passa |
 | Drivers | `FakesBloqueadosEmProducaoTest` | passa |
 | Domínio | `EscritaCanonicaTest` | passa |

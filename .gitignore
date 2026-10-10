@@ -69,3 +69,6 @@ legado-*/android/app/debug.keystore*
 # poluiria o diff. O que precisa ficar disponível já está destilado no
 # CLAUDE.md (`node scripts/graph-map.js --write`).
 graphify-out/
+
+# Permissoes locais do Claude Code (por maquina; nao versionar)
+.claude/settings.local.json
