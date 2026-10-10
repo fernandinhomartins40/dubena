@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Domain\Saas\AuditoriaPlataforma;
 use App\Domain\Saas\LicencaService;
 use App\Models\Empresa;
@@ -40,7 +41,18 @@ class SaasLegacyFull extends Command
 
     protected $description = 'Assina em Legacy Full as empresas que já operavam e ainda não têm assinatura (F2-04).';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(AuditoriaPlataforma $auditoria, LicencaService $licenca): int
+    {
+        // Pela conexão de owner. Pelo runtime (`erp_app`, sob RLS e sem
+        // envelope) a consulta lia zero empresas e o comando respondia "todas
+        // já têm assinatura" num banco sem assinatura nenhuma — medido na
+        // homologação em 10/10/2026, com 7 empresas aprovadas.
+        return $this->comoOwner(fn () => $this->assinar($auditoria, $licenca));
+    }
+
+    private function assinar(AuditoriaPlataforma $auditoria, LicencaService $licenca): int
     {
         $plano = Plano::query()->where('slug', Plano::SLUG_LEGADO)->first();
 

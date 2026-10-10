@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Domain\Financeiro\ReconciliacaoFinanceira;
 use App\Models\Empresa;
 use Illuminate\Console\Command;
@@ -27,7 +28,16 @@ class FinanceiroConferir extends Command
 
     protected $description = 'Confere as invariantes financeiras por empresa e período (F5-10). Não altera nada.';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(ReconciliacaoFinanceira $reconciliacao): int
+    {
+        // Pela conexão de owner, pela mesma razão do `estoque:conferir`: é
+        // portão, e sob RLS o runtime lê zero linhas e aprova qualquer banco.
+        return $this->comoOwner(fn () => $this->conferir($reconciliacao));
+    }
+
+    private function conferir(ReconciliacaoFinanceira $reconciliacao): int
     {
         $inicio = (string) ($this->option('inicio') ?: now()->startOfMonth()->toDateString());
         $fim = (string) ($this->option('fim') ?: now()->toDateString());

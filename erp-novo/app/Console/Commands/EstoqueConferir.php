@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Domain\Estoque\ConferenciaDeSaldo;
 use App\Domain\Satelite\ConferenciaDeCustodia;
 use App\Models\Empresa;
@@ -25,7 +26,17 @@ class EstoqueConferir extends Command
 
     protected $description = 'Compara o saldo projetado com a soma do ledger (F4-02). Não altera nada.';
 
+    use EnxergaAtravesDaRls;
+
     public function handle(ConferenciaDeSaldo $conferencia, ConferenciaDeCustodia $custodia): int
+    {
+        // Pela conexão de owner: este comando é PORTÃO (sai com FAILURE quando
+        // há divergência), e pelo runtime ele lia zero linhas sob RLS — um
+        // portão que não enxerga aprova qualquer banco.
+        return $this->comoOwner(fn () => $this->conferir($conferencia, $custodia));
+    }
+
+    private function conferir(ConferenciaDeSaldo $conferencia, ConferenciaDeCustodia $custodia): int
     {
         $empresas = Empresa::withoutGlobalScopes()
             ->when($this->option('empresa'), fn ($q, $id) => $q->whereKey((int) $id))
