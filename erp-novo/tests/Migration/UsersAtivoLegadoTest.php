@@ -56,4 +56,32 @@ class UsersAtivoLegadoTest extends TestCase
         $this->assertFalse((bool) User::query()->find(9002)?->ativo, 'ativo NULO não entrava no legado — não pode ser reativado');
         $this->assertFalse((bool) User::query()->find(9003)?->ativo);
     }
+
+    /**
+     * A recarga é idempotente: rodar de novo encontra os vínculos que a carga
+     * anterior gravou. Isso não é descarte — e contá-lo como tal derrubava a
+     * carga inteira no portão de descarte em massa do `etl:run`.
+     */
+    public function test_vinculo_que_ja_esta_no_destino_nao_conta_como_descarte_na_recarga(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $leg = DB::connection($this->legadoConn);
+        $leg->statement('create table users (id integer, email text, password text, name text, empresa_id integer, ativo text, support text, tipo_id integer, created_at text)');
+        $leg->statement('create table empresa_user (user_id integer, empresa_id integer)');
+        $leg->table('users')->insert(
+            ['id' => 9001, 'email' => 'ativo1', 'password' => bcrypt('qualquer'), 'name' => 'Ativo', 'empresa_id' => $empresa->id, 'ativo' => '1', 'support' => '0', 'tipo_id' => 1],
+        );
+        $leg->table('empresa_user')->insert([
+            ['user_id' => 9001, 'empresa_id' => $empresa->id],
+            // Referência que de fato não existe: esta SIM é descarte.
+            ['user_id' => 9999, 'empresa_id' => $empresa->id],
+        ]);
+
+        $primeira = (new UsersMigrator)->migrar(new MigrationContext(conexaoLegado: $this->legadoConn));
+        $segunda = (new UsersMigrator)->migrar(new MigrationContext(conexaoLegado: $this->legadoConn));
+
+        $this->assertSame(1, DB::table('empresa_user')->where('user_id', 9001)->count());
+        $this->assertSame(1, $primeira->pulados, 'só o vínculo de usuário inexistente é descarte');
+        $this->assertSame(1, $segunda->pulados, 'a recarga não pode contar como descarte o que já gravou');
+    }
 }

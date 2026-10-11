@@ -125,8 +125,15 @@ final class UsersMigrator implements Migrator
                 $user = (int) $r->user_id;
                 $empresa = (int) $r->empresa_id;
                 $par = $user.':'.$empresa;
-                if (! isset($idsUser[$user]) || ! isset($grupoDaEmpresa[$empresa])
-                    || isset($paresExistentes[$par])) {
+                // Par que já está no destino NÃO é descarte: é a recarga
+                // encontrando o que ela mesma gravou. Contá-lo como pulado fez a
+                // segunda carga real (2026-10-11) terminar em "descarte em
+                // massa: users 135/209" com os 135 vínculos gravados — o portão
+                // reprovava justamente a execução idempotente que deu certo.
+                if (isset($paresExistentes[$par])) {
+                    continue;
+                }
+                if (! isset($idsUser[$user]) || ! isset($grupoDaEmpresa[$empresa])) {
                     $pulados++;
 
                     continue;
