@@ -106,6 +106,36 @@ class ConfigOperacionalEComodatoTest extends TestCase
         $this->assertSame(2, $dados['impressao_vias_pedido']);
     }
 
+    /**
+     * `ConfigGlobal` lê `google_maps_key` pelo cast `encrypted`. O migrador
+     * gravava em claro; na carga real o model não conseguia ler a chave que o
+     * próprio ETL tinha acabado de trazer.
+     */
+    public function test_chave_do_maps_e_gravada_como_o_model_le(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $leg = DB::connection($this->legadoConn);
+
+        $leg->statement('create table empresaconfigs (id integer, grupo_id integer, empresa_id integer, keygooglemaps text, created_at text)');
+        $leg->table('empresaconfigs')->insert([
+            'id' => 1, 'grupo_id' => $empresa->grupo_id, 'empresa_id' => $empresa->id,
+            'keygooglemaps' => 'AIza_chave_do_legado',
+        ]);
+
+        (new EmpresaConfigMigrator)->migrar($this->ctx());
+
+        $cru = (string) DB::table('config_globais')->where('grupo_id', $empresa->grupo_id)->value('google_maps_key');
+        $this->assertNotSame('AIza_chave_do_legado', $cru, 'em claro, o cast encrypted do model não decifra');
+        $this->assertSame(
+            'AIza_chave_do_legado',
+            \App\Models\ConfigGlobal::withoutGrupo()->where('grupo_id', $empresa->grupo_id)->first()->google_maps_key,
+        );
+
+        // Recarga: o que já está certo não é regravado (IV novo a cada cifragem).
+        (new EmpresaConfigMigrator)->migrar($this->ctx());
+        $this->assertSame($cru, DB::table('config_globais')->where('grupo_id', $empresa->grupo_id)->value('google_maps_key'));
+    }
+
     public function test_comodato_preserva_representante_e_vencimento(): void
     {
         $empresa = Empresa::factory()->create();

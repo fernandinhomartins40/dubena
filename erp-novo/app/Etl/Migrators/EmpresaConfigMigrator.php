@@ -366,9 +366,15 @@ final class EmpresaConfigMigrator implements Migrator
      * Grava a chave do Google Maps em `config_globais.google_maps_key` do GRUPO
      * de cada empresa — que é onde `IntegracaoTenant::googleMapsKey()` procura.
      *
-     * Em claro, deliberadamente: é o formato que o leitor espera (`value()`
-     * direto, sem decifrar) e o mesmo que a tela de config global grava. Uma
-     * key de browser do Maps é restringida por referrer, não por sigilo.
+     * CIFRADA, como o model grava: `ConfigGlobal` tem `google_maps_key` no cast
+     * `encrypted` desde 2026-08-29 (é credencial cobrada, e duas revendas
+     * concorrentes não podem ler a chave uma da outra). Este método gravava em
+     * claro, do tempo em que o leitor fazia `value()` sem decifrar — e a carga
+     * real de 2026-10-11 deixou no banco um `AIza…` que o model não consegue
+     * ler: decifrar texto puro lança `DecryptException`.
+     *
+     * Recarga não re-cifra o que já está certo: `Crypt` gera IV novo a cada
+     * chamada, e a linha mudaria a cada execução sem o dado ter mudado.
      *
      * Quando duas empresas do mesmo grupo trazem keys diferentes, fica a
      * primeira — a rede tem uma key só, e a divergência vira aviso.
@@ -395,13 +401,28 @@ final class EmpresaConfigMigrator implements Migrator
         }
 
         foreach ($porGrupo as $grupo => $key) {
+            $atual = $this->destino()->table('config_globais')->where('grupo_id', $grupo)->value('google_maps_key');
+            if ($atual !== null && $this->decifrada((string) $atual) === $key) {
+                continue;
+            }
+
             $this->destino()->table('config_globais')->updateOrInsert(
                 ['grupo_id' => $grupo],
-                ['google_maps_key' => $key, 'updated_at' => now()],
+                ['google_maps_key' => Crypt::encryptString($key), 'updated_at' => now()],
             );
         }
 
         return count($porGrupo);
+    }
+
+    /** O valor em claro, ou null se o que está gravado não é payload cifrado. */
+    private function decifrada(string $valor): ?string
+    {
+        try {
+            return Crypt::decryptString($valor);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function tabelaExiste(MigrationContext $ctx, string $tabela): bool

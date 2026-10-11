@@ -20,6 +20,11 @@ final class TenantLegacyGroupConfigurationProtector
         'clientecontatosituacoes',
         'clientecontatotipos',
         'condicaopagamentos',
+        // Credenciais da rede (Maps, SMTP, CSRT). A policy canonica ja vinha da
+        // migration `002000`, mas a CHAVE nao: a linha que o ETL grava entrava
+        // sem tenant e ficava invisivel ao proprio dono — e a leitura do Maps
+        // caia na key da plataforma sem avisar (carga real de 2026-10-11).
+        'config_globais',
         'contamovimentotipos',
         'estados_civis',
         'feriados',
