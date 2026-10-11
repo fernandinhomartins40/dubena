@@ -56,6 +56,9 @@ class EmpresaConfigController extends Controller
         'percentual_provisao_devedores', 'percentual_remuneracao_capital',
         'percentual_distribuicao_resultado', 'fator_potencial_venda', 'maloteconta_id',
         'conta_check_troco', 'ccvalegas_id', 'pcvalegas_id', 'android_utiliza',
+        // As abas Contábil e Impressão sempre ofereceram estes campos, mas eles
+        // não estavam na lista: o salvar inteiro era recusado com 422.
+        'pccartao_id', 'impressao_tipo', 'impressao_modelo', 'impressao_porta',
         'android_envia_todos', 'valida_gas_bolso', 'mensagem_gas_bolso',
         'mensagem_duplicata', 'appnf_pedido_operacao_id', 'appnf_presenca_comprador',
         'appnf_frete_modalidade', 'appnf_transportador_id', 'appnf_conta_id',
@@ -74,7 +77,7 @@ class EmpresaConfigController extends Controller
         'planoconta_id' => 'planos_conta', 'pc_receita_desconto_id' => 'planos_conta',
         'pc_receita_juro_id' => 'planos_conta', 'pc_despesa_desconto_id' => 'planos_conta',
         'pc_despesa_juro_id' => 'planos_conta', 'pcfrete_id' => 'planos_conta',
-        'pcvalegas_id' => 'planos_conta', 'convenio_pc_id' => 'planos_conta',
+        'pcvalegas_id' => 'planos_conta', 'pccartao_id' => 'planos_conta', 'convenio_pc_id' => 'planos_conta',
         'convenio_pcfrete_id' => 'planos_conta', 'pcfretegp_id' => 'planos_conta',
         'centrocusto_id' => 'centros_custo', 'cc_receita_juro_id' => 'centros_custo',
         'cc_receita_desconto_id' => 'centros_custo', 'cc_despesa_desconto_id' => 'centros_custo',

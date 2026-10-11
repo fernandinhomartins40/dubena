@@ -31,7 +31,15 @@ export function ConfigTab({ empresaId }: { empresaId: number }) {
   const lbl = (k: string, v: string | null) => setLabels((l) => ({ ...l, [k]: v }))
 
   async function onSubmit() {
-    try { await salvar.mutateAsync(form); toast.success('Configurações salvas.') }
+    // Só o que mudou. Antes ia o objeto inteiro que o GET devolveu — inclusive
+    // `empresa_id`, `tem_senhamestre` e blocos de leitura (`fiscal`, `sped`…)
+    // — e o servidor, que recusa chave fora da lista, devolvia 422 em TODO
+    // salvar, mesmo sem nada alterado (reproduzido na homologação, 11/10).
+    const alteradas = Object.fromEntries(
+      Object.entries(form).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify((data as Record<string, unknown> | undefined)?.[k])),
+    )
+    if (Object.keys(alteradas).length === 0) { toast.info('Nada foi alterado.'); return }
+    try { await salvar.mutateAsync(alteradas); toast.success('Configurações salvas.') }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao salvar configurações.') }
   }
 

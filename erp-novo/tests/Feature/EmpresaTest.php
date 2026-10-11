@@ -133,6 +133,28 @@ class EmpresaTest extends TestCase
         ]);
     }
 
+    /**
+     * As abas mandavam nomes antigos (`permiteestoquenegativo`, `emailservidorsmtp`)
+     * e campos fora da lista (`impressao_porta`, `pccartao_id`): o salvar era
+     * recusado inteiro. Estes são os nomes que as abas mandam agora.
+     */
+    public function test_config_aceita_os_campos_que_as_abas_enviam(): void
+    {
+        [$user, $empresa] = $this->usuarioSuporte();
+
+        $this->actingAs($user, 'sanctum')->putJson("/api/admin/empresas/{$empresa->id}/config", [
+            'permite_estoque_negativo' => false, 'dias_inativo_compra' => 60,
+            'email_host' => 'smtp.exemplo.com', 'email_port' => 587, 'email_requer_tls' => true,
+            'impressao_tipo' => 'termica', 'impressao_porta' => 'COM3', 'impressao_vias_pedido' => 2,
+            'valida_coordenadas_entrega' => true, 'percentual_distribuicao_resultado' => 10,
+        ])->assertOk();
+
+        $this->actingAs($user, 'sanctum')->getJson("/api/admin/empresas/{$empresa->id}/config")->assertOk()
+            ->assertJsonPath('data.impressao_porta', 'COM3')
+            ->assertJsonPath('data.dias_inativo_compra', 60)
+            ->assertJsonPath('data.email_host', 'smtp.exemplo.com');
+    }
+
     public function test_config_generica_nao_sobrescreve_integracoes_ou_segredos(): void
     {
         [$user, $empresa] = $this->usuarioSuporte();
