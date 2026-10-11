@@ -20,7 +20,9 @@ class ConfigFiscal extends Model
     protected $table = 'config_fiscais';
 
     protected $fillable = [
-        'empresa_id', 'ambiente', 'serie_nfe', 'serie_nfce',
+        // Sem a chave SaaS no fillable o BelongsToTenant não a carimba, e a RLS
+        // (WITH CHECK por tenant) recusaria criar a config pela tela.
+        'empresa_id', 'tenant_account_id', 'ambiente', 'serie_nfe', 'serie_nfce',
         'regime_tributario', 'csc_id', 'csc_token',
     ];
 

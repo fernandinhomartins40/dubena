@@ -1,21 +1,21 @@
 import { useRef, useState } from 'react'
 import { ShieldCheck, ShieldAlert, Upload, KeyRound } from 'lucide-react'
 import { Button, Field, Input, Badge, Skeleton, toast } from '@/components/ui'
-import { useCertificadoStatus, useUploadCertificado, useSalvarNfceToken } from './api'
+import { useCertificadoStatus, useUploadCertificado } from './api'
 
 /**
- * Certificado digital (.pfx) + senha + tokens CSC da NFC-e.
+ * Certificado digital (.pfx) + senha. O CSC da NFC-e fica nos campos fiscais
+ * logo acima (FiscalDaEmpresa): aqui ele ia com nomes que o servidor recusava
+ * (`nfcetoken`…) e salvar SEMPRE falhava — além de gravar onde a emissão não lê.
  * Replica a configuração fiscal do legado (saveCertNf) no SPA. A emissão real
  * depende de validar em homologação SEFAZ (gate externo).
  */
 export function CertificadoSection({ empresaId }: { empresaId: number }) {
   const { data: status, isLoading } = useCertificadoStatus(empresaId)
   const upload = useUploadCertificado(empresaId)
-  const salvarToken = useSalvarNfceToken(empresaId)
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [senha, setSenha] = useState('')
-  const [tokens, setTokens] = useState<Record<string, string>>({})
 
   async function enviar() {
     if (!file) { toast.error('Selecione o arquivo .pfx do certificado.'); return }
@@ -27,10 +27,7 @@ export function CertificadoSection({ empresaId }: { empresaId: number }) {
     } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao enviar o certificado.') }
   }
 
-  async function salvarTokens() {
-    try { await salvarToken.mutateAsync(tokens); toast.success('Tokens NFC-e salvos.'); setTokens({}) }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao salvar tokens.') }
-  }
+
 
   if (isLoading) return <div className="border-t border-border pt-4 mt-4"><Skeleton className="h-24 w-full" /></div>
 
@@ -58,23 +55,7 @@ export function CertificadoSection({ empresaId }: { empresaId: number }) {
         <p className="mt-2 text-xs text-muted-foreground">O certificado é necessário para transmitir NF-e/NFC-e à SEFAZ. Valide em homologação antes de produção.</p>
       </div>
 
-      {/* CSC / Token NFC-e */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold flex items-center gap-2"><KeyRound size={15} /> CSC / Token NFC-e</p>
-          <div className="flex gap-1">
-            {status?.tem_csc_homolog && <Badge variant="secondary">Homolog</Badge>}
-            {status?.tem_csc_producao && <Badge variant="success">Produção</Badge>}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="CSC (homologação)"><Input value={tokens.nfcetoken ?? ''} onChange={(e) => setTokens((t) => ({ ...t, nfcetoken: e.target.value }))} placeholder={status?.tem_csc_homolog ? '•••••• (salvo)' : ''} /></Field>
-          <Field label="ID do CSC (homologação)"><Input value={tokens.nfcetokenid ?? ''} onChange={(e) => setTokens((t) => ({ ...t, nfcetokenid: e.target.value }))} /></Field>
-          <Field label="CSC (produção)"><Input value={tokens.nfcetoken_prod ?? ''} onChange={(e) => setTokens((t) => ({ ...t, nfcetoken_prod: e.target.value }))} placeholder={status?.tem_csc_producao ? '•••••• (salvo)' : ''} /></Field>
-          <Field label="ID do CSC (produção)"><Input value={tokens.nfcetokenid_prod ?? ''} onChange={(e) => setTokens((t) => ({ ...t, nfcetokenid_prod: e.target.value }))} /></Field>
-        </div>
-        <Button variant="outline" className="mt-3" loading={salvarToken.isPending} onClick={salvarTokens}>Salvar tokens NFC-e</Button>
-      </div>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground"><KeyRound size={14} /> O CSC da NFC-e é informado nos campos fiscais acima, junto do ambiente.</p>
     </div>
   )
 }

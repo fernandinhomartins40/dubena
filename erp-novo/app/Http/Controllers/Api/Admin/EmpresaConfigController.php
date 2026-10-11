@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
+use App\Models\Fiscal\ConfigFiscal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -183,6 +184,111 @@ class EmpresaConfigController extends Controller
         $status = $service->armazenar($config, $conteudo, $request->string('senha')->value());
 
         return response()->json(['data' => $status, 'message' => 'Certificado armazenado.']);
+    }
+
+    /**
+     * GET /empresas/{id}/fiscal — o que a EMISSÃO usa, para a tela da empresa.
+     *
+     * O formulário da empresa sempre teve ambiente, regime, séries, emissão,
+     * contador e cadastro fiscal — e mandava tudo para `PUT /empresas/{id}`,
+     * que descartava. A emissão lê `config_fiscais`, que nenhuma tela gravava.
+     * Aqui as duas pontas se encontram. CSC nunca volta: só se está definido.
+     */
+    public function fiscalShow(Request $request, int $empresaId): JsonResponse
+    {
+        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
+
+        $fiscal = ConfigFiscal::withoutTenant()->where('empresa_id', $empresa->id)->first();
+        $dados = EmpresaConfig::query()->where('empresa_id', $empresa->id)->value('dados');
+        $dados = is_array($dados) ? $dados : (json_decode((string) $dados, true) ?: []);
+        $ultimo = fn (int $modelo, ?int $serie) => $serie === null ? null
+            : DB::table('sequencias')->where('chave', "nf:{$empresa->id}:{$modelo}:{$serie}")->value('valor');
+
+        return response()->json(['data' => [
+            'ambiente' => $fiscal?->ambiente,
+            'regime_tributario' => $fiscal?->regime_tributario,
+            'serie_nfe' => $fiscal?->serie_nfe,
+            'serie_nfce' => $fiscal?->serie_nfce,
+            'csc_id' => $fiscal?->csc_id,
+            'tem_csc' => filled($fiscal?->getRawOriginal('csc_token')),
+            // Só leitura: o último número emitido. Editar à mão é o caminho
+            // para nota duplicada; quem controla é o sistema.
+            'ultimo_numero_nfe' => $ultimo(55, $fiscal?->serie_nfe),
+            'ultimo_numero_nfce' => $ultimo(65, $fiscal?->serie_nfce),
+            'nfe_emite' => (bool) ($dados['fiscal']['nfe_emite'] ?? false),
+            'nfce_emite' => (bool) ($dados['fiscal']['nfce_emite'] ?? false),
+            'sped_emite' => (bool) ($dados['sped']['emite'] ?? false),
+            'contador' => $dados['contador'] ?? (object) [],
+            'cadastro' => $dados['cadastro'] ?? (object) [],
+        ]]);
+    }
+
+    /** PUT /empresas/{id}/fiscal */
+    public function fiscalUpdate(Request $request, int $empresaId): JsonResponse
+    {
+        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
+
+        $d = $request->validate([
+            'ambiente' => 'sometimes|in:1,2',
+            'regime_tributario' => 'sometimes|in:1,2,3',
+            'serie_nfe' => 'sometimes|integer|min:1|max:999',
+            'serie_nfce' => 'sometimes|integer|min:1|max:999',
+            'csc_id' => 'sometimes|nullable|string|max:10',
+            'csc_token' => 'sometimes|nullable|string|max:255',
+            'nfe_emite' => 'sometimes|boolean',
+            'nfce_emite' => 'sometimes|boolean',
+            'sped_emite' => 'sometimes|boolean',
+            'contador' => 'sometimes|array',
+            'contador.nome' => 'nullable|string|max:120',
+            'contador.cpf' => 'nullable|string|max:14',
+            'contador.cnpj' => 'nullable|string|max:18',
+            'contador.crc' => 'nullable|string|max:30',
+            'contador.telefone' => 'nullable|string|max:30',
+            'contador.email' => 'nullable|email|max:120',
+            'cadastro' => 'sometimes|array',
+            'cadastro.cnae' => 'nullable|string|max:10',
+            'cadastro.registro_anp' => 'nullable|string|max:20',
+            'cadastro.suframa' => 'nullable|string|max:20',
+            'cadastro.inscricao_estadual_st' => 'nullable|string|max:20',
+            'cadastro.email' => 'nullable|email|max:120',
+            // A tela é uma caixa de seleção; o legado guardava texto ("1"/"0").
+            'cadastro.distribuidora' => 'nullable',
+        ]);
+
+        DB::transaction(function () use ($empresa, $d) {
+            $fiscal = ConfigFiscal::withoutTenant()->firstOrNew(['empresa_id' => $empresa->id]);
+            // A dona da linha é a empresa editada — não necessariamente a ativa.
+            $fiscal->tenant_account_id ??= $empresa->tenant_account_id;
+            $fiscal->fill(array_intersect_key($d, array_flip(['ambiente', 'regime_tributario', 'serie_nfe', 'serie_nfce', 'csc_id'])));
+            // Token vazio = "não mexer": a tela não recebe o segredo de volta,
+            // então o campo chega vazio sempre que a pessoa não o redigita.
+            if (filled($d['csc_token'] ?? null)) {
+                $fiscal->csc_token = $d['csc_token'];
+            }
+            $fiscal->save();
+
+            $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+            $dados = $config->dados ?? [];
+            foreach (['nfe_emite', 'nfce_emite'] as $flag) {
+                if (array_key_exists($flag, $d)) {
+                    $dados['fiscal'][$flag] = (bool) $d[$flag];
+                }
+            }
+            if (array_key_exists('sped_emite', $d)) {
+                $dados['sped']['emite'] = (bool) $d['sped_emite'];
+            }
+            foreach (['contador', 'cadastro'] as $bloco) {
+                if (array_key_exists($bloco, $d)) {
+                    $dados[$bloco] = array_filter(array_merge($dados[$bloco] ?? [], $d[$bloco]), fn ($v) => $v !== null && $v !== '');
+                }
+            }
+            $config->dados = $dados;
+            $config->save();
+        });
+
+        return $this->fiscalShow($request, $empresaId);
     }
 
     /** PUT /empresas/{id}/nfce-token — CSC da NFC-e (id + token, token encriptado). */

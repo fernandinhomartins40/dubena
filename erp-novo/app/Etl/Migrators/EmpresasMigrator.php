@@ -57,10 +57,15 @@ final class EmpresasMigrator implements Migrator
             lidos: count($grupos) + count($empresas),
             gravados: $ctx->dryRun ? 0 : $gravados,
             pulados: 0,
-            avisos: $ctx->dryRun ? [] : [
+            avisos: $ctx->dryRun ? [] : array_values(array_filter([
                 'config fiscal/SPED/contador gravada em `empresa_configs.dados` '
                 .'(o formulário de empresa já enviava estes campos; o backend os descartava)',
-            ],
+                'config fiscal de emissão (ambiente, regime, séries, CSC) gravada em `config_fiscais`, onde a emissão lê',
+                $this->ambienteRebaixado > 0
+                    ? "{$this->ambienteRebaixado} empresa(s) em PRODUÇÃO no legado gravada(s) em HOMOLOGAÇÃO: fora de "
+                        .'APP_ENV=production a carga não arma emissão real. Troque o ambiente na tela da empresa ao virar.'
+                    : null,
+            ])),
         );
     }
 
@@ -292,6 +297,69 @@ final class EmpresasMigrator implements Migrator
                     'created_at' => now(),
                 ],
             );
+
+            $this->gravarConfigFiscal($id, $r);
+        }
+    }
+
+    /** Empresas cujo ambiente fiscal foi rebaixado para homologação nesta carga. */
+    private int $ambienteRebaixado = 0;
+
+    /**
+     * `config_fiscais` — onde a EMISSÃO lê ambiente, regime, séries e CSC
+     * (`NFePHPSefazDriver`, `FiscalService`).
+     *
+     * A carga só preenchia `empresa_configs.dados.fiscal`, que ninguém lê na
+     * emissão; `config_fiscais` ficava vazia nas 7 empresas e qualquer nota
+     * real cairia no `firstOrFail` (homologação, 11/10). O dado se adapta à
+     * aplicação: vai para onde ela procura.
+     *
+     * O legado tem dois CSCs (homologação e produção); a aplicação guarda o do
+     * ambiente em uso.
+     *
+     * Ambiente: copiar "produção" para fora de produção é perigoso — com o
+     * certificado enviado para um teste, a NFC-e iria para a SEFAZ de verdade,
+     * com a numeração real. Fora de `APP_ENV=production` a carga grava
+     * HOMOLOGAÇÃO e avisa; a troca para produção é decisão de quem opera.
+     */
+    private function gravarConfigFiscal(int $empresaId, object $r): void
+    {
+        $legado = $this->inteiroOuNull($r->nfcetipoambiente ?? null) ?? $this->inteiroOuNull($r->nfetipoambiente ?? null);
+        $ambiente = $legado === 1 && ! app()->environment('production') ? 2 : ($legado ?? 2);
+        if ($legado === 1 && $ambiente === 2) {
+            $this->ambienteRebaixado++;
+        }
+
+        $cscId = $ambiente === 1 ? ($r->nfcetokenid_prod ?? null) : ($r->nfcetokenid ?? null);
+        $cscToken = $ambiente === 1 ? ($r->nfcetoken_prod ?? null) : ($r->nfcetoken ?? null);
+
+        $atual = $this->destino()->table('config_fiscais')->where('empresa_id', $empresaId)->first();
+        $valores = [
+            'ambiente' => $ambiente,
+            'regime_tributario' => $this->inteiroOuNull($r->nfecrt ?? null) ?? $this->inteiroOuNull($r->nfcecrt ?? null),
+            'serie_nfe' => $this->inteiroOuNull($r->nfeserie ?? null),
+            'serie_nfce' => $this->inteiroOuNull($r->nfceserie ?? null),
+            'csc_id' => $this->texto($cscId) !== null ? mb_substr((string) $this->texto($cscId), 0, 10) : null,
+            // Cast `encrypted` do model: grava cifrado, como o model lê.
+            'csc_token' => $this->texto($cscToken) !== null ? \Illuminate\Support\Facades\Crypt::encryptString((string) $this->texto($cscToken)) : null,
+            'updated_at' => now(),
+        ];
+
+        if ($atual === null) {
+            // Nulo fica de fora: série e regime são NOT NULL com default, e um
+            // null explícito quebra no Postgres (o sqlite deixaria passar).
+            $this->destino()->table('config_fiscais')->insert(
+                array_filter($valores, fn ($v) => $v !== null) + ['empresa_id' => $empresaId, 'created_at' => now()],
+            );
+
+            return;
+        }
+
+        // Recarga: o que alguém já ajustou aqui (ambiente, CSC) não volta para
+        // o valor do legado — só se preenche o que está vazio.
+        $preencher = array_filter($valores, fn ($v, $k) => $k === 'updated_at' || ($v !== null && $atual->{$k} === null), ARRAY_FILTER_USE_BOTH);
+        if (count($preencher) > 1) {
+            $this->destino()->table('config_fiscais')->where('empresa_id', $empresaId)->update($preencher);
         }
     }
 
