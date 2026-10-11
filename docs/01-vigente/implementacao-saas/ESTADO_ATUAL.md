@@ -8,12 +8,81 @@
 dados reais; F9 fechada; F10 depende de um segundo cliente. Enumeração tarefa a
 tarefa em `ESTADO_DAS_106_TAREFAS.md` (a fonte para "o que falta").  
 **Pendência externa herdada:** F0-03 — rotação/revogação externa de segredos  
-**Última atualização:** 2026-10-10 (America/Sao_Paulo)
+**Última atualização:** 2026-10-11 (America/Sao_Paulo)
 
 > ⚠️ **Este arquivo é diário, não sumário.** As seções abaixo são cronológicas
 > e as mais antigas descrevem estados superados (ex.: "F2 em andamento",
 > "próximo passo: iniciar F5" — ambas já concluídas). Leia o topo e o
 > `ESTADO_DAS_106_TAREFAS.md`; o resto é registro de *como* se chegou aqui.
+
+## Atualização 2026-10-11 — carga real dos dados do legado na homologação
+
+Pedido do dono: migrar o dump Oracle do cliente para entender o comportamento
+da aplicação com dados reais. Regra dele, seguida em todas as correções: **os
+dados se adaptam à aplicação, nunca o contrário** — todo ajuste abaixo foi no
+ETL ou num passo de operação, nenhum no comportamento do produto.
+
+**Volume carregado** (espelho `legado` com 127 tabelas / 6,67 milhões de
+linhas): 92.592 clientes, 26 produtos, 507.040 linhas de estoque, 806.980 de
+pedidos, 1,36 milhão do financeiro, 410.460 de caixa, 27.699 de cobrança,
+498.578 do fiscal, 317.763 do IBPT, 2,55 milhões de complementos. Recarga
+final (commit `8ee593a1`, 28 migradores sem erro): 66 invariantes OK e 1 falha —
+a do sorteio criado à mão no sistema novo, descrita abaixo. O dono loga e
+enxerga 7 empresas, clientes, produtos, pedidos e saldos — inclusive pela URL
+pública. Custódia de comodato fecha; estoque fica nas 32 divergências herdadas.
+
+**O que a carga real revelou (nenhum teste local pegaria — sqlite não tem RLS
+nem os gatilhos de coerência):**
+
+1. **Dado gravado e invisível.** O ETL grava por `DB::table`, sem envelope: as
+   linhas entravam com `tenant_account_id` nulo e a policy canônica as escondia
+   até do dono (login 200, zero clientes). A regra de preenchimento existia só
+   numa migration que rodou com o banco vazio. Novo passo pós-carga:
+   `saas:tenant:preencher-chave-operacional [--apply]` (6.250.380 linhas em 56
+   tabelas), seguido de `saas:tenant:proteger-configuracao-grupo --apply`.
+   A ponte grupo 2 → tenant Dubena (`tenant_legacy_group_scopes`) não existia
+   e foi gravada direto no banco, condicionada a todas as empresas do grupo
+   terem vínculo APPROVED com o mesmo tenant (titularidade confirmada pelo dono
+   em 09/10).
+2. **Recarga impossível depois da titularidade.** Com as chaves preenchidas, o
+   ETL regravava sem chave e os gatilhos `app_enforce_financial_configuration_tenant`
+   e `app_enforce_sorteio_numero_cliente_tenant` recusavam. O gravador do ETL
+   passa a carimbar a chave quando — e só quando — o vínculo está aprovado;
+   filhos sem escopo herdam do pai; `empresas` nunca é carimbada.
+3. **Ledger de estoque sem sinal.** O legado guarda módulo + `movimentacao`; o
+   contrato da aplicação é quantidade assinada. `estoque:conferir` acusava 121
+   pares (um setor de 3.484 botijões "somava" 2,38 milhões); com o sinal, 89
+   fecham.
+4. **Comodato sem movimento.** 975 contratos sem `comodato_movimentos`, todos
+   divergentes na custódia. O migrador grava o EMPRÉSTIMO de origem (o contrato
+   é a evidência); devolução não é presumida.
+5. **Chave do Maps em claro** num campo que o model lê por cast `encrypted`.
+6. **Falsos alarmes do próprio ETL:** "descarte em massa" de usuários (eram
+   vínculos já gravados na tentativa anterior) e a invariante de cidades cega
+   no `cutover:check` (lia pelo runtime sob RLS).
+
+**Pendências que são decisão do dono — nada foi ajustado:**
+
+- 32 pares setor×produto cujo saldo já não fechava com o histórico NO LEGADO
+  (6.123 unidades no total). `estoque:conferir` lista cada um.
+- Agrupamento de títulos: o legado marca por parcela, a aplicação por título.
+  Os 443.714 títulos entraram como NORMAL; 78.324 parcelas aparecem baixadas
+  com valor zero (em geral agrupadas em outro título). O a receber em aberto
+  não muda (4.361 parcelas, R$ 1.059.996,57), mas relatórios por competência
+  podem contar em dobro. 13 mil títulos têm parcelas com status misturados —
+  o mapeamento exige regra de negócio. `financeiro:conferir` acusa 57 casos no
+  mês corrente.
+- 745 comodatos encerrados com 55.963 vasilhames "em poder do cliente": o
+  legado não registra devolução.
+- Sorteio #362 "teste" criado hoje no sistema novo (por alguém usando a tela):
+  é a 1 linha a mais que `cutover:check` acusa em `sorteios`. Real, não defeito.
+- Fora desta carga: dumps MySQL de GPS (`monitora-001.sql`) e do app
+  (`sgcm_api.sql`); XML das notas e logotipos (só no dump).
+
+Operação na VPS: `/root/dubena-ops/recarga-completa.sh <commit>` espera a
+imagem, roda `etl:run --check`, o pós-carga e as conferências, com log em
+`recarga-completa.log`. Backup pré-carga em
+`pre-carga-public-20261011-015632.sql.gz`.
 
 ## Correção de registro 2026-10-10 — o diário conferido contra o código
 
