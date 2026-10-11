@@ -176,6 +176,13 @@ final class SatelitesMigrator implements Migrator
             }
             if ($lote !== [] && ! $ctx->dryRun) {
                 $gravados += $this->gravarPreservandoId('comodatos', $lote, ['id'], 500);
+
+                $deOrigem = $this->gravarEmprestimoDeOrigem($lote);
+                $gravados += $deOrigem;
+                if ($deOrigem > 0) {
+                    $avisos[] = "{$deOrigem} comodato(s) receberam o movimento de EMPRÉSTIMO de origem "
+                        .'(o legado guarda o contrato, não os movimentos; devolução não é presumida)';
+                }
             }
             if ($semItem > 0) {
                 $avisos[] = "{$semItem} comodato(s) sem item no legado — produto padrão e quantidade 1";
@@ -204,6 +211,60 @@ final class SatelitesMigrator implements Migrator
             pulados: $pulados,
             avisos: $avisos,
         );
+    }
+
+    /**
+     * O ledger de custódia que a aplicação exige e o legado não tem.
+     *
+     * Na aplicação nova, `comodatos.quantidade − quantidade_devolvida` é só a
+     * projeção; a prova é a soma de `comodato_movimentos`, e
+     * `estoque:conferir` cobra a igualdade. O legado guarda o contrato e mais
+     * nada — a carga real de 2026-10-11 trouxe 975 contratos com zero
+     * movimentos, e todos saíram como divergência de custódia.
+     *
+     * O contrato É a evidência do empréstimo: quantidade e data estão nele.
+     * Então nasce um EMPRÉSTIMO, e só ele. Devolução não se presume — `ativo =
+     * 0` no legado também é contrato renovado ou substituído, e inventar a
+     * volta do vasilhame apagaria patrimônio em poder de terceiro.
+     *
+     * Só para contrato SEM movimento algum: recarga não duplica, e contrato já
+     * movimentado no sistema novo não é tocado.
+     *
+     * @param  list<array<string,mixed>>  $comodatos
+     */
+    private function gravarEmprestimoDeOrigem(array $comodatos): int
+    {
+        $comMovimento = [];
+        foreach ($this->destino()->table('comodato_movimentos')->distinct()->pluck('comodato_id') as $id) {
+            $comMovimento[(int) $id] = true;
+        }
+
+        $agora = now();
+        $lote = [];
+        foreach ($comodatos as $c) {
+            if (isset($comMovimento[$c['id']])) {
+                continue;
+            }
+            $data = $c['data_emprestimo'] ?? $c['created_at'] ?? null;
+            $lote[] = [
+                'empresa_id' => $c['empresa_id'],
+                'grupo_id' => $c['grupo_id'],
+                'comodato_id' => $c['id'],
+                'tipo' => 'EMPRESTIMO',
+                'quantidade' => round((float) $c['quantidade'], 3),
+                'saldo_apos' => round((float) $c['quantidade'], 3),
+                'data' => $data !== null ? mb_substr((string) $data, 0, 10) : $agora->toDateString(),
+                'observacao' => 'Empréstimo de origem — contrato migrado do legado, que não guarda movimentos',
+                'created_at' => $agora,
+                'updated_at' => $agora,
+            ];
+        }
+
+        foreach (array_chunk($lote, 500) as $parte) {
+            $this->destino()->table('comodato_movimentos')->insert($parte);
+        }
+
+        return count($lote);
     }
 
     public function invariantes(): array

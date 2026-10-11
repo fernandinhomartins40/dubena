@@ -172,4 +172,44 @@ class ConfigOperacionalEComodatoTest extends TestCase
         // (quando VOLTOU) dava um comodato aberto como se já tivesse retornado.
         $this->assertNull($c->data_devolucao);
     }
+
+    /**
+     * A aplicação prova o saldo de custódia pela soma dos movimentos; o legado
+     * só tem o contrato. Sem o empréstimo de origem, os 975 contratos da carga
+     * real saíram todos como divergência em `estoque:conferir`.
+     */
+    public function test_comodato_migrado_nasce_com_o_emprestimo_que_prova_a_custodia(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $cliente = Cliente::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $produto = Produto::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+
+        $leg = DB::connection($this->legadoConn);
+        $leg->statement('create table comodatos (id integer, grupo_id integer, empresa_id integer, cliente_id integer, datacontrato text, datavencimento text, nomerepresentante text, cpfrepresentante text, rgrepresentante text, ativo text, created_at text)');
+        $base = ['grupo_id' => $empresa->grupo_id, 'empresa_id' => $empresa->id, 'cliente_id' => $cliente->id, 'datacontrato' => '2025-03-10 14:00:00'];
+        $leg->table('comodatos')->insert([
+            $base + ['id' => 1, 'ativo' => '1'],
+            // Inativo no legado: contrato encerrado, NÃO vasilhame devolvido.
+            $base + ['id' => 2, 'ativo' => '0'],
+        ]);
+        $leg->statement('create table comodatoitems (id integer, comodato_id integer, produto_id integer, quantidade real)');
+        $leg->table('comodatoitems')->insert([
+            ['id' => 1, 'comodato_id' => 1, 'produto_id' => $produto->id, 'quantidade' => 2],
+            ['id' => 2, 'comodato_id' => 2, 'produto_id' => $produto->id, 'quantidade' => 5],
+        ]);
+
+        (new SatelitesMigrator)->migrar($this->ctx());
+        // Recarga: não pode empilhar um segundo empréstimo no mesmo contrato.
+        (new SatelitesMigrator)->migrar($this->ctx());
+
+        $movimentos = DB::table('comodato_movimentos')->orderBy('comodato_id')->get();
+        $this->assertSame(['EMPRESTIMO', 'EMPRESTIMO'], $movimentos->pluck('tipo')->all(), 'um empréstimo por contrato, e nenhuma devolução presumida');
+        $this->assertSame([2.0, 5.0], $movimentos->pluck('quantidade')->map(fn ($q) => (float) $q)->all());
+        $this->assertSame('2025-03-10', substr((string) $movimentos[0]->data, 0, 10));
+
+        $this->assertTrue(
+            app(\App\Domain\Satelite\ConferenciaDeCustodia::class)->divergencias($empresa->id)->isEmpty(),
+            'a conferência da própria aplicação tem de fechar',
+        );
+    }
 }
