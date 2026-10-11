@@ -342,6 +342,10 @@ final class EmpresasMigrator implements Migrator
             'csc_id' => $this->texto($cscId) !== null ? mb_substr((string) $this->texto($cscId), 0, 10) : null,
             // Cast `encrypted` do model: grava cifrado, como o model lê.
             'csc_token' => $this->texto($cscToken) !== null ? \Illuminate\Support\Facades\Crypt::encryptString((string) $this->texto($cscToken)) : null,
+            // A chave do tenant vem da EMPRESA (titularidade já decidida lá).
+            // Sem ela a RLS esconde a linha do próprio dono — e a gravação aqui
+            // é direta, sem o carimbo do `gravarPreservandoId`.
+            'tenant_account_id' => $this->destino()->table('empresas')->where('id', $empresaId)->value('tenant_account_id'),
             'updated_at' => now(),
         ];
 
