@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domain\Saas\TransformationFreeze;
 use App\Domain\Saas\TransformationFrozenException;
+use App\Domain\Tenant\ConexaoDeOwner;
 use App\Etl\MigratorRegistry;
 use App\Etl\Support\MigrationContext;
 use App\Etl\Support\RegistroDaConversao;
@@ -84,7 +85,23 @@ class EtlRun extends Command
         }
 
         try {
-            return $this->executar($freeze);
+            // A carga inteira roda com a conexão PADRÃO trocada para a de owner.
+            //
+            // Em 01/09 os migradores passaram a gravar por `$this->destino()`
+            // (owner), mas isso só alcança as chamadas `DB::table()` deles. O
+            // que grava por MODEL ou por serviço do domínio continuava na
+            // conexão padrão — o runtime, sob RLS e sem envelope. Na carga real
+            // de 10/10/2026 o migrador fiscal parou em
+            // `NumeroSequencialService::definir()`: "new row violates
+            // row-level security policy for table sequencias". Atrás dele,
+            // `rh` e `gestao` gravam por `forceFill()->save()`, e o geográfico
+            // lê `Empresa::query()` — que pelo runtime devolve zero, sem erro.
+            //
+            // Trocar a conexão padrão fecha a classe inteira do defeito, em vez
+            // de caçar chamada por chamada: o ETL é o processo que CRIA os
+            // tenants e não pode estar sujeito ao escopo deles — a mesma razão
+            // de as migrations rodarem como owner.
+            return ConexaoDeOwner::executar(fn () => $this->executar($freeze));
         } finally {
             // `finally`: exceção no meio da carga não pode deixar o lock preso
             // pelas duas horas inteiras — a próxima tentativa ficaria bloqueada
