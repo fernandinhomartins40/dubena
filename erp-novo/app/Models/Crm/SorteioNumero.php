@@ -25,6 +25,11 @@ class SorteioNumero extends Model
         });
     }
 
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Cliente\Cliente::class);
+    }
+
     public function sorteio(): BelongsTo
     {
         return $this->belongsTo(Sorteio::class);

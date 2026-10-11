@@ -57,6 +57,54 @@ class CrmTest extends TestCase
             ->assertOk()->assertJsonStructure(['data' => ['numero']]);
     }
 
+    /**
+     * Sorteio é evento público: um segundo clique (ou outra aba) não pode trocar
+     * o ganhador. E o resultado precisa ficar registrado — quem, quando, qual
+     * número — para ser reapresentado e explicado se for contestado.
+     */
+    public function test_sorteio_registra_o_ganhador_e_nao_sorteia_duas_vezes(): void
+    {
+        $cliente = \App\Models\Cliente\Cliente::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'nome' => 'MARIA APARECIDA SOUZA',
+        ]);
+        $cliente->telefones()->create(['telefone' => '42991234567']);
+
+        $id = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/admin/sorteios', ['descricao' => 'Natal', 'premio' => 'Um botijão por mês'])
+            ->assertStatus(201)->json('data.id');
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/admin/sorteios/{$id}/numeros", ['numero' => '0001', 'cliente_id' => $cliente->id])->assertStatus(201);
+
+        $r = $this->actingAs($this->user, 'sanctum')->postJson("/api/admin/sorteios/{$id}/sortear")->assertOk();
+        $r->assertJsonPath('data.numero', '0001')
+            ->assertJsonPath('data.cliente.nome', 'MARIA APARECIDA SOUZA')
+            ->assertJsonPath('data.cliente.telefone', '(42) •••••-4567')
+            ->assertJsonPath('data.sorteado_por', $this->user->name)
+            ->assertJsonPath('data.participantes', 1);
+
+        $this->actingAs($this->user, 'sanctum')->postJson("/api/admin/sorteios/{$id}/sortear")
+            ->assertStatus(422)->assertJsonValidationErrors('sorteio');
+
+        // O palco reapresenta o MESMO resultado, e a roleta só leva o primeiro nome.
+        $this->actingAs($this->user, 'sanctum')->getJson("/api/admin/sorteios/{$id}/palco")
+            ->assertOk()
+            ->assertJsonPath('data.sorteio.premio', 'Um botijão por mês')
+            ->assertJsonPath('data.participantes.0.nome', 'Maria')
+            ->assertJsonPath('data.resultado.numero', '0001');
+    }
+
+    /** Pelo formulário não se escolhe o ganhador: o resultado só sai do serviço. */
+    public function test_editar_sorteio_nao_define_resultado(): void
+    {
+        $id = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/admin/sorteios', ['descricao' => 'Natal'])->assertStatus(201)->json('data.id');
+
+        $this->actingAs($this->user, 'sanctum')->putJson("/api/admin/sorteios/{$id}", [
+            'descricao' => 'Natal', 'situacao' => 'sorteado', 'numero_sorteado' => '9999',
+        ])->assertOk();
+
+        $this->assertSame('aberto', \App\Models\Crm\Sorteio::query()->find($id)->situacao);
+    }
+
     public function test_meta_crud(): void
     {
         $this->actingAs($this->user, 'sanctum')

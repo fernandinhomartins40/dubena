@@ -44,8 +44,31 @@ export function useExcluirPromocao() {
 
 // ---- Sorteios ----
 export interface Sorteio {
-  id: number; descricao: string; data_sorteio: string | null; situacao: string; numero_sorteado: string | null; numeros_count: number
+  id: number; descricao: string; premio: string | null; data_sorteio: string | null; situacao: string; numero_sorteado: string | null; numeros_count: number
 }
+
+/** Resultado registrado no servidor — a animação só apresenta, nunca decide. */
+export interface ResultadoSorteio {
+  numero: string
+  cliente: { id: number; nome: string; bairro: string | null; cidade: string | null; uf: string | null; telefone: string | null } | null
+  sorteado_em: string | null
+  sorteado_por: string | null
+  participantes: number
+}
+
+export interface PalcoSorteio {
+  sorteio: { id: number; descricao: string; premio: string | null; data_sorteio: string | null; situacao: string }
+  /** Número e PRIMEIRO nome: a tela é feita para ser gravada e exibida. */
+  participantes: { numero: string; nome: string | null }[]
+  resultado: ResultadoSorteio | null
+}
+
+export const usePalcoSorteio = (id: number | null) =>
+  useQuery<PalcoSorteio>({
+    queryKey: ['sorteios', id, 'palco'],
+    enabled: id !== null,
+    queryFn: async () => (await api.get(`/sorteios/${id}/palco`)).data.data,
+  })
 export const useSorteios = () =>
   useQuery<Sorteio[]>({ queryKey: ['sorteios'], queryFn: async () => (await api.get('/sorteios')).data.data })
 export function useSalvarSorteio() {
@@ -66,7 +89,7 @@ export function useAddNumeroSorteio() {
 export function useSortear() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: number) => (await api.post(`/sorteios/${id}/sortear`)).data.data,
+    mutationFn: async (id: number): Promise<ResultadoSorteio> => (await api.post(`/sorteios/${id}/sortear`)).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sorteios'] }),
   })
 }

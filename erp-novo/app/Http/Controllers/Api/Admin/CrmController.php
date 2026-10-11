@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Crm\SorteioService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
@@ -108,6 +109,7 @@ class CrmController extends Controller
         $this->autorizar($request, $id ? 'sorteio.edit' : 'sorteio.create');
         $d = $request->validate([
             'descricao' => 'required|string|max:255',
+            'premio' => 'nullable|string|max:255',
             'data_sorteio' => 'nullable|date',
         ]);
 
@@ -129,18 +131,22 @@ class CrmController extends Controller
         return response()->json(['data' => $num], 201);
     }
 
-    /** Sorteia um número entre os participantes. */
+    /** Sorteia um número entre os participantes — uma vez só (ver `SorteioService`). */
     public function sortear(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'sorteio.edit');
-        $sorteio = Sorteio::query()->with('numeros')->findOrFail($id);
-        if ($sorteio->numeros->isEmpty()) {
-            throw ValidationException::withMessages(['sorteio' => 'Não há números para sortear.']);
-        }
-        $ganhador = $sorteio->numeros->random();
-        $sorteio->update(['situacao' => 'sorteado', 'numero_sorteado' => $ganhador->numero]);
+        $servico = app(SorteioService::class);
+        $sorteio = $servico->sortear($id, $request->user()?->id);
 
-        return response()->json(['data' => ['numero' => $ganhador->numero, 'cliente_id' => $ganhador->cliente_id]]);
+        return response()->json(['data' => $servico->resultado($sorteio)]);
+    }
+
+    /** O que o palco do sorteio exibe: participantes e, se houver, o resultado. */
+    public function sorteioPalco(Request $request, int $id): JsonResponse
+    {
+        $this->autorizar($request, 'sorteio.view');
+
+        return response()->json(['data' => app(SorteioService::class)->palco($id)]);
     }
 
     // ───────── Metas ─────────

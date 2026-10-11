@@ -234,6 +234,7 @@
     "GET api/admin/setores",
     "GET api/admin/setores-org",
     "GET api/admin/sorteios",
+    "GET api/admin/sorteios/{id}/palco",
     "GET api/admin/taxas-entrega",
     "GET api/admin/taxas-entrega/simular",
     "GET api/admin/telefonia/buscar",

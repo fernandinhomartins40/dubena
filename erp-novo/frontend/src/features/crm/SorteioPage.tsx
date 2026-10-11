@@ -1,19 +1,19 @@
 import { useState } from 'react'
-import { Plus, Gift, Hash, Trophy } from 'lucide-react'
+import { Plus, Gift, Hash, Trophy, Eye } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, AsyncSelect,
-  ResourceList, FormDialog, ConfirmDialog, toast,
+  ResourceList, FormDialog, toast,
 } from '@/components/ui'
 import { data as fmtData } from '@/lib/format'
-import { useSorteios, useSalvarSorteio, useAddNumeroSorteio, useSortear, type Sorteio } from './api'
+import { useSorteios, useSalvarSorteio, useAddNumeroSorteio, type Sorteio } from './api'
+import { SorteioPalco } from './sorteio/SorteioPalco'
 
 export function SorteioPage() {
   const { data, isLoading, error, refetch } = useSorteios()
   const salvar = useSalvarSorteio()
   const addNumero = useAddNumeroSorteio()
-  const sortear = useSortear()
-
-  const [confirmando, setConfirmando] = useState<Sorteio | null>(null)
+  // O palco é a confirmação: abri-lo não sorteia; só o "Iniciar sorteio" lá dentro.
+  const [noPalco, setNoPalco] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
   const [edit, setEdit] = useState<Sorteio | null>(null)
   const [form, setForm] = useState<Record<string, any>>({})
@@ -36,13 +36,9 @@ export function SorteioPage() {
     try { await addNumero.mutateAsync({ id: alvo.id, data: { numero, cliente_id: clienteId } }); toast.success('Número adicionado.'); setNumero('') }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
   }
-  async function onSortear(reg: Sorteio) {
-    try { const r = await sortear.mutateAsync(reg.id); toast.success(`Número sorteado: ${r.numero}`); setConfirmando(null) }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao sortear.') }
-  }
 
   const columns: Column<Sorteio>[] = [
-    { key: 'descricao', header: 'Descrição', cell: (v) => <span className="font-medium">{v.descricao}</span> },
+    { key: 'descricao', header: 'Descrição', cell: (v) => <div><span className="font-medium">{v.descricao}</span>{v.premio && <div className="text-xs text-muted-foreground">{v.premio}</div>}</div> },
     { key: 'data', header: 'Data', cell: (v) => fmtData(v.data_sorteio) },
     { key: 'numeros', header: 'Números', align: 'right', cell: (v) => <span className="tabular-nums">{v.numeros_count}</span> },
     {
@@ -54,7 +50,9 @@ export function SorteioPage() {
       key: 'acoes', header: '', align: 'right', cell: (v) => (
         <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="sm" onClick={() => abrirNumeros(v)}><Hash size={15} /> Números</Button>
-          {v.situacao !== 'sorteado' && <Button variant="secondary" size="sm" loading={sortear.isPending} onClick={() => setConfirmando(v)}><Trophy size={15} /> Sortear</Button>}
+          {v.situacao !== 'sorteado'
+            ? <Button variant="secondary" size="sm" onClick={() => setNoPalco(v.id)}><Trophy size={15} /> Sortear</Button>
+            : <Button variant="ghost" size="sm" onClick={() => setNoPalco(v.id)}><Eye size={15} /> Ver resultado</Button>}
         </div>
       ),
     },
@@ -70,9 +68,7 @@ export function SorteioPage() {
         emptyIcon={<Gift />} emptyTitle="Nenhum sorteio"
       />
 
-      <ConfirmDialog open={!!confirmando} onOpenChange={(open) => { if (!open) setConfirmando(null) }}
-        title="Realizar sorteio" confirmLabel="Sortear" variant="default" loading={sortear.isPending}
-        description={<>Sortear <strong>{confirmando?.descricao}</strong>? O resultado é definitivo e ficará registrado na campanha.</>} onConfirm={() => { if (confirmando) void onSortear(confirmando) }} />
+      {noPalco !== null && <SorteioPalco sorteioId={noPalco} onFechar={() => setNoPalco(null)} />}
 
       <FormDialog
         open={open} onOpenChange={setOpen}
@@ -80,6 +76,7 @@ export function SorteioPage() {
         loading={salvar.isPending} onConfirm={onSalvar}
       >
         <Field label="Descrição" required><Input value={form.descricao ?? ''} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></Field>
+        <Field label="Prêmio"><Input value={form.premio ?? ''} onChange={(e) => setForm((f) => ({ ...f, premio: e.target.value }))} placeholder="ex: Um botijão por mês durante um ano" /></Field>
         <Field label="Data do sorteio"><Input type="date" value={form.data_sorteio ?? ''} onChange={(e) => setForm((f) => ({ ...f, data_sorteio: e.target.value }))} /></Field>
       </FormDialog>
 

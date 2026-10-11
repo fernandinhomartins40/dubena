@@ -685,6 +685,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::put('sorteios/{id}', [CrmController::class, 'sorteioSalvar'])->whereNumber('id');
         Route::post('sorteios/{id}/numeros', [CrmController::class, 'sorteioNumero'])->whereNumber('id');
         Route::post('sorteios/{id}/sortear', [CrmController::class, 'sortear'])->whereNumber('id');
+        Route::get('sorteios/{id}/palco', [CrmController::class, 'sorteioPalco'])->whereNumber('id');
 
         Route::get('metas', [CrmController::class, 'metaIndex']);
         Route::post('metas', [CrmController::class, 'metaSalvar']);
