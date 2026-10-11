@@ -73,6 +73,7 @@
     .hero .wrap{position:relative;display:grid;grid-template-columns:minmax(0,470px) minmax(0,1fr);align-items:center;gap:8px}
     .hero h1{color:#fff;font-size:clamp(44px,5vw,68px);font-weight:800;line-height:1.04;letter-spacing:-.035em}
     .hero h1 em{font-style:normal;color:var(--laranja)}
+    .hero .copia{position:relative;z-index:3}
     .hero .sub{margin-top:20px;max-width:420px;font-size:18px;line-height:1.45;color:rgba(255,255,255,.92)}
     .acoes{display:flex;flex-wrap:wrap;gap:14px;margin-top:28px}
     .provas{display:flex;gap:44px;margin-top:38px}
@@ -80,11 +81,14 @@
     .provas .i{display:block;font-size:30px;color:var(--laranja);margin-bottom:10px;stroke-width:1.7}
 
     .palco{position:relative;height:540px}
-    .palco .mascote{position:absolute;left:-60px;bottom:-250px;height:800px;width:auto;max-width:none;z-index:1;pointer-events:none}
-    .laptop{position:absolute;right:-60px;bottom:-128px;width:640px;z-index:2;transform:perspective(2200px) rotateY(-11deg) rotateX(4deg) rotateZ(-2.5deg);transform-origin:60% 60%;filter:drop-shadow(0 30px 40px rgba(0,0,0,.45))}
+    .palco .mascote{position:absolute;left:-120px;bottom:-250px;height:800px;width:auto;max-width:none;z-index:1;pointer-events:none}
+    .laptop{position:absolute;right:-46px;bottom:-128px;width:500px;z-index:2;filter:drop-shadow(0 30px 40px rgba(0,0,0,.45))}
     .laptop .tela{padding:12px 12px 14px;border-radius:18px 18px 4px 4px;background:linear-gradient(180deg,#2a2d33,#0f1114);border:1px solid #4a4d55}
     .laptop .base{height:16px;margin:0 -44px;border-radius:2px 2px 16px 16px;background:linear-gradient(180deg,#e8eaee 0%,#b9bdc6 55%,#7d828d 100%);position:relative}
     .laptop .base::after{content:"";position:absolute;left:50%;top:0;width:110px;height:6px;margin-left:-55px;border-radius:0 0 8px 8px;background:#9a9fa9}
+    /* O notebook ocupa só o canto direito: o mascote é a figura do hero, e a
+       tela não pode passar do quadril dele para a esquerda. */
+    .laptop .app{font-size:9.3px}
 
     /* ── Janela do sistema (ilustração em HTML: nítida em qualquer tela) ──
        Tudo em `em`: o mesmo desenho serve o notebook do hero, o tablet do
@@ -120,6 +124,8 @@
 
     /* Curva que encerra o hero. É um SVG e não border-radius: a borda de baixo
        sobe à direita, por baixo do notebook, como na prancheta. */
+    /* O notebook é reto, sem rotação: a versão em perspectiva feita em CSS
+       lia como "torto", não como profundidade. */
     .onda{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:120px;z-index:1;pointer-events:none}
 
     /* ── Como funciona ── */
@@ -193,25 +199,25 @@
 
     /* ── Rodapé ── */
     .rodape{background:var(--marinho);color:rgba(255,255,255,.86);font-size:14px}
-    .rodape .wrap{display:flex;align-items:center;gap:36px;padding:26px 0}
+    .rodape .wrap{display:flex;align-items:center;gap:26px;padding:26px 0}
     .rodape .marca img{height:58px}
-    .rodape nav{display:flex;gap:36px;font:500 14.5px/1 var(--titulo);margin-right:auto;margin-left:28px}
+    .rodape nav{display:flex;gap:30px;font:500 14.5px/1 var(--titulo);margin-right:auto;margin-left:20px;white-space:nowrap}
     .rodape nav a:hover,.rodape .legal a:hover{color:#ffb27a}
-    .rodape .legal{display:flex;gap:14px;align-items:center;font-size:13px;color:rgba(255,255,255,.7)}
+    .rodape .legal{display:flex;gap:14px;align-items:center;font-size:13px;color:rgba(255,255,255,.7);white-space:nowrap}
     .rodape .legal span+span::before,.rodape .legal a::before{content:"|";margin-right:14px;opacity:.5}
-    .rodape .copy{padding-left:28px;border-left:1px solid rgba(255,255,255,.18);font-size:13px;line-height:1.5;color:rgba(255,255,255,.8)}
+    .rodape .copy{padding-left:24px;border-left:1px solid rgba(255,255,255,.18);font-size:13px;line-height:1.5;color:rgba(255,255,255,.8);white-space:nowrap}
     .barra-fixa{display:none}
 
     /* ── Intermediário: o palco encolhe antes de virar celular ── */
     @media (max-width:1180px){
-      .laptop{width:540px;right:-90px}.palco .mascote{height:620px;left:-70px}
+      .laptop{width:400px;right:22px}.laptop .app{font-size:7.4px}.palco .mascote{height:700px;left:-90px;bottom:-230px}
       .nav{gap:24px}.passos{gap:36px}.passo{padding-left:70px}
       .chamada{grid-template-columns:minmax(0,1fr) 220px auto;padding-left:40px}.chamada .arte span{display:none}.chamada .arte img{left:10px}
       .rodape .wrap{flex-wrap:wrap;gap:20px 28px}
     }
     @media (max-width:1000px){
       .hero .wrap{grid-template-columns:minmax(0,420px) minmax(0,1fr)}
-      .laptop{width:460px;right:-120px}.palco .mascote{height:560px;left:-110px}
+      .laptop{width:370px;right:24px}.laptop .app{font-size:6.9px}.palco .mascote{height:620px;left:-70px;bottom:-200px}
       .passos{grid-template-columns:1fr;gap:16px}.passo+.passo::before{display:none}
       .recursos{grid-template-columns:1fr}.trio{grid-template-columns:1fr}
       .destaque figure{height:300px}.destaque figure img{width:100%;max-width:520px}
@@ -252,7 +258,7 @@
       .provas{display:none}
       .palco{position:absolute;inset:0;height:auto;z-index:1}
       .palco .mascote{left:auto;right:-12%;top:-36px;bottom:auto;height:auto;width:68%}
-      .laptop{right:-11%;bottom:-74px;width:60%;transform:perspective(900px) rotateY(-12deg) rotateX(4deg) rotateZ(-4deg);filter:drop-shadow(0 16px 22px rgba(0,0,0,.5))}
+      .laptop{right:-12%;bottom:-74px;width:56%;filter:drop-shadow(0 16px 22px rgba(0,0,0,.5))}
       .laptop .tela{padding:5px;border-radius:12px;border:2px solid #cfd3da;background:#15181d}
       .laptop .base{display:none}
       .laptop .app{font-size:5.6px}.laptop .app-cartoes{display:none}
@@ -363,7 +369,7 @@
     <section class="hero" id="inicio">
       <div class="wrap">
         <div class="copia">
-          <h1>Sua revenda <em>organizada</em>. <span class="m-branco">Seu <em>tempo de&nbsp;volta</em>.</span></h1>
+          <h1>Sua revenda<br><em>organizada</em>.<br>Seu <em>tempo</em><br><em>de volta</em>.</h1>
           <p class="sub">Pedidos, entregas, estoque, financeiro e fiscal conectados em um só sistema.</p>
           <div class="acoes">
             <a class="btn btn-laranja" href="#recursos">Conhecer o sistema<svg class="i"><use href="#i-seta"/></svg></a>
