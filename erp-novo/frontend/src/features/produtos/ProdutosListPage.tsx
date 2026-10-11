@@ -54,10 +54,10 @@ export function ProdutosListPage() {
         </div>
       ),
     },
-    { key: 'precovenda', header: 'Preço de venda', align: 'right', width: 'w-40', cell: (p) => <span className="tabular-nums">{moeda(p.precovenda)}</span> },
+    { key: 'preco_venda', header: 'Preço de venda', align: 'right', width: 'w-40', cell: (p) => <span className="tabular-nums">{moeda(p.preco_venda)}</span> },
     {
       key: 'nfe', header: 'NF-e', align: 'center', width: 'w-24',
-      cell: (p) => p.nfepermite === 1 ? <Badge variant="success">Sim</Badge> : <span className="text-muted-foreground text-xs">Não</span>,
+      cell: (p) => p.nfe_permite === 1 ? <Badge variant="success">Sim</Badge> : <span className="text-muted-foreground text-xs">Não</span>,
     },
     {
       key: 'acoes', header: '', align: 'right', width: 'w-16',

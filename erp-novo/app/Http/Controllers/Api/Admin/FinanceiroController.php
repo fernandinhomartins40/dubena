@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Caixa\Conta;
 use App\Models\Cliente\Cliente;
 use App\Models\Financeiro\CentroCusto;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Financeiro\ContaExtratoRegra;
 use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
@@ -20,6 +21,7 @@ use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
@@ -111,12 +113,32 @@ class FinanceiroController extends Controller
             'descricao' => 'nullable|string|max:255',
             'valor' => 'required|numeric|gt:0',
             'data_emissao' => 'nullable|date',
+            // A tela sempre pediu vencimento e condição de pagamento, mas sem
+            // regra aqui os dois eram descartados: a emissão virava "hoje" e
+            // saía UMA parcela vencendo hoje — a conta a pagar de daqui a 30
+            // dias aparecia vencida amanhã, e o 3x virava à vista.
+            'vencimento' => 'nullable|date|after_or_equal:data_emissao',
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'num_parcelas' => 'nullable|integer|min:1|max:360',
         ]);
 
+        // Mesma regra do financeiro gerado por pedido (`gerarDoPedido`): a
+        // condição dirige quantas parcelas e de quanto em quanto tempo. O
+        // vencimento informado, quando há, fixa a PRIMEIRA parcela.
+        $condicao = isset($d['condicaopagamento_id']) ? CondicaoPagamento::query()->find($d['condicaopagamento_id']) : null;
+        $emissao = Carbon::parse($d['data_emissao'] ?? now())->startOfDay();
+        $diasPrimeira = isset($d['vencimento'])
+            ? (int) $emissao->diffInDays(Carbon::parse($d['vencimento'])->startOfDay())
+            : (int) ($condicao?->dias_primeira ?? 0);
+
         $financeiro = $this->service->criar(
-            array_merge($d, ['empresa_id' => $request->user()->empresa_id, 'grupo_id' => $request->user()->grupo_id]),
-            numParcelas: (int) ($d['num_parcelas'] ?? 1),
+            array_merge(
+                collect($d)->except(['vencimento', 'condicaopagamento_id', 'num_parcelas'])->all(),
+                ['empresa_id' => $request->user()->empresa_id, 'grupo_id' => $request->user()->grupo_id],
+            ),
+            numParcelas: (int) ($d['num_parcelas'] ?? $condicao?->num_parcelas ?? 1),
+            diasPrimeira: $diasPrimeira,
+            intervalo: (int) ($condicao?->intervalo_dias ?? 30),
         );
 
         return response()->json(['data' => $financeiro], 201);

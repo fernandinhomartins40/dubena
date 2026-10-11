@@ -23,13 +23,13 @@ export function OrigensTab({
   ufLabels: Record<number, string | null>
   setUfLabel: (idx: number, label: string | null) => void
 }) {
-  const total = origens.reduce((s, o) => s + (Number(o.porig) || 0), 0)
+  const total = origens.reduce((s, o) => s + (Number(o.p_orig) || 0), 0)
   const ok = Math.abs(total - 100) < 0.001 || origens.length === 0
 
   function set(idx: number, patch: Partial<OrigemCombustivel>) {
     onChange(origens.map((o, i) => (i === idx ? { ...o, ...patch } : o)))
   }
-  function add() { onChange([...origens, { indimport: 0, cuforig: 0, porig: 0 }]) }
+  function add() { onChange([...origens, { ind_import: 0, cuf_orig: 0, p_orig: 0 }]) }
   function remove(idx: number) { onChange(origens.filter((_, i) => i !== idx)) }
 
   return (
@@ -57,7 +57,7 @@ export function OrigensTab({
             <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end rounded-lg border border-border p-3">
               <div className="md:col-span-5">
                 <Field label="Indicador de importação">
-                  <Select value={String(o.indimport)} onValueChange={(v) => set(idx, { indimport: Number(v) })}>
+                  <Select value={String(o.ind_import)} onValueChange={(v) => set(idx, { ind_import: Number(v) })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {IND_IMPORT.map((i) => <SelectItem key={i.v} value={String(i.v)}>{i.l}</SelectItem>)}
@@ -67,13 +67,13 @@ export function OrigensTab({
               </div>
               <div className="md:col-span-4">
                 <Field label="UF de origem">
-                  <AsyncSelect endpoint="/lookups/estados" value={o.cuforig || null} valueLabel={ufLabels[idx]}
-                    onChange={(id, opt) => { set(idx, { cuforig: id ?? 0 }); setUfLabel(idx, opt?.label ?? null) }} />
+                  <AsyncSelect endpoint="/lookups/estados" value={o.cuf_orig || null} valueLabel={ufLabels[idx]}
+                    onChange={(id, opt) => { set(idx, { cuf_orig: id ?? 0 }); setUfLabel(idx, opt?.label ?? null) }} />
                 </Field>
               </div>
               <div className="md:col-span-2">
                 <Field label="% Origem">
-                  <Input type="number" step="0.0001" value={o.porig} onChange={(e) => set(idx, { porig: parseFloat(e.target.value) || 0 })} />
+                  <Input type="number" step="0.0001" value={o.p_orig} onChange={(e) => set(idx, { p_orig: parseFloat(e.target.value) || 0 })} />
                 </Field>
               </div>
               <div className="md:col-span-1 flex justify-end">

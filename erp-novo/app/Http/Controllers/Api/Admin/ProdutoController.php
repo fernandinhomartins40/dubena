@@ -43,7 +43,7 @@ class ProdutoController extends Controller
         $this->autorizar($request, 'produto.view');
 
         return new ProdutoResource(
-            Produto::query()->with(['origens', 'classe', 'unidade', 'retornavel'])->findOrFail($id),
+            Produto::query()->with(['origens', 'classe', 'unidade', 'retornavel', 'grupoFiscal'])->findOrFail($id),
         );
     }
 

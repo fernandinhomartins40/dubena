@@ -64,10 +64,29 @@ class ProdutoResource extends JsonResource
             'ean' => $this->ean,
             'especie' => $this->especie,
             'marca' => $this->marca,
+            // Estes ficavam de FORA da resposta: o formulário abria em branco
+            // e, ao salvar, mandaria o branco por cima do dado migrado.
+            'grupo_fiscal_id' => $this->grupo_fiscal_id,
+            'grupofiscal_label' => $this->whenLoaded('grupoFiscal', fn () => $this->grupoFiscal?->descricao),
+            'ean_trib' => $this->ean_trib,
+            'nfe_descricao_fiscal' => $this->nfe_descricao_fiscal,
+            'nfe_nat_rec' => $this->nfe_nat_rec,
+            'nfe_cod_gen' => $this->nfe_cod_gen,
+            'nfe_cod_lst' => $this->nfe_cod_lst,
+            'nfe_aliq_ipi' => $this->num($this->nfe_aliq_ipi),
+            'nfe_bc_ipi' => $this->num($this->nfe_bc_ipi),
+            'nfe_cod_enquadramento_ipi' => $this->nfe_cod_enquadramento_ipi,
+            'nfe_ex_tipi' => $this->nfe_ex_tipi,
             // GLP
             'tipo_glp' => $this->tipo_glp,
             'nfe_cprod_anp' => $this->nfe_cprod_anp,
+            'nfe_desc_anp' => $this->nfe_desc_anp,
+            'nfe_qbc_prod' => $this->num($this->nfe_qbc_prod),
+            'nfe_valiq_prod' => $this->num($this->nfe_valiq_prod),
+            'nfe_vcide' => $this->num($this->nfe_vcide),
             'pglp' => $this->num($this->pglp),
+            'pgnn' => $this->num($this->pgnn),
+            'pgni' => $this->num($this->pgni),
             // Origens aninhadas
             'origens' => $this->whenLoaded('origens', fn () => $this->origens->map(fn ($o) => [
                 'id' => $o->id,

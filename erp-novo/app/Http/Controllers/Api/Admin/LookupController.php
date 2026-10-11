@@ -60,6 +60,12 @@ class LookupController extends Controller
         'tipos-pessoa' => ['tipopessoas', 'descricao', 'grupo'],
         'contato-tipos' => ['clientecontatotipos', 'descricao', 'grupo'],
         'contato-situacoes' => ['clientecontatosituacoes', 'descricao', 'grupo'],
+        // Os grupos fiscais REAIS da revenda — é para eles que
+        // `produtos.grupo_fiscal_id` aponta (FK em `malha_fiscal`). Antes era
+        // uma lista fixa com ids sintéticos 1..4 ("Tributado"…): escolher
+        // "Tributado" gravaria o id 1, que é "NCM 27111910" na malha da
+        // Dubena, e a matriz tributária escolheria a regra pelo grupo errado.
+        'nf-grupos-fiscais' => ['malha_fiscal', 'descricao', 'grupo', ['tipo' => 'grupos-fiscais']],
     ];
 
     /**
@@ -121,7 +127,6 @@ class LookupController extends Controller
     /** Lookups sem tabela própria — listas fixas (id sintético + label). */
     private const ESTATICOS = [
         'tipo-glp' => ['P2', 'P5', 'P13', 'P20', 'P45', 'P90', 'Granel'],
-        'nf-grupos-fiscais' => ['Tributado', 'Substituição tributária', 'Isento', 'Não tributado'],
         'parentescos' => ['Cônjuge', 'Filho(a)', 'Pai', 'Mãe', 'Irmão(ã)', 'Outro'],
     ];
 
@@ -161,6 +166,10 @@ class LookupController extends Controller
         }
 
         [$tabela, $colLabel, $escopo] = self::MAPA[$tipo];
+        // 4º elemento (documentado no registro e nunca aplicado até aqui):
+        // recorte fixo da tabela, para lookups que vivem numa tabela
+        // compartilhada por tipo — como a malha fiscal.
+        $filtroFixo = self::MAPA[$tipo][3] ?? [];
         $user = $request->user();
 
         // Recorte por pai (ex.: ?cidade_id= em bairros/ruas). Sem isto o select
@@ -169,6 +178,7 @@ class LookupController extends Controller
         $cidadeId = $request->query('cidade_id');
 
         $rows = DB::table($tabela)
+            ->where($filtroFixo)
             ->when($escopo === 'grupo' && $user?->grupo_id, fn ($b) => $b->where('grupo_id', $user->grupo_id))
             ->when($escopo === 'empresa' && $user?->empresa_id, fn ($b) => $b->where('empresa_id', $user->empresa_id))
             ->when(

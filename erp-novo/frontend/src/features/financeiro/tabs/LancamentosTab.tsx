@@ -70,23 +70,28 @@ function CardResumo({ titulo, valor, icon }: { titulo: string; valor?: number; i
 function NovoLancamentoDialog() {
   const criar = useCriarLancamento()
   const [open, setOpen] = useState(false)
-  const [f, setF] = useState<any>({ pagarreceber: 'R' })
+  // Emissão já vem com hoje: é o caso comum, e o leigo não precisa decidir.
+  const inicial = () => ({ pagarreceber: 'R', data_emissao: new Date().toLocaleDateString('sv-SE') })
+  const [f, setF] = useState<any>(inicial)
   const [labels, setLabels] = useState<Record<string, string | null>>({})
   const set = (k: string, v: any) => setF((s: any) => ({ ...s, [k]: v }))
 
   async function salvar() {
-    const req = ['cliente_id', 'valor', 'dataemissao', 'datacompetencia', 'datavencimento', 'planoconta_id', 'centrocusto_id', 'condicaopagamento_id']
-    if (req.some((k) => !f[k])) { toast.error('Preencha cliente, valor, datas, plano, centro e condição.'); return }
+    // Os nomes são os que o servidor aceita. Antes iam `dataemissao`/`datavencimento`
+    // e a condição era ignorada: o título nascia com emissão de hoje e UMA
+    // parcela vencendo hoje, fosse qual fosse a data digitada.
+    const req = ['cliente_id', 'valor', 'data_emissao', 'vencimento', 'planoconta_id', 'centrocusto_id', 'condicaopagamento_id']
+    if (req.some((k) => !f[k])) { toast.error('Preencha cliente, valor, datas, condição, plano de contas e centro de custo.'); return }
     try {
       await criar.mutateAsync({ ...f, valor: Number(f.valor) })
-      toast.success('Lançamento criado.'); setOpen(false); setF({ pagarreceber: 'R' })
+      toast.success('Lançamento criado.'); setOpen(false); setF(inicial())
     } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao criar lançamento.') }
   }
 
   return (
     <>
       <Button onClick={() => setOpen(true)}><Plus size={16} /> Novo lançamento</Button>
-      <FormDialog dirty={JSON.stringify(f) !== JSON.stringify({ pagarreceber: 'R' })} open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setF({ pagarreceber: 'R' }); setLabels({}) } }} title="Novo lançamento" widthClass="max-w-2xl" loading={criar.isPending} onConfirm={salvar}>
+      <FormDialog dirty={JSON.stringify(f) !== JSON.stringify(inicial())} open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setF(inicial()); setLabels({}) } }} title="Novo lançamento" widthClass="max-w-2xl" loading={criar.isPending} onConfirm={salvar}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Tipo" required>
             <Select value={f.pagarreceber} onValueChange={(v) => set('pagarreceber', v)}>
@@ -97,9 +102,8 @@ function NovoLancamentoDialog() {
           <Field label="Cliente / Fornecedor" required><AsyncSelect endpoint="/lookups/clientes-fornecedores" value={f.cliente_id ?? null} valueLabel={labels.cli} onChange={(id, o) => { set('cliente_id', id); setLabels((l) => ({ ...l, cli: o?.label ?? null })) }} /></Field>
           <Field label="Valor" required><Input type="number" step="0.01" value={f.valor ?? ''} onChange={(e) => set('valor', e.target.value)} /></Field>
           <Field label="Documento"><Input value={f.documento ?? ''} onChange={(e) => set('documento', e.target.value)} /></Field>
-          <Field label="Emissão" required><Input type="date" value={f.dataemissao ?? ''} onChange={(e) => set('dataemissao', e.target.value)} /></Field>
-          <Field label="Competência" required><Input type="date" value={f.datacompetencia ?? ''} onChange={(e) => set('datacompetencia', e.target.value)} /></Field>
-          <Field label="Vencimento" required><Input type="date" value={f.datavencimento ?? ''} onChange={(e) => set('datavencimento', e.target.value)} /></Field>
+          <Field label="Data do lançamento" required><Input type="date" value={f.data_emissao ?? ''} onChange={(e) => set('data_emissao', e.target.value)} /></Field>
+                    <Field label="Primeiro vencimento" required hint="As demais parcelas seguem a condição de pagamento"><Input type="date" min={f.data_emissao} value={f.vencimento ?? ''} onChange={(e) => set('vencimento', e.target.value)} /></Field>
           <Field label="Condição de pagamento" required><AsyncSelect endpoint="/lookups/condicoes-pagamento" value={f.condicaopagamento_id ?? null} valueLabel={labels.cond} onChange={(id, o) => { set('condicaopagamento_id', id); setLabels((l) => ({ ...l, cond: o?.label ?? null })) }} /></Field>
           <Field label="Plano de contas" required><AsyncSelect endpoint="/lookups/planos-conta" value={f.planoconta_id ?? null} valueLabel={labels.pc} onChange={(id, o) => { set('planoconta_id', id); setLabels((l) => ({ ...l, pc: o?.label ?? null })) }} /></Field>
           <Field label="Centro de custo" required><AsyncSelect endpoint="/lookups/centros-custo" value={f.centrocusto_id ?? null} valueLabel={labels.cc} onChange={(id, o) => { set('centrocusto_id', id); setLabels((l) => ({ ...l, cc: o?.label ?? null })) }} /></Field>

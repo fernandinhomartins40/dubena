@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Domain\Produto\TipoProduto;
+use App\Models\Fiscal\MalhaFiscal;
 use App\Models\Produto\Produto;
 use App\Models\Produto\ProdutoClasse;
 use App\Models\Produto\UnidadeMedida;
@@ -85,9 +86,39 @@ class ProdutoRequest extends FormRequest
             'especie' => 'nullable|string|max:60',
             'marca' => 'nullable|string|max:60',
 
+            // Colunas que o formulário sempre editou e que, sem regra aqui,
+            // o `validated()` descartava: grupo fiscal (escolhe a regra da
+            // matriz tributária), EAN tributável, IPI e os dados ANP do GLP —
+            // sem estes a NF-e de combustível é rejeitada.
+            'grupo_fiscal_id' => [
+                'nullable', 'integer', new ExisteNoTenant(MalhaFiscal::class),
+                // A malha guarda CST, CEST e outros na mesma tabela: um id de
+                // CST passaria pela fronteira do tenant e viraria "grupo".
+                function (string $atributo, mixed $valor, \Closure $falhar): void {
+                    if ($valor !== null && ! MalhaFiscal::query()->whereKey($valor)->where('tipo', 'grupos-fiscais')->exists()) {
+                        $falhar('Escolha um grupo fiscal da lista.');
+                    }
+                },
+            ],
+            'ean_trib' => 'nullable|string|max:20',
+            'nfe_descricao_fiscal' => 'nullable|string|max:255',
+            'nfe_nat_rec' => 'nullable|string|max:10',
+            'nfe_cod_gen' => 'nullable|integer|min:0',
+            'nfe_cod_lst' => 'nullable|integer|min:0',
+            'nfe_aliq_ipi' => 'nullable|numeric|min:0|max:999',
+            'nfe_bc_ipi' => 'nullable|numeric|min:0',
+            'nfe_cod_enquadramento_ipi' => 'nullable|integer|min:0',
+            'nfe_ex_tipi' => 'nullable|string|max:10',
+
             'tipo_glp' => 'nullable|integer',
             'nfe_cprod_anp' => 'nullable|string|max:20',
+            'nfe_desc_anp' => 'nullable|string|max:255',
+            'nfe_qbc_prod' => 'nullable|numeric|min:0',
+            'nfe_valiq_prod' => 'nullable|numeric|min:0',
+            'nfe_vcide' => 'nullable|numeric|min:0',
             'pglp' => 'nullable|numeric',
+            'pgnn' => 'nullable|numeric|min:0|max:100',
+            'pgni' => 'nullable|numeric|min:0|max:100',
 
             'origens' => 'nullable|array',
             'origens.*.uf' => 'nullable|string|size:2',

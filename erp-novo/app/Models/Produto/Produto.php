@@ -109,6 +109,12 @@ class Produto extends Model
         return $this->belongsTo(self::class, 'produto_retornavel_id');
     }
 
+    /** Grupo fiscal (linha de `malha_fiscal`) — é por ele que a matriz escolhe o imposto. */
+    public function grupoFiscal(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Fiscal\MalhaFiscal::class, 'grupo_fiscal_id');
+    }
+
     public function origens(): HasMany
     {
         return $this->hasMany(ProdutoOrigem::class);

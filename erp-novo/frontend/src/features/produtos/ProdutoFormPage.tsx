@@ -12,16 +12,16 @@ import { qtd } from '@/lib/format'
 import { useProduto, useSalvarProduto, useEstoqueProduto, type ProdutoForm, type TipoProduto } from './api'
 
 const VAZIO: ProdutoForm = {
-  descricao: '', tipo: 'INDEFINIDO', capacidade: null, produtoclasse_id: null, unidademedida_id: null, vasilhameretornavel: false,
-  produtoretornavel_id: null, ativo: true, enviaappnf: false, diasgiro: null, observacao: '',
-  precovenda: '', precovendaminimo: '', customedio: '', custofrete: '', precogasdopovo: '',
-  pesoliquido: '', pesobruto: '',
-  nfepermite: false, sped: false, nfetipoitem: null, nfgrupofiscal_id: null, nfipi_id: null,
-  nfealiqipi: '', nfebcipi: '', nfecodenquadramentoipi: null, nfeextipi: '', nfedescricaofiscal: '',
-  nfenatrec: '', ean: '', eantrib: '', ncm: '', nfcest: '', especie: '', marca: '',
-  nfecodgen: null, nfecodlst: null,
-  tipo_glp: null, ressarcimentoproduto_id: null, nfecprodanp: '', nfedescanp: '',
-  nfeqbcprod: '', nfevaliqprod: '', nfevcide: '', pgni: '', pgnn: '', pglp: '',
+  descricao: '', tipo: 'INDEFINIDO', capacidade: null, produtoclasse_id: null, unidademedida_id: null, vasilhame_retornavel: false,
+  produto_retornavel_id: null, ativo: true, envia_app_nf: false, dias_giro: null, observacao: '',
+  preco_venda: '', preco_venda_minimo: '', custo_medio: '', custo_frete: '', preco_gasdopovo: '',
+  peso_liquido: '', peso_bruto: '',
+  nfe_permite: false, sped: false, nfe_tipo_item: null, grupo_fiscal_id: null, nfipi_id: null,
+  nfe_aliq_ipi: '', nfe_bc_ipi: '', nfe_cod_enquadramento_ipi: null, nfe_ex_tipi: '', nfe_descricao_fiscal: '',
+  nfe_nat_rec: '', ean: '', ean_trib: '', ncm: '', nfe_cest: '', especie: '', marca: '',
+  nfe_cod_gen: null, nfe_cod_lst: null,
+  tipo_glp: null, ressarcimentoproduto_id: null, nfe_cprod_anp: '', nfe_desc_anp: '',
+  nfe_qbc_prod: '', nfe_valiq_prod: '', nfe_vcide: '', pgni: '', pgnn: '', pglp: '',
   origens: [],
 }
 
@@ -40,7 +40,7 @@ export function ProdutoFormPage() {
   const [labels, setLabels] = useState<Record<string, string | null>>({})
   const [ufLabels, setUfLabels] = useState<Record<number, string | null>>({})
 
-  const BOOL_KEYS: (keyof ProdutoForm)[] = ['vasilhameretornavel', 'ativo', 'enviaappnf', 'nfepermite']
+  const BOOL_KEYS: (keyof ProdutoForm)[] = ['vasilhame_retornavel', 'ativo', 'envia_app_nf', 'nfe_permite']
   const { form, campo, erros, submit } = useResourceForm<ProdutoForm>({
     vazio: VAZIO, existente: existente as Partial<ProdutoForm> | undefined,
     hidratar: (ex, vazio) => {
@@ -56,7 +56,7 @@ export function ProdutoFormPage() {
       f.pgnn = e.pGNn ?? e.pgnn ?? ''
       f.pglp = e.pGLP ?? e.pglp ?? ''
       f.origens = (e.origens ?? []).map((o: any) => ({
-        id: o.id, indimport: Number(o.indimport), cuforig: Number(o.cuforig), porig: Number(o.porig), uf: o.uf,
+        id: o.id, ind_import: Number(o.ind_import), cuf_orig: Number(o.cuf_orig), p_orig: Number(o.p_orig), uf: o.uf,
       }))
       return f
     },
@@ -161,18 +161,18 @@ export function ProdutoFormPage() {
               <Input value={val(form.capacidade)} maxLength={20} onChange={(e) => campo('capacidade', e.target.value)} placeholder="P13" />
             </Field>
             <Field label="Dias de giro" hint="Usado na curva de giro do estoque">
-              <Input type="number" value={form.diasgiro ?? ''} onChange={(e) => campo('diasgiro', e.target.value ? Number(e.target.value) : null)} />
+              <Input type="number" value={form.dias_giro ?? ''} onChange={(e) => campo('dias_giro', e.target.value ? Number(e.target.value) : null)} />
             </Field>
             <Field label="Observação" className="md:col-span-2"><Textarea value={val(form.observacao)} maxLength={500} onChange={(e) => campo('observacao', e.target.value)} /></Field>
             <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-border pt-3">
               <CheckboxField label="Ativo" checked={!!form.ativo} onChange={(b) => campo('ativo', b)} />
-              <CheckboxField label="Envia no app (NF)" checked={!!form.enviaappnf} onChange={(b) => campo('enviaappnf', b)} />
-              <CheckboxField label="Vasilhame retornável" checked={!!form.vasilhameretornavel} onChange={(b) => campo('vasilhameretornavel', b)} />
+              <CheckboxField label="Envia no app (NF)" checked={!!form.envia_app_nf} onChange={(b) => campo('envia_app_nf', b)} />
+              <CheckboxField label="Vasilhame retornável" checked={!!form.vasilhame_retornavel} onChange={(b) => campo('vasilhame_retornavel', b)} />
             </div>
-            {form.vasilhameretornavel && (
-              <Field label="Produto vasilhame" required error={erros.produtoretornavel_id}>
-                <AsyncSelect endpoint="/lookups/produtos-vasilhame" value={form.produtoretornavel_id ?? null} valueLabel={labels.vasilhame} error={!!erros.produtoretornavel_id}
-                  onChange={(id, opt) => { campo('produtoretornavel_id', id); setLabels((l) => ({ ...l, vasilhame: opt?.label ?? null })) }} />
+            {form.vasilhame_retornavel && (
+              <Field label="Produto vasilhame" required error={erros.produto_retornavel_id}>
+                <AsyncSelect endpoint="/lookups/produtos-vasilhame" value={form.produto_retornavel_id ?? null} valueLabel={labels.vasilhame} error={!!erros.produto_retornavel_id}
+                  onChange={(id, opt) => { campo('produto_retornavel_id', id); setLabels((l) => ({ ...l, vasilhame: opt?.label ?? null })) }} />
               </Field>
             )}
           </CardContent></Card>
@@ -180,14 +180,14 @@ export function ProdutoFormPage() {
 
         <TabsContent value="precos">
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Preço de venda"><Input type="number" step="0.0001" value={val(form.precovenda as string)} onChange={(e) => campo('precovenda', e.target.value)} /></Field>
-            <Field label="Preço mínimo"><Input type="number" step="0.0001" value={val(form.precovendaminimo as string)} onChange={(e) => campo('precovendaminimo', e.target.value)} /></Field>
-            <Field label="Custo médio"><Input type="number" step="0.0001" value={val(form.customedio as string)} onChange={(e) => campo('customedio', e.target.value)} /></Field>
-            <Field label="Custo de frete"><Input type="number" step="0.0001" value={val(form.custofrete as string)} onChange={(e) => campo('custofrete', e.target.value)} /></Field>
-            <Field label="Preço Gás do Povo"><Input type="number" step="0.0001" value={val(form.precogasdopovo as string)} onChange={(e) => campo('precogasdopovo', e.target.value)} /></Field>
+            <Field label="Preço de venda"><Input type="number" step="0.0001" value={val(form.preco_venda as string)} onChange={(e) => campo('preco_venda', e.target.value)} /></Field>
+            <Field label="Preço mínimo"><Input type="number" step="0.0001" value={val(form.preco_venda_minimo as string)} onChange={(e) => campo('preco_venda_minimo', e.target.value)} /></Field>
+            <Field label="Custo médio"><Input type="number" step="0.0001" value={val(form.custo_medio as string)} onChange={(e) => campo('custo_medio', e.target.value)} /></Field>
+            <Field label="Custo de frete"><Input type="number" step="0.0001" value={val(form.custo_frete as string)} onChange={(e) => campo('custo_frete', e.target.value)} /></Field>
+            <Field label="Preço Gás do Povo"><Input type="number" step="0.0001" value={val(form.preco_gasdopovo as string)} onChange={(e) => campo('preco_gasdopovo', e.target.value)} /></Field>
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border pt-4">
-              <Field label="Peso líquido (Kg)"><Input type="number" step="0.0001" value={val(form.pesoliquido as string)} onChange={(e) => campo('pesoliquido', e.target.value)} /></Field>
-              <Field label="Peso bruto (Kg)"><Input type="number" step="0.0001" value={val(form.pesobruto as string)} onChange={(e) => campo('pesobruto', e.target.value)} /></Field>
+              <Field label="Peso líquido (Kg)"><Input type="number" step="0.0001" value={val(form.peso_liquido as string)} onChange={(e) => campo('peso_liquido', e.target.value)} /></Field>
+              <Field label="Peso bruto (Kg)"><Input type="number" step="0.0001" value={val(form.peso_bruto as string)} onChange={(e) => campo('peso_bruto', e.target.value)} /></Field>
             </div>
           </CardContent></Card>
         </TabsContent>
@@ -195,26 +195,26 @@ export function ProdutoFormPage() {
         <TabsContent value="fiscal">
           <Card><CardContent className="pt-6 space-y-4">
             <div className="flex flex-wrap gap-6 border-b border-border pb-3">
-              <CheckboxField label="Permite NF-e" checked={!!form.nfepermite} onChange={(b) => campo('nfepermite', b)} />
+              <CheckboxField label="Permite NF-e" checked={!!form.nfe_permite} onChange={(b) => campo('nfe_permite', b)} />
               <CheckboxField label="SPED (informar tipo de item)" checked={!!form.sped} onChange={(b) => campo('sped', b)} />
             </div>
-            {!form.nfepermite ? (
+            {!form.nfe_permite ? (
               <p className="text-sm text-muted-foreground">Marque “Permite NF-e” para preencher os dados fiscais.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Grupo fiscal" required error={erros.nfgrupofiscal_id}>
-                  <AsyncSelect endpoint="/lookups/nf-grupos-fiscais" value={form.nfgrupofiscal_id ?? null} valueLabel={labels.grupofiscal} error={!!erros.nfgrupofiscal_id}
-                    onChange={(id, opt) => { campo('nfgrupofiscal_id', id); setLabels((l) => ({ ...l, grupofiscal: opt?.label ?? null })) }} />
+                <Field label="Grupo fiscal" required error={erros.grupo_fiscal_id}>
+                  <AsyncSelect endpoint="/lookups/nf-grupos-fiscais" value={form.grupo_fiscal_id ?? null} valueLabel={labels.grupofiscal} error={!!erros.grupo_fiscal_id}
+                    onChange={(id, opt) => { campo('grupo_fiscal_id', id); setLabels((l) => ({ ...l, grupofiscal: opt?.label ?? null })) }} />
                 </Field>
-                <Field label="Descrição fiscal" required error={erros.nfedescricaofiscal}><Input value={val(form.nfedescricaofiscal)} maxLength={50} error={!!erros.nfedescricaofiscal} onChange={(e) => campo('nfedescricaofiscal', e.target.value)} /></Field>
-                {form.sped && <Field label="Tipo de item (SPED)" required error={erros.nfetipoitem}><Input type="number" value={form.nfetipoitem ?? ''} error={!!erros.nfetipoitem} onChange={(e) => campo('nfetipoitem', e.target.value ? Number(e.target.value) : null)} /></Field>}
+                <Field label="Descrição fiscal" required error={erros.nfe_descricao_fiscal}><Input value={val(form.nfe_descricao_fiscal)} maxLength={50} error={!!erros.nfe_descricao_fiscal} onChange={(e) => campo('nfe_descricao_fiscal', e.target.value)} /></Field>
+                {form.sped && <Field label="Tipo de item (SPED)" required error={erros.nfe_tipo_item}><Input type="number" value={form.nfe_tipo_item ?? ''} error={!!erros.nfe_tipo_item} onChange={(e) => campo('nfe_tipo_item', e.target.value ? Number(e.target.value) : null)} /></Field>}
                 <Field label="NCM"><Input value={val(form.ncm)} maxLength={8} onChange={(e) => campo('ncm', e.target.value)} /></Field>
-                <Field label="CEST"><Input value={val(form.nfcest)} maxLength={7} onChange={(e) => campo('nfcest', e.target.value)} /></Field>
+                <Field label="CEST"><Input value={val(form.nfe_cest)} maxLength={7} onChange={(e) => campo('nfe_cest', e.target.value)} /></Field>
                 <Field label="EAN"><Input value={val(form.ean)} maxLength={14} onChange={(e) => campo('ean', e.target.value)} /></Field>
-                <Field label="EAN tributável"><Input value={val(form.eantrib)} maxLength={14} onChange={(e) => campo('eantrib', e.target.value)} /></Field>
-                <Field label="Alíquota IPI"><Input type="number" step="0.0001" value={val(form.nfealiqipi as string)} onChange={(e) => campo('nfealiqipi', e.target.value)} /></Field>
-                <Field label="BC IPI"><Input type="number" step="0.0001" value={val(form.nfebcipi as string)} onChange={(e) => campo('nfebcipi', e.target.value)} /></Field>
-                <Field label="Cód. enquadramento IPI"><Input type="number" value={form.nfecodenquadramentoipi ?? ''} onChange={(e) => campo('nfecodenquadramentoipi', e.target.value ? Number(e.target.value) : null)} /></Field>
+                <Field label="EAN tributável"><Input value={val(form.ean_trib)} maxLength={14} onChange={(e) => campo('ean_trib', e.target.value)} /></Field>
+                <Field label="Alíquota IPI"><Input type="number" step="0.0001" value={val(form.nfe_aliq_ipi as string)} onChange={(e) => campo('nfe_aliq_ipi', e.target.value)} /></Field>
+                <Field label="BC IPI"><Input type="number" step="0.0001" value={val(form.nfe_bc_ipi as string)} onChange={(e) => campo('nfe_bc_ipi', e.target.value)} /></Field>
+                <Field label="Cód. enquadramento IPI"><Input type="number" value={form.nfe_cod_enquadramento_ipi ?? ''} onChange={(e) => campo('nfe_cod_enquadramento_ipi', e.target.value ? Number(e.target.value) : null)} /></Field>
               </div>
             )}
           </CardContent></Card>
@@ -229,11 +229,11 @@ export function ProdutoFormPage() {
             <Field label="% GNn"><Input type="number" step="0.0001" value={val(form.pgnn as string)} onChange={(e) => campo('pgnn', e.target.value)} /></Field>
             <Field label="% GLP" hint="A soma %GNi + %GNn + %GLP deve ser 100 ou 0"><Input type="number" step="0.0001" value={val(form.pglp as string)} onChange={(e) => campo('pglp', e.target.value)} /></Field>
             <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4">
-              <Field label="Código ANP" error={erros.nfecprodanp}><Input value={val(form.nfecprodanp)} maxLength={9} error={!!erros.nfecprodanp} onChange={(e) => campo('nfecprodanp', e.target.value)} /></Field>
-              <Field label="Descrição ANP" error={erros.nfedescanp}><Input value={val(form.nfedescanp)} error={!!erros.nfedescanp} onChange={(e) => campo('nfedescanp', e.target.value)} /></Field>
-              <Field label="BC da CIDE" error={erros.nfeqbcprod}><Input type="number" step="0.0001" value={val(form.nfeqbcprod as string)} error={!!erros.nfeqbcprod} onChange={(e) => campo('nfeqbcprod', e.target.value)} /></Field>
-              <Field label="Valor alíq. CIDE" error={erros.nfevaliqprod}><Input type="number" step="0.0001" value={val(form.nfevaliqprod as string)} error={!!erros.nfevaliqprod} onChange={(e) => campo('nfevaliqprod', e.target.value)} /></Field>
-              <Field label="Valor CIDE" error={erros.nfevcide}><Input type="number" step="0.0001" value={val(form.nfevcide as string)} error={!!erros.nfevcide} onChange={(e) => campo('nfevcide', e.target.value)} /></Field>
+              <Field label="Código ANP" error={erros.nfe_cprod_anp}><Input value={val(form.nfe_cprod_anp)} maxLength={9} error={!!erros.nfe_cprod_anp} onChange={(e) => campo('nfe_cprod_anp', e.target.value)} /></Field>
+              <Field label="Descrição ANP" error={erros.nfe_desc_anp}><Input value={val(form.nfe_desc_anp)} error={!!erros.nfe_desc_anp} onChange={(e) => campo('nfe_desc_anp', e.target.value)} /></Field>
+              <Field label="BC da CIDE" error={erros.nfe_qbc_prod}><Input type="number" step="0.0001" value={val(form.nfe_qbc_prod as string)} error={!!erros.nfe_qbc_prod} onChange={(e) => campo('nfe_qbc_prod', e.target.value)} /></Field>
+              <Field label="Valor alíq. CIDE" error={erros.nfe_valiq_prod}><Input type="number" step="0.0001" value={val(form.nfe_valiq_prod as string)} error={!!erros.nfe_valiq_prod} onChange={(e) => campo('nfe_valiq_prod', e.target.value)} /></Field>
+              <Field label="Valor CIDE" error={erros.nfe_vcide}><Input type="number" step="0.0001" value={val(form.nfe_vcide as string)} error={!!erros.nfe_vcide} onChange={(e) => campo('nfe_vcide', e.target.value)} /></Field>
             </div>
           </CardContent></Card>
         </TabsContent>
@@ -270,7 +270,7 @@ function EstoqueGiroTab({ produtoId }: { produtoId: number }) {
       </CardContent></Card>
       <Card><CardContent className="pt-6">
         <p className="text-sm text-muted-foreground">Dias de giro</p>
-        <p className="mt-1 text-3xl font-bold tabular-nums">{data?.diasgiro ?? 0}</p>
+        <p className="mt-1 text-3xl font-bold tabular-nums">{data?.dias_giro ?? 0}</p>
       </CardContent></Card>
       <Card><CardContent className="pt-6">
         <p className="text-sm text-muted-foreground">Setores com saldo</p>

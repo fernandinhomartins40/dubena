@@ -4,18 +4,18 @@ import { api } from '@/lib/api'
 export interface ProdutoListItem {
   id: number
   descricao: string
-  precovenda: number | string | null
+  preco_venda: number | string | null
   ativo: number | null
-  nfepermite: number | null
+  nfe_permite: number | null
   produtoclasse_id: number
   classe: string | null
 }
 
 export interface OrigemCombustivel {
   id?: number
-  indimport: number
-  cuforig: number
-  porig: number
+  ind_import: number
+  cuf_orig: number
+  p_orig: number
   uf?: string | null
 }
 
@@ -36,48 +36,48 @@ export interface ProdutoForm {
   capacidade?: string | null
   produtoclasse_id: number | null
   unidademedida_id: number | null
-  vasilhameretornavel: boolean
-  produtoretornavel_id?: number | null
+  vasilhame_retornavel: boolean
+  produto_retornavel_id?: number | null
   ativo: boolean
-  enviaappnf?: boolean
-  diasgiro?: number | null
+  envia_app_nf?: boolean
+  dias_giro?: number | null
   observacao?: string | null
   // Preços
-  precovenda?: number | string | null
-  precovendaminimo?: number | string | null
-  customedio?: number | string | null
-  custofrete?: number | string | null
-  precogasdopovo?: number | string | null
-  pesoliquido?: number | string | null
-  pesobruto?: number | string | null
+  preco_venda?: number | string | null
+  preco_venda_minimo?: number | string | null
+  custo_medio?: number | string | null
+  custo_frete?: number | string | null
+  preco_gasdopovo?: number | string | null
+  peso_liquido?: number | string | null
+  peso_bruto?: number | string | null
   // Fiscal / NF-e
-  nfepermite?: boolean
+  nfe_permite?: boolean
   sped?: boolean
-  nfetipoitem?: number | null
-  nfgrupofiscal_id?: number | null
+  nfe_tipo_item?: number | null
+  grupo_fiscal_id?: number | null
   nfipi_id?: number | null
-  nfealiqipi?: number | string | null
-  nfebcipi?: number | string | null
-  nfecodenquadramentoipi?: number | null
-  nfeextipi?: string | null
-  nfedescricaofiscal?: string | null
-  nfenatrec?: string | null
+  nfe_aliq_ipi?: number | string | null
+  nfe_bc_ipi?: number | string | null
+  nfe_cod_enquadramento_ipi?: number | null
+  nfe_ex_tipi?: string | null
+  nfe_descricao_fiscal?: string | null
+  nfe_nat_rec?: string | null
   ean?: string | null
-  eantrib?: string | null
+  ean_trib?: string | null
   ncm?: string | null
-  nfcest?: string | null
+  nfe_cest?: string | null
   especie?: string | null
   marca?: string | null
-  nfecodgen?: number | null
-  nfecodlst?: number | null
+  nfe_cod_gen?: number | null
+  nfe_cod_lst?: number | null
   // GLP
   tipo_glp?: number | null
   ressarcimentoproduto_id?: number | null
-  nfecprodanp?: string | null
-  nfedescanp?: string | null
-  nfeqbcprod?: number | string | null
-  nfevaliqprod?: number | string | null
-  nfevcide?: number | string | null
+  nfe_cprod_anp?: string | null
+  nfe_desc_anp?: string | null
+  nfe_qbc_prod?: number | string | null
+  nfe_valiq_prod?: number | string | null
+  nfe_vcide?: number | string | null
   pgni?: number | string | null
   pgnn?: number | string | null
   pglp?: number | string | null
@@ -118,7 +118,7 @@ export function useSalvarProduto() {
 }
 
 export interface EstoqueProduto {
-  diasgiro: number
+  dias_giro: number
   total: number
   setores: { setor: string; quantidade: number; minima: number; maxima: number }[]
 }
