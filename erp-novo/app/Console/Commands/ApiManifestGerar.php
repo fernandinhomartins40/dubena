@@ -95,6 +95,9 @@ class ApiManifestGerar extends Command
      *  - `assinatura`: o admin da empresa vê o que a PRÓPRIA empresa contratou.
      *  - `dashboard/resumo`: home de qualquer usuário logado; o serviço já
      *    escopa pela empresa ativa.
+     *  - `dashboard/hoje`: também home de qualquer logado, mas a permissão é
+     *    decidida BLOCO A BLOCO dentro do método (`Gate::allows` por módulo):
+     *    quem não tem `financeiro.view` não recebe o bloco financeiro.
      *  - `vale-gas/situacoes`: devolve os valores de um enum, sem dado de empresa.
      *  - `empresas/{id}/ativar`: a fronteira é `podeAcessarEmpresa`, não RBAC —
      *    trocar de empresa não é operação de módulo.
@@ -104,6 +107,7 @@ class ApiManifestGerar extends Command
     public const ADMIN_SEM_PERMISSAO_APROVADAS = [
         'DELETE api/admin/seguranca/sessoes/{id}',
         'GET api/admin/assinatura',
+        'GET api/admin/dashboard/hoje',
         'GET api/admin/dashboard/resumo',
         'GET api/admin/seguranca/2fa',
         'GET api/admin/seguranca/sessoes',

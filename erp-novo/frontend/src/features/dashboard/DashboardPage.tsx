@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { StatCard, AsyncState, Button, PageHeader, type StatAccent } from '@/components/ui'
 import { dataHora } from '@/lib/format'
 import { useAlertas } from '@/features/alertas/api'
+import { AcoesRapidas, ParaHoje } from './ParaHoje'
 
 interface Resumo {
   clientes: number
@@ -47,20 +48,22 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader title={`Olá, ${user?.name?.split(' ')[0] ?? ''}`} subtitle="Sua operação, com contexto e próximos passos."
+      <PageHeader title={`Olá, ${user?.name?.split(' ')[0] ?? ''}`} subtitle="O que pede atenção hoje e o que você pode fazer agora."
         action={<Button variant="outline" loading={isFetching} onClick={() => { void refetch() }}><RefreshCw /> Atualizar resumo</Button>} />
+      <AcoesRapidas />
+      <ParaHoje />
+      {can('alerta.view') && <Pendencias />}
       <section aria-labelledby="resumo-titulo">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <h2 id="resumo-titulo" className="font-semibold uppercase tracking-wider">Resumo da empresa operacional</h2>
+          <h2 id="resumo-titulo" className="font-semibold uppercase tracking-wider">Números da empresa</h2>
           {dataUpdatedAt > 0 && <span>Consulta: {dataHora(new Date(dataUpdatedAt).toISOString())}</span>}
         </div>
         <AsyncState loading={isLoading} error={error} onRetry={() => { void refetch() }}>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.filter((c) => can(c.permission)).map((c) => <StatCard key={c.titulo} {...c} />)}</div>
         </AsyncState>
       </section>
-      {can('alerta.view') && <Pendencias />}
       {atalhos.length > 0 && <section aria-labelledby="trabalho-titulo">
-        <h2 id="trabalho-titulo" className="mb-3 text-lg font-semibold">Onde vamos trabalhar?</h2>
+        <h2 id="trabalho-titulo" className="mb-3 text-lg font-semibold">Ir para um módulo</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{atalhos.map(({ icon: Icon, ...item }) => <Link key={item.to} to={item.to}
           className="flex items-start gap-4 rounded-xl border bg-card p-5 transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary"><Icon size={19} /></span>

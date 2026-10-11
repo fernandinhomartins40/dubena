@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Cliente\Cliente;
 use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Pedido\PedidoOperacao;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -33,6 +34,11 @@ class PedidoRequest extends FormRequest
             'pedidosituacao_id' => [$criando ? 'required' : 'sometimes', 'integer', new ExisteNoTenant(PedidoSituacao::class)],
             'pedidooperacao_id' => ['nullable', 'integer', new ExisteNoTenant(PedidoOperacao::class)],
             'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],
+            // A coluna existia, o `PedidoService` a lê (financeiro e alçada por
+            // condição) e o formulário do painel a exigia — mas, sem regra
+            // aqui, o `safe()` a descartava e todo pedido lançado pelo painel
+            // nascia sem condição de pagamento.
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'atendente_user_id' => 'nullable|integer|exists:users,id',
             'entregador_user_id' => 'nullable|integer|exists:users,id',
             'datahora' => 'nullable|date',

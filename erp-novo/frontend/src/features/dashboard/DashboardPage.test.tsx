@@ -28,7 +28,9 @@ it('apresenta pendências somente quando a central é autorizada', async () => {
 it('falha não vira uma contagem zero', async () => {
   vi.spyOn(api, 'get').mockRejectedValue(new Error('Sem conexão'))
   mount()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar')
+  // Resumo e 'Para hoje' falham cada um no seu lugar, com a sua tentativa.
+  const alertas = await screen.findAllByRole('alert')
+  expect(alertas.some((a) => a.textContent?.includes('Não foi possível carregar'))).toBe(true)
   expect(screen.queryByText('0')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
+  expect(screen.getAllByRole('button', { name: 'Tentar novamente' }).length).toBeGreaterThanOrEqual(2)
 })

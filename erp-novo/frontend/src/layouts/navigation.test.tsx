@@ -34,6 +34,54 @@ describe('Indicador de item ativo', () => {
   })
 })
 
+/**
+ * O menu foi reorganizado por tarefa (11/10/2026) com a regra de NÃO eliminar
+ * nada. Esta é a lista de antes — destino, permissão e recurso contratado. Se
+ * uma reorganização futura sumir com um item ou trocar a permissão dele, o
+ * teste reprova: rótulo e grupo podem mudar, o acesso não.
+ */
+const MENU_PRESERVADO = [
+  '/ - -', '/acessos usuario.view -', '/alcadas venda.alcada -', '/alertas alerta.view -', '/auditoria auditoria.view -',
+  '/bens bem.view -', '/cartoes cartao.view -', '/central logistica.view -', '/central-vendas venda.view -',
+  '/checklists checklist.view -', '/clientes cliente.view -', '/clientes/revisoes cliente.edit -', '/colaboradores colaborador.view -',
+  '/comodatos comodato.view -', '/configuracoes grupo.view -', '/convenios convenio.view -', '/cupons-fiscais cupomfiscal.view -',
+  '/documentos documento.view -', '/empresas empresa.view -', '/estoque estoque.view -', '/financeiro financeiro.view -', '/fiscal fiscal.view -',
+  '/gas-do-povo gasdopovo.view -', '/geografico cliente.view -', '/mcmm mcmm.view -', '/metas meta.view -', '/missoes missao.view -',
+  '/monitora monitora.view monitora', '/pedidos pedido.view -', '/pos-venda posvenda.view -', '/produtos produto.view -',
+  '/promocoes promocao.view crm', '/relatorios relatorio.view relatorios_avancados', '/sorteios sorteio.view crm',
+  '/vale-gas valegas.view -', '/veiculos veiculo.view frota',
+]
+
+describe('Menu por tarefa', () => {
+  it('nenhum item sumiu nem trocou de permissão ao reorganizar', () => {
+    const atual = NAV_ITENS.map((i) => `${i.to} ${i.permission ?? '-'} ${i.feature ?? '-'}`).sort()
+    expect(atual).toEqual([...MENU_PRESERVADO].sort())
+  })
+
+  it('leigo acha pelo que conhece, não pelo nome interno', async () => {
+    const user = userEvent.setup()
+    const itens = [
+      { label: 'Financeiro', to: '/financeiro', group: 'Dinheiro', dica: 'Contas a pagar e receber, caixa e boletos', palavras: 'boleto pix baixa' },
+      { label: 'Central de entregas', to: '/central', group: 'Entregas', dica: 'Fila de entregas', palavras: 'logistica entregador motoboy' },
+    ]
+    render(<MemoryRouter><ModuleFinder items={itens} userKey="erp.1" onNavigate={() => {}} /></MemoryRouter>)
+    const busca = screen.getByRole('textbox', { name: 'Buscar módulos' })
+
+    await user.type(busca, 'boleto')
+    expect(screen.getByRole('link', { name: /Financeiro/ })).toBeVisible()
+    expect(screen.queryByRole('link', { name: /Central de entregas/ })).not.toBeInTheDocument()
+
+    // Palavras fora de ordem e sem acento: "pagar conta" acha "Contas a pagar".
+    await user.clear(busca)
+    await user.type(busca, 'pagar conta')
+    expect(screen.getByRole('link', { name: /Financeiro/ })).toBeVisible()
+
+    await user.clear(busca)
+    await user.type(busca, 'logística')
+    expect(screen.getByRole('link', { name: /Central de entregas/ })).toBeVisible()
+  })
+})
+
 describe('Navegação orientada a tarefas', () => {
   it('busca sem acento e persiste favoritos somente para a pessoa atual', async () => {
     const user = userEvent.setup()

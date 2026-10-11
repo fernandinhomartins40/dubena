@@ -16,7 +16,8 @@ import {
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { EmpresaSwitcher } from './EmpresaSwitcher'
-import { useTituloDoTenant } from '@/lib/titulo'
+import { BotaoNovo } from './BotaoNovo'
+import { useNomeDoTenant, useTituloDoTenant } from '@/lib/titulo'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, Tooltip, Button,
@@ -34,59 +35,70 @@ interface NavItem {
    */
   feature?: string
   group: string
+  /** Uma linha dizendo para que serve — na busca e ao passar o mouse. */
+  dica?: string
+  /** Sinônimos que um leigo digitaria na busca. */
+  palavras?: string
 }
 
-// Navegação DECLARATIVA (sem menu-no-banco). Cresce conforme migramos módulos.
+// Navegação DECLARATIVA (sem menu-no-banco), organizada por TAREFA.
+//
+// Antes os grupos eram a estrutura interna do sistema ("Operações", "Gestão",
+// "CRM") e vários rótulos eram jargão ("MCMM", "Geográfico", "Alçadas"): quem
+// não conhecia o sistema não sabia onde procurar. Agora o grupo responde "o
+// que eu quero fazer?" e o rótulo diz o que a tela faz. Destino, permissão e
+// recurso contratado de cada item NÃO mudaram — o teste de navegação confere.
+// `dica` aparece na busca e ao passar o mouse; `palavras` são os sinônimos que
+// um leigo digitaria ("boleto", "entregador", "nota").
 const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/', icon: <LayoutDashboard size={18} />, group: 'Geral' },
-  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', feature: 'relatorios_avancados', group: 'Geral' },
+  { label: 'Início', to: '/', icon: <LayoutDashboard size={18} />, group: 'Início', dica: 'O que pede atenção hoje', palavras: 'dashboard painel hoje resumo' },
+  { label: 'Avisos e pendências', to: '/alertas', icon: <ShieldAlert size={18} />, permission: 'alerta.view', group: 'Início', dica: 'Problemas que a equipe precisa resolver', palavras: 'alertas central problemas' },
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', feature: 'relatorios_avancados', group: 'Início', dica: 'Vendas, financeiro e DRE por período', palavras: 'dre faturamento graficos' },
 
-  { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Cadastros' },
-  { label: 'Cadastros a revisar', to: '/clientes/revisoes', icon: <Merge size={18} />, permission: 'cliente.edit', group: 'Cadastros' },
-  { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Cadastros' },
-  { label: 'Geográfico', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Cadastros' },
-  { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Operações' },
-  { label: 'Central de Logística', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Operações' },
-  { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Operações' },
-  // Alçada é a regra de quem aprova desconto na Central de Vendas — mora ao
-  // lado dela. Estava num grupo "Configurações" fora da ORDEM_GRUPOS, o que a
-  // jogava sozinha para o fim do menu, longe do que ela governa.
-  { label: 'Alçadas de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Operações' },
-  { label: 'Missões de Campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Operações' },
-  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Operações' },
-  { label: 'Fiscal', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Operações' },
-  { label: 'Cupons SAT/CFe', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Operações' },
-  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'valegas.view', group: 'Operações' },
-  { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Operações' },
-  { label: 'Alertas', to: '/alertas', icon: <ShieldAlert size={18} />, permission: 'alerta.view', group: 'Operações' },
+  { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Vendas e clientes', dica: 'Lançar e acompanhar cada venda', palavras: 'venda vender kanban balcao telefone' },
+  { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Vendas e clientes', dica: 'Cadastro, endereço e histórico de compras', palavras: 'cadastro consumidor fornecedor' },
+  { label: 'Clientes duplicados', to: '/clientes/revisoes', icon: <Merge size={18} />, permission: 'cliente.edit', group: 'Vendas e clientes', dica: 'Cadastros parecidos para juntar ou descartar', palavras: 'revisar revisao duplicidade cadastros a revisar' },
+  { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Vendas e clientes', dica: 'Pedidos do campo, pós-venda e missões do atendente', palavras: 'atendente solicitacoes campo' },
+  { label: 'Limites de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Vendas e clientes', dica: 'Quanto cada perfil pode dar de desconto', palavras: 'alcadas alcada aprovacao desconto' },
 
-  { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Financeiro' },
-  { label: 'Cartões', to: '/cartoes', icon: <CreditCard size={18} />, permission: 'cartao.view', group: 'Financeiro' },
-  { label: 'Gás do Povo', to: '/gas-do-povo', icon: <HandCoins size={18} />, permission: 'gasdopovo.view', group: 'Financeiro' },
-  { label: 'Convênios', to: '/convenios', icon: <Handshake size={18} />, permission: 'convenio.view', group: 'Financeiro' },
+  { label: 'Central de entregas', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Entregas', dica: 'Fila de entregas e quem leva cada pedido', palavras: 'logistica entregador rota motoboy distribuicao' },
+  { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Entregas', dica: 'Vasilhames emprestados aos clientes', palavras: 'vasilhame emprestimo botijao contrato' },
+  { label: 'Missões de campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Entregas', dica: 'Panfletagem e prospecção na hora ociosa', palavras: 'missoes prospeccao panfleto' },
+  { label: 'Rastreamento (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', feature: 'monitora', group: 'Entregas', dica: 'Veículos no mapa, rotas e cercas', palavras: 'monitora gps mapa rastreador frota' },
+  { label: 'Endereços (cidades e ruas)', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Entregas', dica: 'Cidades, bairros, ruas e regiões de entrega', palavras: 'geografico bairro rua cidade regiao cep' },
 
-  { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'CRM' },
-  { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', feature: 'crm', group: 'CRM' },
-  { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', feature: 'crm', group: 'CRM' },
-  { label: 'Metas', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'CRM' },
-  { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', group: 'CRM' },
+  { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Produtos e estoque', dica: 'Cadastro e preços', palavras: 'botijao gas agua preco catalogo' },
+  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Produtos e estoque', dica: 'Saldos, entradas, saídas e inventário', palavras: 'saldo inventario deposito armazem' },
+  { label: 'Movimentação de material', to: '/mcmm', icon: <ArrowLeftRight size={18} />, permission: 'mcmm.view', group: 'Produtos e estoque', dica: 'Controle de movimentação de material (MCMM)', palavras: 'mcmm material' },
+  { label: 'Patrimônio (bens)', to: '/bens', icon: <Building size={18} />, permission: 'bem.view', group: 'Produtos e estoque', dica: 'Bens da empresa e depreciação', palavras: 'bens imobilizado ativo depreciacao' },
 
-  { label: 'MCMM', to: '/mcmm', icon: <ArrowLeftRight size={18} />, permission: 'mcmm.view', group: 'Gestão' },
-  { label: 'Documentos', to: '/documentos', icon: <FolderArchive size={18} />, permission: 'documento.view', group: 'Gestão' },
-  { label: 'Bens', to: '/bens', icon: <Building size={18} />, permission: 'bem.view', group: 'Gestão' },
+  { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Dinheiro', dica: 'Contas a pagar e receber, caixa e boletos', palavras: 'contas pagar receber caixa boleto pix baixa' },
+  { label: 'Cartões', to: '/cartoes', icon: <CreditCard size={18} />, permission: 'cartao.view', group: 'Dinheiro', dica: 'Vendas no cartão e conciliação', palavras: 'credito debito maquininha' },
+  { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'valegas.view', group: 'Dinheiro', dica: 'Consultar, imprimir e dar baixa em vales', palavras: 'vale gas de bolso' },
+  { label: 'Gás do Povo', to: '/gas-do-povo', icon: <HandCoins size={18} />, permission: 'gasdopovo.view', group: 'Dinheiro', dica: 'Benefícios do programa', palavras: 'beneficio voucher programa social' },
+  { label: 'Convênios', to: '/convenios', icon: <Handshake size={18} />, permission: 'convenio.view', group: 'Dinheiro', dica: 'Faturamento mensal de empresas conveniadas', palavras: 'fechamento empresa conveniada' },
 
-  { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'RH & Frota' },
-  { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', feature: 'frota', group: 'RH & Frota' },
-  { label: 'Monitora (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', feature: 'monitora', group: 'RH & Frota' },
+  { label: 'Notas fiscais', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Notas fiscais', dica: 'NF-e, NFC-e e SPED', palavras: 'fiscal nota nfe nfce sped imposto' },
+  { label: 'Cupons fiscais (SAT)', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Notas fiscais', dica: 'Emitir e consultar cupom fiscal', palavras: 'sat cfe cupom' },
 
-  { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração' },
-  { label: 'Acessos', to: '/acessos', icon: <ShieldCheck size={18} />, permission: 'usuario.view', group: 'Administração' },
-  { label: 'Histórico de ações', to: '/auditoria', icon: <History size={18} />, permission: 'auditoria.view', group: 'Administração' },
-  { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração' },
+  { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'Relacionamento', dica: 'Ligar para saber se o cliente ficou satisfeito', palavras: 'satisfacao crm contato' },
+  { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas de desconto', palavras: 'crm campanha' },
+  { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas com prêmio e o palco do sorteio', palavras: 'crm premio' },
+  { label: 'Metas de venda', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'Relacionamento', dica: 'Meta de cada vendedor no mês', palavras: 'metas objetivo vendedor' },
+
+  { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'Equipe e frota', dica: 'Funcionários, cargos e comissões', palavras: 'rh funcionario entregador vendedor' },
+  { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', feature: 'frota', group: 'Equipe e frota', dica: 'Frota, abastecimento e manutenção', palavras: 'frota caminhao moto abastecimento oleo pneu' },
+  { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', group: 'Equipe e frota', dica: 'Roteiros de conferência (abertura, veículo…)', palavras: 'conferencia verificacao' },
+  { label: 'Documentos', to: '/documentos', icon: <FolderArchive size={18} />, permission: 'documento.view', group: 'Equipe e frota', dica: 'Alvarás, licenças e contratos com vencimento', palavras: 'alvara licenca contrato vencimento' },
+
+  { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração', dica: 'Dados das empresas e filiais', palavras: 'filial cnpj' },
+  { label: 'Usuários e permissões', to: '/acessos', icon: <ShieldCheck size={18} />, permission: 'usuario.view', group: 'Administração', dica: 'Quem entra no sistema e o que pode fazer', palavras: 'acessos usuario senha papel perfil permissao' },
+  { label: 'Histórico de ações', to: '/auditoria', icon: <History size={18} />, permission: 'auditoria.view', group: 'Administração', dica: 'Quem mudou o quê, e quando', palavras: 'auditoria log trilha' },
+  { label: 'Configurações', to: '/configuracoes', icon: <Settings size={18} />, permission: 'grupo.view', group: 'Administração', dica: 'Ajustes do sistema e cadastros de apoio', palavras: 'parametros preferencias' },
 ]
 
-// Ordem fixa das seções (grupos não listados vão ao fim, na ordem de aparição).
-const ORDEM_GRUPOS = ['Geral', 'Cadastros', 'Operações', 'Financeiro', 'CRM', 'Gestão', 'RH & Frota', 'Administração']
+// Ordem fixa das seções: o dia a dia primeiro, a administração por último.
+const ORDEM_GRUPOS = ['Início', 'Vendas e clientes', 'Entregas', 'Produtos e estoque', 'Dinheiro', 'Notas fiscais', 'Relacionamento', 'Equipe e frota', 'Administração']
 
 /**
  * Itens cujo caminho é prefixo do caminho de OUTRO item do menu — para eles o
@@ -100,7 +112,7 @@ export function prefixosDeOutroItem(itens: { to: string }[]): Set<string> {
 const PREFIXO_DE_OUTRO = prefixosDeOutroItem(NAV)
 
 /** Exportado para o teste conferir a regra contra o menu REAL, não uma cópia. */
-export const NAV_ITENS = NAV.map((i) => ({ to: i.to, label: i.label, group: i.group }))
+export const NAV_ITENS = NAV.map((i) => ({ to: i.to, label: i.label, group: i.group, permission: i.permission, feature: i.feature }))
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout, can, hasFeature } = useAuth()
@@ -109,6 +121,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   // primeira revenda. Fica no shell porque e o unico ponto por onde toda tela
   // autenticada passa.
   useTituloDoTenant()
+  // O menu mostra a empresa de quem está logado. Antes era "Dubena" fixo no
+  // código — a primeira revenda servida a todas, como o título da aba já fora.
+  const nomeEmpresa = useNomeDoTenant()
 
   const navigate = useNavigate()
   // `open` = sidebar recolhida/expandida no DESKTOP (md+).
@@ -143,8 +158,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
       <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
         <div className={cn('flex h-16 shrink-0 items-center gap-2.5', expandida ? 'px-4' : 'justify-center px-0')}>
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">D</div>
-          {expandida && <span className="truncate text-[17px] font-bold tracking-wide text-white">Dubena</span>}
+          <div aria-hidden className="grid size-9 shrink-0 place-items-center rounded-lg bg-sidebar-accent font-black text-white shadow-md shadow-black/30">{(nomeEmpresa ?? 'E').trim().charAt(0).toUpperCase()}</div>
+          {expandida && <span className="truncate text-[17px] font-bold tracking-wide text-white" title={nomeEmpresa ?? undefined}>{nomeEmpresa ?? 'ERP'}</span>}
         </div>
         {expandida && <ModuleFinder items={visiveis} userKey={userKey} onNavigate={() => setMobileOpen(false)} />}
         {/* Ritmo vertical: o respiro que separa GRUPOS (mt-6) é maior que o
@@ -175,6 +190,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <NavLink
                     key={i.to}
                     to={i.to}
+                    title={expandida ? i.dica : undefined}
                     // `end` em todo item cujo caminho é prefixo de outro do
                     // menu: sem isso, `/clientes/revisoes` acendia o indicador
                     // de "Clientes" TAMBÉM, e dois itens apareciam ativos ao
@@ -216,7 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </NavLink>
                 )
                 // Tooltip só faz sentido no modo recolhido do desktop.
-                return expandida ? link : <Tooltip key={i.to} label={i.label}>{link}</Tooltip>
+                return expandida ? link : <Tooltip key={i.to} label={i.dica ? `${i.label} — ${i.dica}` : i.label}>{link}</Tooltip>
               })}
               </div>
             </div>
@@ -252,6 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <EmpresaSwitcher onScopeChange={() => setScopeRevision((value) => value + 1)} />
           </div>
           <div className="flex items-center gap-2">
+            <BotaoNovo />
             <Button variant="ghost" size="icon" onClick={toggleDark} aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"}>
               {dark ? <Sun size={18} /> : <Moon size={18} />}
             </Button>

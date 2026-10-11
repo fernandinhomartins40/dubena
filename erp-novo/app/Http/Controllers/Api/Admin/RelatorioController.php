@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Auditoria\ConsultaTrilha;
+use App\Domain\Relatorio\PainelDoDiaService;
 use App\Domain\Relatorio\RelatorioService;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -33,6 +35,29 @@ class RelatorioController extends Controller
         return response()->json(
             $this->service->dashboardResumo($this->empresaId()),
         );
+    }
+
+    /**
+     * GET /dashboard/hoje — o que pede atenção agora.
+     *
+     * Como o resumo, é a home de qualquer usuário logado; mas cada bloco só
+     * vem para quem tem a permissão do módulo. Bloco sem permissão AUSENTE, não
+     * zerado: zero diria "não há nada", e a verdade é "você não vê isso".
+     * `allows` e não `autorizar`: não ter um módulo não é tentativa de acesso,
+     * e não pode encher a trilha de negações.
+     */
+    public function dashboardHoje(Request $request, PainelDoDiaService $painel): JsonResponse
+    {
+        $empresa = $this->empresaId();
+        $pode = fn (string $chave) => Gate::forUser($request->user())->allows($chave);
+
+        return response()->json(['data' => array_filter([
+            'pedidos' => $pode('pedido.view') ? $painel->pedidos($empresa) : null,
+            'financeiro' => $pode('financeiro.view') ? $painel->financeiro($empresa) : null,
+            'estoque_abaixo_minimo' => $pode('estoque.view') ? $painel->estoqueAbaixoDoMinimo($empresa) : null,
+            'comodatos_vencidos' => $pode('comodato.view') ? $painel->comodatosVencidos($empresa) : null,
+            'cadastros_a_revisar' => $pode('cliente.edit') ? $painel->cadastrosARevisar($empresa) : null,
+        ], fn ($v) => $v !== null)]);
     }
 
     public function vendas(Request $request): JsonResponse

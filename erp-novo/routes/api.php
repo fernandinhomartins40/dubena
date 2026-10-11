@@ -388,6 +388,9 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::delete('pedidos/situacoes/{id}', [PedidoController::class, 'excluirSituacao'])->whereNumber('id');
         Route::get('pedidos', [PedidoController::class, 'index']);
         Route::post('pedidos', [PedidoController::class, 'store']);
+        // Pré-preenchimento do "Novo pedido": só sugere, não grava.
+        Route::get('pedidos/sugestao', [PedidoController::class, 'sugestao']);
+        Route::get('pedidos/precos', [PedidoController::class, 'precos']);
         Route::get('pedidos/{id}', [PedidoController::class, 'show'])->whereNumber('id');
         Route::put('pedidos/{id}', [PedidoController::class, 'update'])->whereNumber('id');
         Route::delete('pedidos/{id}', [PedidoController::class, 'destroy'])->whereNumber('id');
@@ -723,6 +726,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
 
         // Dashboard (home da SPA) — contadores rápidos.
         Route::get('dashboard/resumo', [RelatorioController::class, 'dashboardResumo']);
+        Route::get('dashboard/hoje', [RelatorioController::class, 'dashboardHoje']);
 
         Route::get('relatorios/vendas', [RelatorioController::class, 'vendas']);
         Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);

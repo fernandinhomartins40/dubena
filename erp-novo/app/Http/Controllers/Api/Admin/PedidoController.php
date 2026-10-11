@@ -8,6 +8,7 @@ use App\Domain\Pedido\CanalVenda;
 use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PapelSituacao;
 use App\Domain\Pedido\PedidoService;
+use App\Domain\Pedido\PedidoSugestaoService;
 use App\Domain\Shared\PdfService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -15,10 +16,13 @@ use App\Http\Requests\PedidoRequest;
 use App\Http\Resources\PedidoResource;
 use App\Models\Apoio\MotivoNaoVenda;
 use App\Models\Apoio\PedidoMotivoAtraso;
+use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Fiscal\NotaFiscal;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
+use App\Models\Produto\Produto;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -90,9 +94,43 @@ class PedidoController extends Controller
         // declarar aqui, o pedido do app e o do balcao ficam identicos no banco
         // e "quanto do faturamento vem do app?" nao tem resposta.
         $dados['canal'] = CanalVenda::INTERNO->value;
+        // Quem atende é quem está lançando. O formulário pedia um "colaborador"
+        // que não era gravado em lugar nenhum; escolher o atendente pelo corpo
+        // da requisição é a brecha de alçada que o `PedidoService` já recusa.
+        $dados['atendente_user_id'] ??= $request->user()->id;
         $pedido = $this->service->criar($dados, $request->validated()['itens'] ?? []);
 
         return (new PedidoResource($pedido->load('situacao')))->response()->setStatusCode(201);
+    }
+
+    /** GET /pedidos/sugestao?cliente_id= — pré-preenchimento do "Novo pedido" (só sugere). */
+    public function sugestao(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.create');
+        $d = $request->validate(['cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)]]);
+
+        return response()->json(['data' => app(PedidoSugestaoService::class)->paraCliente((int) $d['cliente_id'])]);
+    }
+
+    /** GET /pedidos/precos?cliente_id=&condicaopagamento_id=&produtos[]= — preço sugerido e de onde ele vem. */
+    public function precos(Request $request): JsonResponse
+    {
+        $this->autorizar($request, 'pedido.create');
+        $d = $request->validate([
+            'cliente_id' => ['required', 'integer', new ExisteNoTenant(Cliente::class)],
+            'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
+            'produtos' => 'required|array|max:100',
+            'produtos.*' => ['integer', new ExisteNoTenant(Produto::class)],
+        ]);
+
+        $precos = app(PedidoSugestaoService::class)->precos(
+            (int) $d['cliente_id'],
+            isset($d['condicaopagamento_id']) ? (int) $d['condicaopagamento_id'] : null,
+            $d['produtos'],
+        );
+
+        // Objeto, não lista: a tela consulta pelo id do produto.
+        return response()->json(['data' => (object) $precos]);
     }
 
     public function update(PedidoRequest $request, int $id): PedidoResource

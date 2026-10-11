@@ -4,14 +4,24 @@ import { Search, Star } from 'lucide-react'
 import { Input } from '@/components/ui'
 import { usePreference } from '@/lib/usePreference'
 
-export interface ModuleLink { label: string; to: string; group: string; icon?: ReactNode }
+export interface ModuleLink { label: string; to: string; group: string; icon?: ReactNode; dica?: string; palavras?: string }
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/**
+ * Casa cada PALAVRA digitada em qualquer parte do item \u2014 nome, grupo, dica ou
+ * sin\u00f4nimos. Quem procura "boleto" n\u00e3o sabe que ele mora em "Financeiro"; e
+ * "conta pagar" acha sem exigir a frase exata.
+ */
+function casa(item: ModuleLink, query: string): boolean {
+  const texto = normalize(`${item.label} ${item.group} ${item.dica ?? ''} ${item.palavras ?? ''}`)
+  return normalize(query).split(/\s+/).filter(Boolean).every((termo) => texto.includes(termo))
+}
 
 /** Recebe exclusivamente itens já autorizados pelo shell. */
 export function ModuleFinder({ items, userKey, onNavigate }: { items: ModuleLink[]; userKey: string; onNavigate: () => void }) {
   const [query, setQuery] = useState('')
   const [favorites, setFavorites] = usePreference<string[]>(`erpnovo.ui.favorites.${userKey}`, [])
-  const found = query.trim() ? items.filter((item) => normalize(`${item.label} ${item.group}`).includes(normalize(query))) : items.filter((item) => favorites.includes(item.to))
+  const found = query.trim() ? items.filter((item) => casa(item, query)) : items.filter((item) => favorites.includes(item.to))
   return <div className="shrink-0 px-3 pb-3">
     <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-2.5 text-sidebar-foreground/70" size={16} />
       <Input aria-label="Buscar módulos" placeholder="Buscar módulos…" value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 border-white/10 bg-white/5 pl-8 text-[13px] text-white placeholder:text-sidebar-foreground/70 focus-visible:ring-destaque" />
@@ -19,7 +29,7 @@ export function ModuleFinder({ items, userKey, onNavigate }: { items: ModuleLink
     {found.length > 0 && <div className="mt-3 max-h-56 overflow-y-auto">
       <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60">{query ? 'Resultados' : 'Favoritos'}</p>
       {found.map((item) => <div key={item.to} className="flex items-center rounded hover:bg-white/5">
-        <Link className="flex-1 rounded px-2 py-1.5 text-[13px] text-white focus-visible:outline focus-visible:outline-2" to={item.to} onClick={() => { setQuery(''); onNavigate() }}>{item.label}</Link>
+        <Link className="flex-1 rounded px-2 py-1.5 text-[13px] text-white focus-visible:outline focus-visible:outline-2" to={item.to} onClick={() => { setQuery(''); onNavigate() }}>{item.label}{query && item.dica ? <span className="block text-[11px] text-sidebar-foreground/70">{item.dica}</span> : null}</Link>
         <button type="button" aria-label={`${favorites.includes(item.to) ? 'Remover' : 'Adicionar'} ${item.label} ${favorites.includes(item.to) ? 'dos' : 'aos'} favoritos`}
           aria-pressed={favorites.includes(item.to)} className="grid size-9 shrink-0 place-items-center rounded text-sidebar-foreground focus-visible:outline focus-visible:outline-2"
           onClick={() => setFavorites((current) => current.includes(item.to) ? current.filter((to) => to !== item.to) : [...current, item.to])}>

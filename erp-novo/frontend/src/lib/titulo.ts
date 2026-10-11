@@ -29,3 +29,11 @@ export function useTituloDoTenant(): void {
     document.title = nome ? `${nome} · ERP` : 'ERP'
   }, [empresas])
 }
+
+/** Nome da empresa ativa (informal, senão razão social); null enquanto carrega. */
+export function useNomeDoTenant(): string | null {
+  const { data: empresas } = useEmpresas()
+  const ativa = empresas?.find((e) => e.ativa)
+
+  return ativa?.nome_informal || ativa?.razao_social || null
+}

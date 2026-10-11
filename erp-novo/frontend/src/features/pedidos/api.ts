@@ -88,6 +88,31 @@ export function useMudarSituacaoPedido() {
 export function usePedido(id: number | null) {
   return useQuery({ queryKey: ['pedido', id], queryFn: async () => (await api.get(`/pedidos/${id}`)).data.data, enabled: id !== null })
 }
+export interface Opcao { id: number; label: string }
+
+/** O que o sistema já sabe do cliente para preparar o pedido (só sugestão). */
+export interface SugestaoPedido {
+  cliente: { id: number; nome: string; telefone: string | null; endereco: { texto: string | null; referencia: string | null; completo: boolean } }
+  situacao_inicial: Opcao | null
+  ultimo_pedido: null | {
+    id: number
+    datahora: string | null
+    condicaopagamento: Opcao | null
+    pedidooperacao: Opcao | null
+    setor: Opcao | null
+    itens: { produto_id: number; produto: string; quantidade: number; preco_unitario: number | null; origem_preco: string | null }[]
+  }
+}
+
+export const useSugestaoPedido = (clienteId: number | null) =>
+  useQuery<SugestaoPedido>({
+    queryKey: ['pedidos', 'sugestao', clienteId],
+    enabled: clienteId !== null,
+    // Endereço ou preço mudam no cadastro: não reaproveitar sugestão velha.
+    staleTime: 0,
+    queryFn: async () => (await api.get('/pedidos/sugestao', { params: { cliente_id: clienteId } })).data.data,
+  })
+
 export function useCriarPedido() {
   const qc = useQueryClient()
   return useMutation({
