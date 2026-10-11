@@ -5,7 +5,7 @@ import {
   Button, Card, CardContent, PageHeader, Input, Badge, DataTable, type Column, EmptyState, Field, Textarea, AsyncSelect, SearchBar,
   Tabs, TabsList, TabsTrigger, TabsContent,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
-  ConfirmDialog, toast,
+  ConfirmDialog, CheckboxField, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
@@ -150,7 +150,11 @@ export function ColaboradoresListPage() {
   )
 }
 
-const VAZIO = { nome: '', numero: '', cidade_id: null as number | null, bairro_id: null as number | null, cpf: '', rg: '', email: '', sexo: '', cargo_id: null as number | null, datanascimento: '', dataadmissao: '', datadesligamento: '', cep: '' }
+// Telefone, entregador, rua, complemento e UF existem no banco e o servidor
+// aceita — mas o formulário não os oferecia: marcar alguém como entregador ou
+// guardar o telefone dele só era possível direto no banco. E-mail e sexo saíram:
+// não há coluna, o valor era descartado.
+const VAZIO = { nome: '', telefone: '', entregador: false, numero: '', cidade_id: null as number | null, bairro_id: null as number | null, rua_id: null as number | null, complemento: '', uf: '', cpf: '', rg: '', cargo_id: null as number | null, datanascimento: '', dataadmissao: '', datadesligamento: '', cep: '' }
 
 export function ColaboradorFormPage() {
   const { id } = useParams(); const navigate = useNavigate()
@@ -162,7 +166,7 @@ export function ColaboradorFormPage() {
   const [aba, setAba] = useState('dados')
 
   useEffect(() => {
-    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, cargo: existente.cargo_label })
+    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, rua: existente.rua_label, cargo: existente.cargo_label })
   }, [existente])
 
   async function onSubmit() {
@@ -189,6 +193,8 @@ export function ColaboradorFormPage() {
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Nome" required error={erros.nome} className="md:col-span-2"><Input value={form.nome} error={!!erros.nome} onChange={(e) => campo('nome', e.target.value)} /></Field>
             <Field label="Cargo"><AsyncSelect endpoint="/lookups/cargos" value={form.cargo_id} valueLabel={labels.cargo} onChange={(id, o) => { campo('cargo_id', id); setLabels((l) => ({ ...l, cargo: o?.label ?? null })) }} /></Field>
+            <Field label="Telefone"><Input type="tel" inputMode="tel" value={form.telefone ?? ''} onChange={(e) => campo('telefone', e.target.value)} /></Field>
+            <div className="flex items-end pb-2"><CheckboxField label="É entregador (aparece na Central de entregas)" checked={!!form.entregador} onChange={(b) => campo('entregador', b)} /></div>
             {/* E-mail saiu: `colaboradores` não tem a coluna e o valor era descartado.
                 O e-mail de quem acessa o sistema fica no usuário (Usuários e permissões). */}
             <Field label="CPF"><Input value={form.cpf ?? ''} onChange={(e) => campo('cpf', e.target.value)} /></Field>
@@ -196,10 +202,13 @@ export function ColaboradorFormPage() {
             <Field label="Nascimento"><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>
             <Field label="Admissão"><Input type="date" value={form.dataadmissao ?? ''} onChange={(e) => campo('dataadmissao', e.target.value)} /></Field>
             <Field label="Desligamento"><Input type="date" value={form.datadesligamento ?? ''} onChange={(e) => campo('datadesligamento', e.target.value)} /></Field>
-            <Field label="Cidade" required error={erros.cidade_id}><AsyncSelect endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={!!erros.cidade_id} onChange={(id, o) => { campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: o?.label ?? null, bairro: null })); campo('bairro_id', null) }} /></Field>
+            <Field label="Cidade" required error={erros.cidade_id}><AsyncSelect endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={!!erros.cidade_id} onChange={(id, o) => { campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: o?.label ?? null, bairro: null, rua: null })); campo('bairro_id', null); campo('rua_id', null); if (o?.uf) campo('uf', String(o.uf)) }} /></Field>
             <Field label="Bairro" required error={erros.bairro_id}><AsyncSelect endpoint="/lookups/bairros" params={{ cidade_id: form.cidade_id }} value={form.bairro_id} valueLabel={labels.bairro} disabled={!form.cidade_id} error={!!erros.bairro_id} onChange={(id, o) => { campo('bairro_id', id); setLabels((l) => ({ ...l, bairro: o?.label ?? null })) }} /></Field>
+            <Field label="Rua"><AsyncSelect endpoint="/lookups/ruas" params={{ cidade_id: form.cidade_id }} value={form.rua_id ?? null} valueLabel={labels.rua} disabled={!form.cidade_id} onChange={(id, o) => { campo('rua_id', id); setLabels((l) => ({ ...l, rua: o?.label ?? null })) }} /></Field>
             <Field label="Número" required error={erros.numero}><Input value={form.numero} error={!!erros.numero} onChange={(e) => campo('numero', e.target.value)} /></Field>
+            <Field label="Complemento"><Input value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} /></Field>
             <Field label="CEP"><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>
+            <Field label="UF"><Input maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} /></Field>
           </CardContent></Card>
         </TabsContent>
         {editId && <TabsContent value="familia"><Card><CardContent className="pt-6"><FamiliaTab colaboradorId={editId} /></CardContent></Card></TabsContent>}
