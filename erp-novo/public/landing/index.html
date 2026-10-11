@@ -60,7 +60,10 @@
     .topo{position:fixed;inset:0 0 auto 0;z-index:50;color:#fff;transition:background .2s,box-shadow .2s}
     .topo.rolado{background:rgba(13,20,32,.94);backdrop-filter:blur(10px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
     .topo .wrap{display:flex;align-items:center;gap:28px;height:84px}
-    .marca img{height:52px;width:auto}
+    /* flex:none — sem isto o flex do cabeçalho/rodapé espremia a LARGURA da
+       logo mantendo a altura, e ela saía deformada quando faltava espaço. */
+    .marca{flex:none}
+    .marca img{height:52px;width:auto;max-width:none}
     .nav{display:flex;gap:38px;margin-inline:auto;font:500 15px/1 var(--titulo)}
     .nav a{padding:10px 2px;opacity:.95}.nav a:hover{color:#ffb27a}
     .menu{display:none}
@@ -202,13 +205,13 @@
 
     /* ── Rodapé ── */
     .rodape{background:var(--marinho);color:rgba(255,255,255,.86);font-size:14px}
-    .rodape .wrap{display:flex;align-items:center;gap:26px;padding:26px 0}
-    .rodape .marca img{height:58px}
-    .rodape nav{display:flex;gap:30px;font:500 14.5px/1 var(--titulo);margin-right:auto;margin-left:20px;white-space:nowrap}
+    .rodape .wrap{display:flex;align-items:center;gap:18px;padding:26px 0}
+    .rodape .marca img{height:52px}
+    .rodape nav{display:flex;gap:22px;font:500 14px/1 var(--titulo);margin-right:auto;margin-left:10px;white-space:nowrap}
     .rodape nav a:hover,.rodape .legal a:hover{color:#ffb27a}
-    .rodape .legal{display:flex;gap:14px;align-items:center;font-size:13px;color:rgba(255,255,255,.7);white-space:nowrap}
-    .rodape .legal span+span::before,.rodape .legal a::before{content:"|";margin-right:14px;opacity:.5}
-    .rodape .copy{padding-left:24px;border-left:1px solid rgba(255,255,255,.18);font-size:13px;line-height:1.5;color:rgba(255,255,255,.8);white-space:nowrap}
+    .rodape .legal{display:flex;gap:10px;align-items:center;font-size:12.5px;color:rgba(255,255,255,.7);white-space:nowrap}
+    .rodape .legal span+span::before,.rodape .legal a::before{content:"|";margin-right:10px;opacity:.5}
+    .rodape .copy{padding-left:18px;border-left:1px solid rgba(255,255,255,.18);font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.8);white-space:nowrap}
     .barra-fixa{display:none}
 
     /* ── Intermediário: o palco encolhe antes de virar celular ── */
@@ -331,6 +334,73 @@
 
       .barra-fixa{display:flex;position:fixed;inset:auto 0 0 0;z-index:60;height:60px;align-items:center;justify-content:center;gap:12px;background:linear-gradient(180deg,#ff7a1f,var(--laranja-2));color:#fff;font:600 16px/1 var(--titulo);border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(244,80,11,.3)}
       .barra-fixa .i{font-size:22px}
+    }
+    /* ── Telefone (até 600 px) ──
+       A prancheta "mobile" tem 793 px de largura: texto e arte lado a lado.
+       Espremida num telefone de 360 px ela quebrava — tablet por cima dos
+       botões, cartões com uma palavra por linha. Aqui tudo EMPILHA, e as
+       medidas do hero são em vw para a composição valer de 320 a 600 px. */
+    @media (max-width:600px){
+      .hero{padding:78px 0 0}
+      .hero .copia{width:auto;min-width:0}
+      .hero h1{font-size:min(11.2vw,52px);line-height:1.03}
+      .hero .sub{font-size:clamp(14.5px,4.1vw,17px);margin-top:14px;max-width:34ch}
+      .acoes{max-width:none;margin-top:20px;gap:10px}
+      .acoes .btn{min-height:50px;font-size:15.5px}
+      .acoes .btn-laranja{justify-content:center}
+      .palco{position:relative;inset:auto;height:84vw;margin:10px -16px 0;overflow:hidden}
+      .palco .mascote{left:-9vw;right:auto;top:auto;bottom:-34vw;width:78vw;height:auto}
+      .laptop{right:4vw;bottom:15vw;width:56vw}
+      .laptop .tela{padding:1.2vw;border-radius:2.6vw;border-width:1px}
+      .laptop .app{font-size:1.62vw;border-radius:1.6vw}
+      .onda{height:11vw}
+
+      .provas-mob{margin-top:-7vw;padding:14px 4px}
+      .provas-mob li{flex-direction:column;text-align:center;gap:8px;font-size:clamp(11px,3.2vw,13px);padding:0 4px}
+      .provas-mob .ic{width:40px;height:40px;font-size:20px}
+
+      .cab h2{font-size:clamp(23px,6.6vw,28px)}
+      .passo{padding:14px 14px 14px 60px}
+      .passo h3{font-size:16.5px}.passo p{font-size:14px}
+
+      .recursos-sec .cab{padding:28px 16px 0}
+      .recursos-sec .cab .dentro{width:auto}
+      .recursos-sec .cab p:not(.rotulo){font-size:14.5px}
+      .tablet-escuro{position:relative;right:auto;top:auto;width:92%;margin:8px auto 0;transform:none}
+      .recursos{margin-top:-40px;padding-top:0}
+      .grade{grid-template-columns:minmax(0,1fr);gap:0;padding:4px 14px}
+      .recurso{padding:14px 0;gap:14px;border:0;border-bottom:1px solid var(--linha);border-radius:0;align-items:center}
+      .recurso:last-child{border-bottom:0}
+      .recurso .ic{width:46px;height:46px;font-size:24px}
+      .recurso h3{font-size:16px}.recurso p{font-size:14px;line-height:1.4;margin-top:3px}
+
+      .trio{gap:18px;margin-top:22px}
+      .destaque{flex-direction:column-reverse;align-items:stretch;gap:12px;border-bottom:0;padding:0}
+      .destaque figure{flex:none;width:100%;height:50vw;border-radius:16px}
+      .destaque figure img{width:112%}
+      .destaque h3{font-size:clamp(21px,5.8vw,25px)}
+      .destaque p{font-size:14.5px}
+      .destaque .rotulo.rotulo{font-size:11.5px}
+
+      .integra{margin-top:22px;padding:18px 16px}
+      .integra h2{font-size:clamp(17px,5vw,21px);white-space:normal}
+      .integra p{font-size:14px}
+      .fluxo{gap:6px}.fluxo li{font-size:clamp(10.5px,3vw,12.5px)}
+      .fluxo .ic{width:clamp(44px,13vw,56px);height:clamp(44px,13vw,56px);font-size:clamp(21px,6vw,26px)}
+      .fluxo li+li::before{left:-10px;top:clamp(15px,4.6vw,21px);width:12px}
+
+      .chamada{padding:20px 16px 20px 16px;text-align:left}
+      .chamada .arte{display:none}
+      .chamada h2{font-size:clamp(21px,6vw,25px)}.chamada p{font-size:14.5px}
+      .chamada .btn{width:100%;min-height:48px;font-size:15.5px}
+
+      .duvidas summary{font-size:15px;padding:15px 16px}
+      .duvidas details p{padding:0 16px 16px;font-size:14.5px}
+
+      .rodape .wrap{grid-template-columns:1fr;justify-items:start;gap:16px}
+      .rodape nav{gap:10px 20px;font-size:14px;white-space:normal}
+      .rodape .legal{white-space:normal}
+      .rodape .copy{white-space:normal}
     }
     @media (min-width:761px){.provas-mob{display:none}}
     @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
