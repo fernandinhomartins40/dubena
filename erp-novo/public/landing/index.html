@@ -178,6 +178,9 @@
     .mp-caixa{border:1px solid var(--mp-borda);border-radius:.7em;overflow:auto;background:var(--mp-cartao)}
     .mp-caixa table{width:100%;border-collapse:collapse;font-size:.88em}
     .mp-caixa .mp-btn{vertical-align:middle}
+    /* Painel estreito (celular): saem as colunas e o botão secundários, para a
+       ação principal da linha não ficar escondida atrás da rolagem. */
+    @container (max-width:430px){.mp-caixa .op{display:none}}
     .mp-caixa th{text-align:left;font-weight:600;color:var(--mp-suave);font-size:.9em;padding:.7em .5em;background:var(--mp-secund);white-space:nowrap}
     .mp-caixa td{padding:.6em .5em;border-top:1px solid var(--mp-borda);white-space:nowrap}
     .mp-caixa .d{text-align:right;font-variant-numeric:tabular-nums}
@@ -357,7 +360,10 @@
       /* No celular a janela interativa aparece inteira, com o menu recolhido
          (o script decide pela largura) e letra maior. */
       .janela{display:block;margin-top:14px;border-width:2px;border-radius:14px}
-      .janela .mp{font-size:9px;font-size:2.56cqw;aspect-ratio:10/11.5;height:auto;min-height:0}
+      /* Altura pelo CONTEÚDO, com teto: a proporção fixa de antes deixava um vão
+         vazio embaixo da tabela ("tela esticada"). A letra tem piso e teto para
+         não inflar em telas de 600–760 px, onde o menu abre expandido. */
+      .janela .mp{font-size:9px;font-size:clamp(9px,2.56cqw,11px);aspect-ratio:auto;height:auto;min-height:0;max-height:46em;grid-template-rows:minmax(0,1fr)}
       .mp-usuario span,.mp-selo{display:none}
       .grade{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:10px;background:#fff;border:1px solid var(--linha);border-radius:16px;box-shadow:var(--sombra)}
       .recurso{padding:10px;gap:10px;border-radius:10px;box-shadow:none;align-items:center}
@@ -822,10 +828,10 @@
               + '<tr><td>Gás P13</td><td>Vasilhame P13</td><td>P13</td></tr><tr><td>Gás P45</td><td>Vasilhame P45</td><td>P45</td></tr><tr><td>Água mineral 20 L</td><td>Galão 20 L</td><td>20 L</td></tr></tbody></table></div>';
           }
           return h + cabecalho('Comodatos', 'Vasilhames emprestados a clientes', '<button class="mp-btn" data-acao="novo-comodato">' + ic('i-mais') + 'Novo comodato</button>')
-            + '<div class="mp-caixa"><table><thead><tr><th>Cliente</th><th>Produto</th><th class="d">Qtd</th><th class="d">Devolvido</th><th class="d">Em posse</th><th>Situação</th><th></th></tr></thead><tbody>'
+            + '<div class="mp-caixa"><table><thead><tr><th>Cliente</th><th>Produto</th><th class="d op">Qtd</th><th class="d op">Devolvido</th><th class="d">Em posse</th><th>Situação</th><th></th></tr></thead><tbody>'
             + s.comodatos.map(function (c) {
-              var acoes = c.dev >= c.qtd ? '' : '<button class="mp-btn claro" data-acao="contrato" data-id="' + c.id + '" title="Contrato" aria-label="Contrato de ' + c.cliente + '">' + ic('i-nota') + '</button><button class="mp-btn claro" data-acao="devolver" data-id="' + c.id + '">Devolver</button>';
-              return '<tr><td>' + c.cliente + '</td><td>' + c.produto + '</td><td class="d">' + c.qtd + '</td><td class="d">' + c.dev + '</td><td class="d"><b>' + (c.qtd - c.dev) + '</b></td><td>' + situacaoComodato(c) + '</td><td class="d">' + acoes + '</td></tr>';
+              var acoes = c.dev >= c.qtd ? '' : '<button class="mp-btn claro op" data-acao="contrato" data-id="' + c.id + '" title="Contrato" aria-label="Contrato de ' + c.cliente + '">' + ic('i-nota') + '</button><button class="mp-btn claro" data-acao="devolver" data-id="' + c.id + '">Devolver</button>';
+              return '<tr><td>' + c.cliente + '</td><td>' + c.produto + '</td><td class="d op">' + c.qtd + '</td><td class="d op">' + c.dev + '</td><td class="d"><b>' + (c.qtd - c.dev) + '</b></td><td>' + situacaoComodato(c) + '</td><td class="d">' + acoes + '</td></tr>';
             }).join('') + '</tbody></table></div>';
         }
         function pgPainel() {
