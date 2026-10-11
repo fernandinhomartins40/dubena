@@ -71,13 +71,13 @@ function OperacoesTab() {
 
   async function onSalvar() {
     if (!edit?.descricao?.trim()) { toast.error('Informe a descrição.'); return }
-    try { await salvar.mutateAsync({ id: edit.id, descricao: edit.descricao, descricaofiscal: edit.descricaofiscal, cfop: edit.cfop, movimentaestoque: edit.movimentaestoque === 1, movimentafinanceiro: edit.movimentafinanceiro === 1 }); toast.success('Operação salva.'); setEdit(null) }
+    try { await salvar.mutateAsync({ id: edit.id, descricao: edit.descricao, descricao_fiscal: edit.descricao_fiscal, cfop: edit.cfop, movimenta_estoque: !!edit.movimenta_estoque, movimenta_financeiro: !!edit.movimenta_financeiro }); toast.success('Operação salva.'); setEdit(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }
   }
   const columns: Column<OperacaoRow>[] = [
     { key: 'descricao', header: 'Descrição', cell: (o) => <span className="font-medium">{o.descricao}</span> },
     { key: 'cfop', header: 'CFOP', width: 'w-24', cell: (o) => <span className="tabular-nums text-muted-foreground">{o.cfop || '—'}</span> },
-    { key: 'mov', header: 'Movimenta', cell: (o) => <div className="flex gap-1">{Number(o.movimentaestoque) ? <Badge variant="secondary">Estoque</Badge> : null}{Number(o.movimentafinanceiro) ? <Badge variant="secondary">Financeiro</Badge> : null}</div> },
+    { key: 'mov', header: 'Movimenta', cell: (o) => <div className="flex gap-1">{o.movimenta_estoque ? <Badge variant="secondary">Estoque</Badge> : null}{o.movimenta_financeiro ? <Badge variant="secondary">Financeiro</Badge> : null}</div> },
     { key: 'acoes', header: '', align: 'right', width: 'w-24', cell: (o) => <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}><Button variant="ghost" size="icon" aria-label="Editar registro" onClick={() => setEdit(o)}><Pencil size={16} /></Button><Button variant="ghost" size="icon" aria-label="Excluir registro" onClick={() => setDel(o)}><Trash2 size={16} /></Button></div> },
   ]
   return (
@@ -86,11 +86,11 @@ function OperacoesTab() {
       <DataTable columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(o) => o.id} onRowClick={(o) => setEdit(o)} empty={<EmptyState icon={<FileText />} title="Nenhuma operação fiscal" />} />
       <FormDialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)} title={edit?.id ? 'Editar operação' : 'Nova operação'} loading={salvar.isPending} onConfirm={onSalvar}>
         <Field label="Descrição" required><Input autoFocus value={edit?.descricao ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao: e.target.value }))} /></Field>
-        <Field label="Descrição fiscal"><Input value={edit?.descricaofiscal ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricaofiscal: e.target.value }))} /></Field>
+        <Field label="Descrição fiscal"><Input value={edit?.descricao_fiscal ?? ''} onChange={(e) => setEdit((s) => ({ ...s, descricao_fiscal: e.target.value }))} /></Field>
         <Field label="CFOP"><Input value={edit?.cfop ?? ''} onChange={(e) => setEdit((s) => ({ ...s, cfop: e.target.value }))} /></Field>
         <div className="flex gap-6">
-          <CheckboxField label="Movimenta estoque" checked={edit?.movimentaestoque === 1} onChange={(b) => setEdit((s) => ({ ...s, movimentaestoque: b ? 1 : 0 }))} />
-          <CheckboxField label="Movimenta financeiro" checked={edit?.movimentafinanceiro === 1} onChange={(b) => setEdit((s) => ({ ...s, movimentafinanceiro: b ? 1 : 0 }))} />
+          <CheckboxField label="Movimenta estoque" checked={!!edit?.movimenta_estoque} onChange={(b) => setEdit((s) => ({ ...s, movimenta_estoque: b }))} />
+          <CheckboxField label="Movimenta financeiro" checked={!!edit?.movimenta_financeiro} onChange={(b) => setEdit((s) => ({ ...s, movimenta_financeiro: b }))} />
         </div>
       </FormDialog>
       <ConfirmDialog open={!!del} onOpenChange={(o) => !o && setDel(null)} title="Excluir operação"

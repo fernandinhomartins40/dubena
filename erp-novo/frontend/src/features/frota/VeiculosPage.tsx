@@ -48,7 +48,10 @@ export function VeiculosListPage() {
   )
 }
 
-const VAZIO = { placa: '', descricao: '', veiculotipo_id: null as number | null, tipocombustivel_id: null as number | null, kmatual: '', kminicial: '' }
+const VAZIO = { placa: '', descricao: '', veiculotipo_id: null as number | null, tipocombustivel_id: null as number | null, km_atual: '', renavam: '', km_ultima_troca_oleo: '', km_troca_oleo: '' }
+// `kminicial` saiu: não existe coluna, nada era gravado. Entram Renavam e os KMs
+// de troca de óleo, que o servidor sempre aceitou e nenhuma tela oferecia — e é
+// deles que sai o aviso de troca de óleo.
 
 export function VeiculoFormPage() {
   const { id } = useParams(); const navigate = useNavigate()
@@ -85,8 +88,10 @@ export function VeiculoFormPage() {
             <Field label="Descrição" required error={erros.descricao}><Input value={form.descricao} error={!!erros.descricao} onChange={(e) => campo('descricao', e.target.value)} /></Field>
             <Field label="Tipo de veículo" required error={erros.veiculotipo_id}><AsyncSelect endpoint="/lookups/veiculo-tipos" value={form.veiculotipo_id} valueLabel={labels.tipo} error={!!erros.veiculotipo_id} onChange={(id, o) => { campo('veiculotipo_id', id); setLabels((l) => ({ ...l, tipo: o?.label ?? null })) }} /></Field>
             <Field label="Combustível" required error={erros.tipocombustivel_id}><AsyncSelect endpoint="/lookups/combustiveis" value={form.tipocombustivel_id} valueLabel={labels.comb} error={!!erros.tipocombustivel_id} onChange={(id, o) => { campo('tipocombustivel_id', id); setLabels((l) => ({ ...l, comb: o?.label ?? null })) }} /></Field>
-            <Field label="KM inicial"><Input type="number" value={form.kminicial ?? ''} onChange={(e) => campo('kminicial', e.target.value)} /></Field>
-            <Field label="KM atual"><Input type="number" value={form.kmatual ?? ''} onChange={(e) => campo('kmatual', e.target.value)} /></Field>
+            <Field label="Renavam"><Input value={form.renavam ?? ''} onChange={(e) => campo('renavam', e.target.value)} /></Field>
+            <Field label="KM atual"><Input type="number" min={0} value={form.km_atual ?? ''} onChange={(e) => campo('km_atual', e.target.value)} /></Field>
+            <Field label="KM da última troca de óleo"><Input type="number" min={0} value={form.km_ultima_troca_oleo ?? ''} onChange={(e) => campo('km_ultima_troca_oleo', e.target.value)} /></Field>
+            <Field label="Trocar o óleo a cada (km)" hint="Usado para avisar quando a próxima troca estiver perto"><Input type="number" min={0} value={form.km_troca_oleo ?? ''} onChange={(e) => campo('km_troca_oleo', e.target.value)} /></Field>
           </CardContent></Card>
         </TabsContent>
         {editId && <TabsContent value="abast"><TimelineTab hook={useAbastecimentos} id={editId} cols={[['data', 'Data', (r) => fmtData(r.data)], ['kmatual', 'KM', (r) => num(r.kmatual)], ['totallitros', 'Litros', (r) => num(r.totallitros)], ['mediaconsumo', 'Média', (r) => num(r.mediaconsumo)]]} /></TabsContent>}

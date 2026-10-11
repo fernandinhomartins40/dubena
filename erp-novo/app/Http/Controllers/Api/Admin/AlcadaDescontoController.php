@@ -12,6 +12,7 @@ use App\Models\Venda\AlcadaDesconto;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Cadastro das alçadas de desconto (F2).
@@ -69,7 +70,9 @@ class AlcadaDescontoController extends Controller
         $this->autorizar($request, 'venda.alcada');
 
         $d = $request->validate([
-            'role_id' => 'nullable|integer|exists:roles,id',
+            // Papel é por grupo: `exists:roles,id` aceitava o papel de OUTRA rede,
+            // e a alçada passaria a valer para quem tem aquele papel lá.
+            'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id')->where('grupo_id', (int) $request->user()->grupo_id)],
             'colaborador_id' => ['nullable', 'integer', new ExisteNoTenant(Colaborador::class)],
             'produto_id' => ['nullable', 'integer', new ExisteNoTenant(Produto::class)],
             'setor_id' => ['nullable', 'integer', new ExisteNoTenant(Setor::class)],

@@ -255,6 +255,9 @@ class VeiculoController extends Controller
             'placa' => $v->placa,
             'descricao' => $v->descricao,
             'kmatual' => (int) $v->km_atual,
+            // O nome da coluna também: o formulário grava `km_atual` (a validação
+            // só aceita esse), e antes mandava `kmatual` — descartado em silêncio.
+            'km_atual' => (int) $v->km_atual,
             'veiculotipo_id' => $v->veiculotipo_id,
             'tipocombustivel_id' => $v->tipocombustivel_id,
         ];

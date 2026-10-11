@@ -35,6 +35,21 @@ class AlcadaCrudTest extends TestCase
         $this->actingAs($this->gestor, 'sanctum');
     }
 
+    /**
+     * Papel é por grupo. `exists:roles,id` aceitava o papel de outra rede, e a
+     * alçada valeria para quem tem aquele papel lá.
+     */
+    public function test_papel_de_outra_rede_e_recusado(): void
+    {
+        $outra = Empresa::factory()->create();
+        $alheio = \App\Models\Role::query()->create(['grupo_id' => $outra->grupo_id, 'nome' => 'Vendedor alheio']);
+        $proprio = \App\Models\Role::query()->create(['grupo_id' => $this->empresa->grupo_id, 'nome' => 'Vendedor']);
+
+        $this->postJson('/api/admin/alcadas', ['percentual_max' => 5, 'role_id' => $alheio->id])
+            ->assertStatus(422)->assertJsonValidationErrors('role_id');
+        $this->postJson('/api/admin/alcadas', ['percentual_max' => 5, 'role_id' => $proprio->id])->assertCreated();
+    }
+
     public function test_cadastra_lista_e_remove(): void
     {
         $criada = $this->postJson('/api/admin/alcadas', [

@@ -189,7 +189,8 @@ export function ColaboradorFormPage() {
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="Nome" required error={erros.nome} className="md:col-span-2"><Input value={form.nome} error={!!erros.nome} onChange={(e) => campo('nome', e.target.value)} /></Field>
             <Field label="Cargo"><AsyncSelect endpoint="/lookups/cargos" value={form.cargo_id} valueLabel={labels.cargo} onChange={(id, o) => { campo('cargo_id', id); setLabels((l) => ({ ...l, cargo: o?.label ?? null })) }} /></Field>
-            <Field label="E-mail"><Input type="email" value={form.email ?? ''} onChange={(e) => campo('email', e.target.value)} /></Field>
+            {/* E-mail saiu: `colaboradores` não tem a coluna e o valor era descartado.
+                O e-mail de quem acessa o sistema fica no usuário (Usuários e permissões). */}
             <Field label="CPF"><Input value={form.cpf ?? ''} onChange={(e) => campo('cpf', e.target.value)} /></Field>
             <Field label="RG"><Input value={form.rg ?? ''} onChange={(e) => campo('rg', e.target.value)} /></Field>
             <Field label="Nascimento"><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>

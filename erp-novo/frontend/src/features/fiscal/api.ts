@@ -20,7 +20,9 @@ export function useExcluirMalha(tipo: string) {
 }
 
 // Operações fiscais
-export interface OperacaoRow { id: number; descricao: string; descricaofiscal: string | null; cfop: string | null; movimentaestoque: number; movimentafinanceiro: number }
+// Nomes das COLUNAS: a tela usava `descricaofiscal`/`movimentaestoque` e o
+// servidor descartava — a marca "movimenta estoque" de uma operação não mudava.
+export interface OperacaoRow { id: number; descricao: string; descricao_fiscal: string | null; cfop: string | null; movimenta_estoque: boolean; movimenta_financeiro: boolean }
 export const useOperacoes = () => useQuery<OperacaoRow[]>({ queryKey: ['fiscal-operacoes'], queryFn: async () => (await api.get('/fiscal/operacoes')).data.data })
 export function useSalvarOperacao() {
   const qc = useQueryClient()
