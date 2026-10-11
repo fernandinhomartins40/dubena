@@ -52,7 +52,13 @@ trait PreservaIdsDoLegado
     /** A conexão em que este trait lê e escreve o DESTINO. */
     protected function destino(): ConnectionInterface
     {
-        return $this->conexaoDestino ?? DB::connection();
+        // Sem contexto injetado, a mesma conexão que o contexto padrão daria —
+        // não a do runtime. O caminho é real: `cutover:check` chama
+        // `invariantes()` sem `migrar()` antes, e o desconto da cidade gravada
+        // sob o código IBGE lia `cidades` como `erp_app`. Depois que a tabela
+        // ganhou chave de tenant, a RLS a devolvia vazia e a invariante acusava
+        // "106 esperadas, 105 obtidas" com a cidade lá (homologação, 11/10).
+        return $this->conexaoDestino ?? (new MigrationContext)->novo();
     }
 
     /**
@@ -130,7 +136,7 @@ trait PreservaIdsDoLegado
         $escopo = array_key_exists('empresa_id', $primeira) ? 'empresa'
             : (array_key_exists('grupo_id', $primeira) ? 'grupo' : null);
         if ($escopo === null) {
-            return $linhas;
+            return $this->carimbarPeloPai($tabela, $linhas);
         }
 
         $conexao = $this->destino();
@@ -149,6 +155,62 @@ trait PreservaIdsDoLegado
         foreach ($linhas as &$l) {
             $dono = $l[$escopo.'_id'] ?? null;
             $l['tenant_account_id'] = $dono !== null ? ($mapa[(int) $dono] ?? null) : null;
+        }
+        unset($l);
+
+        return $linhas;
+    }
+
+    /**
+     * Filhos sem `empresa_id` nem `grupo_id`: o tenant é o do pai, que já foi
+     * gravado (e carimbado) antes nesta mesma carga. Mesma lista do
+     * `TenantLegacyGroupConfigurationProtector`, que aplica a policy deles.
+     *
+     * Achado na recarga de 2026-10-11: `sorteio_numeros` regravado sem chave
+     * apontando para cliente com chave — o gatilho
+     * `app_enforce_sorteio_numero_cliente_tenant` recusou a carga no CRM.
+     *
+     * @var array<string, array{0:string, 1:string}> filho => [pai, fk]
+     */
+    private const FILHOS_SEM_ESCOPO = [
+        'sorteio_numeros' => ['sorteios', 'sorteio_id'],
+        'checklist_perguntas' => ['checklists', 'checklist_id'],
+        'condicaopagamento_parcelas' => ['condicaopagamentos', 'condicaopagamento_id'],
+        'produto_operacao_fiscal' => ['produtos', 'produto_id'],
+        'convenio_fechamento_pedidos' => ['convenio_fechamentos', 'convenio_fechamento_id'],
+    ];
+
+    /**
+     * @param  list<array<string, mixed>>  $linhas
+     * @return list<array<string, mixed>>
+     */
+    private function carimbarPeloPai(string $tabela, array $linhas): array
+    {
+        [$pai, $fk] = self::FILHOS_SEM_ESCOPO[$tabela] ?? [null, null];
+        if ($pai === null || ! array_key_exists($fk, $linhas[0])) {
+            return $linhas;
+        }
+
+        $conexao = $this->destino();
+        $this->temChaveDeTenant[$tabela] ??= $conexao->getSchemaBuilder()->hasColumn($tabela, 'tenant_account_id');
+        if (! $this->temChaveDeTenant[$tabela]) {
+            return $linhas;
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map(fn ($l) => (int) ($l[$fk] ?? 0), $linhas))));
+        $doPai = [];
+        foreach (array_chunk($ids, 5000) as $bloco) {
+            foreach ($conexao->table($pai)->whereIn('id', $bloco)->whereNotNull('tenant_account_id')->pluck('tenant_account_id', 'id') as $id => $t) {
+                $doPai[(int) $id] = (int) $t;
+            }
+        }
+        // Pai sem chave (primeira carga): nada a herdar, a linha segue como antes.
+        if ($doPai === []) {
+            return $linhas;
+        }
+
+        foreach ($linhas as &$l) {
+            $l['tenant_account_id'] = $doPai[(int) ($l[$fk] ?? 0)] ?? null;
         }
         unset($l);
 

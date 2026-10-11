@@ -313,6 +313,26 @@ conversão rodaria inteira sem deixar registro, e o bundle de evidência sairia
 vazio como se nada tivesse acontecido. Nenhum teste local pegaria: sqlite não tem
 grants.
 
+**Depois do `etl:run` o dado existe e ninguém o enxerga.** O ETL grava por
+`DB::table`, sem model e sem envelope: toda linha entra com `tenant_account_id`
+nulo, e a policy canônica compara essa coluna com o tenant da sessão. Sintoma na
+carga real (2026-10-11): login 200, `/api/admin/clientes` com zero itens, nenhum
+erro em log. A regra de preenchimento só existia numa migration que já tinha
+rodado com o banco vazio. O pós-carga é, **nesta ordem**:
+`saas:tenant:preencher-chave-operacional --apply` (tabelas com `empresa_id`) e
+depois `saas:tenant:proteger-configuracao-grupo --apply` (configuração por grupo
+— exige a ponte em `tenant_legacy_group_scopes`, que o mapeamento de
+titularidade precisa trazer em `legacy_group_scopes`). Invertido, o protetor
+recusa: ele valida filhos de `produtos`, que ainda estariam sem chave.
+
+**O ETL tem de gravar no contrato da aplicação, não no formato do legado.** Três
+casos da mesma carga, todos invisíveis à suíte: histórico de estoque em módulo
+(o ledger é ASSINADO — um setor com 3.484 botijões "somava" 2,38 milhões); chave
+do Maps em claro (o model lê por cast `encrypted`); comodato sem movimento (a
+custódia é provada pela soma de `comodato_movimentos`). Quem acusa é a
+conferência da própria aplicação — `estoque:conferir`, `financeiro:conferir` —
+rodada contra dado real. Rode-as depois de toda carga.
+
 **Teste passa em sqlite e quebra em Postgres.** Colunas com `varchar` curto
 (`cpf` = 11, `cor` = 7, `char(1)` para `especie`/`pagarreceber`) não são
 validadas pelo sqlite. Confira o tamanho na migration antes de escrever seed.
@@ -462,6 +482,12 @@ php artisan golive:check --strict     # prontidão de produção
 php artisan banco:producao-check      # banco pronto para o ETL
 
 php artisan etl:run --dry-run         # simula a migração, não grava
+
+# Pós-carga (gravam; sem --apply só mostram) — nesta ordem
+php artisan saas:tenant:preencher-chave-operacional --apply
+php artisan saas:tenant:proteger-configuracao-grupo --apply
+php artisan estoque:conferir          # projeção × ledger, read-only
+php artisan financeiro:conferir       # reconciliação, read-only
 ```
 
 ---

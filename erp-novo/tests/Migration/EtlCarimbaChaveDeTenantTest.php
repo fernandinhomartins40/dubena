@@ -93,6 +93,30 @@ class EtlCarimbaChaveDeTenantTest extends TestCase
         $this->assertSame($tenant, (int) DB::table('clientes')->where('id', 9001)->value('tenant_account_id'));
     }
 
+    /**
+     * Filho sem `empresa_id`/`grupo_id` herda a chave do pai. Foi aqui que a
+     * recarga parou na segunda vez: `sorteio_numeros` regravado sem chave.
+     */
+    public function test_filho_sem_escopo_herda_a_chave_do_pai(): void
+    {
+        $empresa = $this->empresaSemDono();
+        $tenant = $this->tenantDono($empresa);
+        DB::table('tenant_legacy_group_scopes')->insert([
+            'tenant_account_id' => $tenant, 'grupo_id' => $empresa->grupo_id, 'status' => 'APPROVED',
+            'approved_at' => now(), 'evidence_ref' => 'teste', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $gravador = $this->gravador();
+        $gravador->gravar('sorteios', [[
+            'id' => 7001, 'grupo_id' => $empresa->grupo_id, 'descricao' => 'Sorteio', 'data_sorteio' => '2026-07-01',
+        ]]);
+        $this->assertSame($tenant, (int) DB::table('sorteios')->where('id', 7001)->value('tenant_account_id'));
+
+        $gravador->gravar('sorteio_numeros', [['id' => 7101, 'sorteio_id' => 7001, 'numero' => 1, 'cliente_id' => null]]);
+
+        $this->assertSame($tenant, (int) DB::table('sorteio_numeros')->where('id', 7101)->value('tenant_account_id'));
+    }
+
     /** A chave da EMPRESA é a decisão de titularidade — o ETL nunca a deriva. */
     public function test_empresa_nao_ganha_chave_pelo_grupo(): void
     {
