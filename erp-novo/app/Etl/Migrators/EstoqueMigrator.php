@@ -75,10 +75,28 @@ final class EstoqueMigrator implements Migrator
         }
 
         // ── Histórico (volumoso: vai em blocos, com saldo reconstruído) ──
-        [$n, $g, $p] = $this->migrarHistorico($ctx, $idsSetor, $idsProduto, $empresaDoSetor);
+        [$n, $g, $p, $somaDoHistorico] = $this->migrarHistorico($ctx, $idsSetor, $idsProduto, $empresaDoSetor);
         $lidos += $n;
         $gravados += $g;
         $pulados += $p;
+
+        // O legado não garante saldo = soma do histórico; a aplicação nova
+        // garante, e `estoque:conferir` cobra. Onde o legado já não fechava, a
+        // diferença vem junto — e tem de chegar ao operador AQUI, não aparecer
+        // semanas depois como "o sistema novo bagunçou o estoque".
+        if ($n > 0) {
+            $naoFecham = 0;
+            foreach ($saldos as $s) {
+                $soma = $somaDoHistorico[$s['setor_id'].':'.$s['produto_id']] ?? 0.0;
+                if (abs($s['quantidade'] - $soma) >= 0.001) {
+                    $naoFecham++;
+                }
+            }
+            if ($naoFecham > 0) {
+                $avisos[] = "{$naoFecham} de ".count($saldos).' saldo(s) setor×produto não fecham com a soma '
+                    .'do histórico JÁ NO LEGADO — `estoque:conferir` lista cada um; o ajuste é decisão do dono';
+            }
+        }
 
         if ($pulados > 0) {
             $avisos[] = "{$pulados} linha(s) de estoque descartada(s): setor ou "
@@ -176,13 +194,19 @@ final class EstoqueMigrator implements Migrator
      * corrente por setor×produto — são ~115 pares, cabe folgado — lendo o
      * histórico em ordem cronológica.
      *
-     * @return array{0:int, 1:int, 2:int} lidos, gravados, pulados
+     * `quantidade` vai ASSINADA (+entrada / −saída), que é o contrato do ledger
+     * da aplicação (`EstoqueService::movimentar`): extrato, conferência e Bloco
+     * H somam a coluna direto. O legado guarda o módulo e o sentido à parte, em
+     * `movimentacao`; copiar o módulo fez a carga real de 2026-10-11 somar
+     * 2,38 milhões de botijões num setor que tem 3.484.
+     *
+     * @return array{0:int, 1:int, 2:int, 3:array<string,float>} lidos, gravados, pulados, soma por "setor:produto"
      */
     private function migrarHistorico(
         MigrationContext $ctx, array $idsSetor, array $idsProduto, array $empresaDoSetor
     ): array {
         if (! $this->tabelaExiste($ctx, 'estoquesetorhistoricos')) {
-            return [0, 0, 0];
+            return [0, 0, 0, []];
         }
 
         $idsUser = $this->idsDe('users');
@@ -211,9 +235,9 @@ final class EstoqueMigrator implements Migrator
 
                     $tipo = $this->tipoMovimento((string) $r->movimentacao);
                     $qtd = abs((float) $r->quantidade);
+                    $qtd = $tipo === 'ENTRADA' ? $qtd : -$qtd;
                     $chave = $setor.':'.$produto;
-                    $corrente[$chave] = ($corrente[$chave] ?? 0.0)
-                        + ($tipo === 'ENTRADA' ? $qtd : -$qtd);
+                    $corrente[$chave] = ($corrente[$chave] ?? 0.0) + $qtd;
 
                     $userId = (int) ($r->user_id ?? 0);
 
@@ -240,7 +264,7 @@ final class EstoqueMigrator implements Migrator
                 }
             });
 
-        return [$lidos, $gravados, $pulados];
+        return [$lidos, $gravados, $pulados, $corrente];
     }
 
     /** 'E'/'ENTRADA' → ENTRADA; o resto é SAIDA. */
