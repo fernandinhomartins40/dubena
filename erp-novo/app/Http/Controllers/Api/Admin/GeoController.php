@@ -52,6 +52,60 @@ class GeoController extends Controller
         ],
     ];
 
+    /**
+     * GET /geo/cep/{cep} — cidade, bairro e rua a partir do CEP, pela PRÓPRIA base.
+     *
+     * No cadastro de cliente o CEP era digitado e não preenchia nada: a pessoa
+     * ainda escolhia cidade, bairro e rua em três seletores. A base já sabe a
+     * resposta — ruas com CEP e dezenas de milhares de clientes com CEP ligado
+     * ao endereço. Sem serviço externo: nada sai da revenda e não há custo.
+     *
+     * Primeiro a rua que tem aquele CEP; sem ela, o endereço mais comum entre
+     * os clientes com o mesmo CEP. Não achou, devolve vazio — a pessoa escolhe
+     * à mão, como antes.
+     */
+    public function porCep(Request $request, string $cep): JsonResponse
+    {
+        $this->autorizar($request, 'cliente.view');
+        $digitos = preg_replace('/\D/', '', $cep) ?? '';
+        if (strlen($digitos) !== 8) {
+            return response()->json(['data' => null]);
+        }
+        $formatos = [$digitos, substr($digitos, 0, 5).'-'.substr($digitos, 5)];
+
+        $rua = Rua::query()->with(['cidade:id,descricao,uf', 'bairro:id,descricao'])
+            ->whereIn('cep', $formatos)->orderBy('id')->first();
+        if ($rua !== null) {
+            return response()->json(['data' => $this->enderecoDe($rua->cidade, $rua->bairro, $rua, 'rua')]);
+        }
+
+        $comum = \App\Models\Cliente\Cliente::query()
+            ->whereIn('cep', $formatos)->whereNotNull('cidade_id')
+            ->selectRaw('cidade_id, bairro_id, rua_id, count(*) as n')
+            ->groupBy('cidade_id', 'bairro_id', 'rua_id')->orderByDesc('n')->first();
+        if ($comum === null) {
+            return response()->json(['data' => null]);
+        }
+
+        return response()->json(['data' => $this->enderecoDe(
+            Cidade::query()->find($comum->cidade_id),
+            $comum->bairro_id ? Bairro::query()->find($comum->bairro_id) : null,
+            $comum->rua_id ? Rua::query()->find($comum->rua_id) : null,
+            'clientes',
+        )]);
+    }
+
+    /** @return array<string, mixed> */
+    private function enderecoDe(?Cidade $cidade, ?Bairro $bairro, ?Rua $rua, string $fonte): array
+    {
+        return [
+            'cidade' => $cidade ? ['id' => $cidade->id, 'label' => $cidade->descricao, 'uf' => $cidade->uf] : null,
+            'bairro' => $bairro ? ['id' => $bairro->id, 'label' => $bairro->descricao] : null,
+            'rua' => $rua ? ['id' => $rua->id, 'label' => $rua->descricao] : null,
+            'fonte' => $fonte,
+        ];
+    }
+
     public function index(Request $request, string $entidade): JsonResponse
     {
         $cfg = $this->cfg($request, $entidade, 'cliente.view');

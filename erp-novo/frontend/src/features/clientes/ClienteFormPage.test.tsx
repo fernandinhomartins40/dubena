@@ -30,3 +30,20 @@ it('falha ao abrir cadastro não permite salvar um formulário vazio', async () 
   expect(screen.queryByRole('button', { name: 'Salvar' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeVisible()
 })
+// O CEP não preenchia nada; agora a própria base devolve cidade, bairro e rua,
+// e só o que está vazio é preenchido.
+it('CEP com 8 dígitos preenche cidade, bairro e rua', async () => {
+  vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({
+    data: { data: url === '/geo/cep/85010100'
+      ? { cidade: { id: 9, label: 'Guarapuava', uf: 'PR' }, bairro: { id: 4, label: 'Centro' }, rua: { id: 77, label: 'Rua XV' }, fonte: 'rua' }
+      : [] },
+  }) as never)
+  const user = userEvent.setup()
+  mount('/clientes/novo')
+  await user.click(screen.getByRole('tab', { name: 'Endereço' }))
+  await user.type(screen.getByRole('textbox', { name: /CEP/ }), '85010-100')
+  expect(await screen.findByText(/Endereço preenchido pelo CEP: Rua XV, Centro, Guarapuava/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /^Cidade/ })).toHaveTextContent('Guarapuava')
+  expect(screen.getByRole('button', { name: /^Rua/ })).toHaveTextContent('Rua XV')
+  expect(screen.getByRole('textbox', { name: /UF/ })).toHaveValue('PR')
+})

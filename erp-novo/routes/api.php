@@ -287,6 +287,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::get('logradouros/importacoes/{id}', [ImportacaoLogradouroController::class, 'show'])->whereNumber('id');
 
         // ── Geográfico (cidades/bairros/ruas) — N2 ──
+        // ANTES de geo/{entidade}, senão "cep" vira nome de entidade.
+        Route::get('geo/cep/{cep}', [GeoController::class, 'porCep']);
         Route::get('geo/{entidade}', [GeoController::class, 'index']);
         Route::post('geo/{entidade}', [GeoController::class, 'store']);
         Route::put('geo/{entidade}/{id}', [GeoController::class, 'update'])->whereNumber('id');

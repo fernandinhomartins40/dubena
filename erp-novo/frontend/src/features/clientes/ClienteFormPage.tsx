@@ -15,6 +15,7 @@ import { AuditoriaTab } from './AuditoriaTab'
 import { useAuth } from '@/lib/auth'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { useCliente, useSalvarCliente, type ClienteForm } from './api'
+import { api } from '@/lib/api'
 
 const VAZIO: ClienteForm = {
   nome: '', fantasia: '', tipopessoa_id: null, segmento_id: null, sexo: '',
@@ -47,6 +48,27 @@ export function ClienteFormPage() {
     booleanKeys: ['cliente', 'fornecedor', 'transportador', 'simples', 'ativo', 'nfemite', 'gasdopovo'],
   })
   const [labels, setLabels] = useState<Record<string, string | null>>({})
+  const [cepAviso, setCepAviso] = useState<string | null>(null)
+
+  /**
+   * CEP primeiro: com 8 dígitos, a própria base devolve cidade, bairro e rua
+   * (`GET /geo/cep`). Só preenche o que está VAZIO — o que a pessoa escolheu vale.
+   */
+  async function preencherPeloCep(valor: string) {
+    const digitos = valor.replace(/\D/g, '')
+    if (digitos.length !== 8) { setCepAviso(null); return }
+    try {
+      const e = (await api.get(`/geo/cep/${digitos}`)).data.data
+      if (!e?.cidade) { setCepAviso('CEP sem endereço conhecido — escolha a cidade abaixo.'); return }
+      if (!form.cidade_id) {
+        campo('cidade_id', e.cidade.id); if (e.cidade.uf) campo('uf', String(e.cidade.uf))
+        setLabels((l) => ({ ...l, cidade: e.cidade.label }))
+      }
+      if (!form.bairro_id && e.bairro && (!form.cidade_id || form.cidade_id === e.cidade.id)) { campo('bairro_id', e.bairro.id); setLabels((l) => ({ ...l, bairro: e.bairro.label })) }
+      if (!form.rua_id && e.rua && (!form.cidade_id || form.cidade_id === e.cidade.id)) { campo('rua_id', e.rua.id); setLabels((l) => ({ ...l, rua: e.rua.label })) }
+      setCepAviso(`Endereço preenchido pelo CEP: ${[e.rua?.label, e.bairro?.label, e.cidade.label].filter(Boolean).join(', ')}. Confira o número.`)
+    } catch { setCepAviso(null) }
+  }
 
   useEffect(() => {
     if (existente && !dirty) {
@@ -171,6 +193,9 @@ export function ClienteFormPage() {
 
         <TabsContent value="endereco">
           <Card><CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="CEP" error={erros.cep} hint={cepAviso ?? 'Digite o CEP para preencher o endereço'} className="md:col-span-2">
+              <Input value={form.cep ?? ''} inputMode="numeric" maxLength={9} onChange={(e) => { campo('cep', e.target.value); void preencherPeloCep(e.target.value) }} />
+            </Field>
             <Field label="Cidade" required error={erros.cidade_id}>
               <AsyncSelect endpoint="/lookups/cidades" value={form.cidade_id} valueLabel={labels.cidade} error={!!erros.cidade_id}
                 onChange={(id, opt) => { campo('cidade_id', id); setLabels((l) => ({ ...l, cidade: opt?.label ?? null, bairro: null })); campo('bairro_id', null); if (opt?.uf) campo('uf', String(opt.uf)) }} />
@@ -185,7 +210,6 @@ export function ClienteFormPage() {
                 onChange={(id, opt) => { campo('rua_id', id); setLabels((l) => ({ ...l, rua: opt?.label ?? null })) }} />
             </Field>
             <Field label="Número" required error={erros.numero}><Input value={form.numero} error={!!erros.numero} onChange={(e) => campo('numero', e.target.value)} /></Field>
-            <Field label="CEP" error={erros.cep}><Input value={form.cep ?? ''} onChange={(e) => campo('cep', e.target.value)} /></Field>
             <Field label="UF" error={erros.uf}><Input maxLength={2} value={form.uf ?? ''} onChange={(e) => campo('uf', e.target.value.toUpperCase())} /></Field>
             <Field label="Complemento" error={erros.complemento}><Input value={form.complemento ?? ''} onChange={(e) => campo('complemento', e.target.value)} /></Field>
             <Field label="Ponto de referência" className="md:col-span-2" error={erros.ponto_referencia}><Input value={form.ponto_referencia ?? ''} onChange={(e) => campo('ponto_referencia', e.target.value)} /></Field>
