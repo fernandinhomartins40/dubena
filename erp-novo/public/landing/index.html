@@ -94,39 +94,103 @@
     .laptop .base::after{content:"";position:absolute;left:50%;top:0;width:110px;height:6px;margin-left:-55px;border-radius:0 0 8px 8px;background:#9a9fa9}
     /* O notebook ocupa só o canto direito: o mascote é a figura do hero, e a
        tela não pode passar do quadril dele para a esquerda. */
-    .laptop .app{font-size:9.3px}
+    /* O tamanho do painel acompanha a largura da moldura (unidade de container):
+       58em de largura em qualquer tela, sem um font-size por breakpoint. */
+    .laptop .tela,.janela{container-type:inline-size}
+    .laptop .mp{font-size:8.2px;font-size:1.724cqw}
 
-    /* ── Janela do sistema (ilustração em HTML: nítida em qualquer tela) ──
-       Tudo em `em`: o mesmo desenho serve o notebook do hero, o tablet do
-       celular e a janela da seção de recursos, só trocando o font-size. */
-    .app{font-size:11.5px;display:grid;grid-template-columns:9.4em 1fr;grid-template-rows:auto 1fr;border-radius:.8em;overflow:hidden;background:#f6f7fa;color:#2a3344;font-family:Inter,system-ui,sans-serif;line-height:1.3;text-align:left}
-    .app-topo{grid-column:1/-1;display:flex;align-items:center;gap:1em;padding:.7em 1.2em;background:#fff;border-bottom:1px solid #e9ebf0}
-    .app-topo img{height:2.9em;width:auto}
-    .app-busca{flex:1;height:2.4em;border-radius:.6em;background:#f2f4f7;border:1px solid #e6e8ee;display:flex;align-items:center;padding:0 .9em;color:#9aa2b1;font-size:.82em}
-    .app-topo i{width:1.5em;height:1.5em;border-radius:50%;border:1.5px solid #c9ceda;flex:none}
-    .app-lado{background:#111a2b;color:#c7cedc;padding:1em .6em;display:flex;flex-direction:column;gap:.2em;font-size:.8em;white-space:nowrap}
-    .app-lado span{display:flex;align-items:center;gap:.6em;padding:.5em .7em;border-radius:.5em}
-    .app-lado span::before{content:"";width:.8em;height:.8em;border-radius:.2em;border:1.5px solid currentColor;flex:none}
-    .app-lado .on{background:var(--laranja);color:#fff}
-    .app-miolo{padding:1.1em 1.3em 1.3em;min-width:0}
-    .app-linha{display:flex;align-items:center;justify-content:space-between;gap:1em}
-    .app-linha b{font:700 1.5em/1 var(--titulo);color:var(--marinho)}
-    .app-novo{background:var(--laranja);color:#fff;padding:.55em .9em;border-radius:.55em;font-weight:600;font-size:.82em;white-space:nowrap}
-    .app-abas{display:flex;gap:1.6em;margin-top:1.1em;border-bottom:1px solid #e3e6ec;font-size:.8em;color:#7c8596;white-space:nowrap}
-    .app-abas span{padding-bottom:.6em}.app-abas .on{color:var(--marinho);font-weight:700;border-bottom:2px solid var(--laranja);margin-bottom:-1px}
-    .app table{width:100%;border-collapse:collapse;margin-top:.5em;font-size:.82em}
-    .app th{text-align:left;font-weight:500;color:#8a93a3;padding:.6em .5em;white-space:nowrap}
-    .app td{padding:.62em .5em;border-top:1px solid #edeff3;white-space:nowrap;color:#3a4458}
-    .pilula{display:inline-block;padding:.22em .7em;border-radius:.45em;font-weight:600;font-size:.92em}
-    .p-azul{background:#dcebff;color:#1d63d8}.p-verde{background:#dcf5e3;color:#1c8a45}.p-ambar{background:#ffeccc;color:#b86a00}.p-cinza{background:#eceff3;color:#56607a}
-    .app-cartoes{display:grid;grid-template-columns:1fr 1fr;gap:1em;margin-top:1.1em}
-    .app-cartoes div{display:flex;align-items:center;gap:.9em;background:#fff;border:1px solid #e9ebf0;border-radius:.8em;padding:.9em 1em;box-shadow:0 .3em .9em rgba(16,26,44,.06)}
-    .app-cartoes .i{font-size:2em;padding:.25em;border-radius:.3em}
-    .app-cartoes b{display:block;font-weight:700;color:var(--marinho);font-size:.95em}
-    .app-cartoes small{display:block;color:#8a93a3;font-size:.72em}
-    .app-cartoes u{display:block;height:.35em;border-radius:1em;background:#e6e9ef;margin-top:.5em;position:relative;overflow:hidden;width:9em}
-    .app-cartoes u::after{content:"";position:absolute;inset:0 55% 0 0;background:#2b6fe8;border-radius:1em}
-    .app-cartoes div+div u::after{inset:0 30% 0 0;background:#2aa55a}
+    /* ── Mini-painel: a demonstração interativa ──
+       Réplica em escala do painel real (AppShell da SPA): sidebar grafite com
+       grupos, item ativo com barra lime, barra superior com empresa, tema e
+       usuário, e as páginas de Pedidos (Kanban/Lista) e Comodatos. As cores
+       são os tokens de `frontend/src/index.css`, não as da landing.
+
+       Tudo em `em`: o mesmo painel serve o notebook do hero e a janela da
+       seção de recursos, só trocando o font-size do contêiner. Os dados são
+       fictícios e vivem na memória da página — nada é enviado a servidor. */
+    .mp{--mp-fundo:#f5f6f2;--mp-cartao:#fff;--mp-texto:#1f1f1f;--mp-suave:#6c675f;--mp-borda:#e0e2d9;--mp-secund:#ecede6;--mp-acao:#cc4e00;--mp-acao-texto:#fff;--mp-lat:#1f1f1f;--mp-lat-texto:#b3ada5;--mp-lime:#dbfb3b;--mp-laranja:#ff6200;--mp-verde:#21733e;
+      font-size:8.2px;position:relative;display:grid;grid-template-columns:12.4em minmax(0,1fr);aspect-ratio:16/10.3;overflow:hidden;border-radius:.8em;background:var(--mp-fundo);color:var(--mp-texto);font-family:Inter,system-ui,sans-serif;line-height:1.35;text-align:left}
+    .mp.escuro{--mp-fundo:#141414;--mp-cartao:#1c1c1c;--mp-texto:#f0f1ed;--mp-suave:#9c958c;--mp-borda:#333;--mp-secund:#292929;--mp-acao:#ff680f;--mp-acao-texto:#1f1f1f;--mp-lat:#0f0f0f;--mp-verde:#7fd19b}
+    .mp.recolhida{grid-template-columns:3.7em minmax(0,1fr)}
+    .mp button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+    .mp a{color:var(--mp-acao);font-weight:600;text-decoration:underline}
+    .mp .i{font-size:1.3em}
+    .mp :focus-visible{outline:2px solid var(--mp-laranja);outline-offset:1px;border-radius:.4em}
+
+    .mp-lat{background:var(--mp-lat);color:var(--mp-lat-texto);display:flex;flex-direction:column;min-height:0}
+    .mp-marca{display:flex;align-items:center;gap:.7em;height:4.4em;padding:0 1em;flex:none}
+    .mp-marca b{display:grid;place-items:center;width:2.5em;height:2.5em;border-radius:.6em;background:var(--mp-laranja);color:#fff;font-weight:900;flex:none}
+    .mp-marca span{color:#fff;font-weight:700;font-size:1.02em;white-space:nowrap;overflow:hidden}
+    .mp-nav{flex:1;overflow-y:auto;padding:.4em .6em 1em;scrollbar-width:none}.mp-nav::-webkit-scrollbar{display:none}
+    .mp-grupo{margin:1.2em 0 .3em;padding:0 .8em;font-size:.72em;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.6;white-space:nowrap}
+    .mp-grupo:first-child{margin-top:.2em}
+    .mp-item{position:relative;display:flex;align-items:center;gap:.75em;width:100%;height:2.55em;padding:0 .8em;border-radius:.45em;white-space:nowrap}
+    .mp-item:hover{background:rgba(255,255,255,.055);color:#fff}
+    .mp-item.on{background:rgba(255,255,255,.11);color:#fff;font-weight:600}.mp-item.on .i{color:var(--mp-lime)}
+    .mp-item.on::before{content:"";position:absolute;left:-.6em;top:50%;width:.25em;height:1.5em;margin-top:-.75em;border-radius:0 1em 1em 0;background:var(--mp-lime)}
+    .mp.recolhida .mp-marca span,.mp.recolhida .mp-grupo,.mp.recolhida .mp-item span{display:none}
+    .mp.recolhida .mp-marca,.mp.recolhida .mp-item{justify-content:center;padding:0}
+    .mp.recolhida .mp-item{margin-bottom:.2em}
+
+    .mp-corpo{display:flex;flex-direction:column;min-width:0;min-height:0}
+    .mp-topo{display:flex;align-items:center;gap:.7em;height:4.4em;padding:0 1.1em;background:var(--mp-cartao);border-bottom:1px solid var(--mp-borda);flex:none}
+    .mp-ic{display:grid;place-items:center;width:2.6em;height:2.6em;border-radius:.5em;flex:none}.mp-ic:hover{background:var(--mp-secund)}
+    .mp-empresa{display:flex;align-items:center;gap:.5em;padding:.5em .8em;border:1px solid var(--mp-borda);border-radius:.5em;font-weight:500;white-space:nowrap;overflow:hidden}
+    .mp-usuario{margin-left:auto;display:flex;align-items:center;gap:.7em;flex:none}
+    .mp-usuario b{display:grid;place-items:center;width:2.6em;height:2.6em;border-radius:50%;background:var(--mp-laranja);color:#1f1f1f;font-size:.92em}
+    .mp-usuario span{line-height:1.2;text-align:right;white-space:nowrap}.mp-usuario small{display:block;color:var(--mp-suave);font-size:.85em}
+    .mp-conteudo{flex:1;overflow:auto;padding:1.4em 1.3em;min-height:0;scrollbar-width:thin}
+    .mp-selo{position:absolute;right:1.1em;bottom:.7em;z-index:4;padding:.25em .7em;border-radius:1em;background:var(--mp-texto);color:var(--mp-fundo);font-size:.78em;font-weight:600;opacity:.82;pointer-events:none}
+
+    .mp-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:1em;margin-bottom:1.1em}
+    .mp-cab h4{margin:0;font:700 1.75em/1.15 Inter,system-ui,sans-serif;letter-spacing:-.02em;color:var(--mp-texto)}
+    .mp-cab p{color:var(--mp-suave);margin-top:.2em}
+    .mp .mp-btn{display:inline-flex;align-items:center;gap:.45em;height:2.7em;padding:0 1em;border-radius:.5em;background:var(--mp-acao);color:var(--mp-acao-texto);font-weight:600;white-space:nowrap;flex:none}
+    .mp .mp-btn:hover{filter:brightness(1.1)}
+    .mp .mp-btn.claro{background:var(--mp-cartao);color:var(--mp-texto);border:1px solid var(--mp-borda);height:2.3em;padding:0 .6em;font-weight:500}
+    .mp .mp-btn.claro:hover{background:var(--mp-secund);filter:none}
+    .mp-abas{display:inline-flex;gap:.25em;padding:.3em;border-radius:.6em;background:var(--mp-secund);margin-bottom:1.1em}
+    .mp .mp-abas button{display:flex;align-items:center;gap:.4em;padding:.45em .9em;border-radius:.4em;color:var(--mp-suave);font-weight:500;white-space:nowrap}
+    .mp .mp-abas button.on{background:var(--mp-cartao);color:var(--mp-texto);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+
+    .mp-kanban{display:flex;gap:1em;align-items:flex-start;overflow-x:auto;padding:.2em .2em .6em;scrollbar-width:thin}
+    .mp-col{flex:0 0 14.4em;border:1px solid var(--mp-borda);border-radius:.8em;background:var(--mp-secund);transition:box-shadow .15s}
+    .mp-col.alvo{box-shadow:0 0 0 2px var(--mp-laranja)}
+    .mp-col header{padding:.8em .9em .15em;display:flex;align-items:center;gap:.5em;font-weight:600;white-space:nowrap}
+    .mp-col header i{width:.6em;height:.6em;border-radius:50%;flex:none}
+    .mp-col header em{margin-left:auto;font-style:normal;font-size:.85em;padding:.05em .55em;border-radius:1em;background:var(--mp-cartao);border:1px solid var(--mp-borda);color:var(--mp-suave)}
+    .mp-col>small{display:block;padding:0 .9em .5em;color:var(--mp-suave);font-size:.88em}
+    .mp-cards{display:flex;flex-direction:column;gap:.6em;padding:.6em;min-height:5.5em}
+    .mp-card{position:relative;padding:.8em;border:1px solid var(--mp-borda);border-radius:.6em;background:var(--mp-cartao);cursor:grab;transition:border-color .15s,box-shadow .15s,opacity .15s}
+    .mp-card:hover{border-color:var(--mp-laranja);box-shadow:0 .2em .7em rgba(0,0,0,.12)}
+    .mp-card:active{cursor:grabbing}.mp-card.arrastando{opacity:.4}
+    .mp-card div{display:flex;justify-content:space-between;gap:.6em;font-weight:600}
+    .mp-card p{color:var(--mp-suave);font-size:.9em;margin-top:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mp-card .mp-btn{margin-top:.7em}
+    .mp-menu{position:absolute;left:.8em;top:100%;margin-top:-.5em;z-index:6;min-width:11em;padding:.3em;border-radius:.6em;background:var(--mp-cartao);border:1px solid var(--mp-borda);box-shadow:0 .6em 1.6em rgba(0,0,0,.22)}
+    .mp .mp-menu button{display:block;width:100%;padding:.5em .7em;border-radius:.4em;white-space:nowrap}.mp .mp-menu button:hover{background:var(--mp-secund)}
+    .mp-vazio{display:grid;place-items:center;gap:.6em;padding:1.5em 1em;border:1px dashed var(--mp-borda);border-radius:.6em;color:var(--mp-suave);font-size:.92em;text-align:center}
+    .mp-vazio.grande{padding:3.5em 1.5em;font-size:1em;background:var(--mp-cartao)}
+
+    .mp-filtros{display:flex;gap:.8em;margin-bottom:1em}
+    .mp-filtros input,.mp-filtros select{font:inherit;color:var(--mp-texto);height:2.8em;padding:0 .8em;border-radius:.5em;border:1px solid var(--mp-borda);background:var(--mp-cartao);min-width:0}
+    .mp-filtros input{flex:1}.mp-filtros select{flex:0 0 12em}
+    .mp-caixa{border:1px solid var(--mp-borda);border-radius:.7em;overflow:auto;background:var(--mp-cartao)}
+    .mp-caixa table{width:100%;border-collapse:collapse;font-size:.88em}
+    .mp-caixa .mp-btn{vertical-align:middle}
+    .mp-caixa th{text-align:left;font-weight:600;color:var(--mp-suave);font-size:.9em;padding:.7em .5em;background:var(--mp-secund);white-space:nowrap}
+    .mp-caixa td{padding:.6em .5em;border-top:1px solid var(--mp-borda);white-space:nowrap}
+    .mp-caixa .d{text-align:right;font-variant-numeric:tabular-nums}
+    .mp-caixa td .mp-btn+.mp-btn{margin-left:.3em}
+    .mp-b{display:inline-block;padding:.15em .65em;border-radius:1em;font-size:.86em;font-weight:600;white-space:nowrap}
+    .mp-b.aviso{background:rgba(219,251,59,.38);color:var(--mp-texto)}.mp.escuro .mp-b.aviso{background:rgba(219,251,59,.18);color:var(--mp-lime)}
+    .mp-b.ok{background:color-mix(in srgb,var(--mp-verde) 16%,transparent);color:var(--mp-verde)}
+    .mp-b.neutro{background:var(--mp-secund);color:var(--mp-suave)}
+    .mp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1em}
+    .mp-kpis div{padding:1.1em;border:1px solid var(--mp-borda);border-radius:.7em;background:var(--mp-cartao)}
+    .mp-kpis small{display:block;color:var(--mp-suave)}.mp-kpis b{display:block;margin-top:.3em;font-size:1.7em;letter-spacing:-.02em}
+    .mp-toast{position:absolute;left:50%;bottom:1.2em;z-index:8;transform:translate(-50%,1.5em);max-width:86%;padding:.7em 1.1em;border-radius:.6em;background:var(--mp-texto);color:var(--mp-fundo);font-weight:500;box-shadow:0 .6em 1.6em rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;text-align:center}
+    .mp-toast.on{opacity:1;transform:translate(-50%,0)}
 
     /* Curva que encerra o hero. É um SVG e não border-radius: a borda de baixo
        sobe à direita, por baixo do notebook, como na prancheta. */
@@ -152,7 +216,7 @@
     .recurso .ic{width:50px;height:50px;border-radius:14px;background:var(--pessego);display:grid;place-items:center;color:var(--laranja-texto);font-size:28px;flex:none}
     .recurso h3{font-size:15.5px;white-space:nowrap}.recurso p{margin-top:6px;font-size:14px;line-height:1.4;color:var(--suave)}
     .janela{border-radius:16px;overflow:hidden;border:3px solid #1b2333;box-shadow:0 24px 50px rgba(16,26,44,.22);background:#f6f7fa}
-    .janela .app{font-size:12.5px;border-radius:0;height:100%}
+    .janela .mp{font-size:10.1px;font-size:1.724cqw;border-radius:0;height:100%;aspect-ratio:auto;min-height:37em}
     .tablet-escuro{display:none}
 
     /* ── Trio de destaques ── */
@@ -216,14 +280,14 @@
 
     /* ── Intermediário: o palco encolhe antes de virar celular ── */
     @media (max-width:1180px){
-      .laptop{width:400px;right:22px}.laptop .app{font-size:7.4px}.palco .mascote{height:700px;left:-90px;bottom:-230px}
+      .laptop{width:400px;right:22px}.palco .mascote{height:700px;left:-90px;bottom:-230px}
       .nav{gap:24px}.passos{gap:36px}.passo{padding-left:70px}
       .chamada{grid-template-columns:minmax(0,1fr) 220px auto;padding-left:40px}.chamada .arte span{display:none}.chamada .arte img{left:10px}
       .rodape .wrap{flex-wrap:wrap;gap:20px 28px}
     }
     @media (max-width:1000px){
       .hero .wrap{grid-template-columns:minmax(0,420px) minmax(0,1fr)}
-      .laptop{width:370px;right:24px}.laptop .app{font-size:6.9px}.palco .mascote{height:620px;left:-70px;bottom:-200px}
+      .laptop{width:370px;right:24px}.palco .mascote{height:620px;left:-70px;bottom:-200px}
       .passos{grid-template-columns:1fr;gap:16px}.passo+.passo::before{display:none}
       .recursos{grid-template-columns:1fr}.trio{grid-template-columns:1fr}
       .destaque figure{height:300px}.destaque figure img{width:100%;max-width:520px}
@@ -267,7 +331,7 @@
       .laptop{right:-12%;bottom:-74px;width:56%}
       .laptop .tela{padding:5px;border-radius:12px;border:2px solid #cfd3da;background:#15181d}
       .laptop .base{display:none}
-      .laptop .app{font-size:5.6px}.laptop .app-cartoes{display:none}
+
       .onda{height:46px}
 
       /* Faixa de provas: no celular ela sai do hero e vira um cartão. */
@@ -290,7 +354,11 @@
       .recursos-sec .cab p:not(.rotulo){color:rgba(255,255,255,.85);font-size:13.5px}
       .tablet-escuro{display:block;position:absolute;right:-11%;top:14px;width:60%;z-index:1;transform:rotate(-4deg)}
       .recursos{display:block;margin-top:-58px;position:relative;z-index:3}
-      .janela{display:none}
+      /* No celular a janela interativa aparece inteira, com o menu recolhido
+         (o script decide pela largura) e letra maior. */
+      .janela{display:block;margin-top:14px;border-width:2px;border-radius:14px}
+      .janela .mp{font-size:9px;font-size:2.56cqw;aspect-ratio:10/11.5;height:auto;min-height:0}
+      .mp-usuario span,.mp-selo{display:none}
       .grade{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:10px;background:#fff;border:1px solid var(--linha);border-radius:16px;box-shadow:var(--sombra)}
       .recurso{padding:10px;gap:10px;border-radius:10px;box-shadow:none;align-items:center}
       .recurso .ic{width:42px;height:42px;border-radius:50%;font-size:22px}
@@ -352,7 +420,7 @@
       .palco .mascote{left:-9vw;right:auto;top:auto;bottom:-34vw;width:78vw;height:auto}
       .laptop{right:4vw;bottom:15vw;width:56vw}
       .laptop .tela{padding:1.2vw;border-radius:2.6vw;border-width:1px}
-      .laptop .app{font-size:1.62vw;border-radius:1.6vw}
+      .laptop .mp{border-radius:1.6vw;pointer-events:none}
       .onda{height:11vw}
 
       .provas-mob{margin-top:-7vw;padding:14px 4px}
@@ -424,6 +492,16 @@
       <symbol id="i-botijao" viewBox="0 0 24 24"><path d="M9 3.500h6v3H9zM7 9.500a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3zM7 13h10"/></symbol>
       <symbol id="i-mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="i-painel" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="7" height="9" rx="1.500"/><rect x="13.500" y="3.500" width="7" height="5" rx="1.500"/><rect x="13.500" y="11.500" width="7" height="9" rx="1.500"/><rect x="3.500" y="15.500" width="7" height="5" rx="1.500"/></symbol>
+      <symbol id="i-armazem" viewBox="0 0 24 24"><path d="M3 20.500V9l9-5.500L21 9v11.500M7 20.500v-8h10v8M7 16.500h10"/></symbol>
+      <symbol id="i-comodato" viewBox="0 0 24 24"><path d="M12 2.800 3.500 7.500v9l8.500 4.700 8.500-4.700v-9zM3.500 7.500 12 12l8.500-4.500"/><path d="m9 15.500 2 2 4-4"/></symbol>
+      <symbol id="i-predio" viewBox="0 0 24 24"><path d="M5 21V4.500h9V21M14 9.500h5V21M3 21h18M8 8.500h3M8 12.500h3M8 16.500h3"/></symbol>
+      <symbol id="i-lua" viewBox="0 0 24 24"><path d="M20 14.500A8.500 8.500 0 0 1 9.500 4 8.500 8.500 0 1 0 20 14.500z"/></symbol>
+      <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.500v2M12 19.500v2M2.500 12h2M19.500 12h2M5.300 5.300l1.400 1.400M17.300 17.300l1.400 1.400M5.300 18.700l1.400-1.400M17.300 6.700l1.400-1.400"/></symbol>
+      <symbol id="i-chev-esq" viewBox="0 0 24 24"><path d="m14.500 6-6 6 6 6"/></symbol>
+      <symbol id="i-grade" viewBox="0 0 24 24"><rect x="3.500" y="3.500" width="7" height="7" rx="1.500"/><rect x="13.500" y="3.500" width="7" height="7" rx="1.500"/><rect x="3.500" y="13.500" width="7" height="7" rx="1.500"/><rect x="13.500" y="13.500" width="7" height="7" rx="1.500"/></symbol>
+      <symbol id="i-lista" viewBox="0 0 24 24"><path d="M8.500 6.500h12M8.500 12h12M8.500 17.500h12M4 6.500h.010M4 12h.010M4 17.500h.010"/></symbol>
+      <symbol id="i-desfazer" viewBox="0 0 24 24"><path d="M8.500 13.500 4 9l4.500-4.500"/><path d="M4 9h10.500a5.500 5.500 0 0 1 0 11H10"/></symbol>
     </defs>
   </svg>
 
@@ -459,26 +537,7 @@
           <img class="mascote" src="/landing/img/v2/mascote-botijao.png" width="1024" height="1536" alt="" fetchpriority="high">
           <div class="laptop">
             <div class="tela">
-              <div class="app">
-                <div class="app-topo"><img src="/landing/img/logo-gas-em-casa.png" alt="" width="1884" height="724"><span class="app-busca">Buscar pedidos, clientes…</span><i></i><i></i></div>
-                <div class="app-lado"><span>Início</span><span class="on">Pedidos</span><span>Clientes</span><span>Entregas</span><span>Vasilhame</span><span>Financeiro</span><span>Relatórios</span><span>Configurações</span></div>
-                <div class="app-miolo">
-                  <div class="app-linha"><b>Pedidos</b><span class="app-novo">+ Novo pedido</span></div>
-                  <div class="app-abas"><span class="on">Todos</span><span>Pendentes</span><span>Em entrega</span><span>Entregues</span><span>Cancelados</span></div>
-                  <table>
-                    <tr><th>#</th><th>Cliente</th><th>Tipo</th><th>Status</th><th>Entrega</th></tr>
-                    <tr><td>#1256</td><td>João Silva</td><td>Gás P13</td><td><span class="pilula p-azul">Em entrega</span></td><td>Hoje 14:30</td></tr>
-                    <tr><td>#1255</td><td>Maria Santos</td><td>Água</td><td><span class="pilula p-verde">Entregue</span></td><td>Hoje 11:20</td></tr>
-                    <tr><td>#1254</td><td>Carlos Lima</td><td>Gás P13</td><td><span class="pilula p-ambar">Pendente</span></td><td>Hoje 16:00</td></tr>
-                    <tr><td>#1253</td><td>Ana Costa</td><td>Água</td><td><span class="pilula p-verde">Entregue</span></td><td>Hoje 10:15</td></tr>
-                    <tr><td>#1252</td><td>Pedro Alves</td><td>Gás P13</td><td><span class="pilula p-azul">Em entrega</span></td><td>Hoje 15:40</td></tr>
-                  </table>
-                  <div class="app-cartoes">
-                    <div><svg class="i" style="color:#1d63d8;background:#e3eeff"><use href="#i-caminhao"/></svg><span><b>Entregas de hoje</b><small>Em andamento</small><u></u></span></div>
-                    <div><svg class="i" style="color:#f25c05;background:#ffeadb"><use href="#i-botijao"/></svg><span><b>Vasilhame</b><small>Em circulação</small><u></u></span></div>
-                  </div>
-                </div>
-              </div>
+              <div class="mp" data-painel="pedidos" role="region" aria-label="Demonstração interativa do painel — dados fictícios"></div>
             </div>
             <div class="base"></div>
           </div>
@@ -534,24 +593,8 @@
             <article class="recurso"><span class="ic"><svg class="i"><use href="#i-pessoas"/></svg></span><div><h3>Clientes e programas</h3><p>Cadastro completo, histórico de compras e promoções.</p></div></article>
           </div>
 
-          <div class="janela" aria-hidden="true">
-            <div class="app">
-              <div class="app-topo"><img src="/landing/img/logo-gas-em-casa.png" alt="" width="1884" height="724"><span class="app-busca">Buscar por cliente, status…</span><i></i><i></i><i></i></div>
-              <div class="app-lado"><span>Início</span><span>Pedidos</span><span>Clientes</span><span>Entregas</span><span class="on">Vasilhame</span><span>Financeiro</span><span>Relatórios</span><span>Configurações</span></div>
-              <div class="app-miolo">
-                <div class="app-linha"><b>Vasilhame</b><span class="app-novo">+ Movimentação</span></div>
-                <div class="app-abas"><span class="on">Todos</span><span>Em circulação</span><span>Em estoque</span><span>Empréstimos</span><span>Retornos</span></div>
-                <table>
-                  <tr><th>Código</th><th>Tipo</th><th>Situação</th><th>Cliente/Observação</th></tr>
-                  <tr><td>BV-001</td><td>P13</td><td><span class="pilula p-azul">Em circulação</span></td><td>João Silva</td></tr>
-                  <tr><td>BV-002</td><td>P13</td><td><span class="pilula p-ambar">Empréstimo</span></td><td>Maria Santos</td></tr>
-                  <tr><td>BV-003</td><td>P13</td><td><span class="pilula p-verde">Em estoque</span></td><td>–</td></tr>
-                  <tr><td>BV-004</td><td>P13</td><td><span class="pilula p-azul">Em circulação</span></td><td>Carlos Lima</td></tr>
-                  <tr><td>BV-005</td><td>P13</td><td><span class="pilula p-cinza">Retorno</span></td><td>Ana Costa</td></tr>
-                  <tr><td>BV-006</td><td>P13</td><td><span class="pilula p-verde">Em estoque</span></td><td>–</td></tr>
-                </table>
-              </div>
-            </div>
+          <div class="janela">
+            <div class="mp" data-painel="comodatos" role="region" aria-label="Demonstração interativa do painel — dados fictícios"></div>
           </div>
         </div>
 
@@ -657,6 +700,249 @@
       // O menu do celular fecha ao escolher um destino.
       var menu = document.querySelector('.menu');
       if (menu) menu.addEventListener('click', function (e) { if (e.target.tagName === 'A') menu.removeAttribute('open'); });
+    })();
+
+    // ── Mini-painel: demonstração interativa ──
+    // Réplica em escala do painel real, com dados FICTÍCIOS guardados só na
+    // memória desta página (recarregar volta ao início; nada vai a servidor).
+    // Cada contêiner `.mp` é um painel independente, com o próprio estado.
+    (function () {
+      var CLIENTES = ['João Silva', 'Maria Santos', 'Carlos Lima', 'Ana Costa', 'Pedro Alves', 'Lúcia Ferreira', 'Rafael Souza', 'Beatriz Rocha'];
+      // As quatro colunas que o sistema entrega de partida no Kanban. Só a
+      // última CONCRETIZA a venda — é ela que baixa estoque e lança financeiro.
+      var SITS = [
+        { id: 1, nome: 'Em aberto', cor: '#f59e0b' },
+        { id: 2, nome: 'Em separação', cor: '#3b82f6' },
+        { id: 3, nome: 'Em rota', cor: '#8b5cf6' },
+        { id: 4, nome: 'Concluído', cor: '#22a35a', conclui: true },
+      ];
+      var NAV = [
+        ['Geral', [['painel', 'Dashboard', 'i-painel']]],
+        ['Cadastros', [['clientes', 'Clientes', 'i-pessoas'], ['produtos', 'Produtos', 'i-caixa']]],
+        ['Operações', [['pedidos', 'Pedidos', 'i-carrinho'], ['estoque', 'Estoque', 'i-armazem'], ['fiscal', 'Fiscal', 'i-nota'], ['comodatos', 'Comodatos', 'i-comodato']]],
+        ['Financeiro', [['financeiro', 'Financeiro', 'i-cartao']]],
+      ];
+      var ROTULOS = {};
+      NAV.forEach(function (g) { g[1].forEach(function (i) { ROTULOS[i[0]] = i[1]; }); });
+
+      function brl(v) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+      function ic(n) { return '<svg class="i" aria-hidden="true"><use href="#' + n + '"/></svg>'; }
+
+      function Painel(el) {
+        var s = {
+          pagina: el.getAttribute('data-painel') || 'pedidos',
+          aba: 'kanban', abaCom: 'lista', busca: '', sit: 0,
+          escuro: false, recolhida: el.clientWidth < 430, menu: null, seq: 1257,
+          pedidos: [
+            { id: 1256, cliente: 'João Silva', valor: 125, hora: 'Hoje 14:30', sit: 3 },
+            { id: 1255, cliente: 'Maria Santos', valor: 24, hora: 'Hoje 11:20', sit: 4 },
+            { id: 1254, cliente: 'Carlos Lima', valor: 250, hora: 'Hoje 16:00', sit: 1 },
+            { id: 1253, cliente: 'Ana Costa', valor: 36, hora: 'Hoje 10:15', sit: 4 },
+            { id: 1252, cliente: 'Pedro Alves', valor: 125, hora: 'Hoje 15:40', sit: 2 },
+            { id: 1251, cliente: 'Lúcia Ferreira', valor: 137, hora: 'Hoje 13:05', sit: 1 },
+          ],
+          comodatos: [
+            { id: 1, cliente: 'João Silva', produto: 'Vasilhame P13', qtd: 2, dev: 0, desde: '12/03/2026' },
+            { id: 2, cliente: 'Maria Santos', produto: 'Vasilhame P13', qtd: 1, dev: 0, desde: '28/05/2026' },
+            { id: 3, cliente: 'Carlos Lima', produto: 'Vasilhame P45', qtd: 4, dev: 1, desde: '03/02/2026' },
+            { id: 4, cliente: 'Ana Costa', produto: 'Galão 20 L', qtd: 3, dev: 3, desde: '19/11/2025' },
+            { id: 5, cliente: 'Pedro Alves', produto: 'Vasilhame P13', qtd: 1, dev: 0, desde: '07/09/2026' },
+          ],
+        };
+        var aviso = document.createElement('div');
+        aviso.className = 'mp-toast'; aviso.setAttribute('role', 'status');
+        var relogio;
+
+        function avisar(msg) {
+          aviso.textContent = msg; aviso.classList.add('on');
+          clearTimeout(relogio); relogio = setTimeout(function () { aviso.classList.remove('on'); }, 3000);
+        }
+        function sitDe(id) { return SITS.filter(function (x) { return x.id === id; })[0]; }
+
+        // ── Páginas ──
+        function cabecalho(titulo, sub, acao) {
+          return '<div class="mp-cab"><div><h4>' + titulo + '</h4><p>' + sub + '</p></div>' + (acao || '') + '</div>';
+        }
+        function pedidosFiltrados() {
+          var q = s.busca.trim().toLowerCase();
+          return s.pedidos.filter(function (p) {
+            return (!s.sit || p.sit === s.sit) && (!q || p.cliente.toLowerCase().indexOf(q) >= 0 || String(p.id).indexOf(q.replace('#', '')) >= 0);
+          });
+        }
+        function selo(p) {
+          var st = sitDe(p.sit);
+          return '<span class="mp-b ' + (st.conclui ? 'ok' : 'aviso') + '">' + st.nome + '</span>';
+        }
+        function linhasPedidos() {
+          var lista = pedidosFiltrados();
+          if (!lista.length) return '<tr><td colspan="5"><div class="mp-vazio">Nenhum pedido encontrado</div></td></tr>';
+          return lista.map(function (p) {
+            return '<tr><td><b>#' + p.id + '</b></td><td>' + p.cliente + '</td><td>' + p.hora + '</td><td class="d">' + brl(p.valor) + '</td><td>' + selo(p) + '</td></tr>';
+          }).join('');
+        }
+        function pgPedidos() {
+          var h = cabecalho('Pedidos', 'Painel de vendas e jornada do pedido', '<button class="mp-btn" data-acao="novo-pedido">' + ic('i-mais') + 'Novo pedido</button>');
+          h += '<div class="mp-abas" role="tablist"><button role="tab" data-acao="aba" data-aba="kanban" class="' + (s.aba === 'kanban' ? 'on' : '') + '">' + ic('i-grade') + 'Kanban</button>'
+            + '<button role="tab" data-acao="aba" data-aba="lista" class="' + (s.aba === 'lista' ? 'on' : '') + '">' + ic('i-lista') + 'Lista</button></div>';
+          if (s.aba === 'lista') {
+            return h + '<div class="mp-filtros"><input type="search" data-busca placeholder="Buscar cliente ou nº…" aria-label="Buscar pedido">'
+              + '<select data-sit aria-label="Situação"><option value="0">Todas as situações</option>' + SITS.map(function (x) { return '<option value="' + x.id + '"' + (s.sit === x.id ? ' selected' : '') + '>' + x.nome + '</option>'; }).join('') + '</select></div>'
+              + '<div class="mp-caixa"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th class="d">Valor</th><th>Situação</th></tr></thead><tbody data-corpo>' + linhasPedidos() + '</tbody></table></div>';
+          }
+          return h + '<div class="mp-kanban">' + SITS.map(function (col) {
+            var itens = s.pedidos.filter(function (p) { return p.sit === col.id; });
+            var total = itens.reduce(function (t, p) { return t + p.valor; }, 0);
+            return '<section class="mp-col" data-col="' + col.id + '"><header><i style="background:' + col.cor + '"></i>' + col.nome + '<em>' + itens.length + '</em></header><small>' + brl(total) + '</small><div class="mp-cards">'
+              + (itens.length ? itens.map(function (p) {
+                var menu = s.menu === p.id ? '<div class="mp-menu" role="menu">' + SITS.filter(function (d) { return d.id !== col.id; }).map(function (d) {
+                  return '<button role="menuitem" data-acao="mover" data-id="' + p.id + '" data-para="' + d.id + '">' + d.nome + '</button>';
+                }).join('') + '</div>' : '';
+                return '<article class="mp-card" draggable="true" data-pedido="' + p.id + '"><div><span>#' + p.id + '</span><span>' + brl(p.valor) + '</span></div><p>' + p.cliente + '</p><p>' + p.hora + '</p>'
+                  + '<button class="mp-btn claro" data-acao="menu" data-id="' + p.id + '" aria-haspopup="menu" aria-expanded="' + (s.menu === p.id) + '">Mover para…</button>' + menu + '</article>';
+              }).join('') : '<div class="mp-vazio">Sem pedidos</div>') + '</div></section>';
+          }).join('') + '</div>';
+        }
+        function situacaoComodato(c) {
+          if (c.dev >= c.qtd) return '<span class="mp-b neutro">Devolvido</span>';
+          return '<span class="mp-b aviso">' + (c.dev > 0 ? 'Devolução parcial' : 'Em aberto') + '</span>';
+        }
+        function pgComodatos() {
+          var h = '<div class="mp-abas" role="tablist">' + [['lista', 'Comodatos'], ['vigilancia', 'Vigilância'], ['vinculos', 'Vínculos']].map(function (a) {
+            return '<button role="tab" data-acao="aba-com" data-aba="' + a[0] + '" class="' + (s.abaCom === a[0] ? 'on' : '') + '">' + a[1] + '</button>';
+          }).join('') + '</div>';
+          if (s.abaCom === 'vigilancia') {
+            return h + cabecalho('Vigilância', 'Clientes com vasilhame parado em relação ao que costumam comprar')
+              + '<div class="mp-caixa"><table><thead><tr><th>Cliente</th><th class="d">Em posse</th><th>Sem comprar</th><th>Nível</th></tr></thead><tbody>'
+              + '<tr><td>Carlos Lima</td><td class="d">3</td><td>74 dias</td><td><span class="mp-b aviso">Atenção</span></td></tr>'
+              + '<tr><td>João Silva</td><td class="d">2</td><td>12 dias</td><td><span class="mp-b ok">OK</span></td></tr></tbody></table></div>';
+          }
+          if (s.abaCom === 'vinculos') {
+            return h + cabecalho('Vínculos', 'Qual vasilhame acompanha cada produto de gás')
+              + '<div class="mp-caixa"><table><thead><tr><th>Produto</th><th>Vasilhame</th><th>Capacidade</th></tr></thead><tbody>'
+              + '<tr><td>Gás P13</td><td>Vasilhame P13</td><td>P13</td></tr><tr><td>Gás P45</td><td>Vasilhame P45</td><td>P45</td></tr><tr><td>Água mineral 20 L</td><td>Galão 20 L</td><td>20 L</td></tr></tbody></table></div>';
+          }
+          return h + cabecalho('Comodatos', 'Vasilhames emprestados a clientes', '<button class="mp-btn" data-acao="novo-comodato">' + ic('i-mais') + 'Novo comodato</button>')
+            + '<div class="mp-caixa"><table><thead><tr><th>Cliente</th><th>Produto</th><th class="d">Qtd</th><th class="d">Devolvido</th><th class="d">Em posse</th><th>Situação</th><th></th></tr></thead><tbody>'
+            + s.comodatos.map(function (c) {
+              var acoes = c.dev >= c.qtd ? '' : '<button class="mp-btn claro" data-acao="contrato" data-id="' + c.id + '" title="Contrato" aria-label="Contrato de ' + c.cliente + '">' + ic('i-nota') + '</button><button class="mp-btn claro" data-acao="devolver" data-id="' + c.id + '">Devolver</button>';
+              return '<tr><td>' + c.cliente + '</td><td>' + c.produto + '</td><td class="d">' + c.qtd + '</td><td class="d">' + c.dev + '</td><td class="d"><b>' + (c.qtd - c.dev) + '</b></td><td>' + situacaoComodato(c) + '</td><td class="d">' + acoes + '</td></tr>';
+            }).join('') + '</tbody></table></div>';
+        }
+        function pgPainel() {
+          var concluidos = s.pedidos.filter(function (p) { return p.sit === 4; });
+          var emPosse = s.comodatos.reduce(function (t, c) { return t + c.qtd - c.dev; }, 0);
+          return cabecalho('Dashboard', 'Resumo do dia — os números acompanham o que você fizer nas outras telas')
+            + '<div class="mp-kpis"><div><small>Pedidos hoje</small><b>' + s.pedidos.length + '</b></div>'
+            + '<div><small>Faturado (concluídos)</small><b>' + brl(concluidos.reduce(function (t, p) { return t + p.valor; }, 0)) + '</b></div>'
+            + '<div><small>Em rota</small><b>' + s.pedidos.filter(function (p) { return p.sit === 3; }).length + '</b></div>'
+            + '<div><small>Vasilhames em posse</small><b>' + emPosse + '</b></div></div>';
+        }
+        function pgFora(pagina) {
+          return cabecalho(ROTULOS[pagina], 'Módulo do sistema completo')
+            + '<div class="mp-vazio grande"><span>Esta área não faz parte da demonstração.<br>Experimente <b>Pedidos</b>, <b>Comodatos</b> e o <b>Dashboard</b> no menu ao lado.</span><a href="/novo/app/">Acessar o sistema</a></div>';
+        }
+
+        function desenhar() {
+          var conteudo = el.querySelector('.mp-conteudo'), kanban = el.querySelector('.mp-kanban');
+          var topo = conteudo ? conteudo.scrollTop : 0, lado = kanban ? kanban.scrollLeft : 0;
+          el.classList.toggle('escuro', s.escuro); el.classList.toggle('recolhida', s.recolhida);
+          var pagina = s.pagina === 'pedidos' ? pgPedidos() : s.pagina === 'comodatos' ? pgComodatos() : s.pagina === 'painel' ? pgPainel() : pgFora(s.pagina);
+          el.innerHTML = '<aside class="mp-lat"><div class="mp-marca"><b>G</b><span>Gás em Casa</span></div><nav class="mp-nav" aria-label="Módulos da demonstração">'
+            + NAV.map(function (g) {
+              return '<p class="mp-grupo">' + g[0] + '</p>' + g[1].map(function (i) {
+                return '<button class="mp-item' + (s.pagina === i[0] ? ' on' : '') + '" data-acao="ir" data-pagina="' + i[0] + '" title="' + i[1] + '"' + (s.pagina === i[0] ? ' aria-current="page"' : '') + '>' + ic(i[2]) + '<span>' + i[1] + '</span></button>';
+              }).join('');
+            }).join('') + '</nav></aside>'
+            + '<div class="mp-corpo"><div class="mp-topo"><button class="mp-ic" data-acao="recolher" aria-label="' + (s.recolhida ? 'Expandir menu' : 'Recolher menu') + '">' + ic(s.recolhida ? 'i-menu' : 'i-chev-esq') + '</button>'
+            + '<span class="mp-empresa">' + ic('i-predio') + 'Minha Revenda</span>'
+            + '<div class="mp-usuario"><button class="mp-ic" data-acao="tema" aria-label="' + (s.escuro ? 'Ativar tema claro' : 'Ativar tema escuro') + '">' + ic(s.escuro ? 'i-sol' : 'i-lua') + '</button><b>MR</b><span>Marina Reis<small>Administrador</small></span></div></div>'
+            + '<div class="mp-conteudo">' + pagina + '</div></div><span class="mp-selo">Demonstração · dados fictícios</span>';
+          el.appendChild(aviso);
+          conteudo = el.querySelector('.mp-conteudo'); kanban = el.querySelector('.mp-kanban');
+          if (conteudo) conteudo.scrollTop = topo;
+          if (kanban) kanban.scrollLeft = lado;
+          var busca = el.querySelector('[data-busca]'); if (busca) busca.value = s.busca;
+        }
+
+        function mover(id, para) {
+          var p = s.pedidos.filter(function (x) { return x.id === id; })[0];
+          if (!p || p.sit === para) return;
+          p.sit = para; s.menu = null; desenhar();
+          var d = sitDe(para);
+          avisar(d.conclui ? 'Pedido #' + id + ' concluído: estoque baixado e financeiro lançado.' : 'Pedido #' + id + ' movido para "' + d.nome + '".');
+        }
+
+        // ── Eventos (delegados: o conteúdo é redesenhado a cada mudança) ──
+        el.addEventListener('click', function (e) {
+          var b = e.target.closest('[data-acao]');
+          if (!b || !el.contains(b)) { if (s.menu !== null) { s.menu = null; desenhar(); } return; }
+          var acao = b.getAttribute('data-acao'), id = Number(b.getAttribute('data-id'));
+          if (acao === 'ir') { s.pagina = b.getAttribute('data-pagina'); s.menu = null; desenhar(); }
+          else if (acao === 'aba') { s.aba = b.getAttribute('data-aba'); s.menu = null; desenhar(); }
+          else if (acao === 'aba-com') { s.abaCom = b.getAttribute('data-aba'); desenhar(); }
+          else if (acao === 'tema') { s.escuro = !s.escuro; desenhar(); }
+          else if (acao === 'recolher') { s.recolhida = !s.recolhida; desenhar(); }
+          else if (acao === 'menu') { s.menu = s.menu === id ? null : id; desenhar(); }
+          else if (acao === 'mover') { mover(id, Number(b.getAttribute('data-para'))); }
+          else if (acao === 'novo-pedido') {
+            var novo = { id: s.seq++, cliente: CLIENTES[s.seq % CLIENTES.length], valor: [125, 24, 250, 137][s.seq % 4], hora: 'Agora', sit: 1 };
+            s.pedidos.unshift(novo); s.busca = ''; s.sit = 0; desenhar();
+            avisar('Pedido #' + novo.id + ' criado para ' + novo.cliente + '.');
+          }
+          else if (acao === 'devolver') {
+            var c = s.comodatos.filter(function (x) { return x.id === id; })[0];
+            if (c && c.dev < c.qtd) { c.dev++; desenhar(); avisar(c.dev >= c.qtd ? 'Comodato de ' + c.cliente + ' encerrado: tudo devolvido.' : 'Devolução registrada. Restam ' + (c.qtd - c.dev) + ' em posse de ' + c.cliente + '.'); }
+          }
+          else if (acao === 'contrato') { avisar('No sistema, o contrato de comodato abre em PDF pronto para assinar.'); }
+          else if (acao === 'novo-comodato') {
+            var n = s.comodatos.length + 1;
+            s.comodatos.unshift({ id: n, cliente: CLIENTES[(n + 4) % CLIENTES.length], produto: 'Vasilhame P13', qtd: 1, dev: 0, desde: 'Hoje' });
+            desenhar(); avisar('Comodato registrado.');
+          }
+        });
+        // Busca e filtro atualizam só o corpo da tabela: redesenhar tudo
+        // tiraria o foco do campo a cada tecla.
+        el.addEventListener('input', function (e) {
+          if (!e.target.matches('[data-busca]')) return;
+          s.busca = e.target.value; el.querySelector('[data-corpo]').innerHTML = linhasPedidos();
+        });
+        el.addEventListener('change', function (e) {
+          if (!e.target.matches('[data-sit]')) return;
+          s.sit = Number(e.target.value); el.querySelector('[data-corpo]').innerHTML = linhasPedidos();
+        });
+        // Arrastar o cartão entre colunas, como no Kanban real.
+        var arrastado = null;
+        el.addEventListener('dragstart', function (e) {
+          var card = e.target.closest ? e.target.closest('[data-pedido]') : null;
+          if (!card) return;
+          arrastado = Number(card.getAttribute('data-pedido'));
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', String(arrastado)); } catch (_) { /* alguns navegadores recusam */ }
+          card.classList.add('arrastando');
+        });
+        el.addEventListener('dragend', function () {
+          arrastado = null;
+          [].forEach.call(el.querySelectorAll('.alvo,.arrastando'), function (n) { n.classList.remove('alvo', 'arrastando'); });
+        });
+        el.addEventListener('dragover', function (e) {
+          var col = e.target.closest('[data-col]');
+          if (arrastado === null || !col) return;
+          e.preventDefault();
+          [].forEach.call(el.querySelectorAll('.alvo'), function (n) { if (n !== col) n.classList.remove('alvo'); });
+          col.classList.add('alvo');
+        });
+        el.addEventListener('drop', function (e) {
+          var col = e.target.closest('[data-col]');
+          if (arrastado === null || !col) return;
+          e.preventDefault();
+          var id = arrastado; arrastado = null;
+          mover(id, Number(col.getAttribute('data-col')));
+        });
+
+        desenhar();
+      }
+
+      [].forEach.call(document.querySelectorAll('.mp[data-painel]'), Painel);
     })();
   </script>
 </body>
