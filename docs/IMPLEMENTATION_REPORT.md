@@ -213,3 +213,40 @@ e foi provada contra o caso real.
 Central, recebimento, resumo, convênio (inclusive a sugestão de período com
 mês curto e virada de ano); correção da Central provada contra a consulta
 antiga.
+
+---
+
+# Quarta passada — prontos para a primeira nota (12/10/2026)
+
+| Gravidade | Onde | O que acontecia | Agora |
+|---|---|---|---|
+| P0 | Empresa / fiscal | Sem diagnóstico: cada falta só apareceria como rejeição da SEFAZ, uma de cada vez | "Pronto para emitir?" lista tudo o que falta antes da primeira nota |
+| P0 | Carga (ETL) | As 7 empresas sem inscrição estadual (coluna lida com o nome errado) | IE e IM migradas; recarregado na homologação |
+| P0 | IBGE | O comando via 0 cidades sob a RLS e aprovava; 105 cidades sem código IBGE vinculado | 100 vinculadas e 1 corrigida (Guaratuba) na homologação |
+| P2 | Relatórios | Período sempre digitado | Atalhos de período |
+| P2 | Comodato | Representante e CPF redigitados | Preenchidos pelo cliente |
+
+## O diagnóstico na homologação, hoje
+
+- **Todas as empresas**: falta só o certificado (esperado — chega terça).
+- **Empresa 2**, além do certificado, 4 produtos ativos **sem NCM** — vazios
+  também no legado, então não há de onde migrar: 503 Extintor, 557 Vale Gás,
+  577 Mangote, 637 Manutenção e Instalação. O Vale Gás também está sem grupo
+  fiscal. Decisão do contador: Extintor e Mangote precisam do NCM real; Vale
+  Gás e Manutenção provavelmente não são mercadoria (natureza "serviço" os tira
+  da nota de produto e da checagem).
+- **Empresas 134 e 135** emitem NFC-e e estão sem CSC (o CSC é gerado no
+  portal da SEFAZ-PR pelo contador).
+- **5 cidades sem correspondência no IBGE**, que precisam de decisão humana:
+  DESCONHECIDO (1212), Gravatai (outra UF), Maravilha (CEP no lugar do código),
+  RIO DAS PEDRAS (0), São Caetano do Sul (outra UF). Só afetam nota de cliente
+  dessas cidades.
+
+## Testes
+
+- SPA: typecheck limpo, build ok, **157/157 em 3 rodadas seguidas** com a
+  máquina ocupada pela suíte do backend. Antes do ajuste, a falha pulava de
+  teste em teste a cada rodada (convênio, cliente, configuração) — espera de
+  1 s do testing-library curta demais sob carga, não defeito; isolados, todos
+  passavam. Espera subiu para 4 s e o limite por teste para 15 s.
+- Testes novos: prontidão fiscal, IE na carga, atalhos de período, comodato.

@@ -15,5 +15,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // Os 5 s padrão estouram quando a máquina está ocupada (ex.: suíte do backend
+    // rodando junto): digitar num formulário inteiro no jsdom é lento, e o teste
+    // falhava por tempo, não por defeito — passava isolado em todas as rodadas.
+    testTimeout: 15000,
   },
 })

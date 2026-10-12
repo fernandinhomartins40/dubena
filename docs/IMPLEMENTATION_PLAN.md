@@ -115,3 +115,23 @@ sabe. E uma terceira checagem automática nasceu do que esta passada achou.
 | E3-04 | P1 | **Fechar convênio pela tela falhava sempre** (ia sem o período obrigatório) | Diálogo com o período sugerido pelo dia de fechamento e último fechamento | DONE |
 | E3-05 | P2 | Entrada de mercadoria escondida na aba "Acerto" | Aba "Entrada e saída"; "Entrada no estoque" no botão Novo | DONE |
 | E3-06 | — | A auditoria de campos não pega "obrigatório nunca enviado" | `sem-corpo.js`: chamada sem corpo para rota com campo obrigatório. Provada contra o convênio antigo; zero casos no código atual (231 arquivos) | DONE |
+
+---
+
+# Quarta passada — prontos para a primeira nota (12/10/2026)
+
+O certificado A1 chega na terça. O que dava para preparar antes dele, para que
+a primeira emissão na SEFAZ de homologação falhe só pelo que é de fato do
+certificado — e não por cadastro.
+
+| ID | PRIORIDADE | PROBLEMA | SOLUÇÃO | STATUS |
+|---|---|---|---|---|
+| E4-01 | P0 | Não havia como saber, antes de emitir, o que faltava: cada falta virava uma rejeição da SEFAZ por vez | "Pronto para emitir?" na aba fiscal da empresa: certificado (validade, CNPJ), ambiente/regime, CSC (se emite NFC-e), dados do emitente, município IBGE, produtos sem NCM ou grupo fiscal — a lista inteira de uma vez | DONE |
+| E4-02 | P0 | **As 7 empresas migraram sem inscrição estadual** — o dump traz `inscricao_estadual`, a carga lia só `inscricaoestadual` | Carga lê as duas grafias; recarregado na homologação | DONE |
+| E4-03 | P0 | `ibge:sincronizar` via ZERO cidades sob a RLS e dizia que estava tudo certo; 105 cidades sem vínculo IBGE (vira `cMun` no XML) | Conciliação como owner; aplicado: 100 vinculadas, 1 corrigida | DONE |
+| E4-04 | P2 | Relatórios: período digitado à mão toda vez | Atalhos hoje, ontem, semana, mês, mês passado, ano | DONE |
+| E4-05 | P2 | Comodato: representante e CPF redigitados | Vêm do cadastro do cliente pessoa física, só se vazios | DONE |
+
+Dados que **não** são código e ficam com o cliente/contador (não se inventa NCM):
+4 produtos sem NCM nem no legado, 5 cidades sem correspondência no IBGE, CSC
+das empresas que emitem NFC-e. Ver o relatório.
