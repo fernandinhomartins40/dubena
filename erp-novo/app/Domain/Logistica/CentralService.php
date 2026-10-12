@@ -2,6 +2,7 @@
 
 namespace App\Domain\Logistica;
 
+use App\Models\Cliente\Cliente;
 use App\Domain\Logistica\Events\PedidoAtribuido;
 use App\Domain\Mobile\PushService;
 use App\Domain\Pedido\EfeitoPedido;
@@ -47,7 +48,14 @@ class CentralService
             ->when(! ($filtros['incluir_atribuidos'] ?? false), fn ($q) => $q->whereNull('entregador_user_id'))
             ->when($filtros['setor_id'] ?? null, fn ($q, $s) => $q->where('setor_id', $s))
             ->with([
-                'cliente:id,nome,endereco,numero,latitude,longitude',
+                // rua/bairro/cidade/complemento são OBRIGATÓRIOS aqui: o
+                // `endereco_completo` monta o texto por eles (a coluna
+                // `endereco` é nula em toda a base). Sem eles a Central mostrava
+                // só o número da casa — "1771" — conferido na homologação.
+                ...Cliente::carregarComEndereco(),
+                'cliente.telefones:id,cliente_id,telefone',
+                // O que vai na entrega: quem distribui decide a carga por isso.
+                'itens:id,pedido_id,produto_id,quantidade,descricao_snapshot', 'itens.produto:id,descricao',
                 'situacao:id,descricao,efeito',
                 'entregador:id,name',
             ])

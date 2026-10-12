@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Truck, MapPin, Zap, Bike, UserCheck, Ban, Sparkles, Settings2, PackageOpen } from 'lucide-react'
+import { Truck, MapPin, Zap, Bike, UserCheck, Ban, Sparkles, Settings2, PackageOpen, Phone, Package, Clock } from 'lucide-react'
+import { haQuanto } from '@/features/dashboard/ParaHoje'
 import {
   Button, Card, CardContent, PageHeader, Badge, AsyncState, StatCard,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
@@ -88,8 +89,12 @@ function PedidoCard({ pedido, onAtribuir }: { pedido: FilaPedido; onAtribuir: ()
               {pedido.entregador && <Badge variant="success">{pedido.entregador.nome}</Badge>}
             </div>
             <p className="text-sm truncate">{pedido.cliente ?? 'Cliente'}</p>
-            <p className="text-xs text-muted-foreground break-words flex items-start gap-1"><MapPin size={12} /> {pedido.endereco || 'Endereço não informado'}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{brl(pedido.valor_venda)} · {dataHora(pedido.datahora)}</p>
+            {pedido.itens && pedido.itens.length > 0 && (
+              <p className="text-sm font-medium flex items-center gap-1"><Package size={13} className="text-muted-foreground" /> {pedido.itens.map((i) => `${Number(i.quantidade)}× ${i.produto ?? 'item'}`).join(', ')}</p>
+            )}
+            <p className="text-xs text-muted-foreground break-words flex items-start gap-1"><MapPin size={12} className="mt-0.5 shrink-0" /> <span>{pedido.endereco || 'Endereço não informado'}{pedido.referencia ? <> · <em>{pedido.referencia}</em></> : null}</span></p>
+            {pedido.telefone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={12} /> {pedido.telefone}</p>}
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1"><Clock size={12} /> <span title={dataHora(pedido.datahora)}>Espera {haQuanto(pedido.datahora)?.replace('há ', '') ?? '—'}</span> · {brl(pedido.valor_venda)}</p>
           </div>
           <Can permission="logistica.distribuir">
             <div className="flex flex-col gap-1 shrink-0">

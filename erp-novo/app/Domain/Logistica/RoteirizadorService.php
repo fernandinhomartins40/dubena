@@ -2,6 +2,7 @@
 
 namespace App\Domain\Logistica;
 
+use App\Models\Cliente\Cliente;
 use App\Domain\Logistica\Contracts\MatrizDistancia;
 use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Pedido\EfeitoPedido;
@@ -43,7 +44,7 @@ class RoteirizadorService
             ->where('empresa_id', $empresaId)
             ->where('entregador_user_id', $entregadorUserId)
             ->whereHas('situacao', fn ($q) => $q->where('efeito', EfeitoPedido::PENDENTE->value))
-            ->with('cliente:id,nome,endereco,numero,latitude,longitude')
+            ->with(Cliente::carregarComEndereco())
             ->get();
 
         // Só entram na sequência as paradas com coordenada; as sem geo vão ao fim.

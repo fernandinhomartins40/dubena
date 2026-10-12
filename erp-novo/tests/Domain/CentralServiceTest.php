@@ -93,6 +93,28 @@ class CentralServiceTest extends TestCase
         ], [['produto_id' => $this->produto->id, 'quantidade' => 1, 'preco_unitario' => 100]]);
     }
 
+    /**
+     * A fila carregava o cliente sem as FKs do endereço, e a Central mostrava
+     * só o número da casa ("1771") — conferido na homologação. O mesmo no app
+     * do entregador e no roteirizador.
+     */
+    public function test_fila_traz_o_endereco_inteiro_e_o_que_vai_na_entrega(): void
+    {
+        $cidade = \App\Models\Geografico\Cidade::factory()->create(['grupo_id' => $this->grupoId, 'descricao' => 'Guarapuava']);
+        $bairro = \App\Models\Geografico\Bairro::factory()->create(['grupo_id' => $this->grupoId, 'cidade_id' => $cidade->id, 'descricao' => 'Centro']);
+        $rua = \App\Models\Geografico\Rua::query()->create(['grupo_id' => $this->grupoId, 'cidade_id' => $cidade->id, 'bairro_id' => $bairro->id, 'descricao' => 'Rua XV de Novembro', 'ativo' => true]);
+        $this->cliente->update(['endereco' => null, 'rua_id' => $rua->id, 'bairro_id' => $bairro->id, 'cidade_id' => $cidade->id, 'numero' => '1771']);
+        $this->cliente->telefones()->create(['telefone' => '42999990000']);
+        $this->pedidoPendente();
+
+        $p = $this->central->filaDistribuicao($this->empresaId)->first();
+
+        $this->assertSame('Rua XV de Novembro 1771, Centro, Guarapuava', $p->cliente->endereco_completo);
+        $this->assertSame('42999990000', $p->cliente->telefones->first()->telefone);
+        $this->assertSame(1, $p->itens->count());
+        $this->assertTrue($p->relationLoaded('itens') && $p->cliente->relationLoaded('rua'), 'carregado junto, sem N+1');
+    }
+
     public function test_fila_lista_apenas_pendentes_sem_entregador(): void
     {
         $this->pedidoPendente();

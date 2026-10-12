@@ -43,6 +43,14 @@ class CentralController extends Controller
             'cliente' => $p->cliente?->nome,
             // F3-01: ponto unico (a coluna `endereco` esta NULL em toda a base).
             'endereco' => $p->cliente?->endereco_completo,
+            'referencia' => $p->cliente?->ponto_referencia,
+            // O telefone da entrega vence o do cadastro: é o que o cliente
+            // passou ao pedir.
+            'telefone' => $p->entrega_telefone ?: $p->cliente?->telefones->first()?->telefone,
+            'itens' => $p->itens->map(fn ($i) => [
+                'quantidade' => (float) $i->quantidade,
+                'produto' => $i->produto?->descricao ?? $i->descricao_snapshot,
+            ])->values(),
             'lat' => $p->cliente?->latitude !== null ? (float) $p->cliente->latitude : null,
             'lng' => $p->cliente?->longitude !== null ? (float) $p->cliente->longitude : null,
             'valor_venda' => (float) $p->valor_venda,

@@ -106,6 +106,31 @@ class Cliente extends Model
     }
 
     /**
+     * O `with()` que um carregamento PARCIAL do cliente precisa para o
+     * `endereco_completo` funcionar.
+     *
+     * O acessor monta o texto pelas FKs; um `'cliente:id,nome,endereco,numero'`
+     * deixa as FKs de fora e ele devolve só o número. Aconteceu em três lugares
+     * ao mesmo tempo — a Central de entregas, o app do entregador e o
+     * roteirizador mostravam "1771" no lugar do endereço (homologação, 11/10).
+     * Quem carrega o cliente pela relação usa isto, em vez de listar colunas.
+     *
+     * @return list<string>
+     */
+    public static function carregarComEndereco(string $relacao = 'cliente', string $extras = ''): array
+    {
+        $colunas = 'id,nome,endereco,numero,complemento,ponto_referencia,rua_id,bairro_id,cidade_id,latitude,longitude'
+            .($extras !== '' ? ','.$extras : '');
+
+        return [
+            "{$relacao}:{$colunas}",
+            "{$relacao}.rua:id,descricao",
+            "{$relacao}.bairro:id,descricao",
+            "{$relacao}.cidade:id,descricao,uf",
+        ];
+    }
+
+    /**
      * Endereço legível: logradouro, número, complemento, bairro e cidade.
      *
      * A coluna `endereco` está NULL em 100% da base (0 de 55.453 medidos em

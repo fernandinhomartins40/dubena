@@ -12,6 +12,10 @@ export interface FilaPedido {
   id: number
   cliente: string | null
   endereco: string
+  referencia?: string | null
+  telefone?: string | null
+  /** O que vai na entrega — quem distribui decide a carga por isso. */
+  itens?: { quantidade: number; produto: string | null }[]
   lat: number | null
   lng: number | null
   valor_venda: number

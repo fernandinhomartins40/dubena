@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Models\Cliente\Cliente;
 use App\Domain\Logistica\JornadaService;
 use App\Domain\Logistica\RoteirizadorService;
 use App\Domain\Mobile\EntregaService;
@@ -171,7 +172,7 @@ class AppEntregadorController extends Controller
         $pedidos = Pedido::query()
             ->where('empresa_id', $user->empresa_id)
             ->where('entregador_user_id', $user->id)
-            ->with(['cliente:id,nome,endereco,numero,latitude,longitude', 'situacao:id,descricao,efeito'])
+            ->with([...Cliente::carregarComEndereco(), 'situacao:id,descricao,efeito'])
             ->orderByDesc('datahora')->limit(100)->get()
             ->map(fn (Pedido $p) => [
                 'id' => $p->id,
