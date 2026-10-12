@@ -3,7 +3,7 @@ import { ResponsiveSidebar } from '@/layouts/ResponsiveSidebar'
 import { ModuleFinder, RouteTrail } from '@/layouts/ModuleFinder'
 import { usePreference } from '@/lib/usePreference'
 import { useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MapPin, LogOut, Menu as MenuIcon,
   Moon, Sun, ChevronLeft, ChevronDown, Building2, Package, Wallet, Warehouse, FileText,
@@ -51,28 +51,28 @@ interface NavItem {
 // `dica` aparece na busca e ao passar o mouse; `palavras` são os sinônimos que
 // um leigo digitaria ("boleto", "entregador", "nota").
 const NAV: NavItem[] = [
-  { label: 'Início', to: '/', icon: <LayoutDashboard size={18} />, group: 'Início', dica: 'O que pede atenção hoje', palavras: 'dashboard painel hoje resumo' },
-  { label: 'Avisos e pendências', to: '/alertas', icon: <ShieldAlert size={18} />, permission: 'alerta.view', group: 'Início', dica: 'Problemas que a equipe precisa resolver', palavras: 'alertas central problemas' },
-  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', feature: 'relatorios_avancados', group: 'Início', dica: 'Vendas, financeiro e DRE por período', palavras: 'dre faturamento graficos' },
+  { label: 'Início', to: '/', icon: <LayoutDashboard size={18} />, group: 'Dia a dia', dica: 'O que pede atenção hoje', palavras: 'dashboard painel hoje resumo' },
+  { label: 'Avisos e pendências', to: '/alertas', icon: <ShieldAlert size={18} />, permission: 'alerta.view', group: 'Dia a dia', dica: 'Problemas que a equipe precisa resolver', palavras: 'alertas central problemas' },
+  { label: 'Relatórios', to: '/relatorios', icon: <FileBarChart size={18} />, permission: 'relatorio.view', feature: 'relatorios_avancados', group: 'Acompanhar', dica: 'Vendas, financeiro e DRE por período', palavras: 'dre faturamento graficos' },
 
-  { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Vendas e clientes', dica: 'Lançar e acompanhar cada venda', palavras: 'venda vender kanban balcao telefone' },
-  { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Vendas e clientes', dica: 'Cadastro, endereço e histórico de compras', palavras: 'cadastro consumidor fornecedor' },
+  { label: 'Pedidos', to: '/pedidos', icon: <ShoppingCart size={18} />, permission: 'pedido.view', group: 'Dia a dia', dica: 'Lançar e acompanhar cada venda', palavras: 'venda vender kanban balcao telefone' },
+  { label: 'Clientes', to: '/clientes', icon: <Users size={18} />, permission: 'cliente.view', group: 'Dia a dia', dica: 'Cadastro, endereço e histórico de compras', palavras: 'cadastro consumidor fornecedor' },
   { label: 'Clientes duplicados', to: '/clientes/revisoes', icon: <Merge size={18} />, permission: 'cliente.edit', group: 'Vendas e clientes', dica: 'Cadastros parecidos para juntar ou descartar', palavras: 'revisar revisao duplicidade cadastros a revisar' },
   { label: 'Central de Vendas', to: '/central-vendas', icon: <BadgePercent size={18} />, permission: 'venda.view', group: 'Vendas e clientes', dica: 'Pedidos do campo, pós-venda e missões do atendente', palavras: 'atendente solicitacoes campo' },
   { label: 'Limites de desconto', to: '/alcadas', icon: <Tag size={18} />, permission: 'venda.alcada', group: 'Vendas e clientes', dica: 'Quanto cada perfil pode dar de desconto', palavras: 'alcadas alcada aprovacao desconto' },
 
-  { label: 'Central de entregas', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Entregas', dica: 'Fila de entregas e quem leva cada pedido', palavras: 'logistica entregador rota motoboy distribuicao' },
+  { label: 'Central de entregas', to: '/central', icon: <Bike size={18} />, permission: 'logistica.view', group: 'Dia a dia', dica: 'Fila de entregas e quem leva cada pedido', palavras: 'logistica entregador rota motoboy distribuicao' },
   { label: 'Comodatos', to: '/comodatos', icon: <PackageCheck size={18} />, permission: 'comodato.view', group: 'Entregas', dica: 'Vasilhames emprestados aos clientes', palavras: 'vasilhame emprestimo botijao contrato' },
   { label: 'Missões de campo', to: '/missoes', icon: <Compass size={18} />, permission: 'missao.view', group: 'Entregas', dica: 'Panfletagem e prospecção na hora ociosa', palavras: 'missoes prospeccao panfleto' },
   { label: 'Rastreamento (GPS)', to: '/monitora', icon: <Navigation size={18} />, permission: 'monitora.view', feature: 'monitora', group: 'Entregas', dica: 'Veículos no mapa, rotas e cercas', palavras: 'monitora gps mapa rastreador frota' },
   { label: 'Endereços (cidades e ruas)', to: '/geografico', icon: <MapPin size={18} />, permission: 'cliente.view', group: 'Entregas', dica: 'Cidades, bairros, ruas e regiões de entrega', palavras: 'geografico bairro rua cidade regiao cep' },
 
   { label: 'Produtos', to: '/produtos', icon: <Package size={18} />, permission: 'produto.view', group: 'Produtos e estoque', dica: 'Cadastro e preços', palavras: 'botijao gas agua preco catalogo' },
-  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Produtos e estoque', dica: 'Saldos, entradas, saídas e inventário', palavras: 'saldo inventario deposito armazem' },
+  { label: 'Estoque', to: '/estoque', icon: <Warehouse size={18} />, permission: 'estoque.view', group: 'Dia a dia', dica: 'Saldos, entradas, saídas e inventário', palavras: 'saldo inventario deposito armazem' },
   { label: 'Movimentação de material', to: '/mcmm', icon: <ArrowLeftRight size={18} />, permission: 'mcmm.view', group: 'Produtos e estoque', dica: 'Controle de movimentação de material (MCMM)', palavras: 'mcmm material' },
   { label: 'Patrimônio (bens)', to: '/bens', icon: <Building size={18} />, permission: 'bem.view', group: 'Produtos e estoque', dica: 'Bens da empresa e depreciação', palavras: 'bens imobilizado ativo depreciacao' },
 
-  { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Dinheiro', dica: 'Contas a pagar e receber, caixa e boletos', palavras: 'contas pagar receber caixa boleto pix baixa' },
+  { label: 'Financeiro', to: '/financeiro', icon: <Wallet size={18} />, permission: 'financeiro.view', group: 'Dia a dia', dica: 'Contas a pagar e receber, caixa e boletos', palavras: 'contas pagar receber caixa boleto pix baixa' },
   { label: 'Cartões', to: '/cartoes', icon: <CreditCard size={18} />, permission: 'cartao.view', group: 'Dinheiro', dica: 'Vendas no cartão e conciliação', palavras: 'credito debito maquininha' },
   { label: 'Vale-Gás', to: '/vale-gas', icon: <Flame size={18} />, permission: 'valegas.view', group: 'Dinheiro', dica: 'Consultar, imprimir e dar baixa em vales', palavras: 'vale gas de bolso' },
   { label: 'Gás do Povo', to: '/gas-do-povo', icon: <HandCoins size={18} />, permission: 'gasdopovo.view', group: 'Dinheiro', dica: 'Benefícios do programa', palavras: 'beneficio voucher programa social' },
@@ -84,7 +84,7 @@ const NAV: NavItem[] = [
   { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'Relacionamento', dica: 'Ligar para saber se o cliente ficou satisfeito', palavras: 'satisfacao crm contato' },
   { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas de desconto', palavras: 'crm campanha' },
   { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas com prêmio e o palco do sorteio', palavras: 'crm premio' },
-  { label: 'Metas de venda', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'Relacionamento', dica: 'Meta de cada vendedor no mês', palavras: 'metas objetivo vendedor' },
+  { label: 'Metas de venda', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'Acompanhar', dica: 'Meta de cada vendedor no mês', palavras: 'metas objetivo vendedor' },
 
   { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'Equipe e frota', dica: 'Funcionários, cargos e comissões', palavras: 'rh funcionario entregador vendedor' },
   { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', feature: 'frota', group: 'Equipe e frota', dica: 'Frota, abastecimento e manutenção', palavras: 'frota caminhao moto abastecimento oleo pneu' },
@@ -98,7 +98,51 @@ const NAV: NavItem[] = [
 ]
 
 // Ordem fixa das seções: o dia a dia primeiro, a administração por último.
-const ORDEM_GRUPOS = ['Início', 'Vendas e clientes', 'Entregas', 'Produtos e estoque', 'Dinheiro', 'Notas fiscais', 'Relacionamento', 'Equipe e frota', 'Administração']
+const ORDEM_GRUPOS = ['Dia a dia', 'Vendas e clientes', 'Entregas', 'Produtos e estoque', 'Dinheiro', 'Notas fiscais', 'Acompanhar', 'Relacionamento', 'Equipe e frota', 'Administração']
+
+/**
+ * A seção que nunca recolhe. Antes eram 36 itens em 9 seções todas abertas: o
+ * que se usa toda hora (pedido, entrega, cliente, caixa) ficava misturado com
+ * o que se abre uma vez por mês, e achar exigia rolar. Agora o dia a dia fica
+ * no topo, e o resto se abre quando precisa — nada saiu do menu nem da busca.
+ */
+export const SECAO_FIXA = 'Dia a dia'
+const ORDEM_DIA_A_DIA = ['/', '/pedidos', '/central', '/clientes', '/financeiro', '/estoque', '/alertas']
+
+/**
+ * Com poucos itens (perfil restrito, como o do entregador) recolher só
+ * esconderia o pouco que a pessoa tem: tudo fica aberto.
+ */
+const MINIMO_PARA_RECOLHER = 12
+
+export interface SecaoDoMenu<T> { grupo: string; itens: T[]; recolhivel: boolean; colapsado: boolean }
+
+/** Item ativo = o de caminho mais longo que casa com a rota (como a trilha). */
+export function itemAtivo<T extends { to: string }>(itens: T[], pathname: string): T | undefined {
+  return [...itens].sort((a, b) => b.to.length - a.to.length)
+    .find((i) => pathname === i.to || (i.to !== '/' && pathname.startsWith(`${i.to}/`)))
+}
+
+/**
+ * Monta as seções do menu. A seção da página aberta fica SEMPRE aberta, mesmo
+ * que a pessoa a tenha recolhido: senão quem chega por busca ou link não vê
+ * onde está. A escolha de abrir/recolher das outras é lembrada por pessoa.
+ */
+export function secoesDoMenu<T extends { to: string; group: string }>(
+  visiveis: T[], pathname: string, escolhas: Record<string, boolean>,
+): SecaoDoMenu<T>[] {
+  const presentes = Array.from(new Set(visiveis.map((i) => i.group)))
+  const grupos = [...ORDEM_GRUPOS.filter((g) => presentes.includes(g)), ...presentes.filter((g) => !ORDEM_GRUPOS.includes(g))]
+  const ativo = itemAtivo(visiveis, pathname)?.group
+  const recolhePorPadrao = visiveis.length > MINIMO_PARA_RECOLHER
+  return grupos.map((grupo) => {
+    let itens = visiveis.filter((i) => i.group === grupo)
+    if (grupo === SECAO_FIXA) itens = [...itens].sort((a, b) => ORDEM_DIA_A_DIA.indexOf(a.to) - ORDEM_DIA_A_DIA.indexOf(b.to))
+    const recolhivel = grupo !== SECAO_FIXA
+    const colapsado = recolhivel && grupo !== ativo && (escolhas[grupo] ?? recolhePorPadrao)
+    return { grupo, itens, recolhivel, colapsado }
+  })
+}
 
 /**
  * Itens cujo caminho é prefixo do caminho de OUTRO item do menu — para eles o
@@ -126,6 +170,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nomeEmpresa = useNomeDoTenant()
 
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   // `open` = sidebar recolhida/expandida no DESKTOP (md+).
   const userKey = `erp.${user?.id ?? 'anon'}`
   const [open, setOpen] = usePreference(`erpnovo.ui.sidebar.${userKey}`, true)
@@ -143,14 +188,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visiveis = NAV.filter(
     (i) => (!i.permission || can(i.permission)) && (!i.feature || hasFeature(i.feature)),
   )
-  const presentes = Array.from(new Set(visiveis.map((i) => i.group)))
-  const grupos = [
-    ...ORDEM_GRUPOS.filter((g) => presentes.includes(g)),
-    ...presentes.filter((g) => !ORDEM_GRUPOS.includes(g)),
-  ]
-  // Seções recolhidas (colapsadas) — por padrão todas abertas.
-  const [recolhidos, setRecolhidos] = usePreference<Record<string, boolean>>(`erpnovo.ui.groups.${userKey}`, {})
-  const toggleGrupo = (g: string) => setRecolhidos((r) => ({ ...r, [g]: !r[g] }))
+  // Chave nova (v2): na anterior "ausente" queria dizer ABERTA, e agora quer
+  // dizer "o padrão" — reaproveitá-la abriria tudo para quem já usou o menu.
+  const [escolhas, setEscolhas] = usePreference<Record<string, boolean>>(`erpnovo.ui.secoes.v2.${userKey}`, {})
+  const secoes = secoesDoMenu(visiveis, pathname, escolhas)
+  const toggleGrupo = (s: SecaoDoMenu<NavItem>) => setEscolhas((r) => ({ ...r, [s.grupo]: !s.colapsado }))
   const iniciais = (user?.name ?? '?').split(' ').map((s) => s[0]).slice(0, 2).join('').toUpperCase()
 
   return (
@@ -166,26 +208,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             que separa ITENS do mesmo grupo (gap-0.5). É essa diferença — não
             uma linha divisória — que agrupa as coisas aos olhos. */}
         <nav aria-label="Módulos" className={cn('flex-1 overflow-y-auto pb-4', expandida ? 'px-2 pt-2' : 'px-2 pt-3')}>
-          {grupos.map((g, gi) => {
-            const colapsado = expandida && recolhidos[g]
+          {secoes.map((s, gi) => {
+            // Recolhida (só sidebar aberta) a seção vira uma linha; a anterior
+            // recolhida já separa, então o respiro entre duas delas encolhe.
+            const colapsado = expandida && s.colapsado
+            const anteriorRecolhida = gi > 0 && expandida && secoes[gi - 1].colapsado
             return (
-            <div key={g} className={cn(gi > 0 && (expandida ? 'mt-6' : 'mt-4 border-t border-white/10 pt-4'))}>
-              {expandida && (
+            <div key={s.grupo} className={cn(gi > 0 && (expandida ? (colapsado && anteriorRecolhida ? 'mt-0.5' : 'mt-5') : 'mt-4 border-t border-white/10 pt-4'))}>
+              {expandida && (s.recolhivel ? (
                 <button
                   type="button"
-                  onClick={() => toggleGrupo(g)}
+                  onClick={() => toggleGrupo(s)}
                   aria-expanded={!colapsado}
                   // O título de seção recua em peso e cor para o item de menu
                   // poder liderar: 10px, tracking largo, cor esmaecida. Antes
                   // os dois brigavam pelo mesmo destaque.
-                  className="group/sec mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
+                  className="group/sec mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:bg-white/[0.04] hover:text-sidebar-foreground"
                 >
                   <ChevronDown size={12} className={cn('shrink-0 transition-transform duration-200', colapsado && '-rotate-90')} />
-                  <span className="truncate">{g}</span>
+                  <span className="truncate">{s.grupo}</span>
+                  {/* Recolhida, a contagem diz que há algo ali dentro. */}
+                  {colapsado && <span className="ml-auto rounded-full bg-white/[0.08] px-1.5 text-[10px] font-medium tracking-normal tabular-nums">{s.itens.length}</span>}
                 </button>
-              )}
+              ) : (
+                <p className="mb-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60">{s.grupo}</p>
+              ))}
               <div className={cn('flex flex-col', expandida ? 'gap-0.5' : 'gap-1')}>
-              {!colapsado && visiveis.filter((i) => i.group === g).map((i) => {
+              {!colapsado && s.itens.map((i) => {
                 const link = (
                   <NavLink
                     key={i.to}
@@ -298,7 +347,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="conteudo-principal" tabIndex={-1} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"><RouteTrail items={visiveis} /><div key={`${user?.id}:${user?.empresa_id}:${scopeRevision}`}>{children}</div></main>
+        <main id="conteudo-principal" tabIndex={-1} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"><RouteTrail items={visiveis} semGrupo={[SECAO_FIXA]} /><div key={`${user?.id}:${user?.empresa_id}:${scopeRevision}`}>{children}</div></main>
       </div>
     </div>
   )

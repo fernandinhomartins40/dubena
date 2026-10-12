@@ -135,3 +135,22 @@ certificado — e não por cadastro.
 Dados que **não** são código e ficam com o cliente/contador (não se inventa NCM):
 4 produtos sem NCM nem no legado, 5 cidades sem correspondência no IBGE, CSC
 das empresas que emitem NFC-e. Ver o relatório.
+
+---
+
+# Quinta passada — organização visível (12/10/2026)
+
+Retorno do dono: "não vi nenhuma mudança significativa de organização". Tinha
+razão — a primeira passada trocou rótulos e grupos do menu, mas o menu seguia
+com 36 itens abertos, as páginas com os nomes antigos e as abas numa fila só.
+Desta vez a conferência foi **na tela**, com captura antes/depois.
+
+| ID | PRIORIDADE | PROBLEMA | SOLUÇÃO | STATUS |
+|---|---|---|---|---|
+| E5-01 | P1 | Menu com 36 itens em 9 seções abertas: o Financeiro nem aparecia sem rolar | Seção "Dia a dia" fixa no topo (Início, Pedidos, Central de entregas, Clientes, Financeiro, Estoque, Avisos); o resto recolhido com contagem; a seção da página aberta sempre abre; com ≤ 12 itens nada recolhe | DONE |
+| E5-02 | P1 | 11 páginas com nome diferente do menu ("Notas fiscais" abria "Fiscal", "Usuários e permissões" abria "Acessos", "Central de entregas" abria "Central de Logística"…) | Títulos alinhados ao menu, conferido por script nos 36 itens | DONE |
+| E5-03 | P1 | Financeiro com 10 abas soltas: lançamento do dia ao lado do plano de contas | Abas agrupadas: Dia a dia / Conferir / Configurar (`TabsGroup` novo no kit) | DONE |
+| E5-04 | P2 | Estoque, Notas fiscais e Endereços com o diário misturado ao periódico; Notas fiscais abria na "Malha Fiscal" | Mesmo agrupamento; Notas fiscais abre nas notas emitidas | DONE |
+| E5-05 | P1 | **A aba "Taxas de entrega" de Configurações nunca abria** (faltava na lista de abas válidas) | Corrigido; Configurações abre nela, o técnico (NF-e, e-mail) vai por último; sub-abas com link próprio | DONE |
+| E5-06 | P2 | Aba cortada no meio da palavra sem sinal de que havia mais | Esmaecimento na borda da faixa quando ela rola (todas as páginas) | DONE |
+| E5-07 | P3 | Trilha "Início / Dia a dia / Financeiro" e "Notas fiscais / Notas fiscais" | Seção-atalho e nome repetido saem da trilha | DONE |

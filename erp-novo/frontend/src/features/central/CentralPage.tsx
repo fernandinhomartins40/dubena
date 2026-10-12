@@ -31,7 +31,7 @@ export function CentralPage() {
   return (
     <div>
       <PageHeader
-        title="Central de Logística"
+        title="Central de entregas"
         subtitle="Fila de entregas, distribuição e frota em campo"
         action={
           <Can permission="logistica.config">

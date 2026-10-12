@@ -278,7 +278,7 @@ function NovaMissaoDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <Field label="Meta de visitas"><Input value={meta} onChange={(e) => setMeta(e.target.value)} inputMode="numeric" placeholder="sem meta" /></Field>
             <CheckboxField label="Exigir foto por visita" checked={exigeFoto} onChange={setExigeFoto} />
           </div>
-          <p className="text-xs text-muted-foreground">O motor de ociosidade atribui a missão automaticamente aos entregadores em jornada sem entregas (configure os minutos na Central de Logística).</p>
+          <p className="text-xs text-muted-foreground">O motor de ociosidade atribui a missão automaticamente aos entregadores em jornada sem entregas (configure os minutos na Central de entregas).</p>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>

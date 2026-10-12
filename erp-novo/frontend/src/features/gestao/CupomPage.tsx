@@ -54,7 +54,7 @@ export function CupomPage() {
   return (
     <>
       <ResourceList
-        title="Cupons fiscais (SAT/CFe)"
+        title="Cupons fiscais (SAT)"
         subtitle="Cupom fiscal eletrônico — emissão e consulta"
         action={<Button onClick={() => { reset(); setOpen(true) }}><Plus size={16} /> Novo cupom</Button>}
         columns={columns} rows={data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(v) => v.id}

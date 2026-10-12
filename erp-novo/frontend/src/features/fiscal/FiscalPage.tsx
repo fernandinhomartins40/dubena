@@ -1,4 +1,4 @@
-import { PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
+import { PageHeader, Tabs, TabsList, TabsTrigger, TabsContent, TabsGroup } from '@/components/ui'
 import { MalhaTab } from './tabs/MalhaTab'
 import { NfeTab } from './tabs/NfeTab'
 import { NfEntradaTab } from './tabs/NfEntradaTab'
@@ -8,18 +8,26 @@ import { SpedTab } from './tabs/SpedTab'
 export function FiscalPage() {
   return (
     <div>
-      <PageHeader title="Fiscal" subtitle="Malha fiscal, NF-e/NFC-e e SPED" />
-      <Tabs urlKey="tab" defaultValue="malha">
+      <PageHeader title="Notas fiscais" subtitle="NF-e e NFC-e emitidas, notas de entrada, SPED e as regras de imposto" />
+      {/* Abria na "Malha Fiscal" — a tabela de regras de imposto, que se
+          configura uma vez — e quem vinha conferir uma nota tinha de achar a
+          aba certa. Abre nas notas; a malha fica no grupo "Configurar". Os
+          valores das abas não mudaram: "?tab=malha" continua valendo. */}
+      <Tabs urlKey="tab" defaultValue="nfe">
         <TabsList className="overflow-x-auto">
-          <TabsTrigger value="malha">Malha Fiscal</TabsTrigger>
-          <TabsTrigger value="nfe">NF-e</TabsTrigger>
-          <TabsTrigger value="nf-entrada">NF de Entrada</TabsTrigger>
-          <TabsTrigger value="sped">SPED</TabsTrigger>
+          <TabsGroup label="Notas">
+            <TabsTrigger value="nfe">Notas emitidas (NF-e / NFC-e)</TabsTrigger>
+            <TabsTrigger value="nf-entrada">Notas de entrada</TabsTrigger>
+            <TabsTrigger value="sped">SPED</TabsTrigger>
+          </TabsGroup>
+          <TabsGroup label="Configurar">
+            <TabsTrigger value="malha">Regras de imposto (malha fiscal)</TabsTrigger>
+          </TabsGroup>
         </TabsList>
-        <TabsContent value="malha"><MalhaTab /></TabsContent>
         <TabsContent value="nfe"><NfeTab /></TabsContent>
         <TabsContent value="nf-entrada"><NfEntradaTab /></TabsContent>
         <TabsContent value="sped"><SpedTab /></TabsContent>
+        <TabsContent value="malha"><MalhaTab /></TabsContent>
       </Tabs>
     </div>
   )

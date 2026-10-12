@@ -30,7 +30,7 @@ export function RevisoesClientesPage() {
   return (
     <div>
       <PageHeader
-        title="Cadastros a revisar"
+        title="Clientes duplicados"
         subtitle={
           data
             ? `${data.meta.pendentes} par(es) aguardando decisão`

@@ -41,7 +41,7 @@ export function DashboardPage() {
     { title: 'Pedidos', description: 'Acompanhe a jornada de cada venda.', to: '/pedidos', permission: 'pedido.view', icon: ShoppingCart },
     { title: 'Clientes', description: 'Encontre um cadastro e seu histórico.', to: '/clientes', permission: 'cliente.view', icon: Users },
     { title: 'Central de Vendas', description: 'Analise solicitações do campo.', to: '/central-vendas', permission: 'venda.view', icon: ShoppingCart },
-    { title: 'Central de Logística', description: 'Organize a fila e atribua entregas.', to: '/central', permission: 'logistica.view', icon: Truck },
+    { title: 'Central de entregas', description: 'Organize a fila e atribua entregas.', to: '/central', permission: 'logistica.view', icon: Truck },
     { title: 'Financeiro', description: 'Consulte lançamentos e caixa.', to: '/financeiro', permission: 'financeiro.view', icon: Banknote },
     { title: 'Estoque', description: 'Confira saldos e movimentações.', to: '/estoque', permission: 'estoque.view', icon: Package },
   ].filter((item) => can(item.permission))
@@ -81,7 +81,7 @@ function Pendencias() {
   return <section aria-labelledby="pendencias-titulo" className="rounded-xl border bg-card p-5">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
       <h2 id="pendencias-titulo" className="text-lg font-semibold">Atenção da equipe</h2>
-      <Link className="text-sm font-medium text-accent-foreground underline underline-offset-4" to="/alertas">Abrir central de alertas</Link>
+      <Link className="text-sm font-medium text-accent-foreground underline underline-offset-4" to="/alertas">Ver avisos e pendências</Link>
     </div>
     <AsyncState loading={query.isLoading} error={query.error || invalid} onRetry={() => { void query.refetch() }} empty={rows?.length === 0} emptyTitle="Nenhum alerta pendente">
       <ul className="divide-y">{Array.isArray(rows) && rows.slice(0, 5).map((row) => <li key={row.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">

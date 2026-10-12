@@ -13,7 +13,7 @@ import { ConciliacaoFrotaTab } from './ConciliacaoFrotaTab'
 export function MonitoraPage() {
   return (
     <div>
-      <PageHeader title="Monitora (GPS)" subtitle="Frota no mapa, rota, posições e cercas (geofencing)" />
+      <PageHeader title="Rastreamento (GPS)" subtitle="Frota no mapa, rota, posições e cercas (geofencing)" />
       <Tabs defaultValue="mapa">
         <TabsList>
           <TabsTrigger value="mapa"><Map size={15} className="mr-1" /> Mapa ao vivo</TabsTrigger>

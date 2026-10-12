@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Search, MapPin, CheckCircle2, AlertTriangle } fro
 import {
   Button, Card, PageHeader, Input, Badge, DataTable, type Column, EmptyState,
   Field, CheckboxField, AsyncSelect, AsyncState,
-  Tabs, TabsList, TabsTrigger, TabsContent,
+  Tabs, TabsList, TabsTrigger, TabsContent, TabsGroup,
   FormDialog, ConfirmDialog, toast,
 } from '@/components/ui'
 import {
@@ -53,15 +53,21 @@ export function GeograficoPage() {
 
   return (
     <CidadeCtx.Provider value={ctx}>
-      <PageHeader title="Geográfico" subtitle="Cidades, bairros, ruas e regiões usados em endereços e entregas" />
+      <PageHeader title="Endereços" subtitle="Cidades, bairros, ruas e regiões usados em endereços e entregas" />
       <Tabs value={aba} onValueChange={setAba}>
+        {/* O cadastro do dia separado da conferência (IBGE, inconsistências),
+            que é tarefa de quem cuida da base, não de quem atende. */}
         <TabsList className="overflow-x-auto">
-          <TabsTrigger value="cidades">Cidades</TabsTrigger>
-          <TabsTrigger value="bairros">Bairros</TabsTrigger>
-          <TabsTrigger value="ruas">Ruas</TabsTrigger>
-          <TabsTrigger value="regioes">Regiões</TabsTrigger>
-          <TabsTrigger value="importacao">Catálogo IBGE</TabsTrigger>
-          <TabsTrigger value="inconsistencias">Inconsistências</TabsTrigger>
+          <TabsGroup label="Cadastro">
+            <TabsTrigger value="cidades">Cidades</TabsTrigger>
+            <TabsTrigger value="bairros">Bairros</TabsTrigger>
+            <TabsTrigger value="ruas">Ruas</TabsTrigger>
+            <TabsTrigger value="regioes">Regiões de entrega</TabsTrigger>
+          </TabsGroup>
+          <TabsGroup label="Conferir">
+            <TabsTrigger value="inconsistencias">Inconsistências</TabsTrigger>
+            <TabsTrigger value="importacao">Catálogo IBGE</TabsTrigger>
+          </TabsGroup>
         </TabsList>
 
         {dependeDeCidade && <BarraCidade />}

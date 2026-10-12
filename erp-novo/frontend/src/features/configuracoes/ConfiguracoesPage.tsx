@@ -1,40 +1,69 @@
 import { useSearchParams } from 'react-router-dom'
-import { Badge, PageHeader, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
+import { Badge, PageHeader, Tabs, TabsList, TabsTrigger, TabsContent, TabsGroup } from '@/components/ui'
 import { CadastroApoioTab } from '@/features/cadastros/CadastroApoioTab'
 import { ConfigGlobalTab } from './ConfigGlobalTab'
 import { TaxasEntregaTab } from './taxas-entrega/TaxasEntregaTab'
 
-const ABAS = ['geral', 'clientes', 'financeiro', 'colaboradores'] as const
+/**
+ * Valores aceitos em `?tab=`. "entrega" faltava aqui: o clique na aba gravava
+ * `?tab=entrega`, a validação recusava e a página voltava para "Geral" — as
+ * taxas de entrega nunca abriam. Os valores antigos seguem valendo ("geral" é
+ * a aba técnica), porque Clientes e Colaboradores apontam para cá por eles.
+ */
+const ABAS_CONFIG = ['entrega', 'clientes', 'financeiro', 'colaboradores', 'geral'] as const
+const PADRAO = 'entrega'
+
+/** Uma linha dizendo o que há na área: a aba sozinha ("Geral") não dizia. */
+function Explica({ children }: { children: string }) {
+  return <p className="mb-4 text-sm text-muted-foreground">{children}</p>
+}
 
 /**
  * Hub central de Configurações (F01) — ÚNICO ponto de administração: unifica a
- * config global do grupo (Geral) e os cadastros de apoio por domínio
- * (Clientes/Financeiro/Colaboradores). As antigas telas `*ConfigPage` foram
- * removidas em F17.R6 e redirecionam para cá via `?tab=`.
+ * config global do grupo e os cadastros de apoio por domínio. As antigas telas
+ * `*ConfigPage` foram removidas em F17.R6 e redirecionam para cá via `?tab=`.
+ *
+ * A porta de entrada era "Geral": responsável técnico da NF-e, CSRT e servidor
+ * de e-mail — o mais técnico do sistema, na frente de quem só queria mudar a
+ * taxa de entrega. Agora abre no que o dono ajusta, e o técnico fica por último.
  */
 export function ConfiguracoesPage() {
   const [params, setParams] = useSearchParams()
   const tabParam = params.get('tab')
-  const aba = ABAS.includes(tabParam as any) ? (tabParam as string) : 'geral'
+  const aba = ABAS_CONFIG.includes(tabParam as never) ? (tabParam as string) : PADRAO
+  // Sub-aba na URL (`?sub=`): dá para mandar o link direto de "Cargos".
+  // Valor que não é desta área (link velho, digitado) cai na primeira sub-aba
+  // em vez de deixar a área em branco.
+  const sub = (validos: string[]) => ({
+    value: validos.includes(params.get('sub') ?? '') ? (params.get('sub') as string) : validos[0],
+    onValueChange: (v: string) => setParams({ tab: aba, sub: v }, { replace: true }),
+  })
   return (
     <div>
-      <PageHeader title="Configurações" subtitle="Configuração global do grupo e cadastros de apoio" />
-      <Tabs value={aba} onValueChange={(v) => setParams(v === 'geral' ? {} : { tab: v }, { replace: true })}>
+      <PageHeader title="Configurações" subtitle="Taxas de entrega, listas usadas nos cadastros e os ajustes técnicos do sistema" />
+      <Tabs value={aba} onValueChange={(v) => setParams(v === PADRAO ? {} : { tab: v }, { replace: true })}>
         <TabsList className="overflow-x-auto">
-          <TabsTrigger value="geral">Geral</TabsTrigger>
-          <TabsTrigger value="clientes">Clientes</TabsTrigger>
-          <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-          <TabsTrigger value="colaboradores">Colaboradores</TabsTrigger>
-          <TabsTrigger value="entrega">Entrega</TabsTrigger>
+          <TabsGroup label="Negócio">
+            <TabsTrigger value="entrega">Taxas de entrega</TabsTrigger>
+          </TabsGroup>
+          <TabsGroup label="Listas de apoio">
+            <TabsTrigger value="clientes">Clientes</TabsTrigger>
+            <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+            <TabsTrigger value="colaboradores">Equipe</TabsTrigger>
+          </TabsGroup>
+          <TabsGroup label="Técnico">
+            <TabsTrigger value="geral">Sistema (NF-e, e-mail, SAT)</TabsTrigger>
+          </TabsGroup>
         </TabsList>
 
-        <TabsContent value="geral"><ConfigGlobalTab /></TabsContent>
-
         {/* Taxas de entrega: quanto cobrar e quanto custa por bairro/distancia. */}
-        <TabsContent value="entrega"><TaxasEntregaTab /></TabsContent>
+        <TabsContent value="entrega">
+          <TaxasEntregaTab />
+        </TabsContent>
 
         <TabsContent value="clientes">
-          <Tabs defaultValue="segmentos">
+          <Explica>As opções que aparecem nas listas do cadastro de clientes.</Explica>
+          <Tabs {...sub(['segmentos', 'tipos-pessoa', 'telefone-tipos', 'contato-tipos', 'contato-situacoes'])}>
             <TabsList className="overflow-x-auto">
               <TabsTrigger value="segmentos">Segmentos</TabsTrigger>
               <TabsTrigger value="tipos-pessoa">Tipos de Pessoa</TabsTrigger>
@@ -60,7 +89,8 @@ export function ConfiguracoesPage() {
         </TabsContent>
 
         <TabsContent value="financeiro">
-          <Tabs defaultValue="bancos">
+          <Explica>Os bancos e os tipos de movimento usados nos lançamentos.</Explica>
+          <Tabs {...sub(['bancos', 'tipos-movimento'])}>
             <TabsList className="overflow-x-auto">
               <TabsTrigger value="bancos">Bancos</TabsTrigger>
               <TabsTrigger value="tipos-movimento">Tipos de Movimento</TabsTrigger>
@@ -85,7 +115,8 @@ export function ConfiguracoesPage() {
         </TabsContent>
 
         <TabsContent value="colaboradores">
-          <Tabs defaultValue="cargos">
+          <Explica>Cargos e as listas usadas na ficha do colaborador.</Explica>
+          <Tabs {...sub(['cargos', 'estados-civis', 'parentescos', 'tipos-exame'])}>
             <TabsList className="overflow-x-auto">
               <TabsTrigger value="cargos">Cargos</TabsTrigger>
               <TabsTrigger value="estados-civis">Estados Civis</TabsTrigger>
@@ -101,6 +132,11 @@ export function ConfiguracoesPage() {
               ]} />
             </TabsContent>
           </Tabs>
+        </TabsContent>
+
+        <TabsContent value="geral">
+          <Explica>Dados que a nota fiscal e o envio de e-mail exigem. Normalmente preenchidos uma vez, com o contador ou o suporte.</Explica>
+          <ConfigGlobalTab />
         </TabsContent>
       </Tabs>
     </div>

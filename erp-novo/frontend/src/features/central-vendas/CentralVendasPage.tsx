@@ -212,7 +212,7 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
               {alcada && (
                 <div className="text-xs rounded border p-2 space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Alçada do vendedor</span>
+                    <span className="text-muted-foreground">Limite de desconto do vendedor</span>
                     <span>{brl(alcada.teto_do_solicitante)}</span>
                   </div>
                   <div className="flex justify-between">

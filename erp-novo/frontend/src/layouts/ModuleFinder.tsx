@@ -41,13 +41,18 @@ export function ModuleFinder({ items, userKey, onNavigate }: { items: ModuleLink
   </div>
 }
 
-export function RouteTrail({ items, home = '/' }: { items: ModuleLink[]; home?: string }) {
+/**
+ * `semGrupo`: seções que são atalho, não lugar — "Início / Dia a dia / Financeiro"
+ * não diz onde se está. Seção com o nome do próprio item também some ("Notas
+ * fiscais / Notas fiscais" repetia).
+ */
+export function RouteTrail({ items, home = '/', semGrupo = [] }: { items: ModuleLink[]; home?: string; semGrupo?: string[] }) {
   const { pathname } = useLocation()
   const active = [...items].sort((a, b) => b.to.length - a.to.length).find((item) => item.to !== home && (pathname === item.to || pathname.startsWith(`${item.to}/`)))
   if (!active) return null
   return <nav aria-label="Você está em" className="mb-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
     <Link className="rounded hover:underline focus-visible:outline focus-visible:outline-2" to={home}>Início</Link><span aria-hidden>/</span>
-    <span>{active.group}</span><span aria-hidden>/</span>
+    {!semGrupo.includes(active.group) && active.group !== active.label && <><span>{active.group}</span><span aria-hidden>/</span></>}
     {pathname === active.to ? <span aria-current="page" className="font-medium text-foreground">{active.label}</span> : <><Link to={active.to} className="hover:underline">{active.label}</Link><span aria-hidden>/</span><span aria-current="page">{pathname.endsWith('/novo') ? 'Novo cadastro' : 'Detalhes'}</span></>}
   </nav>
 }

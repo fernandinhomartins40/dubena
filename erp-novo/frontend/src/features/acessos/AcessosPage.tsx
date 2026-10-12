@@ -28,7 +28,7 @@ export function AcessosPage() {
 
   return (
     <div>
-      <PageHeader title="Acessos" subtitle="Usuários, perfis, estrutura e política de senha" />
+      <PageHeader title="Usuários e permissões" subtitle="Quem entra no sistema, o que cada perfil pode fazer e a política de senha" />
       <Tabs value={aba} onValueChange={(v) => setParams(v === padrao ? {} : { tab: v }, { replace: true })}>
         <TabsList>
           {podeUsuarios && <TabsTrigger value="usuarios">Usuários</TabsTrigger>}

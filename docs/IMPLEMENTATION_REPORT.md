@@ -250,3 +250,32 @@ antiga.
   1 s do testing-library curta demais sob carga, não defeito; isolados, todos
   passavam. Espera subiu para 4 s e o limite por teste para 15 s.
 - Testes novos: prontidão fiscal, IE na carga, atalhos de período, comodato.
+
+---
+
+# Quinta passada — organização visível (12/10/2026)
+
+O dono não via mudança de organização. A causa: as passadas anteriores
+corrigiram fluxos e dados, mas a moldura — menu, títulos, abas — continuava
+quase igual. Esta passada mexeu nela e foi conferida em captura de tela
+(prévia local com autenticação simulada, 1440, 1366 e celular).
+
+| Antes | Agora |
+|---|---|
+| 36 itens abertos; o Financeiro só aparecia rolando | "Dia a dia" no topo + seções recolhidas com contagem; o menu cabe numa tela |
+| Menu "Notas fiscais" → página "Fiscal" aberta na "Malha Fiscal" | Página "Notas fiscais" aberta nas notas emitidas |
+| 11 páginas com nome diferente do item de menu | Nomes iguais (script varreu os 36) |
+| Financeiro: 10 abas numa fila | Dia a dia / Conferir / Configurar |
+| Configurações abria no responsável técnico da NF-e; "Taxas de entrega" não abria | Abre nas taxas; o técnico por último |
+| Aba cortada sem aviso | Faixa esmaece onde continua |
+
+Nada saiu: o teste de navegação confere destino, permissão e recurso
+contratado de cada item, e um teste novo garante que nenhum item se perde ao
+montar as seções.
+
+**Testes:** SPA 169/169 em 2 rodadas, typecheck e build ok. Guardiões
+provados plantando a regressão: seção ativa recolhida (reprovou) e aba de
+Configurações fora da lista (reprovou). O primeiro teste que escrevi para a
+aba de entrega **não** pegava a regressão — ela virou a aba padrão, e o
+padrão mascarava a falta na lista; foi trocado por uma varredura que clica em
+todas as abas.

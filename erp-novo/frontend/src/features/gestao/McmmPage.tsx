@@ -41,7 +41,7 @@ export function McmmPage() {
   return (
     <>
       <ResourceList
-        title="MCMM"
+        title="Movimentação de material"
         subtitle="Controle de movimentação de material"
         action={<Button onClick={() => abrir()}><Plus size={16} /> Nova movimentação</Button>}
         columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}

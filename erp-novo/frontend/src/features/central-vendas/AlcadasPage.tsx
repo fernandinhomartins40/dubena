@@ -34,7 +34,7 @@ export function AlcadasPage() {
   return (
     <div>
       <PageHeader
-        title="Alçadas de desconto"
+        title="Limites de desconto"
         subtitle="Quanto cada perfil concede sem passar pela Central"
         action={
           <Can permission="venda.alcada">
@@ -135,7 +135,7 @@ function AlcadaDialog({ alvo, onClose }: { alvo: Alcada | 'nova' | null; onClose
         base_calculo: base,
         produto_id: produtoId === '' ? null : Number(produtoId),
       })
-      toast.success('Alçada salva.')
+      toast.success('Limite de desconto salvo.')
       onClose()
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? 'Não foi possível salvar.')

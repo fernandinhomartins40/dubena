@@ -32,7 +32,7 @@ export function AlertasPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold">Central de alertas</h1>
+        <h1 className="text-2xl font-semibold">Avisos e pendências</h1>
         <p className="text-sm text-muted-foreground">
           O que a equipe precisa averiguar — ordenado por risco.
         </p>

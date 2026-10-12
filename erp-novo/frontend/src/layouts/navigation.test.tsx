@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ModuleFinder, RouteTrail } from './ModuleFinder'
-import { prefixosDeOutroItem, NAV_ITENS } from './AppShell'
+import { prefixosDeOutroItem, NAV_ITENS, secoesDoMenu, SECAO_FIXA } from './AppShell'
 
 beforeEach(() => localStorage.clear())
 const items = [{ label: 'Pedidos', to: '/pedidos', group: 'Operações' }, { label: 'Clientes', to: '/clientes', group: 'Cadastros' }]
@@ -82,6 +82,40 @@ describe('Menu por tarefa', () => {
   })
 })
 
+describe('Seções do menu', () => {
+  const todos = NAV_ITENS
+
+  it('o dia a dia vem primeiro, aberto e na ordem de uso', () => {
+    const [primeira, ...resto] = secoesDoMenu(todos, '/', {})
+    expect(primeira.grupo).toBe(SECAO_FIXA)
+    expect(primeira.colapsado).toBe(false)
+    expect(primeira.itens.map((i) => i.to)).toEqual(['/', '/pedidos', '/central', '/clientes', '/financeiro', '/estoque', '/alertas'])
+    // O resto começa recolhido: é o que deixa o menu curto.
+    expect(resto.length).toBeGreaterThan(5)
+    expect(resto.every((s) => s.colapsado)).toBe(true)
+  })
+
+  it('a seção da página aberta fica aberta, mesmo que a pessoa a tenha recolhido', () => {
+    const secoes = secoesDoMenu(todos, '/sorteios/12', { Relacionamento: true })
+    expect(secoes.find((s) => s.grupo === 'Relacionamento')?.colapsado).toBe(false)
+    expect(secoes.find((s) => s.grupo === 'Administração')?.colapsado).toBe(true)
+  })
+
+  it('lembra a escolha de abrir uma seção', () => {
+    expect(secoesDoMenu(todos, '/', { Administração: false }).find((s) => s.grupo === 'Administração')?.colapsado).toBe(false)
+  })
+
+  it('com poucos itens nada recolhe — o entregador não perde o pouco que tem', () => {
+    const poucos = todos.filter((i) => ['/', '/central', '/comodatos', '/missoes'].includes(i.to))
+    expect(secoesDoMenu(poucos, '/', {}).every((s) => !s.colapsado)).toBe(true)
+  })
+
+  it('nenhum item se perde ao montar as seções', () => {
+    const montados = secoesDoMenu(todos, '/', {}).flatMap((s) => s.itens.map((i) => i.to)).sort()
+    expect(montados).toEqual(todos.map((i) => i.to).sort())
+  })
+})
+
 describe('Navegação orientada a tarefas', () => {
   it('busca sem acento e persiste favoritos somente para a pessoa atual', async () => {
     const user = userEvent.setup()
@@ -99,6 +133,15 @@ describe('Navegação orientada a tarefas', () => {
     localStorage.setItem('erpnovo.ui.favorites.erp.1', JSON.stringify(['/financeiro']))
     render(<MemoryRouter><ModuleFinder items={items} userKey="erp.1" onNavigate={() => {}} /></MemoryRouter>)
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('a trilha não mostra a seção que é só atalho', () => {
+    const itens = [{ label: 'Financeiro', to: '/financeiro', group: SECAO_FIXA }, { label: 'Cartões', to: '/cartoes', group: 'Dinheiro' }]
+    const { unmount } = render(<MemoryRouter initialEntries={['/financeiro']}><RouteTrail items={itens} semGrupo={[SECAO_FIXA]} /></MemoryRouter>)
+    expect(screen.getByRole('navigation', { name: 'Você está em' })).toHaveTextContent(/^Início\/Financeiro$/)
+    unmount()
+    render(<MemoryRouter initialEntries={['/cartoes']}><RouteTrail items={itens} semGrupo={[SECAO_FIXA]} /></MemoryRouter>)
+    expect(screen.getByRole('navigation', { name: 'Você está em' })).toHaveTextContent(/^Início\/Dinheiro\/Cartões$/)
   })
 
   it('mostra caminho de retorno ao cadastro ao abrir detalhe', () => {

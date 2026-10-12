@@ -23,7 +23,7 @@ it('apresenta pendências somente quando a central é autorizada', async () => {
     : { data: { clientes: 1, produtos: 2, pedidos: 3, financeiro: 0 } })
   mount()
   expect(await screen.findByText('Conferir comodato')).toBeVisible()
-  expect(screen.getByRole('link', { name: 'Abrir central de alertas' })).toHaveAttribute('href', '/alertas')
+  expect(screen.getByRole('link', { name: 'Ver avisos e pendências' })).toHaveAttribute('href', '/alertas')
 })
 it('falha não vira uma contagem zero', async () => {
   vi.spyOn(api, 'get').mockRejectedValue(new Error('Sem conexão'))

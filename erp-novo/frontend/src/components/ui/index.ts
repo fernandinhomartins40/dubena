@@ -8,7 +8,7 @@ export { Badge } from './badge'
 export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem } from './select'
 export { Checkbox, CheckboxField } from './checkbox'
 export { Switch } from './switch'
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
+export { Tabs, TabsList, TabsTrigger, TabsContent, TabsGroup } from './tabs'
 export {
   Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from './dialog'

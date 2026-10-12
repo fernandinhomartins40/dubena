@@ -41,7 +41,7 @@ export function BemPage() {
   return (
     <>
       <ResourceList
-        title="Bens (imobilizado)"
+        title="Patrimônio (bens)"
         subtitle="Ativo imobilizado com depreciação linear"
         action={<Button onClick={() => abrir()}><Plus size={16} /> Novo bem</Button>}
         columns={columns} rows={data} loading={isLoading} rowKey={(v) => v.id}

@@ -98,7 +98,7 @@ export function ParaHoje() {
     cartoes.push({ chave: 'comodato', titulo: 'Comodatos vencidos', valor: String(d.comodatos_vencidos), detalhe: d.comodatos_vencidos > 0 ? 'Prazo de devolução passou' : 'Nenhum contrato vencido', atencao: d.comodatos_vencidos > 0, to: '/comodatos', icon: <PackageCheck size={18} /> })
   }
   if (d?.cadastros_a_revisar !== undefined) {
-    cartoes.push({ chave: 'revisar', titulo: 'Cadastros a revisar', valor: String(d.cadastros_a_revisar), detalhe: d.cadastros_a_revisar > 0 ? 'Possíveis clientes duplicados' : 'Nada a revisar', atencao: d.cadastros_a_revisar > 0, to: '/clientes/revisoes', icon: <ClipboardList size={18} /> })
+    cartoes.push({ chave: 'revisar', titulo: 'Clientes duplicados', valor: String(d.cadastros_a_revisar), detalhe: d.cadastros_a_revisar > 0 ? 'Possíveis clientes duplicados' : 'Nada a revisar', atencao: d.cadastros_a_revisar > 0, to: '/clientes/revisoes', icon: <ClipboardList size={18} /> })
   }
 
   return (
