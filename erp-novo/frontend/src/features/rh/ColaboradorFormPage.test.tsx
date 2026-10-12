@@ -33,11 +33,12 @@ it('mostra e devolve telefone, marca de entregador e endereço completo', async 
     </MemoryRouter>,
   )
 
-  expect(await screen.findByDisplayValue('42999990000')).toBeInTheDocument()
+  // Prazo maior: sob a suíte inteira a tela demora a hidratar.
+  expect(await screen.findByDisplayValue('42999990000', undefined, { timeout: 5000 })).toBeInTheDocument()
   expect(screen.getByRole('checkbox', { name: /É entregador/ })).toBeChecked()
   expect(screen.getByRole('button', { name: /^Rua/ })).toHaveTextContent('Rua XV')
 
   await user.click(screen.getByRole('button', { name: /Salvar/ }))
-  await waitFor(() => expect(put).toHaveBeenCalled())
+  await waitFor(() => expect(put).toHaveBeenCalled(), { timeout: 5000 })
   expect(put.mock.calls[0][1]).toMatchObject({ telefone: '42999990000', entregador: true, rua_id: 77, complemento: 'casa', uf: 'PR' })
-})
+}, 15_000) // página pesada (7 abas): sob a suíte inteira passa dos 5 s padrão

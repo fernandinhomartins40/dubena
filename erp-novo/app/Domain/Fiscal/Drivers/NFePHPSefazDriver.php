@@ -133,11 +133,40 @@ class NFePHPSefazDriver implements SefazDriver
     /** Instancia Tools com o certificado A1 do tenant e a config da SEFAZ. */
     private function tools(NotaFiscal $nota): Tools
     {
-        [$empresa, , $config] = $this->configuracoesDaEmpresa((int) $nota->empresa_id);
+        [$empresa, $fiscal, $config] = $this->configuracoesDaEmpresa((int) $nota->empresa_id);
         $certificate = $this->certificado($empresa, $config);
 
-        $emit = $this->dadosEmitente($nota);
-        $configJson = json_encode([
+        $modelo = (int) $nota->modelo->value;
+        $configJson = json_encode(
+            self::configuracaoDoTools($this->dadosEmitente($nota), $fiscal, $modelo),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $tools = new Tools($configJson, $certificate);
+        // Sem isto o Tools fica no modelo 55: a NFC-e iria para o serviço da
+        // NF-e. É o modelo que escolhe o endereço da SEFAZ.
+        $tools->model($modelo);
+
+        return $tools;
+    }
+
+    /**
+     * A configuração do NFePHP para esta nota.
+     *
+     * NFC-e (65): CSC e CSCid são OBRIGATÓRIOS — ao assinar uma nota modelo
+     * 65 a biblioteca acrescenta o QR Code e lança erro se faltarem
+     * (`Common\Tools::addQRCode`). Eles não iam para cá, então toda NFC-e real
+     * falharia na assinatura, mesmo com certificado. Faltando o CSC, a falha
+     * acontece AQUI, com mensagem que diz onde cadastrar.
+     *
+     * Separado do `tools()` para ser testável sem certificado.
+     *
+     * @param  array<string, mixed>  $emit
+     * @return array<string, mixed>
+     */
+    public static function configuracaoDoTools(array $emit, ConfigFiscal $fiscal, int $modelo): array
+    {
+        $config = [
             'atualizacao' => now()->toDateString(),
             'tpAmb' => (int) $emit['ambiente'],
             'razaosocial' => $emit['razao_social'],
@@ -145,9 +174,17 @@ class NFePHPSefazDriver implements SefazDriver
             'siglaUF' => $emit['uf'],
             'schemes' => 'PL_009_V4',
             'versao' => '4.00',
-        ], JSON_THROW_ON_ERROR);
+        ];
 
-        return new Tools($configJson, $certificate);
+        if ($modelo === 65) {
+            if (blank($fiscal->csc_id) || blank($fiscal->csc_token)) {
+                throw new \RuntimeException('NFC-e sem CSC: cadastre o ID do CSC e o CSC na aba Fiscal da empresa.');
+            }
+            $config['CSC'] = (string) $fiscal->csc_token;
+            $config['CSCid'] = (string) $fiscal->csc_id;
+        }
+
+        return $config;
     }
 
     /** @return array<string,mixed> */
