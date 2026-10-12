@@ -156,8 +156,11 @@ final class EmpresasMigrator implements Migrator
             // O legado guarda com máscara ("04.190.715/0001-05", 18 chars);
             // o schema novo é varchar(14) só com dígitos.
             'cnpj' => $this->soDigitos($r->cnpj ?? null, 14),
-            'inscricao_estadual' => $r->inscricaoestadual ?? null,
-            'inscricao_municipal' => $r->inscricaomunicipal ?? null,
+            // O dump traz `inscricao_estadual` (com sublinhado); só a grafia
+            // sem ele era lida, e as 7 empresas migraram SEM inscrição estadual —
+            // que vai em toda NF-e. Achado pelo "Pronto para emitir?" (12/10).
+            'inscricao_estadual' => $r->inscricao_estadual ?? $r->inscricaoestadual ?? null,
+            'inscricao_municipal' => $r->inscricao_municipal ?? $r->inscricaomunicipal ?? null,
             'cep' => $this->soDigitos($r->cep ?? null, 8),
             'uf' => $r->uf ?? null,
             // O endereço por FK NÃO é gravado aqui: este migrator roda em 2º e
