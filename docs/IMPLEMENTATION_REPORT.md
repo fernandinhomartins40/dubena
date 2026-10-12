@@ -192,3 +192,24 @@ pela API logado como o dono.
   leigo que o pedido e o cliente tiveram.
 - O sentido "abre em branco" foi conferido nos 5 cadastros com edição, não em
   toda tela de leitura.
+
+---
+
+# Terceira passada — fluxos do dia a dia (11/10/2026)
+
+| Gravidade | Fluxo | O que acontecia | Agora |
+|---|---|---|---|
+| P0 | Entregas | Central, **app do entregador** e roteirizador mostravam só o número da casa | Endereço completo (conferido com dados reais: "Rua Holanda 1099, Conjunto Europa, Colônia Agrícola Jordão, Guarapuava"), itens, telefone, referência e tempo de espera |
+| P1 | Financeiro | Não havia como receber/pagar uma conta pela tela | Botão na linha: conta de destino → confirmar |
+| P1 | Financeiro | Conta em aberto com R$ 0,00; resumo com "—" | Valores e resumo reais (R$ 1.059.996,57 a receber, R$ 514.623,14 a pagar na homologação) |
+| P1 | Convênio | Fechar o mês falhava sempre | Período sugerido e editável |
+| P2 | Estoque | Entrada escondida em "Acerto" | "Entrada e saída" + botão Novo |
+
+**Lição para a próxima auditoria:** a checagem "campo enviado e não aceito"
+não enxerga "campo obrigatório nunca enviado". A segunda checagem existe agora
+e foi provada contra o caso real.
+
+**Testes:** SPA 154/154 em 3 rodadas seguidas, build ok; testes novos de
+Central, recebimento, resumo, convênio (inclusive a sugestão de período com
+mês curto e virada de ano); correção da Central provada contra a consulta
+antiga.

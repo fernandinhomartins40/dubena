@@ -98,3 +98,20 @@ listas de constantes).
 | E2-09 | P1 | Colaborador: sem telefone nem marca "é entregador" na tela; e-mail sem coluna | Campos entram; e-mail sai | DONE |
 | OP-05 | P2 | CEP digitado não preenchia nada | `GET /geo/cep/{cep}` pela própria base (ruas e clientes); preenche só o vazio | DONE |
 | E2-10 | P0 | **A NFC-e real falharia na assinatura**: o NFePHP exige CSC/CSCid para o QR Code da NFC-e e eles não iam ao `Tools`; o modelo 65 também não era informado (o envio iria ao serviço da NF-e) | CSC, CSCid e modelo levados ao `Tools`; sem CSC, erro dizendo onde cadastrar. Quase o declarei "bloqueado": o que depende de terceiro é só a PROVA na SEFAZ (certificado A1 do cliente) | DONE (prova na SEFAZ pendente) |
+
+---
+
+# Terceira passada — fluxos do dia a dia (11/10/2026)
+
+Os fluxos que a segunda passada auditou só no contrato de gravação, agora pela
+ótica de quem opera: quantos passos, o que falta na tela, o que o sistema já
+sabe. E uma terceira checagem automática nasceu do que esta passada achou.
+
+| ID | PRIORIDADE | PROBLEMA | SOLUÇÃO | STATUS |
+|---|---|---|---|---|
+| E3-01 | P0 | **Central de entregas, app do entregador e roteirizador mostravam só o número da casa** ("1771"), conferido na homologação | Ponto único `Cliente::carregarComEndereco()` nos três; o cartão da Central mostra itens, referência, telefone e tempo de espera | DONE |
+| E3-02 | P1 | **Não havia tela para dar baixa numa conta** (receber/pagar); só o malote baixava | "Receber"/"Pagar" em cada conta aberta: conta de destino (última já vem) e confirmar | DONE |
+| E3-03 | P1 | Conta em aberto aparecia com R$ 0,00; os quatro cartões de resumo mostravam "—" sempre | Valor certo por situação; resumo devolve o que a tela lê ("no mês" para o realizado) | DONE |
+| E3-04 | P1 | **Fechar convênio pela tela falhava sempre** (ia sem o período obrigatório) | Diálogo com o período sugerido pelo dia de fechamento e último fechamento | DONE |
+| E3-05 | P2 | Entrada de mercadoria escondida na aba "Acerto" | Aba "Entrada e saída"; "Entrada no estoque" no botão Novo | DONE |
+| E3-06 | — | A auditoria de campos não pega "obrigatório nunca enviado" | `sem-corpo.js`: chamada sem corpo para rota com campo obrigatório. Provada contra o convênio antigo; zero casos no código atual (231 arquivos) | DONE |
