@@ -1,0 +1,3200 @@
+{
+    "POST //alcadas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\AlcadaDescontoController@salvar",
+        "chaves": [
+            "role_id",
+            "colaborador_id",
+            "produto_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "percentual_max",
+            "valor_max",
+            "base_calculo",
+            "permite_solicitar",
+            "data_inicio",
+            "data_fim",
+            "ativo",
+            "data",
+            "empresa_id"
+        ],
+        "obrigatorias": [
+            "percentual_max"
+        ]
+    },
+    "POST //alertas/{id}/assumir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\AlertaController@assumir",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //alertas/{id}/encerrar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\AlertaController@encerrar",
+        "chaves": [
+            "situacao",
+            "resolucao",
+            "data"
+        ],
+        "obrigatorias": [
+            "situacao",
+            "resolucao"
+        ]
+    },
+    "POST //bens": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@bemSalvar",
+        "chaves": [
+            "descricao",
+            "data_aquisicao",
+            "valor_aquisicao",
+            "taxa_depreciacao_anual",
+            "valor_residual",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "valor_aquisicao"
+        ]
+    },
+    "POST //boletos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@gerar",
+        "chaves": [
+            "parcela_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "parcela_id"
+        ]
+    },
+    "POST //boletos/remessa": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@remessa",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //boletos/retorno": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@retorno",
+        "chaves": [
+            "linhas",
+            "arquivo",
+            "message",
+            "processadas"
+        ],
+        "obrigatorias": []
+    },
+    "POST //cadastros/inconsistencias/ignorar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GeoController@ignorarInconsistencia",
+        "chaves": [
+            "tipo",
+            "item_id",
+            "item_ignorado_id",
+            "motivo",
+            "message",
+            "data",
+            "ignorado",
+            "novo"
+        ],
+        "obrigatorias": [
+            "tipo",
+            "item_id",
+            "item_ignorado_id"
+        ]
+    },
+    "POST //cadastros/{tipo}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CadastroApoioController@store",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //caixa/contas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@criarConta",
+        "chaves": [
+            "descricao",
+            "tipo",
+            "banco_id",
+            "agencia",
+            "numero",
+            "saldo_inicial",
+            "data",
+            "empresa_id",
+            "grupo_id"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //caixa/movimentos/{movimentoId}/estornar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@estornar",
+        "chaves": [
+            "user_id",
+            "valor",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //caixa/transferencias": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@transferir",
+        "chaves": [
+            "conta_origem_id",
+            "conta_destino_id",
+            "valor",
+            "data"
+        ],
+        "obrigatorias": [
+            "conta_origem_id",
+            "conta_destino_id",
+            "valor"
+        ]
+    },
+    "POST //caixa/{contaId}/abrir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@abrir",
+        "chaves": [
+            "datahoraabertura",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //caixa/{contaId}/baixar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@baixar",
+        "chaves": [
+            "parcela_id",
+            "juros",
+            "multa",
+            "desconto",
+            "valor",
+            "data"
+        ],
+        "obrigatorias": [
+            "parcela_id"
+        ]
+    },
+    "POST //caixa/{contaId}/baixar-titulos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@baixarTitulos",
+        "chaves": [
+            "itens",
+            "data"
+        ],
+        "obrigatorias": [
+            "itens"
+        ]
+    },
+    "POST //caixa/{contaId}/fechar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@fechar",
+        "chaves": [
+            "datahorafechamento",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //caixa/{contaId}/lancar-fechado": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CaixaController@lancarFechado",
+        "chaves": [
+            "valor",
+            "tipo",
+            "descricao",
+            "datahora",
+            "origem",
+            "user_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "valor",
+            "tipo"
+        ]
+    },
+    "POST //cartoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PagamentoController@cartaoRegistrar",
+        "chaves": [
+            "pedido_id",
+            "conta_id",
+            "bandeira",
+            "tipo",
+            "nsu",
+            "autorizacao",
+            "parcelas",
+            "valor_bruto",
+            "taxa_percentual",
+            "data",
+            "empresa_id"
+        ],
+        "obrigatorias": [
+            "valor_bruto"
+        ]
+    },
+    "POST //central-vendas/solicitacoes/{id}/aprovar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralVendasController@aprovar",
+        "chaves": [
+            "desconto_aprovado",
+            "motivo",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //central-vendas/solicitacoes/{id}/faturar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralVendasController@faturar",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //central-vendas/solicitacoes/{id}/recusar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralVendasController@recusar",
+        "chaves": [
+            "motivo",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //central/entregadores/{id}/bloquear": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@bloquear",
+        "chaves": [
+            "motivo",
+            "ate",
+            "data",
+            "id"
+        ],
+        "obrigatorias": []
+    },
+    "POST //central/pedidos/{id}/atribuir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@atribuir",
+        "chaves": [
+            "entregador_user_id",
+            "veiculo_id",
+            "motivo",
+            "data",
+            "id"
+        ],
+        "obrigatorias": [
+            "entregador_user_id"
+        ]
+    },
+    "POST //central/pedidos/{id}/priorizar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@priorizar",
+        "chaves": [
+            "data",
+            "id",
+            "urgente"
+        ],
+        "obrigatorias": []
+    },
+    "POST //central/pedidos/{id}/reagendar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@reagendar",
+        "chaves": [
+            "quando",
+            "data",
+            "id",
+            "datahora"
+        ],
+        "obrigatorias": [
+            "quando"
+        ]
+    },
+    "POST //central/pedidos/{id}/redistribuir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@redistribuir",
+        "chaves": [
+            "entregador_user_id",
+            "motivo",
+            "data",
+            "id"
+        ],
+        "obrigatorias": [
+            "entregador_user_id"
+        ]
+    },
+    "POST //checklists": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@checklistSalvar",
+        "chaves": [
+            "descricao",
+            "ativo",
+            "perguntas",
+            "pergunta",
+            "ordem",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //checklists/{id}/executar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@checklistExecutar",
+        "chaves": [
+            "respostas",
+            "checklist_id",
+            "empresa_id",
+            "user_id",
+            "data",
+            "checklist_pergunta_id",
+            "conforme",
+            "observacao"
+        ],
+        "obrigatorias": [
+            "respostas"
+        ]
+    },
+    "POST //cheques": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ChequeController@store",
+        "chaves": [
+            "data",
+            "especie",
+            "cliente_id",
+            "banco_id",
+            "numero",
+            "agencia",
+            "conta_corrente",
+            "titular",
+            "valor",
+            "bom_para"
+        ],
+        "obrigatorias": []
+    },
+    "POST //cheques/{id}/encontro-de-contas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ChequeController@encontroDeContas",
+        "chaves": [
+            "valor_compromisso",
+            "financeiro_parcela_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "valor_compromisso"
+        ]
+    },
+    "POST //cidades": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CidadeController@store",
+        "chaves": [
+            "data",
+            "nome",
+            "uf",
+            "cod_ibge",
+            "centro_lat",
+            "centro_lng",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //clientes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteController@store",
+        "chaves": [
+            "identificacao",
+            "nome",
+            "fantasia",
+            "tipopessoa_id",
+            "segmento_id",
+            "sexo",
+            "datanascimento",
+            "observacoes",
+            "cpf",
+            "rg",
+            "cnpj",
+            "inscricao_estadual",
+            "indicador_ie",
+            "suframa",
+            "cliente",
+            "fornecedor",
+            "transportador",
+            "simples",
+            "nfemite",
+            "gasdopovo",
+            "ativo",
+            "endereco",
+            "numero",
+            "complemento",
+            "ponto_referencia",
+            "cep",
+            "uf",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "email",
+            "convenio",
+            "convenio_ativo",
+            "convenio_id",
+            "convenio_limite",
+            "credito_limite",
+            "telefones"
+        ],
+        "obrigatorias": [
+            "nome"
+        ]
+    },
+    "POST //clientes/exportacao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteExportacaoController@exportar",
+        "chaves": [
+            "formato",
+            "campos",
+            "filtros",
+            "linhas",
+            "campos_sensiveis",
+            "xlsx",
+            "pdf",
+            "situacao",
+            "q",
+            "rua_ids",
+            "bairro_ids",
+            "cidade_ids",
+            "uf",
+            "cep",
+            "sem_geolocalizacao",
+            "cliente",
+            "fornecedor",
+            "transportador",
+            "convenio",
+            "convenio_ativo",
+            "gasdopovo",
+            "nfemite",
+            "simples",
+            "segmento_ids",
+            "tipopessoa_ids",
+            "cadastro_inicio",
+            "cadastro_fim",
+            "ultima_compra_inicio",
+            "ultima_compra_fim",
+            "sem_compra_dias",
+            "aniversario_mes",
+            "com_credito",
+            "com_saldo_devedor"
+        ],
+        "obrigatorias": [
+            "formato",
+            "campos"
+        ]
+    },
+    "POST //clientes/revisoes/{id}/consolidar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteRevisaoController@consolidar",
+        "chaves": [
+            "principal_id",
+            "situacao",
+            "decidido_por_user_id",
+            "decidido_em",
+            "message",
+            "data",
+            "absorvido_id"
+        ],
+        "obrigatorias": []
+    },
+    "POST //clientes/revisoes/{id}/descartar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteRevisaoController@descartar",
+        "chaves": [
+            "observacao",
+            "situacao",
+            "decidido_por_user_id",
+            "decidido_em",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //clientes/{id}/convenio/dependentes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteSubrecursoController@addDependente",
+        "chaves": [
+            "nome",
+            "parentesco_id",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "nome"
+        ]
+    },
+    "POST //clientes/{id}/interacoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteSubrecursoController@addInteracao",
+        "chaves": [
+            "tipo_id",
+            "situacao_id",
+            "descricao",
+            "acao",
+            "data",
+            "user_id"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //clientes/{id}/reativar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteController@reativar",
+        "chaves": [
+            "message",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //clientes/{id}/telefones": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteTelefoneController@store",
+        "chaves": [
+            "telefone",
+            "whatsapp",
+            "telefonetipo_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "telefone"
+        ]
+    },
+    "POST //cobranca/boletos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@gerar",
+        "chaves": [
+            "parcela_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "parcela_id"
+        ]
+    },
+    "POST //cobranca/remessas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@remessa",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //cobranca/retorno": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\BoletoController@retorno",
+        "chaves": [
+            "linhas",
+            "arquivo",
+            "message",
+            "processadas"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@store",
+        "chaves": [
+            "data",
+            "nome",
+            "cpf",
+            "rg",
+            "cargo_id",
+            "data_nascimento",
+            "data_admissao",
+            "data_desligamento",
+            "datanascimento",
+            "dataadmissao",
+            "datadesligamento",
+            "telefone",
+            "entregador",
+            "ativo",
+            "cep",
+            "uf",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "numero",
+            "complemento",
+            "id",
+            "cargo",
+            "cargo_label",
+            "desativado_em",
+            "motivo_desativacao",
+            "desativado_por_nome"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores/{id}/comissoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@addComissao",
+        "chaves": [
+            "data",
+            "produto_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "tipo_comissao",
+            "percentual",
+            "empresa_valor",
+            "percentual_app",
+            "empresa_valor_app",
+            "data_inicio",
+            "data_fim",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores/{id}/exames": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@addExame",
+        "chaves": [
+            "tipo",
+            "realizado_em",
+            "vencimento",
+            "resultado",
+            "medico",
+            "observacao",
+            "data"
+        ],
+        "obrigatorias": [
+            "realizado_em"
+        ]
+    },
+    "POST //colaboradores/{id}/familia": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@addFamilia",
+        "chaves": [
+            "nome",
+            "parentesco",
+            "data_nascimento",
+            "message"
+        ],
+        "obrigatorias": [
+            "nome"
+        ]
+    },
+    "POST //colaboradores/{id}/pontos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@registrarPonto",
+        "chaves": [
+            "data",
+            "entrada",
+            "saida"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores/{id}/reativar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@reativar",
+        "chaves": [
+            "message",
+            "data",
+            "id",
+            "nome",
+            "cpf",
+            "dataadmissao",
+            "datadesligamento",
+            "cargo",
+            "cargo_label",
+            "ativo",
+            "desativado_em",
+            "motivo_desativacao",
+            "desativado_por_nome"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores/{id}/recessos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@addRecesso",
+        "chaves": [
+            "data",
+            "tipo",
+            "inicio",
+            "fim",
+            "observacao"
+        ],
+        "obrigatorias": []
+    },
+    "POST //colaboradores/{id}/turnos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@addTurno",
+        "chaves": [
+            "dia_semana",
+            "entrada",
+            "saida",
+            "data"
+        ],
+        "obrigatorias": [
+            "dia_semana",
+            "entrada",
+            "saida"
+        ]
+    },
+    "POST //comodatos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@store",
+        "chaves": [
+            "cliente_id",
+            "produto_id",
+            "setor_id",
+            "quantidade",
+            "data_emprestimo",
+            "nome_representante",
+            "cpf_representante",
+            "rg_representante",
+            "data_vencimento",
+            "data",
+            "empresa_id",
+            "grupo_id"
+        ],
+        "obrigatorias": [
+            "cliente_id",
+            "produto_id",
+            "quantidade"
+        ]
+    },
+    "POST //comodatos/{id}/acrescentar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@acrescentar",
+        "chaves": [
+            "quantidade",
+            "observacao",
+            "produto_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "quantidade"
+        ]
+    },
+    "POST //comodatos/{id}/contratos/{contrato}/assinado": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@marcarAssinado",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //comodatos/{id}/devolver": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@devolver",
+        "chaves": [
+            "quantidade",
+            "data",
+            "observacao"
+        ],
+        "obrigatorias": [
+            "quantidade"
+        ]
+    },
+    "POST //comodatos/{id}/movimentos/{movimento}/estornar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@estornar",
+        "chaves": [
+            "observacao",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //comodatos/{id}/reemitir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@reemitir",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //comodatos/{id}/renovar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@renovar",
+        "chaves": [
+            "data_vencimento",
+            "nome_representante",
+            "cpf_representante",
+            "rg_representante",
+            "data"
+        ],
+        "obrigatorias": [
+            "data_vencimento"
+        ]
+    },
+    "POST //convenios": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ConvenioController@store",
+        "chaves": [
+            "cliente_id",
+            "descricao",
+            "dia_fechamento",
+            "dia_vencimento",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "cliente_id",
+            "descricao"
+        ]
+    },
+    "POST //convenios/{id}/fechar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ConvenioController@fechar",
+        "chaves": [
+            "periodo_inicio",
+            "periodo_fim",
+            "num_parcelas",
+            "data"
+        ],
+        "obrigatorias": [
+            "periodo_inicio",
+            "periodo_fim"
+        ]
+    },
+    "POST //cupons-fiscais": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@cupomCriar",
+        "chaves": [
+            "pedido_id",
+            "itens",
+            "situacao",
+            "produto_id",
+            "quantidade",
+            "valor_unitario",
+            "valor_total",
+            "data"
+        ],
+        "obrigatorias": [
+            "itens"
+        ]
+    },
+    "POST //cupons-fiscais/{id}/emitir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@cupomEmitir",
+        "chaves": [
+            "cupom",
+            "situacao",
+            "numero",
+            "emitido_em",
+            "data",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //departamentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@departamentoStore",
+        "chaves": [
+            "data",
+            "unidade_id",
+            "nome",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //documentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@documentoSalvar",
+        "chaves": [
+            "tipo",
+            "descricao",
+            "numero",
+            "emissao",
+            "validade",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //empresas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaController@store",
+        "chaves": [
+            "grupo_id",
+            "tenant_account_id",
+            "empresa_id",
+            "status",
+            "approved_at",
+            "ownership_evidence_ref",
+            "ownership_status",
+            "razao_social",
+            "nome_fantasia",
+            "nome_informal",
+            "cnpj",
+            "inscricao_estadual",
+            "inscricao_municipal",
+            "cep",
+            "uf",
+            "cidade",
+            "bairro",
+            "endereco",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "regiao_id",
+            "numero",
+            "complemento",
+            "telefone1",
+            "telefone2",
+            "latitude",
+            "longitude",
+            "matriz",
+            "ativo"
+        ],
+        "obrigatorias": [
+            "razao_social"
+        ]
+    },
+    "POST //empresas/{id}/ativar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaController@ativar",
+        "chaves": [
+            "empresa_id",
+            "message",
+            "tenant",
+            "grupo_id"
+        ],
+        "obrigatorias": []
+    },
+    "POST //empresas/{id}/certificado": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@uploadCertificado",
+        "chaves": [
+            "certificado",
+            "senha",
+            "empresa_id",
+            "data",
+            "message"
+        ],
+        "obrigatorias": [
+            "certificado",
+            "senha"
+        ]
+    },
+    "POST //empresas/{id}/config/testar-email": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@testarEmail",
+        "chaves": [
+            "to",
+            "subject",
+            "content",
+            "empresa_id",
+            "message",
+            "transport",
+            "host",
+            "port",
+            "encryption",
+            "username",
+            "password",
+            "timeout"
+        ],
+        "obrigatorias": [
+            "to"
+        ]
+    },
+    "POST //estoque/acerto": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@acerto",
+        "chaves": [
+            "setor_id",
+            "produto_id",
+            "quantidade_contada",
+            "data",
+            "message",
+            "custo_unitario"
+        ],
+        "obrigatorias": [
+            "setor_id",
+            "produto_id",
+            "quantidade_contada"
+        ]
+    },
+    "POST //estoque/entrada": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@entrada",
+        "chaves": [
+            "data",
+            "setor_id",
+            "produto_id",
+            "quantidade",
+            "custo_unitario",
+            "motivo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //estoque/fechamentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@fechar",
+        "chaves": [
+            "setor_id",
+            "produto_id",
+            "data_fechamento",
+            "data"
+        ],
+        "obrigatorias": [
+            "setor_id",
+            "produto_id",
+            "data_fechamento"
+        ]
+    },
+    "POST //estoque/fechamentos/abrir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@abrirFechamento",
+        "chaves": [
+            "setor_id",
+            "produto_id",
+            "data_fechamento",
+            "data"
+        ],
+        "obrigatorias": [
+            "setor_id",
+            "produto_id"
+        ]
+    },
+    "POST //estoque/fechamentos/{id}/reabrir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@reabrirFechamento",
+        "chaves": [
+            "motivo",
+            "data",
+            "message"
+        ],
+        "obrigatorias": [
+            "motivo"
+        ]
+    },
+    "POST //estoque/fisico": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@inventarioCriar",
+        "chaves": [
+            "setor_id",
+            "data",
+            "itens",
+            "empresa_id",
+            "situacao",
+            "contado_por",
+            "produto_id",
+            "quantidade_contada"
+        ],
+        "obrigatorias": [
+            "setor_id",
+            "itens"
+        ]
+    },
+    "POST //estoque/fisico/{id}/efetivar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@inventarioEfetivar",
+        "chaves": [
+            "data",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //estoque/inventarios": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@inventarioCriar",
+        "chaves": [
+            "setor_id",
+            "data",
+            "itens",
+            "empresa_id",
+            "situacao",
+            "contado_por",
+            "produto_id",
+            "quantidade_contada"
+        ],
+        "obrigatorias": [
+            "setor_id",
+            "itens"
+        ]
+    },
+    "POST //estoque/requisicoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@requisicaoCriar",
+        "chaves": [
+            "setor_origem_id",
+            "setor_destino_id",
+            "produto_id",
+            "quantidade",
+            "observacao",
+            "atender",
+            "empresa_id",
+            "user_id",
+            "situacao",
+            "data"
+        ],
+        "obrigatorias": [
+            "setor_destino_id",
+            "produto_id",
+            "quantidade"
+        ]
+    },
+    "POST //estoque/requisicoes/{id}/atender": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@requisicaoAtender",
+        "chaves": [
+            "setor_origem_id",
+            "data",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //estoque/saida": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@saida",
+        "chaves": [
+            "data",
+            "setor_id",
+            "produto_id",
+            "quantidade",
+            "motivo",
+            "custo_unitario"
+        ],
+        "obrigatorias": []
+    },
+    "POST //estoque/transferencias": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstoqueController@transferir",
+        "chaves": [
+            "setor_origem_id",
+            "setor_destino_id",
+            "produto_id",
+            "quantidade",
+            "itens",
+            "saida",
+            "entrada",
+            "data",
+            "custo_unitario"
+        ],
+        "obrigatorias": [
+            "setor_origem_id",
+            "setor_destino_id"
+        ]
+    },
+    "POST //financeiro/centros-custo": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroCadastroController@centroSalvar",
+        "chaves": [
+            "pai_id",
+            "codigo",
+            "descricao",
+            "nivel",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //financeiro/conciliacao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@conciliacao",
+        "chaves": [
+            "conta_id",
+            "inicio",
+            "fim",
+            "ofx",
+            "arquivo",
+            "data"
+        ],
+        "obrigatorias": [
+            "conta_id",
+            "inicio",
+            "fim"
+        ]
+    },
+    "POST //financeiro/conciliacao/casar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@conciliacaoCasar",
+        "chaves": [
+            "lancamento_id",
+            "movimento_id",
+            "motivo",
+            "data"
+        ],
+        "obrigatorias": [
+            "lancamento_id",
+            "movimento_id"
+        ]
+    },
+    "POST //financeiro/conciliacao/desfazer": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@conciliacaoDesfazer",
+        "chaves": [
+            "lancamento_id",
+            "motivo",
+            "data"
+        ],
+        "obrigatorias": [
+            "lancamento_id"
+        ]
+    },
+    "POST //financeiro/contas/{contaId}/extrato-regras": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@criarExtratoRegra",
+        "chaves": [
+            "data",
+            "conta_id",
+            "empresa_id",
+            "grupo_id",
+            "descricao",
+            "acao",
+            "cliente_id",
+            "ativo",
+            "prioridade",
+            "condicaopagamento_id",
+            "contamovimentotipo_id",
+            "plano_conta_id",
+            "centro_custo_id",
+            "conta_origem_id"
+        ],
+        "obrigatorias": []
+    },
+    "POST //financeiro/lancamentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@criar",
+        "chaves": [
+            "pagarreceber",
+            "cliente_id",
+            "planoconta_id",
+            "centrocusto_id",
+            "documento",
+            "descricao",
+            "valor",
+            "data_emissao",
+            "vencimento",
+            "condicaopagamento_id",
+            "num_parcelas",
+            "empresa_id",
+            "grupo_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "pagarreceber",
+            "valor"
+        ]
+    },
+    "POST //financeiro/lancamentos/agrupar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@agrupar",
+        "chaves": [
+            "titulos",
+            "pagarreceber",
+            "cliente_id",
+            "descricao",
+            "num_parcelas",
+            "empresa_id",
+            "grupo_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "titulos",
+            "pagarreceber"
+        ]
+    },
+    "POST //financeiro/lancamentos/{id}/desagrupar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@desagrupar",
+        "chaves": [
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //financeiro/lancamentos/{id}/reparcelar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@reparcelar",
+        "chaves": [
+            "num_parcelas",
+            "data_base",
+            "data"
+        ],
+        "obrigatorias": [
+            "num_parcelas"
+        ]
+    },
+    "POST //financeiro/planos-conta": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroCadastroController@planoSalvar",
+        "chaves": [
+            "pai_id",
+            "codigo",
+            "descricao",
+            "pagarreceber",
+            "nivel",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "pagarreceber"
+        ]
+    },
+    "POST //fiscal/inutilizacoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@inutilizar",
+        "chaves": [
+            "modelo",
+            "serie",
+            "numero_inicial",
+            "numero_final",
+            "justificativa",
+            "data"
+        ],
+        "obrigatorias": [
+            "modelo",
+            "serie",
+            "numero_inicial",
+            "numero_final",
+            "justificativa"
+        ]
+    },
+    "POST //fiscal/inventarios": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\InventarioFiscalController@store",
+        "chaves": [
+            "mes_entrega",
+            "data_inventario",
+            "motivo",
+            "itens",
+            "data"
+        ],
+        "obrigatorias": [
+            "mes_entrega",
+            "data_inventario",
+            "itens"
+        ]
+    },
+    "POST //fiscal/malha/{tipo}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FiscalConfigController@malhaSalvar",
+        "chaves": [
+            "codigo",
+            "descricao",
+            "ativo",
+            "data",
+            "tipo"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //fiscal/nf-entrada/importar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NfEntradaController@importar",
+        "chaves": [
+            "xml",
+            "arquivo",
+            "data",
+            "itens"
+        ],
+        "obrigatorias": []
+    },
+    "POST //fiscal/nf-entrada/{id}/processar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NfEntradaController@processar",
+        "chaves": [
+            "setor_id",
+            "data",
+            "itens"
+        ],
+        "obrigatorias": [
+            "setor_id"
+        ]
+    },
+    "POST //fiscal/nfe/{id}/cancelar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@cancelar",
+        "chaves": [
+            "justificativa",
+            "data"
+        ],
+        "obrigatorias": [
+            "justificativa"
+        ]
+    },
+    "POST //fiscal/nfe/{id}/carta-correcao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@cartaCorrecao",
+        "chaves": [
+            "correcao",
+            "data"
+        ],
+        "obrigatorias": [
+            "correcao"
+        ]
+    },
+    "POST //fiscal/nfe/{id}/transmitir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@transmitir",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //fiscal/operacoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FiscalConfigController@operacaoSalvar",
+        "chaves": [
+            "descricao",
+            "descricao_fiscal",
+            "cfop",
+            "movimenta_estoque",
+            "movimenta_financeiro",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //franqueados/{id}/carga": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CargaFranqueadoController@carregar",
+        "chaves": [
+            "data",
+            "setor_origem_id",
+            "itens"
+        ],
+        "obrigatorias": []
+    },
+    "POST //franqueados/{id}/devolucao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CargaFranqueadoController@devolver",
+        "chaves": [
+            "data",
+            "setor_origem_id",
+            "itens"
+        ],
+        "obrigatorias": []
+    },
+    "POST //gasdopovo": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PagamentoController@gasRegistrar",
+        "chaves": [
+            "cliente_id",
+            "nis",
+            "competencia",
+            "valor",
+            "data"
+        ],
+        "obrigatorias": [
+            "competencia",
+            "valor"
+        ]
+    },
+    "POST //gasdopovo/{id}/sacar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PagamentoController@gasSacar",
+        "chaves": [
+            "pedido_id",
+            "conta_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "pedido_id"
+        ]
+    },
+    "POST //geo/{entidade}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GeoController@store",
+        "chaves": [
+            "data",
+            "cod_ibge",
+            "uf",
+            "municipio_ibge"
+        ],
+        "obrigatorias": []
+    },
+    "POST //grupos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GrupoController@store",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //logradouros-oficiais/normalizar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\LogradouroOficialController@normalizar",
+        "chaves": [
+            "rua_id",
+            "oficial_id",
+            "data",
+            "message"
+        ],
+        "obrigatorias": [
+            "rua_id",
+            "oficial_id"
+        ]
+    },
+    "POST //logradouros/importacoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ImportacaoLogradouroController@store",
+        "chaves": [
+            "cidade_id",
+            "message",
+            "grupo_id",
+            "fonte",
+            "situacao",
+            "executado_por",
+            "data",
+            "id"
+        ],
+        "obrigatorias": [
+            "cidade_id"
+        ]
+    },
+    "POST //malotes/fechar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MaloteController@fechar",
+        "chaves": [
+            "pedidos",
+            "conta_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "pedidos"
+        ]
+    },
+    "POST //mcmm": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@mcmmSalvar",
+        "chaves": [
+            "data",
+            "descricao",
+            "tipo",
+            "quantidade",
+            "produto_id"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "tipo",
+            "quantidade"
+        ]
+    },
+    "POST //metas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@metaSalvar",
+        "chaves": [
+            "colaborador_id",
+            "competencia",
+            "meta_valor",
+            "data"
+        ],
+        "obrigatorias": [
+            "competencia",
+            "meta_valor"
+        ]
+    },
+    "POST //missoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MissaoController@store",
+        "chaves": [
+            "data",
+            "empresa_id",
+            "grupo_id",
+            "tipo",
+            "titulo",
+            "descricao",
+            "cerca_id",
+            "centro_lat",
+            "centro_lng",
+            "raio_m",
+            "meta_visitas",
+            "janela_inicio",
+            "janela_fim",
+            "exige_foto",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //missoes/atribuicoes/{id}/adiamento": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MissaoController@decidirAdiamento",
+        "chaves": [
+            "decisao",
+            "adiamento_aprovacao",
+            "status",
+            "data",
+            "id",
+            "aprovacao"
+        ],
+        "obrigatorias": [
+            "decisao"
+        ]
+    },
+    "POST //missoes/atribuicoes/{id}/auditar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MissaoController@auditar",
+        "chaves": [
+            "resultado",
+            "sancao",
+            "observacao",
+            "auditoria_resultado",
+            "auditoria_sancao",
+            "auditoria_observacao",
+            "auditoria_user_id",
+            "auditoria_em",
+            "data",
+            "id"
+        ],
+        "obrigatorias": [
+            "resultado"
+        ]
+    },
+    "POST //missoes/{id}/atribuir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MissaoController@atribuir",
+        "chaves": [
+            "entregador_user_id",
+            "empresa_id",
+            "missao_id",
+            "status",
+            "automatica",
+            "data",
+            "id"
+        ],
+        "obrigatorias": [
+            "entregador_user_id"
+        ]
+    },
+    "POST //monitora/cercas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@criarCerca",
+        "chaves": [
+            "empresa_id",
+            "grupo_id",
+            "descricao",
+            "cor",
+            "setor_id",
+            "cidade_id",
+            "ativo",
+            "data",
+            "pontos",
+            "latitude",
+            "longitude",
+            "ordem"
+        ],
+        "obrigatorias": []
+    },
+    "POST //monitora/cercas/quadra": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@quadraDaCerca",
+        "chaves": [
+            "latitude",
+            "longitude",
+            "data",
+            "message"
+        ],
+        "obrigatorias": [
+            "latitude",
+            "longitude"
+        ]
+    },
+    "POST //monitora/cercas/{id}/ajustar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@ajustarCerca",
+        "chaves": [
+            "lat",
+            "lng",
+            "data",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //monitora/sync": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@sincronizar",
+        "chaves": [
+            "message",
+            "ingeridas"
+        ],
+        "obrigatorias": []
+    },
+    "POST //monitora/tipos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@criarTipo",
+        "chaves": [
+            "descricao",
+            "icone",
+            "velocidade_maxima",
+            "ativo",
+            "data",
+            "grupo_id"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //monitora/veiculos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@criarVeiculo",
+        "chaves": [
+            "data",
+            "empresa_id",
+            "grupo_id",
+            "placa",
+            "descricao",
+            "tipo_id",
+            "motorista",
+            "km_atual",
+            "imei",
+            "deviceid",
+            "veiculo_frota_id",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //monitora/veiculos/{id}/posicoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@ingerirPosicao",
+        "chaves": [
+            "latitude",
+            "longitude",
+            "velocidade",
+            "direcao",
+            "ignicao",
+            "registrado_em",
+            "data"
+        ],
+        "obrigatorias": [
+            "latitude",
+            "longitude"
+        ]
+    },
+    "POST //municipios-ibge/adotar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MunicipioIbgeController@adotar",
+        "chaves": [
+            "cod_ibge",
+            "municipio_ibge",
+            "data",
+            "message",
+            "grupo_id",
+            "descricao",
+            "uf",
+            "ativo"
+        ],
+        "obrigatorias": [
+            "cod_ibge"
+        ]
+    },
+    "POST //municipios-ibge/conciliacao/aplicar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MunicipioIbgeController@aplicarConciliacao",
+        "chaves": [
+            "data",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //notas/emitir": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@emitir",
+        "chaves": [
+            "pedido_id",
+            "modelo",
+            "data"
+        ],
+        "obrigatorias": [
+            "pedido_id",
+            "modelo"
+        ]
+    },
+    "POST //notas/{id}/cancelar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@cancelar",
+        "chaves": [
+            "justificativa",
+            "data"
+        ],
+        "obrigatorias": [
+            "justificativa"
+        ]
+    },
+    "POST //notas/{id}/carta-correcao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\NotaFiscalController@cartaCorrecao",
+        "chaves": [
+            "correcao",
+            "data"
+        ],
+        "obrigatorias": [
+            "correcao"
+        ]
+    },
+    "POST //papeis": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PapelController@store",
+        "chaves": [
+            "grupo_id",
+            "nome",
+            "descricao",
+            "data",
+            "permissoes",
+            "role_id",
+            "snapshot",
+            "alterado_por",
+            "id",
+            "usuarios_count"
+        ],
+        "obrigatorias": []
+    },
+    "POST //papeis/{id}/condicoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PapelController@condicaoStore",
+        "chaves": [
+            "role_id",
+            "permission_id",
+            "tipo",
+            "parametros",
+            "ativo",
+            "data",
+            "id",
+            "permissao"
+        ],
+        "obrigatorias": []
+    },
+    "POST //pedidos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@store",
+        "chaves": [
+            "user_id",
+            "canal",
+            "atendente_user_id",
+            "cliente_id",
+            "pedidosituacao_id",
+            "pedidooperacao_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "entregador_user_id",
+            "datahora",
+            "entrega_urgente",
+            "entrega_telefone",
+            "entrega_taxa",
+            "entrega_troco_para",
+            "observacao",
+            "itens"
+        ],
+        "obrigatorias": []
+    },
+    "POST //pedidos/situacoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@criarSituacao",
+        "chaves": [
+            "data",
+            "ordem",
+            "descricao",
+            "efeito",
+            "papel",
+            "cor",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //pedidos/{id}/emitir-nfce": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@emitirNfce",
+        "chaves": [
+            "modelo",
+            "data",
+            "message",
+            "pedido"
+        ],
+        "obrigatorias": []
+    },
+    "POST //pedidos/{id}/justificar-atraso": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@justificarAtraso",
+        "chaves": [
+            "pedidomotivoatraso_id",
+            "justificativa",
+            "data",
+            "pedido_id",
+            "message"
+        ],
+        "obrigatorias": [
+            "pedidomotivoatraso_id"
+        ]
+    },
+    "POST //pedidos/{id}/nao-venda": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@registrarNaoVenda",
+        "chaves": [
+            "motivonaovenda_id",
+            "data",
+            "pedido_id",
+            "message"
+        ],
+        "obrigatorias": [
+            "motivonaovenda_id"
+        ]
+    },
+    "POST //pix/cobrancas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PixController@criar",
+        "chaves": [
+            "parcela_id",
+            "expira_segundos",
+            "data"
+        ],
+        "obrigatorias": [
+            "parcela_id"
+        ]
+    },
+    "POST //pos-vendas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@posVendaSalvar",
+        "chaves": [
+            "cliente_id",
+            "pedido_id",
+            "data",
+            "nota",
+            "canal",
+            "observacao",
+            "situacao"
+        ],
+        "obrigatorias": []
+    },
+    "POST //produto-config/classes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoConfigController@classeSalvar",
+        "chaves": [
+            "descricao",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //produto-config/unidades": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoConfigController@unidadeSalvar",
+        "chaves": [
+            "descricao",
+            "sigla",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //produtos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoController@store",
+        "chaves": [
+            "custo_medio",
+            "custo_frete",
+            "precovenda",
+            "precovendaminimo",
+            "customedio",
+            "custofrete",
+            "precogasdopovo",
+            "pesoliquido",
+            "pesobruto",
+            "descricao",
+            "natureza",
+            "tipo",
+            "capacidade",
+            "produtoclasse_id",
+            "unidademedida_id",
+            "vasilhame_retornavel",
+            "produto_retornavel_id",
+            "ativo",
+            "envia_app_nf",
+            "dias_giro",
+            "observacao",
+            "preco_venda",
+            "preco_venda_minimo",
+            "preco_gasdopovo",
+            "peso_liquido",
+            "peso_bruto",
+            "nfe_permite",
+            "sped",
+            "nfe_tipo_item",
+            "ncm",
+            "nfe_cest",
+            "ean",
+            "especie",
+            "marca",
+            "grupo_fiscal_id",
+            "ean_trib",
+            "nfe_descricao_fiscal",
+            "nfe_nat_rec",
+            "nfe_cod_gen",
+            "nfe_cod_lst",
+            "nfe_aliq_ipi",
+            "nfe_bc_ipi",
+            "nfe_cod_enquadramento_ipi",
+            "nfe_ex_tipi",
+            "tipo_glp",
+            "nfe_cprod_anp",
+            "nfe_desc_anp",
+            "nfe_qbc_prod",
+            "nfe_valiq_prod",
+            "nfe_vcide",
+            "pglp",
+            "pgnn",
+            "pgni",
+            "origens"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //promocoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@promocaoSalvar",
+        "chaves": [
+            "descricao",
+            "inicio",
+            "fim",
+            "desconto_percentual",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "inicio",
+            "fim"
+        ]
+    },
+    "POST //regioes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\RegiaoController@store",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //seguranca/2fa/confirmar": {
+        "acao": "App\\Http\\Controllers\\Api\\SegurancaController@twoFactorConfirm",
+        "chaves": [
+            "otp",
+            "habilitado",
+            "confirmado_em",
+            "recovery_codes",
+            "message"
+        ],
+        "obrigatorias": [
+            "otp"
+        ]
+    },
+    "POST //seguranca/2fa/desabilitar": {
+        "acao": "App\\Http\\Controllers\\Api\\SegurancaController@twoFactorDisable",
+        "chaves": [
+            "password",
+            "message"
+        ],
+        "obrigatorias": [
+            "password"
+        ]
+    },
+    "POST //seguranca/2fa/setup": {
+        "acao": "App\\Http\\Controllers\\Api\\SegurancaController@twoFactorSetup",
+        "chaves": [
+            "user_id",
+            "secret",
+            "habilitado",
+            "confirmado_em",
+            "recovery_codes",
+            "otpauth_uri"
+        ],
+        "obrigatorias": []
+    },
+    "POST //seguranca/sessoes/revogar-outras": {
+        "acao": "App\\Http\\Controllers\\Api\\SegurancaController@revogarOutras",
+        "chaves": [
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "POST //setores": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\SetorController@store",
+        "chaves": [
+            "data",
+            "descricao",
+            "tipo",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //setores-org": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@setorStore",
+        "chaves": [
+            "data",
+            "departamento_id",
+            "nome",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //sorteios": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@sorteioSalvar",
+        "chaves": [
+            "descricao",
+            "premio",
+            "data_sorteio",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "POST //sorteios/{id}/numeros": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@sorteioNumero",
+        "chaves": [
+            "cliente_id",
+            "numero",
+            "data"
+        ],
+        "obrigatorias": [
+            "numero"
+        ]
+    },
+    "POST //sorteios/{id}/sortear": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@sortear",
+        "chaves": [
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //taxas-entrega": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\TaxaEntregaController@store",
+        "chaves": [
+            "empresa_id",
+            "grupo_id",
+            "data",
+            "descricao",
+            "criterio",
+            "bairro_id",
+            "cidade_id",
+            "faixa_de",
+            "faixa_ate",
+            "valor",
+            "isenta",
+            "custo_estimado",
+            "prioridade",
+            "ativo",
+            "id",
+            "bairro",
+            "cidade",
+            "margem"
+        ],
+        "obrigatorias": []
+    },
+    "POST //telefonia/chamadas/{id}/atender": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\TelefoniaController@atender",
+        "chaves": [
+            "cliente_id",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //telefonia/chamadas/{id}/rejeitar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\TelefoniaController@rejeitar",
+        "chaves": [
+            "motivo",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "POST //unidades": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@unidadeStore",
+        "chaves": [
+            "data",
+            "nome",
+            "tipo",
+            "cnpj",
+            "parent_id",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //usuarios": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\UsuarioController@store",
+        "chaves": [
+            "name",
+            "email",
+            "password",
+            "empresa_id",
+            "grupo_id",
+            "ativo",
+            "support",
+            "data",
+            "papeis",
+            "unidade_id",
+            "departamento_id",
+            "setor_id",
+            "herda_filhos",
+            "id",
+            "nome"
+        ],
+        "obrigatorias": []
+    },
+    "POST //usuarios/{id}/resetar-senha": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\UsuarioController@resetarSenha",
+        "chaves": [
+            "password",
+            "message"
+        ],
+        "obrigatorias": [
+            "password"
+        ]
+    },
+    "POST //vale-gas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ValeGasController@store",
+        "chaves": [
+            "cliente_id",
+            "produto_id",
+            "valor",
+            "validade",
+            "codigo",
+            "data",
+            "empresa_id",
+            "grupo_id"
+        ],
+        "obrigatorias": [
+            "valor"
+        ]
+    },
+    "POST //vale-gas/baixar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ValeGasController@baixar",
+        "chaves": [
+            "codigo",
+            "situacao",
+            "pedido_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "codigo",
+            "situacao"
+        ]
+    },
+    "POST //veiculos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@store",
+        "chaves": [
+            "data",
+            "id",
+            "placa",
+            "descricao",
+            "kmatual",
+            "km_atual",
+            "veiculotipo_id",
+            "tipocombustivel_id",
+            "renavam",
+            "km_troca_oleo",
+            "km_ultima_troca_oleo",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "POST //veiculos/{id}/abastecimentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@registrarAbastecimento",
+        "chaves": [
+            "data",
+            "km",
+            "litros",
+            "valor_litro",
+            "valor_total",
+            "tanque_cheio"
+        ],
+        "obrigatorias": [
+            "km",
+            "litros"
+        ]
+    },
+    "POST //veiculos/{id}/documentos": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@registrarDocumento",
+        "chaves": [
+            "tipo",
+            "tipo_documento_id",
+            "numero",
+            "emissao",
+            "vencimento",
+            "observacao",
+            "data"
+        ],
+        "obrigatorias": [
+            "tipo"
+        ]
+    },
+    "POST //veiculos/{id}/entradas-saidas": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@registrarEntradaSaida",
+        "chaves": [
+            "tipo",
+            "datahora",
+            "km",
+            "colaborador_id",
+            "observacao",
+            "km_atual",
+            "data"
+        ],
+        "obrigatorias": [
+            "tipo"
+        ]
+    },
+    "POST //veiculos/{id}/pneus": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@registrarPneu",
+        "chaves": [
+            "data",
+            "posicao",
+            "marca",
+            "data_instalacao",
+            "km_instalacao"
+        ],
+        "obrigatorias": []
+    },
+    "POST //veiculos/{id}/trocas-oleo": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@registrarTrocaOleo",
+        "chaves": [
+            "data",
+            "km",
+            "valor",
+            "observacao"
+        ],
+        "obrigatorias": [
+            "km"
+        ]
+    },
+    "PUT //alcadas/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\AlcadaDescontoController@salvar",
+        "chaves": [
+            "role_id",
+            "colaborador_id",
+            "produto_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "percentual_max",
+            "valor_max",
+            "base_calculo",
+            "permite_solicitar",
+            "data_inicio",
+            "data_fim",
+            "ativo",
+            "data",
+            "empresa_id"
+        ],
+        "obrigatorias": [
+            "percentual_max"
+        ]
+    },
+    "PUT //bens/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@bemSalvar",
+        "chaves": [
+            "descricao",
+            "data_aquisicao",
+            "valor_aquisicao",
+            "taxa_depreciacao_anual",
+            "valor_residual",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "valor_aquisicao"
+        ]
+    },
+    "PUT //cadastros/{tipo}/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CadastroApoioController@update",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //central/config": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CentralController@salvarConfig",
+        "chaves": [
+            "modo",
+            "peso_distancia",
+            "peso_carga",
+            "raio_maximo_km",
+            "teto_carga",
+            "ociosidade_min",
+            "empresa_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "modo"
+        ]
+    },
+    "PUT //checklists/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@checklistSalvar",
+        "chaves": [
+            "descricao",
+            "ativo",
+            "perguntas",
+            "pergunta",
+            "ordem",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //cheques/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ChequeController@update",
+        "chaves": [
+            "data",
+            "especie",
+            "cliente_id",
+            "banco_id",
+            "numero",
+            "agencia",
+            "conta_corrente",
+            "titular",
+            "valor",
+            "bom_para"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //cheques/{id}/situacao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ChequeController@mudarSituacao",
+        "chaves": [
+            "situacao",
+            "conta_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "situacao"
+        ]
+    },
+    "PUT //cidades/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CidadeController@update",
+        "chaves": [
+            "data",
+            "nome",
+            "uf",
+            "cod_ibge",
+            "centro_lat",
+            "centro_lng",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //clientes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteController@update",
+        "chaves": [
+            "nome",
+            "fantasia",
+            "tipopessoa_id",
+            "segmento_id",
+            "sexo",
+            "datanascimento",
+            "observacoes",
+            "cpf",
+            "rg",
+            "cnpj",
+            "inscricao_estadual",
+            "indicador_ie",
+            "suframa",
+            "cliente",
+            "fornecedor",
+            "transportador",
+            "simples",
+            "nfemite",
+            "gasdopovo",
+            "ativo",
+            "endereco",
+            "numero",
+            "complemento",
+            "ponto_referencia",
+            "cep",
+            "uf",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "email",
+            "convenio",
+            "convenio_ativo",
+            "convenio_id",
+            "convenio_limite",
+            "credito_limite",
+            "telefones"
+        ],
+        "obrigatorias": [
+            "nome"
+        ]
+    },
+    "PUT //clientes/{id}/convenio": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ClienteSubrecursoController@salvarConvenio",
+        "chaves": [
+            "convenio",
+            "convenio_ativo",
+            "convenio_limite",
+            "message"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //colaboradores/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@update",
+        "chaves": [
+            "data",
+            "id",
+            "nome",
+            "cpf",
+            "dataadmissao",
+            "datadesligamento",
+            "cargo",
+            "cargo_label",
+            "ativo",
+            "desativado_em",
+            "motivo_desativacao",
+            "desativado_por_nome",
+            "rg",
+            "cargo_id",
+            "data_nascimento",
+            "data_admissao",
+            "data_desligamento",
+            "datanascimento",
+            "telefone",
+            "entregador",
+            "cep",
+            "uf",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "numero",
+            "complemento"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //colaboradores/{id}/comissoes/{comissaoId}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@updateComissao",
+        "chaves": [
+            "data",
+            "produto_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "tipo_comissao",
+            "percentual",
+            "empresa_valor",
+            "percentual_app",
+            "empresa_valor_app",
+            "data_inicio",
+            "data_fim",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //colaboradores/{id}/recessos/{recessoId}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ColaboradorController@updateRecesso",
+        "chaves": [
+            "data",
+            "tipo",
+            "inicio",
+            "fim",
+            "observacao"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //comodatos/config": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@salvarConfig",
+        "chaves": [
+            "dias_janela",
+            "giro_minimo",
+            "giro_critico",
+            "queda_atencao",
+            "queda_critica",
+            "dias_sem_compra_alerta",
+            "posse_minima_vigiada",
+            "dias_aviso_vencimento",
+            "ativo",
+            "empresa_id",
+            "grupo_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "dias_janela",
+            "giro_minimo",
+            "giro_critico",
+            "queda_atencao",
+            "queda_critica",
+            "dias_sem_compra_alerta",
+            "posse_minima_vigiada",
+            "dias_aviso_vencimento"
+        ]
+    },
+    "PUT //comodatos/vinculos/{produto}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ComodatoController@salvarVinculo",
+        "chaves": [
+            "produto_retornavel_id",
+            "message",
+            "data",
+            "id"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //config-global": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ConfigGlobalController@update",
+        "chaves": [
+            "rt_cnpj",
+            "rt_contato",
+            "rt_email",
+            "rt_telefone",
+            "rt_id_csrt",
+            "rt_csrt",
+            "email_remetente",
+            "email_nome_remetente",
+            "email_host",
+            "email_porta",
+            "email_usuario",
+            "email_senha",
+            "email_tls",
+            "sat_cnpj_prod",
+            "sat_cnpj_homolog",
+            "sat_signac_prod",
+            "sat_signac_homolog",
+            "google_maps_key",
+            "link_monitoramento",
+            "grupo_id",
+            "data",
+            "message",
+            "rt_csrt_definido",
+            "email_senha_definida",
+            "sat_signac_prod_definido",
+            "sat_signac_homolog_definido"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //departamentos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@departamentoUpdate",
+        "chaves": [
+            "data",
+            "unidade_id",
+            "nome",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //documentos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@documentoSalvar",
+        "chaves": [
+            "tipo",
+            "descricao",
+            "numero",
+            "emissao",
+            "validade",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //empresas/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaController@update",
+        "chaves": [
+            "razao_social",
+            "nome_fantasia",
+            "nome_informal",
+            "cnpj",
+            "inscricao_estadual",
+            "inscricao_municipal",
+            "cep",
+            "uf",
+            "cidade",
+            "bairro",
+            "endereco",
+            "cidade_id",
+            "bairro_id",
+            "rua_id",
+            "regiao_id",
+            "numero",
+            "complemento",
+            "telefone1",
+            "telefone2",
+            "latitude",
+            "longitude",
+            "matriz",
+            "ativo"
+        ],
+        "obrigatorias": [
+            "razao_social"
+        ]
+    },
+    "PUT //empresas/{id}/cidades": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CidadeController@definirCidadesDaEmpresa",
+        "chaves": [
+            "cidade_ids",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //empresas/{id}/config": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@update",
+        "chaves": [
+            "config",
+            "empresa_id",
+            "data",
+            "options",
+            "min_range",
+            "integracoes"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //empresas/{id}/config/senha-mestra": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@senhaMestra",
+        "chaves": [
+            "senha_atual",
+            "senha_nova",
+            "empresa_id",
+            "message"
+        ],
+        "obrigatorias": [
+            "senha_nova"
+        ]
+    },
+    "PUT //empresas/{id}/fiscal": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@fiscalUpdate",
+        "chaves": [
+            "ambiente",
+            "regime_tributario",
+            "serie_nfe",
+            "serie_nfce",
+            "csc_id",
+            "csc_token",
+            "nfe_emite",
+            "nfce_emite",
+            "sped_emite",
+            "contador",
+            "cadastro",
+            "empresa_id",
+            "fiscal",
+            "sped",
+            "data",
+            "tem_csc",
+            "ultimo_numero_nfe",
+            "ultimo_numero_nfce"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //empresas/{id}/integracoes": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@salvarIntegracoes",
+        "chaves": [
+            "pix",
+            "cartao",
+            "empresa_id",
+            "integracoes",
+            "data",
+            "psp",
+            "client_id",
+            "chave",
+            "ambiente",
+            "client_secret_configurado",
+            "webhook_hmac_configurado",
+            "gateway",
+            "pv",
+            "url",
+            "token_configurado"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //empresas/{id}/nfce-token": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EmpresaConfigController@nfceToken",
+        "chaves": [
+            "nfce_csc_id",
+            "nfce_csc_token",
+            "empresa_id",
+            "message",
+            "data"
+        ],
+        "obrigatorias": [
+            "nfce_csc_id",
+            "nfce_csc_token"
+        ]
+    },
+    "PUT //financeiro/centros-custo/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroCadastroController@centroSalvar",
+        "chaves": [
+            "pai_id",
+            "codigo",
+            "descricao",
+            "nivel",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //financeiro/contas/{contaId}/extrato-regras/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroController@atualizarExtratoRegra",
+        "chaves": [
+            "data",
+            "descricao",
+            "acao",
+            "cliente_id",
+            "ativo",
+            "prioridade",
+            "condicaopagamento_id",
+            "contamovimentotipo_id",
+            "plano_conta_id",
+            "centro_custo_id",
+            "conta_origem_id"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //financeiro/planos-conta/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FinanceiroCadastroController@planoSalvar",
+        "chaves": [
+            "pai_id",
+            "codigo",
+            "descricao",
+            "pagarreceber",
+            "nivel",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "pagarreceber"
+        ]
+    },
+    "PUT //fiscal/config": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ConfigFiscalController@update",
+        "chaves": [
+            "ambiente",
+            "serie_nfe",
+            "serie_nfce",
+            "regime_tributario",
+            "csc_id",
+            "csc_token",
+            "empresa_id",
+            "data"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //fiscal/malha/{tipo}/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FiscalConfigController@malhaSalvar",
+        "chaves": [
+            "codigo",
+            "descricao",
+            "ativo",
+            "data",
+            "tipo"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //fiscal/operacoes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\FiscalConfigController@operacaoSalvar",
+        "chaves": [
+            "descricao",
+            "descricao_fiscal",
+            "cfop",
+            "movimenta_estoque",
+            "movimenta_financeiro",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //geo/{entidade}/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GeoController@update",
+        "chaves": [
+            "data",
+            "cod_ibge",
+            "uf",
+            "municipio_ibge"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //grupos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GrupoController@update",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //mcmm/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\GestaoController@mcmmSalvar",
+        "chaves": [
+            "data",
+            "descricao",
+            "tipo",
+            "quantidade",
+            "produto_id"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "tipo",
+            "quantidade"
+        ]
+    },
+    "PUT //metas/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@metaSalvar",
+        "chaves": [
+            "colaborador_id",
+            "competencia",
+            "meta_valor",
+            "data"
+        ],
+        "obrigatorias": [
+            "competencia",
+            "meta_valor"
+        ]
+    },
+    "PUT //missoes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MissaoController@update",
+        "chaves": [
+            "data",
+            "tipo",
+            "titulo",
+            "descricao",
+            "cerca_id",
+            "centro_lat",
+            "centro_lng",
+            "raio_m",
+            "meta_visitas",
+            "janela_inicio",
+            "janela_fim",
+            "exige_foto",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //monitora/cercas/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@atualizarCerca",
+        "chaves": [
+            "descricao",
+            "cor",
+            "setor_id",
+            "cidade_id",
+            "ativo",
+            "data",
+            "pontos",
+            "latitude",
+            "longitude",
+            "ordem"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //monitora/veiculos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\MonitoraController@atualizarVeiculo",
+        "chaves": [
+            "data",
+            "placa",
+            "descricao",
+            "tipo_id",
+            "motorista",
+            "km_atual",
+            "imei",
+            "deviceid",
+            "veiculo_frota_id",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //papeis/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PapelController@update",
+        "chaves": [
+            "nome",
+            "descricao",
+            "data",
+            "permissoes",
+            "role_id",
+            "snapshot",
+            "alterado_por",
+            "id",
+            "usuarios_count"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //pedidos/situacoes/reordenar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@reordenarSituacoes",
+        "chaves": [
+            "ordem",
+            "message"
+        ],
+        "obrigatorias": [
+            "ordem"
+        ]
+    },
+    "PUT //pedidos/situacoes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@atualizarSituacao",
+        "chaves": [
+            "data",
+            "descricao",
+            "efeito",
+            "papel",
+            "cor",
+            "ordem",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //pedidos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@update",
+        "chaves": [
+            "cliente_id",
+            "pedidosituacao_id",
+            "pedidooperacao_id",
+            "setor_id",
+            "condicaopagamento_id",
+            "atendente_user_id",
+            "entregador_user_id",
+            "datahora",
+            "entrega_urgente",
+            "entrega_telefone",
+            "entrega_taxa",
+            "entrega_troco_para",
+            "observacao",
+            "itens"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //pedidos/{id}/situacao": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\PedidoController@mudarSituacao",
+        "chaves": [
+            "pedidosituacao_id"
+        ],
+        "obrigatorias": [
+            "pedidosituacao_id"
+        ]
+    },
+    "PUT //pos-vendas/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@posVendaSalvar",
+        "chaves": [
+            "cliente_id",
+            "pedido_id",
+            "data",
+            "nota",
+            "canal",
+            "observacao",
+            "situacao"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //produto-config/classes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoConfigController@classeSalvar",
+        "chaves": [
+            "descricao",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //produto-config/unidades/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoConfigController@unidadeSalvar",
+        "chaves": [
+            "descricao",
+            "sigla",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //produtos-precos/aplicar": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoPrecoController@aplicar",
+        "chaves": [
+            "message",
+            "afetados",
+            "tipo",
+            "valor",
+            "classe_id"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //produtos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\ProdutoController@update",
+        "chaves": [
+            "custo_medio",
+            "custo_frete",
+            "precovenda",
+            "precovendaminimo",
+            "customedio",
+            "custofrete",
+            "precogasdopovo",
+            "pesoliquido",
+            "pesobruto",
+            "descricao",
+            "natureza",
+            "tipo",
+            "capacidade",
+            "produtoclasse_id",
+            "unidademedida_id",
+            "vasilhame_retornavel",
+            "produto_retornavel_id",
+            "ativo",
+            "envia_app_nf",
+            "dias_giro",
+            "observacao",
+            "preco_venda",
+            "preco_venda_minimo",
+            "preco_gasdopovo",
+            "peso_liquido",
+            "peso_bruto",
+            "nfe_permite",
+            "sped",
+            "nfe_tipo_item",
+            "ncm",
+            "nfe_cest",
+            "ean",
+            "especie",
+            "marca",
+            "grupo_fiscal_id",
+            "ean_trib",
+            "nfe_descricao_fiscal",
+            "nfe_nat_rec",
+            "nfe_cod_gen",
+            "nfe_cod_lst",
+            "nfe_aliq_ipi",
+            "nfe_bc_ipi",
+            "nfe_cod_enquadramento_ipi",
+            "nfe_ex_tipi",
+            "tipo_glp",
+            "nfe_cprod_anp",
+            "nfe_desc_anp",
+            "nfe_qbc_prod",
+            "nfe_valiq_prod",
+            "nfe_vcide",
+            "pglp",
+            "pgnn",
+            "pgni",
+            "origens"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //promocoes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@promocaoSalvar",
+        "chaves": [
+            "descricao",
+            "inicio",
+            "fim",
+            "desconto_percentual",
+            "ativo",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao",
+            "inicio",
+            "fim"
+        ]
+    },
+    "PUT //regioes/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\RegiaoController@update",
+        "chaves": [
+            "data",
+            "descricao",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //seguranca/politica-senha": {
+        "acao": "App\\Http\\Controllers\\Api\\SegurancaController@politicaSenhaUpdate",
+        "chaves": [
+            "min_len",
+            "exige_complexidade",
+            "expira_dias",
+            "empresa_id",
+            "data"
+        ],
+        "obrigatorias": [
+            "min_len",
+            "exige_complexidade",
+            "expira_dias"
+        ]
+    },
+    "PUT //setores-org/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@setorUpdate",
+        "chaves": [
+            "data",
+            "departamento_id",
+            "nome",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //setores/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\SetorController@update",
+        "chaves": [
+            "data",
+            "descricao",
+            "tipo",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //sorteios/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\CrmController@sorteioSalvar",
+        "chaves": [
+            "descricao",
+            "premio",
+            "data_sorteio",
+            "data"
+        ],
+        "obrigatorias": [
+            "descricao"
+        ]
+    },
+    "PUT //taxas-entrega/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\TaxaEntregaController@update",
+        "chaves": [
+            "data",
+            "descricao",
+            "criterio",
+            "bairro_id",
+            "cidade_id",
+            "faixa_de",
+            "faixa_ate",
+            "valor",
+            "isenta",
+            "custo_estimado",
+            "prioridade",
+            "ativo",
+            "id",
+            "bairro",
+            "cidade",
+            "margem"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //unidades/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\EstruturaController@unidadeUpdate",
+        "chaves": [
+            "parent_id",
+            "data",
+            "nome",
+            "tipo",
+            "cnpj",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //usuarios/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\UsuarioController@update",
+        "chaves": [
+            "name",
+            "email",
+            "ativo",
+            "data",
+            "papeis",
+            "password",
+            "empresa_id",
+            "unidade_id",
+            "departamento_id",
+            "setor_id",
+            "herda_filhos",
+            "id",
+            "support",
+            "nome"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //veiculos/{id}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@update",
+        "chaves": [
+            "data",
+            "id",
+            "placa",
+            "descricao",
+            "kmatual",
+            "km_atual",
+            "veiculotipo_id",
+            "tipocombustivel_id",
+            "renavam",
+            "km_troca_oleo",
+            "km_ultima_troca_oleo",
+            "ativo"
+        ],
+        "obrigatorias": []
+    },
+    "PUT //veiculos/{id}/pneus/{pneuId}": {
+        "acao": "App\\Http\\Controllers\\Api\\Admin\\VeiculoController@atualizarPneu",
+        "chaves": [
+            "data",
+            "posicao",
+            "marca",
+            "data_instalacao",
+            "km_instalacao"
+        ],
+        "obrigatorias": []
+    }
+}

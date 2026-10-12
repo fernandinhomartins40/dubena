@@ -35,3 +35,18 @@ it('mostra o que a emissão usa e salva só o que mudou, sem reenviar o CSC', as
 
   await waitFor(() => expect(put).toHaveBeenCalledWith('/empresas/2/fiscal', { serie_nfce: 2 }))
 })
+
+it('"Pronto para emitir?" lista o que falta e como resolver', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ data: { data: {
+    pronto: false,
+    itens: [
+      { chave: 'certificado', titulo: 'Certificado digital A1', ok: false, detalhe: 'Envie o arquivo .pfx e a senha na aba Fiscal / NF-e.' },
+      { chave: 'cnpj', titulo: 'CNPJ', ok: true, detalhe: null },
+    ],
+  } } })
+  const { ProntidaoFiscal } = await import('./FiscalDaEmpresa')
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ProntidaoFiscal empresaId={2} /></QueryClientProvider>)
+  expect(await screen.findByText('1 pendência(s)')).toBeInTheDocument()
+  expect(screen.getByText('Envie o arquivo .pfx e a senha na aba Fiscal / NF-e.')).toBeInTheDocument()
+  expect(screen.getByText('CNPJ')).toBeInTheDocument()
+})

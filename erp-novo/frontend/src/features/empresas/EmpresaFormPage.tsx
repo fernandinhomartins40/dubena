@@ -11,7 +11,7 @@ import { CertificadoSection } from './CertificadoSection'
 import { IntegracoesSection } from './IntegracoesSection'
 import { useResourceForm } from '@/lib/useResourceForm'
 import { useEmpresa, useSalvarEmpresa } from './api'
-import { ContadorCampos, FiscalCampos, cadastroFiscal, useFiscalDaEmpresa } from './FiscalDaEmpresa'
+import { ContadorCampos, FiscalCampos, ProntidaoFiscal, cadastroFiscal, useFiscalDaEmpresa } from './FiscalDaEmpresa'
 
 /** Campos da empresa que o form edita (subconjunto amigável do fillable). */
 const CAMPOS = [
@@ -141,6 +141,7 @@ export function EmpresaFormPage() {
 
         <TabsContent value="fiscal">
           <Card><CardContent className="pt-6 space-y-4">
+            {editId && <ProntidaoFiscal empresaId={editId} />}
             <FiscalCampos ctl={fiscal} />
             {editId
               ? <CertificadoSection empresaId={editId} />

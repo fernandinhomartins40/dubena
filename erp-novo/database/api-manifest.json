@@ -131,6 +131,7 @@
     "GET api/admin/empresas/{id}/cidades",
     "GET api/admin/empresas/{id}/config",
     "GET api/admin/empresas/{id}/fiscal",
+    "GET api/admin/empresas/{id}/fiscal/prontidao",
     "GET api/admin/empresas/{id}/integracoes",
     "GET api/admin/estoque/fechamentos",
     "GET api/admin/estoque/fisico",

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Fiscal\CertificadoService;
+use App\Domain\Fiscal\ProntidaoFiscalService;
 use App\Domain\Integracao\IntegracaoTenant;
 use App\Domain\Tenant\TenantContext;
 use App\Domain\Tenant\TenantEnvelopeRuntime;
@@ -222,6 +223,15 @@ class EmpresaConfigController extends Controller
             'contador' => $dados['contador'] ?? (object) [],
             'cadastro' => $dados['cadastro'] ?? (object) [],
         ]]);
+    }
+
+    /** GET /empresas/{id}/fiscal/prontidao — o que ainda falta para emitir nota. */
+    public function fiscalProntidao(Request $request, int $empresaId): JsonResponse
+    {
+        $empresa = $this->empresaDoGrupo($request, $empresaId);
+        $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
+
+        return response()->json(['data' => app(ProntidaoFiscalService::class)->verificar($empresa)]);
     }
 
     /** PUT /empresas/{id}/fiscal */

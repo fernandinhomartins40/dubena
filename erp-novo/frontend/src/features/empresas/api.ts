@@ -96,7 +96,11 @@ export function useUploadCertificado(empresaId: number) {
       fd.append('senha', senha)
       return (await api.post(`/empresas/${empresaId}/certificado`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['empresa-cert', empresaId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['empresa-cert', empresaId] })
+      // O "Pronto para emitir?" depende do certificado: atualiza na hora.
+      qc.invalidateQueries({ queryKey: ['empresa-fiscal', empresaId] })
+    },
   })
 }
 export function useSalvarNfceToken(empresaId: number) {

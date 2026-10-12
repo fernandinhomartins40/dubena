@@ -144,3 +144,39 @@ export function cadastroFiscal(ctl: Ctl) {
     set: (k: string, v: string | boolean | null) => setFx((f) => ({ ...f, cadastro: { ...f.cadastro, [k]: v === '' ? null : v } })),
   }
 }
+
+interface Prontidao { pronto: boolean; itens: { chave: string; titulo: string; ok: boolean; detalhe: string | null }[] }
+
+/**
+ * "Pronto para emitir?" — a lista inteira do que a emissão exige, conferida
+ * antes da primeira nota (servidor: `ProntidaoFiscalService`). Sem isto cada
+ * falta só aparecia como erro ao transmitir, uma de cada vez.
+ */
+export function ProntidaoFiscal({ empresaId }: { empresaId: number }) {
+  const q = useQuery<Prontidao>({
+    queryKey: ['empresa-fiscal', empresaId, 'prontidao'],
+    queryFn: async () => (await api.get(`/empresas/${empresaId}/fiscal/prontidao`)).data.data,
+  })
+  if (q.isLoading || !q.data) return null
+  const faltam = q.data.itens.filter((i) => !i.ok)
+  return (
+    <section aria-labelledby="prontidao-titulo" className={`rounded-lg border p-4 ${q.data.pronto ? 'border-success/40' : 'border-primary/50'}`}>
+      <h3 id="prontidao-titulo" className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        {q.data.pronto
+          ? <><Badge variant="success">Pronto</Badge> Tudo certo para emitir notas.</>
+          : <><Badge variant="warning">{faltam.length} pendência(s)</Badge> Antes de emitir notas:</>}
+      </h3>
+      <ul className="space-y-1.5 text-sm">
+        {q.data.itens.map((i) => (
+          <li key={i.chave} className="flex items-start gap-2">
+            <span aria-hidden className={i.ok ? 'text-success' : 'text-destructive'}>{i.ok ? '✓' : '✗'}</span>
+            <span>
+              <span className={i.ok ? 'text-muted-foreground' : 'font-medium'}>{i.titulo}</span>
+              {!i.ok && i.detalhe && <span className="block text-xs text-muted-foreground">{i.detalhe}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

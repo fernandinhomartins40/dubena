@@ -169,6 +169,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         Route::put('empresas/{id}/nfce-token', [EmpresaConfigController::class, 'nfceToken'])->whereNumber('id');
         // Config de EMISSÃO da empresa (config_fiscais + contador/cadastro).
         Route::get('empresas/{id}/fiscal', [EmpresaConfigController::class, 'fiscalShow'])->whereNumber('id');
+        Route::get('empresas/{id}/fiscal/prontidao', [EmpresaConfigController::class, 'fiscalProntidao'])->whereNumber('id');
         Route::put('empresas/{id}/fiscal', [EmpresaConfigController::class, 'fiscalUpdate'])->whereNumber('id');
         // Integrações por empresa (multi-tenant) — PIX/cartão. Segredos write-only.
         Route::get('empresas/{id}/integracoes', [EmpresaConfigController::class, 'integracoes'])->whereNumber('id');
