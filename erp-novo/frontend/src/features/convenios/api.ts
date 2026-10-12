@@ -18,7 +18,17 @@ export function useCriarConvenio() {
 export function useFecharConvenio() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: number) => (await api.post(`/convenios/${id}/fechar`)).data.data,
+    // O servidor EXIGE o período; antes ia só o id e todo fechamento pela
+    // tela voltava 422.
+    mutationFn: async ({ id, periodo_inicio, periodo_fim }: { id: number; periodo_inicio: string; periodo_fim: string }) =>
+      (await api.post(`/convenios/${id}/fechar`, { periodo_inicio, periodo_fim })).data.data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['convenios'] }),
   })
 }
+
+/** Fechamentos anteriores — o último define onde o próximo período começa. */
+export const useFechamentosConvenio = (id: number | null) =>
+  useQuery<{ id: number; periodo_inicio: string; periodo_fim: string }[]>({
+    queryKey: ['convenios', id, 'fechamentos'], enabled: id !== null,
+    queryFn: async () => (await api.get(`/convenios/${id}/fechamentos`)).data.data,
+  })

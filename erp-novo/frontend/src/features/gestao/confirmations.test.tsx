@@ -19,6 +19,8 @@ it.each([
   await user.click(await screen.findByRole('button', { name: action }))
   expect(post).not.toHaveBeenCalled()
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: action }))
-  await waitFor(() => expect(post).toHaveBeenCalledWith(endpoint))
+  // O endereço é o contrato; o convênio agora também manda o período (que o
+  // servidor exige — antes ia sem ele e voltava 422).
+  await waitFor(() => expect(post.mock.calls[0]?.[0]).toBe(endpoint))
   await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('button', { name: action })).toBeEnabled())
 })

@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Handshake, Lock } from 'lucide-react'
 import {
   Button, Input, Badge, type Column, Field, CheckboxField, AsyncSelect,
-  ResourceList, FormDialog, ConfirmDialog, toast,
+  ResourceList, FormDialog, toast,
 } from '@/components/ui'
-import { useConvenios, useCriarConvenio, useFecharConvenio, type Convenio } from './api'
+import { useConvenios, useCriarConvenio, useFecharConvenio, useFechamentosConvenio, type Convenio } from './api'
+import { periodoSugerido } from './periodo'
+import { data as fmtData } from '@/lib/format'
 
 export function ConvenioPage() {
   const { data, isLoading, error, refetch } = useConvenios()
@@ -21,8 +23,18 @@ export function ConvenioPage() {
     try { await criar.mutateAsync(form); toast.success('Convênio criado.'); setOpen(false) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao criar.') }
   }
+  // Período já sugerido (dia de fechamento + último fechamento): a pessoa só confere.
+  const anteriores = useFechamentosConvenio(confirmando?.id ?? null)
+  const [periodo, setPeriodo] = useState({ inicio: '', fim: '' })
+  useEffect(() => {
+    if (!confirmando || anteriores.isLoading) return
+    const ultimo = (anteriores.data ?? []).filter((x) => !!x.periodo_fim).sort((x, y) => y.periodo_fim.localeCompare(x.periodo_fim))[0]
+    setPeriodo(periodoSugerido(confirmando.dia_fechamento, ultimo?.periodo_fim ?? null, new Date().toLocaleDateString('sv-SE')))
+  }, [confirmando, anteriores.isLoading, anteriores.data])
+
   async function onFechar(c: Convenio) {
-    try { await fechar.mutateAsync(c.id); toast.success('Convênio fechado.'); setConfirmando(null) }
+    if (!periodo.inicio || !periodo.fim || periodo.fim < periodo.inicio) { toast.error('Confira o período: o fim não pode vir antes do início.'); return }
+    try { await fechar.mutateAsync({ id: c.id, periodo_inicio: periodo.inicio, periodo_fim: periodo.fim }); toast.success(`Período de ${fmtData(periodo.inicio)} a ${fmtData(periodo.fim)} fechado.`); setConfirmando(null) }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao fechar.') }
   }
 
@@ -48,9 +60,16 @@ export function ConvenioPage() {
         emptyIcon={<Handshake />} emptyTitle="Nenhum convênio"
       />
 
-      <ConfirmDialog open={!!confirmando} onOpenChange={(open) => { if (!open) setConfirmando(null) }}
-        title="Fechar período do convênio" confirmLabel="Fechar período" variant="default" loading={fechar.isPending}
-        description={<>Fechar o período de <strong>{confirmando?.descricao}</strong>? O fechamento gera o título financeiro do período.</>} onConfirm={() => { if (confirmando) void onFechar(confirmando) }} />
+      <FormDialog open={!!confirmando} onOpenChange={(o) => { if (!o) setConfirmando(null) }}
+        title="Fechar período do convênio" confirmLabel="Fechar período" loading={fechar.isPending}
+        onConfirm={() => { if (confirmando) void onFechar(confirmando) }}>
+        <p className="text-sm text-muted-foreground">Fechar <strong className="text-foreground">{confirmando?.descricao}</strong> gera o título financeiro com os pedidos do período.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="De" required><Input type="date" value={periodo.inicio} onChange={(e) => setPeriodo((p) => ({ ...p, inicio: e.target.value }))} /></Field>
+          <Field label="Até" required><Input type="date" min={periodo.inicio} value={periodo.fim} onChange={(e) => setPeriodo((p) => ({ ...p, fim: e.target.value }))} /></Field>
+        </div>
+        <p className="text-xs text-muted-foreground">Sugerido pelo dia de fechamento do convênio e pelo último fechamento.</p>
+      </FormDialog>
 
       <FormDialog
         dirty={JSON.stringify(form) !== JSON.stringify({ ativo: true })}
