@@ -16,6 +16,26 @@ export function useLancamentos(pagarreceber: string, status: string, q: string, 
     placeholderData: (p) => p,
   })
 }
+/**
+ * Baixa de UMA parcela numa conta (caixa/banco): "o cliente pagou" ou "paguei
+ * o fornecedor". O servidor sempre teve a rota (com alçada, juros, multa e
+ * desconto); nenhuma tela a chamava — só o malote baixava, em lote.
+ */
+export function useBaixarParcela() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (d: { contaId: number; parcela_id: number; juros?: number; multa?: number; desconto?: number }) => {
+      const { contaId, ...corpo } = d
+      return (await api.post(`/caixa/${contaId}/baixar`, corpo)).data.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fin-lancamentos'] })
+      qc.invalidateQueries({ queryKey: ['fin-resumo'] })
+      qc.invalidateQueries({ queryKey: ['dashboard-hoje'] })
+    },
+  })
+}
+
 export function useResumoFinanceiro() {
   return useQuery({ queryKey: ['fin-resumo'], queryFn: async () => (await api.get('/financeiro/lancamentos/resumo')).data.data })
 }

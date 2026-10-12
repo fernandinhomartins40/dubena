@@ -92,7 +92,24 @@ class FinanceiroController extends Controller
         $aPagar = (clone $base)->whereHas('financeiro', fn (Builder $b) => $b->where('pagarreceber', 'P'))->where('baixado', false)->sum('valor');
         $vencidas = (clone $base)->where('baixado', false)->where('vencimento', '<', now()->toDateString())->count();
 
+        // "Recebido"/"Pago" DO MÊS: o total de todos os tempos (1,3 milhão de
+        // linhas migradas) não ajuda decisão nenhuma; o do mês responde "como
+        // está o caixa".
+        $doMes = fn (string $pr) => (clone $base)
+            ->whereHas('financeiro', fn (Builder $b) => $b->where('pagarreceber', $pr))
+            ->where('baixado', true)
+            ->whereDate('datahora_baixa', '>=', now()->startOfMonth()->toDateString())
+            ->whereDate('datahora_baixa', '<=', now()->toDateString())
+            ->sum('valor_efetivado');
+
         return response()->json(['data' => [
+            // Os nomes que a tela lê. Ela lia `receber_aberto`… e o servidor só
+            // devolvia `a_receber`: os quatro cartões mostravam "—" sempre.
+            'receber_aberto' => round((float) $aReceber, 2),
+            'pagar_aberto' => round((float) $aPagar, 2),
+            'receber_mes' => round((float) $doMes('R'), 2),
+            'pagar_mes' => round((float) $doMes('P'), 2),
+            // Compatibilidade com quem já consome os nomes antigos.
             'a_receber' => round((float) $aReceber, 2),
             'a_pagar' => round((float) $aPagar, 2),
             'parcelas_vencidas' => $vencidas,

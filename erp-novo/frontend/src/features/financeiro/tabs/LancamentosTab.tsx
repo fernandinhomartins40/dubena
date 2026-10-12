@@ -6,6 +6,8 @@ import {
 } from '@/components/ui'
 import { useLancamentos, useResumoFinanceiro, useCriarLancamento, type Lancamento } from '../api'
 import { brl, data as fmtData } from '@/lib/format'
+import { useAuth } from '@/lib/auth'
+import { BaixaDialog } from './BaixaDialog'
 import { useBusca } from '@/lib/useBusca'
 
 export function LancamentosTab() {
@@ -14,13 +16,23 @@ export function LancamentosTab() {
   const { data, isLoading, isFetching, error, refetch } = useLancamentos(pr, status, q, page)
   const resumoQuery = useResumoFinanceiro()
   const resumo = resumoQuery.data
+  const { can } = useAuth()
+  const [baixando, setBaixando] = useState<Lancamento | null>(null)
 
   const columns: Column<Lancamento>[] = [
     { key: 'cliente', header: 'Cliente', cell: (l) => <div><div className="font-medium">{l.cliente ?? '—'}</div><div className="text-xs text-muted-foreground">{l.descricao || l.documento || ''}</div></div> },
     { key: 'pr', header: 'Tipo', align: 'center', width: 'w-24', cell: (l) => l.pagarreceber === 'R' ? <Badge variant="success">Receber</Badge> : <Badge variant="destructive">Pagar</Badge> },
     { key: 'venc', header: 'Vencimento', cell: (l) => fmtData(l.datavencimento) },
-    { key: 'valor', header: 'Valor', align: 'right', cell: (l) => <span className="tabular-nums">{brl(l.valorefetivado)}</span> },
+    // Em aberto o que importa é o valor da conta; baixada, o que de fato entrou.
+    // Antes mostrava `valorefetivado` sempre — zero em toda conta em aberto.
+    { key: 'valor', header: 'Valor', align: 'right', cell: (l) => <span className="tabular-nums">{brl(Number(l.baixado) ? l.valorefetivado : l.valor)}</span> },
     { key: 'status', header: 'Status', align: 'center', width: 'w-28', cell: (l) => Number(l.baixado) ? <Badge variant="secondary">Baixado</Badge> : <Badge variant="warning">Aberto</Badge> },
+    {
+      key: 'acao', header: '', align: 'right', width: 'w-28',
+      cell: (l) => !Number(l.baixado) && can('financeiro.baixar')
+        ? <Button size="sm" variant="secondary" onClick={() => setBaixando(l)}>{l.pagarreceber === 'R' ? 'Receber' : 'Pagar'}</Button>
+        : null,
+    },
   ]
 
   return (
@@ -28,9 +40,9 @@ export function LancamentosTab() {
       <AsyncState loading={resumoQuery.isLoading} error={resumoQuery.error} onRetry={() => { void resumoQuery.refetch() }}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <CardResumo titulo="A receber (aberto)" valor={resumo?.receber_aberto} icon={<TrendingUp className="text-success" />} />
-        <CardResumo titulo="Recebido" valor={resumo?.receber_baixado} icon={<TrendingUp className="text-muted-foreground" />} />
+        <CardResumo titulo="Recebido no mês" valor={resumo?.receber_mes} icon={<TrendingUp className="text-muted-foreground" />} />
         <CardResumo titulo="A pagar (aberto)" valor={resumo?.pagar_aberto} icon={<TrendingDown className="text-destructive" />} />
-        <CardResumo titulo="Pago" valor={resumo?.pagar_baixado} icon={<TrendingDown className="text-muted-foreground" />} />
+        <CardResumo titulo="Pago no mês" valor={resumo?.pagar_mes} icon={<TrendingDown className="text-muted-foreground" />} />
       </div>
       </AsyncState>
 
@@ -54,6 +66,7 @@ export function LancamentosTab() {
       <DataTable columns={columns} rows={data?.data} loading={isLoading} error={error} onRetry={() => { void refetch() }} rowKey={(l) => l.id}
         page={data?.meta.current_page} lastPage={data?.meta.last_page} onPageChange={setPage} fetching={isFetching}
         empty={<EmptyState icon={<Wallet />} title="Nenhum lançamento" />} />
+      <BaixaDialog parcela={baixando} onClose={() => setBaixando(null)} />
     </>
   )
 }
