@@ -7,6 +7,7 @@ import {
 import { data as fmtData } from '@/lib/format'
 import { useComodatos, useCriarComodato, abrirContratoComodato, type Comodato } from './api'
 import { mensagemDeErroBlob } from '@/lib/pdf'
+import { api } from '@/lib/api'
 import { DevolucaoDialog } from './DevolucaoDialog'
 import { ComodatoDetalhe } from './ComodatoDetalhe'
 import { AjustarComodatoDialog } from './AjustarComodatoDialog'
@@ -21,6 +22,24 @@ export function ComodatoPage() {
   const criar = useCriarComodato()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<Record<string, any>>({ quantidade: 1 })
+
+  /**
+   * Quem assina o comodato quase sempre é o próprio cliente: nome e CPF vêm do
+   * cadastro, só se os campos estiverem vazios e o cliente for pessoa física
+   * (em empresa, quem assina é outra pessoa). Sem acesso ao cadastro, não
+   * preenche — a pessoa digita, como antes.
+   */
+  async function preencherRepresentante(clienteId: number) {
+    try {
+      const c = (await api.get(`/clientes/${clienteId}`)).data.data
+      if (!c?.cpf || c?.cnpj) return
+      setForm((f) => ({
+        ...f,
+        nome_representante: f.nome_representante || c.nome,
+        cpf_representante: f.cpf_representante || c.cpf,
+      }))
+    } catch { /* sem permissão ou fora do ar: segue em branco */ }
+  }
   const [clienteLabel, setClienteLabel] = useState('')
   const [prodLabel, setProdLabel] = useState('')
   const [aDevolver, setADevolver] = useState<Comodato | null>(null)
@@ -122,7 +141,7 @@ export function ComodatoPage() {
       >
         <Field label="Cliente" required>
           <AsyncSelect endpoint="/lookups/clientes" value={form.cliente_id ?? null} valueLabel={clienteLabel}
-            onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? '') }} />
+            onChange={(id, opt) => { setForm((f) => ({ ...f, cliente_id: id })); setClienteLabel(opt?.label ?? ''); if (id) void preencherRepresentante(id) }} />
         </Field>
         <Field label="Produto (vasilhame)" required>
           <AsyncSelect endpoint="/lookups/produtos-vasilhame" value={form.produto_id ?? null} valueLabel={prodLabel}
