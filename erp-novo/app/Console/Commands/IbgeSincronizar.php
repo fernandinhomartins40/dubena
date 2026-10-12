@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EnxergaAtravesDaRls;
 use App\Domain\Geografico\CatalogoIbge;
 use App\Models\Geografico\MunicipioIbge;
 use Illuminate\Console\Command;
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class IbgeSincronizar extends Command
 {
+    use EnxergaAtravesDaRls;
+
     protected $signature = 'ibge:sincronizar
         {--aplicar : Grava o vínculo e corrige o cod_ibge divergente.}
         {--so-catalogo : Baixa o catálogo e não mexe nas cidades.}';
@@ -50,7 +53,10 @@ class IbgeSincronizar extends Command
             return self::SUCCESS;
         }
 
-        $conciliacao = $catalogo->conciliar();
+        // Como owner: pelo runtime, sem envelope de tenant, a RLS devolve ZERO
+        // cidades — e o comando dizia "Cidades: 0 — 0 precisam de atenção" com
+        // as 105 cidades da revenda sem vínculo (homologação, 12/10).
+        $conciliacao = $this->comoOwner(fn () => $catalogo->conciliar());
         $problemas = array_values(array_filter(
             $conciliacao,
             fn ($i) => $i['criterio'] !== 'codigo',
@@ -83,7 +89,7 @@ class IbgeSincronizar extends Command
             return self::SUCCESS;
         }
 
-        $r = $catalogo->aplicar($conciliacao);
+        $r = $this->comoOwner(fn () => $catalogo->aplicar($conciliacao));
         $this->info("Vinculadas: {$r['vinculadas']} | Códigos corrigidos: {$r['corrigidas']} | Sem correspondência: {$r['orfas']}");
 
         if ($r['orfas'] > 0) {
