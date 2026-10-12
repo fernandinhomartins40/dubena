@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Package, Plus, ShoppingCart, UserPlus } from 'lucide-react'
+import { Package, PackagePlus, Plus, ShoppingCart, UserPlus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import {
   Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
@@ -17,6 +17,7 @@ export const ACOES_NOVO = [
   { rotulo: 'Pedido', to: '/pedidos?novo=1', permission: 'pedido.create', icon: ShoppingCart },
   { rotulo: 'Cliente', to: '/clientes/novo', permission: 'cliente.create', icon: UserPlus },
   { rotulo: 'Produto', to: '/produtos/novo', permission: 'produto.create', icon: Package },
+  { rotulo: 'Entrada no estoque', to: '/estoque?tab=acerto', permission: 'estoque.edit', icon: PackagePlus },
 ] as const
 
 export function BotaoNovo() {

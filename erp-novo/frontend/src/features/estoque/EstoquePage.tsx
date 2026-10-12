@@ -15,7 +15,9 @@ export function EstoquePage() {
       <Tabs urlKey="tab" defaultValue="saldos">
         <TabsList className="overflow-x-auto">
           <TabsTrigger value="saldos">Saldos</TabsTrigger>
-          <TabsTrigger value="acerto">Acerto</TabsTrigger>
+          {/* "Acerto" não diz a quem recebe uma carga que é aqui que ela entra.
+              O valor da aba segue 'acerto': links salvos continuam valendo. */}
+          <TabsTrigger value="acerto">Entrada e saída</TabsTrigger>
           <TabsTrigger value="transferencia">Transferência</TabsTrigger>
           <TabsTrigger value="requisicao">Requisição</TabsTrigger>
           <TabsTrigger value="fisico">Inventário físico</TabsTrigger>
