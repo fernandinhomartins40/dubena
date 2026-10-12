@@ -36,7 +36,8 @@ it('mostra e devolve telefone, marca de entregador e endereço completo', async 
   // Prazo maior: sob a suíte inteira a tela demora a hidratar.
   expect(await screen.findByDisplayValue('42999990000', undefined, { timeout: 5000 })).toBeInTheDocument()
   expect(screen.getByRole('checkbox', { name: /É entregador/ })).toBeChecked()
-  expect(screen.getByRole('button', { name: /^Rua/ })).toHaveTextContent('Rua XV')
+  // O rótulo chega num efeito logo depois dos campos: espera-se por ele.
+  await waitFor(() => expect(screen.getByRole('button', { name: /^Rua/ })).toHaveTextContent('Rua XV'))
 
   await user.click(screen.getByRole('button', { name: /Salvar/ }))
   await waitFor(() => expect(put).toHaveBeenCalled(), { timeout: 5000 })

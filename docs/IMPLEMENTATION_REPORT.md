@@ -127,3 +127,68 @@ Nenhum.
   decidir se entra.
 - Prazo de "pedido atrasado" como configuração do tenant, para o painel
   poder destacar atraso em vez de só idade.
+
+---
+
+# Segunda passada — de ponta a ponta (11/10/2026)
+
+## O que foi analisado, e como
+
+A primeira passada cobriu menu, painel inicial e o fluxo de pedido. Esta
+cobre **toda tela que grava algo**: uma ferramenta compara, para cada pasta de
+tela, os campos que os formulários escrevem com as chaves que cada rota de
+escrita aceita (174 arquivos, 221 rotas). Ela foi **provada antes de usar**
+contra a versão antiga do pedido (acusou os 7 campos descartados). Depois, o
+sentido inverso — o formulário abre com campo que a API não devolve — foi
+conferido nos cadastros com edição (produto, empresa, cliente, colaborador,
+veículo), comparando com a resposta real da API da homologação.
+
+## O que foi encontrado e corrigido
+
+| Gravidade | Tela | O que acontecia |
+|---|---|---|
+| P0 | Empresa / emissão | `config_fiscais` (de onde a emissão lê ambiente, regime, séries, CSC) estava **vazia nas 7 empresas** e nenhuma tela a gravava. Toda nota real cairia em erro |
+| P0 | Emissão de NFC-e | O NFePHP exige CSC/CSCid para o QR Code e eles não iam; o modelo 65 também não. **Toda NFC-e real falharia na assinatura** |
+| P1 | Configurações da empresa | **Salvar falhava sempre** (422), reproduzido na homologação; 29 de 40 chaves com nome errado |
+| P1 | Lançamento financeiro | Data, vencimento e condição descartados: UMA parcela vencendo **hoje** |
+| P1 | Produto | Campos fiscais (ANP, IPI, grupo fiscal, EAN tributável) descartados e abertos em branco; origens recriadas zeradas |
+| P1 | Produto | Seletor "Grupo fiscal" era lista fixa com ids que não são grupos de ninguém |
+| P1 | Operação fiscal | "Movimenta estoque/financeiro" sempre desmarcados e descartados |
+| P1 | Veículo | KM atual descartado; troca de óleo sem tela |
+| P1 | Colaborador | Sem telefone nem "é entregador" na tela |
+| P2 | Alçada de desconto | Aceitava papel de outra rede |
+| Oportunidade | Cliente | O CEP passa a preencher cidade, bairro e rua pela própria base |
+
+Campos que a tela pedia e **não tinham coluna** (nunca foram gravados) saíram
+do formulário, com o motivo no código: competência do lançamento, KM inicial
+do veículo, e-mail do colaborador, CSC duplo do certificado.
+
+## Dados reais
+
+Na homologação: `config_fiscais` preenchida pela carga para as 7 empresas
+(ambiente de **homologação** — o legado está em produção, e copiar isso para
+um ambiente de teste armaria emissão real), com a chave de tenant; conferido
+pela API logado como o dono.
+
+## Testes
+
+- Backend, suíte integral: **1.936 passaram, 22 pulados (PostgreSQL/RLS), 0
+  falhas**. Testes novos: lançamento manual, produto fiscal, configuração e
+  fiscal da empresa, carga fiscal, CEP, NFC-e, alçada.
+- Correções provadas contra a versão antiga (o teste falha sem a correção):
+  lançamento, produto, configuração da empresa.
+- SPA: typecheck limpo, build ok, 146 testes. Os testes instáveis
+  preexistentes continuam (ver primeira passada). O teste novo do colaborador
+  oscilou sob a suíte inteira; a mensagem capturada mostrou que checava o
+  rótulo da rua antes do efeito que o preenche — passou a esperar por ele.
+  Depois disso: 8 rodadas completas seguidas, 146/146.
+
+## O que NÃO foi coberto (honestamente)
+
+- **Prova da NFC-e/NF-e na SEFAZ**: precisa do certificado A1 do cliente.
+- **Fluxos de uso diário fora dos cadastros** — Central de entregas, baixa no
+  financeiro, entrada de estoque, fechamento de convênio, relatórios — tiveram
+  o contrato de gravação auditado, mas **não** a análise de passos para o
+  leigo que o pedido e o cliente tiveram.
+- O sentido "abre em branco" foi conferido nos 5 cadastros com edição, não em
+  toda tela de leitura.
