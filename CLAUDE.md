@@ -338,7 +338,17 @@ rodada contra dado real. Rode-as depois de toda carga.
 validadas pelo sqlite. Confira o tamanho na migration antes de escrever seed.
 
 **`whereBetween` em coluna datetime perde o último dia.** `'2026-08-19 00:00:00'
-> '2026-08-19'` na comparação de string. Use `whereDate`.
+> '2026-08-19'` na comparação de string. Em coluna `date`, use `whereDate`. Em
+coluna **datetime**, use `PeriodoPorDia::aplicar()` — `whereDate` vira
+`coluna::date` e anula o índice: o "pedidos de hoje" do painel varria 400 mil
+linhas rodando a RLS em cada uma (3,1 s → 0,2 ms com a faixa). Há guardião.
+
+**Contagem sobre tabela grande custa caro sob RLS.** A policy chama
+`app_tenant_can_read()` por linha: `count(*)` dos 400 mil pedidos levou 3,2 s.
+Total histórico vai para cache (`TenantCache`); filtro que pode usar índice tem
+de usá-lo. Meça com `EXPLAIN ANALYZE` como `erp_app` (`SET LOCAL ROLE` +
+`set_config` do tenant numa transação read only) — como superusuário a RLS não
+roda e o plano mente.
 
 **O cast `date` do Eloquent grava com HORA.** Ele serializa `'AAAA-MM-DD
 00:00:00'`; o Postgres trunca ao gravar numa coluna `date`, o **sqlite não**.
