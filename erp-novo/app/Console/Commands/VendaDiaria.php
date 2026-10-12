@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EnxergaAtravesDaRls;
+use App\Domain\Shared\PeriodoPorDia;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -23,9 +24,8 @@ class VendaDiaria extends Command
         $data = $this->option('data') ?: now()->toDateString();
         // Apuração de plataforma, só leitura: pela conexão de owner. Pelo
         // runtime, sob RLS e sem envelope, saía "0 empresa(s)" todo dia.
-        $linhas = $this->comoOwner(fn () => DB::table('pedidos')
+        $linhas = $this->comoOwner(fn () => PeriodoPorDia::noDia(DB::table('pedidos'), 'datahora', $data)
             ->where('estoque_movimentado', true)
-            ->whereDate('datahora', $data)
             ->groupBy('empresa_id')
             ->selectRaw('empresa_id, count(*) as qtd, sum(valor_venda) as total')
             ->get());

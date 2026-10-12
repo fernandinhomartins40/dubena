@@ -6,6 +6,7 @@ use App\Domain\Financeiro\ConciliacaoContabilService;
 use App\Domain\Financeiro\ConciliacaoService;
 use App\Domain\Financeiro\ContaExtratoAcao;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Shared\PeriodoPorDia;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -95,11 +96,11 @@ class FinanceiroController extends Controller
         // "Recebido"/"Pago" DO MÊS: o total de todos os tempos (1,3 milhão de
         // linhas migradas) não ajuda decisão nenhuma; o do mês responde "como
         // está o caixa".
-        $doMes = fn (string $pr) => (clone $base)
+        // Faixa de dias e não whereDate: `datahora_baixa` é data e hora, e o
+        // cast anulava o índice (empresa_id, datahora_baixa). Ver PeriodoPorDia.
+        $doMes = fn (string $pr) => PeriodoPorDia::aplicar((clone $base), 'datahora_baixa', now()->startOfMonth(), now())
             ->whereHas('financeiro', fn (Builder $b) => $b->where('pagarreceber', $pr))
             ->where('baixado', true)
-            ->whereDate('datahora_baixa', '>=', now()->startOfMonth()->toDateString())
-            ->whereDate('datahora_baixa', '<=', now()->toDateString())
             ->sum('valor_efetivado');
 
         return response()->json(['data' => [

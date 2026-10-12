@@ -480,8 +480,8 @@ class PonteNfwebController extends Controller
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->where('atendente_user_id', $request->user()->id)
             ->where('estoque_movimentado', true)
-            ->whereDate('datahora', '>=', $inicio)
-            ->whereDate('datahora', '<=', $fim)
+            // Faixa de dias (usa o índice de datahora). Ver PeriodoPorDia.
+            ->tap(fn ($q) => \App\Domain\Shared\PeriodoPorDia::aplicar($q, 'datahora', $inicio, $fim))
             ->with(['cliente:id,nome'])
             ->orderByDesc('datahora')
             ->get();

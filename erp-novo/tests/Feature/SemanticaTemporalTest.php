@@ -218,6 +218,7 @@ class SemanticaTemporalTest extends TestCase
         }
 
         $this->assertGreaterThan(200, $varridos, 'a varredura precisa ter varrido algo');
-        $this->assertSame([], $achados, 'use whereDate(): whereBetween por texto perde o último dia');
+        // Em coluna de data e hora, PeriodoPorDia (whereDate anula o índice).
+        $this->assertSame([], $achados, 'whereBetween por texto perde o último dia: use whereDate() em coluna date, PeriodoPorDia em data e hora');
     }
 }

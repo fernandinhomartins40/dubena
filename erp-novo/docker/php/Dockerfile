@@ -119,6 +119,9 @@ WORKDIR /var/www
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/opcache-production.ini /usr/local/etc/php/opcache-production.ini
 COPY docker/php/opcache-mutable.ini /usr/local/etc/php/opcache-mutable.ini
+# Carregado depois do www.conf e do zz-docker.conf da imagem (ordem alfabética):
+# só ele define o tamanho do pool. Ver o comentário no arquivo.
+COPY docker/php/zz-fpm-pool.conf /usr/local/etc/php-fpm.d/zz-fpm-pool.conf
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

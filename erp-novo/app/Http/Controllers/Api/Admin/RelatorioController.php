@@ -6,6 +6,7 @@ use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Auditoria\ConsultaTrilha;
 use App\Domain\Relatorio\PainelDoDiaService;
 use App\Domain\Relatorio\RelatorioService;
+use App\Domain\Shared\TenantCache;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -32,9 +33,19 @@ class RelatorioController extends Controller
     public function dashboardResumo(Request $request): JsonResponse
     {
         // Sem permissão específica: o dashboard é a home de qualquer usuário logado.
-        return response()->json(
-            $this->service->dashboardResumo($this->empresaId()),
-        );
+        //
+        // Cache de 10 min, por empresa. São totais de todos os tempos, e contar
+        // 400 mil pedidos sob RLS custa 3,2 s (medido na homologação) — a cada
+        // abertura do painel, segurando um processo PHP. Um total histórico
+        // dez minutos atrasado não muda decisão nenhuma; o que pede ação agora
+        // está no "Para hoje", que NÃO é cacheado.
+        $empresa = $this->empresaId();
+
+        return response()->json(app(TenantCache::class)->remember(
+            "dashboard-resumo:{$empresa}",
+            600,
+            fn () => $this->service->dashboardResumo($empresa),
+        ));
     }
 
     /**

@@ -15,8 +15,13 @@ import { UnsavedChangesProvider } from '@/lib/UnsavedChanges'
 
 initializeTheme()
 
+// staleTime 30 s: sem ele, voltar a uma tela refazia TODAS as consultas dela,
+// mesmo que tivessem chegado há segundos — e cada uma ocupa um processo PHP no
+// servidor (eram só 5 até 12/10/2026). O que a própria pessoa edita continua
+// aparecendo na hora: as mutações invalidam as chaves explicitamente. Tela que
+// precisa ser sempre fresca declara o seu (o Kanban de pedidos usa 0).
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { refetchOnWindowFocus: false } },
+  defaultOptions: { queries: { refetchOnWindowFocus: false, staleTime: 30_000 } },
 })
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, '')

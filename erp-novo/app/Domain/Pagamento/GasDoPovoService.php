@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pagamento;
 
+use App\Domain\Shared\PeriodoPorDia;
 use App\Models\Cliente\Cliente;
 use App\Models\EmpresaConfig;
 use App\Models\Financeiro\CondicaoPagamento;
@@ -85,14 +86,9 @@ final class GasDoPovoService
         $parametros = $this->parametros($empresaId);
 
         $query = Pedido::query()->where('gasdopovo', true);
-        // `whereDate` e não `whereBetween`: em coluna datetime a comparação de
-        // string perde o último dia do intervalo.
-        if ($de !== null) {
-            $query->whereDate('datahora', '>=', $de);
-        }
-        if ($ate !== null) {
-            $query->whereDate('datahora', '<=', $ate);
-        }
+        // Nem `whereBetween` (perde o último dia) nem `whereDate` (anula o
+        // índice de pedidos.datahora): faixa semiaberta. Ver PeriodoPorDia.
+        PeriodoPorDia::aplicar($query, 'datahora', $de, $ate);
 
         $pedidos = (clone $query)->count();
         $valor = (float) (clone $query)->sum('valor_venda');

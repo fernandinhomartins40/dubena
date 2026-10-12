@@ -314,8 +314,8 @@ class AppSolicitacaoController extends Controller
             // pergunta ("quanto eu fiz hoje").
             ->where(fn ($q) => $q->where('entregador_user_id', $userId)->orWhere('atendente_user_id', $userId))
             ->where('estoque_movimentado', true)
-            ->whereDate('datahora', '>=', $inicio)
-            ->whereDate('datahora', '<=', $fim)
+            // Faixa de dias (usa o índice de datahora). Ver PeriodoPorDia.
+            ->tap(fn ($q) => \App\Domain\Shared\PeriodoPorDia::aplicar($q, 'datahora', $inicio, $fim))
             ->with('cliente:id,nome')
             ->orderByDesc('datahora')
             ->get();

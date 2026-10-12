@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auditoria;
 
+use App\Domain\Shared\PeriodoPorDia;
 use App\Models\AuditLog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -90,10 +91,9 @@ class ConsultaTrilha
             // dentro do tenant, nunca uma porta para fora dele.
             ->when($filtros['correlacao'] ?? null, fn (Builder $q, $c) => $q->where('correlation_id', $c))
             ->when($filtros['apenas_sensiveis'] ?? false, fn (Builder $q) => $q->whereIn('acao', CatalogoAuditoria::ACOES_SENSIVEIS))
-            // whereDate: `criado_em` é datetime, e comparar com a string 'Y-m-d'
-            // perderia o último dia do intervalo (armadilha conhecida do repo).
-            ->when($filtros['inicio'] ?? null, fn (Builder $q, $i) => $q->whereDate('criado_em', '>=', $i))
-            ->when($filtros['fim'] ?? null, fn (Builder $q, $f) => $q->whereDate('criado_em', '<=', $f))
+            // `criado_em` é datetime: comparar com 'Y-m-d' perderia o último dia,
+            // e whereDate anularia o índice. Faixa de dias (PeriodoPorDia).
+            ->tap(fn (Builder $q) => PeriodoPorDia::aplicar($q, 'criado_em', $filtros['inicio'] ?? null, $filtros['fim'] ?? null))
             ->orderByDesc('criado_em')
             ->orderByDesc('id'); // desempate estável quando o instante é o mesmo
     }

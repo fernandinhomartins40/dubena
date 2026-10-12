@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Pagamento\GasDoPovoService;
 use App\Domain\Pagamento\PagamentoService;
+use App\Domain\Shared\PeriodoPorDia;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -152,8 +153,8 @@ class PagamentoController extends Controller
         $pedidos = Pedido::query()
             ->where('gasdopovo', true)
             ->with(['cliente:id,nome', 'situacao:id,descricao'])
-            ->when(isset($d['de']), fn ($b) => $b->whereDate('datahora', '>=', $d['de']))
-            ->when(isset($d['ate']), fn ($b) => $b->whereDate('datahora', '<=', $d['ate']))
+            // Faixa de dias (usa o índice de datahora). Ver PeriodoPorDia.
+            ->tap(fn ($b) => PeriodoPorDia::aplicar($b, 'datahora', $d['de'] ?? null, $d['ate'] ?? null))
             ->orderByDesc('datahora')
             ->paginate(30);
 

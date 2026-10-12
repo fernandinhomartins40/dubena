@@ -254,10 +254,9 @@ class PonteMovelAppController extends Controller
             ->where('empresa_id', (int) $request->user()->empresa_id)
             ->where('entregador_user_id', $request->user()->id)
             ->where('estoque_movimentado', true)
-            // whereDate: comparar datetime com string perde o último dia
-            // (armadilha registrada no CLAUDE.md).
-            ->whereDate('datahora', '>=', $inicio)
-            ->whereDate('datahora', '<=', $fim)
+            // Faixa de dias: whereBetween perde o último dia, whereDate anula o
+            // índice de datahora (400 mil pedidos). Ver PeriodoPorDia.
+            ->tap(fn ($q) => \App\Domain\Shared\PeriodoPorDia::aplicar($q, 'datahora', $inicio, $fim))
             ->with('cliente:id,nome')
             ->orderByDesc('datahora')
             ->get();

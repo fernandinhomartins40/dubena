@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cliente;
 
+use App\Domain\Shared\PeriodoPorDia;
 use App\Models\Cliente\Cliente;
 use Illuminate\Database\Eloquent\Builder;
 use OpenSpout\Common\Entity\Cell;
@@ -288,14 +289,9 @@ class ClienteExportacaoService
         }
 
         // ── Período e atividade ──
-        // whereDate, não whereBetween: em coluna datetime a comparação de
-        // string descarta o último dia do intervalo.
-        if (filled($f['cadastro_inicio'] ?? null)) {
-            $q->whereDate('created_at', '>=', $f['cadastro_inicio']);
-        }
-        if (filled($f['cadastro_fim'] ?? null)) {
-            $q->whereDate('created_at', '<=', $f['cadastro_fim']);
-        }
+        // Nem whereBetween (perde o último dia) nem whereDate (anula o índice):
+        // faixa de dias sobre o datetime. Ver PeriodoPorDia.
+        PeriodoPorDia::aplicar($q, 'created_at', $f['cadastro_inicio'] ?? null, $f['cadastro_fim'] ?? null);
         if (filled($f['ultima_compra_inicio'] ?? null)) {
             $q->whereDate('data_ultima_compra', '>=', $f['ultima_compra_inicio']);
         }

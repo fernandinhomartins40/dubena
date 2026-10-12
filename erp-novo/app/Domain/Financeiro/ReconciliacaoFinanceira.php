@@ -2,6 +2,7 @@
 
 namespace App\Domain\Financeiro;
 
+use App\Domain\Shared\PeriodoPorDia;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -169,8 +170,9 @@ class ReconciliacaoFinanceira
             ->where('p.baixado', false)
             // Movimento de estorno é o par legítimo de uma parcela reaberta.
             ->whereNull('m.estorno_de_id')
-            ->whereDate('m.datahora', '>=', $inicio)
-            ->whereDate('m.datahora', '<=', $fim)
+            // Faixa de dias: `m.datahora` é data e hora (410 mil linhas), e o
+            // whereDate anulava o índice. Ver PeriodoPorDia.
+            ->tap(fn ($q) => PeriodoPorDia::aplicar($q, 'm.datahora', $inicio, $fim))
             ->select('m.id', 'm.valor', 'p.id as parcela_id')
             ->get()
             ->filter(function ($r) {
@@ -202,8 +204,7 @@ class ReconciliacaoFinanceira
         return DB::table('notas_fiscais as n')
             ->where('n.empresa_id', $empresaId)
             ->whereNotNull('n.emitida_em')
-            ->whereDate('n.emitida_em', '>=', $inicio)
-            ->whereDate('n.emitida_em', '<=', $fim)
+            ->tap(fn ($q) => PeriodoPorDia::aplicar($q, 'n.emitida_em', $inicio, $fim))
             ->selectRaw('n.id, n.numero, n.valor_produtos, coalesce((select sum(i.valor_total) '
                 .'from nota_itens i where i.nota_fiscal_id = n.id), 0) as soma_itens')
             ->get()

@@ -3,6 +3,7 @@
 namespace App\Domain\Relatorio;
 
 use App\Domain\Pedido\EfeitoPedido;
+use App\Domain\Shared\PeriodoPorDia;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,11 +31,12 @@ class PainelDoDiaService
             ->selectRaw('count(*) as n, min(p.datahora) as mais_antigo')
             ->first();
 
-        $hoje = DB::table('pedidos as p')
+        // Faixa do dia, não whereDate: com o cast a consulta varria os 400 mil
+        // pedidos (3,1 s na homologação). Ver PeriodoPorDia.
+        $hoje = PeriodoPorDia::noDia(DB::table('pedidos as p'), 'p.datahora', today())
             ->join('pedidosituacoes as s', 's.id', '=', 'p.pedidosituacao_id')
             ->where('p.empresa_id', $empresaId)
             ->where('s.efeito', '<>', EfeitoPedido::CANCELADO->value)
-            ->whereDate('p.datahora', today())
             ->selectRaw('count(*) as n, coalesce(sum(p.valor_venda), 0) as valor')
             ->first();
 
