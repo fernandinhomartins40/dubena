@@ -6,6 +6,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem, toast,
 } from '@/components/ui'
 import { RELATORIOS, useRelatorio, baixarRelatorio, type RelatorioDef } from './api'
+import { periodos } from './periodos'
 
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const hoje = localDate(new Date())
@@ -59,6 +60,12 @@ export function RelatoriosPage() {
             {sel.periodo && <>
               <Field label="Início"><Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></Field>
               <Field label="Fim"><Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></Field>
+              <div className="flex flex-wrap gap-1.5 md:col-span-full" role="group" aria-label="Atalhos de período">
+                {periodos().map((p) => (
+                  <Button key={p.rotulo} type="button" size="sm" variant={inicio === p.inicio && fim === p.fim ? 'secondary' : 'ghost'}
+                    aria-pressed={inicio === p.inicio && fim === p.fim} onClick={() => { setInicio(p.inicio); setFim(p.fim) }}>{p.rotulo}</Button>
+                ))}
+              </div>
             </>}
             {sel.dias && (
               <Field label="Sem comprar há (dias)" hint="Acima deste corte o cliente entra na lista">
