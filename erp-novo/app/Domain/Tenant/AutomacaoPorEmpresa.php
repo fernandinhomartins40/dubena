@@ -49,46 +49,87 @@ final class AutomacaoPorEmpresa
                 continue;
             }
 
-            $envelope = new TenantEnvelope(
-                (int) $alvo->tenant_account_id,
-                (int) $alvo->membership_id,
-                $empresaId,
-                [$empresaId],
-                [$empresaId],
-                'automacao:'.Str::uuid(),
-            );
-
             try {
-                // Antes do envelope: o runtime lê o grupo da empresa ativa em
-                // `empresas`, cuja policy ainda é a de grupo — sem `app.grupo_id`
-                // essa leitura devolve nada e o envelope recusa a empresa. Numa
-                // requisição quem define isto é o middleware `tenant`, que roda
-                // antes; aqui não há middleware.
-                $this->contextoLegado($empresaId, (int) $alvo->grupo_id);
-
-                $resultado->retornos[$empresaId] = $this->runtime->run($envelope, function () use ($trabalho, $empresaId, $alvo) {
-                    // 1ª barreira (escopo global dos models) junto com a 2ª
-                    // (RLS, aplicada pelo runtime acima).
-                    $this->contexto->set($empresaId, (int) $alvo->grupo_id);
-
-                    return $trabalho($empresaId);
-                });
+                $resultado->retornos[$empresaId] = $this->executarNo($alvo, $trabalho);
             } catch (\Throwable $e) {
                 // A falha de uma revenda não pode parar a rotina das outras:
                 // num SaaS, um cadastro quebrado de um cliente deixaria todos
                 // sem GPS. Registra, segue, e o comando sai com FAILURE.
                 report($e);
                 $resultado->falhas[$empresaId] = $e->getMessage();
-            } finally {
-                // Sempre, e não só no caminho feliz: se o envelope falhar ao
-                // ser aplicado, o `run` não chega ao próprio `finally`, e a
-                // empresa SEGUINTE herdaria o contexto desta.
-                $this->contexto->clear();
-                $this->runtime->clear();
             }
         }
 
         return $resultado;
+    }
+
+    /**
+     * Executa o trabalho numa empresa só, PROPAGANDO a exceção.
+     *
+     * Para a requisição que ainda não tem usuário — login e cadastro do cliente
+     * pelo app, onde quem chega só provou o telefone. Rota pública não passa
+     * pelo envelope, e sob RLS forçada ela não enxergava a própria empresa: em
+     * 13/10/2026 a homologação recusava TODO login de cliente com "empresa
+     * inválida". Aqui o erro É a resposta (422 "telefone não encontrado" é o
+     * que leva o app ao cadastro), então engolir como o `paraCada` faz
+     * quebraria o fluxo.
+     *
+     * Empresa fora da fronteira aprovada ou sem identidade provisionada nega —
+     * a mesma regra do `paraCada`, como exceção, porque aqui não há "próxima
+     * empresa" para seguir.
+     *
+     * @template T
+     *
+     * @param  callable(int $empresaId): T  $trabalho
+     * @return T
+     */
+    public function naEmpresa(int $empresaId, callable $trabalho): mixed
+    {
+        $alvo = $this->alvos($empresaId, true)[0] ?? null;
+
+        if ($alvo === null || $alvo->membership_id === null || $alvo->grant_id === null) {
+            throw new TenantAccessDeniedException('Empresa sem fronteira SaaS aprovada ou sem identidade de automação.');
+        }
+
+        return $this->executarNo($alvo, $trabalho);
+    }
+
+    /** @param object{empresa_id: int, tenant_account_id: int, grupo_id: int, membership_id: int, grant_id: int} $alvo */
+    private function executarNo(object $alvo, callable $trabalho): mixed
+    {
+        $empresaId = (int) $alvo->empresa_id;
+
+        $envelope = new TenantEnvelope(
+            (int) $alvo->tenant_account_id,
+            (int) $alvo->membership_id,
+            $empresaId,
+            [$empresaId],
+            [$empresaId],
+            'automacao:'.Str::uuid(),
+        );
+
+        try {
+            // Antes do envelope: o runtime lê o grupo da empresa ativa em
+            // `empresas`, cuja policy ainda é a de grupo — sem `app.grupo_id`
+            // essa leitura devolve nada e o envelope recusa a empresa. Numa
+            // requisição quem define isto é o middleware `tenant`, que roda
+            // antes; aqui não há middleware.
+            $this->contextoLegado($empresaId, (int) $alvo->grupo_id);
+
+            return $this->runtime->run($envelope, function () use ($trabalho, $empresaId, $alvo) {
+                // 1ª barreira (escopo global dos models) junto com a 2ª
+                // (RLS, aplicada pelo runtime acima).
+                $this->contexto->set($empresaId, (int) $alvo->grupo_id);
+
+                return $trabalho($empresaId);
+            });
+        } finally {
+            // Sempre, e não só no caminho feliz: se o envelope falhar ao
+            // ser aplicado, o `run` não chega ao próprio `finally`, e a
+            // empresa SEGUINTE herdaria o contexto desta.
+            $this->contexto->clear();
+            $this->runtime->clear();
+        }
     }
 
     private function contextoLegado(int $empresaId, int $grupoId): void
@@ -103,8 +144,8 @@ final class AutomacaoPorEmpresa
         ]);
     }
 
-    /** @return iterable<object{empresa_id: int, tenant_account_id: int, grupo_id: int, membership_id: int|null, grant_id: int|null}> */
-    private function alvos(?int $soEmpresa, bool $soAtivas): iterable
+    /** @return list<object{empresa_id: int, tenant_account_id: int, grupo_id: int, membership_id: int|null, grant_id: int|null}> */
+    private function alvos(?int $soEmpresa, bool $soAtivas): array
     {
         return ConexaoDeOwner::executar(fn () => DB::table('tenant_companies as tc')
             ->join('empresas as e', 'e.id', '=', 'tc.empresa_id')

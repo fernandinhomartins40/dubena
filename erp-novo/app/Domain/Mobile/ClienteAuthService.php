@@ -5,6 +5,7 @@ namespace App\Domain\Mobile;
 use App\Domain\Cliente\ClienteService;
 use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
+use App\Domain\Tenant\ConexaoDeOwner;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Saas\TenantCompany;
@@ -144,7 +145,7 @@ class ClienteAuthService
     /** Garante um User para o cliente, vinculando cliente.user_id na primeira vez. */
     private function garantirUsuario(Cliente $cliente, string $firebaseUid): User
     {
-        return DB::transaction(function () use ($cliente, $firebaseUid) {
+        $user = DB::transaction(function () use ($cliente, $firebaseUid) {
             if ($cliente->user_id) {
                 $user = User::query()->find($cliente->user_id);
                 if ($user) {
@@ -174,10 +175,18 @@ class ClienteAuthService
             $cliente->user_id = $user->id;
             $cliente->save();
 
-            $this->garantirFronteiraSaas($user, (int) $cliente->empresa_id);
-
             return $user;
         });
+
+        // Fora da transação e pela conexão de owner. `tenant_company_grants` só
+        // aceita escrita de owner (`WITH CHECK (false)` para o runtime), e o
+        // owner é outra conexão: dentro da transação ele não enxergaria o
+        // usuário recém-criado. Roda em todo login, e não só no primeiro, para
+        // o cliente que ganhou usuário antes desta correção também ganhar a
+        // fronteira — sem ela o token sai, mas toda requisição seguinte é 403.
+        ConexaoDeOwner::executar(fn () => $this->garantirFronteiraSaas($user, (int) $cliente->empresa_id));
+
+        return $user;
     }
 
     /**

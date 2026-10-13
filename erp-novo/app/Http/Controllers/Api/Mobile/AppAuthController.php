@@ -7,13 +7,20 @@ use App\Domain\Mobile\Exceptions\FirebaseTokenInvalido;
 use App\Domain\Rh\VinculoColaborador;
 use App\Domain\Seguranca\LoginSeguranca;
 use App\Domain\Seguranca\VerificadorDoisFatores;
+use App\Domain\Tenant\AutomacaoPorEmpresa;
+use App\Domain\Tenant\TenantAccessDeniedException;
+use App\Domain\Tenant\TenantContext;
+use App\Domain\Tenant\TenantEnvelopeResolver;
+use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Models\Rh\Colaborador;
 use App\Http\Controllers\Controller;
 use App\Models\Mobile\AppDevice;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -43,33 +50,35 @@ class AppAuthController extends Controller
      */
     public function loginCliente(Request $request, ClienteAuthService $auth): JsonResponse
     {
-        $d = $request->validate([
-            'firebase_id_token' => 'required|string',
-            'empresa_id' => 'required|integer|exists:empresas,id',
-            'device_id' => 'nullable|string|max:120',
-            'push_token' => 'nullable|string|max:255',
-            'plataforma' => 'nullable|string|max:12',
-            'app_versao' => 'nullable|string|max:20',
-        ]);
-
-        try {
-            $user = $auth->autenticar([
-                'firebase_id_token' => $d['firebase_id_token'],
-                'empresa_id' => (int) $d['empresa_id'],
+        return $this->naEmpresaDoCliente($request, function () use ($request, $auth): JsonResponse {
+            $d = $request->validate([
+                'firebase_id_token' => 'required|string',
+                'empresa_id' => 'required|integer|exists:empresas,id',
+                'device_id' => 'nullable|string|max:120',
+                'push_token' => 'nullable|string|max:255',
+                'plataforma' => 'nullable|string|max:12',
+                'app_versao' => 'nullable|string|max:20',
             ]);
-        } catch (FirebaseTokenInvalido $e) {
-            return response()->json(['message' => $e->getMessage()], 401);
-        }
 
-        $this->registrarDeviceDoLogin($user, $d);
-        // F3 (segurança): ability de PAPEL no token — rotas de entregador exigem
-        // role:entregador (middleware approle), este token não as alcança.
-        $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'), ['role:cliente'])->plainTextToken;
+            try {
+                $user = $auth->autenticar([
+                    'firebase_id_token' => $d['firebase_id_token'],
+                    'empresa_id' => (int) $d['empresa_id'],
+                ]);
+            } catch (FirebaseTokenInvalido $e) {
+                return response()->json(['message' => $e->getMessage()], 401);
+            }
 
-        return response()->json([
-            'token' => $token,
-            'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
-        ]);
+            $this->registrarDeviceDoLogin($user, $d);
+            // F3 (segurança): ability de PAPEL no token — rotas de entregador exigem
+            // role:entregador (middleware approle), este token não as alcança.
+            $token = $user->createToken('app-cliente-'.($d['device_id'] ?? 'mobile'), ['role:cliente'])->plainTextToken;
+
+            return response()->json([
+                'token' => $token,
+                'user' => ['id' => $user->id, 'name' => $user->name, 'empresa_id' => $user->empresa_id],
+            ]);
+        });
     }
 
     public function login(Request $request): JsonResponse
@@ -114,6 +123,13 @@ class AppAuthController extends Controller
         }
 
         $this->seguranca->registrar($request, $email, true, 'ok', $user->id, $user->empresa_id);
+
+        return $this->naFronteiraDoColaborador($user, fn (): JsonResponse => $this->concluirLoginDeCampo($request, $user, $d, $email));
+    }
+
+    /** @param  array<string,mixed>  $d */
+    private function concluirLoginDeCampo(Request $request, User $user, array $d, string $email): JsonResponse
+    {
         $this->registrarDeviceDoLogin($user, $d);
 
         // F3 (segurança): este login por e-mail/senha atende os apps de CAMPO —
@@ -153,10 +169,85 @@ class AppAuthController extends Controller
 
 
     /**
-     * Registra/atualiza o device do usuário para push, a partir do payload de login.
+     * Login e cadastro do cliente rodam no envelope da identidade de automação
+     * da empresa pedida.
      *
-     * @param  array<string,mixed>  $d
+     * Rota pública não passa pelo `ResolveTenantEnvelope`, e sob RLS forçada
+     * ela não enxerga nada: em 13/10/2026 a homologação devolvia "empresa
+     * inválida" para TODO cliente, porque até o `exists:empresas` lia zero
+     * linhas. Ainda não há usuário a quem atribuir a fronteira — quem chega só
+     * provou o telefone —, e a identidade de automação é o ator de sistema que
+     * já existe para isso. O envelope dela cobre SÓ a empresa pedida: um
+     * `where` errado aqui devolve zero, não o cliente de outra revenda.
+     *
+     * Mesmo interruptor do middleware: com o enforcement desligado vale o
+     * modelo legado, e o rollback continua sendo uma variável de ambiente.
+     *
+     * @param  callable(): JsonResponse  $trabalho
      */
+    private function naEmpresaDoCliente(Request $request, callable $trabalho): JsonResponse
+    {
+        if (! config('saas_transformation.enforcement.tenant_envelope')) {
+            return $trabalho();
+        }
+
+        // Só o formato, antes do envelope: sem empresa não há fronteira a
+        // abrir. A existência é conferida lá dentro, já enxergando o banco.
+        $empresaId = (int) $request->validate(['empresa_id' => 'required|integer'])['empresa_id'];
+
+        return app(AutomacaoPorEmpresa::class)->naEmpresa($empresaId, fn (): JsonResponse => $trabalho());
+    }
+
+    /**
+     * O fim do login de campo roda na fronteira do PRÓPRIO colaborador.
+     *
+     * Mesma causa do login do cliente: rota pública, sem envelope, e a policy
+     * de `colaboradores` escondia o vínculo — todo entregador tomava 403
+     * "exclusivo para colaboradores" com a senha certa. Aqui já há usuário
+     * autenticado, então a fronteira é a dele, resolvida como o middleware
+     * resolve: sem membership ativa o login nega agora, em vez de emitir um
+     * token que tomaria 403 na requisição seguinte.
+     *
+     * @param  callable(): JsonResponse  $trabalho
+     */
+    private function naFronteiraDoColaborador(User $user, callable $trabalho): JsonResponse
+    {
+        if (! config('saas_transformation.enforcement.tenant_envelope')) {
+            return $trabalho();
+        }
+
+        $empresaId = (int) $user->empresa_id;
+        $grupoId = (int) $user->grupo_id;
+        if ($empresaId <= 0 || $grupoId <= 0) {
+            throw new TenantAccessDeniedException('Colaborador sem empresa padrão.');
+        }
+
+        $runtime = app(TenantEnvelopeRuntime::class);
+        $contexto = app(TenantContext::class);
+
+        try {
+            // O resolver e o runtime leem `empresas`, cuja policy ainda é a de
+            // grupo; numa requisição autenticada quem define isto é o
+            // middleware `tenant`, que esta rota não tem.
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                DB::statement('SELECT set_config(?, ?, false), set_config(?, ?, false)', [
+                    'app.empresa_id', (string) $empresaId,
+                    'app.grupo_id', (string) $grupoId,
+                ]);
+            }
+            $contexto->set($empresaId, $grupoId);
+
+            return $runtime->withAuthenticatedUser($user->id, function () use ($user, $empresaId, $runtime, $trabalho): JsonResponse {
+                $envelope = app(TenantEnvelopeResolver::class)->resolveFor($user, $empresaId, 'app-login:'.Str::uuid());
+
+                return $runtime->run($envelope, $trabalho);
+            });
+        } finally {
+            $contexto->clear();
+            $runtime->clear();
+        }
+    }
+
     /**
      * O vínculo do colaborador por trás do login (F1).
      *
@@ -212,6 +303,11 @@ class AppAuthController extends Controller
         return $abilities;
     }
 
+    /**
+     * Registra/atualiza o device do usuário para push, a partir do payload de login.
+     *
+     * @param  array<string,mixed>  $d
+     */
     private function registrarDeviceDoLogin(User $user, array $d): void
     {
         if (empty($d['device_id'])) {
@@ -237,6 +333,11 @@ class AppAuthController extends Controller
      * o usuário e já emite o token Sanctum (mesma resposta do login).
      */
     public function cadastrarCliente(Request $request, ClienteAuthService $auth): JsonResponse
+    {
+        return $this->naEmpresaDoCliente($request, fn (): JsonResponse => $this->executarCadastroCliente($request, $auth));
+    }
+
+    private function executarCadastroCliente(Request $request, ClienteAuthService $auth): JsonResponse
     {
         $d = $request->validate([
             'firebase_id_token' => 'required|string',

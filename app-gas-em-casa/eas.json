@@ -14,7 +14,7 @@
         "APP_ENV": "homolog",
         "API_URL": "https://gasemcasa.com/novo/api/",
         "GOOGLE_MAPS_API_KEY": "$GOOGLE_MAPS_API_KEY",
-        "EMPRESA_ID": "1",
+        "EMPRESA_ID": "2",
         "APP_DEBUG": "true"
       }
     },

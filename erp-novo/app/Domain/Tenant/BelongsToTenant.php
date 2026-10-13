@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Trait para models escopados por tenant (empresa_id).
@@ -52,12 +53,14 @@ trait BelongsToTenant
 
             // A chave SaaS nunca vem do payload. Em escrita tenant-aware ela
             // vem do envelope; em ETL sem envelope, somente do pai ja ligado.
-            if (in_array('tenant_account_id', $model->getFillable(), true)
+            if (static::temChaveSaas($model)
                 && empty($model->getAttribute('tenant_account_id'))) {
                 $runtime = app(TenantEnvelopeRuntime::class);
                 $tenantAccountId = $runtime->current()?->tenantAccountId
                     ?? static::tenantAccountIdDoPai($model);
-                if ($tenantAccountId !== null) {
+                // Zero não é tenant: é o default da coluna em bancos sem a
+                // migration SaaS completa, e herdá-lo do pai quebraria a FK.
+                if ($tenantAccountId !== null && $tenantAccountId > 0) {
                     $model->setAttribute('tenant_account_id', $tenantAccountId);
                 }
             }
@@ -95,6 +98,29 @@ trait BelongsToTenant
         }
 
         return null;
+    }
+
+    /**
+     * A tabela do model tem a chave SaaS?
+     *
+     * Antes a resposta era "o model declarou `tenant_account_id` no
+     * `$fillable`" — e 101 dos 131 models com escopo de empresa não
+     * declaravam. A policy canônica exige a chave de todos eles: no Postgres,
+     * TODO cadastro desses models pelo sistema novo era recusado ("new row
+     * violates row-level security policy"), e a suíte em sqlite, sem RLS,
+     * passava verde. Visto em 13/10/2026 no cadastro de cliente pelo app.
+     *
+     * Pergunta-se ao catálogo (pg_catalog, visível a qualquer role — o
+     * `information_schema` não serviria: só mostra o que a role possui), uma
+     * vez por tabela e processo. O `$fillable` continua valendo como atalho.
+     */
+    protected static function temChaveSaas(Model $model): bool
+    {
+        static $cache = [];
+        $chave = ($model->getConnectionName() ?? DB::getDefaultConnection()).'|'.$model->getTable();
+
+        return $cache[$chave] ??= in_array('tenant_account_id', $model->getFillable(), true)
+            || Schema::connection($model->getConnectionName())->hasColumn($model->getTable(), 'tenant_account_id');
     }
 
     /** Herda a chave SaaS do pai apenas no caminho sem envelope (ETL/seed). */
