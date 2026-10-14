@@ -345,7 +345,8 @@ class AppAuthController extends Controller
             'nome' => 'required|string|max:160',
             'cpf' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:160',
-            'datanascimento' => 'nullable|date',
+            // Formato EXATO, como no perfil: `date` leria "05/06/1990" como 6 de maio.
+            'datanascimento' => 'nullable|date_format:Y-m-d',
             'device_id' => 'nullable|string|max:120',
             'push_token' => 'nullable|string|max:255',
             'plataforma' => 'nullable|string|max:12',

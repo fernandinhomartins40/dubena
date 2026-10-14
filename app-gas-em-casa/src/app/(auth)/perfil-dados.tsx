@@ -5,6 +5,7 @@ import { useRouter } from "expo-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Toast from "react-native-toast-message"
 import UserForm from "@/components/templates/UserForm"
+import { dataBrParaIso, dataIsoParaBr } from "@/helpers/dataNascimento"
 import UserService from "@/services/user.service"
 import useFlashStore from "@/store/flashStore"
 import { INTERNAL_BUILD_NUMBER } from "@/constants/app"
@@ -45,14 +46,15 @@ export default function PerfilDados() {
         conveniado: false,
         gasdopovo: !!perfil?.gasdopovo,
         cpf: perfil?.cpf || "",
-        datanascimento: perfil?.datanascimento ?? "",
+        // A API devolve ISO; a tela trabalha com a máscara DD/MM/AAAA.
+        datanascimento: dataIsoParaBr(perfil?.datanascimento),
         internal_build_number: INTERNAL_BUILD_NUMBER,
         pushregistration_id: "",
         sexo: "",
     }
 
     const onSave = (payload: any) => {
-        mutate({ nome: payload.nome, cpf: payload.cpf, datanascimento: payload.datanascimento })
+        mutate({ nome: payload.nome, cpf: payload.cpf, datanascimento: dataBrParaIso(payload.datanascimento) })
     }
 
     return (

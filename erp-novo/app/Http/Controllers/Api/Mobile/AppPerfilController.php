@@ -47,7 +47,9 @@ class AppPerfilController extends Controller
             'nome' => 'sometimes|string|max:160',
             'cpf' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:160',
-            'datanascimento' => 'nullable|date',
+            // Formato EXATO: `date` aceita "05/06/1990" lendo como mês/dia
+            // (6 de maio) e grava sem erro. O app converte a máscara para ISO.
+            'datanascimento' => 'nullable|date_format:Y-m-d',
         ]);
 
         $cliente = $clientes->atualizar($this->clienteDoUsuario($request), $d);

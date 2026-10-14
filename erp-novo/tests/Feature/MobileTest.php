@@ -615,6 +615,32 @@ class MobileTest extends TestCase
     }
 
     /**
+     * A data de nascimento entra só em ISO.
+     *
+     * O app mandava a máscara da tela (DD/MM/AAAA), e a regra `date` lia
+     * "05/06/1990" como 6 de MAIO — gravava a data errada sem erro nenhum;
+     * acima do dia 12 respondia 422. Agora o app converte, e o servidor recusa
+     * o formato ambíguo em vez de adivinhar.
+     */
+    public function test_cadastro_aceita_nascimento_iso_e_recusa_a_mascara_ambigua(): void
+    {
+        $this->postJson('/api/app/v1/cliente/cadastro', [
+            'firebase_id_token' => 'fake:+5542988881111',
+            'empresa_id' => $this->empresa->id,
+            'nome' => 'Data Ambigua', 'datanascimento' => '05/06/1990',
+        ])->assertStatus(422)->assertJsonValidationErrors('datanascimento');
+
+        $this->postJson('/api/app/v1/cliente/cadastro', [
+            'firebase_id_token' => 'fake:+5542988881111',
+            'empresa_id' => $this->empresa->id,
+            'nome' => 'Data Certa', 'datanascimento' => '1990-06-05',
+        ])->assertCreated();
+
+        $cliente = Cliente::query()->where('nome', 'Data Certa')->firstOrFail();
+        $this->assertSame('1990-06-05', $cliente->datanascimento->toDateString());
+    }
+
+    /**
      * Telefone ja cadastrado ADOTA o cliente existente, em vez de recusar.
      *
      * A regra antiga respondia 422 "ja existe um cliente com este telefone,

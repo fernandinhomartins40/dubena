@@ -11,6 +11,7 @@ import { getAuth } from "@react-native-firebase/auth"
 import Toast from "react-native-toast-message"
 import { useRouter } from "expo-router"
 import UserForm from "@/components/templates/UserForm"
+import { dataBrParaIso } from "@/helpers/dataNascimento"
 import { getApp } from "@react-native-firebase/app"
 
 const app = getApp()
@@ -86,7 +87,7 @@ const NewUser = () => {
                 empresa_id: empresaId,
                 nome: payload.nome,
                 cpf: payload.cpf || null,
-                datanascimento: payload.datanascimento || null,
+                datanascimento: dataBrParaIso(payload.datanascimento),
                 push_token: pushToken,
                 device_id: pushToken?.slice(0, 64),
                 plataforma: Platform.OS === "ios" ? "ios" : "android",
