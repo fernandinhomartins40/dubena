@@ -129,12 +129,28 @@ class ClienteAuthService
         // número, então nunca perde um cliente que a comparação exata abaixo
         // aceitaria. Sem ele o login carregava todos os clientes da empresa —
         // 44 mil na Dubena, 12 s por login em homologação (13/10/2026).
+        //
+        // O pré-filtro roda pela conexão de owner e devolve só ids, presos à
+        // empresa pedida. Pelo runtime ele custava 4 s: a policy roda em cada
+        // linha ANTES do `like` (que não é leakproof), ~1,6 s por tabela de 45
+        // mil linhas. O cliente em si continua sendo lido pelo runtime, abaixo,
+        // e é a RLS que decide se ele é entregue.
         $aproximado = '%'.implode('%', str_split(substr($sufixo, -4))).'%';
+        $candidatos = ConexaoDeOwner::executar(fn () => DB::table('clientetelefones')
+            ->where('empresa_id', $empresaId)
+            ->where('telefone', 'like', $aproximado)
+            ->distinct()
+            ->pluck('cliente_id')
+            ->all());
+
+        if ($candidatos === []) {
+            return null;
+        }
 
         return Cliente::query()
+            ->whereIn('id', $candidatos)
             ->where('empresa_id', $empresaId)
             ->where('ativo', true)
-            ->whereHas('telefones', fn ($q) => $q->where('telefone', 'like', $aproximado))
             ->with(['telefones' => fn ($q) => $q->select('id', 'cliente_id', 'telefone')])
             ->orderBy('id')
             ->get()
