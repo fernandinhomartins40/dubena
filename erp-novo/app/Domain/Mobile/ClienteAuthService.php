@@ -115,7 +115,7 @@ class ClienteAuthService
      * variações de DDD/país entre o cadastro e o E.164 do Firebase.
      *
      * A normalização é feita em PHP (não em SQL) para ser portável entre Postgres
-     * (prod) e sqlite (testes) — o conjunto de candidatos por empresa é pequeno.
+     * (prod) e sqlite (testes); o banco só reduz os candidatos (ver o pré-filtro).
      */
     public function clientePorTelefone(int $empresaId, string $telefoneE164): ?Cliente
     {
@@ -124,11 +124,18 @@ class ClienteAuthService
             return null;
         }
 
+        // Pré-filtro no banco pelos 4 últimos dígitos EM ORDEM, com qualquer
+        // coisa entre eles ('%0%0%0%1%'): casa toda máscara possível do mesmo
+        // número, então nunca perde um cliente que a comparação exata abaixo
+        // aceitaria. Sem ele o login carregava todos os clientes da empresa —
+        // 44 mil na Dubena, 12 s por login em homologação (13/10/2026).
+        $aproximado = '%'.implode('%', str_split(substr($sufixo, -4))).'%';
+
         return Cliente::query()
             ->where('empresa_id', $empresaId)
             ->where('ativo', true)
-            ->whereHas('telefones')
-            ->with('telefones:id,cliente_id,telefone')
+            ->whereHas('telefones', fn ($q) => $q->where('telefone', 'like', $aproximado))
+            ->with(['telefones' => fn ($q) => $q->select('id', 'cliente_id', 'telefone')])
             ->orderBy('id')
             ->get()
             ->first(function (Cliente $cliente) use ($sufixo) {
