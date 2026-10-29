@@ -19,9 +19,15 @@ RUN npm ci \
 COPY frontend/ ./
 RUN npm run build
 
-FROM php:8.3-fpm@sha256:d8236042c96700b2dd4439d7260ee0666b4864076b12b82f993be3847371442b AS php-os
+# 8.3.36: corrige PHP2Shell (CVE-2026-109618/109619, RCE sem autenticação,
+# explorada desde 17/10/2026, catálogo KEV da CISA). A 8.3.33 anterior era
+# vulnerável. Tag com versão + variante explícitas: o digest continua sendo o
+# que vale, a tag só documenta o que ele é.
+FROM php:8.3.36-fpm-trixie@sha256:699495096ad60a969b9265aa52808c722b72f5e393f3784b794b168cc095a9e6 AS php-os
 
-ARG DEBIAN_SNAPSHOT=20260912T160000Z
+# Mesma data da imagem base (28/10): snapshot mais velho que a base faz o apt
+# querer rebaixar bibliotecas que a imagem já traz mais novas.
+ARG DEBIAN_SNAPSHOT=20261028T120000Z
 
 # A variante Debian é determinada pelo digest; não presumir codename pela tag.
 RUN set -eux; \
