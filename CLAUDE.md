@@ -407,6 +407,18 @@ medir.
 continuou certa e só a representação mudou — mas o teste quebrou, fazendo a
 correção parecer regressão. Asserte a **data**, não a string ISO.
 
+### Identidade e tokens
+
+**`users` é compartilhada entre staff e clientes do app — nunca `firstOrCreate`
+por e-mail que veio de fora.** O cadastro do app fazia
+`User::firstOrCreate(['email' => $cliente->email])`: informar o e-mail do dono
+devolvia o usuário DELE e um token em seu nome (auditoria PIE, R1-01, CRÍTICA).
+O usuário do app tem e-mail sintético; o real fica em `clientes.email`.
+
+**Token de app não entra no painel.** `approle` só separa os dois apps entre si;
+quem barra token de app (`role:*`, sem `*`) em `/api/admin` é o middleware
+`painel`. Rota administrativa nova fora do prefixo `admin` precisa dele também.
+
 ### PHP / Laravel
 
 **Não redeclare `$connection` em Job.** `Illuminate\Bus\Queueable` já declara a
@@ -522,8 +534,9 @@ php artisan financeiro:conferir       # reconciliação, read-only
 
 | | |
 |---|---|
-| Testes (backend) | **1918 verdes**, 20 pulados (os de PostgreSQL/RLS, que só rodam no CI) — sqlite, 2026-10-10 |
-| Testes (SPA) | **119 verdes** — 2026-10-10 |
+| Testes (backend) | **1993 testes, 0 falhas**, 26 pulados (os de PostgreSQL/RLS) — sqlite, 2026-10-29. Portão Postgres (`composer test:pgsql-rls`): 26/26, 0 pulados |
+| Testes (SPA) | **171 verdes** — 2026-10-29 |
+| Auditoria PIE | `docs/pie/` — veredito, achados consolidados e pendências (2026-10-29) |
 | Invariantes do ETL | **71 OK / 0 falhas** (medido no banco de agosto, que não existe mais) |
 | Endpoints | 609 |
 | Domínios / controllers admin | 34 / 59 |
