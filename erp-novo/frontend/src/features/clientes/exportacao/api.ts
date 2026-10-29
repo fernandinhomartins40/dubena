@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { hojeISO } from '@/lib/format'
 
 export type FormatoExportacao = 'csv' | 'xlsx' | 'pdf'
 
@@ -99,7 +100,7 @@ export async function baixarExportacao(
   )
 
   const nome = nomeDoHeader(resp.headers?.['content-disposition'])
-    ?? `clientes-${new Date().toISOString().slice(0, 10)}.${formato}`
+    ?? `clientes-${hojeISO()}.${formato}`
 
   const url = URL.createObjectURL(resp.data as Blob)
   const a = document.createElement('a')

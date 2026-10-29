@@ -48,5 +48,44 @@ export function dataHora(s: string | null | undefined): string {
   return s ? new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 }
 
+/**
+ * Lê um número digitado à brasileira: "12,50", "1.000,00", "R$ 5", "5%".
+ * Devolve NaN quando não é número — NUNCA null. Isso importa: `Number("5%")` é
+ * NaN, e o JSON serializa NaN como `null`; na contraproposta da Central de
+ * Vendas `null` significa "aprovar o desconto pedido", e no teto de alçada
+ * "sem teto" (PIE R2-07). O chamador decide o que fazer com o NaN.
+ */
+export function decimalBR(texto: string): number {
+  let t = texto.trim().replace(/^R\$\s*/i, '').replace(/\s*%$/, '').replace(/\s/g, '')
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return Number.NaN
+  return Number(t)
+}
+
+const dois = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * Data civil LOCAL (AAAA-MM-DD) para campos e filtros. `toISOString()` é UTC:
+ * no Brasil, depois das 21h ele já devolve AMANHÃ — malote, ponto, devolução e
+ * "até hoje" dos relatórios saíam com o dia seguinte (PIE R2-06).
+ */
+export function hojeISO(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}`
+}
+
+/** Competência local (AAAA-MM). */
+export function competenciaISO(d: Date = new Date()): string {
+  return hojeISO(d).slice(0, 7)
+}
+
+/**
+ * Data e hora LOCAIS (AAAA-MM-DD HH:MM:SS) para gravar um instante de parede,
+ * como abertura/fechamento de caixa — em UTC ficavam 3 horas adiantadas e o
+ * fechamento das 22h caía no dia seguinte (PIE R2-05).
+ */
+export function agoraLocal(d: Date = new Date()): string {
+  return `${hojeISO(d)} ${dois(d.getHours())}:${dois(d.getMinutes())}:${dois(d.getSeconds())}`
+}
+
 /** Travessão para valores vazios — padroniza o "sem dado" nas tabelas. */
 export const vazio = '—'

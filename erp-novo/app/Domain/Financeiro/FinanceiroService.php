@@ -201,6 +201,18 @@ class FinanceiroService
         }
 
         DB::transaction(function () use ($agrupador) {
+            // PIE R3-03: com parcela do agrupador baixada, desagrupar cancelava
+            // o título que RECEBEU o dinheiro e reabria a dívida nos originais —
+            // o cliente que pagou voltava a dever. Mesma regra do `cancelar`,
+            // conferida sob lock (serializa com a baixa, que trava o título).
+            $travado = Financeiro::withoutTenant()->whereKey($agrupador->id)->lockForUpdate()->first();
+            if (! $travado || $travado->cancelado) {
+                throw ValidationException::withMessages(['financeiro' => 'Agrupador já desfeito.']);
+            }
+            if ($travado->parcelas()->where('baixado', true)->exists()) {
+                throw ValidationException::withMessages(['financeiro' => 'Agrupador com parcela baixada não pode ser desfeito; estorne a baixa primeiro.']);
+            }
+
             Financeiro::query()
                 ->where('empresa_id', $agrupador->empresa_id)
                 ->where('agrupador_id', $agrupador->id)
@@ -218,12 +230,24 @@ class FinanceiroService
      */
     public function reparcelar(Financeiro $original, int $numParcelas, ?string $dataBase = null): Financeiro
     {
-        $emAberto = round((float) $original->parcelas()->where('baixado', false)->sum('valor'), 2);
-        if ($emAberto <= 0) {
-            throw ValidationException::withMessages(['financeiro' => 'Não há saldo em aberto para reparcelar.']);
-        }
+        return DB::transaction(function () use ($original, $numParcelas, $dataBase) {
+            // PIE R3-04: o saldo era lido FORA da transação e sem conferir o
+            // estado — dois cliques em "Reparcelar" criavam dois títulos (200
+            // de dívida sobre 100). Sob lock, o segundo vê REPARCELADO e para.
+            $original = Financeiro::withoutTenant()->whereKey($original->id)->lockForUpdate()->firstOrFail();
+            // AGRUPADOR continua reparcelável (fechamento de convênio
+            // parcelado é uso legítimo); AGRUPADO/REPARCELADO já não são a
+            // dívida viva.
+            if ($original->cancelado
+                || in_array($original->agrupamento_status, [AgrupamentoStatus::AGRUPADO, AgrupamentoStatus::REPARCELADO], true)) {
+                throw ValidationException::withMessages(['financeiro' => 'Título cancelado, agrupado ou já reparcelado não pode ser reparcelado.']);
+            }
 
-        return DB::transaction(function () use ($original, $numParcelas, $dataBase, $emAberto) {
+            $emAberto = round((float) $original->parcelas()->where('baixado', false)->sum('valor'), 2);
+            if ($emAberto <= 0) {
+                throw ValidationException::withMessages(['financeiro' => 'Não há saldo em aberto para reparcelar.']);
+            }
+
             $original->update(['agrupamento_status' => AgrupamentoStatus::REPARCELADO->value]);
 
             return $this->criar([

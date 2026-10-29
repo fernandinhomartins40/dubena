@@ -79,8 +79,9 @@ const PerfilScreen = () => {
                         <Text style={styles.userName} numberOfLines={1}>
                             {capitalizeFirstLetter(nome)}
                         </Text>
-                        {perfil?.telefone ? (
-                            <Text style={styles.userPhone}>{perfil.telefone}</Text>
+                        {/* A API devolve `telefones` (lista); `telefone` nunca veio — o número não aparecia. */}
+                        {perfil?.telefones?.[0] ? (
+                            <Text style={styles.userPhone}>{perfil.telefones[0]}</Text>
                         ) : null}
                     </View>
                 </View>

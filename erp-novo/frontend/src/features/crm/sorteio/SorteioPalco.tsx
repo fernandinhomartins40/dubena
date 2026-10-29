@@ -3,6 +3,7 @@ import { Gift, MapPin, Maximize, Minimize, Phone, Play, RotateCcw, Square, Troph
 import { usePalcoSorteio, useSortear, type ResultadoSorteio } from '../api'
 import { montarRoteiro, type Quadro } from './roteiro'
 import { criarSons, iniciarGravacao, soltarConfete, type Sons } from './efeitos'
+import { hojeISO } from '@/lib/format'
 import './palco.css'
 
 /**
@@ -166,7 +167,7 @@ export function SorteioPalco({ sorteioId, onFechar }: { sorteioId: number; onFec
       return
     }
     try {
-      const nome = `sorteio-${sorteioId}-${new Date().toISOString().slice(0, 10)}.webm`
+      const nome = `sorteio-${sorteioId}-${hojeISO()}.webm`
       pararGravacao.current = await iniciarGravacao(nome, () => {
         setGravando(false)
         pararGravacao.current = null

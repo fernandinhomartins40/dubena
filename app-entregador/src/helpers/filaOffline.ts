@@ -45,6 +45,12 @@ export interface ItemFila {
     tentativas: number
     /** Última mensagem de erro, para diagnóstico na tela de pendências. */
     ultimoErro?: string
+    /**
+     * Quem gerou a ação. Um 401 preserva a fila (PIE R2-04); se OUTRO
+     * entregador entrar no aparelho, os itens do anterior não podem sair com o
+     * token dele — a ocorrência ou a venda ficaria atribuída à pessoa errada.
+     */
+    dono?: number
 }
 
 /** Máximo de tentativas antes de o item exigir decisão do usuário. */
@@ -77,19 +83,29 @@ const gravar = (itens: ItemFila[]): void => {
     }
 }
 
-/** Enfileira uma escrita para quando houver rede. Devolve o id de idempotência. */
+/**
+ * Enfileira uma escrita para quando houver rede. Devolve o id de idempotência.
+ *
+ * `id` deve ser a chave da tentativa que falhou: um timeout não prova que o
+ * servidor não gravou, e só a MESMA chave faz o reenvio devolver a resposta
+ * original em vez de repetir o efeito (PIE R2-03 — com chave nova, a fila
+ * duplicava solicitação de venda, cliente e ocorrência).
+ */
 export const enfileirar = (
     endpoint: string,
     method: ItemFila["method"],
     data: unknown,
+    id: string = novoId(),
+    dono?: number,
 ): string => {
     const item: ItemFila = {
-        id: novoId(),
+        id,
         endpoint,
         method,
         data,
         criadoEm: Date.now(),
         tentativas: 0,
+        dono,
     }
     gravar([...ler(), item])
     return item.id
@@ -132,11 +148,17 @@ export interface ResultadoSync {
  */
 export const sincronizar = async (
     enviar: (item: ItemFila) => Promise<unknown>,
+    donoAtual?: number,
 ): Promise<ResultadoSync> => {
     let enviados = 0
     let falharam = 0
 
     for (const item of ler()) {
+        // Item de outro entregador fica parado (visível nas pendências), não
+        // é enviado com o token de quem está logado agora.
+        if (item.dono !== undefined && item.dono !== donoAtual) {
+            continue
+        }
         try {
             await enviar(item)
             descartar(item.id)
@@ -150,6 +172,14 @@ export const sincronizar = async (
                 descartar(item.id)
                 enviados++
                 continue
+            }
+
+            // 401: o TOKEN venceu, não o conteúdo. Descartar aqui apagava todas
+            // as pendências do entregador (PIE R2-04). Para e espera o novo
+            // login — a próxima sincronização reenvia com a mesma chave.
+            if (status === 401) {
+                falharam++
+                break
             }
 
             // 4xx (menos 408/429): o servidor recusou o conteúdo. Reenviar não

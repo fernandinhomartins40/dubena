@@ -5,6 +5,7 @@ namespace App\Domain\Pedido;
 use App\Domain\Auditoria\RegistroAcao;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
+use App\Domain\Fiscal\SituacaoNota;
 use App\Domain\Logistica\Events\PedidoEntrouNaFila;
 use App\Domain\Logistica\Jobs\AtribuirPedidoJob;
 use App\Domain\Pedido\Events\PedidoStatusAtualizado;
@@ -75,6 +76,37 @@ class PedidoService
     public function atualizar(Pedido $pedido, array $dados, ?array $itens = null): Pedido
     {
         return DB::transaction(function () use ($pedido, $dados, $itens) {
+            // PIE R3-01: mesmo lock da `mudarSituacao` — a trava abaixo lê
+            // `estoque_movimentado`, e sem lock perdia para um "Concluir"
+            // simultâneo.
+            Pedido::withoutTenant()->whereKey($pedido->id)->lockForUpdate()->first();
+            $pedido->refresh();
+
+            // PIE R3-01: a situação só muda pela máquina de estados. Gravada
+            // por `fill`, o pedido ficava CONCLUIDO sem baixa de estoque, sem
+            // título e sem histórico. Reenviar a MESMA situação é inofensivo.
+            if (array_key_exists('pedidosituacao_id', $dados)
+                && (int) $dados['pedidosituacao_id'] !== (int) $pedido->pedidosituacao_id) {
+                throw ValidationException::withMessages([
+                    'pedidosituacao_id' => 'A situação do pedido muda pela ação de situação, não pela edição.',
+                ]);
+            }
+            unset($dados['pedidosituacao_id']);
+
+            // PIE R3-01: concretizado, estes campos já produziram efeito — o
+            // setor foi a origem da baixa (o cancelamento devolveria ao setor
+            // NOVO) e taxa/condição/cliente formaram o título. Mudá-los aqui
+            // descasaria pedido, ledger e financeiro.
+            if ($pedido->estoque_movimentado) {
+                foreach (['setor_id', 'entrega_taxa', 'condicaopagamento_id', 'cliente_id'] as $campo) {
+                    if (array_key_exists($campo, $dados) && ! $this->mesmoValor($dados[$campo], $pedido->getRawOriginal($campo))) {
+                        throw ValidationException::withMessages([
+                            $campo => 'Pedido concretizado: cancele-o para alterar este campo.',
+                        ]);
+                    }
+                }
+            }
+
             // Não permite editar itens de pedido já concretizado (estoque baixado).
             if ($itens !== null) {
                 if ($pedido->estoque_movimentado) {
@@ -96,9 +128,16 @@ class PedidoService
     /**
      * Transição de situação — o ponto onde a máquina de estados age.
      */
-    public function mudarSituacao(Pedido $pedido, int $novaSituacaoId, ?int $userId = null): Pedido
+    /**
+     * @param  list<EfeitoPedido>|null  $origensPermitidas  efeitos de que a
+     *         transição pode partir, conferidos DEPOIS do lock. Os canais do
+     *         app passam a sua regra (cliente só cancela PENDENTE; entregador
+     *         não conclui CANCELADO) — conferida antes do lock, ela lia a tela
+     *         velha e perdia a corrida (PIE R3-10). Null = sem restrição (admin).
+     */
+    public function mudarSituacao(Pedido $pedido, int $novaSituacaoId, ?int $userId = null, ?array $origensPermitidas = null): Pedido
     {
-        $atualizado = DB::transaction(function () use ($pedido, $novaSituacaoId, $userId) {
+        $atualizado = DB::transaction(function () use ($pedido, $novaSituacaoId, $userId, $origensPermitidas) {
             // F4-01: o `estoque_movimentado` que decide se baixa o estoque era
             // lido do model EM MEMÓRIA, carregado antes da transação. Dois
             // "Concluir" simultâneos (painel e app do entregador, duplo clique,
@@ -111,6 +150,27 @@ class PedidoService
 
             $anterior = $pedido->situacao; // efeito atual
             $nova = $this->situacao($novaSituacaoId);
+
+            if ($origensPermitidas !== null && ! in_array($anterior?->efeito, $origensPermitidas, true)) {
+                throw ValidationException::withMessages([
+                    'pedido' => 'O pedido mudou de situação ('.($anterior?->descricao ?? '—').') e esta ação não vale mais.',
+                ]);
+            }
+
+            // PIE R3-07: cancelar devolvia estoque e estornava o financeiro com
+            // a NF-e/NFC-e ainda AUTORIZADA — o documento fiscal declarava uma
+            // venda que estoque e financeiro diziam não existir. A nota sai
+            // primeiro (cancelamento fiscal), depois o pedido.
+            if ($nova->efeito->cancela()) {
+                $fiscalViva = $pedido->notasVivas()
+                    ->whereIn('situacao', [SituacaoNota::AUTORIZADA->value, SituacaoNota::EMITIDA->value])
+                    ->exists();
+                if ($fiscalViva) {
+                    throw ValidationException::withMessages([
+                        'pedido' => 'Pedido com nota fiscal autorizada ou em transmissão: cancele a nota antes do pedido.',
+                    ]);
+                }
+            }
 
             $pedido->pedidosituacao_id = $nova->id;
             $pedido->datahora_acao = now();
@@ -127,6 +187,16 @@ class PedidoService
         PedidoStatusAtualizado::dispatch($atualizado->load('situacao'));
 
         return $atualizado;
+    }
+
+    /** "10" e 10.00 são o mesmo valor; o formulário reenvia o que leu. */
+    private function mesmoValor(mixed $a, mixed $b): bool
+    {
+        if (is_numeric($a) && is_numeric($b)) {
+            return (float) $a === (float) $b;
+        }
+
+        return (string) $a === (string) $b;
     }
 
     public function excluir(Pedido $pedido): void

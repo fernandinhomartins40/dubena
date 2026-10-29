@@ -13,6 +13,7 @@ use App\Http\Middleware\Recurso;
 use App\Http\Middleware\RecursoPorRota;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\ResolveTenantEnvelope;
+use App\Http\Middleware\SomenteTokenDoPainel;
 use App\Http\Middleware\ValidaRevendaLegado;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -62,7 +63,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'revenda.legado' => ValidaRevendaLegado::class,
             // F7 — reenvio da fila offline nao repete o efeito.
             'idempotente' => Idempotente::class,
+            // PIE R1-01 — token de app (sem `*`) não alcança o back-office.
+            'painel' => SomenteTokenDoPainel::class,
         ]);
+
+        // PIE R1-04 — sem isto `$request->ip()` era o IP do nginx do contêiner
+        // para TODO mundo: o throttle de login (10/min por IP) virava um teto
+        // global da plataforma e o eixo-IP do lockout não distinguia ninguém.
+        // Confiar nas faixas privadas é seguro porque o contêiner web só é
+        // publicado em 127.0.0.1 (compose de homologação e produção) — o único
+        // caminho até ele é o nginx do host, que ACRESCENTA o IP real ao
+        // X-Forwarded-For; um valor forjado pelo cliente fica à esquerda e é
+        // ignorado.
+        $middleware->trustProxies(at: ['127.0.0.1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
 
         // F2-01: captura a forma de request/response por rota. Inerte fora dos
         // testes — sai na primeira linha se a coleta não estiver ligada.

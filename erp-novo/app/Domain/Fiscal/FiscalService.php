@@ -58,6 +58,12 @@ class FiscalService
         return DB::transaction(function () use (
             $pedido, $modelo, $operacaoFiscalId, $ufEmitente, $ufDestino, $consumidorFinal
         ) {
+            // PIE R3-05: só a SPA escondia o botão; a API montava e autorizava
+            // uma segunda nota do mesmo pedido. A conferência definitiva fica
+            // no `emitir` (sob lock); aqui é a recusa cedo com mensagem clara.
+            Pedido::withoutTenant()->whereKey($pedido->id)->lockForUpdate()->first();
+            $this->recusarSeHaNotaViva($pedido->id, $modelo->value);
+
             $nota = NotaFiscal::create([
                 'empresa_id' => $pedido->empresa_id,
                 'grupo_id' => $pedido->grupo_id,
@@ -195,6 +201,23 @@ class FiscalService
         }
 
         return DB::transaction(function () use ($nota) {
+            // PIE R3-05: a situação era lida do model FORA da transação — dois
+            // "transmitir" do mesmo rascunho passavam juntos, numeravam duas
+            // vezes e o segundo update apagava número e chave da nota já
+            // autorizada. Ordem de lock: pedido → nota → sequência (a mesma
+            // da montagem e da mudança de situação do pedido).
+            if ($nota->pedido_id) {
+                Pedido::withoutTenant()->whereKey($nota->pedido_id)->lockForUpdate()->first();
+            }
+            NotaFiscal::query()->withoutGlobalScopes()->whereKey($nota->id)->lockForUpdate()->first();
+            $nota->refresh();
+            if ($nota->situacao !== SituacaoNota::RASCUNHO) {
+                throw ValidationException::withMessages(['nota' => 'Só rascunho pode ser emitido.']);
+            }
+            if ($nota->pedido_id) {
+                $this->recusarSeHaNotaViva((int) $nota->pedido_id, $nota->modelo->value, $nota->id);
+            }
+
             // Numeração sequencial COM LOCK por empresa+modelo+série.
             $chaveSeq = $nota->modelo->chaveSequencia($nota->empresa_id, $nota->serie);
             $numero = $this->sequencia->proximo($chaveSeq);
@@ -222,6 +245,23 @@ class FiscalService
 
             return $nota->refresh();
         });
+    }
+
+    /**
+     * Nota transmitida ou autorizada do mesmo modelo já cobre o pedido. Rascunho
+     * e rejeitada não contam: são o caminho normal de refazer a emissão.
+     */
+    private function recusarSeHaNotaViva(int $pedidoId, string $modelo, ?int $exceto = null): void
+    {
+        $existe = NotaFiscal::query()->withoutGlobalScopes()
+            ->where('pedido_id', $pedidoId)
+            ->where('modelo', $modelo)
+            ->whereIn('situacao', [SituacaoNota::EMITIDA->value, SituacaoNota::AUTORIZADA->value])
+            ->when($exceto, fn ($q) => $q->whereKeyNot($exceto))
+            ->exists();
+        if ($existe) {
+            throw ValidationException::withMessages(['pedido' => 'Este pedido já tem nota fiscal transmitida ou autorizada deste modelo.']);
+        }
     }
 
     /** Emite direto a partir de um pedido (monta + emite). */

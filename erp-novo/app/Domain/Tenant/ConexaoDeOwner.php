@@ -3,6 +3,7 @@
 namespace App\Domain\Tenant;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Leitura (ou manutenção) que precisa enxergar TODAS as empresas.
@@ -39,7 +40,15 @@ final class ConexaoDeOwner
 
         try {
             DB::connection('pgsql_owner')->getPdo();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // PIE R4-09: o fallback continua (derrubar o processo não ajuda),
+            // mas não pode ser mudo — o login dos apps sob RLS depende desta
+            // conexão, e o incidente de 13/10 (login recusando todo mundo) foi
+            // exatamente um resultado "cego" sem nenhuma linha de log.
+            Log::warning('Conexao de owner indisponivel; executando pelo runtime (resultado pode ser cego sob RLS).', [
+                'erro' => $e->getMessage(),
+            ]);
+
             return $trabalho();
         }
 

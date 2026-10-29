@@ -154,6 +154,11 @@ class FkTenantAwareTest extends TestCase
             $escopadas[$tabela] = true;
         }
 
+        // PIE R4-05: piso de contagem — com o mapa de escopo vazio ou a pasta
+        // errada, a varredura não acharia nada e passaria verde.
+        $this->assertGreaterThan(30, count($escopadas), 'mapa de tabelas escopadas vazio ou incompleto');
+        $varridos = 0;
+
         $achados = [];
         $dir = app_path('Http');
         $it = new \RecursiveIteratorIterator(
@@ -164,6 +169,7 @@ class FkTenantAwareTest extends TestCase
             if (! $arquivo->isFile() || $arquivo->getExtension() !== 'php') {
                 continue;
             }
+            $varridos++;
             foreach (file($arquivo->getPathname()) as $n => $linha) {
                 $limpa = ltrim($linha);
                 // Comentário citando `exists:` não é regra.
@@ -191,6 +197,7 @@ class FkTenantAwareTest extends TestCase
         // isenção do `CadastroApoioController` ficou de fora por esquecimento,
         // e é o que fazia a suíte falhar no CI.
         $comTrocaEmRuntime = ['GeoController.php', 'CadastroApoioController.php'];
+        $this->assertGreaterThan(80, $varridos, 'a varredura de app/Http leu poucos arquivos');
 
         $achados = array_values(array_filter(
             $achados,

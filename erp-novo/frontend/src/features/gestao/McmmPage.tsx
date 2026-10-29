@@ -5,7 +5,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   ResourceList, FormDialog, RowActions, toast,
 } from '@/components/ui'
-import { data as fmtData } from '@/lib/format'
+import { data as fmtData, hojeISO } from '@/lib/format'
 import { useMcmms, useSalvarMcmm, useExcluirMcmm, type Mcmm } from './api'
 
 export function McmmPage() {
@@ -19,7 +19,7 @@ export function McmmPage() {
 
   function abrir(reg?: Mcmm) {
     setEdit(reg ?? null)
-    setForm(reg ? { ...reg } : { tipo: 'entrada', data: new Date().toISOString().slice(0, 10) })
+    setForm(reg ? { ...reg } : { tipo: 'entrada', data: hojeISO() })
     setProdLabel(''); setOpen(true)
   }
   async function onSalvar() {

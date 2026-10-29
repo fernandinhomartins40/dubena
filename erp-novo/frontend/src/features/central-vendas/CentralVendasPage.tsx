@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { PosVendaPage } from '@/features/crm/PosVendaPage'
 import { MissoesPage } from '@/features/missoes/MissoesPage'
-import { brl, dataHora } from '@/lib/format'
+import { brl, dataHora, decimalBR } from '@/lib/format'
 import {
   useSolicitacoes, useSolicitacao, useAprovar, useRecusar, useFaturar,
   type Solicitacao,
@@ -140,11 +140,17 @@ function DecisaoDialog({ id, onClose }: { id: number | null; onClose: () => void
 
   const onAprovar = async () => {
     if (id === null) return
+    // Vazio = aprova o que foi pedido; preenchido = contraproposta. Texto que
+    // não é número para aqui — antes virava null e aprovava o pedido inteiro.
+    const contraproposta = desconto.trim() === '' ? null : decimalBR(desconto)
+    if (contraproposta !== null && (Number.isNaN(contraproposta) || contraproposta < 0)) {
+      toast.error('Contraproposta inválida: informe só o valor, ex.: 5 ou 5,50.')
+      return
+    }
     try {
       await aprovar.mutateAsync({
         id,
-        // Vazio = aprova o que foi pedido; preenchido = contraproposta.
-        desconto_aprovado: desconto === '' ? null : Number(desconto.replace(',', '.')),
+        desconto_aprovado: contraproposta,
         motivo: motivo || undefined,
       })
       toast.success('Solicitação aprovada — pedido gerado.')

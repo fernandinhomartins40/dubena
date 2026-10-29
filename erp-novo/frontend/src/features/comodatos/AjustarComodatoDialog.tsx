@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FormDialog, Field, Input, Textarea, toast, Tabs, TabsList, TabsTrigger, TabsContent, AsyncSelect } from '@/components/ui'
 import { abrirContratoComodato, useAcrescentarComodato, useRenovarComodato, type Comodato } from './api'
+import { hojeISO } from '@/lib/format'
 
 type Modo = 'acrescentar' | 'renovar'
 
@@ -54,7 +55,7 @@ export function AjustarComodatoDialog({ comodato, modo, onOpenChange }: {
     // Um ano à frente é a renovação típica; a data continua editável.
     const daqui = new Date()
     daqui.setFullYear(daqui.getFullYear() + 1)
-    setVencimento(daqui.toISOString().slice(0, 10))
+    setVencimento(hojeISO(daqui))
   }, [comodato, modo])
 
   // Só é "outro produto" se de fato diferir da linha — escolher o mesmo no
@@ -63,7 +64,7 @@ export function AjustarComodatoDialog({ comodato, modo, onOpenChange }: {
 
   const qtd = Number(quantidade)
   const qtdInvalida = !quantidade || Number.isNaN(qtd) || qtd <= 0
-  const vencInvalido = !vencimento || vencimento <= new Date().toISOString().slice(0, 10)
+  const vencInvalido = !vencimento || vencimento <= hojeISO()
   const invalido = aba === 'acrescentar' ? qtdInvalida : vencInvalido
 
   async function confirmar() {

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Tenant\TenantContext;
+use App\Models\Empresa;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,16 @@ class ResolveTenant
                 $this->tenant->filtrarPorEmpresa($this->empresaDoFiltro($request));
 
                 $this->setRlsTenant($empresaId, $grupoId, $this->tenant->empresasVisiveis());
+
+                // PIE R1-03: suspender empresa no superadmin só grava
+                // `ativo=false` — e nada lia isso; a revenda suspensa seguia
+                // operando. Recusa aqui, depois do RLS armado (a leitura de
+                // `empresas` precisa dele). Só `false` explícito bloqueia: linha
+                // invisível já é barrada pela própria RLS.
+                $ativa = Empresa::query()->withoutGlobalScopes()->whereKey($empresaId)->value('ativo');
+                if ($ativa !== null && ! (bool) $ativa) {
+                    return response()->json(['message' => 'Empresa suspensa. Procure o suporte.'], 403);
+                }
             }
         }
 

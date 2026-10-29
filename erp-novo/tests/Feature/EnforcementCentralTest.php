@@ -124,10 +124,12 @@ class EnforcementCentralTest extends TestCase
         );
 
         $infratores = [];
+        $varridos = 0;
         foreach ($it as $f) {
             if (! $f->isFile() || $f->getExtension() !== 'php') {
                 continue;
             }
+            $varridos++;
             // A trait é o ÚNICO ponto autorizado a falar com temPermissao().
             if ($f->getFilename() === 'AutorizaPorPermissao.php') {
                 continue;
@@ -138,6 +140,8 @@ class EnforcementCentralTest extends TestCase
             }
         }
 
+        // PIE R4-05: sem piso, um caminho errado varreria zero arquivos e passaria.
+        $this->assertGreaterThan(60, $varridos, 'a varredura de app/Http/Controllers leu poucos arquivos');
         $this->assertSame(
             [],
             $infratores,

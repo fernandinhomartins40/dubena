@@ -163,7 +163,17 @@ class CaixaService
             }
 
             $pagarReceber = $parcela->financeiro->pagarreceber; // P / R
+            // PIE R2-08: juros/multa/desconto negativos ou desconto maior que a
+            // parcela produziam um "recebimento" negativo — o caixa SAÍA
+            // dinheiro numa baixa de conta a receber. Líquido zero (perdão
+            // integral) continua permitido.
+            if ($juros < 0 || $multa < 0 || $desconto < 0) {
+                throw ValidationException::withMessages(['baixa' => 'Juros, multa e desconto não podem ser negativos.']);
+            }
             $liquido = round((float) $parcela->valor + $juros + $multa - $desconto, 2);
+            if ($liquido < 0) {
+                throw ValidationException::withMessages(['desconto' => 'Desconto maior que o valor da parcela com juros e multa.']);
+            }
             // Recebimento entra (+) no caixa; pagamento sai (-).
             $valorAssinado = $pagarReceber === 'R' ? $liquido : -$liquido;
 

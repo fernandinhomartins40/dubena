@@ -308,7 +308,9 @@ class PedidoMobileService
             throw ValidationException::withMessages(['situacao' => 'Nenhuma situação de cancelamento configurada.']);
         }
 
-        return $this->pedidos->mudarSituacao($pedido, $cancelada->id);
+        // As guardas acima dão a mensagem certa no caso comum; a origem
+        // conferida sob o lock fecha a corrida com o entregador concluindo.
+        return $this->pedidos->mudarSituacao($pedido, $cancelada->id, null, [EfeitoPedido::PENDENTE]);
     }
 
     /**

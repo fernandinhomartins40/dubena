@@ -96,6 +96,9 @@ class RbacContratoTest extends TestCase
     {
         $catalogo = PermissaoCatalogo::chaves();
         $usadas = $this->chavesUsadasNosControllers();
+        // PIE R4-05: regex ou pasta quebrada extrairia zero chaves — e zero
+        // órfãs é verde. O sistema tem dezenas de chaves em uso.
+        $this->assertGreaterThan(50, count($usadas), 'a varredura extraiu poucas chaves de permissão');
 
         $orfas = array_values(array_diff($usadas, $catalogo));
 
@@ -119,6 +122,7 @@ class RbacContratoTest extends TestCase
         // Extrai `permission: 'modulo.acao'` dos itens de navegação.
         preg_match_all("/permission:\s*'([a-z]+\.[a-z_]+)'/", $src, $m);
         $doMenu = array_values(array_unique($m[1]));
+        $this->assertGreaterThan(10, count($doMenu), 'o menu da SPA rendeu poucas permissões — o formato mudou?');
 
         $orfas = array_values(array_diff($doMenu, $catalogo));
 

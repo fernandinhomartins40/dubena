@@ -5,7 +5,7 @@ import {
   ResourceList, FormDialog, toast, PageHeader,
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
-import { brl } from '@/lib/format'
+import { brl, competenciaISO } from '@/lib/format'
 import { useBeneficios, useRegistrarBeneficio, useSacarBeneficio, type Beneficio } from './api'
 import {
   GasDoPovoProgramaTab, GasDoPovoBeneficiariosTab, GasDoPovoVendasTab,
@@ -17,7 +17,7 @@ function BeneficiosVoucherTab() {
   const sacar = useSacarBeneficio()
 
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<Record<string, any>>({ competencia: new Date().toISOString().slice(0, 7) })
+  const [form, setForm] = useState<Record<string, any>>({ competencia: competenciaISO() })
   const [clienteLabel, setClienteLabel] = useState('')
 
   const [saqueOpen, setSaqueOpen] = useState(false)
@@ -26,7 +26,7 @@ function BeneficiosVoucherTab() {
   const [contaId, setContaId] = useState<number | null>(null)
   const [contaLabel, setContaLabel] = useState('')
 
-  function abrir() { setForm({ competencia: new Date().toISOString().slice(0, 7) }); setClienteLabel(''); setOpen(true) }
+  function abrir() { setForm({ competencia: competenciaISO() }); setClienteLabel(''); setOpen(true) }
   function abrirSaque(b: Beneficio) { setAlvo(b); setPedidoId(null); setContaId(null); setContaLabel(''); setSaqueOpen(true) }
 
   async function onRegistrar() {

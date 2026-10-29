@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { FileSpreadsheet } from 'lucide-react'
 import { Button, Card, CardContent, EmptyState, Field, Input, AsyncState } from '@/components/ui'
 import { useSpedPreview } from '../api'
+import { hojeISO } from '@/lib/format'
 
 export function SpedTab() {
   const hoje = new Date()
-  const [inicio, setInicio] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10))
-  const [fim, setFim] = useState(hoje.toISOString().slice(0, 10))
+  const [inicio, setInicio] = useState(hojeISO(new Date(hoje.getFullYear(), hoje.getMonth(), 1)))
+  const [fim, setFim] = useState(hojeISO(hoje))
   const [run, setRun] = useState(false)
   const { data, isLoading } = useSpedPreview(inicio, fim, run)
 

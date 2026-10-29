@@ -23,6 +23,12 @@ class LookupController extends Controller
     use AutorizaPorPermissao;
 
     /**
+     * Telefone sem máscara, em SQL portátil (Postgres e sqlite da suíte —
+     * `regexp_replace` não existe no sqlite).
+     */
+    private const TELEFONE_SO_DIGITOS = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), '+', '')";
+
+    /**
      * Registry: slug => [tabela, coluna_label, escopo('grupo'|'empresa'|null), where_extra].
      *
      * @var array<string, array{0:string,1:string,2:?string,3?:array<string,mixed>}>
@@ -198,7 +204,20 @@ class LookupController extends Controller
                 )),
             )
             ->when(Schema::hasColumn($tabela, 'ativo'), fn ($b) => $b->where('ativo', true))
-            ->when($q !== '', fn ($b) => $b->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']))
+            ->when($q !== '', fn ($b) => $b->where(function ($w) use ($q, $colLabel, $tabela) {
+                $w->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']);
+
+                // PIE R2-01: o campo do "Novo pedido" diz "nome ou telefone",
+                // e o atendente de disk-gás busca pelo número de quem ligou —
+                // mas só o nome era consultado. O telefone é gravado formatado
+                // ("(42) 99888-7766"), então compara só os dígitos. A partir de
+                // 4 dígitos, para não varrer a tabela com um "4".
+                $digitos = preg_replace('/\D/', '', $q);
+                if ($tabela === 'clientes' && strlen($digitos) >= 4) {
+                    $w->orWhereIn('id', DB::table('clientetelefones')->select('cliente_id')
+                        ->whereRaw(self::TELEFONE_SO_DIGITOS.' LIKE ?', ['%'.$digitos.'%']));
+                }
+            }))
             ->orderBy($colLabel)
             ->limit(50)
             ->get(['id', DB::raw("{$colLabel} as label")]);

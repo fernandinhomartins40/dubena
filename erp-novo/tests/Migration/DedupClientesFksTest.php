@@ -3,7 +3,6 @@
 namespace Tests\Migration;
 
 use App\Console\Commands\DedupClientesApp;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -25,7 +24,10 @@ use Tests\TestCase;
  */
 class DedupClientesFksTest extends TestCase
 {
-    use RefreshDatabase;
+    // Sem RefreshDatabase (PIE R4-04): o teste só LÊ o catálogo, e no gate
+    // Postgres o runtime (`erp_app`) não é dono das tabelas — recriar o schema
+    // falhava com "must be owner of table agencias" antes de chegar à asserção.
+    // Por isso este guardião nunca tinha rodado.
 
     /** @return list<array{tabela:string,coluna:string}> */
     private function referencias(): array

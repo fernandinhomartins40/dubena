@@ -4,7 +4,7 @@ import {
   Card, CardContent, Badge, StatCard, Field, Input, AsyncState, EmptyState,
   DataTable, type Column, SearchBar,
 } from '@/components/ui'
-import { brl, data as fmtData } from '@/lib/format'
+import { brl, data as fmtData, hojeISO } from '@/lib/format'
 import {
   usePrograma, useBeneficiarios, useVendasGp,
   type GpBeneficiario, type GpVenda, type GpParametros, type GpMes,
@@ -14,7 +14,7 @@ import {
 function periodoPadrao(): [string, string] {
   const hoje = new Date()
   const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-  return [inicio.toISOString().slice(0, 10), hoje.toISOString().slice(0, 10)]
+  return [hojeISO(inicio), hojeISO(hoje)]
 }
 
 /**

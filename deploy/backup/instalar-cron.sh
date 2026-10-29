@@ -10,7 +10,11 @@
 #
 set -Eeuo pipefail
 
-DIR_DEPLOY="${DIR_DEPLOY:-/opt/dubena-deploy}"
+# PIE R5-02: o default era `/opt/dubena-deploy`, que não existe na VPS — o cron
+# instalado rodaria `cd` num diretório ausente e falharia toda noite em
+# silêncio. O deploy publica cada release em `releases/<sha>` e mantém o
+# symlink `homolog-current` apontando para a vigente.
+DIR_DEPLOY="${DIR_DEPLOY:-/opt/dubena/erp-novo/releases/homolog-current/deploy}"
 LOG="${LOG:-/var/log/erpnovo-backup.log}"
 HORARIO="${HORARIO:-15 3 * * *}"   # 03:15 UTC = 00:15 em Brasília
 MARCA='# erpnovo-backup (deploy/backup/instalar-cron.sh)'

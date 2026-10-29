@@ -1,4 +1,5 @@
 import Http from "@/helpers/http"
+import useAppStore from "@/store/appStore"
 import {
     enfileirar,
     novoId,
@@ -56,7 +57,8 @@ export const enviarOuEnfileirar = async <T = any>(
             throw e
         }
 
-        enfileirar(endpoint, method, data)
+        // Mesma chave da tentativa que falhou: ela pode ter chegado ao servidor.
+        enfileirar(endpoint, method, data, chave, useAppStore.getState().user?.id)
 
         return { enfileirado: true }
     }
@@ -75,6 +77,7 @@ export const sincronizarPendencias = () =>
             // Mesma chave da primeira tentativa: é isso que evita a duplicata.
             headers: { "Idempotency-Key": item.id },
         }),
+        useAppStore.getState().user?.id,
     )
 
 export const temPendencias = (): boolean => quantidadePendente() > 0

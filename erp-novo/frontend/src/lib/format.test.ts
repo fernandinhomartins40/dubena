@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { brl, num, qtd, pct, data } from './format'
+import { brl, num, qtd, pct, data, decimalBR, hojeISO, competenciaISO, agoraLocal } from './format'
 
 /** FE-3 — formatadores centrais (pt-BR). Fixa o contrato que as páginas dependem. */
 describe('format', () => {
@@ -35,5 +35,27 @@ describe('format', () => {
     expect(data('2024-02-29')).toBe('29/02/2024')
     expect(data('2026-02-30')).toBe('Data inválida')
     expect(data('invalida')).toBe('Data inválida')
+  })
+})
+
+/** PIE R2-05/R2-06/R2-07 — datas locais e número digitado à brasileira. */
+describe('format — entrada e datas locais', () => {
+  it('hojeISO/agoraLocal usam a hora de parede, não UTC (22h30 no Brasil não é amanhã)', () => {
+    const noite = new Date(2026, 9, 28, 22, 30, 5) // construtor local
+    expect(hojeISO(noite)).toBe('2026-10-28')
+    expect(competenciaISO(noite)).toBe('2026-10')
+    expect(agoraLocal(noite)).toBe('2026-10-28 22:30:05')
+  })
+
+  it('decimalBR lê o que o operador digita e devolve NaN (nunca null) para o resto', () => {
+    expect(decimalBR('12,50')).toBe(12.5)
+    expect(decimalBR('1.000,00')).toBe(1000)
+    expect(decimalBR('R$ 5')).toBe(5)
+    expect(decimalBR('5%')).toBe(5)
+    expect(decimalBR('7.5')).toBe(7.5)
+    expect(decimalBR('abc')).toBeNaN()
+    expect(decimalBR('')).toBeNaN()
+    // O defeito: NaN viajava como null e virava "aprovar tudo".
+    expect(JSON.stringify({ v: decimalBR('cinco') })).toBe('{"v":null}')
   })
 })

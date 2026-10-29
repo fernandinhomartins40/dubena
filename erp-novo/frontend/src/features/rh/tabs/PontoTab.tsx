@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { Plus, Users } from 'lucide-react'
 import { Button, Field, Input, DataTable, type Column, EmptyState, toast } from '@/components/ui'
 import { usePontos, useAddPonto } from '../api'
-import { data as fmtData } from '@/lib/format'
+import { data as fmtData, hojeISO } from '@/lib/format'
 
 export function PontoTab({ colaboradorId }: { colaboradorId: number }) {
   const { data, isLoading } = usePontos(colaboradorId)
   const add = useAddPonto(colaboradorId)
-  const [f, setF] = useState<Record<string, any>>({ data: new Date().toISOString().slice(0, 10) })
+  const [f, setF] = useState<Record<string, any>>({ data: hojeISO() })
   async function adicionar() {
     try { await add.mutateAsync(f); toast.success('Ponto registrado.') }
     catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro.') }

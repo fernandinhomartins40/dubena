@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Domain\Tenant\TenantContext;
+use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteTelefone;
 use App\Models\Empresa;
 use App\Models\Estado;
 use App\Models\Geografico\Bairro;
@@ -85,6 +87,25 @@ class LookupTest extends TestCase
         $resp = $this->actingAs($u, 'sanctum')->getJson('/api/admin/lookups/estados?q=paulo')->assertOk();
         $this->assertCount(1, $resp->json('data'));
         $this->assertSame('São Paulo', $resp->json('data.0.label'));
+    }
+
+    /** PIE R2-01 — o atendente busca o cliente pelo número de quem ligou. */
+    public function test_lookup_de_clientes_acha_pelo_telefone_sem_mascara(): void
+    {
+        $u = $this->user();
+        $maria = Cliente::factory()->create(['empresa_id' => $u->empresa_id, 'grupo_id' => $u->grupo_id, 'nome' => 'Maria Souza']);
+        $joao = Cliente::factory()->create(['empresa_id' => $u->empresa_id, 'grupo_id' => $u->grupo_id, 'nome' => 'João Lima']);
+        ClienteTelefone::factory()->create(['cliente_id' => $maria->id, 'telefone' => '(42) 99888-7766']);
+        ClienteTelefone::factory()->create(['cliente_id' => $joao->id, 'telefone' => '(42) 3623-1100']);
+
+        foreach (['99888-7766', '998887766', '(42) 99888', '7766'] as $busca) {
+            $resp = $this->actingAs($u, 'sanctum')->getJson('/api/admin/lookups/clientes?q='.urlencode($busca))->assertOk();
+            $this->assertSame([$maria->id], array_column($resp->json('data'), 'id'), "busca: {$busca}");
+        }
+
+        // Nome continua funcionando; poucos dígitos não disparam a busca por telefone.
+        $this->actingAs($u, 'sanctum')->getJson('/api/admin/lookups/clientes?q=lima')->assertJsonPath('data.0.id', $joao->id);
+        $this->assertCount(0, $this->actingAs($u, 'sanctum')->getJson('/api/admin/lookups/clientes?q=42')->json('data'));
     }
 
     public function test_lookup_desconhecido_retorna_vazio(): void

@@ -4,7 +4,7 @@ import {
   Button, Card, Input, type Column, Field, AsyncSelect,
   ResourceList, FormDialog, RowActions, toast,
 } from '@/components/ui'
-import { brl } from '@/lib/format'
+import { brl, competenciaISO } from '@/lib/format'
 import { useMetas, useSalvarMeta, useExcluirMeta, type Meta } from './api'
 
 export function MetaPage() {
@@ -19,7 +19,7 @@ export function MetaPage() {
 
   function abrir(reg?: Meta) {
     setEdit(reg ?? null)
-    setForm(reg ? { ...reg } : { competencia: new Date().toISOString().slice(0, 7) })
+    setForm(reg ? { ...reg } : { competencia: competenciaISO() })
     setColabLabel('')
     setOpen(true)
   }

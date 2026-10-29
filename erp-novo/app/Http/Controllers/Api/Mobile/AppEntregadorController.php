@@ -214,7 +214,9 @@ class AppEntregadorController extends Controller
             ->exists();
         abort_unless($situacaoOk, 422, 'Situação inválida para este pedido.');
 
-        $atualizado = $this->pedidos->mudarSituacao($pedido, $d['pedidosituacao_id'], $user->id);
+        // PIE R3-10: o entregador só move pedido em aberto. Concluído ou
+        // cancelado é correção de escritório — pelo painel, com RBAC.
+        $atualizado = $this->pedidos->mudarSituacao($pedido, $d['pedidosituacao_id'], $user->id, [EfeitoPedido::PENDENTE]);
 
         // Notifica o cliente (push) sobre a nova situação (F5).
         $this->pedidoMobile->notificarStatus($atualizado->load(['cliente', 'situacao']));

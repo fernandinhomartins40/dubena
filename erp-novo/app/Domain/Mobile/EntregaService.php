@@ -106,7 +106,10 @@ class EntregaService
 
             // Move para a 1ª situação CONCLUÍDA do grupo (reusa a máquina de estados).
             $concluida = $this->situacaoPorEfeito($pedido->grupo_id, EfeitoPedido::CONCLUIDO);
-            $this->pedidos->mudarSituacao($pedido, $concluida->id, $entregadorUserId);
+            // PIE R3-10: só conclui o que ainda está em aberto — um pedido que
+            // o cliente cancelou não volta a CONCLUIDO pela mão do entregador.
+            // A exceção desfaz a comprovação junto (mesma transação).
+            $this->pedidos->mudarSituacao($pedido, $concluida->id, $entregadorUserId, [EfeitoPedido::PENDENTE]);
 
             return $comprovacao;
         });

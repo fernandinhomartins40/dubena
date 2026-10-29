@@ -11,7 +11,7 @@ import {
   useMudarSituacaoCheque, useContasCaixa,
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
 } from '../api'
-import { brl, data as fmtData } from '@/lib/format'
+import { brl, data as fmtData, hojeISO } from '@/lib/format'
 import { useBusca } from '@/lib/useBusca'
 
 // ---------- CHEQUES ----------
@@ -168,8 +168,8 @@ export function BoletosTab() {
 // ---------- DRE ----------
 export function DRETab() {
   const hoje = new Date()
-  const [inicio, setInicio] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10))
-  const [fim, setFim] = useState(hoje.toISOString().slice(0, 10))
+  const [inicio, setInicio] = useState(hojeISO(new Date(hoje.getFullYear(), hoje.getMonth(), 1)))
+  const [fim, setFim] = useState(hojeISO(hoje))
   const [run, setRun] = useState(false)
   const [periodo, setPeriodo] = useState({ inicio, fim })
   const { data, isLoading, error, refetch } = useDRE(periodo.inicio, periodo.fim, run)
@@ -208,8 +208,8 @@ export function DRETab() {
 export function ConciliacaoTab() {
   const hoje = new Date()
   const [contaId, setContaId] = useState<number | null>(null); const [contaLabel, setContaLabel] = useState<string | null>(null)
-  const [inicio, setInicio] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10))
-  const [fim, setFim] = useState(hoje.toISOString().slice(0, 10))
+  const [inicio, setInicio] = useState(hojeISO(new Date(hoje.getFullYear(), hoje.getMonth(), 1)))
+  const [fim, setFim] = useState(hojeISO(hoje))
   const [run, setRun] = useState(false)
   const [periodo, setPeriodo] = useState({ inicio, fim })
   const { data, isLoading, error, refetch } = useConciliacao(contaId, periodo.inicio, periodo.fim, run && contaId !== null)

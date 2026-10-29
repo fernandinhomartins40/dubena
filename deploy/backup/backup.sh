@@ -34,9 +34,13 @@ set -Eeuo pipefail
 DESTINO="${DESTINO:-/opt/backups-erpnovo}"
 CONTAINER_DB="${CONTAINER_DB:-erpnovo-db}"
 CONTAINER_APP="${CONTAINER_APP:-erpnovo-app}"
-DB_USER="${DB_USER:-erp}"
-DB_NAME="${DB_NAME:-erp_novo}"
-VOLUME_STORAGE="${VOLUME_STORAGE:-erp-novo_app_storage}"
+# PIE R5-01: os defaults fixos ('erp', 'erp_novo', 'erp-novo_app_storage') não
+# batiam com nenhum ambiente real — o projeto do compose é `erpnovo-homolog` /
+# `erpnovo-producao` e o usuário do banco é o `POSTGRES_USER` do contêiner.
+# Sem variável, lê do próprio contêiner do banco (fonte da verdade).
+DB_USER="${DB_USER:-$(docker exec "$CONTAINER_DB" printenv POSTGRES_USER 2>/dev/null || echo erp)}"
+DB_NAME="${DB_NAME:-$(docker exec "$CONTAINER_DB" printenv POSTGRES_DB 2>/dev/null || echo erp_novo)}"
+VOLUME_STORAGE="${VOLUME_STORAGE:-erpnovo-homolog_app_storage}"
 
 # Retenção (T3.4 passo 4).
 RETENCAO_DIARIA="${RETENCAO_DIARIA:-7}"

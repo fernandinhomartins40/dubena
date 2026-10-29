@@ -1,5 +1,6 @@
 import { Cartao } from "@/components/ui"
 import { COLORS } from "@/constants/app"
+import { limpar as limparFila, quantidadePendente } from "@/helpers/filaOffline"
 import { useJornada } from "@/hooks/useJornada"
 import AuthService from "@/services/auth.service"
 import JornadaService from "@/services/jornada.service"
@@ -33,14 +34,33 @@ export default function Perfil() {
             { text: "Encerrar", style: "destructive", onPress: () => encerrar.mutate() },
         ])
 
-    const sair = async () => {
+    const encerrarSessao = async () => {
         try {
             await AuthService.Logout()
         } catch {
             // mesmo se falhar no servidor, limpamos local
         }
+        // PIE R2-04: a fila sobrevivia ao logout e seria enviada com o token
+        // do PRÓXIMO entregador que entrasse neste aparelho.
+        limparFila()
         logout()
         router.replace("/login")
+    }
+
+    const sair = () => {
+        const n = quantidadePendente()
+        if (n === 0) {
+            void encerrarSessao()
+            return
+        }
+        Alert.alert(
+            "Há envios pendentes",
+            `${n} ${n === 1 ? "ação ainda não foi enviada" : "ações ainda não foram enviadas"} por falta de sinal. Se sair agora, ${n === 1 ? "ela será perdida" : "elas serão perdidas"}.`,
+            [
+                { text: "Ficar", style: "cancel" },
+                { text: "Sair mesmo assim", style: "destructive", onPress: () => void encerrarSessao() },
+            ],
+        )
     }
 
     const nome = user?.name ?? "Entregador"

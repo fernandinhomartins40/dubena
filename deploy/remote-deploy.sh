@@ -78,7 +78,15 @@ mv "${RELEASES_DIR}/${RELEASE_ID}.env.tmp" "${RELEASES_DIR}/${RELEASE_ID}.env"
 
 if [[ "$AMBIENTE" == producao ]]; then
     log 'backup obrigatório antes de qualquer escrita'
-    bash "$BUNDLE_DIR/deploy/backup/backup.sh"
+    # PIE R5-01: sem estas variáveis o backup.sh usava os nomes da HOMOLOGAÇÃO
+    # (erpnovo-db/erpnovo-app) — o "backup obrigatório" da produção copiava o
+    # banco errado e passava verde. Destino próprio: a retenção de um ambiente
+    # não pode apagar os dumps do outro.
+    CONTAINER_DB=erpnovo-prod-db \
+    CONTAINER_APP="$CONTAINER_APP" \
+    VOLUME_STORAGE=erpnovo-producao_app_storage \
+    DESTINO=/opt/backups-erpnovo-producao \
+        bash "$BUNDLE_DIR/deploy/backup/backup.sh"
 fi
 
 # O banco precisa estar de pé para a migration; o resto sobe depois dela, para

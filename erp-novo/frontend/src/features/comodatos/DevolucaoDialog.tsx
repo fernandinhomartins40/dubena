@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FormDialog, Field, Input, Textarea, toast } from '@/components/ui'
 import { useDevolverComodato, type Comodato } from './api'
+import { hojeISO } from '@/lib/format'
 
 /**
  * Devolução de vasilhame — parcial ou total.
@@ -29,7 +30,7 @@ export function DevolucaoDialog({ comodato, onOpenChange }: {
   useEffect(() => {
     if (comodato) {
       setQuantidade('')
-      setData(new Date().toISOString().slice(0, 10))
+      setData(hojeISO())
       setObservacao('')
     }
   }, [comodato])

@@ -59,7 +59,11 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        // PIE R1-08: sem token pessoal (TransientToken) não há o que apagar.
+        $token = $request->user()?->currentAccessToken();
+        if ($token !== null && method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         return response()->json(['message' => 'Sessão encerrada.']);
     }

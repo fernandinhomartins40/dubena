@@ -5,9 +5,9 @@ import {
   AsyncSelect, ConfirmDialog, toast,
 } from '@/components/ui'
 import { useConferenciaMalote, useFecharMalote, type MalotePedido } from '../api'
-import { brl } from '@/lib/format'
+import { brl, hojeISO } from '@/lib/format'
 
-const hoje = new Date().toISOString().slice(0, 10)
+const hoje = hojeISO()
 
 /**
  * Fechamento de malote (T4.3) — o acerto de valores do entregador.

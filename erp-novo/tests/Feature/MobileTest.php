@@ -178,7 +178,7 @@ class MobileTest extends TestCase
 
     public function test_pagamento_online_aprovado(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id]);
         $situacao = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
@@ -192,7 +192,7 @@ class MobileTest extends TestCase
 
     public function test_pagamento_online_negado_retorna_402(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id]);
         $situacao = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
@@ -242,7 +242,7 @@ class MobileTest extends TestCase
 
     public function test_historico_e_acompanhar_do_cliente(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id]);
         $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
@@ -258,7 +258,7 @@ class MobileTest extends TestCase
 
     public function test_cancelar_pedido_pendente(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id]);
         $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         PedidoSituacao::factory()->efeito(EfeitoPedido::CANCELADO)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
@@ -275,7 +275,7 @@ class MobileTest extends TestCase
 
     public function test_avaliar_pedido_uma_vez(): void
     {
-        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'user_id' => $this->user->id]);
         $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,

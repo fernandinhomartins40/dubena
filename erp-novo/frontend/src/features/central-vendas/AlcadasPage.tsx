@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui'
-import { brl } from '@/lib/format'
+import { brl, decimalBR } from '@/lib/format'
 import { useAlcadas, useSalvarAlcada, useExcluirAlcada, type Alcada } from './alcadaApi'
 
 /**
@@ -121,9 +121,16 @@ function AlcadaDialog({ alvo, onClose }: { alvo: Alcada | 'nova' | null; onClose
   }
 
   const gravar = async () => {
-    const pct = Number(percentual.replace(',', '.'))
+    const pct = decimalBR(percentual)
     if (Number.isNaN(pct) || pct < 0 || pct > 100) {
       toast.error('Percentual deve ficar entre 0 e 100.')
+      return
+    }
+    // Vazio = sem teto em reais (escolha explícita). Texto inválido era lido
+    // como vazio e removia o teto em silêncio (PIE R2-07).
+    const teto = valorMax.trim() === '' ? null : decimalBR(valorMax)
+    if (teto !== null && (Number.isNaN(teto) || teto < 0)) {
+      toast.error('Valor máximo inválido: informe só o valor, ex.: 50 ou 1.000,00.')
       return
     }
 
@@ -131,7 +138,7 @@ function AlcadaDialog({ alvo, onClose }: { alvo: Alcada | 'nova' | null; onClose
       await salvar.mutateAsync({
         id: existente?.id,
         percentual_max: pct,
-        valor_max: valorMax === '' ? null : Number(valorMax.replace(',', '.')),
+        valor_max: teto,
         base_calculo: base,
         produto_id: produtoId === '' ? null : Number(produtoId),
       })

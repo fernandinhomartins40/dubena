@@ -177,9 +177,14 @@ class ClienteAuthService
             }
 
             // Cria um usuário "cliente do app": sem login por senha (password aleatório),
-            // herdando empresa/grupo do cliente (tenant). E-mail sintético quando ausente,
-            // garantindo unicidade exigida pela tabela.
-            $email = $cliente->email ?: 'cliente'.$cliente->id.'+'.$firebaseUid.'@app.local';
+            // herdando empresa/grupo do cliente (tenant).
+            //
+            // PIE R1-01: o e-mail é SEMPRE sintético. Antes usava `cliente.email`
+            // com `firstOrCreate` — e `users` é compartilhada com o staff, então
+            // um cadastro pelo app informando o e-mail de um administrador
+            // devolvia o usuário DELE e emitia token em seu nome (tomada de conta
+            // sem senha). O e-mail real do cliente continua em `clientes.email`.
+            $email = 'cliente'.$cliente->id.'+'.$firebaseUid.'@app.local';
 
             $user = User::query()->firstOrCreate(
                 ['email' => $email],

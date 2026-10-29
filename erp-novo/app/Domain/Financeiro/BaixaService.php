@@ -2,6 +2,7 @@
 
 namespace App\Domain\Financeiro;
 
+use App\Models\Financeiro\Financeiro;
 use App\Models\Financeiro\FinanceiroParcela;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -44,6 +45,34 @@ final class BaixaService
             throw ValidationException::withMessages([
                 'parcela' => 'Parcela nao pertence a empresa da operacao.',
             ]);
+        }
+
+        // PIE R3-02: a parcela de um título que já não é a dívida viva não
+        // recebe baixa. AGRUPADO: a dívida passou para o agrupador (baixar os
+        // dois recebia 200 por 100). REPARCELADO: passou para o título novo.
+        // Cancelado: não há dívida. O lock no título serializa com
+        // agrupar/desagrupar/reparcelar, que travam o título.
+        $titulo = Financeiro::withoutTenant()->whereKey($parcela->financeiro_id)->lockForUpdate()->first();
+        $morto = $titulo === null || $titulo->cancelado
+            || in_array($titulo->agrupamento_status, [AgrupamentoStatus::AGRUPADO, AgrupamentoStatus::REPARCELADO], true);
+        if ($morto && ! $parcela->baixado) {
+            if (! $reentregaIdempotente) {
+                throw ValidationException::withMessages([
+                    'parcela' => 'Título cancelado, agrupado ou reparcelado: receba pelo título que o substituiu.',
+                ]);
+            }
+
+            // Canal externo (PIX/CNAB): o dinheiro JÁ entrou no banco. Recusar
+            // com exceção apagaria o rastro; fica o alerta para conciliação.
+            Log::error('Baixa externa para parcela de titulo cancelado/agrupado/reparcelado — conciliar.', [
+                'empresa_id' => $empresaId,
+                'financeiroparcela_id' => $parcelaId,
+                'financeiro_id' => $parcela->financeiro_id,
+                'origem' => $origem,
+                'valor' => round($valorEfetivado, 2),
+            ]);
+
+            return false;
         }
 
         if ($parcela->baixado) {

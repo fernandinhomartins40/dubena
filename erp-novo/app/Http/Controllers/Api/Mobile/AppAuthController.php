@@ -370,7 +370,12 @@ class AppAuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        // PIE R1-08: sessão por cookie chega como TransientToken, sem delete();
+        // o mesmo cuidado que o `refresh` abaixo já tinha.
+        $token = $request->user()?->currentAccessToken();
+        if ($token !== null && method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         return response()->json(['message' => 'Logout efetuado.']);
     }

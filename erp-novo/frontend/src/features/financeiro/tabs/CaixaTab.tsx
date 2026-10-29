@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Lock, Unlock, Wallet } from 'lucide-react'
 import { AsyncState, Button, Card, CardContent, Badge, DataTable, type Column, EmptyState, toast } from '@/components/ui'
 import { useContasCaixa, useMovimentosCaixa, useAbrirCaixa, useFecharCaixa, type ContaCaixa } from '../api'
-import { brl, data as fmtData } from '@/lib/format'
+import { brl, data as fmtData, agoraLocal } from '@/lib/format'
 
 export function CaixaTab() {
   const { data: contas, isLoading, error, refetch } = useContasCaixa()
@@ -12,7 +12,7 @@ export function CaixaTab() {
   const abrir = useAbrirCaixa(); const fechar = useFecharCaixa()
 
   async function toggle(c: ContaCaixa) {
-    const agora = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const agora = agoraLocal()
     try {
       if (Number(c.fechado)) { await abrir.mutateAsync({ contaId: c.id, datahoraabertura: agora }); toast.success('Caixa aberto.') }
       else { await fechar.mutateAsync({ contaId: c.id, datahorafechamento: agora }); toast.success('Caixa fechado.') }

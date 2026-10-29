@@ -134,7 +134,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
     Route::get('/me', [AuthController::class, 'me']);
 
     // ── Admin (consumido pela SPA em /api/admin) — N1 ──
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('painel')->group(function () {
         // ── Segurança da conta (A5) — 2FA e sessões do PRÓPRIO usuário ──
         // (sob /admin pois o cliente da SPA usa baseURL .../api/admin).
         Route::get('seguranca/2fa', [SegurancaController::class, 'twoFactorStatus']);
