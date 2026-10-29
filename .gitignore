@@ -75,3 +75,7 @@ graphify-out/
 
 # Permissoes locais do Claude Code (por maquina; nao versionar)
 .claude/settings.local.json
+
+# Artefatos de build dos apps (APK/AAB) — gerados por scripts/build-aab-producao.sh
+apks/
+app-gas-em-casa/apks/

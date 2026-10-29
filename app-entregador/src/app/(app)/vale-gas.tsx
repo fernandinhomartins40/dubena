@@ -6,8 +6,9 @@ import { useMutation } from "@tanstack/react-query"
 import { CheckCircle2, Ticket, XCircle } from "lucide-react-native"
 import { useState } from "react"
 import { ScrollView, StyleSheet, Text, View } from "react-native"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const brl = (v: number) => `R$ ${Number(v).toFixed(2).replace(".", ",")}`
+const brl = formatarMoeda
 
 /**
  * Verificar Vale Gás — porta o `GasdeBolsoVerificacaoActivity` do MovelApp.

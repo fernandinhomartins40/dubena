@@ -1,5 +1,5 @@
 import { Botao, Cartao } from "@/components/ui"
-import { BRASIL_VIEW, COLORS } from "@/constants/app"
+import { BRASIL_VIEW, COLORS, TRACADO_ESTIMADO, TRACEJADO } from "@/constants/app"
 import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -57,12 +57,15 @@ export default function RotaScreen() {
           }
         : BRASIL_VIEW
 
-    // Traçado no minimapa: polylines reais (Routes API) ou reta entre paradas.
+    // Traçado: polylines reais (Routes API) quando o backend mandou. Sem elas, a
+    // reta entre os pontos é só uma ESTIMATIVA de direção — sai tracejada e cinza
+    // para nunca ser confundida com o caminho pelas ruas (sólida, ela parecia rota
+    // e cortava quarteirões).
     const trechos = useMemo(() => {
         const reais = comGeo.filter((p) => p.polyline).map((p) => decodePolyline(p.polyline!))
-        if (reais.length > 0) return reais
+        if (reais.length > 0) return reais.map((coords) => ({ coords, real: true }))
         const pontos = comGeo.map((p) => ({ latitude: p.lat!, longitude: p.lng! }))
-        return pontos.length >= 2 ? [pontos] : []
+        return pontos.length >= 2 ? [{ coords: pontos, real: false }] : []
     }, [comGeo])
 
     /** Navegação INTERNA (tela cheia, posição ao vivo) — não sai do app. */
@@ -95,9 +98,24 @@ export default function RotaScreen() {
                 onPress={() => iniciar.mutate()}
                 carregando={iniciar.isPending}
             />
-            <MapView style={s.mapa} provider={PROVIDER_GOOGLE} initialRegion={regiao} pointerEvents="none">
-                {trechos.map((coords, i) => (
-                    <Polyline key={i} coordinates={coords} strokeWidth={4} strokeColor={COLORS.primary} />
+            {/* initialRegion só vale na montagem e as paradas chegam depois: sem a key,
+                o minimapa ficava para sempre na vista do Brasil. Remonta quando a 1ª
+                parada geolocalizada aparece (ou muda), não a cada atualização. */}
+            <MapView
+                key={primeira ? `${primeira.lat},${primeira.lng}` : "brasil"}
+                style={s.mapa}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={regiao}
+                pointerEvents="none"
+            >
+                {trechos.map((t, i) => (
+                    <Polyline
+                        key={i}
+                        coordinates={t.coords}
+                        strokeWidth={t.real ? 4 : 3}
+                        strokeColor={t.real ? COLORS.primary : TRACADO_ESTIMADO}
+                        lineDashPattern={t.real ? undefined : TRACEJADO}
+                    />
                 ))}
                 {comGeo.map((p) => (
                     <Marker key={p.pedido_id} coordinate={{ latitude: p.lat!, longitude: p.lng! }} title={`${p.sequencia}. ${p.cliente ?? "Cliente"}`} description={p.endereco}>

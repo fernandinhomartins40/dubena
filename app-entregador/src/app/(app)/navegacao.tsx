@@ -1,5 +1,5 @@
 import { Botao } from "@/components/ui"
-import { BRASIL_VIEW, COLORS } from "@/constants/app"
+import { BRASIL_VIEW, COLORS, TRACADO_ESTIMADO, TRACEJADO } from "@/constants/app"
 import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
 import { fontSize, radius, shadow } from "@/styles/theme"
@@ -33,19 +33,21 @@ export default function Navegacao() {
     const paradas = (data?.paradas ?? []).filter((p) => p.lat != null && p.lng != null)
     const proxima = paradas[0]
 
-    // Traçado: polylines reais por trecho quando o backend mandou; senão, liga
-    // posição → paradas com retas (melhora sozinho quando a Routes API ligar).
+    // Traçado: polylines reais (Routes API) quando o backend mandou. Sem elas, a
+    // reta entre os pontos é só uma ESTIMATIVA de direção — sai tracejada e cinza
+    // para nunca ser confundida com o caminho pelas ruas (sólida, ela parecia rota
+    // e cortava quarteirões).
     const trechos = useMemo(() => {
         const reais = paradas
             .filter((p) => p.polyline)
             .map((p) => decodePolyline(p.polyline!))
-        if (reais.length > 0) return reais
+        if (reais.length > 0) return reais.map((coords) => ({ coords, real: true }))
 
         const pontos = [
             ...(posicao ? [{ latitude: posicao.latitude, longitude: posicao.longitude }] : []),
             ...paradas.map((p) => ({ latitude: p.lat!, longitude: p.lng! })),
         ]
-        return pontos.length >= 2 ? [pontos] : []
+        return pontos.length >= 2 ? [{ coords: pontos, real: false }] : []
     }, [paradas, posicao])
 
     // Posição ao vivo: watch + câmera seguindo (heading/velocidade do GPS).
@@ -105,12 +107,13 @@ export default function Navegacao() {
                 showsCompass
                 onPanDrag={() => setSeguir(false)}
             >
-                {trechos.map((coords, i) => (
+                {trechos.map((t, i) => (
                     <Polyline
                         key={i}
-                        coordinates={coords}
-                        strokeWidth={5}
-                        strokeColor={COLORS.primary}
+                        coordinates={t.coords}
+                        strokeWidth={t.real ? 5 : 3}
+                        strokeColor={t.real ? COLORS.primary : TRACADO_ESTIMADO}
+                        lineDashPattern={t.real ? undefined : TRACEJADO}
                     />
                 ))}
                 {paradas.map((p, i) => (

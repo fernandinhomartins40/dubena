@@ -4,8 +4,9 @@ import VendaService, { type Solicitacao } from "@/services/venda.service"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const brl = (v: number) => `R$ ${Number(v).toFixed(2).replace(".", ",")}`
+const brl = formatarMoeda
 const quando = (iso: string) =>
     new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
 

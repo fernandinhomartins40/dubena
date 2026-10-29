@@ -15,8 +15,9 @@ import {
     Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const moeda = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`
+const moeda = formatarMoeda
 const primeiroNome = (nome?: string | null) => (nome ?? "Entregador").trim().split(" ")[0]
 
 /**

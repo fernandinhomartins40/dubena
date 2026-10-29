@@ -10,8 +10,9 @@ import { Camera, Check, Minus, Plus, UserPlus } from "lucide-react-native"
 import { useState } from "react"
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import Toast from "react-native-toast-message"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const brl = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`
+const brl = formatarMoeda
 
 /**
  * Vender em campo (L8) — tela dedicada. Cliente (sugerido ou cadastro rápido) +

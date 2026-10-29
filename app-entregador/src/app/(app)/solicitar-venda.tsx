@@ -8,8 +8,9 @@ import { Check, Minus, Plus, Send } from "lucide-react-native"
 import { useState } from "react"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import Toast from "react-native-toast-message"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const brl = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`
+const brl = formatarMoeda
 
 /**
  * Solicitar venda à Central (F4) — o caminho do franqueado e do industrial.

@@ -39,7 +39,9 @@ const RELEASE_SIGNING = `signingConfig (findProperty('DUBENA_UPLOAD_STORE_FILE')
 const GUARDA_AAB = `
 ${MARCA}
 gradle.taskGraph.whenReady { graph ->
-    def geraAab = graph.allTasks.any { it.name.startsWith('bundle') && it.name.endsWith('Release') }
+    // Só a tarefa que GERA o AAB do app. Casar por "bundle*Release" pegava tarefas
+    // internas das bibliotecas (bundleLibRuntimeToDirRelease...) e barrava até o APK.
+    def geraAab = graph.allTasks.any { it.path == ':app:bundleRelease' }
     if (geraAab && !findProperty('DUBENA_UPLOAD_STORE_FILE')) {
         throw new GradleException("AAB de release exige a chave de upload (DUBENA_UPLOAD_STORE_FILE). Sem ela sairia assinado com a chave de debug, que a Play recusa.")
     }

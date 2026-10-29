@@ -50,6 +50,14 @@ export const BRASIL_VIEW = {
     longitudeDelta: 40,
 }
 
+/**
+ * Reta usada quando o backend não mandou o traçado pelas ruas (Routes API sem
+ * chave ou fora do ar). Tracejada e cinza de propósito: é estimativa de direção,
+ * não caminho — sólida e laranja ela se passava por rota e cortava quarteirões.
+ */
+export const TRACADO_ESTIMADO = "#9CA3AF"
+export const TRACEJADO = [12, 10]
+
 /** Intervalo (ms) entre pings de posição enviados ao ERP-NOVO (P6). */
 export const POSICAO_INTERVALO_MS = 15000
 

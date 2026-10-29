@@ -9,8 +9,9 @@ import { useState } from "react"
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
 import Toast from "react-native-toast-message"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const moeda = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`
+const moeda = formatarMoeda
 
 /**
  * Detalhe da entrega (P7) — mapa com o destino, dados do cliente e as ações do
@@ -94,6 +95,9 @@ export default function PedidoDetalhe() {
     return (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             <MapView
+                // Mesma armadilha do minimapa da rota: o pedido chega depois da
+                // montagem e initialRegion não reage. Remonta quando o destino aparece.
+                key={temDestino ? `${pedido!.lat},${pedido!.lng}` : "brasil"}
                 style={s.mapa}
                 provider={PROVIDER_GOOGLE}
                 initialRegion={regiao}

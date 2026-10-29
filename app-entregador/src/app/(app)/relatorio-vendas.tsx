@@ -5,8 +5,9 @@ import { fontSize } from "@/styles/theme"
 import { useQuery } from "@tanstack/react-query"
 import { Receipt } from "lucide-react-native"
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native"
+import { formatarMoeda } from "@/helpers/moeda"
 
-const brl = (v: number) => `R$ ${Number(v).toFixed(2).replace(".", ",")}`
+const brl = formatarMoeda
 
 /**
  * Relatório de vendas — porta o `ReportPedidos` do NFWEB e o `getPedidosReport`
