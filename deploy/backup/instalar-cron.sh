@@ -16,10 +16,16 @@ set -Eeuo pipefail
 # symlink `homolog-current` apontando para a vigente.
 DIR_DEPLOY="${DIR_DEPLOY:-/opt/dubena/erp-novo/releases/homolog-current/deploy}"
 LOG="${LOG:-/var/log/erpnovo-backup.log}"
-HORARIO="${HORARIO:-15 3 * * *}"   # 03:15 UTC = 00:15 em Brasília
+# 04:30 UTC = 01:30 em Brasília. Era 03:15 — o mesmo minuto do backup de outra
+# aplicação da VPS compartilhada (e 03:20 tem um terceiro); dois pg_dump juntos
+# disputam o disco.
+HORARIO="${HORARIO:-30 4 * * *}"
 MARCA='# erpnovo-backup (deploy/backup/instalar-cron.sh)'
 
-LINHA="${HORARIO} cd ${DIR_DEPLOY} && bash backup/backup.sh >> ${LOG} 2>&1 ${MARCA}"
+# O volume vai explícito na linha: o backup.sh só cai nele quando o contêiner da
+# app está fora do ar — exatamente a noite em que o backup mais importa.
+VOLUME_STORAGE="${VOLUME_STORAGE:-erpnovo-homolog_app_storage}"
+LINHA="${HORARIO} cd ${DIR_DEPLOY} && VOLUME_STORAGE=${VOLUME_STORAGE} bash backup/backup.sh >> ${LOG} 2>&1 ${MARCA}"
 
 atual="$(crontab -l 2>/dev/null || true)"
 
@@ -43,6 +49,7 @@ ${LOG} {
     missingok
     notifempty
     copytruncate
+    su root root
 }
 ROT
   echo "logrotate configurado para ${LOG}"

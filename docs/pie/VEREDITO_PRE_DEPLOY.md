@@ -32,15 +32,16 @@ confirmados que não são corrigíveis só com código, sem decisão ou acesso:
 
 | Bloqueador remanescente | Comp. | Por que bloqueia | O que destrava |
 |---|---|---|---|
-| **PIE-13** — não há backup da base com dados reais; restore nunca ensaiado | C | Perda total de dados em um incidente | Seu OK para instalar o cron na VPS, gerar o primeiro dump e ensaiar o restore |
+| **PIE-13** — ~~sem backup~~ **resolvido em 29/10**: cron diário, dump e restore verificado (RTO 223 s). **Resta:** a cópia existe só na própria VPS | C | Um incidente de host leva o banco e o backup juntos | Destino externo (`BACKUP_REMOTO`) |
 | **PIE-11** — pagamento online do app desligado do título; pagamento duplo possível; sem estorno | C (estático) | Cobrança indevida ao cliente final e caixa do entregador inconsistente | Sua decisão de regra comercial (§ PLANO_MESTRE) |
 | **PIE-02** — driver real da SEFAZ grava autorização como rejeitada | FI | Ligar a NF real produziria notas duplicadas | Respostas SOAP reais gravadas com o certificado A1 + teste do driver |
 | **PIE-21** — licença SaaS desligada | C | Módulo não contratado passa (receita) | Ligar `SAAS_ENFORCE_LICENCA` em produção |
 | **PIE-14** — SSH root por senha, sem fail2ban nem ufw | C | Superfície de ataque numa VPS compartilhada | Sua decisão (fail2ban + ufw não contrariam a regra de manter senha) |
 
-Pelo critério do protocolo: há bloqueador confirmado (PIE-13, PIE-11), logo
+Pelo critério do protocolo: há bloqueador confirmado (PIE-11), logo
 **REPROVADO**, não "não comprovado". **APROVADO PARA DEPLOY** em produção exige
-fechar ao menos PIE-13, PIE-11, PIE-21 e, se a NF real for ligada, PIE-02.
+fechar ao menos PIE-11, PIE-21, a cópia externa do backup e, se a NF real for
+ligada, PIE-02.
 
 ## 3. Riscos residuais aceitos nesta execução
 

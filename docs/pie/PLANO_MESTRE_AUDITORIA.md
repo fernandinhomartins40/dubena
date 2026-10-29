@@ -37,7 +37,7 @@ correção retirada por `git stash` (exceto onde indicado).
 
 | Prior. | ID | Por que não foi feito agora | O que destrava |
 |---|---|---|---|
-| P0 | PIE-13 | Instalar o cron e fazer o primeiro dump exige **escrita na VPS**; a regra registrada é escrever lá só com aprovação | Ok do dono para: `bash instalar-cron.sh`, rodar `backup.sh` uma vez e ensaiar `restore.sh` no contêiner de teste |
+| ~~P0~~ | PIE-13 | **Feito em 29/10** (ver validação §7). Pendente só a cópia fora do host | Destino externo para `BACKUP_REMOTO` (custo/serviço: decisão do dono) |
 | P0 | PIE-11 | Exige **regra comercial**: o PIX pago baixa o título no webhook ou na conclusão? Pedido em dinheiro gera PIX? Quem estorna no cancelamento? | Decisão do dono; depois, correção com teste encadeado |
 | P0 antes de ligar NF real | PIE-02 | Corrigir sem respostas SOAP reais gravadas seria trocar um palpite por outro; o driver está desligado, sem dano hoje | Gravar respostas da SEFAZ de homologação com o certificado A1 e escrever o teste do driver com elas |
 | P1 | PIE-14 | A regra do dono é "não desligar o login por senha da VPS" | Decisão do dono: fail2ban + ufw não contradizem a regra e podem vir primeiro |

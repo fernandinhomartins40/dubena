@@ -101,6 +101,29 @@ mesma lista de perguntas. Por ser o mesmo contexto que escreveu as correções, 
 | **Fila offline: preservar no 401 cria risco novo?** | O interceptor de 401 (`http.ts:19`) faz logout sem passar pela confirmação; outro entregador no mesmo aparelho enviaria a fila do anterior com o próprio token | **Regressão encontrada e corrigida**: cada item guarda o `dono`, e a sincronização só envia os do usuário logado (`tsc` exit 0) |
 | `decimalBR("1.000")` | Sem vírgula, o ponto é decimal: vira 1, igual ao comportamento anterior (`Number`). No teto de alçada isso restringe, não libera | Aceito, documentado |
 
+## 7. Operações na VPS em 29/10 (com o OK do dono: "pode fazer o que for preciso")
+
+| Ação | Resultado | Rollback |
+|---|---|---|
+| Removida de `/root/.ssh/authorized_keys` uma chave desconhecida rotulada `claude-code dubena` (`SHA256:fjaBC4ec…OKHI`), que não corresponde a nenhuma chave deste PC | 14 → 13 linhas; acesso do Claude Code reconferido | `authorized_keys.bak-20261029135959` |
+| Primeiro backup (`backup.sh`, `VOLUME_STORAGE=erpnovo-homolog_app_storage`) | Dump de 227 MB (3.876 objetos) em 3 min 08 s; checksums OK | — |
+| Ensaio de restore no modo seguro, com a porta presa em `127.0.0.1` e senha aleatória | **RESTORE VERIFICADO**: 443.714 títulos (soma R$ 250.029.904,80), 400.070 pedidos, 241.021 NF, 0 órfãos, 0 duplicatas, 231 tabelas; **RTO 223 s** | Contêiner e volume do teste removidos (só o volume criado às 14:04:58; os soltos de outras aplicações ficaram) |
+| Cron `30 4 * * *` (01:30 em Brasília), fora dos horários de backup de outras aplicações (03:15 e 03:20) | Instalado com a marca do `instalar-cron.sh`; as linhas das outras aplicações foram preservadas | `/root/crontab.bak-*` |
+| `/etc/logrotate.d/erpnovo-backup` (semanal, 8 rotações) | `logrotate -d` sem erros | Apagar o arquivo |
+
+Achados novos durante a operação, corrigidos no repositório:
+- `restore.sh` publicava a cópia da base em **todas as interfaces** com a senha fixa `restore_teste`. O padrão passou a ser `127.0.0.1` e senha aleatória.
+- `docker rm -f` deixava o volume anônimo com a cópia inteira da base; trocado por `-fv`.
+- O horário padrão do cron (03:15) coincidia com o backup de outra aplicação.
+
+Sem certificado A1 no storage da homologação (0 `.pfx`), o backup de storage ficou
+com 4 KB. Isso é coerente com o ambiente, não é falha.
+
+**O push dos commits foi bloqueado pela permissão do Claude Code** (classificado como
+deploy em produção). Não fiz nenhum contorno. Por isso os scripts publicados na VPS
+ainda são a versão anterior, e o cron funciona com ela porque o nome do volume vai
+na própria linha do cron.
+
 ## 6. Riscos residuais e bloqueios
 
 Ver [VEREDITO_PRE_DEPLOY.md](VEREDITO_PRE_DEPLOY.md) §3 e [PLANO_MESTRE_AUDITORIA.md](PLANO_MESTRE_AUDITORIA.md) (pendentes).

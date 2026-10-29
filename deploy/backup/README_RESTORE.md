@@ -77,7 +77,7 @@ orfaos (deve 0)  : 0
 O container de teste fica de pé para inspeção. Descarte com:
 
 ```bash
-docker rm -f erpnovo-restore-teste
+docker rm -fv erpnovo-restore-teste   # -v: o volume anônimo é uma cópia inteira da base
 ```
 
 **Cadência sugerida:** mensal, e sempre depois de mudar o schema de forma

@@ -25,12 +25,15 @@ MODO_PRODUCAO=0
 [[ "${2:-}" == "--em-producao" ]] && MODO_PRODUCAO=1
 
 CONTAINER_TESTE="${CONTAINER_TESTE:-erpnovo-restore-teste}"
-PORTA_TESTE="${PORTA_TESTE:-55433}"
+# Só em loopback e com senha aleatória: o banco descartável é uma cópia INTEIRA
+# da base, com dados pessoais reais. Com `-p 55433:5432` e a senha fixa
+# `restore_teste`, ele ficava aberto na internet durante o ensaio.
+PORTA_TESTE="${PORTA_TESTE:-127.0.0.1:55433}"
 CONTAINER_DB="${CONTAINER_DB:-erpnovo-db}"
 CONTAINER_APP="${CONTAINER_APP:-erpnovo-app}"
 DB_USER="${DB_USER:-erp}"
 DB_NAME="${DB_NAME:-erp_novo}"
-SENHA_TESTE="${SENHA_TESTE:-restore_teste}"
+SENHA_TESTE="${SENHA_TESTE:-$(openssl rand -hex 16 2>/dev/null || date +%s%N)}"
 
 INICIO=$(date +%s)
 
@@ -99,7 +102,7 @@ else
   # MODO TESTE (padrão) — container descartável
   # ════════════════════════════════════════════════════════════════════════
   log "subindo Postgres descartável (${CONTAINER_TESTE}, porta ${PORTA_TESTE})"
-  docker rm -f "$CONTAINER_TESTE" >/dev/null 2>&1 || true
+  docker rm -fv "$CONTAINER_TESTE" >/dev/null 2>&1 || true
   docker run -d --name "$CONTAINER_TESTE" \
     -e POSTGRES_USER="$DB_USER" -e POSTGRES_PASSWORD="$SENHA_TESTE" -e POSTGRES_DB="$DB_NAME" \
     -p "${PORTA_TESTE}:5432" postgres:15-alpine >/dev/null
@@ -177,7 +180,7 @@ if [[ "$MODO_PRODUCAO" -eq 0 ]]; then
   log ''
   log "banco de teste ativo em localhost:${PORTA_TESTE} (user=${DB_USER})"
   log "para inspecionar: docker exec -it ${CONTAINER_TESTE} psql -U ${DB_USER} -d ${DB_NAME}"
-  log "para descartar:   docker rm -f ${CONTAINER_TESTE}"
+  log "para descartar:   docker rm -fv ${CONTAINER_TESTE}  (o -v leva junto a cópia da base)"
 fi
 
 [[ "$FALHOU" -eq 0 ]] || erro 'RESTORE COM FALHAS — ver acima'
