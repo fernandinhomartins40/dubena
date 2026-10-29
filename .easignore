@@ -1,0 +1,39 @@
+# O EAS Build envia o repositório a partir da raiz do git. Com este arquivo
+# presente ele IGNORA o .gitignore e usa só esta lista. Existe por dois motivos:
+#  1. os arquivos do Firebase (google-services.json / GoogleService-Info.plist)
+#     são ignorados pelo git, mas o build nativo precisa deles — não são segredo,
+#     vão dentro do app;
+#  2. o envio só precisa dos apps e do mobile-shared (o plugin de assinatura
+#     mora lá): o resto do monorepo seria upload inútil.
+
+# Fora do build mobile
+ctrl-web/
+erp-novo/
+deploy/
+docs/
+legado-*/
+api-app-gc/
+scripts/
+apks/
+graphify-out/
+.claude/
+.serena/
+
+# Segredos e artefatos (mesma regra do .gitignore)
+SEGREDOS_LOCAIS.md
+_vps_probe.py
+**/.env
+**/.env.*
+!**/.env.example
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+**/node_modules/
+app-gas-em-casa/android/
+app-gas-em-casa/ios/
+app-gas-em-casa/.expo/
+app-entregador/android/
+app-entregador/ios/
+app-entregador/.expo/

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Entregador",
+    "name": "Gás em Casa Entregador",
     "slug": "gasemcasa-entregador",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,10 +12,45 @@
       "supportsTablet": false,
       "bundleIdentifier": "br.com.dubena.gasemcasa.entregador",
       "infoPlist": {
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "aps-environment": "production"
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1",
+              "3B52.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -31,7 +66,15 @@
         "android.permission.POST_NOTIFICATIONS"
       ],
       "edgeToEdgeEnabled": true,
-      "allowHttp": false
+      "allowHttp": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,6 +89,11 @@
         {
           "ios": {
             "useFrameworks": "static"
+          },
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0"
           }
         }
       ],
@@ -61,7 +109,8 @@
         "expo-image-picker",
         {
           "photosPermission": "O app acessa suas fotos para anexar comprovantes de entrega.",
-          "cameraPermission": "O app usa a câmera para fotografar a comprovação da entrega."
+          "cameraPermission": "O app usa a câmera para fotografar a comprovação da entrega.",
+          "microphonePermission": false
         }
       ],
       [
@@ -81,7 +130,8 @@
           "backgroundColor": "#FF6200",
           "imageWidth": 150
         }
-      ]
+      ],
+      "../mobile-shared/plugins/withUploadSigning"
     ],
     "experiments": {
       "typedRoutes": true,

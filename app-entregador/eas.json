@@ -13,21 +13,38 @@
       "env": {
         "APP_ENV": "homolog",
         "API_URL": "https://gasemcasa.com/novo/api/",
-        "GOOGLE_MAPS_API_KEY": "$GOOGLE_MAPS_API_KEY",
         "APP_DEBUG": "true"
-      }
+      },
+      "environment": "preview"
     },
     "production": {
       "channel": "production",
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
       "env": {
-        "APP_ENV": "prod"
-      }
+        "APP_ENV": "prod",
+        "APP_DEBUG": "false",
+        "API_URL": "https://gasemcasa.com/novo/api/",
+        "REVERB_HOST": "gasemcasa.com",
+        "REVERB_PORT": "443",
+        "REVERB_SCHEME": "https",
+        "REVERB_PATH": "/reverb"
+      },
+      "environment": "production"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "draft"
+      },
+      "ios": {}
+    }
   }
 }

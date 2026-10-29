@@ -1,6 +1,7 @@
 import EntregaService from "@/services/entrega.service"
 import * as Location from "expo-location"
 import * as TaskManager from "expo-task-manager"
+import { Alert } from "react-native"
 
 export const TASK_POSICAO = "entregador-posicao-background"
 
@@ -36,6 +37,15 @@ TaskManager.defineTask(TASK_POSICAO, async ({ data, error }) => {
  * retorna false se negada — o chamador cai para o modo foreground.
  */
 export async function iniciarBackground(intervaloMs: number): Promise<boolean> {
+    // Política da Play ("divulgação em destaque"): antes do pedido de permissão do
+    // SO, o app precisa explicar com as próprias palavras que coleta localização com
+    // o app fechado e para quê. Sem isso o app é rejeitado na revisão. Só aparece
+    // enquanto a permissão "sempre" ainda não foi concedida.
+    const jaConcedida = await Location.getBackgroundPermissionsAsync().catch(() => null)
+    if (!jaConcedida?.granted) {
+        if (!(await aceitouDivulgacao())) return false
+    }
+
     const fg = await Location.requestForegroundPermissionsAsync()
     if (!fg.granted) return false
 
@@ -58,6 +68,24 @@ export async function iniciarBackground(intervaloMs: number): Promise<boolean> {
     })
 
     return true
+}
+
+/** Divulgação em destaque; resolve true só se o entregador tocar em "Continuar". */
+function aceitouDivulgacao(): Promise<boolean> {
+    return new Promise((resolve) => {
+        Alert.alert(
+            "Localização durante a jornada",
+            "Este app coleta a sua localização para que a central e o cliente acompanhem as entregas em tempo real, " +
+                "inclusive quando o app está fechado ou não está em uso, somente enquanto você estiver em serviço. " +
+                "O rastreamento termina quando você encerra a jornada.\n\n" +
+                'Na próxima tela, escolha "Permitir o tempo todo".',
+            [
+                { text: "Agora não", style: "cancel", onPress: () => resolve(false) },
+                { text: "Continuar", onPress: () => resolve(true) },
+            ],
+            { cancelable: false },
+        )
+    })
 }
 
 /** Desliga o rastreamento em background (fim da jornada/logout). */

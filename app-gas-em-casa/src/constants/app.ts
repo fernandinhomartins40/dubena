@@ -105,6 +105,7 @@ type ReverbExtra = {
     host?: string
     port?: number
     scheme?: string
+    path?: string
 }
 
 type AppExtra = {
@@ -140,5 +141,6 @@ export const APP = {
         host: extra.reverb?.host ?? "",
         port: extra.reverb?.port ?? 443,
         scheme: extra.reverb?.scheme ?? "https",
+        path: extra.reverb?.path ?? "",
     },
 }

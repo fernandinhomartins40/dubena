@@ -10,6 +10,32 @@ Code. A chave privada (passo 4) **nunca** vai pelo chat.
 
 ---
 
+## Estado em 29/10/2026 — feito pelo Claude Code com o login do dono no CLI
+
+Projeto usado: **`dubena-aafd1`** (número 93648776647, conta `fuseagencia10@gmail.com`).
+Os passos 1 a 5 abaixo foram executados pelo `firebase-tools` e pelas APIs
+administrativas do Google, sem o console:
+
+| Passo | Como | Conferido |
+|---|---|---|
+| Apps Android `br.com.dubena.gasemcasa` e `.entregador` | `firebase apps:create` | `apps:list` |
+| SHA-1 e SHA-256 da chave de debug nos dois | `apps:android:sha:create` | `apps:android:sha:list` |
+| `google-services.json` real | `apps:sdkconfig` → `app-gas-em-casa/` | `project_id` = `dubena-aafd1` |
+| Telefone ligado + número de teste `+5542999990001`/`123456` | `PATCH identitytoolkit admin/v2 .../config` | login do número de teste devolve `idToken` |
+| SMS liberado para a região BR | `smsRegionConfig.allowlistOnly = [BR]` | sem isso: `OPERATION_NOT_ALLOWED ... region` |
+| Chave da service account `firebase-adminsdk-fbsvc` | API IAM (habilitada no projeto) → canalizada direto para a VPS | `/opt/dubena-env/firebase-service-account.json`, 600 |
+| Homologação com `kreait` + `FCM v1` | env + recriação + restart do `erpnovo-web` | token `fake:` → **401**; token real → passa da verificação (422 só porque o telefone não é cliente da empresa 2) |
+
+A Web API key do projeto (`AIzaSy...`) **não** dá permissão administrativa —
+identifica o projeto e vai dentro do APK. As operações acima exigiram o login
+OAuth do dono (`firebase login`).
+
+Para a demonstração falta só **um cliente da empresa 2 com o telefone
+`(42) 99999-0001`** (cadastro no painel ou pelo próprio app) e instalar o APK
+gerado com `APP_DEBUG=false`.
+
+---
+
 ## 1. Criar o projeto (5 min)
 
 1. Abra <https://console.firebase.google.com> com a sua conta Google.

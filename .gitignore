@@ -41,6 +41,9 @@ app-gas-em-casa/GoogleService-Info.plist
 app-gas-em-casa/android/
 app-gas-em-casa/ios/
 app-gas-em-casa/.expo/
+app-entregador/android/
+app-entregador/ios/
+app-entregador/.expo/
 
 # === Locks pesados de JS (opcional manter; aqui versionamos só o do front) ===
 **/yarn-error.log

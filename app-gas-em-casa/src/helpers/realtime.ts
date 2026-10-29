@@ -35,9 +35,13 @@ export const connectRealtime = (): Echo<any> | null => {
         wsHost: APP.reverb.host,
         wsPort: APP.reverb.port,
         wssPort: APP.reverb.port,
+        wsPath: APP.reverb.path || undefined,
         forceTLS: APP.reverb.scheme === "https",
         enabledTransports: ["ws", "wss"],
-        authEndpoint: `${APP.api_url}broadcasting/auth`,
+        // A rota de autorização dos canais é registrada pelo withBroadcasting
+        // FORA do prefixo /api (fica em <APP_URL>/broadcasting/auth). Montá-la
+        // a partir do api_url dava 404 e nenhum canal privado era assinado.
+        authEndpoint: `${APP.api_url.replace(/api\/?$/, "")}broadcasting/auth`,
         auth: { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } },
     } as any)
 

@@ -31,6 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         host: process.env.REVERB_HOST ?? "",
         port: process.env.REVERB_PORT ? Number(process.env.REVERB_PORT) : 443,
         scheme: process.env.REVERB_SCHEME ?? "https",
+        // Prefixo do WebSocket no proxy. Na VPS o nginx publica o Reverb em
+        // /reverb/ (o / do mesmo domínio é o ERP): sem o prefixo o handshake
+        // cai no Laravel e nunca vira WebSocket.
+        path: process.env.REVERB_PATH ?? "",
     }
 
     return {
