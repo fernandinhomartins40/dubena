@@ -110,6 +110,24 @@ mesma lista de perguntas. Por ser o mesmo contexto que escreveu as correções, 
 | Ensaio de restore no modo seguro, com a porta presa em `127.0.0.1` e senha aleatória | **RESTORE VERIFICADO**: 443.714 títulos (soma R$ 250.029.904,80), 400.070 pedidos, 241.021 NF, 0 órfãos, 0 duplicatas, 231 tabelas; **RTO 223 s** | Contêiner e volume do teste removidos (só o volume criado às 14:04:58; os soltos de outras aplicações ficaram) |
 | Cron `30 4 * * *` (01:30 em Brasília), fora dos horários de backup de outras aplicações (03:15 e 03:20) | Instalado com a marca do `instalar-cron.sh`; as linhas das outras aplicações foram preservadas | `/root/crontab.bak-*` |
 | `/etc/logrotate.d/erpnovo-backup` (semanal, 8 rotações) | `logrotate -d` sem erros | Apagar o arquivo |
+| **Licença SaaS ligada** (`SAAS_ENFORCE_LICENCA=true` no env da homologação). Antes, conferi: as 7 empresas estão `ativa` no plano `legacy-full`, que tem os 10 recursos, e **como `erp_app`, sob RLS**, as 7 assinaturas e os 10 recursos ficam visíveis. Contêineres recriados com as imagens do manifesto vigente (`48b29f72`) | `config('saas_transformation.enforcement.licenca') = true` | `.env.bak-*` + recriar |
+| **Incidente: homologação fora do ar por ~1–2 min (502)**. A recriação trocou o IP do contêiner `app`, e o `erpnovo-web` (nginx), que não foi recriado, seguiu apontando para o IP antigo (o nginx resolve `app` só na partida) | Corrigido com `docker restart erpnovo-web`; health 200 | — |
+
+**Lição do incidente:** mudança só de ambiente recria `app` e não recria `web`, e o nginx
+fica com o IP velho. O deploy normal recria os dois juntos, por isso o problema nunca
+tinha aparecido. Até o `default.conf` passar a resolver o nome por request
+(`resolver 127.0.0.11` + variável no `fastcgi_pass`), toda mudança de env precisa
+reiniciar o `web` em seguida.
+
+**Pipeline vermelho em 29/10 (push do dono).** Causa externa ao código: avisos de
+segurança publicados em 27 e 28/10. Correções:
+- `phpoffice/phpspreadsheet` 5.9.0 → 5.10.0 (3 altas: XXE/DoS) e `symfony/mime` 7.4.19 → 7.4.22, mais as dependências diretas (patch/minor); `composer audit --locked --no-dev`: nenhuma vulnerabilidade;
+- `follow-redirects` 1.16.0 → 1.16.2 (alta); `npm audit --omit=dev`: 0 vulnerabilidades;
+- imagem web: `apk upgrade` sobre a base fixada (o Trivy reprovou CVE CRÍTICA com correção publicada). **Não verificado localmente** (sem Docker); a prova é o próximo run;
+- a imagem app foi cancelada no run, sem chegar ao Trivy. Se ela reprovar, a correção é avançar o `DEBIAN_SNAPSHOT`.
+
+Testes depois das atualizações: 32 arquivos de planilha e e-mail, com 287 passaram e
+10 pulados (Pg); SPA 171/171.
 
 Achados novos durante a operação, corrigidos no repositório:
 - `restore.sh` publicava a cópia da base em **todas as interfaces** com a senha fixa `restore_teste`. O padrão passou a ser `127.0.0.1` e senha aleatória.

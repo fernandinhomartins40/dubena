@@ -164,6 +164,13 @@ RUN composer dump-autoload --no-dev --no-interaction --no-scripts --classmap-aut
 # estágio do Vite e constrói em paralelo com a app.
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de AS web
 
+# A base fica presa por digest (reprodutível), mas os pacotes do Alpine
+# envelhecem dentro dela: em 29/10 o Trivy (CRITICAL, --ignore-unfixed) passou
+# a reprovar a imagem por CVE com correção já publicada, e o pipeline parou.
+# Aplicar as correções de segurança da mesma série 3.x mantém o digest como
+# ponto de partida e tira a imagem do bloqueio sem trocar de versão do nginx.
+RUN apk upgrade --no-cache
+
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx/security-headers.conf /etc/nginx/erpnovo-security-headers.conf
 COPY public/ /var/www/public/
