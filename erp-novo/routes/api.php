@@ -862,11 +862,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
             Route::delete('enderecos/{id}', [AppPerfilController::class, 'excluirEndereco'])->whereNumber('id');
             // Cliente — PEDIDO — B-1: AppPedidoController
             Route::get('pedidos', [AppPedidoController::class, 'historico']);
-            Route::post('pedidos', [AppPedidoController::class, 'criarPedido']);
+            // PIE R3-08/R2-13: as escritas que criam pedido e cobram dinheiro
+            // aceitam Idempotency-Key (opt-in: sem cabeçalho passa direto). O
+            // bloqueio de pagamento duplo não depende disto — está no domínio.
+            Route::post('pedidos', [AppPedidoController::class, 'criarPedido'])->middleware('idempotente');
             Route::get('pedidos/{id}', [AppPedidoController::class, 'acompanhar'])->whereNumber('id');
             Route::get('pedidos/{id}/rota-entregador', [AppPedidoController::class, 'rotaEntregador'])->whereNumber('id');
-            Route::post('pedidos/{id}/pagar', [AppPedidoController::class, 'pagar'])->whereNumber('id');
-            Route::post('pedidos/{id}/pix', [AppPedidoController::class, 'gerarPix'])->whereNumber('id'); // F4
+            Route::post('pedidos/{id}/pagar', [AppPedidoController::class, 'pagar'])->whereNumber('id')->middleware('idempotente');
+            Route::post('pedidos/{id}/pix', [AppPedidoController::class, 'gerarPix'])->whereNumber('id')->middleware('idempotente'); // F4
             Route::get('pedidos/{id}/pix/status', [AppPedidoController::class, 'statusPix'])->whereNumber('id'); // F4
             Route::post('pedidos/{id}/cancelar', [AppPedidoController::class, 'cancelar'])->whereNumber('id');
             Route::post('pedidos/{id}/avaliar', [AppPedidoController::class, 'avaliar'])->whereNumber('id');

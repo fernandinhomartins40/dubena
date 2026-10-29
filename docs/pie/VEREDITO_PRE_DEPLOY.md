@@ -27,21 +27,33 @@ dinheiro, estoque e fiscal listados acima:
 localmente. O deploy não foi feito, porque push na `main` dispara deploy e isso
 aguarda o seu OK.
 
-O veredito **continua REPROVADO** para virar produção, porque restam bloqueadores
-confirmados que não são corrigíveis só com código, sem decisão ou acesso:
+## 2b. Veredito atualizado (29/10, após as decisões do dono) — **NÃO COMPROVADO para produção**
 
-| Bloqueador remanescente | Comp. | Por que bloqueia | O que destrava |
-|---|---|---|---|
-| **PIE-13** — ~~sem backup~~ **resolvido em 29/10**: cron diário, dump e restore verificado (RTO 223 s). **Resta:** a cópia existe só na própria VPS | C | Um incidente de host leva o banco e o backup juntos | Destino externo (`BACKUP_REMOTO`) |
-| **PIE-11** — pagamento online do app desligado do título; pagamento duplo possível; sem estorno | C (estático) | Cobrança indevida ao cliente final e caixa do entregador inconsistente | Sua decisão de regra comercial (§ PLANO_MESTRE) |
-| **PIE-02** — driver real da SEFAZ grava autorização como rejeitada | FI | Ligar a NF real produziria notas duplicadas | Respostas SOAP reais gravadas com o certificado A1 + teste do driver |
-| **PIE-21** — licença SaaS desligada | C | Módulo não contratado passa (receita) | Ligar `SAAS_ENFORCE_LICENCA` em produção |
-| **PIE-14** — SSH root por senha, sem fail2ban nem ufw | C | Superfície de ataque numa VPS compartilhada | Sua decisão (fail2ban + ufw não contrariam a regra de manter senha) |
+Fechados nesta rodada, com evidência:
+- **PIE-11**, pagamento online × título: implementado pelas regras do dono. `PiePagamentoOnlineTest` tem 9 testes, e 8 falham sem a correção.
+- **PIE-13**, backup: cron diário, dump e restore verificado (RTO 223 s).
+- **PIE-21**, licença ligada na homologação, depois de provar como `erp_app` que nenhuma empresa fica bloqueada.
 
-Pelo critério do protocolo: há bloqueador confirmado (PIE-11), logo
-**REPROVADO**, não "não comprovado". **APROVADO PARA DEPLOY** em produção exige
-fechar ao menos PIE-11, PIE-21, a cópia externa do backup e, se a NF real for
-ligada, PIE-02.
+Suíte: **2002 testes, 0 falhas** (26 pulados, Pg); portão RLS 26/26; SPA 171/171.
+
+Não resta **bloqueador confirmado** de código. Resta prova que só existe com
+credencial ou ambiente que ainda não há. Pelo protocolo, isso é **NÃO COMPROVADO**,
+não aprovado:
+
+| Pendente | Natureza | O que destrava |
+|---|---|---|
+| Login real do app (PIE-22) | Credencial | Projeto Firebase do dono (roteiro em `docs/06-runbooks/FIREBASE_LOGIN_POR_TELEFONE.md`; pacotes novos `br.com.dubena.gasemcasa[.entregador]`) |
+| NF real (PIE-02, FORTE INDÍCIO de defeito no driver) | Credencial | Certificado A1 + respostas SOAP gravadas, antes de ligar `FISCAL_DRIVER=nfephp` |
+| PIX e cartão reais | Credencial | PSP contratado; hoje só provados com driver fake |
+| Ambiente de produção | Ambiente | Não existe na VPS; o deploy e o backup de produção foram revisados, não executados |
+| Cópia do backup fora da VPS | Risco **aceito pelo dono** (29/10) | — |
+| SSH root por senha (PIE-14) | Risco não tratado (fail2ban não escolhido) | Decisão do dono |
+
+### Histórico — veredito pós-correção da primeira rodada: REPROVADO
+
+Antes das decisões do dono, restavam bloqueadores confirmados: PIE-11 (pagamento
+duplo e título em aberto de pedido pago), PIE-13 (sem backup) e PIE-21 (licença
+desligada). Todos foram fechados acima.
 
 ## 3. Riscos residuais aceitos nesta execução
 

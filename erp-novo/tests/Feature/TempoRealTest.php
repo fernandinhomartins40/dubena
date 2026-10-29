@@ -11,6 +11,7 @@ use App\Domain\Pedido\PedidoService;
 use App\Models\Cliente\Cliente;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\Produto\Produto;
@@ -56,9 +57,16 @@ class TempoRealTest extends TestCase
     {
         $cliente = Cliente::factory()->create(['empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id]);
         $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
+        // Condição PIX: os testes de PIX geram cobrança, e o app só a gera
+        // para condição marcada (PIE R2-02). Indiferente para os demais.
+        $pix = CondicaoPagamento::create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Pix '.uniqid(), 'num_parcelas' => 1,
+            'intervalo_dias' => 30, 'dias_primeira' => 0, 'a_vista' => true, 'pix_online' => true, 'ativo' => true,
+        ]);
 
         return app(PedidoService::class)->criar([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'condicaopagamento_id' => $pix->id,
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id, 'setor_id' => $this->setor->id,
         ], [['produto_id' => $this->produto->id, 'quantidade' => 1]]);
     }

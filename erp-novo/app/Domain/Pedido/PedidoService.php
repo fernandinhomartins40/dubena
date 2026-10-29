@@ -3,6 +3,7 @@
 namespace App\Domain\Pedido;
 
 use App\Domain\Auditoria\RegistroAcao;
+use App\Domain\Cobranca\PagamentoOnlineDoPedido;
 use App\Domain\Estoque\EstoqueService;
 use App\Domain\Financeiro\FinanceiroService;
 use App\Domain\Fiscal\SituacaoNota;
@@ -38,6 +39,7 @@ class PedidoService
         private EstoqueService $estoque,
         private FinanceiroService $financeiro,
         private AlcadaDescontoService $alcada,
+        private PagamentoOnlineDoPedido $pagamentoOnline,
     ) {}
 
     /** @param array<string, mixed> $dados @param list<array<string,mixed>> $itens */
@@ -220,10 +222,25 @@ class PedidoService
             $this->registrarPrecoAbaixoDoMinimo($pedido);
             $this->baixarEstoque($pedido, $userId);
             $financeiro = $this->financeiro->gerarDoPedido($pedido);
+            // PIE R3-08: pago online (PIX/cartão) → o título nasce baixado.
+            // Sem isto nascia em aberto, o cliente era cobrado como vencido e
+            // o malote esperava do entregador um dinheiro que já estava no banco.
+            $pagamento = $financeiro ? $this->pagamentoOnline->confirmado($pedido) : null;
+            if ($financeiro && $pagamento !== null) {
+                $this->pagamentoOnline->baixarTitulo($pedido, $financeiro, $pagamento);
+            }
             $pedido->forceFill([
                 'estoque_movimentado' => true,
                 'financeiro_id' => $financeiro?->id,
             ])->save();
+        }
+
+        // Cancelamento de pedido pago online: aceito, e o estorno vira alerta
+        // na central (regra do dono). Antes do estorno do título: reabre as
+        // parcelas que o pagamento online baixou, senão o cancelamento do
+        // título recusaria ("parcela baixada").
+        if ($efeito->cancela() && ! $efeitoAnterior?->cancela()) {
+            $this->pagamentoOnline->aoCancelar($pedido);
         }
 
         if ($efeito->cancela() && $pedido->estoque_movimentado) {

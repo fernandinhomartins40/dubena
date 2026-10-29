@@ -89,12 +89,24 @@ export function ConfiguracoesPage() {
         </TabsContent>
 
         <TabsContent value="financeiro">
-          <Explica>Os bancos e os tipos de movimento usados nos lançamentos.</Explica>
-          <Tabs {...sub(['bancos', 'tipos-movimento'])}>
+          <Explica>Os bancos, os tipos de movimento e as condições de pagamento usados nos lançamentos e pedidos.</Explica>
+          <Tabs {...sub(['bancos', 'tipos-movimento', 'condicoes-pagamento'])}>
             <TabsList className="overflow-x-auto">
               <TabsTrigger value="bancos">Bancos</TabsTrigger>
               <TabsTrigger value="tipos-movimento">Tipos de Movimento</TabsTrigger>
+              <TabsTrigger value="condicoes-pagamento">Condições de Pagamento</TabsTrigger>
             </TabsList>
+            <TabsContent value="condicoes-pagamento">
+              {/* "PIX no app": só condição marcada gera cobrança PIX no app do cliente;
+                  as demais são pagas na entrega. Condição não se exclui — desative. */}
+              <CadastroApoioTab tipo="condicoes-pagamento" titulo="Condição de Pagamento" extras={[
+                { campo: 'num_parcelas', label: 'Parcelas', tipo: 'texto' },
+                { campo: 'dias_primeira', label: 'Dias até a 1ª', tipo: 'texto' },
+                { campo: 'intervalo_dias', label: 'Intervalo (dias)', tipo: 'texto' },
+                { campo: 'a_vista', label: 'À vista', tipo: 'bool' },
+                { campo: 'pix_online', label: 'PIX no app', tipo: 'bool' },
+              ]} />
+            </TabsContent>
             <TabsContent value="bancos">
               <CadastroApoioTab tipo="bancos" titulo="Banco" extras={[
                 { campo: 'codigo', label: 'Código', tipo: 'texto' },

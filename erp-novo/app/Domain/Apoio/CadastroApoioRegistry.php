@@ -21,6 +21,7 @@ use App\Models\Apoio\TipoDocumentoVeiculo;
 use App\Models\Apoio\TipoExame;
 use App\Models\Apoio\TipoPessoa;
 use App\Models\Apoio\Transportadora;
+use App\Models\Financeiro\CondicaoPagamento;
 
 /**
  * Registro dos cadastros de apoio suportados (espelha o legado
@@ -46,6 +47,15 @@ class CadastroApoioRegistry
         'tipos-movimento' => ['model' => ContaMovimentoTipo::class, 'modulo' => 'financeiro', 'extras' => [
             'pagarreceber' => 'nullable|string|max:1',
             'cheque' => 'boolean', 'cartao' => 'boolean', 'valegas' => 'boolean', 'convenio' => 'boolean',
+        ]],
+        // O painel novo só tinha o lookup; o cadastro passa a existir para que
+        // `pix_online` (o app só gera PIX para condição marcada) seja configurável.
+        'condicoes-pagamento' => ['model' => CondicaoPagamento::class, 'modulo' => 'financeiro', 'extras' => [
+            'num_parcelas' => 'nullable|integer|min:1|max:60',
+            'intervalo_dias' => 'nullable|integer|min:0|max:365',
+            'dias_primeira' => 'nullable|integer|min:0|max:365',
+            'a_vista' => 'boolean',
+            'pix_online' => 'boolean',
         ]],
         'agencias' => ['model' => Agencia::class, 'modulo' => 'financeiro', 'extras' => [
             'banco_id' => 'nullable|integer|exists:bancos,id',

@@ -23,7 +23,7 @@ Comprovação: **C** = CONFIRMADO · **FI** = FORTE INDÍCIO · **H** = HIPÓTES
 | PIE-08 | R3-04 | Reparcelar duas vezes duplicava a dívida. | ALTA | C (teste) | **CORRIGIDO** |
 | PIE-09 | R3-05 | Duas NF-e AUTORIZADAS para o mesmo pedido; dois "transmitir" simultâneos sobrescreviam a nota autorizada. | ALTA | C (teste) | **CORRIGIDO** (lock + recusa) |
 | PIE-10 | R3-07 | Cancelar pedido com NF autorizada devolvia estoque e estornava o financeiro, e a nota continuava AUTORIZADA. | ALTA | C (teste) | **CORRIGIDO** (exige cancelar a nota antes) |
-| PIE-11 | R3-08, R2-02, R2-13, R3-15 | Pagamento online do app desligado do título: o PIX pago não baixa o título do pedido, permite pagar duas vezes, não estorna no cancelamento, o app gera PIX até para pedido em dinheiro, e as rotas do cliente não usam idempotência. | ALTA | C (estático) | PENDENTE — exige decisão de regra comercial |
+| PIE-11 | R3-08, R2-02, R2-13, R3-15 | Pagamento online do app desligado do título: o PIX pago não baixa o título do pedido, permite pagar duas vezes, não estorna no cancelamento, o app gera PIX até para pedido em dinheiro, e as rotas do cliente não usam idempotência. | ALTA | C (estático) | **CORRIGIDO em 29/10** com as regras do dono: título nasce baixado; PIX só para condição `pix_online` (novo campo configurável); sem pagamento duplo ou de pedido cancelado; cancelamento pago vira alerta de estorno. `PiePagamentoOnlineTest` (9; 8 falham sem a correção) |
 | PIE-12 | R5-01 | O "backup obrigatório" do deploy de produção copiava o banco da **homologação**. | ALTA | C | **CORRIGIDO** (script); a execução real na produção não foi testada (a produção não existe na VPS) |
 | PIE-13 | R5-02 | **Não há backup** do banco de homologação, que guarda dados reais (92 mil clientes). Não há cron, e o `instalar-cron.sh` apontava para um diretório inexistente. O restore nunca foi ensaiado. | ALTA | C | **CORRIGIDO em 29/10** com o OK do dono: cron diário às 04:30 UTC, primeiro dump (227 MB) e restore ensaiado com sucesso (RTO 223 s). Resta: **cópia só neste host** (`BACKUP_REMOTO` não definido) |
 | PIE-14 | R1-05, R5-09 | SSH root por senha, ufw e fail2ban inativos, CI entra como root com `sshpass`. | ALTA | C | PENDENTE — decisão do dono (a regra registrada é "não desligar o login por senha") |
@@ -38,8 +38,8 @@ Comprovação: **C** = CONFIRMADO · **FI** = FORTE INDÍCIO · **H** = HIPÓTES
 | ID | Origem | Problema | Comp. | Situação |
 |---|---|---|---|---|
 | PIE-20 | R1-04 | Sem `trustProxies`: o throttle de login (10/min por IP) era global e o eixo-IP do lockout não distinguia ninguém. | C | **CORRIGIDO** |
-| PIE-21 | R1-06, R4-07 | Licença SaaS desligada (`SAAS_ENFORCE_LICENCA` ausente): módulo não contratado passa. | C | PENDENTE — decisão comercial e de ambiente |
-| PIE-22 | R1-07 | Firebase `fake` aceito em homologação, que tem PII real: qualquer um entra como qualquer telefone. | C | PENDENTE — decisão de ambiente |
+| PIE-21 | R1-06, R4-07 | Licença SaaS desligada (`SAAS_ENFORCE_LICENCA` ausente): módulo não contratado passa. | C | **CORRIGIDO em 29/10**: ligada na homologação depois de provar, como `erp_app`, que as 7 empresas enxergam assinatura `legacy-full` com os 10 recursos |
+| PIE-22 | R1-07 | Firebase `fake` aceito em homologação, que tem PII real: qualquer um entra como qualquer telefone. | C | AGUARDA O DONO — bloquear sem a chave real tiraria o login do app da demonstração; roteiro em `docs/06-runbooks/FIREBASE_LOGIN_POR_TELEFONE.md` |
 | PIE-23 | R3-09 | Chamada à SEFAZ e ao gateway de cartão dentro de `DB::transaction`. | C (estático) | PENDENTE — refatoração em fases |
 | PIE-24 | R3-11 | Webhook PIX que chega depois da expiração local recebe 422 sem rastro. | FI | PENDENTE — exige estado novo |
 | PIE-25 | R3-12 | Numeração de remessa CNAB e de CC-e por `max+1`, sem lock. | C (estático) | PENDENTE |

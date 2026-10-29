@@ -33,6 +33,7 @@ class PixService
         private Container $container,
         private IntegracaoTenant $integracao,
         private BaixaService $baixas,
+        private PagamentoOnlineDoPedido $pagamentoDoPedido,
     ) {}
 
     /** Cria uma cobrança PIX imediata para uma parcela. */
@@ -63,30 +64,38 @@ class PixService
      */
     public function criarCobrancaPedido(Pedido $pedido, int $expiraSegundos = 300): PixCobranca
     {
-        $ativa = PixCobranca::query()
-            ->where('pedido_id', $pedido->id)
-            ->where('situacao', SituacaoPix::ATIVA->value)
-            ->where(fn ($q) => $q->whereNull('expira_em')->orWhere('expira_em', '>', now()))
-            ->latest('id')->first();
-        if ($ativa) {
-            return $ativa;
-        }
+        return DB::transaction(function () use ($pedido, $expiraSegundos) {
+            // PIE R2-02/R3-08: PIX só para condição PIX, nunca para pedido
+            // cancelado ou já pago — e sob lock no pedido, para dois toques não
+            // gerarem duas cobranças. O app trata a recusa indo para a tela de
+            // acompanhamento (pagamento na entrega).
+            $this->pagamentoDoPedido->exigirPagavel($pedido, exigirCondicaoPix: true);
 
-        $txid = $this->gerarTxid();
-        $valor = (float) $pedido->valor_venda;
-        $emissao = $this->emitirNoPsp((int) $pedido->empresa_id, $txid, $valor, $expiraSegundos);
+            $ativa = PixCobranca::query()
+                ->where('pedido_id', $pedido->id)
+                ->where('situacao', SituacaoPix::ATIVA->value)
+                ->where(fn ($q) => $q->whereNull('expira_em')->orWhere('expira_em', '>', now()))
+                ->latest('id')->first();
+            if ($ativa) {
+                return $ativa;
+            }
 
-        return PixCobranca::create([
-            'empresa_id' => $pedido->empresa_id,
-            'pedido_id' => $pedido->id,
-            'cliente_id' => $pedido->cliente_id,
-            'txid' => $txid,
-            'valor' => $valor,
-            'copia_e_cola' => $emissao['copia_e_cola'],
-            'qrcode' => $emissao['qrcode'] ?? null,
-            'expira_em' => now()->addSeconds($expiraSegundos),
-            'situacao' => SituacaoPix::ATIVA->value,
-        ]);
+            $txid = $this->gerarTxid();
+            $valor = (float) $pedido->valor_venda;
+            $emissao = $this->emitirNoPsp((int) $pedido->empresa_id, $txid, $valor, $expiraSegundos);
+
+            return PixCobranca::create([
+                'empresa_id' => $pedido->empresa_id,
+                'pedido_id' => $pedido->id,
+                'cliente_id' => $pedido->cliente_id,
+                'txid' => $txid,
+                'valor' => $valor,
+                'copia_e_cola' => $emissao['copia_e_cola'],
+                'qrcode' => $emissao['qrcode'] ?? null,
+                'expira_em' => now()->addSeconds($expiraSegundos),
+                'situacao' => SituacaoPix::ATIVA->value,
+            ]);
+        });
     }
 
     /**
@@ -188,6 +197,18 @@ class PixService
                     'pix',
                     reentregaIdempotente: true,
                 );
+            } elseif ($cobranca->pedido_id) {
+                // PIX do PEDIDO do app (PIE R3-08): se a entrega já foi
+                // concluída, o título existe e é baixado agora; se não, ele
+                // nascerá baixado na conclusão. Pedido já cancelado vira
+                // pendência de estorno.
+                // Situação sem escopo: o webhook não tem tenant na requisição.
+                $pedido = Pedido::withoutTenant()
+                    ->with(['situacao' => fn ($q) => $q->withoutGlobalScopes()])
+                    ->find($cobranca->pedido_id);
+                if ($pedido) {
+                    $this->pagamentoDoPedido->baixarTituloSeExistir($pedido);
+                }
             }
 
             $confirmadaAgora = true;

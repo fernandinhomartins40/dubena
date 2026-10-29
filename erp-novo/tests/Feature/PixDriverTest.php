@@ -10,6 +10,7 @@ use App\Models\Cliente\Cliente;
 use App\Models\Cobranca\PixCobranca;
 use App\Models\Empresa;
 use App\Models\EmpresaConfig;
+use App\Models\Financeiro\CondicaoPagamento;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoSituacao;
 use App\Models\User;
@@ -49,8 +50,14 @@ class PixDriverTest extends TestCase
         $situacao = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create([
             'grupo_id' => $this->empresa->grupo_id,
         ]);
+        // O app só gera PIX para condição marcada como PIX (PIE R2-02).
+        $pix = CondicaoPagamento::create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Pix', 'num_parcelas' => 1,
+            'intervalo_dias' => 30, 'dias_primeira' => 0, 'a_vista' => true, 'pix_online' => true, 'ativo' => true,
+        ]);
         $this->pedido = Pedido::create([
             'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id,
+            'condicaopagamento_id' => $pix->id,
             'cliente_id' => $cliente->id, 'pedidosituacao_id' => $situacao->id,
             'datahora' => now(), 'valor_venda' => 75, 'valor_desconto' => 0,
         ]);

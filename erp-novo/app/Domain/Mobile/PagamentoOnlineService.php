@@ -2,6 +2,7 @@
 
 namespace App\Domain\Mobile;
 
+use App\Domain\Cobranca\PagamentoOnlineDoPedido;
 use App\Domain\Mobile\Contracts\PagamentoDriver;
 use App\Models\Mobile\PagamentoOnline;
 use App\Models\Pedido\Pedido;
@@ -13,7 +14,10 @@ use Illuminate\Support\Facades\DB;
  */
 class PagamentoOnlineService
 {
-    public function __construct(private PagamentoDriver $driver) {}
+    public function __construct(
+        private PagamentoDriver $driver,
+        private PagamentoOnlineDoPedido $pagamentoDoPedido,
+    ) {}
 
     /**
      * Cobra um pedido no cartão. Grava a transação e devolve o registro.
@@ -26,6 +30,11 @@ class PagamentoOnlineService
         $valor = (float) $pedido->valor_venda;
 
         return DB::transaction(function () use ($pedido, $cartao, $parcelas, $valor) {
+            // PIE R3-08: sem cobrar pedido cancelado, já pago ou com cartão em
+            // análise — sob lock no pedido, para o reenvio após timeout não
+            // cobrar duas vezes.
+            $this->pagamentoDoPedido->exigirPagavel($pedido);
+
             $pagamento = PagamentoOnline::create([
                 'empresa_id' => $pedido->empresa_id,
                 'pedido_id' => $pedido->id,
@@ -59,6 +68,12 @@ class PagamentoOnlineService
                 'bandeira' => $res['bandeira'],
                 'mensagem' => $res['mensagem'],
             ]);
+
+            // Pedido já concluído (título existe): baixa agora. Senão, o título
+            // nasce baixado na conclusão (PedidoService).
+            if ($situacao->aprovado()) {
+                $this->pagamentoDoPedido->baixarTituloSeExistir($pedido);
+            }
 
             return $pagamento->refresh();
         });

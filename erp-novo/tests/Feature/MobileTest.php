@@ -499,6 +499,15 @@ class MobileTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.valor_venda', 240);
     }
 
+    /** Condição marcada como PIX: o app só gera cobrança PIX para ela (PIE R2-02). */
+    private function condicaoPix(): CondicaoPagamento
+    {
+        return CondicaoPagamento::query()->create([
+            'grupo_id' => $this->empresa->grupo_id, 'descricao' => 'Pix '.uniqid(), 'num_parcelas' => 1,
+            'intervalo_dias' => 30, 'dias_primeira' => 0, 'a_vista' => true, 'pix_online' => true, 'ativo' => true,
+        ]);
+    }
+
     public function test_pix_do_pedido_gera_cobranca_e_confirma_via_webhook(): void
     {
         // Cliente do app vinculado ao usuário do token (resolve sem cliente_id).
@@ -510,7 +519,7 @@ class MobileTest extends TestCase
 
         // Cria pedido 1 x 100 = 100.
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
-            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id, 'condicaopagamento_id' => $this->condicaoPix()->id,
             'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
         ])->assertCreated()->json('data.id');
 
@@ -548,7 +557,7 @@ class MobileTest extends TestCase
         ]);
         $pendente = PedidoSituacao::factory()->efeito(EfeitoPedido::PENDENTE)->create(['grupo_id' => $this->empresa->grupo_id]);
         $pedidoId = $this->actingAs($this->user, 'sanctum')->postJson('/api/app/v1/pedidos', [
-            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id,
+            'cliente_id' => $cliente->id, 'pedidosituacao_id' => $pendente->id, 'condicaopagamento_id' => $this->condicaoPix()->id,
             'itens' => [['produto_id' => $this->produto->id, 'quantidade' => 1]],
         ])->json('data.id');
         $txid = $this->actingAs($this->user, 'sanctum')->postJson("/api/app/v1/pedidos/{$pedidoId}/pix")->json('data.txid');

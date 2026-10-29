@@ -142,6 +142,23 @@ deploy em produção). Não fiz nenhum contorno. Por isso os scripts publicados 
 ainda são a versão anterior, e o cron funciona com ela porque o nome do volume vai
 na própria linha do cron.
 
+## 8. Regras de pagamento online (decisão do dono, 29/10)
+
+| Item | Implementação | Prova |
+|---|---|---|
+| Título nasce baixado | `PagamentoOnlineDoPedido::baixarTitulo` na conclusão (`PedidoService::aplicarEfeito`); o webhook PIX e o cartão aprovado baixam o título se o pedido já foi concluído | 3 testes |
+| PIX só para condição PIX | Coluna `condicaopagamentos.pix_online` (migration aditiva; marcação inicial pelo nome, editável em Configurações → Financeiro → Condições de Pagamento); `criarCobrancaPedido` recusa as demais, e o app já trata a recusa indo para o acompanhamento, **sem APK novo** | 1 teste |
+| Sem pagamento duplo nem de cancelado | `exigirPagavel` sob lock no pedido, no PIX e no cartão; rotas do app sob `idempotente` | 2 testes |
+| Cancelamento pago vira pendência | Alerta `estorno_pagamento_online` (ALTA) na central; título reaberto e cancelado se já tinha nascido baixado | 2 testes |
+| Condição configurável e não excluível | CRUD de cadastro de apoio; o model recusa delete físico | 1 teste |
+
+Com a fiação retirada (`git stash` em `PedidoService`, `PixService` e
+`PagamentoOnlineService`): **8 dos 9 falham**. O nono é o CRUD, que não depende
+desses arquivos. Migration aplicada no Postgres local; portão RLS 26/26. Suíte
+integral: **2002 testes, 0 falhas**. Testes antigos de PIX ajustados para usar
+condição PIX (`MobileTest`, `PixDriverTest`, `TempoRealTest`): era o cenário que a
+regra nova passou a recusar.
+
 ## 6. Riscos residuais e bloqueios
 
 Ver [VEREDITO_PRE_DEPLOY.md](VEREDITO_PRE_DEPLOY.md) §3 e [PLANO_MESTRE_AUDITORIA.md](PLANO_MESTRE_AUDITORIA.md) (pendentes).
