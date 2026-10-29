@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "gasemcasaentregador",
+    "scheme": "dubenagasemcasaentregador",
     "ios": {
       "buildNumber": "1",
       "supportsTablet": false,
-      "bundleIdentifier": "com.qti.gasemcasa.entregador",
+      "bundleIdentifier": "br.com.dubena.gasemcasa.entregador",
       "infoPlist": {
         "UIBackgroundModes": ["location"]
       },
@@ -21,7 +21,7 @@
     "android": {
       "versionCode": 1,
       "versionName": "1.0.0",
-      "package": "com.qti.gasemcasa.entregador",
+      "package": "br.com.dubena.gasemcasa.entregador",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",

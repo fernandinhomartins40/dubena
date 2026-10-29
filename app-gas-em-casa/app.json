@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "gasemcasa",
+    "scheme": "dubenagasemcasa",
     "ios": {
       "buildNumber": "69",
       "supportsTablet": false,
-      "bundleIdentifier": "com.qti.gasemcasa",
+      "bundleIdentifier": "br.com.dubena.gasemcasa",
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
         "aps-environment": "production"
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/icons/adaptive-icon.png",
         "backgroundColor": "#FF6200"
       },
-      "package": "com.qti.gasemcasa",
+      "package": "br.com.dubena.gasemcasa",
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
