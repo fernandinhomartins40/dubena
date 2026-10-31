@@ -186,11 +186,14 @@ class User extends Authenticatable
         $empresaId ??= $this->empresa_id;
 
         // Papéis cujo pivot aponta para a empresa ativa OU é global (empresa_id nulo).
-        // Filtra na coluna do pivot diretamente (orWherePivotNull não existe dentro
-        // de um where-closure aninhado).
+        //
+        // O OR TEM de ficar entre parênteses (PIE P2-D-03). Encadeado solto,
+        // `orWherePivotNull` virava `user_id = ? AND empresa_id = ? OR empresa_id
+        // IS NULL` — o papel global de QUALQUER usuário entrava para todos: o
+        // operador recebia "Administrador" no menu, no ABAC e na trava contra
+        // escalonamento de papéis.
         return $this->roles()
-            ->wherePivot('empresa_id', $empresaId)
-            ->orWherePivotNull('empresa_id')
+            ->where(fn ($q) => $q->where('role_user.empresa_id', $empresaId)->orWhereNull('role_user.empresa_id'))
             ->with('permissions')
             ->get()
             ->unique('id')

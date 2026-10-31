@@ -12,6 +12,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { formatarMoeda } from "@/helpers/moeda"
+import { etapaDoPedido } from "@/helpers/situacao"
 
 const moeda = formatarMoeda
 
@@ -113,16 +114,12 @@ function ItemPedido({ pedido }: { pedido: PedidoEntrega }) {
     )
 }
 
-/** Filtra por aba usando o texto da situação (o backend expõe `situacao`). */
 function filtrarPorAba(pedidos: PedidoEntrega[], aba: Aba): PedidoEntrega[] {
-    const norm = (s: string | null) => (s ?? "").toLowerCase()
     return pedidos.filter((p) => {
-        const sit = norm(p.situacao)
-        const finalizado = sit.includes("entreg") || sit.includes("conclu") || sit.includes("cancel")
-        const andamento = sit.includes("caminho") || sit.includes("rota") || sit.includes("saiu") || sit.includes("atend")
-        if (aba === "historico") return finalizado
-        if (aba === "andamento") return andamento && !finalizado
-        return !finalizado && !andamento
+        const etapa = etapaDoPedido(p)
+        if (aba === "historico") return etapa === "finalizado"
+        if (aba === "andamento") return etapa === "andamento"
+        return etapa === "pendente"
     })
 }
 

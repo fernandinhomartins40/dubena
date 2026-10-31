@@ -4,7 +4,7 @@ import { useSincronizacao } from "@/hooks/useSincronizacao"
 import VendaService from "@/services/venda.service"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { formatarMoeda } from "@/helpers/moeda"
 
 const brl = formatarMoeda
@@ -24,7 +24,17 @@ const data = (iso: string) => new Date(iso).toLocaleDateString("pt-BR")
  */
 export default function Ganhos() {
     const [atualizando, setAtualizando] = useState(false)
-    const { pendentes, sincronizando, sincronizar } = useSincronizacao()
+    const { pendentes, atencao, dispensar, sincronizando, sincronizar } = useSincronizacao()
+
+    const confirmarDispensa = (id: string) =>
+        Alert.alert(
+            "Remover do aviso?",
+            "Esta ação NÃO foi registrada no sistema. Remova só depois de acertar com a central.",
+            [
+                { text: "Manter", style: "cancel" },
+                { text: "Já acertei", style: "destructive", onPress: () => dispensar(id) },
+            ],
+        )
 
     const extrato = useQuery({
         queryKey: ["entregador", "extrato"],
@@ -60,6 +70,26 @@ export default function Ganhos() {
                     <Text style={s.aviso}>
                         {sincronizando ? "Enviando..." : "Vão automaticamente quando a rede voltar."}
                     </Text>
+                </Cartao>
+            )}
+
+            {atencao.length > 0 && (
+                <Cartao style={{ borderLeftWidth: 4, borderLeftColor: COLORS.danger }}>
+                    <Text style={s.titulo}>Não registradas: fale com a central</Text>
+                    {atencao.map((i) => (
+                        <TouchableOpacity
+                            key={i.id}
+                            style={s.linha}
+                            onPress={() => confirmarDispensa(i.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Ação recusada: ${i.ultimoErro ?? ""}. Toque para remover do aviso.`}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <Text style={s.pendencia}>{i.ultimoErro ?? "Recusada pelo servidor"}</Text>
+                                <Text style={s.aviso}>{new Date(i.criadoEm).toLocaleString("pt-BR")} ·{i.endpoint.replace(/^app\/v1\/entregador\//, "")}</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
                 </Cartao>
             )}
 

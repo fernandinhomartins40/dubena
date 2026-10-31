@@ -37,15 +37,20 @@ class EntregaService
     {
         // No-op de estado: a atribuição já existe. Mantido como ponto de extensão
         // (ex.: marcar datahora_acao) e simetria com recusar().
-        $pedido->forceFill(['datahora_acao' => now()])->save();
+        return DB::transaction(function () use ($pedido) {
+            $this->exigirPendente($pedido);
+            $pedido->forceFill(['datahora_acao' => now()])->save();
 
-        return $pedido->refresh();
+            return $pedido->refresh();
+        });
     }
 
     /** Recusa da corrida — registra ocorrência e desvincula o entregador. */
     public function recusar(Pedido $pedido, int $entregadorUserId, ?string $motivo = null): PedidoOcorrencia
     {
         return DB::transaction(function () use ($pedido, $entregadorUserId, $motivo) {
+            $this->exigirPendente($pedido);
+
             $ocorrencia = PedidoOcorrencia::create([
                 'pedido_id' => $pedido->id,
                 'entregador_user_id' => $entregadorUserId,
@@ -58,6 +63,25 @@ class EntregaService
 
             return $ocorrencia;
         });
+    }
+
+    /**
+     * Aceitar e recusar só valem para corrida em aberto (PIE P2-C-01).
+     *
+     * Recusar um pedido CONCLUÍDO desvinculava o entregador — e o malote confere
+     * por `entregador_user_id`: o pedido em dinheiro sumia do acerto de quem tinha
+     * o dinheiro na mão, com um toque, e o título seguia aberto contra o cliente
+     * que já pagou. Conferido sob lock, como em `mudarSituacao`.
+     */
+    private function exigirPendente(Pedido $pedido): void
+    {
+        $atual = Pedido::query()->with('situacao:id,efeito')->lockForUpdate()->findOrFail($pedido->id);
+
+        if ($atual->situacao?->efeito !== EfeitoPedido::PENDENTE) {
+            throw ValidationException::withMessages([
+                'pedido' => 'Este pedido não está mais em aberto; não é possível aceitar ou recusar.',
+            ]);
+        }
     }
 
     /**

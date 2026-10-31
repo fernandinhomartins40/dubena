@@ -481,7 +481,7 @@ class EmpresaConfigController extends Controller
                 continue;
             }
             $id = filter_var($dados[$chave], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            $tenantDaConfiguracao = $id === false ? null : DB::table($tabela)->whereKey($id)->value('tenant_account_id');
+            $tenantDaConfiguracao = $id === false ? null : DB::table($tabela)->where('id', $id)->value('tenant_account_id');
             if ($tenantDaConfiguracao === null || (int) $tenantDaConfiguracao !== $tenantAccountId) {
                 throw ValidationException::withMessages([$chave => 'A configuracao financeira deve pertencer ao tenant ativo.']);
             }

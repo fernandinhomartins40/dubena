@@ -16,6 +16,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { formatarMoeda } from "@/helpers/moeda"
+import { etapaDoPedido } from "@/helpers/situacao"
 
 const moeda = formatarMoeda
 const primeiroNome = (nome?: string | null) => (nome ?? "Entregador").trim().split(" ")[0]
@@ -52,10 +53,7 @@ export default function Inicio() {
     const pendentes = dashboard.data?.pendentes ?? 0
     const concluidos = dashboard.data?.concluidos_hoje ?? 0
     const proximas = (pedidos ?? [])
-        .filter((p) => {
-            const s = (p.situacao ?? "").toLowerCase()
-            return !s.includes("entreg") && !s.includes("conclu") && !s.includes("cancel")
-        })
+        .filter((p) => etapaDoPedido(p) !== "finalizado")
         .slice(0, 3)
 
     return (

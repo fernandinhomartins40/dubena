@@ -43,6 +43,12 @@ class RecursoPorRota
         'checklists' => 'crm',
         'metas' => 'crm',
         'mala-direta' => 'crm',
+        // PIE P2-E-02: os aliases que a SPA usa passavam sem licença — cobrança
+        // CNAB, DRE e mala direta saíam no plano que não os contratou.
+        'crm/' => 'crm',
+        'cobranca/' => 'cobranca',
+        'financeiro/dre' => 'relatorios_avancados',
+        'cupons-fiscais' => 'nfce',
         'veiculos' => 'frota',
         'abastecimentos' => 'frota',
         'manutencoes' => 'frota',

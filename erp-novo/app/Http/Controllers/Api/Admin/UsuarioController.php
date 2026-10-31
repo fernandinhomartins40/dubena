@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Domain\Saas\LimiteContratado;
 use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\PasswordPolicyService;
+use App\Domain\Tenant\AcessoDoColaborador;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -77,6 +78,9 @@ class UsuarioController extends Controller
             'ativo' => $dados['ativo'] ?? true,
             'support' => false, // nunca por aqui
         ]);
+
+        // PIE P2-D-02: sem membership + grant, o usuário novo loga e leva 403 em tudo.
+        app(AcessoDoColaborador::class)->concederNaEmpresaAtiva($usuario, $request->user());
 
         if (array_key_exists('papeis', $dados)) {
             $this->sincronizarPapeis($usuario, $dados['papeis']);

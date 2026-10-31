@@ -19,6 +19,7 @@ import Button from "@/components/atoms/button"
 import PaymentMethodSheet from "@/components/organism/PaymentMethodSheet"
 import { GasImgUri } from "@/constants/images"
 import OrderService from "@/services/order.service"
+import useAppStore from "@/store/appStore"
 import useFlashStore from "@/store/flashStore"
 import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
 import { CondicaoPagamento } from "@/types/types"
@@ -114,6 +115,9 @@ export default function Carrinho() {
             return
         }
         criar.mutate({
+            // PIE P2-B-02: o servidor usa a coordenada deste endereço para a
+            // área de entrega e o setor; sem ele, a cerca era pulada.
+            endereco_id: useAppStore.getState().user?.enderecopadrao_id ?? null,
             condicaopagamento_id: condicao.id,
             codigo_cupom: cupom,
             gasdopovo,

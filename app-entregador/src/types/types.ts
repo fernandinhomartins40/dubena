@@ -11,6 +11,10 @@ export interface PedidoEntrega {
     id: number
     valor_venda: number
     situacao: string | null
+    /** PENDENTE | CONCLUIDO | CANCELADO — ausente em servidor anterior a P2-C-04. */
+    situacao_efeito?: string | null
+    /** EM_ROTA | NENHUM — ausente em servidor anterior a P2-C-04. */
+    situacao_papel?: string | null
     cliente: string | null
     endereco: string
     lat: number | null

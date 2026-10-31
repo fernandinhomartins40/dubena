@@ -72,6 +72,26 @@ class MonitoraApiTest extends TestCase
         $this->assertEqualsWithDelta(-25.1, $data[0]['latitude'], 0.0001);
     }
 
+    /** PIE P2-E-09: De = Até = o dia (padrão da tela) traz o dia inteiro. */
+    public function test_historico_de_um_dia_so_traz_o_dia_inteiro(): void
+    {
+        [$user, $empresa] = $this->suporte();
+        $veiculo = Veiculo::create([
+            'empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id, 'placa' => 'CCC3D33', 'ativo' => true,
+        ]);
+        $veiculo->posicoes()->createMany([
+            ['latitude' => -25.0, 'longitude' => -51.0, 'registrado_em' => '2026-06-10 08:00:00'],
+            ['latitude' => -25.1, 'longitude' => -51.1, 'registrado_em' => '2026-06-10 23:59:00'],
+            ['latitude' => -25.2, 'longitude' => -51.2, 'registrado_em' => '2026-06-11 00:00:00'],
+        ]);
+
+        $data = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/admin/monitora/veiculos/{$veiculo->id}/historico?de=2026-06-10&ate=2026-06-10")
+            ->assertOk()->json('data');
+
+        $this->assertCount(2, $data);
+    }
+
     public function test_tipos_isolam_por_grupo(): void
     {
         [$userA] = $this->suporte();

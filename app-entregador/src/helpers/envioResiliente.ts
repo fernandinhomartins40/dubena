@@ -2,7 +2,9 @@ import Http from "@/helpers/http"
 import useAppStore from "@/store/appStore"
 import {
     enfileirar,
+    mensagemDoErro,
     novoId,
+    pendentes,
     sincronizar,
     quantidadePendente,
     type ItemFila,
@@ -40,6 +42,18 @@ export const enviarOuEnfileirar = async <T = any>(
     data: unknown = null,
 ): Promise<{ enfileirado: boolean; data?: T }> => {
     const chave = novoId()
+    const dono = useAppStore.getState().user?.id
+
+    // Ordem importa: "aceitar" que ficou na fila tem de chegar antes do "status"
+    // feito depois que o sinal voltou (PIE P2-C-06). Esvazia primeiro; se ainda
+    // sobrar algo deste entregador, a ação nova entra no fim da fila.
+    if (pendentes().some((i) => i.dono === undefined || i.dono === dono)) {
+        await sincronizarPendencias()
+        if (pendentes().some((i) => i.dono === undefined || i.dono === dono)) {
+            enfileirar(endpoint, method, data, chave, dono)
+            return { enfileirado: true }
+        }
+    }
 
     try {
         const resposta = await Http.client.request<T>({
@@ -54,11 +68,14 @@ export const enviarOuEnfileirar = async <T = any>(
         if (!eFalhaDeRede(e)) {
             // 4xx real (validação, permissão): é para o usuário ver AGORA.
             // Enfileirar esconderia um erro que nunca vai se resolver sozinho.
+            // A tela mostra `e.message`: troca o "Request failed with status
+            // code 422" do axios pela frase do servidor.
+            if (e && typeof e === "object") e.message = mensagemDoErro(e, e.message)
             throw e
         }
 
         // Mesma chave da tentativa que falhou: ela pode ter chegado ao servidor.
-        enfileirar(endpoint, method, data, chave, useAppStore.getState().user?.id)
+        enfileirar(endpoint, method, data, chave, dono)
 
         return { enfileirado: true }
     }

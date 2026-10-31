@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Domain\Fiscal\CupomTextoService;
 use App\Domain\Identidade\IdentificarOuCriarCliente;
+use App\Domain\Satelite\SituacaoValeGas;
 use App\Domain\Venda\CargaFranqueadoService;
 use App\Domain\Venda\CentralVendasService;
 use App\Domain\Venda\ExtratoRemuneracaoService;
@@ -279,6 +280,16 @@ class AppSolicitacaoController extends Controller
 
         if (str_contains($situacao, 'utilizad') || $vale->utilizado_em !== null) {
             throw new \DomainException('Vale Gás já utilizado anteriormente.');
+        }
+
+        // PIE P2-C-02: só vale pago e dentro da validade. A lista acima vinha do
+        // legado, que não tinha os estados do sistema novo — um vale EMITIDO
+        // (aguardando pagamento) ou EXPIRADO passava como bom, e o vencido também.
+        if ($vale->situacao !== SituacaoValeGas::PAGO) {
+            throw new \DomainException('Vale Gás ainda não pago ou expirado — não aceite.');
+        }
+        if ($vale->validade !== null && $vale->validade->lt(today())) {
+            throw new \DomainException('Vale Gás vencido em '.$vale->validade->format('d/m/Y').'.');
         }
 
         return response()->json(['data' => [

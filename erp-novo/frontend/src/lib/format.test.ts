@@ -53,6 +53,10 @@ describe('format — entrada e datas locais', () => {
     expect(decimalBR('R$ 5')).toBe(5)
     expect(decimalBR('5%')).toBe(5)
     expect(decimalBR('7.5')).toBe(7.5)
+    // PIE P2-D-08: milhar sem vírgula.
+    expect(decimalBR('R$ 1.000')).toBe(1000)
+    expect(decimalBR('1.000.000')).toBe(1000000)
+    expect(decimalBR('1.5')).toBe(1.5)
     expect(decimalBR('abc')).toBeNaN()
     expect(decimalBR('')).toBeNaN()
     // O defeito: NaN viajava como null e virava "aprovar tudo".

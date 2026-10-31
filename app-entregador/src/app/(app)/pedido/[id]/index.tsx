@@ -6,7 +6,8 @@ import { PedidoEntrega } from "@/types/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
-import { Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Alert, Linking, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { etapaDoPedido } from "@/helpers/situacao"
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps"
 import Toast from "react-native-toast-message"
 import { formatarMoeda } from "@/helpers/moeda"
@@ -72,6 +73,12 @@ export default function PedidoDetalhe() {
         }
     }
 
+    const confirmarRecusa = () =>
+        Alert.alert("Recusar esta corrida?", "O pedido volta para a central redistribuir.", [
+            { text: "Não", style: "cancel" },
+            { text: "Recusar", style: "destructive", onPress: () => void recusar() },
+        ])
+
     const abrirNoMapa = () => {
         if (!temDestino) return
         const ll = `${pedido!.lat},${pedido!.lng}`
@@ -124,20 +131,26 @@ export default function PedidoDetalhe() {
                 )}
             </Cartao>
 
-            <View style={{ gap: 10, marginTop: 4 }}>
-                <Botao titulo="Aceitar corrida" onPress={aceitar} carregando={acao === "aceitar"} />
-                <Botao
-                    titulo="Concluir entrega"
-                    variante="secundario"
-                    onPress={() => router.push(`/(app)/pedido/${pedidoId}/concluir`)}
-                />
-                <Botao
-                    titulo="Registrar ocorrência"
-                    variante="secundario"
-                    onPress={() => router.push(`/(app)/pedido/${pedidoId}/ocorrencia`)}
-                />
-                <Botao titulo="Recusar corrida" variante="perigo" onPress={recusar} carregando={acao === "recusar"} />
-            </View>
+            {/* PIE P2-C-01/P2-C-14: ações só para pedido em aberto. No Histórico,
+                "Recusar" tirava a venda já concluída do malote do entregador. */}
+            {etapaDoPedido(pedido) !== "finalizado" ? (
+                <View style={{ gap: 10, marginTop: 4 }}>
+                    <Botao titulo="Aceitar corrida" onPress={aceitar} carregando={acao === "aceitar"} />
+                    <Botao
+                        titulo="Concluir entrega"
+                        variante="secundario"
+                        onPress={() => router.push(`/(app)/pedido/${pedidoId}/concluir`)}
+                    />
+                    <Botao
+                        titulo="Registrar ocorrência"
+                        variante="secundario"
+                        onPress={() => router.push(`/(app)/pedido/${pedidoId}/ocorrencia`)}
+                    />
+                    <Botao titulo="Recusar corrida" variante="perigo" onPress={confirmarRecusa} carregando={acao === "recusar"} />
+                </View>
+            ) : (
+                <Text style={{ color: COLORS.muted, textAlign: "center" }}>Pedido encerrado: {pedido.situacao ?? ""}</Text>
+            )}
         </ScrollView>
     )
 }

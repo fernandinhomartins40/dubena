@@ -58,6 +58,10 @@ export function dataHora(s: string | null | undefined): string {
 export function decimalBR(texto: string): number {
   let t = texto.trim().replace(/^R\$\s*/i, '').replace(/\s*%$/, '').replace(/\s/g, '')
   if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  // Sem vírgula, "1.000" é mil — não 1,000 (PIE P2-D-08: o teto de alçada
+  // "R$ 1.000" era gravado como R$ 1,00). Ponto seguido de grupos de 3 dígitos
+  // é milhar; "7.5" continua decimal.
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '')
   if (!/^-?\d+(\.\d+)?$/.test(t)) return Number.NaN
   return Number(t)
 }

@@ -34,6 +34,7 @@ import storage from "@/store/storage"
  */
 
 const CHAVE = "fila-offline-v1"
+const CHAVE_ATENCAO = "fila-offline-atencao-v1"
 
 export interface ItemFila {
     /** Chave de idempotência: gerada uma vez, preservada em toda retentativa. */
@@ -43,6 +44,8 @@ export interface ItemFila {
     data: unknown
     criadoEm: number
     tentativas: number
+    /** Tentativas em que o servidor respondeu com erro (5xx/409) — não conta falta de sinal. */
+    falhasNoServidor?: number
     /** Última mensagem de erro, para diagnóstico na tela de pendências. */
     ultimoErro?: string
     /**
@@ -64,24 +67,44 @@ export const novoId = (): string =>
         return v.toString(16)
     })
 
-const ler = (): ItemFila[] => {
+const lerDe = (chave: string): ItemFila[] => {
     try {
         // O MMKV só existe após initSecureStorage() (boot). Antes disso, ou se a
         // leitura falhar, a fila responde vazia em vez de derrubar a tela.
-        return JSON.parse(storage.getString(CHAVE) ?? "[]") as ItemFila[]
+        return JSON.parse(storage.getString(chave) ?? "[]") as ItemFila[]
     } catch {
         return []
     }
 }
 
-const gravar = (itens: ItemFila[]): void => {
+const gravarEm = (chave: string, itens: ItemFila[]): void => {
     try {
-        storage.set(CHAVE, JSON.stringify(itens))
+        storage.set(chave, JSON.stringify(itens))
     } catch {
         // Sem storage montado não há o que persistir; a ação segue pelo caminho
         // normal (online) ou se perde — melhor que quebrar a tela do entregador.
     }
 }
+
+const ler = (): ItemFila[] => lerDe(CHAVE)
+const gravar = (itens: ItemFila[]): void => gravarEm(CHAVE, itens)
+
+/**
+ * Tira o item da fila e o guarda em "precisa de atenção" (PIE P2-C-06).
+ *
+ * Antes, o que o servidor recusava era apagado em silêncio: o entregador achava
+ * que a entrega ou a venda estava registrada e só descobria no acerto. E o item
+ * com 5xx permanente ficava no topo para sempre, travando tudo que vinha depois.
+ * Aqui ele sai do caminho da fila sem sumir — a decisão é de uma pessoa.
+ */
+const moverParaAtencao = (item: ItemFila, motivo: string): void => {
+    gravar(ler().filter((i) => i.id !== item.id))
+    gravarEm(CHAVE_ATENCAO, [...lerDe(CHAVE_ATENCAO), { ...item, ultimoErro: motivo }])
+}
+
+/** Mensagem que o servidor deu (Laravel manda `message`), não a do axios. */
+export const mensagemDoErro = (e: any, padrao = "Falha ao sincronizar"): string =>
+    e?.response?.data?.message ?? e?.message ?? padrao
 
 /**
  * Enfileira uma escrita para quando houver rede. Devolve o id de idempotência.
@@ -120,9 +143,18 @@ export const descartar = (id: string): void => {
     gravar(ler().filter((i) => i.id !== id))
 }
 
+/** Ações que não serão reenviadas sozinhas e esperam o entregador. */
+export const precisamDeAtencao = (): ItemFila[] => lerDe(CHAVE_ATENCAO)
+
+/** O entregador viu a recusa (e resolveu com a central): tira da lista. */
+export const dispensarAtencao = (id: string): void => {
+    gravarEm(CHAVE_ATENCAO, lerDe(CHAVE_ATENCAO).filter((i) => i.id !== id))
+}
+
 export const limpar = (): void => {
     try {
         storage.delete(CHAVE)
+        storage.delete(CHAVE_ATENCAO)
     } catch {
         /* nada a limpar */
     }
@@ -141,12 +173,35 @@ export interface ResultadoSync {
  * conexão caiu, as próximas também falhariam, e insistir só gastaria bateria e
  * incrementaria `tentativas` sem motivo.
  *
- * **Erro do servidor (4xx) descarta o item.** Um payload que o servidor recusa
- * vai continuar recusando para sempre; mantê-lo na fila entupiria a
- * sincronização de tudo que vem depois. O 409 de idempotência é caso à parte:
- * significa que o servidor JÁ processou, então o item cumpriu seu papel.
+ * **Recusa do servidor (4xx) sai da fila, mas não some:** vai para "precisa de
+ * atenção". Um payload recusado continuará recusado; mantê-lo no topo entupiria
+ * tudo que vem depois, e apagá-lo escondia do entregador uma entrega que não
+ * foi registrada (PIE P2-C-06).
+ *
+ * **409 é transitório.** O middleware `Idempotente` devolve a resposta gravada
+ * quando a chave já foi processada — 409 só sai com a chave AINDA em execução
+ * (ou com payload diferente). Tratá-lo como sucesso perdia a ação quando a
+ * primeira execução terminava em erro.
+ *
+ * **Uma sincronização por vez no processo.** O hook é montado em mais de uma
+ * tela, cada uma com sua trava; duas varreduras simultâneas enviavam o mesmo
+ * item duas vezes e geravam exatamente o 409 acima.
  */
-export const sincronizar = async (
+let emCurso: Promise<ResultadoSync> | null = null
+
+export const sincronizar = (
+    enviar: (item: ItemFila) => Promise<unknown>,
+    donoAtual?: number,
+): Promise<ResultadoSync> => {
+    if (!emCurso) {
+        emCurso = varrer(enviar, donoAtual).finally(() => {
+            emCurso = null
+        })
+    }
+    return emCurso
+}
+
+const varrer = async (
     enviar: (item: ItemFila) => Promise<unknown>,
     donoAtual?: number,
 ): Promise<ResultadoSync> => {
@@ -166,14 +221,6 @@ export const sincronizar = async (
         } catch (e: any) {
             const status = e?.status ?? e?.response?.status ?? 0
 
-            // 409 = o servidor já tem esta operação (idempotência). Missão
-            // cumprida: não é erro, é confirmação tardia.
-            if (status === 409) {
-                descartar(item.id)
-                enviados++
-                continue
-            }
-
             // 401: o TOKEN venceu, não o conteúdo. Descartar aqui apagava todas
             // as pendências do entregador (PIE R2-04). Para e espera o novo
             // login — a próxima sincronização reenvia com a mesma chave.
@@ -182,24 +229,28 @@ export const sincronizar = async (
                 break
             }
 
-            // 4xx (menos 408/429): o servidor recusou o conteúdo. Reenviar não
-            // muda nada e travaria a fila.
-            if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
-                descartar(item.id)
+            // 4xx (menos 408/409/429): o servidor recusou o conteúdo.
+            if (status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 429) {
+                moverParaAtencao(item, mensagemDoErro(e))
                 falharam++
                 continue
             }
 
-            // Rede ou 5xx: mantém para a próxima janela.
+            // Rede, 5xx ou 409 em execução: mantém para a próxima janela.
             const itens = ler()
             const alvo = itens.find((i) => i.id === item.id)
             if (alvo) {
                 alvo.tentativas++
-                alvo.ultimoErro = e?.message ?? "Falha ao sincronizar"
-                if (alvo.tentativas >= MAX_TENTATIVAS) {
-                    // Não descarta em silêncio: dinheiro e entrega precisam de
-                    // decisão humana. Fica visível na tela de pendências.
-                    alvo.ultimoErro = `Não sincronizou após ${MAX_TENTATIVAS} tentativas. ${alvo.ultimoErro ?? ""}`.trim()
+                alvo.ultimoErro = mensagemDoErro(e)
+                // Só falha RESPONDIDA pelo servidor conta para esgotar: oito
+                // janelas sem sinal são oito minutos num túnel, não um defeito.
+                if (status !== 0) alvo.falhasNoServidor = (alvo.falhasNoServidor ?? 0) + 1
+                if ((alvo.falhasNoServidor ?? 0) >= MAX_TENTATIVAS) {
+                    // Esgotou: sai do topo (não trava o resto) e espera decisão
+                    // humana — dinheiro e entrega não podem sumir em silêncio.
+                    moverParaAtencao(alvo, `Não sincronizou após ${MAX_TENTATIVAS} tentativas. ${alvo.ultimoErro}`)
+                    falharam++
+                    continue
                 }
                 gravar(itens)
             }

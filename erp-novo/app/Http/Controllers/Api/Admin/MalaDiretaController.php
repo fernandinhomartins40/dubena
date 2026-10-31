@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Relatorio\RelatorioService;
+use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\Cliente\Cliente;
@@ -25,9 +26,13 @@ class MalaDiretaController extends Controller
     use AutorizaPorPermissao;
 
     /** GET /crm/mala-direta — lista segmentada (JSON) ou CSV (?formato=csv). */
-    public function index(Request $request, RelatorioService $relatorio): Response|JsonResponse
+    public function index(Request $request, RelatorioService $relatorio, AuditoriaSeguranca $auditoria): Response|JsonResponse
     {
-        $this->autorizar($request, 'cliente.view');
+        // PIE P2-E-03: a lista É a base de clientes (nome, e-mail, endereço,
+        // nascimento) — em JSON ou CSV. Com `cliente.view`, o Operador extraía
+        // tudo sem rastro, enquanto a exportação oficial exige a permissão que o
+        // RBAC tirou até do Gerente "sob a LGPD". Mesma porta, mesma trilha.
+        $this->autorizar($request, 'cliente.export.completo');
 
         $d = $request->validate([
             'segmento_id' => 'nullable|integer',
@@ -64,6 +69,12 @@ class MalaDiretaController extends Controller
             'nascimento' => optional($c->datanascimento)->toDateString() ?? (string) $c->datanascimento,
             'ultima_compra' => optional($c->data_ultima_compra)->toDateString() ?? (string) $c->data_ultima_compra,
         ])->all();
+
+        $auditoria->registrar('cliente.exportacao', 'mala-direta', [
+            'formato' => $d['formato'] ?? 'json',
+            'filtros' => array_filter($d, fn ($v, $k) => $k !== 'formato' && $v !== null, ARRAY_FILTER_USE_BOTH),
+            'linhas' => count($linhas),
+        ]);
 
         if (($d['formato'] ?? null) === 'csv') {
             return response($relatorio->csv($linhas), 200, [

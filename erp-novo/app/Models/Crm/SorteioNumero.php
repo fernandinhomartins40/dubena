@@ -20,7 +20,7 @@ class SorteioNumero extends Model
     {
         static::creating(function (self $model): void {
             if ($model->tenant_account_id === null && $model->sorteio_id !== null) {
-                $model->tenant_account_id = DB::table('sorteios')->whereKey($model->sorteio_id)->value('tenant_account_id');
+                $model->tenant_account_id = DB::table('sorteios')->where('id', $model->sorteio_id)->value('tenant_account_id');
             }
         });
     }

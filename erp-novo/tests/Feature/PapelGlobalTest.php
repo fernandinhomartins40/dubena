@@ -51,6 +51,29 @@ class PapelGlobalTest extends TestCase
         $this->assertTrue($user->fresh()->temPermissao('relatorio.view', $outra->id));
     }
 
+    /** PIE P2-D-03: o OR do papel global escapava do filtro de usuário. */
+    public function test_papel_global_de_um_usuario_nao_vaza_para_outro(): void
+    {
+        $empresa = Empresa::factory()->create();
+        $dono = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+        $operador = User::factory()->create(['empresa_id' => $empresa->id, 'grupo_id' => $empresa->grupo_id]);
+
+        $admin = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Administrador']);
+        $admin->permissions()->sync([Permission::firstOrCreate(['chave' => 'papel.manage'])->id]);
+        $dono->roles()->attach($admin->id, ['empresa_id' => null]);
+
+        $operacao = Role::create(['grupo_id' => $empresa->grupo_id, 'nome' => 'Operador']);
+        $operacao->permissions()->sync([Permission::firstOrCreate(['chave' => 'pedido.view'])->id]);
+        $operador->roles()->attach($operacao->id, ['empresa_id' => $empresa->id]);
+
+        $operador = $operador->fresh();
+        // A factory já dá a cada usuário um papel próprio ("Administrador de
+        // teste"); o que se mede aqui é só o papel GLOBAL do dono vazando.
+        $this->assertNotContains('Administrador', $operador->papeisEfetivos()->pluck('nome')->all());
+        $this->assertContains('Operador', $operador->papeisEfetivos()->pluck('nome')->all());
+        $this->assertContains('Administrador', $dono->fresh()->papeisEfetivos()->pluck('nome')->all());
+    }
+
     public function test_atribuicao_global_duplicada_viola_unicidade(): void
     {
         $empresa = Empresa::factory()->create();

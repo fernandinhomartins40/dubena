@@ -71,6 +71,51 @@ class MatrizPapeisReaisTest extends TestCase
     }
 
     /** O seeder tem de entregar os quatro papéis — a matriz depende deles. */
+    /** PIE P2-E-03: a mala direta é a base de clientes; é exportação. */
+    public function test_operador_e_gerente_nao_extraem_a_base_pela_mala_direta(): void
+    {
+        $this->cliente();
+
+        foreach (['Operador', 'Gerente'] as $papel) {
+            $this->actingAs($this->com($papel), 'sanctum')
+                ->getJson('/api/admin/crm/mala-direta?formato=csv')
+                ->assertForbidden();
+        }
+
+        $this->actingAs($this->com('Administrador'), 'sanctum')
+            ->getJson('/api/admin/crm/mala-direta?formato=csv')
+            ->assertOk();
+        $this->assertDatabaseHas('security_events', ['tipo' => 'cliente.exportacao', 'alvo' => 'mala-direta']);
+    }
+
+    /** PIE P2-E-04: o relatório não é porta lateral para a trilha. */
+    public function test_gerente_nao_le_a_trilha_pelo_relatorio(): void
+    {
+        $this->actingAs($this->com('Gerente'), 'sanctum')
+            ->getJson('/api/admin/relatorios/auditoria')
+            ->assertForbidden();
+        $this->actingAs($this->com('Administrador'), 'sanctum')
+            ->getJson('/api/admin/relatorios/auditoria')
+            ->assertOk();
+    }
+
+    /** PIE P2-E-05: preço tem permissão própria, também no cadastro. */
+    public function test_operador_nao_altera_preco_pelo_cadastro_do_produto(): void
+    {
+        $produto = \App\Models\Produto\Produto::factory()->create([
+            'empresa_id' => $this->empresa->id, 'grupo_id' => $this->empresa->grupo_id, 'preco_venda' => 100,
+        ]);
+        $corpo = fn (float $preco) => ['descricao' => $produto->descricao, 'preco_venda' => $preco];
+
+        $this->actingAs($this->com('Operador'), 'sanctum')
+            ->putJson("/api/admin/produtos/{$produto->id}", $corpo(1))->assertOk();
+        $this->assertEquals(100, (float) $produto->fresh()->preco_venda);
+
+        $this->actingAs($this->com('Administrador'), 'sanctum')
+            ->putJson("/api/admin/produtos/{$produto->id}", $corpo(120))->assertOk();
+        $this->assertEquals(120, (float) $produto->fresh()->preco_venda);
+    }
+
     public function test_os_quatro_papeis_reais_existem(): void
     {
         $nomes = Role::query()->where('grupo_id', $this->empresa->grupo_id)->pluck('nome');

@@ -172,12 +172,17 @@ class AppEntregadorController extends Controller
         $pedidos = Pedido::query()
             ->where('empresa_id', $user->empresa_id)
             ->where('entregador_user_id', $user->id)
-            ->with([...Cliente::carregarComEndereco(), 'situacao:id,descricao,efeito'])
+            ->with([...Cliente::carregarComEndereco(), 'situacao:id,descricao,efeito,papel'])
             ->orderByDesc('datahora')->limit(100)->get()
             ->map(fn (Pedido $p) => [
                 'id' => $p->id,
                 'valor_venda' => (float) $p->valor_venda,
                 'situacao' => $p->situacao?->descricao,
+                // PIE P2-C-04: o app separava as abas pelo TEXTO da situação, e
+                // "Saiu para entrega" contém "entreg" — todo pedido em rota ia
+                // para o Histórico. Efeito e papel são a marca declarada.
+                'situacao_efeito' => $p->situacao?->efeito?->value,
+                'situacao_papel' => $p->situacao?->papel?->value,
                 'cliente' => $p->cliente?->nome,
                 // F3-01: ponto unico. Sem isto o entregador recebia so o
                 // numero da casa, sem rua — no app que serve para ele CHEGAR la.

@@ -9,6 +9,7 @@ use App\Domain\Pedido\EfeitoPedido;
 use App\Domain\Pedido\PedidoService;
 use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
+use App\Models\Cliente\ClienteEndereco;
 use App\Models\Empresa;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
@@ -123,6 +124,35 @@ class PedidoMobileService
         // Coordenada de entrega: a do payload ou a do cliente (para o geofence F5).
         $lat = isset($payload['lat']) ? (float) $payload['lat'] : ($cliente->latitude !== null ? (float) $cliente->latitude : null);
         $lng = isset($payload['lng']) ? (float) $payload['lng'] : ($cliente->longitude !== null ? (float) $cliente->longitude : null);
+
+        // PIE P2-B-02: o endereço escolhido no app manda na coordenada. Antes ele
+        // era ignorado — cliente novo do app não tem coordenada no cadastro, e a
+        // cerca de entrega era pulada (pedido a 250 km aceito com raio de 5 km).
+        // Só endereço do PRÓPRIO cliente: id alheio é 422, não fallback.
+        // Sem `endereco_id` (o app só o conhece depois de o usuário favoritar),
+        // vale o favorito do cliente — o mesmo que a tela de endereços mostra.
+        $endereco = null;
+        if (! empty($payload['endereco_id'])) {
+            $endereco = ClienteEndereco::query()
+                ->where('empresa_id', $empresaId)
+                ->where('cliente_id', $cliente->id)
+                ->find((int) $payload['endereco_id']);
+            if (! $endereco) {
+                throw ValidationException::withMessages(['endereco_id' => 'Endereço de entrega não encontrado.']);
+            }
+        } elseif (! isset($payload['lat'])) {
+            $endereco = ClienteEndereco::query()
+                ->where('empresa_id', $empresaId)
+                ->where('cliente_id', $cliente->id)
+                ->where('favorito', true)
+                ->first();
+        }
+        if ($endereco !== null) {
+            if ($endereco->latitude !== null && $endereco->longitude !== null) {
+                $lat = (float) $endereco->latitude;
+                $lng = (float) $endereco->longitude;
+            }
+        }
 
         // L0 — GEOCODIFICAÇÃO GARANTIDA: a distribuição inteligente (L3) depende de
         // lat/lng do cliente. Se o cliente ainda não foi geocodificado, enfileira o

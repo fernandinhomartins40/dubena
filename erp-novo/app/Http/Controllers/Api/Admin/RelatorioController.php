@@ -278,7 +278,11 @@ class RelatorioController extends Controller
      */
     public function auditoria(Request $request, ConsultaTrilha $trilha): JsonResponse
     {
+        // PIE P2-E-04: a trilha traz antes/depois de cadastros (PII de cliente e
+        // colaborador). O Gerente tem `relatorio.view` e é excluído de
+        // `auditoria.*` de propósito — por aqui ele lia o que `/auditoria` nega.
         $this->autorizar($request, 'relatorio.view');
+        $this->autorizar($request, 'auditoria.view');
 
         $logs = AuditLog::query()
             ->where('empresa_id', $this->empresaId())

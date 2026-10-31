@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { AppState, type AppStateStatus } from "react-native"
 import { sincronizarPendencias } from "@/helpers/envioResiliente"
-import { quantidadePendente } from "@/helpers/filaOffline"
+import { dispensarAtencao, precisamDeAtencao, quantidadePendente, type ItemFila } from "@/helpers/filaOffline"
 
 /**
  * Dispara a fila offline (F7) — a peça que faltava.
@@ -23,6 +23,7 @@ import { quantidadePendente } from "@/helpers/filaOffline"
  */
 export function useSincronizacao(ativo: boolean = true) {
     const [pendentes, setPendentes] = useState(0)
+    const [atencao, setAtencao] = useState<ItemFila[]>([])
     const [sincronizando, setSincronizando] = useState(false)
     // Evita duas execuções simultâneas (foreground + timer no mesmo instante),
     // que gastariam duas tentativas do mesmo item.
@@ -41,13 +42,20 @@ export function useSincronizacao(ativo: boolean = true) {
         } finally {
             emAndamento.current = false
             setSincronizando(false)
+            setAtencao(precisamDeAtencao())
         }
     }, [ativo])
+
+    const dispensar = useCallback((id: string) => {
+        dispensarAtencao(id)
+        setAtencao(precisamDeAtencao())
+    }, [])
 
     useEffect(() => {
         if (!ativo) return
 
         setPendentes(quantidadePendente())
+        setAtencao(precisamDeAtencao())
         void sincronizar()
 
         const sub = AppState.addEventListener("change", (estado: AppStateStatus) => {
@@ -62,5 +70,5 @@ export function useSincronizacao(ativo: boolean = true) {
         }
     }, [ativo, sincronizar])
 
-    return { pendentes, sincronizando, sincronizar }
+    return { pendentes, atencao, dispensar, sincronizando, sincronizar }
 }

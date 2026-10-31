@@ -7,6 +7,7 @@ use App\Domain\Monitora\MonitoraService;
 use App\Domain\Monitora\MonitoraSyncService;
 use App\Domain\Monitora\RelatorioMonitoraService;
 use App\Domain\Monitora\ViagensService;
+use App\Domain\Shared\PeriodoPorDia;
 use App\Domain\Relatorio\RelatorioService;
 use App\Domain\Saas\LimiteContratado;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
@@ -172,9 +173,10 @@ class MonitoraController extends Controller
             'limite' => 'nullable|integer|min:1|max:5000',
         ]);
 
-        $posicoes = $veiculo->posicoes()
-            ->when($d['de'] ?? null, fn ($q, $de) => $q->where('registrado_em', '>=', $de))
-            ->when($d['ate'] ?? null, fn ($q, $ate) => $q->where('registrado_em', '<=', $ate))
+        // PIE P2-E-09: `<= '2026-06-10'` em coluna datetime corta o dia na
+        // meia-noite — com De = Até = hoje (o padrão da tela) o replay voltava
+        // vazio e o operador concluía que o veículo não rodou.
+        $posicoes = PeriodoPorDia::aplicar($veiculo->posicoes()->getQuery(), 'registrado_em', $d['de'] ?? null, $d['ate'] ?? null)
             ->orderBy('registrado_em')
             ->limit((int) ($d['limite'] ?? 1000))
             ->get(['latitude', 'longitude', 'velocidade', 'direcao', 'ignicao', 'registrado_em'])

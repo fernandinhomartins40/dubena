@@ -12,6 +12,7 @@ use App\Models\Produto\Produto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Produto (classificação fiscal/GLP) — N3. CRUD escopado por empresa.
@@ -62,7 +63,16 @@ class ProdutoController extends Controller
 
         $produto = Produto::query()->findOrFail($id);
 
-        return new ProdutoResource($this->service->atualizar($produto, $this->dadosPermitidos($request)));
+        $dados = $this->dadosPermitidos($request);
+        // PIE P2-E-05: preço é controle de margem e tem permissão própria
+        // (`produto.preco`), que até aqui só o reajuste em massa exigia — o
+        // Operador mudava 100 → 1 pelo cadastro. Sem ela, o campo é ignorado,
+        // como já se faz com o custo.
+        if (Gate::forUser($request->user())->denies('produto.preco')) {
+            unset($dados['preco_venda'], $dados['preco_venda_minimo'], $dados['preco_gasdopovo']);
+        }
+
+        return new ProdutoResource($this->service->atualizar($produto, $dados));
     }
 
     public function destroy(Request $request, int $id): JsonResponse

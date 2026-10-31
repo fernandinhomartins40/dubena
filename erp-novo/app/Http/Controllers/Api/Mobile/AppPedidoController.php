@@ -17,6 +17,7 @@ use App\Models\Produto\Produto;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * App do cliente — PEDIDO (B-1): criar, pagar (cartão/PIX), histórico, acompanhar,
@@ -36,10 +37,27 @@ class AppPedidoController extends Controller
     /** POST /app/v1/pedidos — cria pedido do app (cliente por id ou geoloc). */
     public function criarPedido(Request $request): JsonResponse
     {
+        $user = $request->user();
+
+        // F4 (segurança): usuário do app COM cliente vinculado só cria pedido para
+        // SI MESMO — cliente_id do payload (e o matching por geoloc, que poderia
+        // casar o vizinho) valem apenas para o fluxo staff/transição sem vínculo.
+        //
+        // Resolvido ANTES da validação (PIE P2-B-01): o carrinho do app não manda
+        // cliente_id nem lat/lng — o cliente é o do token —, e o `required_without`
+        // recusava com 422 todo pedido do app.
+        $clienteDoToken = Cliente::query()
+            ->where('empresa_id', $user->empresa_id)
+            ->where('user_id', $user->id)
+            ->value('id');
+        $exigeLocalizacao = Rule::requiredIf(fn () => $clienteDoToken === null && ! $request->filled('cliente_id'));
+
         $d = $request->validate([
             'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
-            'lat' => 'required_without:cliente_id|numeric',
-            'lng' => 'required_without:cliente_id|numeric',
+            'lat' => [$exigeLocalizacao, 'nullable', 'numeric'],
+            'lng' => [$exigeLocalizacao, 'nullable', 'numeric'],
+            // P2-B-02: endereço escolhido no app (cliente_enderecos do próprio cliente).
+            'endereco_id' => 'nullable|integer',
             'pedidosituacao_id' => ['nullable', 'integer', new ExisteNoTenant(PedidoSituacao::class)],
             'condicaopagamento_id' => ['nullable', 'integer', new ExisteNoTenant(CondicaoPagamento::class)],
             'gasdopovo' => 'boolean',
@@ -51,15 +69,6 @@ class AppPedidoController extends Controller
             // Nota: preco_unitario do cliente é IGNORADO de propósito (anti-fraude F3c).
         ]);
 
-        $user = $request->user();
-
-        // F4 (segurança): usuário do app COM cliente vinculado só cria pedido para
-        // SI MESMO — cliente_id do payload (e o matching por geoloc, que poderia
-        // casar o vizinho) valem apenas para o fluxo staff/transição sem vínculo.
-        $clienteDoToken = Cliente::query()
-            ->where('empresa_id', $user->empresa_id)
-            ->where('user_id', $user->id)
-            ->value('id');
         if ($clienteDoToken !== null) {
             $d['cliente_id'] = $clienteDoToken;
         }

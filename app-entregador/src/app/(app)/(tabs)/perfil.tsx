@@ -1,6 +1,6 @@
 import { Cartao } from "@/components/ui"
 import { COLORS } from "@/constants/app"
-import { limpar as limparFila, quantidadePendente } from "@/helpers/filaOffline"
+import { limpar as limparFila, precisamDeAtencao, quantidadePendente } from "@/helpers/filaOffline"
 import { useJornada } from "@/hooks/useJornada"
 import AuthService from "@/services/auth.service"
 import JornadaService from "@/services/jornada.service"
@@ -48,14 +48,15 @@ export default function Perfil() {
     }
 
     const sair = () => {
-        const n = quantidadePendente()
+        // Recusadas também somem no logout: o entregador precisa saber delas.
+        const n = quantidadePendente() + precisamDeAtencao().length
         if (n === 0) {
             void encerrarSessao()
             return
         }
         Alert.alert(
             "Há envios pendentes",
-            `${n} ${n === 1 ? "ação ainda não foi enviada" : "ações ainda não foram enviadas"} por falta de sinal. Se sair agora, ${n === 1 ? "ela será perdida" : "elas serão perdidas"}.`,
+            `${n} ${n === 1 ? "ação ainda não foi registrada" : "ações ainda não foram registradas"} no sistema. Se sair agora, ${n === 1 ? "ela será perdida" : "elas serão perdidas"}.`,
             [
                 { text: "Ficar", style: "cancel" },
                 { text: "Sair mesmo assim", style: "destructive", onPress: () => void encerrarSessao() },

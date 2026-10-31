@@ -9,6 +9,7 @@ use App\Http\Middleware\CapturarSchemaDaRota;
 use App\Http\Middleware\DialetoLegado;
 use App\Http\Middleware\Idempotente;
 use App\Http\Middleware\Permissao;
+use App\Http\Middleware\PlataformaEnxergaTodasAsEmpresas;
 use App\Http\Middleware\Recurso;
 use App\Http\Middleware\RecursoPorRota;
 use App\Http\Middleware\ResolveTenant;
@@ -65,6 +66,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'idempotente' => Idempotente::class,
             // PIE R1-01 — token de app (sem `*`) não alcança o back-office.
             'painel' => SomenteTokenDoPainel::class,
+            // PIE P2-E-01 — o superadmin cruza empresas; sob RLS lia zero.
+            'plataforma.owner' => PlataformaEnxergaTodasAsEmpresas::class,
         ]);
 
         // PIE R1-04 — sem isto `$request->ip()` era o IP do nginx do contêiner

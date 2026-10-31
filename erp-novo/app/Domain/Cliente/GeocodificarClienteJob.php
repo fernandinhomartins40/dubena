@@ -8,6 +8,7 @@ use App\Domain\Tenant\TenantEnvelope;
 use App\Domain\Tenant\TenantEnvelopeDispatch;
 use App\Domain\Tenant\TenantEnvelopeJob;
 use App\Domain\Tenant\TenantEnvelopeRuntime;
+use App\Domain\Shared\MensagemSemSegredo;
 use App\Models\Cliente\Cliente;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -127,17 +128,23 @@ class GeocodificarClienteJob implements ShouldQueue
             // T5.0/T5.1: relançar é o ponto. Engolir aqui fazia `$tries = 3`
             // virar decoração — o job "sucedia" na primeira tentativa e a
             // falha transitória (timeout, 5xx da API) nunca era repetida.
+            //
+            // PIE P2-E-08: a mensagem traz a URL com a chave e o endereço.
+            // Relança SEM encadear a original — o `failed_jobs` grava a cadeia
+            // inteira, e a chave voltaria por ali.
+            $mensagem = MensagemSemSegredo::limpar($e->getMessage());
+
             $consumo->registrar('geocoding', empresaId: (int) $cliente->empresa_id,
                 grupoId: $donoGrupo, finalidade: 'geocodificar_cliente',
-                erro: true, mensagemErro: $e->getMessage());
+                erro: true, mensagemErro: $mensagem);
 
             Log::warning('Geocoding do cliente falhou', [
                 'cliente_id' => $this->clienteId,
                 'tentativa' => $this->attempts(),
-                'erro' => $e->getMessage(),
+                'erro' => $mensagem,
             ]);
 
-            throw $e;
+            throw new \RuntimeException($mensagem, (int) $e->getCode());
         }
     }
 

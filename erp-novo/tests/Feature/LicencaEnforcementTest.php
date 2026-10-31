@@ -85,6 +85,21 @@ class LicencaEnforcementTest extends TestCase
             ->assertStatus(402);
     }
 
+    /** PIE P2-E-02: o alias de um módulo opcional não pode furar a licença. */
+    public function test_aliases_de_modulo_nao_contratado_respondem_402(): void
+    {
+        config()->set('saas_transformation.enforcement.licenca', true);
+        [$user, $empresa] = $this->cenario();
+        // Sem contrato: cada alias tem de responder pelo PRÓPRIO recurso (o
+        // Essencial inclui cobrança, então ele não serviria para medir o alias).
+        FronteiraTenant::semLicenca($empresa);
+
+        foreach (['cobranca/boletos', 'cobranca/remessas', 'crm/mala-direta', 'financeiro/dre', 'cupons-fiscais'] as $alias) {
+            $status = $this->actingAs($user, 'sanctum')->getJson('/api/admin/'.$alias)->status();
+            $this->assertSame(402, $status, "alias {$alias} respondeu {$status}");
+        }
+    }
+
     public function test_modulo_contratado_passa(): void
     {
         config()->set('saas_transformation.enforcement.licenca', true);

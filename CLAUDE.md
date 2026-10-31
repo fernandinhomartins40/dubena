@@ -24,6 +24,8 @@ cutover. Ver [`docs/gauntlet/GUIA_DO_DONO.md`](docs/gauntlet/GUIA_DO_DONO.md).
 |---|---|
 | **O plano vigente (SaaS, F0–F10)** | `docs/01-vigente/PLANO_TRANSFORMACAO_SAAS.md` |
 | **Em que pé está cada fase** | `docs/01-vigente/implementacao-saas/F*_PROGRESSO.md` e `F*_FECHAMENTO.md` |
+| **Como revisar, corrigir e validar ponta a ponta** | `PROTOCOLO_VARREDURA_PONTA_A_PONTA.md` (+ `node scripts/pie-costura.mjs`) |
+| Último veredito da auditoria | `docs/pie/rodada2/CONSOLIDADO_RODADA2.md` |
 | O que falta para virar (cutover) | `docs/gauntlet/GUIA_DO_DONO.md` |
 | O que foi entregue e por quê | `docs/gauntlet/STATUS_FINAL.md` |
 | Contrato de um módulo | `docs/01-vigente/IMPL_*.md` |
@@ -288,6 +290,19 @@ a linha sem empresa não pertence a tenant nenhum, o `USING` continua escondendo
 de toda revenda, e gravar linha de OUTRA segue barrado. Aconteceu em produção com
 `integracao_consumos`, na tabela criada exatamente para enxergar esse caso — e
 não acusou porque o registrador engole exceção e a suíte roda em sqlite.
+
+**`INSERT … RETURNING` também passa pelo `USING`.** Abrir o `WITH CHECK` para
+a linha sem tenant (regra acima) não basta com Eloquent: `Model::create()` faz
+`RETURNING id`, e o Postgres exige que a linha nova também seja LEGÍVEL pela
+policy — e a linha sem tenant, de propósito, não é. O login de `support` seguiu
+dando 500 depois da policy corrigida (PIE P2-D-01). Para o evento sem tenant,
+grave com `query()->insert()` (sem `RETURNING`) e preencha à mão o que o
+`BelongsToTenant` preencheria no `creating`.
+
+**Rota da plataforma também lê ZERO sob RLS.** O `/api/superadmin` não resolve
+tenant por desenho e, pelo runtime, via 0 empresas — suspender revenda dava 404
+(PIE P2-E-01). O grupo usa o middleware `plataforma.owner` (conexão de owner,
+depois de `auth:platform`). Rota nova da plataforma entra nesse grupo.
 
 **Comando de console lê ZERO linhas sob RLS — e portão que não enxerga aprova.**
 O console roda como `erp_app`, sem envelope de tenant: `Empresa::query()`,

@@ -3,6 +3,11 @@
 **Escopo:** `erp-novo` (API, SPA), `app-gas-em-casa`, `app-entregador`, `mobile-shared`, deploy e VPS de homologação. Fora do escopo: `ctrl-web/` e `legado-*`.
 **Commit de partida:** `48b29f72` · **Data:** 2026-10-29 · **Ambiente de prova:** sqlite (suíte), PostgreSQL 15 local com RLS, VPS de homologação só leitura.
 
+> **Rodada 2 (30–31/10):** produto/SaaS, apps nativos e SPA executada no navegador.
+> Veredito vigente: **REPROVADO** para produção dos apps e venda do SaaS; **NÃO
+> COMPROVADO** para o painel da Dubena. Ver [rodada2/CONSOLIDADO_RODADA2.md](rodada2/CONSOLIDADO_RODADA2.md).
+> O texto abaixo é o da Rodada 1 e fica como histórico.
+
 ## 1. Veredito inicial (antes das correções) — **REPROVADO**
 
 Havia bloqueadores confirmados:

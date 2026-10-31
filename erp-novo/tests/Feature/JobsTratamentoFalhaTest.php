@@ -87,8 +87,11 @@ class JobsTratamentoFalhaTest extends TestCase
         // permanentemente sem coordenada — invisível no mapa da central.
         $fonte = file_get_contents((new ReflectionClass(GeocodificarClienteJob::class))->getFileName());
 
-        $this->assertStringContainsString(
-            'throw $e;',
+        // Relança a original OU a versão sem segredo: desde PIE P2-E-08 a
+        // mensagem do cURL (URL com a chave do Google e o endereço) é limpa e a
+        // exceção é relançada SEM encadear a original, que voltaria no failed_jobs.
+        $this->assertMatchesRegularExpression(
+            '/throw (\$e;|new \\\\RuntimeException\(\$mensagem)/',
             $fonte,
             'GeocodificarClienteJob voltou a engolir a exceção: as tentativas param de acontecer.',
         );

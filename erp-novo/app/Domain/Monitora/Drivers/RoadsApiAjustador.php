@@ -5,6 +5,7 @@ namespace App\Domain\Monitora\Drivers;
 use App\Domain\Integracao\ConsumoDeIntegracao;
 use App\Domain\Monitora\Contracts\AjustadorDeVia;
 use App\Domain\Tenant\TenantContext;
+use App\Domain\Shared\MensagemSemSegredo;
 use App\Models\ConfigGlobal;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -83,7 +84,7 @@ class RoadsApiAjustador implements AjustadorDeVia
 
             return count($saida) >= 2 ? $saida : null;
         } catch (\Throwable $e) {
-            Log::warning('Falha ao consultar a Roads API: '.$e->getMessage());
+            Log::warning('Falha ao consultar a Roads API: '.MensagemSemSegredo::limpar($e->getMessage()));
 
             return null;
         }

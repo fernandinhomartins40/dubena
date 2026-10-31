@@ -21,7 +21,7 @@ class ChecklistPergunta extends Model
     {
         static::creating(function (self $model): void {
             if ($model->tenant_account_id === null && $model->checklist_id !== null) {
-                $model->tenant_account_id = DB::table('checklists')->whereKey($model->checklist_id)->value('tenant_account_id');
+                $model->tenant_account_id = DB::table('checklists')->where('id', $model->checklist_id)->value('tenant_account_id');
             }
         });
     }
