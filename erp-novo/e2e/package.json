@@ -1,0 +1,13 @@
+{
+  "name": "erp-novo-e2e",
+  "private": true,
+  "description": "Jornadas reais por perfil no navegador (PROTOCOLO_VARREDURA_PONTA_A_PONTA.md §5). Fora do build da SPA de propósito.",
+  "scripts": {
+    "test": "playwright test",
+    "test:perfil": "playwright test --grep"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.56.1"
+  }
+}
