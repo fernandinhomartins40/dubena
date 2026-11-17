@@ -131,7 +131,8 @@ export default function Navegacao() {
             </MapView>
 
             {/* Fechar */}
-            <TouchableOpacity style={[s.fechar, { top: top + 12 }]} onPress={() => router.back()} hitSlop={10}>
+            <TouchableOpacity style={[s.fechar, { top: top + 12 }]} onPress={() => router.back()} hitSlop={10}
+                accessibilityRole="button" accessibilityLabel="Fechar a navegação">
                 <X size={22} color={COLORS.text} />
             </TouchableOpacity>
 
@@ -140,6 +141,9 @@ export default function Navegacao() {
                 style={[s.recentrar, { bottom: bottom + 190 }]}
                 onPress={() => setSeguir(true)}
                 hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Centralizar o mapa na minha posição"
+                accessibilityState={{ selected: seguir }}
             >
                 <Crosshair size={22} color={seguir ? COLORS.primary : COLORS.muted} />
             </TouchableOpacity>
@@ -206,10 +210,10 @@ const s = StyleSheet.create({
         width: 34, height: 34, borderRadius: 999, backgroundColor: "#FFF1E8",
         alignItems: "center", justifyContent: "center",
     },
-    bannerSeqTexto: { color: COLORS.primary, fontWeight: "800" },
+    bannerSeqTexto: { color: COLORS.primaryStrong, fontWeight: "800" },
     bannerCliente: { fontSize: fontSize.md, fontWeight: "800", color: COLORS.text },
     bannerEndereco: { flex: 1, fontSize: fontSize.sm, color: COLORS.muted },
-    bannerEta: { fontSize: fontSize.md, fontWeight: "800", color: COLORS.primary },
+    bannerEta: { fontSize: fontSize.md, fontWeight: "800", color: COLORS.primaryStrong },
     bannerKm: { fontSize: fontSize.xs, color: COLORS.muted },
     bannerVazio: { textAlign: "center", color: COLORS.muted, fontSize: fontSize.sm, paddingVertical: 8 },
 })

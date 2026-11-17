@@ -1,5 +1,6 @@
 import { APP, INTERNAL_BUILD_NUMBER } from "@/constants/app"
 import UserService from "@/services/user.service"
+import Http from "@/helpers/http"
 import useAppStore from "@/store/appStore"
 import { defaultStyles, fontSize, screenPadding } from "@/styles/theme"
 import { UserFormSchema } from "@/types/types"
@@ -32,6 +33,8 @@ const NewUser = () => {
         mutationFn: UserService.Cadastro,
         onSuccess: (data) => {
             setToken(data.token)
+            // Token recém-emitido: a renovação (RC7) não precisa trocá-lo já na 1ª requisição.
+            Http.marcarTokenNovo()
             setUser(data.user as any)
 
             Toast.show({

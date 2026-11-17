@@ -60,7 +60,7 @@ export default function PerfilDados() {
     return (
         <View style={[styles.screen, { paddingTop: top }]}>
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Voltar">
                     <ChevronLeft size={24} color={colors.text} />
                 </Pressable>
                 <Text style={styles.headerTitle}>Dados pessoais</Text>

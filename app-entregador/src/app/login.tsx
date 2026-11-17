@@ -1,6 +1,6 @@
 import { Botao, Campo } from "@/components/ui"
 import { APP, COLORS } from "@/constants/app"
-import { HttpError } from "@/helpers/http"
+import Http, { HttpError } from "@/helpers/http"
 import AuthService from "@/services/auth.service"
 import useAppStore from "@/store/appStore"
 import { router } from "expo-router"
@@ -93,6 +93,8 @@ export default function Login() {
                 plataforma: Platform.OS,
             })
             setToken(resp.token)
+            // Token recém-emitido: a renovação (RC7) só começa a contar daqui.
+            Http.marcarTokenNovo()
             setUser(resp.user)
             router.replace("/(app)/(tabs)/inicio")
         } catch (e) {
@@ -199,7 +201,7 @@ const s = StyleSheet.create({
     logoSub: {
         fontSize: 13,
         fontWeight: "700",
-        color: COLORS.primary,
+        color: COLORS.primaryStrong,
         textTransform: "uppercase",
         letterSpacing: 2,
         marginTop: -4,

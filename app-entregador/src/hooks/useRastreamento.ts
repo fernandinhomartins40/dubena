@@ -3,6 +3,7 @@ import { iniciarBackground, pararBackground } from "@/helpers/backgroundLocation
 import EntregaService from "@/services/entrega.service"
 import useAppStore from "@/store/appStore"
 import * as Location from "expo-location"
+import { deveEncerrarRastreamento } from "@/helpers/rastreamentoRegra"
 import { useEffect, useRef, useState } from "react"
 
 /**
@@ -32,8 +33,10 @@ export function useRastreamento() {
                 velocidade: pos.coords.speed ?? undefined,
                 direcao: pos.coords.heading != null ? Math.round(pos.coords.heading) : undefined,
             })
-        } catch {
+        } catch (e) {
             // Falha de GPS/rede num tick não derruba o loop; tenta de novo no próximo.
+            // P2-C-07: jornada encerrada no servidor desliga o "em serviço".
+            if (deveEncerrarRastreamento(e)) useAppStore.getState().setEmServico(false)
         }
     }
 

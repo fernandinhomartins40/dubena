@@ -1,5 +1,6 @@
 import { colors, fontSize, fontStyle, radius, shadow } from "@/styles/theme"
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native"
+import Toast from "react-native-toast-message"
 import { MapPin, User, LogOut, Trash2 } from "lucide-react-native"
 import { useEffect, useRef } from "react"
 import { BottomSheetModal } from "@gorhom/bottom-sheet"
@@ -38,6 +39,9 @@ const PerfilScreen = () => {
             resetStorage()
             router.replace("/login")
         },
+        // Antes a falha era silenciosa: o titular tocava "excluir" e nada acontecia.
+        onError: (e: any) =>
+            Toast.show({ type: "error", text1: e?.message ?? "Não foi possível excluir sua conta. Tente de novo." }),
     })
 
     useEffect(() => {
@@ -46,6 +50,9 @@ const PerfilScreen = () => {
     }, [param])
 
     const handleLogout = () => {
+        // P2-B-17: revoga o token no servidor. Sem esperar a resposta — sem rede,
+        // "Sair" ainda tem de sair; o token então vence sozinho.
+        UserService.Logout().catch(() => undefined)
         resetStorage()
         router.replace("/login")
     }

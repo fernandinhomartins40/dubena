@@ -1,4 +1,6 @@
-import { Botao, Cartao } from "@/components/ui"
+import { AvisoOffline, Botao, Cartao, FalhaAoCarregar } from "@/components/ui"
+import { avisoOffline, comCache, eSemConexao, iniciarDoCache } from "@/helpers/cacheLocal"
+import type { Rota } from "@/types/types"
 import { BRASIL_VIEW, COLORS, TRACADO_ESTIMADO, TRACEJADO } from "@/constants/app"
 import { decodePolyline } from "@/helpers/polyline"
 import JornadaService from "@/services/jornada.service"
@@ -6,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { router } from "expo-router"
 import { Clock, MapPin, Navigation } from "lucide-react-native"
 import { useMemo } from "react"
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
@@ -22,11 +24,13 @@ import Toast from "react-native-toast-message"
 export default function RotaScreen() {
     const { top } = useSafeAreaInsets()
     const qc = useQueryClient()
-    const { data, isLoading, refetch, isRefetching } = useQuery({
+    const consulta = useQuery({
         queryKey: ["entregador", "rota"],
-        queryFn: JornadaService.Rota,
+        queryFn: comCache("rota", JornadaService.Rota),
+        ...iniciarDoCache<Rota>("rota"),
         refetchInterval: 30000,
     })
+    const { data, isLoading, refetch, isRefetching } = consulta
 
     const iniciar = useMutation({
         mutationFn: JornadaService.IniciarRota,
@@ -75,6 +79,14 @@ export default function RotaScreen() {
         return <View style={s.center}><ActivityIndicator color={COLORS.primary} /></View>
     }
 
+    if (paradas.length === 0 && consulta.isError) {
+        return (
+            <View style={[s.center, { padding: 16 }]}>
+                <FalhaAoCarregar semConexao={eSemConexao(consulta.error)} onTentar={() => void refetch()} />
+            </View>
+        )
+    }
+
     if (paradas.length === 0) {
         return (
             <View style={s.center}>
@@ -92,10 +104,23 @@ export default function RotaScreen() {
             showsVerticalScrollIndicator={false}
         >
             <Text style={s.tituloPagina}>Rota do dia</Text>
+            <AvisoOffline texto={avisoOffline(consulta)} />
 
             <Botao
                 titulo="Iniciar rota"
-                onPress={() => iniciar.mutate()}
+                // P2-C-14: dispara aviso a TODOS os clientes da rota — não pode
+                // sair por um toque acidental.
+                dica="Avisa todos os clientes desta rota que a entrega saiu"
+                onPress={() =>
+                    Alert.alert(
+                        "Iniciar a rota agora?",
+                        `Os ${paradas.length} cliente(s) da rota serão avisados de que a entrega saiu.`,
+                        [
+                            { text: "Ainda não", style: "cancel" },
+                            { text: "Iniciar rota", onPress: () => iniciar.mutate() },
+                        ],
+                    )
+                }
                 carregando={iniciar.isPending}
             />
             {/* initialRegion só vale na montagem e as paradas chegam depois: sem a key,
@@ -184,7 +209,7 @@ const s = StyleSheet.create({
     proxima: { borderColor: COLORS.primary, borderWidth: 1.5 },
     linha: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
     seq: { width: 30, height: 30, borderRadius: 999, backgroundColor: "#FFF1E8", alignItems: "center", justifyContent: "center" },
-    seqTexto: { fontWeight: "800", color: COLORS.primary },
+    seqTexto: { fontWeight: "800", color: COLORS.primaryStrong },
     cliente: { fontSize: 16, fontWeight: "700", color: COLORS.text },
     endereco: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
     meta: { fontSize: 12, color: COLORS.graphite, marginTop: 4, fontWeight: "600" },

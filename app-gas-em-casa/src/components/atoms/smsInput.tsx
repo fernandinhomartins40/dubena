@@ -63,7 +63,7 @@ const SmsInput = ({ code, setCode, onSubmitEditing }: InputProps) => {
 
     return (
         <View>
-            <Pressable onPress={handleOnPress}>
+            <Pressable onPress={handleOnPress} accessibilityRole="button" accessibilityLabel={`Código do SMS, ${code.length} de 6 dígitos. Toque para digitar`}>
                 <View style={{ display: "flex", flexDirection: "row", gap: 8 }}>
                     {codeDigits.map(digitToText)}
                 </View>

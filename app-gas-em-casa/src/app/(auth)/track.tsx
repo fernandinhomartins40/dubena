@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo } from "react"
 import { colors, defaultStyles, fontSize, fontStyle, screenPadding } from "@/styles/theme"
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps"
 import Timeline from "@/components/molecules/Timeline"
 import useFlashStore from "@/store/flashStore"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import Toast from "react-native-toast-message"
+import Button from "@/components/atoms/button"
+import StoreService from "@/services/store.service"
+import { acoesDoPedido, textoConfirmaCancelamento } from "@/helpers/pedidoApp"
 import OrderService from "@/services/order.service"
 import { decodePolyline } from "@/helpers/polyline"
 import { TimelineStep } from "@/types/types"
@@ -12,11 +16,11 @@ import { useRouter } from "expo-router"
 import OrderItems from "@/components/molecules/OrderItems"
 import { StatusBar } from "expo-status-bar"
 import * as NavigationBar from "expo-navigation-bar"
-import { Bike, Home as HomeIcon } from "lucide-react-native"
+import { Bike, ChevronLeft, Home as HomeIcon } from "lucide-react-native"
 import { useAcompanharPedido } from "@/hooks/useAcompanharPedido"
 
 const TrackScreen = () => {
-    const { pendingOrder, setPendingOrder, clearCart } = useFlashStore()
+    const { pendingOrder, setPendingOrder, clearCart, setPixOrder } = useFlashStore()
     const router = useRouter()
     const queryClient = useQueryClient()
     const { data: order } = useQuery({
@@ -33,12 +37,37 @@ const TrackScreen = () => {
     const efeito = order?.efeito as string | undefined
     const concluido = efeito === "CONCLUIDO"
     const cancelado = efeito === "CANCELADO"
-    const aberto = !!order && !concluido && !cancelado
-    // BUG FIX: "em rota" NÃO pode ser inferido por efeito ≠ PENDENTE — na máquina
-    // de estados, "Saiu para entrega" CONTINUA com efeito PENDENTE (só muda ao
-    // concluir), então o mapa nunca aparecia. O deslocamento é detectado pelo
-    // TEXTO da situação (saiu/rota/caminho — mesma heurística do app entregador).
-    const emRota = aberto && /saiu|rota|caminho|atend/i.test((order?.situacao as string) ?? "")
+    // "Em rota" vem da marca declarada da situação (`situacao_papel`), não do
+    // texto dela (PIE R3-E, mesma classe do P2-C-04). Ver helpers/pedidoApp.ts.
+    const acoes = acoesDoPedido(order)
+    const aberto = acoes.aberto
+    const emRota = acoes.emRota
+
+    // P2-B-16: WhatsApp e telefone da revenda (antes o botão era um placeholder vazio).
+    const { data: revenda } = useQuery({ queryKey: ["reseller"], queryFn: () => StoreService.GetReseller() })
+
+    // P2-B-04: pagar o PIX de novo e cancelar o próprio pedido aberto.
+    const pagarPix = useMutation({
+        mutationFn: () => OrderService.GerarPix(pendingOrder!.id),
+        onSuccess: (pix) => {
+            setPixOrder({ id: pendingOrder!.id, pix } as any)
+            router.push("/(auth)/pix")
+        },
+        onError: (e: any) => Toast.show({ type: "error", text1: e?.message ?? "Não foi possível gerar o PIX." }),
+    })
+    const cancelar = useMutation({
+        mutationFn: () => OrderService.Cancel(pendingOrder!.id),
+        onSuccess: () => {
+            Toast.show({ type: "success", text1: "Pedido cancelado." })
+            queryClient.invalidateQueries({ queryKey: ["order-track", pendingOrder?.id] })
+        },
+        onError: (e: any) => Toast.show({ type: "error", text1: e?.message ?? "Não foi possível cancelar o pedido." }),
+    })
+    const confirmarCancelamento = () =>
+        Alert.alert("Cancelar pedido", textoConfirmaCancelamento(order), [
+            { text: "Não", style: "cancel" },
+            { text: "Sim, cancelar", style: "destructive", onPress: () => cancelar.mutate() },
+        ])
 
     // P8 — tempo real: assina o canal do pedido. Ao receber mudança de status,
     // invalida a query (reflete na hora). A posição do entregador alimenta o mapa.
@@ -114,8 +143,34 @@ const TrackScreen = () => {
         }
     }, [order])
 
-    const goToWhatsApp = () => {
-        // WhatsApp da revenda virá da config/reseller; placeholder até religar (F7).
+    const falarComRevenda = () => {
+        if (revenda?.whatsapp) {
+            Linking.openURL(`whatsapp://send?phone=${revenda.whatsapp}`).catch(() =>
+                revenda.telefone ? Linking.openURL(`tel:${revenda.telefone}`) : undefined,
+            )
+        } else if (revenda?.telefone) {
+            Linking.openURL(`tel:${revenda.telefone}`)
+        }
+    }
+
+    const voltar = () => (router.canGoBack() ? router.back() : router.replace("/(auth)/(tabs)/home"))
+
+    // P2-B-16: o atalho "Acompanhar" da Home abria esta tela sem pedido e ela
+    // mostrava um "Pedido em Andamento" vazio com "Pedido Realizado" como passo
+    // atual — um pedido fantasma, e sem botão de voltar.
+    if (!pendingOrder) {
+        return (
+            <View style={[defaultStyles.container, styles.vazio]}>
+                <StatusBar style="dark" />
+                <Text style={styles.vazioTitulo} accessibilityRole="header">
+                    Você não tem pedido em andamento
+                </Text>
+                <Text style={styles.vazioTexto}>Quando você fizer um pedido, acompanhe a entrega por aqui.</Text>
+                <View style={{ width: 220, marginTop: 16 }}>
+                    <Button title="Voltar ao início" uppercase={false} onPress={voltar} />
+                </View>
+            </View>
+        )
     }
 
     const renderOrderItems = () => {
@@ -141,6 +196,15 @@ const TrackScreen = () => {
                         paddingTop: Platform.select({ ios: 50, default: 35 }),
                     }}
                 >
+                    <Pressable
+                        onPress={voltar}
+                        hitSlop={12}
+                        style={styles.voltar}
+                        accessibilityRole="button"
+                        accessibilityLabel="Voltar"
+                    >
+                        <ChevronLeft size={24} color={colors.text} />
+                    </Pressable>
                     <Text
                         style={{
                             fontSize: fontSize.lg,
@@ -235,12 +299,46 @@ const TrackScreen = () => {
                 >
                     <Timeline tracklist={tracklines} />
                 </View>
+
+                <View style={{ gap: 10, marginHorizontal: 8, marginTop: 10 }}>
+                    {acoes.podePagarPix && (
+                        <Button
+                            title="Pagar com PIX"
+                            uppercase={false}
+                            disabled={pagarPix.isPending}
+                            onPress={() => pagarPix.mutate()}
+                        />
+                    )}
+                    {(revenda?.whatsapp || revenda?.telefone) && (
+                        <Button
+                            type="outline"
+                            uppercase={false}
+                            title="Falar com a revenda"
+                            onPress={falarComRevenda}
+                            textStyle={{ color: colors.primaryDark }}
+                        />
+                    )}
+                    {acoes.podeCancelar && (
+                        <Button
+                            type="clear"
+                            uppercase={false}
+                            title="Cancelar pedido"
+                            disabled={cancelar.isPending}
+                            onPress={confirmarCancelamento}
+                            textStyle={{ color: colors.errorColor }}
+                        />
+                    )}
+                </View>
             </ScrollView>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
+    vazio: { alignItems: "center", justifyContent: "center", padding: 24 },
+    vazioTitulo: { fontSize: fontSize.lg, textAlign: "center", color: colors.text, ...fontStyle.semiBold },
+    vazioTexto: { fontSize: fontSize.sm, textAlign: "center", color: colors.textMuted, marginTop: 6, ...fontStyle.regular },
+    voltar: { position: "absolute", left: 0, top: Platform.select({ ios: 44, default: 29 }), width: 44, height: 44, alignItems: "center", justifyContent: "center", zIndex: 1 },
     box: {
         flexDirection: "column",
         padding: 12,

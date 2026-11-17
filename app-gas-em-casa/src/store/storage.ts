@@ -1,6 +1,8 @@
 import { MMKV } from "react-native-mmkv"
 import { StateStorage } from "zustand/middleware"
 import * as SecureStore from "expo-secure-store"
+import { uuid } from "expo-modules-core"
+import { gerarChaveCifra } from "@/helpers/chaveCifra"
 
 /**
  * Armazenamento local cifrado (F0 — segurança).
@@ -18,14 +20,8 @@ const STORAGE_ID = "default-storage"
 
 let mmkv: MMKV | null = null
 
-/** Gera uma chave hex de 256 bits sem depender de libs extras de crypto. */
-const generateKey = (): string => {
-    let key = ""
-    for (let i = 0; i < 64; i++) {
-        key += Math.floor(Math.random() * 16).toString(16)
-    }
-    return key
-}
+/** P2-B-18: 96 bits de fonte criptográfica nativa (ver helpers/chaveCifra.ts). */
+const generateKey = (): string => gerarChaveCifra(() => uuid.v4())
 
 /** Obtém (ou cria e persiste) a chave de criptografia no keychain/keystore. */
 const getOrCreateEncryptionKey = async (): Promise<string> => {

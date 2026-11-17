@@ -22,7 +22,7 @@ export default function TabsLayout() {
         <Tabs
             initialRouteName="inicio"
             screenOptions={{
-                tabBarActiveTintColor: COLORS.primary,
+                tabBarActiveTintColor: COLORS.primaryStrong,
                 tabBarInactiveTintColor: COLORS.muted,
                 tabBarLabelStyle: { fontSize: fontSize.xs, fontWeight: "500" },
                 headerShown: false,

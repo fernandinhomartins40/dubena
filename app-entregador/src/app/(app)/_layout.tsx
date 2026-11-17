@@ -1,6 +1,7 @@
 import { COLORS } from "@/constants/app"
 import { useRastreamento } from "@/hooks/useRastreamento"
 import { useSincronizacao } from "@/hooks/useSincronizacao"
+import { useVigiaJornada } from "@/hooks/useJornada"
 import useAppStore from "@/store/appStore"
 import { Redirect, Stack } from "expo-router"
 
@@ -19,6 +20,7 @@ export default function AppLayout() {
     // Hooks montados no topo do grupo: vivem enquanto o entregador estiver logado.
     useRastreamento()
     useSincronizacao(Boolean(token))
+    useVigiaJornada(Boolean(token))
 
     if (!token) return <Redirect href="/login" />
 

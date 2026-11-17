@@ -19,6 +19,7 @@ import { PermissionsAndroid } from "react-native"
 import { Flame, MapPin, BellRing } from "lucide-react-native"
 import Button from "@/components/atoms/button"
 import useAppStore from "@/store/appStore"
+import { APP } from "@/constants/app"
 import { colors, fontSize, fontStyle } from "@/styles/theme"
 
 const { width } = Dimensions.get("window")
@@ -41,7 +42,11 @@ type Slide = {
 const Onboarding = () => {
     const router = useRouter()
     const insets = useSafeAreaInsets()
-    const { setPermissions } = useAppStore()
+    const { setPermissions, empresaAtiva } = useAppStore()
+    // P2-B-12: sem revenda (marketplace) a escolha vem ANTES do login. Antes o
+    // tutorial ia direto ao login, o app só percebia a falta depois do SMS e
+    // mandava à seleção — que devolvia ao login: dois SMS para entrar.
+    const proximaTela = !empresaAtiva && !APP.empresa_id ? "/selecionar-revenda" : "/login"
     const listRef = useRef<FlatList<Slide>>(null)
     const [index, setIndex] = useState(0)
 
@@ -106,7 +111,7 @@ const Onboarding = () => {
             irPara(index + 1)
         } else {
             setPermissions(true)
-            router.replace("/login")
+            router.replace(proximaTela as any)
         }
     }
 
@@ -160,9 +165,11 @@ const Onboarding = () => {
                 {index < slides.length - 1 && (
                     <Text
                         style={styles.skip}
+                        accessibilityRole="button"
+                        accessibilityLabel="Pular apresentação"
                         onPress={() => {
                             setPermissions(true)
-                            router.replace("/login")
+                            router.replace(proximaTela as any)
                         }}
                     >
                         Pular

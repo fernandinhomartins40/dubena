@@ -55,7 +55,7 @@ const Header = () => {
             </View>
             <View>
                 {!isLoading && !isRefetching ? (
-                    <Pressable onPress={handleAddressClick}>
+                    <Pressable onPress={handleAddressClick} accessibilityRole="button" accessibilityLabel="Escolher endereço de entrega">
                         <Text
                             style={[styles.baseText, fontStyle.regular, { fontSize: fontSize.sm }]}
                         >

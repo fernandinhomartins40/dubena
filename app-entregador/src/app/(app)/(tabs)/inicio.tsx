@@ -1,4 +1,6 @@
-import { Botao, Cartao } from "@/components/ui"
+import { AvisoOffline, Botao, Cartao, FalhaAoCarregar } from "@/components/ui"
+import { avisoOffline, comCache, eSemConexao, iniciarDoCache } from "@/helpers/cacheLocal"
+import type { PedidoEntrega } from "@/types/types"
 import { COLORS } from "@/constants/app"
 import { useJornada } from "@/hooks/useJornada"
 import EntregaService from "@/services/entrega.service"
@@ -32,11 +34,13 @@ export default function Inicio() {
     const qc = useQueryClient()
     const { jornada, dashboard, ativa } = useJornada()
 
-    const { data: pedidos, refetch, isRefetching } = useQuery({
+    const consultaPedidos = useQuery({
         queryKey: ["entregador", "pedidos"],
-        queryFn: EntregaService.Pedidos,
+        queryFn: comCache("pedidos", EntregaService.Pedidos),
+        ...iniciarDoCache<PedidoEntrega[]>("pedidos"),
         refetchInterval: 30000,
     })
+    const { data: pedidos, refetch, isRefetching } = consultaPedidos
 
     const encerrar = useMutation({
         mutationFn: () => JornadaService.Encerrar(null),
@@ -170,7 +174,10 @@ export default function Inicio() {
                     <Text style={s.verTodas}>Ver todas</Text>
                 </TouchableOpacity>
             </View>
-            {proximas.length === 0 ? (
+            <AvisoOffline texto={avisoOffline(consultaPedidos)} />
+            {proximas.length === 0 && consultaPedidos.isError && !pedidos?.length ? (
+                <FalhaAoCarregar semConexao={eSemConexao(consultaPedidos.error)} onTentar={() => void refetch()} />
+            ) : proximas.length === 0 ? (
                 <Cartao>
                     <Text style={s.vazio}>
                         {ativa ? "Nenhuma entrega pendente no momento." : "Inicie a jornada para receber entregas."}
@@ -242,7 +249,7 @@ const s = StyleSheet.create({
     statLabel: { fontSize: fontSize.xs, color: COLORS.muted },
     secao: { fontSize: fontSize.md, fontWeight: "800", color: COLORS.text, marginTop: 4 },
     secaoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-    verTodas: { fontSize: fontSize.sm, color: COLORS.primary, fontWeight: "700" },
+    verTodas: { fontSize: fontSize.sm, color: COLORS.primaryStrong, fontWeight: "700" },
     valor: { fontSize: fontSize.sm, fontWeight: "800", color: COLORS.graphite },
     vazio: { fontSize: fontSize.sm, color: COLORS.muted, textAlign: "center", paddingVertical: 8 },
 })

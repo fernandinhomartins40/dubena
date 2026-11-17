@@ -92,13 +92,21 @@ export const APP = {
 /** Paleta Supergasbras (alinhada ao design system do ERP-NOVO). */
 export const COLORS = {
     primary: "#FF6200",
+    /**
+     * Laranja de AÇÃO e de texto (PIE P2-C-17). O #FF6200 da marca dá 3,00:1
+     * com branco e 2,75:1 sobre o fundo #F5F5F5 — abaixo do 4,5:1 do WCAG AA,
+     * justamente nos botões que o entregador lê sob sol. #C2410C dá 5,18:1 com
+     * branco e 4,75:1 sobre o fundo. A marca segue no cabeçalho e no ícone.
+     */
+    primaryStrong: "#C2410C",
     accent: "#DBFB3B",
     graphite: "#2B2B2B",
     bg: "#F5F5F5",
     card: "#FFFFFF",
     border: "#E5E5E5",
     text: "#1A1A1A",
-    muted: "#6B7280",
+    // #6B7280 dava 4,43:1 sobre o fundo #F5F5F5 (P2-C-17); #5B6270 dá 5,62:1.
+    muted: "#5B6270",
     danger: "#DC2626",
     success: "#16A34A",
     white: "#FFFFFF",

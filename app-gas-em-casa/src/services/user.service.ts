@@ -50,12 +50,24 @@ const UpdatePerfil = (data: {
 const DeleteAccount = (): Promise<{ excluido: boolean }> =>
     Http.PrepareRequest("app/v1/perfil", "DELETE")
 
-/** F1: registra/atualiza o device de push (FCM). */
-const StoreFcmToken = ({ token }: { token: string }) =>
+/**
+ * F1: registra/atualiza o device de push (FCM).
+ *
+ * P2-B-08: antes só o login mandava o token; quem negou a permissão no login
+ * ou teve o token rotacionado pelo FCM deixava de receber push até entrar de
+ * novo. Agora o layout autenticado chama isto ao abrir e no `onTokenRefresh`.
+ * O `device_id` segue o mesmo formato do login (`sms.tsx`), senão o mesmo
+ * aparelho viraria duas linhas em `app_devices`.
+ */
+const StoreFcmToken = ({ token, plataforma }: { token: string; plataforma?: "ios" | "android" }) =>
     Http.PrepareRequest("app/v1/devices", "POST", {
-        push_token: token,
         device_id: token.slice(0, 64),
+        push_token: token,
+        plataforma: plataforma ?? null,
     })
+
+/** P2-B-17: "Sair" revoga o token no servidor — antes ele valia até vencer. */
+const Logout = (): Promise<unknown> => Http.PrepareRequest("app/v1/logout", "POST")
 
 /** Termos/políticas — host externo (site institucional). */
 const GetPolicies = (): Promise<Policy[]> =>
@@ -68,6 +80,7 @@ const UserService = {
     UpdatePerfil,
     DeleteAccount,
     StoreFcmToken,
+    Logout,
     GetPolicies,
 }
 

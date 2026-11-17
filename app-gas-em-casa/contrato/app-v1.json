@@ -1,0 +1,17 @@
+{
+    "_leia": "Contrato app do consumidor x API (PIE R3-E, P2-B-21). Lido pelo vitest do app (src/helpers/pedidoApp.test.ts) e pelo teste PHP erp-novo/tests/Feature/PieAppConsumidorContratoTest.php. Valores <...> sao substituidos por ids do cenario. Mudou um lado, o outro quebra.",
+    "requisicoes": {
+        "POST app/v1/pedidos": {
+            "endereco_id": "<endereco_id>",
+            "condicaopagamento_id": "<condicao_id>",
+            "codigo_cupom": null,
+            "gasdopovo": false,
+            "itens": [{ "produto_id": "<produto_id>", "quantidade": 1 }]
+        }
+    },
+    "respostas": {
+        "GET app/v1/init": { "condicoes": ["id", "descricao", "pix_online"] },
+        "GET app/v1/pedidos": ["id", "efeito", "avaliado", "valor_venda", "itens"],
+        "GET app/v1/pedidos/{id}": ["id", "efeito", "situacao_papel", "pagamento.pix", "pagamento.pago"]
+    }
+}

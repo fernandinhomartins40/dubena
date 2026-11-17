@@ -14,10 +14,11 @@ import BrandGradient from "@/components/atoms/BrandGradient"
 import FastImage from "react-native-fast-image"
 import useTimer from "@/hooks/useTimer"
 import UserService from "@/services/user.service"
+import Http from "@/helpers/http"
 import { useRouter } from "expo-router"
 import SmsInput from "@/components/atoms/smsInput"
 import { useMutation } from "@tanstack/react-query"
-import ErrorView from "@/components/templates/errorview"
+import { mensagemErroSms, tratarErroLogin } from "@/helpers/erroLogin"
 import { APP } from "@/constants/app"
 import { getApp } from "@react-native-firebase/app"
 import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging"
@@ -32,6 +33,9 @@ const Sms = () => {
     const [code, setCode] = useState("")
     const [confirm, setConfirm] = useState<any>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    // P2-B-12: a falha fica NA TELA, com o que fazer — antes ia para o console
+    // (SMS) ou para uma tela de erro sem botão (login).
+    const [erro, setErro] = useState<string | null>(null)
     const router = useRouter()
     const { loginData, setToken, setUser, empresaAtiva } = useAppStore()
     const resendButtonDisabled = timer > 0
@@ -45,27 +49,27 @@ const Sms = () => {
      * por SMS), coleta o device/push token e autentica no ERP-NOVO, que devolve o token
      * Sanctum do usuário. Sem cliente cadastrado → vai para o cadastro (newuser).
      */
-    const {
-        mutate: doLogin,
-        isPending: isLoggingIn,
-        error: loginErr,
-    } = useMutation({
+    const { mutate: doLogin, isPending: isLoggingIn } = useMutation({
         mutationFn: UserService.Login,
         onSuccess: (data) => {
             setToken(data.token)
+            // Token recém-emitido: a renovação (RC7) não precisa trocá-lo já na 1ª requisição.
+            Http.marcarTokenNovo()
             setUser(data.user as any)
 
             if (router.canDismiss()) router.dismissAll()
             router.replace("/(auth)/(tabs)/home")
         },
         onError: (error: any) => {
-            // 422 = telefone não encontrado nesta empresa → fluxo de cadastro.
-            if (error?.status === 422) {
+            // 422 com `errors.cliente` = telefone não encontrado → cadastro.
+            // Qualquer outro erro vira mensagem na tela, com como seguir.
+            const desfecho = tratarErroLogin(error)
+            if (desfecho.acao === "cadastro") {
                 if (router.canDismiss()) router.dismissAll()
                 router.replace("/newuser")
                 return
             }
-            console.error("login", error)
+            setErro(desfecho.texto)
         },
     })
 
@@ -113,8 +117,8 @@ const Sms = () => {
                 device_id: pushToken?.slice(0, 64),
                 plataforma: Platform.OS === "ios" ? "ios" : "android",
             })
-        } catch (err) {
-            console.error("finishLogin", err)
+        } catch (err: any) {
+            setErro(mensagemErroSms(err?.code))
         } finally {
             setIsSubmitting(false)
         }
@@ -122,10 +126,11 @@ const Sms = () => {
 
     const signWithPhone = async () => {
         try {
+            setErro(null)
             const confirmation = await signInWithPhoneNumber(getAuth(app), "+55 " + loginData.phone)
             setConfirm(confirmation)
-        } catch (error) {
-            console.error(error)
+        } catch (error: any) {
+            setErro(mensagemErroSms(error?.code))
         }
     }
 
@@ -138,6 +143,14 @@ const Sms = () => {
 
         if (!code || code.length < 6 || isSubmitting) return
 
+        // Sem SMS enviado, `confirm` é nulo e `confirm.confirm` lançava
+        // TypeError, que aparecia como "Código de SMS Inválido".
+        if (!confirm) {
+            setErro("O SMS ainda não foi enviado. Toque em Reenviar.")
+            return
+        }
+
+        setErro(null)
         setIsSubmitting(true)
 
         try {
@@ -148,18 +161,10 @@ const Sms = () => {
             } else {
                 setIsSubmitting(false)
             }
-        } catch (error) {
-            Toast.show({
-                text1: "Erro!",
-                text1Style: {
-                    fontSize: 15,
-                },
-                text2: "Código de SMS Inválido.",
-                text2Style: {
-                    fontSize: 13,
-                },
-                type: "error",
-            })
+        } catch (error: any) {
+            const texto = mensagemErroSms(error?.code ?? "auth/invalid-verification-code")
+            setErro(texto)
+            Toast.show({ text1: "Não foi possível confirmar", text2: texto, type: "error" })
             setIsSubmitting(false)
         }
     }
@@ -180,10 +185,6 @@ const Sms = () => {
         signWithPhone()
     }, [])
 
-    if (loginErr && (loginErr as any)?.status !== 422) {
-        return <ErrorView message="Algo deu errado.." />
-    }
-
     return (
         <View style={defaultStyles.container}>
             <BrandGradient>
@@ -195,7 +196,7 @@ const Sms = () => {
                     />
 
                     <KeyboardAvoidingView
-                        style={[defaultStyles.panel, { height: 320, alignItems: "center", gap: 4 }]}
+                        style={[defaultStyles.panel, { minHeight: 320, alignItems: "center", gap: 4 }]}
                     >
                         <Text style={[{ fontSize: 20, paddingBottom: 8 }]}>Verificação de SMS</Text>
                         <Text style={styles.txtAlignCenter}>
@@ -214,6 +215,12 @@ const Sms = () => {
                             title="confirmar"
                             onPress={confirmCode}
                         />
+
+                        {erro ? (
+                            <Text style={styles.erro} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                                {erro}
+                            </Text>
+                        ) : null}
 
                         <Text>Não recebeu o código?</Text>
                         <View
@@ -245,6 +252,14 @@ const Sms = () => {
                                 </Button>
                             </View>
                         </View>
+                        <Button
+                            uppercase={false}
+                            type="clear"
+                            textStyle={{ fontSize: fontSize.sm }}
+                            title="Corrigir o número"
+                            accessibilityLabel="Voltar e corrigir o número de telefone"
+                            onPress={() => (router.canGoBack() ? router.back() : router.replace("/login"))}
+                        />
                     </KeyboardAvoidingView>
                 </View>
             </BrandGradient>
@@ -261,6 +276,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: screenPadding.horizontal,
     },
     txtAlignCenter: { textAlign: "center" },
+    erro: { color: colors.errorColor, textAlign: "center", fontSize: fontSize.sm, paddingVertical: 4 },
 })
 
 export default Sms

@@ -1,6 +1,9 @@
 import useNotificationClick from "@/hooks/useNotificationClick"
 import useAppStore from "@/store/appStore"
 import { initSecureStorage } from "@/store/storage"
+import useFlashStore from "@/store/flashStore"
+import { disconnectRealtime } from "@/helpers/realtime"
+import { vigiarFimDeSessao } from "@/helpers/sessao"
 import { rootStyle } from "@/styles/theme"
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
@@ -12,6 +15,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import Toast from "react-native-toast-message"
 
 const queryClient = new QueryClient()
+
+// P2-B-17: sessão encerrada por qualquer caminho (Sair, troca de revenda, 401)
+// leva junto o cache, o WebSocket com o Bearer antigo e o carrinho.
+vigiarFimDeSessao(useAppStore, () => {
+    queryClient.clear()
+    disconnectRealtime()
+    useFlashStore.getState().clearStore()
+})
 
 SplashScreen.preventAutoHideAsync()
 

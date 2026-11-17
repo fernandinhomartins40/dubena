@@ -7,6 +7,7 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "
 import { colors, fontSize, fontStyle, screenPadding } from "@/styles/theme"
 import { AirbnbRating } from "react-native-ratings"
 import { X } from "lucide-react-native"
+import Toast from "react-native-toast-message"
 
 interface Props {
     orderId: number | null
@@ -29,7 +30,13 @@ const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
     const registrarBestEffort = (payload: { rating?: number; mensagem?: string; ignorado?: boolean }) => {
         if (!orderId) return
         OrderService.Evaluate(orderId, payload)
-            .catch(() => {})
+            // P2-B-15: a nota que o cliente escreveu não some mais em silêncio.
+            // O "pular" (ignorado) segue sem aviso: não há o que o usuário fazer.
+            .catch((e: any) => {
+                if (!payload.ignorado) {
+                    Toast.show({ type: "error", text1: e?.message ?? "Não foi possível enviar sua avaliação." })
+                }
+            })
             .finally(() => {
                 queryClient.invalidateQueries({ queryKey: ["order-history"] })
             })
@@ -54,13 +61,13 @@ const EvaluateModal = ({ orderId, open, closeModal }: Props) => {
     return (
         <Modal visible={open} animationType="slide" transparent onRequestClose={pular}>
             {/* Apresentação em "bottom sheet": o fundo escurecido fecha (= pular). */}
-            <Pressable style={styles.backdrop} onPress={pular} />
+            <Pressable style={styles.backdrop} onPress={pular} accessibilityRole="button" accessibilityLabel="Fechar avaliação" />
             <View style={styles.sheet}>
                 <View style={styles.grabber} />
 
                 <View style={styles.header}>
                     <Text style={styles.title}>Como foi sua entrega?</Text>
-                    <Pressable onPress={pular} hitSlop={12} style={styles.closeBtn}>
+                    <Pressable onPress={pular} hitSlop={12} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Fechar avaliação">
                         <X size={22} color={colors.textMuted} strokeWidth={2} />
                     </Pressable>
                 </View>

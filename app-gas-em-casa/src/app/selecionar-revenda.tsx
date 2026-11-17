@@ -174,7 +174,7 @@ const SelecionarRevenda = () => {
                         </View>
                     }
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.card} onPress={() => escolherCidade(item)}>
+                        <TouchableOpacity style={styles.card} onPress={() => escolherCidade(item)} accessibilityRole="button" accessibilityLabel={`${item.nome}/${item.uf}`}>
                             <View style={styles.cardIcone}>
                                 <Building2 size={22} color={colors.primary} />
                             </View>
@@ -210,7 +210,7 @@ const SelecionarRevenda = () => {
                             keyExtractor={(e) => String(e.id)}
                             contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
                             ListFooterComponent={
-                                <TouchableOpacity onPress={abrirCidades}>
+                                <TouchableOpacity onPress={abrirCidades} accessibilityRole="button" accessibilityLabel="Buscar em outra cidade">
                                     <Text style={styles.trocarCidade}>Buscar em outra cidade</Text>
                                 </TouchableOpacity>
                             }
@@ -218,6 +218,8 @@ const SelecionarRevenda = () => {
                                 <TouchableOpacity
                                     style={styles.card}
                                     onPress={() => escolherEmpresa(item)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Escolher a revenda ${item.nome}`}
                                 >
                                     <View style={styles.cardIcone}>
                                         <Store size={22} color={colors.primary} />

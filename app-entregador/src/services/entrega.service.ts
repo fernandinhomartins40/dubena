@@ -1,5 +1,5 @@
 import Http from "@/helpers/http"
-import { enviarOuEnfileirar } from "@/helpers/envioResiliente"
+import { enviarFormularioOuEnfileirar, enviarOuEnfileirar } from "@/helpers/envioResiliente"
 import { PedidoEntrega } from "@/types/types"
 
 /**
@@ -12,10 +12,9 @@ import { PedidoEntrega } from "@/types/types"
  *
  * F7 — as escritas JSON (aceitar/recusar/status) passam por `enviarOuEnfileirar`:
  * sem sinal, ficam na fila local e vão quando a rede voltar, com chave de
- * idempotência para não duplicarem. Ficam FORA da fila:
- *  - `Posicao`, porque ping antigo não vale nada (poluiria o rastro);
- *  - `Ocorrencia` e `Concluir`, que são multipart — arquivo não sobrevive à
- *    serialização em JSON; entram numa segunda etapa, referenciando o caminho.
+ * idempotência para não duplicarem. `Ocorrencia` e `Concluir` (multipart)
+ * também, guardando o caminho dos anexos (P2-C-05). Fica FORA da fila só
+ * `Posicao`, porque ping antigo não vale nada (poluiria o rastro).
  */
 
 /** GET — pedidos atribuídos ao entregador autenticado. */
@@ -61,7 +60,10 @@ const Posicao = (payload: {
 
 type ArquivoUpload = { uri: string; name: string; type: string }
 
-/** Registra uma ocorrência (com foto opcional) — multipart. */
+/**
+ * Registra uma ocorrência (com foto opcional) — multipart, pela fila (P2-C-05):
+ * ocorrência acontece justamente onde não há sinal (endereço errado, zona rural).
+ */
 const Ocorrencia = (
     pedidoId: number,
     dados: {
@@ -71,19 +73,17 @@ const Ocorrencia = (
         longitude?: number | null
     },
     foto?: ArquivoUpload | null,
-): Promise<{ id: number; tipo: string }> => {
-    const form = new FormData()
-    form.append("tipo", dados.tipo)
-    if (dados.descricao) form.append("descricao", dados.descricao)
-    if (dados.latitude != null) form.append("latitude", String(dados.latitude))
-    if (dados.longitude != null) form.append("longitude", String(dados.longitude))
-    if (foto) form.append("foto", foto as any)
-    return Http.PrepareForm(`app/v1/entregador/pedidos/${pedidoId}/ocorrencia`, form)
-}
+) =>
+    enviarFormularioOuEnfileirar<{ data: { id: number; tipo: string } }>(
+        `app/v1/entregador/pedidos/${pedidoId}/ocorrencia`,
+        { tipo: dados.tipo, descricao: dados.descricao, latitude: dados.latitude, longitude: dados.longitude },
+        { foto },
+    )
 
 /**
  * Conclui a entrega: comprovação (foto E/OU assinatura — uma é obrigatória) e
- * move o pedido para CONCLUÍDO no servidor. Multipart.
+ * move o pedido para CONCLUÍDO no servidor. Multipart, com chave de
+ * idempotência e pela fila offline (P2-C-05): sem sinal, fica guardada.
  */
 const Concluir = (
     pedidoId: number,
@@ -93,15 +93,12 @@ const Concluir = (
         longitude?: number | null
     },
     arquivos: { foto?: ArquivoUpload | null; assinatura?: ArquivoUpload | null },
-): Promise<{ comprovacao_id: number; concluido: boolean }> => {
-    const form = new FormData()
-    if (dados.recebido_por) form.append("recebido_por", dados.recebido_por)
-    if (dados.latitude != null) form.append("latitude", String(dados.latitude))
-    if (dados.longitude != null) form.append("longitude", String(dados.longitude))
-    if (arquivos.foto) form.append("foto", arquivos.foto as any)
-    if (arquivos.assinatura) form.append("assinatura", arquivos.assinatura as any)
-    return Http.PrepareForm(`app/v1/entregador/pedidos/${pedidoId}/concluir`, form)
-}
+) =>
+    enviarFormularioOuEnfileirar<{ data: { comprovacao_id: number; concluido: boolean } }>(
+        `app/v1/entregador/pedidos/${pedidoId}/concluir`,
+        { recebido_por: dados.recebido_por, latitude: dados.latitude, longitude: dados.longitude },
+        { foto: arquivos.foto, assinatura: arquivos.assinatura },
+    )
 
 const EntregaService = {
     Pedidos,

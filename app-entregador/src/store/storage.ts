@@ -1,6 +1,7 @@
 import { MMKV } from "react-native-mmkv"
 import { StateStorage } from "zustand/middleware"
 import * as SecureStore from "expo-secure-store"
+import { gerarChaveMmkv } from "./chaveMmkv"
 
 /**
  * Armazenamento local cifrado (P7 — mesma estratégia do app do cliente).
@@ -16,14 +17,11 @@ const STORAGE_ID = "entregador-storage"
 
 let mmkv: MMKV | null = null
 
-/** Gera uma chave hex de 256 bits sem depender de libs extras de crypto. */
-const generateKey = (): string => {
-    let key = ""
-    for (let i = 0; i < 64; i++) {
-        key += Math.floor(Math.random() * 16).toString(16)
-    }
-    return key
-}
+/** true quando o boot caiu no MMKV sem cifra (keystore ou gerador indisponível). */
+export let storageSemCifra = false
+
+/** Chave de 16 bytes de gerador seguro (P2-C-20) — ver `chaveMmkv.ts`. */
+const generateKey = (): string => gerarChaveMmkv()
 
 /** Obtém (ou cria e persiste) a chave de criptografia no keychain/keystore. */
 const getOrCreateEncryptionKey = async (): Promise<string> => {
@@ -50,6 +48,9 @@ export const initSecureStorage = async (): Promise<void> => {
     } catch (err) {
         // eslint-disable-next-line no-console
         console.error("[storage] Falha ao inicializar MMKV cifrado; usando fallback.", err)
+        // P2-C-20: registra que este aparelho está SEM cifra, para o diagnóstico
+        // (a tela de suporte/telemetria pode ler `storageSemCifra`).
+        storageSemCifra = true
         mmkv = new MMKV({ id: STORAGE_ID })
     }
 }

@@ -20,16 +20,19 @@ export function Botao({
     carregando,
     variante = "primario",
     desabilitado,
+    dica,
 }: {
     titulo: string
     onPress: () => void
     carregando?: boolean
     variante?: "primario" | "secundario" | "perigo"
     desabilitado?: boolean
+    /** Consequência da ação, lida pelo leitor de tela (ex.: "avisa todos os clientes"). */
+    dica?: string
 }) {
     const bg =
         variante === "primario"
-            ? COLORS.primary
+            ? COLORS.primaryStrong
             : variante === "perigo"
               ? COLORS.danger
               : COLORS.card
@@ -46,6 +49,12 @@ export function Botao({
             onPress={onPress}
             disabled={inativo}
             activeOpacity={0.8}
+            // PIE P2-C-17: sem isto o leitor de tela anunciava "botão" sem nome
+            // enquanto carrega (só o spinner) e não dizia que estava desativado.
+            accessibilityRole="button"
+            accessibilityLabel={titulo}
+            accessibilityHint={dica}
+            accessibilityState={{ disabled: !!inativo, busy: !!carregando }}
         >
             {carregando ? (
                 <ActivityIndicator color={fg} />
@@ -61,6 +70,7 @@ export function Campo({ label, ...props }: { label: string } & TextInputProps) {
         <View style={{ marginBottom: 14 }}>
             <Text style={s.label}>{label}</Text>
             <TextInput
+                accessibilityLabel={label}
                 style={s.input}
                 placeholderTextColor={COLORS.muted}
                 {...props}
@@ -117,4 +127,49 @@ const s = StyleSheet.create({
         borderRadius: radius.pill,
     },
     etiquetaTexto: { fontSize: fontSize.xs, fontWeight: "700", color: COLORS.graphite },
+    aviso: {
+        backgroundColor: "#FEF3C7",
+        borderColor: "#F59E0B",
+        borderWidth: 1,
+        borderRadius: radius.md,
+        padding: 10,
+    },
+    avisoTexto: { fontSize: fontSize.sm, color: "#78350F", fontWeight: "600" },
+    falhaTitulo: { fontSize: fontSize.base, fontWeight: "800", color: COLORS.text, textAlign: "center" },
+    falhaTexto: { fontSize: fontSize.sm, color: COLORS.muted, textAlign: "center" },
 })
+
+/**
+ * Faixa "sem conexão — mostrando dados de HH:MM" (PIE P2-C-10/11). Fica no topo
+ * da lista enquanto a consulta falha mas há dado guardado.
+ */
+export function AvisoOffline({ texto }: { texto: string | null }) {
+    if (!texto) return null
+    return (
+        <View style={s.aviso} accessibilityRole="alert">
+            <Text style={s.avisoTexto}>{texto}</Text>
+        </View>
+    )
+}
+
+/**
+ * Estado de falha SEM dado guardado: diz que é falta de sinal (ou erro do
+ * servidor) e oferece tentar de novo — nunca "nenhuma entrega".
+ */
+export function FalhaAoCarregar({ semConexao, onTentar }: { semConexao: boolean; onTentar: () => void }) {
+    return (
+        <Cartao style={{ alignItems: "center", gap: 10, paddingVertical: 24 }}>
+            <Text style={s.falhaTitulo} accessibilityRole="alert">
+                {semConexao ? "Sem conexão com a internet" : "Não foi possível carregar"}
+            </Text>
+            <Text style={s.falhaTexto}>
+                {semConexao
+                    ? "As entregas aparecem assim que o sinal voltar. Nada foi perdido."
+                    : "O servidor não respondeu como esperado. Tente de novo em instantes."}
+            </Text>
+            <View style={{ alignSelf: "stretch" }}>
+                <Botao titulo="Tentar de novo" variante="secundario" onPress={onTentar} />
+            </View>
+        </Cartao>
+    )
+}

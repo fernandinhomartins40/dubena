@@ -42,7 +42,7 @@ export default function Ocorrencia() {
                 accuracy: Location.Accuracy.Balanced,
             }).catch(() => null)
 
-            await EntregaService.Ocorrencia(
+            const r = await EntregaService.Ocorrencia(
                 pedidoId,
                 {
                     tipo,
@@ -52,7 +52,12 @@ export default function Ocorrencia() {
                 },
                 foto,
             )
-            Toast.show({ type: "success", text1: "Ocorrência registrada." })
+            // P2-C-05: sem sinal a ocorrência fica guardada — dizer isso, não "registrada".
+            Toast.show(
+                r.enfileirado
+                    ? { type: "info", text1: "Sem sinal: ocorrência guardada.", text2: "Vai sozinha quando a internet voltar." }
+                    : { type: "success", text1: "Ocorrência registrada." },
+            )
             qc.invalidateQueries({ queryKey: ["entregador", "pedidos"] })
             router.back()
         } catch (e) {
@@ -73,6 +78,8 @@ export default function Ocorrencia() {
                             key={t.valor}
                             style={[s.chip, ativo && s.chipAtivo]}
                             onPress={() => setTipo(t.valor)}
+                            accessibilityRole="radio"
+                            accessibilityState={{ checked: ativo }}
                         >
                             <Text style={[s.chipTexto, ativo && s.chipTextoAtivo]}>{t.label}</Text>
                         </TouchableOpacity>

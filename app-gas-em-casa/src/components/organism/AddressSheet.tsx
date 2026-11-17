@@ -93,6 +93,9 @@ const AddressSheet = forwardRef<Ref, AddressSheetProps>(({ addresses }, ref) => 
         <AnimatedPressable
             key={`address_${idx}`}
             onPress={() => handleMakeFavorite(address)}
+            accessibilityRole="button"
+            accessibilityLabel={`${address.endereco}${address.numero ? ", " + address.numero : ""}${address.favorito ? " (favorito)" : ""}`}
+            accessibilityHint="Toque para tornar favorito; toque longo para editar ou excluir"
             onLongPress={() => handleOnLongPress(address)}
             style={{
                 opacity: isDeletionPending && address.id === delVariables?.id ? 0.5 : 1,

@@ -61,7 +61,7 @@ const InfoScreen = () => {
                         </View>
 
                         {store?.telefone ? (
-                            <Pressable style={styles.infoRow} onPress={ligar}>
+                            <Pressable style={styles.infoRow} onPress={ligar} accessibilityRole="button" accessibilityLabel="Ligar para a revenda">
                                 <Phone size={18} color={colors.primary} strokeWidth={2} />
                                 <Text style={styles.infoText}>{store.telefone}</Text>
                             </Pressable>
@@ -80,7 +80,7 @@ const InfoScreen = () => {
 
                 {/* Mapa */}
                 {store?.latitude && store?.longitude ? (
-                    <Pressable style={styles.mapCard} onPress={abrirMapa}>
+                    <Pressable style={styles.mapCard} onPress={abrirMapa} accessibilityRole="button" accessibilityLabel="Abrir a localização da revenda no mapa">
                         <MapView
                             style={styles.map}
                             initialRegion={{
@@ -105,7 +105,7 @@ const InfoScreen = () => {
 
                 {/* WhatsApp — CTA de ajuda */}
                 {store?.whatsapp ? (
-                    <Pressable style={styles.whatsBtn} onPress={abrirWhatsApp}>
+                    <Pressable style={styles.whatsBtn} onPress={abrirWhatsApp} accessibilityRole="button" accessibilityLabel="Conversar com a revenda no WhatsApp">
                         <MessageCircle size={22} color={colors.white} strokeWidth={2.2} />
                         <Text style={styles.whatsText}>Falar no WhatsApp</Text>
                     </Pressable>

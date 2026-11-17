@@ -189,5 +189,5 @@ const s = StyleSheet.create({
     fotoPreview: { width: "100%", height: "100%" },
     fotoTexto: { fontSize: 13, color: COLORS.muted },
     totalLabel: { fontSize: 14, color: COLORS.muted, fontWeight: "600" },
-    totalValor: { fontSize: 18, fontWeight: "800", color: COLORS.primary },
+    totalValor: { fontSize: 18, fontWeight: "800", color: COLORS.primaryStrong },
 })

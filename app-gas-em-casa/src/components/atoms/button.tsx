@@ -38,6 +38,8 @@ const Button = ({
     textStyle: textStyleProp = {},
     children = title,
     buttonStyle = {},
+    accessibilityLabel,
+    accessibilityHint,
 }: ButtonProps) => {
     const TouchableComponentInternal =
         TouchableComponent ||
@@ -49,7 +51,18 @@ const Button = ({
     const textStyle = uppercase ? styles.uppercase : {}
 
     return (
-        <TouchableComponentInternal disabled={disabled} activeOpacity={0.3} onPress={onPress}>
+        // P2-B-14: o leitor de tela lia o texto mas não anunciava "botão" nem
+        // "indisponível", e o botão só com ícone (copiar PIX) ficava sem nome.
+        <TouchableComponentInternal
+            disabled={disabled}
+            activeOpacity={0.3}
+            onPress={onPress}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel ?? (typeof title === "string" ? title : undefined)}
+            accessibilityHint={accessibilityHint}
+            accessibilityState={{ disabled }}
+        >
             <View
                 style={[
                     styles.button,

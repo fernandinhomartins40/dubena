@@ -1,4 +1,7 @@
 import EntregaService from "@/services/entrega.service"
+import useAppStore from "@/store/appStore"
+import { initSecureStorage } from "@/store/storage"
+import { deveEncerrarRastreamento, deveRastrear } from "@/helpers/rastreamentoRegra"
 import * as Location from "expo-location"
 import * as TaskManager from "expo-task-manager"
 import { Alert } from "react-native"
@@ -20,6 +23,18 @@ TaskManager.defineTask(TASK_POSICAO, async ({ data, error }) => {
     const ultima = locations?.[locations.length - 1]
     if (!ultima) return
 
+    // P2-C-07: com o app fora da memória a task roda SEM a árvore React — a
+    // store não foi hidratada e o token lido era "". Hidrata aqui (mesma ordem
+    // do boot: chave do MMKV, depois a store).
+    if (!useAppStore.persist.hasHydrated()) {
+        await initSecureStorage().catch(() => {})
+        await Promise.resolve(useAppStore.persist.rehydrate()).catch(() => {})
+    }
+    if (!deveRastrear(useAppStore.getState())) {
+        await pararBackground()
+        return
+    }
+
     try {
         await EntregaService.Posicao({
             latitude: ultima.coords.latitude,
@@ -27,8 +42,13 @@ TaskManager.defineTask(TASK_POSICAO, async ({ data, error }) => {
             velocidade: ultima.coords.speed ?? undefined,
             direcao: ultima.coords.heading != null ? Math.round(ultima.coords.heading) : undefined,
         })
-    } catch {
-        // sem rede/401 neste tick — o próximo tenta; nunca derruba a task.
+    } catch (e) {
+        // Sem rede/5xx: o próximo tick tenta. Jornada encerrada no servidor ou
+        // sessão perdida: desliga o GPS em vez de insistir a noite toda.
+        if (deveEncerrarRastreamento(e)) {
+            useAppStore.getState().setEmServico(false)
+            await pararBackground()
+        }
     }
 })
 

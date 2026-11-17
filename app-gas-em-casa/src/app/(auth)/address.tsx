@@ -409,7 +409,7 @@ const Address = () => {
     return (
         <View style={[defaultStyles.container, { backgroundColor: colors.background, paddingTop: top }]}>
             <View style={styles.header}>
-                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+                <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Voltar">
                     <ChevronLeft size={24} color={colors.text} />
                 </Pressable>
                 <Text style={styles.headerTitle}>Novo endereço</Text>
@@ -454,7 +454,7 @@ const Address = () => {
                                 )}
 
                                 <View style={styles.bottomRight}>
-                                    <IconButton width={70} height={70} onPress={goToUser}>
+                                    <IconButton width={70} height={70} onPress={goToUser} accessibilityRole="button" accessibilityLabel="Usar minha localização atual">
                                         <LocateFixed size={34} color={colors.primary} strokeWidth={2} />
                                     </IconButton>
                                 </View>

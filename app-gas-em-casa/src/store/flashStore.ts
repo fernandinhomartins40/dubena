@@ -7,6 +7,7 @@ import {
     Cotacao,
 } from "@/types/types"
 import { Order, OrderPix } from "@/types/order"
+import type { ChavePedido } from "@/helpers/pedidoApp"
 
 /**
  * flashStore (F3) — estado efêmero do fluxo de compra, AGORA sem regra de preço.
@@ -15,9 +16,12 @@ import { Order, OrderPix } from "@/types/order"
  * calculateTotal/applyDiscount no cliente — total/desconto vêm da COTAÇÃO do servidor
  * (OrderService.Cotar). Catálogo e condições ficam aqui só para EXIBIÇÃO.
  */
-interface NavParam {
-    imageUrl: string
-}
+/**
+ * Navegação pendente vinda de notificação. P2-B-08: além do banner de imagem,
+ * o toque numa notificação de pedido leva ao pedido — aplicada pelo layout
+ * autenticado quando a navegação e a sessão já existem.
+ */
+export type NavParam = { imageUrl: string } | { pedidoId: number; aberto: boolean }
 
 export interface FlashStore {
     catalog: CatalogItem[]
@@ -34,6 +38,10 @@ export interface FlashStore {
     rebuyOrder: CartLines | null
     startupVideoShown: boolean
     pendingNavigation: NavParam | null
+    /** R2-13: chave de idempotência do pedido em andamento (muda com o carrinho). */
+    chavePedido: ChavePedido | null
+    /** Endereço escolhido no checkout ("Entregar em"); null = o favorito. */
+    enderecoEntregaId: number | null
 
     setCatalog: (catalog: CatalogItem[]) => void
     setCondicoes: (condicoes: CondicaoPagamento[]) => void
@@ -54,6 +62,8 @@ export interface FlashStore {
     setStartupVideoShown: (value: boolean) => void
     setPendingNavigation: (param: NavParam) => void
     clearPendingNavigation: () => void
+    setChavePedido: (chave: ChavePedido | null) => void
+    setEnderecoEntregaId: (id: number | null) => void
     clearCart: () => void
     clearStore: () => void
 }
@@ -75,6 +85,8 @@ const useFlashStore = create<FlashStore>((set, get) => ({
     rebuyOrder: null,
     startupVideoShown: false,
     pendingNavigation: null,
+    chavePedido: null,
+    enderecoEntregaId: null,
 
     setCatalog: (catalog) => set({ catalog }),
     setCondicoes: (condicoes) => set({ condicoes }),
@@ -115,8 +127,10 @@ const useFlashStore = create<FlashStore>((set, get) => ({
     setStartupVideoShown: (startupVideoShown) => set({ startupVideoShown }),
     setPendingNavigation: (pendingNavigation) => set({ pendingNavigation }),
     clearPendingNavigation: () => set({ pendingNavigation: null }),
+    setChavePedido: (chavePedido) => set({ chavePedido }),
+    setEnderecoEntregaId: (enderecoEntregaId) => set({ enderecoEntregaId }),
 
-    clearCart: () => set({ cart: { ...emptyCart }, cotacao: null, cupom: null }),
+    clearCart: () => set({ cart: { ...emptyCart }, cotacao: null, cupom: null, chavePedido: null }),
     clearStore: () =>
         set({
             cart: { ...emptyCart },
@@ -128,6 +142,9 @@ const useFlashStore = create<FlashStore>((set, get) => ({
             pixOrder: null,
             evaluateOrderId: null,
             rebuyOrder: null,
+            chavePedido: null,
+            enderecoEntregaId: null,
+            pendingNavigation: null,
         }),
 }))
 

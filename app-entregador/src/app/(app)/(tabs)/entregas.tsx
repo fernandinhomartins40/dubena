@@ -1,4 +1,5 @@
-import { Cartao, Etiqueta } from "@/components/ui"
+import { AvisoOffline, Cartao, Etiqueta, FalhaAoCarregar } from "@/components/ui"
+import { avisoOffline, comCache, estadoDaLista, eSemConexao, iniciarDoCache } from "@/helpers/cacheLocal"
 import { COLORS, PEDIDOS_POLL_MS } from "@/constants/app"
 import EntregaService from "@/services/entrega.service"
 import { fontSize, radius } from "@/styles/theme"
@@ -27,11 +28,16 @@ export default function Entregas() {
     const { top } = useSafeAreaInsets()
     const [aba, setAba] = useState<Aba>("pendentes")
 
-    const { data, isLoading, refetch, isRefetching } = useQuery({
+    // P2-C-11: começa do que ficou guardado (reinício sem sinal) e guarda
+    // cada resposta boa. Mesma queryKey e mesmo queryFn do detalhe do pedido.
+    const consulta = useQuery({
         queryKey: ["entregador", "pedidos"],
-        queryFn: EntregaService.Pedidos,
+        queryFn: comCache("pedidos", EntregaService.Pedidos),
+        ...iniciarDoCache<PedidoEntrega[]>("pedidos"),
         refetchInterval: PEDIDOS_POLL_MS,
     })
+    const { data, isLoading, refetch, isRefetching } = consulta
+    const estado = estadoDaLista(consulta)
 
     const filtrados = useMemo(() => filtrarPorAba(data ?? [], aba), [data, aba])
 
@@ -46,10 +52,13 @@ export default function Entregas() {
                     <View style={{ gap: 12, marginBottom: 4 }}>
                         <Text style={s.titulo}>Entregas</Text>
                         <Abas atual={aba} onChange={setAba} />
+                        <AvisoOffline texto={avisoOffline(consulta)} />
                     </View>
                 }
                 ListEmptyComponent={
-                    !isLoading ? (
+                    estado === "sem-conexao" || estado === "erro" ? (
+                        <FalhaAoCarregar semConexao={eSemConexao(consulta.error)} onTentar={() => void refetch()} />
+                    ) : !isLoading ? (
                         <Cartao style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
                             <PackageOpen size={32} color={COLORS.muted} />
                             <Text style={s.vazio}>Nenhuma entrega nesta aba.</Text>
@@ -73,7 +82,13 @@ function Abas({ atual, onChange }: { atual: Aba; onChange: (a: Aba) => void }) {
             {abas.map((a) => {
                 const on = atual === a.chave
                 return (
-                    <TouchableOpacity key={a.chave} style={[s.aba, on && s.abaOn]} onPress={() => onChange(a.chave)}>
+                    <TouchableOpacity
+                        key={a.chave}
+                        style={[s.aba, on && s.abaOn]}
+                        onPress={() => onChange(a.chave)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: on }}
+                    >
                         <Text style={[s.abaTexto, on && s.abaTextoOn]}>{a.label}</Text>
                     </TouchableOpacity>
                 )
@@ -84,7 +99,12 @@ function Abas({ atual, onChange }: { atual: Aba; onChange: (a: Aba) => void }) {
 
 function ItemPedido({ pedido }: { pedido: PedidoEntrega }) {
     return (
-        <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/(app)/pedido/${pedido.id}`)}>
+        <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => router.push(`/(app)/pedido/${pedido.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`Pedido ${pedido.id}, ${pedido.cliente ?? "cliente"}, ${pedido.endereco || "sem endereço"}, ${moeda(pedido.valor_venda)}`}
+        >
             <Cartao style={{ gap: 10 }}>
                 <View style={s.linhaTopo}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -129,8 +149,8 @@ const s = StyleSheet.create({
         flexDirection: "row", backgroundColor: COLORS.card, borderRadius: radius.md,
         padding: 4, borderWidth: 1, borderColor: COLORS.border,
     },
-    aba: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: "center" },
-    abaOn: { backgroundColor: COLORS.primary },
+    aba: { flex: 1, paddingVertical: 8, minHeight: 44, justifyContent: "center", borderRadius: 9, alignItems: "center" },
+    abaOn: { backgroundColor: COLORS.primaryStrong },
     abaTexto: { fontSize: fontSize.sm, fontWeight: "700", color: COLORS.muted },
     abaTextoOn: { color: COLORS.white },
     tile: {
@@ -138,7 +158,7 @@ const s = StyleSheet.create({
         backgroundColor: "#FFF1E8", alignItems: "center", justifyContent: "center",
     },
     linhaTopo: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    numero: { fontSize: fontSize.base, fontWeight: "800", color: COLORS.primary },
+    numero: { fontSize: fontSize.base, fontWeight: "800", color: COLORS.primaryStrong },
     cliente: { fontSize: fontSize.base, fontWeight: "700", color: COLORS.text },
     endereco: { flex: 1, fontSize: fontSize.sm, color: COLORS.muted },
     rodape: {
@@ -146,6 +166,6 @@ const s = StyleSheet.create({
         borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 2,
     },
     valor: { fontSize: fontSize.md, fontWeight: "800", color: COLORS.graphite },
-    detalhe: { fontSize: fontSize.sm, color: COLORS.primary, fontWeight: "700" },
+    detalhe: { fontSize: fontSize.sm, color: COLORS.primaryStrong, fontWeight: "700" },
     vazio: { fontSize: fontSize.sm, color: COLORS.muted },
 })

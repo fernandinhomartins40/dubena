@@ -38,7 +38,7 @@ const HomeHeader = () => {
 
     return (
         <View style={styles.wrapper}>
-            <Pressable style={styles.addressRow} onPress={() => addressesSheetRef.current?.present()}>
+            <Pressable style={styles.addressRow} onPress={() => addressesSheetRef.current?.present()} accessibilityRole="button" accessibilityLabel="Escolher endereço de entrega">
                 <View style={styles.pin}>
                     <MapPin size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>

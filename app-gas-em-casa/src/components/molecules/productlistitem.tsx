@@ -75,7 +75,7 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
                 {preco ? <Text style={styles.price}>{brl(preco)}</Text> : null}
 
                 <Animated.View style={[styles.cartControls, { opacity: blur }]}>
-                    <IconButton width={44} height={44} onPress={() => removeFromCart(product.id)}>
+                    <IconButton width={44} height={44} onPress={() => removeFromCart(product.id)} accessibilityRole="button" accessibilityLabel={`Diminuir ${product.descricao}`}>
                         <Minus size={18} color={colors.graphite} strokeWidth={2.4} />
                     </IconButton>
 
@@ -86,6 +86,8 @@ const ProductListItem = ({ product, index, productsLength, scrollX }: ProductLis
                         width={44}
                         height={44}
                         onPress={() => addToCart(product.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Adicionar ${product.descricao}`}
                     >
                         <Plus size={18} color={colors.graphite} strokeWidth={2.4} />
                     </IconButton>

@@ -8,6 +8,26 @@ import { useEffect } from "react"
  * servidor e sincroniza o flag `emServico` do store (que liga o rastreamento por
  * GPS). Antes, `emServico` era um toggle volátil e local; agora reflete a jornada.
  */
+/**
+ * Vigia da jornada no layout autenticado (P2-C-07). `useJornada` só era montado
+ * no Início e no Perfil: se a Central encerrasse a jornada com o entregador em
+ * outra tela, `emServico` seguia true e o GPS ligado. Mesma queryKey: o React
+ * Query compartilha a consulta, não dobra a requisição.
+ */
+export function useVigiaJornada(ativo: boolean) {
+    const setEmServico = useAppStore((s) => s.setEmServico)
+    const jornada = useQuery({
+        queryKey: ["entregador", "jornada"],
+        queryFn: JornadaService.Atual,
+        refetchInterval: 60000,
+        enabled: ativo,
+    })
+    useEffect(() => {
+        // Só a RESPOSTA do servidor decide; erro de rede mantém o estado.
+        if (jornada.isSuccess) setEmServico(!!jornada.data)
+    }, [jornada.isSuccess, jornada.data, setEmServico])
+}
+
 export function useJornada() {
     const setEmServico = useAppStore((s) => s.setEmServico)
 

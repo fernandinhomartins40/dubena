@@ -119,7 +119,7 @@ const Input = React.forwardRef<Ref, InputProps>(
         }
 
         return (
-            <Pressable onPress={focus} style={{ flex: 1 }} android_disableSound>
+            <Pressable onPress={focus} style={{ flex: 1 }} android_disableSound accessible={false}>
                 <View style={[{ ...containerStyle }]}>
                     <FalsyText
                         title={label}

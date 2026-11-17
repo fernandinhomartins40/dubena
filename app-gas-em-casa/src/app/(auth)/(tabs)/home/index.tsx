@@ -129,7 +129,7 @@ const HomeScreen = () => {
 
                 {/* Recompra — o caso de uso dominante, em destaque */}
                 {ultimoConcluido && ultimoConcluido.itens?.length ? (
-                    <Pressable style={styles.rebuyCard} onPress={recomprar}>
+                    <Pressable style={styles.rebuyCard} onPress={recomprar} accessibilityRole="button" accessibilityLabel="Pedir de novo o último pedido">
                         <View style={styles.rebuyIcon}>
                             <RotateCcw size={20} color={colors.white} strokeWidth={2.4} />
                         </View>
@@ -150,7 +150,7 @@ const HomeScreen = () => {
                 {/* Atalhos rápidos */}
                 <View style={styles.shortcuts}>
                     {atalhos.map(({ icon: Icon, label, onPress }) => (
-                        <Pressable key={label} style={styles.shortcut} onPress={onPress}>
+                        <Pressable key={label} style={styles.shortcut} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
                             <View style={styles.shortcutIcon}>
                                 <Icon size={22} color={colors.primary} strokeWidth={2} />
                             </View>
@@ -194,7 +194,7 @@ const HomeScreen = () => {
 
             {/* Barra fixa e compacta: ir para o carrinho — logo acima da tab bar. */}
             {hasItems && (
-                <Pressable style={[styles.checkoutBar, { bottom: 66 + bottom }]} onPress={irParaCarrinho}>
+                <Pressable style={[styles.checkoutBar, { bottom: 66 + bottom }]} onPress={irParaCarrinho} accessibilityRole="button" accessibilityLabel={`Ver carrinho, ${qtyTotal()} item(ns), total ${brl.format(total)}`}>
                     <View style={styles.cartBadge}>
                         <ShoppingCart size={18} color={colors.white} strokeWidth={2.2} />
                         <View style={styles.cartCount}>

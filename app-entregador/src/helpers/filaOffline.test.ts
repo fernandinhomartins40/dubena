@@ -17,6 +17,13 @@ vi.mock("@/store/storage", () => ({
     },
 }))
 
+// Anexos da fila multipart (P2-C-05) usam expo-file-system, que não roda em node.
+vi.mock("@/helpers/arquivosFila", () => ({
+    guardarArquivos: async (_c: string, a: Record<string, any>) =>
+        Object.fromEntries(Object.entries(a).filter(([, v]) => v != null)),
+    apagarArquivos: async () => {},
+}))
+
 const estado: { user?: { id: number } | null } = { user: { id: 1 } }
 vi.mock("@/store/appStore", () => ({ default: { getState: () => estado } }))
 

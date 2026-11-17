@@ -84,31 +84,18 @@ const useAppStore = create<AppStore>()(
                     }
                 }),
             setUser: (user: any) => set(() => ({ user })),
+            // PIE R3-E-06: estes setters MUTAVAM o estado e devolviam o mesmo
+            // objeto. O zustand compara por referência: nada era notificado nem
+            // PERSISTIDO. Com a renovação do token, o token novo ficaria só na
+            // memória — ao reabrir, o app carregaria do disco o token já revogado
+            // pelo refresh e cairia no login. Sempre um objeto novo.
             setNewAddress: (address_id: number) =>
-                set((state) => {
-                    if (state.user) {
-                        state.user.enderecopadrao_id = address_id
-                    }
-
-                    return state
-                }),
+                set((state) => (state.user ? { user: { ...state.user, enderecopadrao_id: address_id } } : {})),
             setConfig: (config: Config) => set(() => ({ config })),
             setPermissions: (granted: boolean) =>
-                set((state) => {
-                    state.config.permissions = granted
-
-                    return state
-                }),
-            setLoginData: (data: LoginData) =>
-                set((state) => {
-                    state.loginData = data
-                    return state
-                }),
-            setToken: (token) =>
-                set((state) => {
-                    state.apiToken = token
-                    return state
-                }),
+                set((state) => ({ config: { ...state.config, permissions: granted } })),
+            setLoginData: (data: LoginData) => set({ loginData: data }),
+            setToken: (token) => set({ apiToken: token }),
             tryPayOnline: () =>
                 set((state) => {
                     let tries = state.onlineTries

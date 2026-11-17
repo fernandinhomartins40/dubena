@@ -1,5 +1,9 @@
 import Http from "@/helpers/http"
-import { Cotacao, InitData } from "@/types/types"
+import { comChaveIdempotente, instalarIdempotencia } from "@/helpers/idempotencia"
+import type { PayloadPedido, PedidoAcompanhamento } from "@/helpers/pedidoApp"
+import { Cotacao, HistoryItem, InitData } from "@/types/types"
+
+instalarIdempotencia(Http.client)
 
 /**
  * OrderService (F3 → ERP-NOVO `app/v1`).
@@ -24,14 +28,16 @@ const VerifyCoupon = (
 ): Promise<{ codigo: string; descricao: string; desconto_percentual: number }> =>
     Http.PrepareRequest(`app/v1/cupom?codigo=${encodeURIComponent(codigo)}`, "GET")
 
+/** R2-13: `chave` vira o cabeçalho Idempotency-Key (ver helpers/idempotencia.ts). */
 const CreateOrder = (
-    payload: any,
+    payload: PayloadPedido,
+    chave?: string,
 ): Promise<{ id: number; valor_venda: number; valor_desconto: number }> =>
-    Http.PrepareRequest("app/v1/pedidos", "POST", payload)
+    Http.PrepareRequest("app/v1/pedidos", "POST", chave ? comChaveIdempotente(payload, chave) : payload)
 
-const GetHistory = (): Promise<any[]> => Http.PrepareRequest(`app/v1/pedidos`, "GET")
+const GetHistory = (): Promise<HistoryItem[]> => Http.PrepareRequest(`app/v1/pedidos`, "GET")
 
-const Track = (orderId: number): Promise<any> =>
+const Track = (orderId: number): Promise<PedidoAcompanhamento & Record<string, any>> =>
     Http.PrepareRequest(`app/v1/pedidos/${orderId}`, "GET")
 
 /** Rota do entregador AO VIVO (L6): posição + traçado pelas ruas + ETA. */
@@ -51,7 +57,8 @@ const Evaluate = (
     payload: { rating?: number; mensagem?: string; ignorado?: boolean },
 ) => Http.PrepareRequest(`app/v1/pedidos/${orderId}/avaliar`, "POST", payload)
 
-const Cancel = (orderId: number) =>
+/** P2-B-04: o próprio cliente cancela o pedido aberto (regra do servidor). */
+const Cancel = (orderId: number): Promise<{ id: number; situacao_id: number }> =>
     Http.PrepareRequest(`app/v1/pedidos/${orderId}/cancelar`, "POST")
 
 /** F4: gera a cobrança PIX do pedido (copia-e-cola + QR + expiração). */

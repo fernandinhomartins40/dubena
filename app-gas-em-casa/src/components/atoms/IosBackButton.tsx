@@ -22,7 +22,7 @@ const IosBackButton = ({ onPress }: Props) => {
     }
 
     return (
-        <Pressable onPress={handleBack}>
+        <Pressable onPress={handleBack} accessibilityRole="button" accessibilityLabel="Voltar">
             <View style={styles.container}>
                 <ChevronLeft size={24} color={colors.text} />
             </View>

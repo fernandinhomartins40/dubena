@@ -52,6 +52,9 @@ const PaymentMethodSheet = forwardRef<Ref, PaymentMethodSheetProps>(
                             <TouchableOpacity
                                 key={`condicao_${idx}`}
                                 onPress={() => handleOnPress(condicao)}
+                                accessibilityRole="radio"
+                                accessibilityLabel={condicao.descricao}
+                                accessibilityState={{ selected: condicao.id == selectedId }}
                             >
                                 <View
                                     style={[

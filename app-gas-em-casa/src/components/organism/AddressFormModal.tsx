@@ -121,6 +121,9 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
             <Pressable
                 key={`basetype_${idx}`}
                 onPress={() => setType(addressType)}
+                accessibilityRole="radio"
+                accessibilityLabel={String(addressType)}
+                accessibilityState={{ selected: isSelected }}
                 style={[styles.typeButton, isSelected && styles.typeSelected]}
             >
                 <AddressTypeIcon
@@ -139,7 +142,7 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
         <Modal visible={open} animationType="slide" onRequestClose={closeModal}>
             <View style={[styles.screen, { paddingTop: top }]}>
                 <View style={styles.header}>
-                    <Pressable onPress={closeModal} hitSlop={12} style={styles.backBtn}>
+                    <Pressable onPress={closeModal} hitSlop={12} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Fechar">
                         <ChevronLeft size={24} color={colors.text} />
                     </Pressable>
                     <Text style={styles.headerTitle}>Confirmar endereço</Text>
@@ -196,6 +199,9 @@ const AddressFormModal = ({ open, address, closeModal }: Props) => {
                                     label="Número"
                                     value={number}
                                     onChangeText={setNumber}
+                                    // R3-G-04: o formulário grava em `cliente_enderecos.numero`, varchar(20)
+                                    // (o mesmo max:20 do servidor). Sem o limite, o excesso só voltava como erro.
+                                    maxLength={20}
                                     keyboardType="number-pad"
                                     onSubmitEditing={() => zipRef.current?.focus()}
                                     returnKeyType="next"

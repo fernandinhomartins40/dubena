@@ -1,4 +1,5 @@
 import storage from "@/store/storage"
+import { apagarArquivos, type ArquivoUpload } from "@/helpers/arquivosFila"
 
 /**
  * Fila de escrita offline (F7) — o entregador em rota trabalha sem sinal.
@@ -23,8 +24,12 @@ import storage from "@/store/storage"
  *  - GETs (o núcleo compartilhado já faz retry com backoff);
  *  - ping de GPS (`posicao`) — posição velha não tem valor: reenviar a de vinte
  *    minutos atrás poluiria o rastro com um ponto que já não é verdade;
- *  - upload de foto/assinatura — multipart não sobrevive à serialização em JSON;
- *    fica para uma segunda etapa, com o arquivo referenciado por caminho.
+ *
+ * **Multipart entra (P2-C-05).** Concluir a entrega e registrar ocorrência levam
+ * foto/assinatura e ficavam fora da fila — justamente a ação central do dia
+ * exigia sinal. Agora o item guarda os campos de texto e o CAMINHO dos anexos
+ * (copiados para `documentDirectory` por `arquivosFila`); o FormData é remontado
+ * a cada tentativa, com a mesma chave.
  *
  * **Sem NetInfo.** O projeto não tem `@react-native-community/netinfo`, e
  * acrescentar dependência nativa só para saber se há rede obrigaria novo build
@@ -54,18 +59,42 @@ export interface ItemFila {
      * token dele — a ocorrência ou a venda ficaria atribuída à pessoa errada.
      */
     dono?: number
+    /**
+     * Escrita multipart: campos de texto + anexos por caminho local. Quando
+     * presente, `data` é ignorado e o envio monta um FormData.
+     */
+    formulario?: FormularioFila
+}
+
+export interface FormularioFila {
+    campos: Record<string, string>
+    arquivos: Record<string, ArquivoUpload>
 }
 
 /** Máximo de tentativas antes de o item exigir decisão do usuário. */
 const MAX_TENTATIVAS = 8
 
-/** uuid v4 sem dependência extra — só precisa ser único no dispositivo. */
-export const novoId = (): string =>
-    "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+/**
+ * uuid v4. Prefere o gerador NATIVO que o expo-modules-core já instala
+ * (`globalThis.expo.uuidv4`, SecureRandom/UUID() do SO) — está no binário,
+ * não exige dependência nem build novo. Fora do app (testes), cai no
+ * Math.random: aqui a chave só precisa ser única no dispositivo.
+ */
+export const novoId = (): string => {
+    const nativo = (globalThis as any)?.expo?.uuidv4
+    if (typeof nativo === "function") {
+        try {
+            return String(nativo())
+        } catch {
+            /* cai no gerador local */
+        }
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0
         const v = c === "x" ? r : (r & 0x3) | 0x8
         return v.toString(16)
     })
+}
 
 const lerDe = (chave: string): ItemFila[] => {
     try {
@@ -120,6 +149,7 @@ export const enfileirar = (
     data: unknown,
     id: string = novoId(),
     dono?: number,
+    formulario?: FormularioFila,
 ): string => {
     const item: ItemFila = {
         id,
@@ -129,6 +159,7 @@ export const enfileirar = (
         criadoEm: Date.now(),
         tentativas: 0,
         dono,
+        ...(formulario ? { formulario } : {}),
     }
     gravar([...ler(), item])
     return item.id
@@ -138,9 +169,13 @@ export const pendentes = (): ItemFila[] => ler()
 
 export const quantidadePendente = (): number => ler().length
 
-/** Descarta um item — usado quando o entregador desiste de uma ação travada. */
+/**
+ * Tira o item da fila (enviado, ou o entregador desistiu) e apaga os anexos
+ * dele — sem isso cada foto enviada ficava para sempre no aparelho.
+ */
 export const descartar = (id: string): void => {
     gravar(ler().filter((i) => i.id !== id))
+    void apagarArquivos(id)
 }
 
 /** Ações que não serão reenviadas sozinhas e esperam o entregador. */
@@ -149,9 +184,11 @@ export const precisamDeAtencao = (): ItemFila[] => lerDe(CHAVE_ATENCAO)
 /** O entregador viu a recusa (e resolveu com a central): tira da lista. */
 export const dispensarAtencao = (id: string): void => {
     gravarEm(CHAVE_ATENCAO, lerDe(CHAVE_ATENCAO).filter((i) => i.id !== id))
+    void apagarArquivos(id)
 }
 
 export const limpar = (): void => {
+    for (const item of [...ler(), ...lerDe(CHAVE_ATENCAO)]) void apagarArquivos(item.id)
     try {
         storage.delete(CHAVE)
         storage.delete(CHAVE_ATENCAO)

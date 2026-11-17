@@ -1,6 +1,7 @@
 import { Cartao } from "@/components/ui"
 import { COLORS } from "@/constants/app"
 import { limpar as limparFila, precisamDeAtencao, quantidadePendente } from "@/helpers/filaOffline"
+import { limparCaches } from "@/helpers/cacheLocal"
 import { useJornada } from "@/hooks/useJornada"
 import AuthService from "@/services/auth.service"
 import JornadaService from "@/services/jornada.service"
@@ -43,6 +44,8 @@ export default function Perfil() {
         // PIE R2-04: a fila sobrevivia ao logout e seria enviada com o token
         // do PRÓXIMO entregador que entrasse neste aparelho.
         limparFila()
+        // Leitura offline (P2-C-11) é do entregador que sai: não fica no aparelho.
+        limparCaches()
         logout()
         router.replace("/login")
     }

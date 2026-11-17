@@ -107,7 +107,7 @@ const UserForm = ({ user, isSubmitting, onSave, isGpAllowed = false }: Props) =>
 
                     <View style={{ flexDirection: "column" }}>
                         {sexOptions.map((sx, idx) => (
-                            <Pressable key={`sex_${idx}`} onPress={() => handleSexChange(sx)}>
+                            <Pressable key={`sex_${idx}`} onPress={() => handleSexChange(sx)} accessibilityRole="radio" accessibilityLabel={sx}>
                                 <View
                                     style={{
                                         width: "100%",

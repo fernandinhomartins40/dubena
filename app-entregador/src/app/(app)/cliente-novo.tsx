@@ -99,7 +99,8 @@ export default function ClienteNovo() {
             <Cartao>
                 <Text style={s.secao}>Endereço</Text>
                 <Campo label="Rua" value={endereco} onChangeText={setEndereco} placeholder="Rua / Avenida" />
-                <Campo label="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" />
+                {/* R3-G-04: o servidor aceita até 10 (tamanho da coluna). */}
+                <Campo label="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" maxLength={10} />
                 <Campo
                     label="Ponto de referência"
                     value={referencia}

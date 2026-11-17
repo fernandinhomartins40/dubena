@@ -1,4 +1,6 @@
-import { Botao, Cartao } from "@/components/ui"
+import { AvisoOffline, Botao, Cartao, FalhaAoCarregar } from "@/components/ui"
+import { avisoOffline, comCache, eSemConexao, iniciarDoCache } from "@/helpers/cacheLocal"
+import { acaoPendenteDoPedido } from "@/helpers/envioResiliente"
 import { BRASIL_VIEW, COLORS } from "@/constants/app"
 import { HttpError } from "@/helpers/http"
 import EntregaService from "@/services/entrega.service"
@@ -27,11 +29,15 @@ export default function PedidoDetalhe() {
     const qc = useQueryClient()
     const [acao, setAcao] = useState<"aceitar" | "recusar" | null>(null)
 
-    const { data } = useQuery({
+    const consulta = useQuery({
         queryKey: ["entregador", "pedidos"],
-        queryFn: EntregaService.Pedidos,
+        queryFn: comCache("pedidos", EntregaService.Pedidos),
+        ...iniciarDoCache<PedidoEntrega[]>("pedidos"),
     })
+    const { data } = consulta
     const pedido = (data ?? []).find((p) => p.id === pedidoId)
+    // P2-C-05/P2-C-14: conclusão guardada sem sinal — não oferecer de novo.
+    const conclusaoGuardada = acaoPendenteDoPedido(pedidoId, "concluir")
 
     const temDestino = pedido?.lat != null && pedido?.lng != null
     // Sem destino geolocalizado, viewport neutro (Brasil) — nada de cidade fixa.
@@ -49,8 +55,13 @@ export default function PedidoDetalhe() {
     const aceitar = async () => {
         setAcao("aceitar")
         try {
-            await EntregaService.Aceitar(pedidoId)
-            Toast.show({ type: "success", text1: "Corrida aceita." })
+            const r = await EntregaService.Aceitar(pedidoId)
+            // P2-C-14: "guardado" não é "feito" — o entregador precisa saber.
+            Toast.show(
+                r.enfileirado
+                    ? { type: "info", text1: "Sem sinal: aceite guardado.", text2: "Vai quando a internet voltar." }
+                    : { type: "success", text1: "Corrida aceita." },
+            )
             recarregar()
         } catch (e) {
             Toast.show({ type: "error", text1: (e as HttpError).message })
@@ -62,8 +73,12 @@ export default function PedidoDetalhe() {
     const recusar = async () => {
         setAcao("recusar")
         try {
-            await EntregaService.Recusar(pedidoId)
-            Toast.show({ type: "info", text1: "Corrida recusada." })
+            const r = await EntregaService.Recusar(pedidoId)
+            Toast.show({
+                type: "info",
+                text1: r.enfileirado ? "Sem sinal: recusa guardada." : "Corrida recusada.",
+                ...(r.enfileirado ? { text2: "A central recebe quando a internet voltar." } : {}),
+            })
             recarregar()
             router.back()
         } catch (e) {
@@ -92,15 +107,26 @@ export default function PedidoDetalhe() {
     }
 
     if (!pedido) {
+        // P2-C-10: sem sinal e sem nada guardado, dizer isso — não "não encontrada".
+        if (consulta.isError) {
+            return (
+                <View style={s.center}>
+                    <FalhaAoCarregar semConexao={eSemConexao(consulta.error)} onTentar={() => void consulta.refetch()} />
+                </View>
+            )
+        }
         return (
             <View style={s.center}>
-                <Text style={{ color: COLORS.muted }}>Entrega não encontrada na lista.</Text>
+                <Text style={{ color: COLORS.muted }}>
+                    {consulta.isLoading ? "Carregando…" : "Esta entrega não está mais atribuída a você."}
+                </Text>
             </View>
         )
     }
 
     return (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            <AvisoOffline texto={avisoOffline(consulta)} />
             <MapView
                 // Mesma armadilha do minimapa da rota: o pedido chega depois da
                 // montagem e initialRegion não reage. Remonta quando o destino aparece.
@@ -133,7 +159,14 @@ export default function PedidoDetalhe() {
 
             {/* PIE P2-C-01/P2-C-14: ações só para pedido em aberto. No Histórico,
                 "Recusar" tirava a venda já concluída do malote do entregador. */}
-            {etapaDoPedido(pedido) !== "finalizado" ? (
+            {conclusaoGuardada ? (
+                <Cartao>
+                    <Text style={{ color: COLORS.text, fontWeight: "700" }}>Conclusão guardada no aparelho.</Text>
+                    <Text style={{ color: COLORS.muted, marginTop: 4 }}>
+                        Ela é enviada sozinha quando a internet voltar. Não precisa concluir de novo.
+                    </Text>
+                </Cartao>
+            ) : etapaDoPedido(pedido) !== "finalizado" ? (
                 <View style={{ gap: 10, marginTop: 4 }}>
                     <Botao titulo="Aceitar corrida" onPress={aceitar} carregando={acao === "aceitar"} />
                     <Botao
@@ -158,7 +191,7 @@ export default function PedidoDetalhe() {
 const s = StyleSheet.create({
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
     mapa: { height: 220, borderRadius: 14, overflow: "hidden" },
-    numero: { fontSize: 16, fontWeight: "800", color: COLORS.primary },
+    numero: { fontSize: 16, fontWeight: "800", color: COLORS.primaryStrong },
     cliente: { fontSize: 18, fontWeight: "700", color: COLORS.text, marginTop: 6 },
     endereco: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
     valor: { fontSize: 16, fontWeight: "700", color: COLORS.graphite, marginTop: 8 },

@@ -247,6 +247,8 @@ export interface CondicaoPagamento {
     descricao: string
     num_parcelas: number
     a_vista: boolean
+    /** Condição PIX: só ela abre a tela do PIX depois do pedido (resíduo de R2-02). */
+    pix_online?: boolean
 }
 
 /** Pacote de abertura (GET app/v1/init). */
@@ -292,6 +294,7 @@ export interface AppConfig {
     frete_gaspovo: number | null
     video: { url: string; titulo?: string } | null
     tempo_entrega_min: number | null
+    pagamentos_online?: { pix: boolean; cartao: boolean }
 }
 
 /** Endereço (inline) do cliente (GET/PUT app/v1/perfil/endereco). */
@@ -329,6 +332,8 @@ export interface HistoryItem {
     datahora: string | null
     situacao: string | null
     efeito: "PENDENTE" | "CONCLUIDO" | "CANCELADO" | string | null
+    /** P2-B-15: o servidor recusa a 2ª avaliação; o app esconde o botão. */
+    avaliado?: boolean
     valor_venda: number
     itens: CotacaoItem[]
 }

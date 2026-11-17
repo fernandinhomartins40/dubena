@@ -12,6 +12,7 @@ import Button from "@/components/atoms/button"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import useFlashStore from "@/store/flashStore"
 import EvaluateModal from "@/components/organism/EvaluateModal"
+import { podeAvaliar } from "@/helpers/pedidoApp"
 import { useRouter } from "expo-router"
 import Input from "@/components/atoms/input"
 
@@ -84,7 +85,7 @@ const PedidosScreen = () => {
     }
 
     const renderItems = ({ item: hist }: { item: HistoryItem }) => {
-        const concluido = hist.efeito === "CONCLUIDO"
+        const avaliar = podeAvaliar(hist)
 
         return (
             <View style={styles.card}>
@@ -122,8 +123,13 @@ const PedidosScreen = () => {
                         <Text style={styles.totalLabel}>Total</Text>
                         <Text style={styles.totalValue}>{moeda(hist.valor_venda)}</Text>
                     </View>
-                    {concluido && (
-                        <Pressable style={styles.evalBtn} onPress={() => setOrderId(hist.id)}>
+                    {avaliar && (
+                        <Pressable
+                            style={styles.evalBtn}
+                            onPress={() => setOrderId(hist.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Avaliar o pedido ${hist.id}`}
+                        >
                             <Text style={styles.evalBtnText}>Avaliar</Text>
                         </Pressable>
                     )}
@@ -182,7 +188,11 @@ const PedidosScreen = () => {
 
     // Candidato a avaliação: 1º pedido concluído (mais recente). Banner opcional.
     const avaliavel = useMemo(
-        () => (history ?? []).find((o) => o.efeito === "CONCLUIDO") ?? null,
+        () => {
+            const ultimo = (history ?? []).find((o) => o.efeito === "CONCLUIDO") ?? null
+            // P2-B-15: o banner voltava a cada visita mesmo já avaliado.
+            return podeAvaliar(ultimo) ? ultimo : null
+        },
         [history],
     )
 
@@ -199,10 +209,22 @@ const PedidosScreen = () => {
                         Leva 5 segundos e ajuda a melhorar.
                     </Text>
                 </View>
-                <Pressable onPress={() => setOrderId(avaliavel.id)} style={styles.evalCta} hitSlop={6}>
+                <Pressable
+                    onPress={() => setOrderId(avaliavel.id)}
+                    style={styles.evalCta}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Avaliar o último pedido"
+                >
                     <Text style={styles.evalCtaText}>Avaliar</Text>
                 </Pressable>
-                <Pressable onPress={() => setAvaliacaoDispensada(true)} hitSlop={10} style={{ paddingLeft: 4 }}>
+                <Pressable
+                    onPress={() => setAvaliacaoDispensada(true)}
+                    hitSlop={10}
+                    style={{ paddingLeft: 4 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Agora não"
+                >
                     <X size={18} color={colors.textMuted} strokeWidth={2} />
                 </Pressable>
             </View>
@@ -238,7 +260,7 @@ const PedidosScreen = () => {
                     textStyle={styles.searchInputText}
                     inputSufix={
                         searchText ? (
-                            <Pressable onPress={() => setSearchText("")} hitSlop={10}>
+                            <Pressable onPress={() => setSearchText("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Limpar busca">
                                 <X size={20} color={colors.textMuted} strokeWidth={2} />
                             </Pressable>
                         ) : (

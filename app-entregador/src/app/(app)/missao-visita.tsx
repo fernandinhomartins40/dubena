@@ -75,7 +75,7 @@ export default function MissaoVisita() {
                     const sel = status === op.valor
                     return (
                         <TouchableOpacity key={op.valor} style={[s.opcao, sel && s.opcaoSel]} onPress={() => setStatus(op.valor)} activeOpacity={0.8}>
-                            <Text style={[s.opcaoTexto, sel && { color: COLORS.primary }]}>{op.label}</Text>
+                            <Text style={[s.opcaoTexto, sel && { color: COLORS.primaryStrong }]}>{op.label}</Text>
                             {sel && <Check size={18} color={COLORS.primary} />}
                         </TouchableOpacity>
                     )
@@ -102,7 +102,7 @@ export default function MissaoVisita() {
 }
 
 const s = StyleSheet.create({
-    clienteLabel: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
+    clienteLabel: { fontSize: 12, fontWeight: "700", color: COLORS.primaryStrong },
     clienteNome: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginTop: 2 },
     secao: { fontSize: 13, fontWeight: "700", color: COLORS.muted },
     opcao: {

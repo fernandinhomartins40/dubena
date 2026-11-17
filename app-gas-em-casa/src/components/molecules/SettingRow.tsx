@@ -20,6 +20,9 @@ const SettingRow = ({ icon: Icon, title, subtitle, onPress, danger, disabled }: 
         <Pressable
             onPress={onPress}
             disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+            accessibilityState={{ disabled: !!disabled }}
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
         >
             <View style={[styles.icon, { backgroundColor: tint }]}>
