@@ -68,6 +68,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'painel' => SomenteTokenDoPainel::class,
             // PIE P2-E-01 — o superadmin cruza empresas; sob RLS lia zero.
             'plataforma.owner' => PlataformaEnxergaTodasAsEmpresas::class,
+            // PIE P2-E-06 — o token de cadastro do 2FA não abre o painel.
+            'plataforma.sessao' => \App\Http\Middleware\SessaoDeOperacaoDaPlataforma::class,
         ]);
 
         // PIE R1-04 — sem isto `$request->ip()` era o IP do nginx do contêiner

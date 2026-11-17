@@ -53,7 +53,7 @@ class FinanceiroController extends Controller
             })
             ->when($request->query('status') === 'baixado', fn (Builder $b) => $b->where('baixado', true))
             ->when($request->query('status') === 'aberto', fn (Builder $b) => $b->where('baixado', false))
-            ->with('financeiro:id,pagarreceber,documento,descricao,cliente_id')
+            ->with(['financeiro:id,pagarreceber,documento,descricao,cliente_id', 'financeiro.cliente:id,nome'])
             ->orderBy('vencimento')
             ->paginate(20);
 
@@ -69,6 +69,9 @@ class FinanceiroController extends Controller
             'pagarreceber' => $p->financeiro?->pagarreceber,
             'documento' => $p->financeiro?->documento,
             'descricao' => $p->financeiro?->descricao,
+            // A tela sempre teve a coluna "Cliente" e o recebimento mostra de
+            // quem é a conta; sem este campo as duas exibiam "—" em todo título.
+            'cliente' => $p->financeiro?->cliente?->nome,
         ]);
 
         return response()->json([

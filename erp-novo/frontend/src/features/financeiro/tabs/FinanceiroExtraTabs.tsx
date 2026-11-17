@@ -11,7 +11,7 @@ import {
   useMudarSituacaoCheque, useContasCaixa,
   useBoletos, useResumoBoletos, usePixStatus, useDRE, useConciliacao,
 } from '../api'
-import { brl, data as fmtData, hojeISO } from '@/lib/format'
+import { brl, data as fmtData, decimalBR, hojeISO } from '@/lib/format'
 import { useBusca } from '@/lib/useBusca'
 
 // ---------- CHEQUES ----------
@@ -44,8 +44,11 @@ function ChequesRecebidosTab() {
   }
 
   async function onSalvar() {
-    if (!edit || !Number.isFinite(Number(edit.valor)) || Number(edit.valor) <= 0) { toast.error('Informe um valor maior que zero.'); return }
-    const payload = { id: edit.id, numero: edit.numero || null, valor: Number(edit.valor), banco_id: edit.banco_id || null,
+    // Texto lido por decimalBR, não type=number: o campo numérico do navegador
+    // transformava "1.500,00" em 1,5 (PIE R3-B-09, mesmo defeito do R2-08).
+    const valor = edit ? decimalBR(String(edit.valor ?? '')) : Number.NaN
+    if (!edit || !Number.isFinite(valor) || valor <= 0) { toast.error('Informe um valor maior que zero.'); return }
+    const payload = { id: edit.id, numero: edit.numero || null, valor: Math.round(valor * 100) / 100, banco_id: edit.banco_id || null,
       agencia: edit.agencia || null, conta_corrente: edit.conta_corrente || null, titular: edit.titular || null,
       bom_para: edit.bom_para ? String(edit.bom_para).slice(0, 10) : null }
     try { await salvar.mutateAsync(payload); toast.success('Cheque salvo.'); setEdit(null) }
@@ -70,7 +73,7 @@ function ChequesRecebidosTab() {
         title={edit?.id ? 'Editar cheque' : 'Novo cheque recebido'} loading={salvar.isPending} onConfirm={onSalvar}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Número"><Input maxLength={30} value={edit?.numero ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, numero: e.target.value }))} /></Field>
-          <Field label="Valor" required><Input type="number" step="0.01" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
+          <Field label="Valor" required><Input inputMode="decimal" placeholder="0,00" value={edit?.valor ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, valor: e.target.value }))} /></Field>
           <Field label="Banco"><AsyncSelect endpoint="/cadastros/bancos" labelField="descricao" value={edit?.banco_id ?? null} valueLabel={labels.banco ?? (edit?.banco_id ? `Banco #${edit.banco_id}` : null)} onChange={(id, o) => { setEdit((s: any) => ({ ...s, banco_id: id })); setLabels((l) => ({ ...l, banco: o?.label ?? null })) }} /></Field>
           <p className="text-sm text-muted-foreground">{edit?.id ? `Situação atual: ${edit.situacao ?? 'não informada'}. Use Mudar situação após salvar.` : 'O cheque será registrado em carteira. O depósito e a compensação são realizados em Mudar situação.'}</p>
           <Field label="Agência"><Input value={edit?.agencia ?? ''} onChange={(e) => setEdit((s: any) => ({ ...s, agencia: e.target.value }))} /></Field>

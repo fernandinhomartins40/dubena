@@ -4,6 +4,7 @@ import { Eye, EyeOff, Wand2 } from 'lucide-react'
 import { CheckboxField } from '@/components/ui'
 import { loginError } from '@/lib/loginError'
 import { useAuth } from '@/lib/auth'
+import { NOME_DA_PLATAFORMA } from '@/lib/marca'
 
 const EMAIL_KEY = 'erpnovo_lembrar_email'
 
@@ -74,10 +75,10 @@ export function LoginPage() {
         <div className="h-1.5 bg-primary" />
         <div className="p-8">
           <div className="mb-7 flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-lg bg-primary text-base font-black text-primary-foreground shadow-md">D</div>
+            <div className="grid size-11 place-items-center rounded-lg bg-primary text-base font-black text-primary-foreground shadow-md" aria-hidden="true">{NOME_DA_PLATAFORMA.charAt(0).toUpperCase()}</div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground">Dubena</h1>
-              <p className="text-xs text-muted-foreground">Gás em Casa</p>
+              <h1 className="text-xl font-bold tracking-tight text-foreground">{NOME_DA_PLATAFORMA}</h1>
+              <p className="text-xs text-muted-foreground">Acesso da revenda</p>
             </div>
           </div>
 

@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\PaginaListagem;
 use App\Http\Controllers\Controller;
 use App\Models\Apoio\Banco;
 use App\Models\Caixa\Conta;
+use App\Models\Caixa\ContaFechamento;
 use App\Models\Caixa\ContaMovimento;
 use App\Models\Empresa;
 use App\Models\Financeiro\FinanceiroParcela;
@@ -80,14 +81,22 @@ class CaixaController extends Controller
     {
         $this->autorizar($request, 'caixa.view');
 
-        $rows = Conta::query()->where('ativo', true)->orderBy('descricao')->get()
-            ->map(fn (Conta $c) => [
-                'id' => $c->id,
-                'descricao' => $c->descricao,
-                'tipo' => $c->tipo,
-                'saldoatual' => (float) $c->saldo_atual,
-                'fechado' => (int) $c->fechado,
-            ]);
+        $contas = Conta::query()->where('ativo', true)->orderBy('descricao')->get();
+        $comAbertura = ContaFechamento::query()->whereIn('conta_id', $contas->pluck('id'))
+            ->where('aberto', true)->pluck('conta_id')->flip();
+
+        // PIE P2-D-09: `fechado=false` sem fechamento aberto é a conta que
+        // nunca teve o caixa aberto pelo sistema (conta nova ou migrada). A
+        // tela a mostrava "Aberto", o Fechar recusava ("Não há caixa aberto")
+        // e não havia Abrir. O estado explícito dá a ela o botão de abrir.
+        $rows = $contas->map(fn (Conta $c) => [
+            'id' => $c->id,
+            'descricao' => $c->descricao,
+            'tipo' => $c->tipo,
+            'saldoatual' => (float) $c->saldo_atual,
+            'fechado' => (int) $c->fechado,
+            'estado' => $c->fechado ? 'FECHADO' : ($comAbertura->has($c->id) ? 'ABERTO' : 'SEM_ABERTURA'),
+        ]);
 
         return response()->json(['data' => $rows]);
     }
@@ -113,13 +122,24 @@ class CaixaController extends Controller
     public function movimentos(Request $request, int $contaId): JsonResponse
     {
         $this->autorizar($request, 'caixa.view');
-        Conta::query()->findOrFail($contaId); // valida escopo
+        $conta = Conta::query()->findOrFail($contaId); // valida escopo
 
-        $query = ContaMovimento::query()->where('conta_id', $contaId)->orderByDesc('datahora');
+        $query = ContaMovimento::query()->where('conta_id', $contaId)->orderByDesc('datahora')->orderByDesc('id');
 
         $this->filtrarPeriodo($request, $query, 'datahora');
 
-        return $this->paginar($request, $query);
+        $resposta = $this->paginar($request, $query);
+        $corpo = $resposta->getData(true);
+
+        // A tela mostra "Saldo atual" e oferece estorno: sem o saldo aqui o
+        // painel exibia "—" sempre; sem `estornado`, ofereceria estornar de
+        // novo um movimento já estornado (o servidor recusa, mas a tela mente).
+        $ids = array_column($corpo['data'] ?? [], 'id');
+        $estornados = $ids === [] ? collect() : ContaMovimento::query()->whereIn('estorno_de_id', $ids)->pluck('estorno_de_id')->flip();
+        $corpo['data'] = array_map(fn (array $m) => $m + ['estornado' => $estornados->has($m['id'])], $corpo['data'] ?? []);
+        $corpo['saldo'] = (float) $conta->saldo_atual;
+
+        return response()->json($corpo);
     }
 
     public function abrir(Request $request, int $contaId): JsonResponse
@@ -151,12 +171,18 @@ class CaixaController extends Controller
     /** POST /caixa/{contaId}/baixar */
     public function baixar(Request $request, int $contaId): JsonResponse
     {
+        // RBAC antes de buscar e validar (PIE R3-F-05); o ABAC, que depende do
+        // valor da parcela, continua depois da validação.
+        $this->autorizar($request, 'financeiro.baixar');
         Conta::query()->findOrFail($contaId);
         $d = $request->validate([
             'parcela_id' => ['required', 'integer', new ExisteNoTenant(FinanceiroParcela::class)],
             'juros' => 'nullable|numeric|gte:0',
             'multa' => 'nullable|numeric|gte:0',
             'desconto' => 'nullable|numeric|gte:0',
+            // Recebimento parcial (P2-D-16): ausente = o total. A regra mora no
+            // CaixaService; aqui só o tipo.
+            'valor_recebido' => 'nullable|numeric|gt:0',
         ]);
 
         // ABAC (A4): baixa é verbo sensível; o limite ABAC aplica sobre o valor da parcela.
@@ -165,7 +191,8 @@ class CaixaController extends Controller
 
         $empresaId = app(TenantContext::class)->empresaId();
         abort_if($empresaId === null, 403, 'Tenant não resolvido.');
-        $mov = $this->service->baixarParcela($contaId, $d['parcela_id'], $empresaId, (float) ($d['juros'] ?? 0), (float) ($d['multa'] ?? 0), (float) ($d['desconto'] ?? 0), $request->user()->id);
+        $mov = $this->service->baixarParcela($contaId, $d['parcela_id'], $empresaId, (float) ($d['juros'] ?? 0), (float) ($d['multa'] ?? 0), (float) ($d['desconto'] ?? 0), $request->user()->id,
+            isset($d['valor_recebido']) ? (float) $d['valor_recebido'] : null);
 
         return response()->json(['data' => $mov], 201);
     }

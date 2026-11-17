@@ -16,13 +16,16 @@ export function PontoTab({ colaboradorId }: { colaboradorId: number }) {
     { key: 'data', header: 'Data', cell: (r) => fmtData(r.data) },
     { key: 'ent', header: 'Entrada', cell: (r) => r.entrada ?? '—' },
     { key: 'sai', header: 'Saída', cell: (r) => r.saida ?? '—' },
+    { key: 'mot', header: 'Motivo do ajuste', cell: (r) => r.motivo_ajuste ?? '—' },
   ]
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end rounded-lg border border-border p-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end rounded-lg border border-border p-4">
         <Field label="Data"><Input type="date" value={f.data} onChange={(e) => setF((x) => ({ ...x, data: e.target.value }))} /></Field>
         <Field label="Entrada"><Input type="time" value={f.entrada ?? ''} onChange={(e) => setF((x) => ({ ...x, entrada: e.target.value }))} /></Field>
         <Field label="Saída"><Input type="time" value={f.saida ?? ''} onChange={(e) => setF((x) => ({ ...x, saida: e.target.value }))} /></Field>
+        {/* Dia já fechado (fora da janela da empresa) só muda com motivo: o servidor recusa sem ele. */}
+        <Field label="Motivo (dia já fechado)"><Input value={f.motivo ?? ''} maxLength={255} onChange={(e) => setF((x) => ({ ...x, motivo: e.target.value }))} /></Field>
         <Button onClick={adicionar} loading={add.isPending}><Plus size={16} /> Registrar</Button>
       </div>
       <DataTable columns={columns} rows={data} loading={isLoading} rowKey={(r) => r.id} empty={<EmptyState icon={<Users />} title="Nenhum registro de ponto" />} />

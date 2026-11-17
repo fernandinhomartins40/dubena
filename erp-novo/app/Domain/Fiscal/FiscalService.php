@@ -328,20 +328,47 @@ class FiscalService
             throw ValidationException::withMessages(['correcao' => 'Correção deve ter ao menos 15 caracteres (regra SEFAZ).']);
         }
 
-        return DB::transaction(function () use ($nota, $correcao) {
+        // PIE R3 (frente B) + PIE-23: o `max + 1` dentro de uma transação SEM
+        // trava deixava duas correções simultâneas lerem o mesmo máximo e mandarem
+        // o MESMO nSeqEvento à SEFAZ; a segunda batia no unique local DEPOIS de a
+        // SEFAZ já ter respondido — evento registrado lá e perdido aqui (500). E a
+        // chamada de rede ficava dentro da transação, segurando conexão e locks.
+        //
+        // Agora: (1) reserva o número sob lock da NOTA, numa transação curta, e
+        // grava a carta como "aguardando"; (2) chama a SEFAZ fora da transação;
+        // (3) grava o desfecho. A segunda correção concorrente espera o lock e
+        // recebe o número seguinte.
+        $carta = DB::transaction(function () use ($nota, $correcao) {
+            NotaFiscal::query()->whereKey($nota->id)->lockForUpdate()->first();
             $sequencia = (int) CartaCorrecao::query()->where('nota_fiscal_id', $nota->id)->max('sequencia') + 1;
-            $resultado = $this->sefaz->cartaCorrecao($nota, $correcao, $sequencia);
 
             return CartaCorrecao::create([
                 'empresa_id' => $nota->empresa_id,
                 'nota_fiscal_id' => $nota->id,
-                'sequencia' => $resultado['sequencia'] ?? $sequencia,
+                'sequencia' => $sequencia,
                 'correcao' => $correcao,
-                'protocolo' => $resultado['protocolo'] ?? null,
-                'registrada' => (bool) ($resultado['registrada'] ?? false),
-                'motivo' => $resultado['motivo'] ?? null,
+                'registrada' => false,
+                'motivo' => 'Aguardando resposta da SEFAZ.',
             ]);
         });
+
+        try {
+            $resultado = $this->sefaz->cartaCorrecao($nota, $correcao, (int) $carta->sequencia);
+        } catch (\Throwable $e) {
+            // Sem resposta, o número volta a ficar livre. Se a SEFAZ chegou a
+            // registrar (timeout depois do envio), a próxima tentativa com o
+            // mesmo número volta como duplicidade — visível, não silenciosa.
+            $carta->delete();
+            throw $e;
+        }
+
+        $carta->update([
+            'protocolo' => $resultado['protocolo'] ?? null,
+            'registrada' => (bool) ($resultado['registrada'] ?? false),
+            'motivo' => $resultado['motivo'] ?? null,
+        ]);
+
+        return $carta->refresh();
     }
 
     /**

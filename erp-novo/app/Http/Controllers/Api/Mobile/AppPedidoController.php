@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Mobile;
 
+use App\Domain\Cobranca\PagamentoOnlineDoPedido;
 use App\Domain\Cobranca\PixService;
 use App\Domain\Logistica\Contracts\TracadorRota;
 use App\Domain\Mobile\PagamentoOnlineService;
@@ -85,18 +86,20 @@ class AppPedidoController extends Controller
     /** POST /app/v1/pedidos/{id}/pagar — pagamento online (cartão). */
     public function pagar(Request $request, int $id): JsonResponse
     {
-        $d = $request->validate([
-            'token' => 'required|string',
-            'parcelas' => 'nullable|integer|min:1|max:12',
-        ]);
-
         // F4 (segurança): mesmo escopo anti-IDOR do gerarPix — o cliente só paga o
         // PRÓPRIO pedido (antes, qualquer cliente da empresa disparava a cobrança).
+        // R3-F-05: o pedido é resolvido ANTES de validar o corpo. Na ordem inversa,
+        // o pedido de outro cliente respondia 422 (e o 422 × 404 dizia que o id existe).
         $cliente = $this->clienteDoUsuario($request);
         $pedido = Pedido::query()
             ->where('empresa_id', $request->user()->empresa_id)
             ->where('cliente_id', $cliente->id)
             ->findOrFail($id);
+
+        $d = $request->validate([
+            'token' => 'required|string',
+            'parcelas' => 'nullable|integer|min:1|max:12',
+        ]);
         $pagamento = $this->pagamento->cobrarPedido($pedido, ['token' => $d['token'], 'parcelas' => (int) ($d['parcelas'] ?? 1)]);
 
         return response()->json([
@@ -165,11 +168,12 @@ class AppPedidoController extends Controller
             ->where('empresa_id', $request->user()->empresa_id)
             ->where('cliente_id', $cliente->id)
             ->with([
-                'situacao:id,descricao,efeito',
+                'situacao:id,descricao,efeito,papel',
                 'itens:id,pedido_id,produto_id,quantidade,preco_unitario',
                 'itens.produto:id,descricao',
                 'entregador:id,name',
                 'veiculo:id,placa,descricao',
+                'condicao:id,pix_online',
             ])
             ->findOrFail($id);
 
@@ -177,6 +181,17 @@ class AppPedidoController extends Controller
             'id' => $pedido->id,
             'situacao' => $pedido->situacao?->descricao,
             'efeito' => $pedido->situacao?->efeito?->value,
+            // PIE R3-E: "em rota" é a marca declarada da situação, não o texto
+            // dela. O app inferia por regex ("saiu|rota|caminho") — a mesma
+            // classe de defeito do P2-C-04 no app do entregador.
+            'situacao_papel' => $pedido->situacao?->papel?->value,
+            // PIE P2-B-04: sem isto o acompanhamento não sabia que o pedido
+            // espera um PIX, e o cliente que fechou a tela do PIX ficava preso
+            // num pedido PENDENTE sem como pagar nem cancelar.
+            'pagamento' => [
+                'pix' => (bool) $pedido->condicao?->pix_online,
+                'pago' => app(PagamentoOnlineDoPedido::class)->confirmado($pedido) !== null,
+            ],
             'valor_venda' => (float) $pedido->valor_venda,
             'datahora' => $pedido->datahora?->toIso8601String(),
             // L6 — quem está trazendo (só nome + veículo; sem dados sensíveis).

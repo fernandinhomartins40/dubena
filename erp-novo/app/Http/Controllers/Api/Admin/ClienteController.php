@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Acesso\CamposPermitidos;
+use App\Domain\Cliente\BuscaCliente;
 use App\Domain\Cliente\ClienteService;
 use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Relatorio\RelatorioService;
@@ -38,14 +39,10 @@ class ClienteController extends Controller
         $clientes = Cliente::query()
             ->tap(fn (Builder $b) => $this->filtrarSituacao($b, $request))
             ->with('desativadoPor:id,name')
-            ->when($q !== '', function (Builder $b) use ($q) {
-                $b->where(function (Builder $w) use ($q) {
-                    $w->where('nome', 'ilike', '%'.$q.'%')
-                        ->orWhere('fantasia', 'ilike', '%'.$q.'%')
-                        ->orWhere('cpf', 'ilike', '%'.$q.'%')
-                        ->orWhere('cnpj', 'ilike', '%'.$q.'%');
-                });
-            })
+            // Mesma busca do "Novo pedido": nome/fantasia sem acento, telefone
+            // e documento (P2-D-05). Antes era `ilike` em nome/fantasia/cpf/
+            // cnpj — "joao" não achava "João" e o telefone não era consultado.
+            ->when($q !== '', fn (Builder $b) => BuscaCliente::aplicar($b, $q))
             ->orderBy('nome')
             ->paginate(20);
 

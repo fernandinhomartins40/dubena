@@ -95,7 +95,8 @@ class CargaFranqueadoController extends Controller
     private function localizar(Request $request, int $id): Colaborador
     {
         return Colaborador::query()
-            ->where('empresa_id', (int) $request->user()->empresa_id)
+            // PIE P2-E-12: empresa ativa, não a empresa-casa (multiempresa levava 404).
+            ->where('empresa_id', app(\App\Domain\Tenant\TenantContext::class)->requireEmpresaId())
             ->findOrFail($id);
     }
 }

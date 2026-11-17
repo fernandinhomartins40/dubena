@@ -1017,7 +1017,13 @@ Route::prefix('legado/nfweb')
 Route::prefix('superadmin')->group(function () {
     Route::post('login', [SuperAdminAuthController::class, 'login'])->middleware('throttle:login');
 
-    Route::middleware(['auth:platform', 'throttle:api', 'plataforma.owner'])->group(function () {
+    // PIE P2-E-06 — cadastro do 2FA: aceita o token de cadastro (só senha).
+    Route::middleware(['auth:platform', 'throttle:login', 'plataforma.owner'])->group(function () {
+        Route::post('2fa/iniciar', [SuperAdminAuthController::class, 'iniciar2fa']);
+        Route::post('2fa/confirmar', [SuperAdminAuthController::class, 'confirmar2fa']);
+    });
+
+    Route::middleware(['auth:platform', 'plataforma.sessao', 'throttle:api', 'plataforma.owner'])->group(function () {
         Route::post('logout', [SuperAdminAuthController::class, 'logout']);
         Route::get('me', [SuperAdminAuthController::class, 'me']);
 

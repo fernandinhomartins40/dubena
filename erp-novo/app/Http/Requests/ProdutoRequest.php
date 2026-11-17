@@ -8,6 +8,7 @@ use App\Models\Produto\Produto;
 use App\Models\Produto\ProdutoClasse;
 use App\Models\Produto\UnidadeMedida;
 use App\Rules\ExisteNoTenant;
+use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,8 +18,15 @@ use Illuminate\Validation\Rule;
  */
 class ProdutoRequest extends FormRequest
 {
+    use AutorizaPorPermissao;
+
     public function authorize(): bool
     {
+        // Autoriza ANTES de validar (PIE R3-F-05): sem isto o usuário sem
+        // permissão recebia 422 com as regras do formulário em vez de 403.
+        // O controller repete a checagem; aqui só antecipa.
+        $this->autorizar($this, $this->isMethod('post') ? 'produto.create' : 'produto.edit');
+
         return true;
     }
 

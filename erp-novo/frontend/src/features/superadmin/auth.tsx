@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { saLogin, saLogout, saMe, getSaToken, type SaAdmin } from './api'
+import { saLogin, saLogout, saMe, getSaToken, setSaToken, type SaAdmin } from './api'
 
 /**
  * Contexto de auth do SuperAdmin (P4) — ISOLADO do AuthProvider de tenant.
@@ -11,6 +11,8 @@ interface SaAuthValue {
   admin: SaAdmin | null
   loading: boolean
   login: (email: string, password: string, otp?: string) => Promise<void>
+  /** Fecha o login depois do cadastro do 2FA (token de operação já emitido). */
+  concluir: (token: string, admin: SaAdmin) => void
   logout: () => Promise<void>
 }
 
@@ -38,6 +40,10 @@ export function SaAuthProvider({ children }: { children: ReactNode }) {
     loading: isLoading,
     login: async (email, password, otp) => {
       const a = await saLogin(email, password, otp)
+      qc.setQueryData(['sa', 'me'], a)
+    },
+    concluir: (token, a) => {
+      setSaToken(token)
       qc.setQueryData(['sa', 'me'], a)
     },
     /**

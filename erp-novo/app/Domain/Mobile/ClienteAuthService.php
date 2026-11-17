@@ -3,6 +3,7 @@
 namespace App\Domain\Mobile;
 
 use App\Domain\Cliente\ClienteService;
+use App\Domain\Identidade\DocumentoFiscal;
 use App\Domain\Identidade\IdentificarOuCriarCliente;
 use App\Domain\Mobile\Contracts\FirebaseVerifier;
 use App\Domain\Tenant\ConexaoDeOwner;
@@ -74,6 +75,15 @@ class ClienteAuthService
             throw ValidationException::withMessages(['telefone' => 'Token sem telefone verificado.']);
         }
 
+        // PIE-35 pelo app: o cadastro do painel já valida o CPF (ClienteRequest),
+        // o do app gravava o que viesse — "123", "111.111.111-11" — e o erro só
+        // aparecia na rejeição da NF-e, com o botijão entregue. Grava só dígitos
+        // (o `XmlNfeBuilder` usa o valor como está). Vazio continua permitido.
+        $cpf = DocumentoFiscal::canonico($dados['cpf'] ?? null);
+        if ($cpf !== null && ! DocumentoFiscal::cpfValido($cpf)) {
+            throw ValidationException::withMessages(['cpf' => 'CPF inválido. Confira os números ou deixe em branco.']);
+        }
+
         $empresaId = (int) $dados['empresa_id'];
 
         $grupoId = (int) Empresa::query()->whereKey($empresaId)->value('grupo_id');
@@ -91,7 +101,7 @@ class ClienteAuthService
             $grupoId,
             [
                 'nome' => $dados['nome'],
-                'cpf' => $dados['cpf'] ?? null,
+                'cpf' => $cpf,
                 'email' => $dados['email'] ?? null,
                 'datanascimento' => $dados['datanascimento'] ?? null,
                 'cliente' => true,

@@ -33,7 +33,7 @@ class ColaboradorTest extends TestCase
         [$user, $empresa] = $this->suporte();
 
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/admin/colaboradores', ['nome' => 'João Entregador', 'cpf' => '12345678900'])
+            ->postJson('/api/admin/colaboradores', ['nome' => 'João Entregador', 'cpf' => '12345678909'])
             ->assertStatus(201)
             ->assertJsonPath('data.nome', 'João Entregador');
 
@@ -41,6 +41,27 @@ class ColaboradorTest extends TestCase
             ->getJson('/api/admin/colaboradores')
             ->assertOk()
             ->assertJsonPath('meta.total', 1);
+    }
+
+    /** PIE R3-G-07: o que o usuário digita com máscara é aceito e gravado só com dígitos. */
+    public function test_cpf_e_cep_com_mascara_sao_aceitos_e_cpf_invalido_e_recusado(): void
+    {
+        [$user] = $this->suporte();
+
+        $id = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/colaboradores', ['nome' => 'Ana', 'cpf' => '123.456.789-09', 'cep' => '85010-000'])
+            ->assertStatus(201)->json('data.id');
+        $this->assertDatabaseHas('colaboradores', ['id' => $id, 'cpf' => '12345678909', 'cep' => '85010000']);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/admin/colaboradores', ['nome' => 'Bia', 'cpf' => '123.456.789-00'])
+            ->assertStatus(422)->assertJsonValidationErrors('cpf');
+
+        // CPF ruim herdado do legado não trava a edição dos outros campos.
+        \Illuminate\Support\Facades\DB::table('colaboradores')->where('id', $id)->update(['cpf' => '11111111111']);
+        $this->actingAs($user, 'sanctum')
+            ->putJson("/api/admin/colaboradores/{$id}", ['nome' => 'Ana Maria', 'cpf' => '111.111.111-11'])
+            ->assertOk();
     }
 
     public function test_familia_adiciona_e_remove(): void
@@ -113,9 +134,9 @@ class ColaboradorTest extends TestCase
         $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/turnos")
             ->assertOk()->assertJsonCount(1, 'data');
 
-        // Ponto
+        // Ponto (do dia: dia fechado exige motivo — ver RhLgpdTrilhaTest)
         $this->actingAs($user, 'sanctum')
-            ->postJson("/api/admin/colaboradores/{$colab->id}/pontos", ['data' => '2026-06-23', 'entrada' => '08:05'])
+            ->postJson("/api/admin/colaboradores/{$colab->id}/pontos", ['data' => now()->toDateString(), 'entrada' => '08:05'])
             ->assertStatus(201);
         $this->actingAs($user, 'sanctum')->getJson("/api/admin/colaboradores/{$colab->id}/pontos")
             ->assertOk()->assertJsonCount(1, 'data');

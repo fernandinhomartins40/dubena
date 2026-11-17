@@ -94,7 +94,10 @@ class AppPerfilController extends Controller
     {
         $d = $request->validate([
             'endereco' => 'required|string|max:255',
-            'numero' => 'nullable|string|max:20',
+            // R3-G-04: `clientes.numero` é varchar(10). Com max:20, "1234 fundos B"
+            // passava na validação e virava 500 no Postgres. (O `numero` de
+            // `cliente_enderecos`, em validarEndereco, é varchar(20) e fica em 20.)
+            'numero' => 'nullable|string|max:10',
             'complemento' => 'nullable|string|max:120',
             'ponto_referencia' => 'nullable|string|max:160',
             'cep' => 'nullable|string|max:12',

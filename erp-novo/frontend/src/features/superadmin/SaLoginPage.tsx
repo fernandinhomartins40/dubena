@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { NOME_DA_PLATAFORMA } from '@/lib/marca'
 import { ShieldCheck } from 'lucide-react'
 import { Button, Input, Field } from '@/components/ui'
 import { loginError } from '@/lib/loginError'
 import { useSaAuth } from './auth'
+import { saConfirmar2fa, saIniciar2fa } from './api'
 
 // Atalho de preenchimento: credencial vem SÓ de env var de build, e só em dev.
 // O gate anterior (`!PROD || VITE_APP_ENV !== 'prod'`) era verdadeiro em
@@ -18,7 +20,7 @@ const MOSTRAR_TESTE = import.meta.env.DEV && !!SA_EMAIL && !!SA_SENHA
  * responde 423 (two_factor_required) → revelamos o campo de código.
  */
 export function SaLoginPage() {
-  const { login } = useSaAuth()
+  const { login, concluir } = useSaAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -26,6 +28,9 @@ export function SaLoginPage() {
   const [precisa2fa, setPrecisa2fa] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
+  // PIE P2-E-06 — cadastro do 2FA obrigatório no primeiro acesso.
+  const [cadastro, setCadastro] = useState<{ token: string; secret: string; uri: string } | null>(null)
+  const [codigos, setCodigos] = useState<{ token: string; admin: Parameters<typeof concluir>[1]; recovery: string[] } | null>(null)
 
   async function entrar(emailArg: string, senhaArg: string, otpArg?: string) {
     setErro(null)
@@ -34,7 +39,16 @@ export function SaLoginPage() {
       await login(emailArg.trim(), senhaArg, otpArg?.trim() || undefined)
       navigate('/superadmin', { replace: true })
     } catch (err: any) {
-      if (err?.response?.status === 423) {
+      const corpo = err?.response?.data
+      if (err?.response?.status === 423 && corpo?.two_factor_setup_required && corpo?.setup_token) {
+        try {
+          const r = await saIniciar2fa(corpo.setup_token)
+          setCadastro({ token: corpo.setup_token, secret: r.secret, uri: r.otpauth_uri })
+          setOtp('')
+        } catch (e2) {
+          setErro(loginError(e2))
+        }
+      } else if (err?.response?.status === 423) {
         setPrecisa2fa(true)
         setErro(precisa2fa ? 'Código inválido. Tente novamente.' : null)
       } else {
@@ -43,6 +57,28 @@ export function SaLoginPage() {
     } finally {
       setCarregando(false)
     }
+  }
+
+  async function confirmarCadastro(e: FormEvent) {
+    e.preventDefault()
+    if (!cadastro) return
+    setErro(null)
+    setCarregando(true)
+    try {
+      const r = await saConfirmar2fa(cadastro.token, otp.trim())
+      setCodigos({ token: r.token, admin: r.admin, recovery: r.recovery_codes })
+      setCadastro(null)
+    } catch (err: any) {
+      setErro(err?.response?.data?.message ?? 'Não foi possível confirmar o código.')
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  function seguir() {
+    if (!codigos) return
+    concluir(codigos.token, codigos.admin)
+    navigate('/superadmin', { replace: true })
   }
 
   async function onSubmit(e: FormEvent) {
@@ -66,7 +102,7 @@ export function SaLoginPage() {
             <ShieldCheck size={22} strokeWidth={2.2} />
           </div>
           <div className="leading-tight">
-            <span className="text-lg font-bold tracking-wide text-white">Dubena</span>
+            <span className="text-lg font-bold tracking-wide text-white">{NOME_DA_PLATAFORMA}</span>
             <p className="text-[11px] uppercase tracking-wider text-sidebar-foreground">SuperAdmin</p>
           </div>
         </div>
@@ -99,6 +135,35 @@ export function SaLoginPage() {
             <p className="text-sm text-muted-foreground">Use sua credencial de administrador da plataforma.</p>
           </div>
 
+          {codigos ? (
+            <div className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-semibold">Guarde os códigos de recuperação</h2>
+              <p className="text-sm text-muted-foreground">
+                Cada código entra uma vez, se você perder o celular. Eles não serão mostrados de novo.
+              </p>
+              <ul aria-label="Códigos de recuperação" className="grid grid-cols-2 gap-2 font-mono text-sm">
+                {codigos.recovery.map((c) => <li key={c} className="rounded bg-secondary px-2 py-1 text-center">{c}</li>)}
+              </ul>
+              <Button type="button" className="w-full" onClick={seguir}>Já guardei, continuar</Button>
+            </div>
+          ) : cadastro ? (
+            <form aria-busy={carregando} onSubmit={confirmarCadastro} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-semibold">Ative a verificação em duas etapas</h2>
+              <p className="text-sm text-muted-foreground">
+                Este acesso enxerga todas as revendas, por isso exige um segundo fator. No app autenticador
+                (Google Authenticator, Microsoft Authenticator…), adicione uma conta com a chave abaixo.
+              </p>
+              <code aria-label="Chave do autenticador" className="block break-all rounded bg-secondary px-3 py-2 font-mono text-sm tracking-widest">{cadastro.secret}</code>
+              <a href={cadastro.uri} className="block text-sm text-primary underline">Abrir no app autenticador deste aparelho</a>
+              <Field label="Código de 6 dígitos do app" required>
+                <Input autoFocus required inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" disabled={carregando} />
+              </Field>
+              {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+              <Button type="submit" className="w-full" disabled={carregando}>
+                {carregando ? 'Confirmando…' : 'Confirmar e ativar'}
+              </Button>
+            </form>
+          ) : (
           <form aria-busy={carregando} onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
           <Field label="E-mail" required>
             <Input type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} disabled={carregando} />
@@ -130,6 +195,7 @@ export function SaLoginPage() {
             </div>
           )}
           </form>
+          )}
         </div>
       </div>
     </div>

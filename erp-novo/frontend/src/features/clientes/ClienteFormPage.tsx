@@ -49,6 +49,10 @@ export function ClienteFormPage() {
   })
   const [labels, setLabels] = useState<Record<string, string | null>>({})
   const [cepAviso, setCepAviso] = useState<string | null>(null)
+  // P2-D-10: no disk-gás o primeiro dado é o telefone de quem liga, e o
+  // servidor exige "telefone ou endereço" — mas a aba de contatos só existe
+  // depois de salvar. No cadastro novo o telefone vai junto, na mesma gravação.
+  const [telefone, setTelefone] = useState('')
 
   /**
    * CEP primeiro: com 8 dígitos, a própria base devolve cidade, bairro e rua
@@ -84,7 +88,10 @@ export function ClienteFormPage() {
 
   async function onSubmit() {
     try {
-      const salvo = await submit((data) => salvar.mutateAsync({ id: editId, data }))
+      const salvo = await submit((data) => salvar.mutateAsync({
+        id: editId,
+        data: !editId && telefone.trim() ? { ...data, telefones: [{ telefone: telefone.trim() }] } : data,
+      }))
       toast.success(editId ? 'Cliente atualizado.' : 'Cliente cadastrado.')
       navigate(`/clientes/${salvo.id}`)
     } catch (e: any) {
@@ -155,6 +162,11 @@ export function ClienteFormPage() {
               <Field label={ehJuridica ? 'Razão Social' : 'Nome'} required error={erros.nome}>
                 <Input value={form.nome} error={!!erros.nome} onChange={(e) => campo('nome', e.target.value)} />
               </Field>
+              {!editId && (
+                <Field label="Telefone" error={erros['telefones.0.telefone'] ?? erros.telefones} hint="Informe o telefone ou o endereço (cidade e número).">
+                  <Input type="tel" inputMode="tel" autoComplete="off" value={telefone} placeholder="(42) 99999-0000" onChange={(e) => setTelefone(e.target.value)} />
+                </Field>
+              )}
               {ehJuridica && <Field label="Fantasia / Apelido" error={erros.fantasia}><Input value={form.fantasia ?? ''} onChange={(e) => campo('fantasia', e.target.value)} /></Field>}
               {!ehJuridica && <Field label="Nascimento" error={erros.datanascimento}><Input type="date" value={form.datanascimento ?? ''} onChange={(e) => campo('datanascimento', e.target.value)} /></Field>}
               {!ehJuridica && <Field label="Sexo (F/M)" error={erros.sexo}><Input maxLength={1} value={form.sexo ?? ''} onChange={(e) => campo('sexo', e.target.value.toUpperCase())} /></Field>}

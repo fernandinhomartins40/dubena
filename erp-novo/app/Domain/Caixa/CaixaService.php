@@ -2,8 +2,12 @@
 
 namespace App\Domain\Caixa;
 
+use App\Domain\Cobranca\SituacaoBoleto;
+use App\Domain\Cobranca\SituacaoPix;
 use App\Domain\Financeiro\BaixaService;
 use App\Models\Caixa\Conta;
+use App\Models\Cobranca\Boleto;
+use App\Models\Cobranca\PixCobranca;
 use App\Models\Caixa\ContaFechamento;
 use App\Models\Caixa\ContaMovimento;
 use App\Models\Financeiro\Financeiro;
@@ -146,8 +150,9 @@ class CaixaService
         float $multa = 0,
         float $desconto = 0,
         ?int $userId = null,
+        ?float $valorRecebido = null,
     ): ContaMovimento {
-        return DB::transaction(function () use ($contaId, $parcelaId, $empresaId, $juros, $multa, $desconto, $userId) {
+        return DB::transaction(function () use ($contaId, $parcelaId, $empresaId, $juros, $multa, $desconto, $userId, $valorRecebido) {
             $parcela = FinanceiroParcela::query()->with('financeiro')->lockForUpdate()->findOrFail($parcelaId);
 
             // F00.5 — revalidação de tenant: `financeiroparcelas` não tem empresa_id
@@ -174,6 +179,9 @@ class CaixaService
             if ($liquido < 0) {
                 throw ValidationException::withMessages(['desconto' => 'Desconto maior que o valor da parcela com juros e multa.']);
             }
+            if ($valorRecebido !== null) {
+                $liquido = $this->separarRecebimentoParcial($parcela, $liquido, round($valorRecebido, 2), $juros, $multa, $desconto);
+            }
             // Recebimento entra (+) no caixa; pagamento sai (-).
             $valorAssinado = $pagarReceber === 'R' ? $liquido : -$liquido;
 
@@ -193,6 +201,71 @@ class CaixaService
 
             return $mov;
         });
+    }
+
+    /**
+     * Recebimento PARCIAL (PIE P2-D-16): o cliente pagou só parte. Mesmo modelo
+     * do legado (`CaixaController::baixar` com `parcial`): a parcela se divide
+     * em duas — a parte paga é baixada e o restante nasce como parcela nova do
+     * MESMO título, com o mesmo vencimento. Σ parcelas do título não muda, e o
+     * estorno da parte paga reabre só ela (o total em aberto volta ao original).
+     *
+     * Juros e multa são quitados primeiro (Código Civil, art. 354: havendo
+     * capital e juros, o pagamento imputa-se primeiro nos juros); o desconto
+     * concedido vale para este recebimento. O que sobra abate o principal.
+     *
+     * Fail-closed: com boleto registrado ou PIX ativo na parcela, recusa — o
+     * banco ainda pode liquidar o valor cheio, e a baixa externa cairia numa
+     * parcela já reduzida (recebimento em dobro que só a conciliação acharia).
+     *
+     * Chamado já dentro da transação e com a parcela travada. Devolve o
+     * líquido que entra no caixa.
+     */
+    private function separarRecebimentoParcial(
+        FinanceiroParcela $parcela,
+        float $liquido,
+        float $recebido,
+        float $juros,
+        float $multa,
+        float $desconto,
+    ): float {
+        if ($recebido <= 0) {
+            throw ValidationException::withMessages(['valor_recebido' => 'O valor recebido precisa ser maior que zero.']);
+        }
+        if ($recebido > $liquido) {
+            throw ValidationException::withMessages(['valor_recebido' => 'O valor recebido é maior que o total da parcela com juros, multa e desconto.']);
+        }
+        if ($recebido === $liquido) {
+            return $liquido; // é o integral
+        }
+
+        $principalPago = round($recebido - $juros - $multa + $desconto, 2);
+        if ($principalPago <= 0) {
+            throw ValidationException::withMessages(['valor_recebido' => 'O valor recebido não cobre os juros e a multa: aumente o valor ou retire os encargos.']);
+        }
+
+        $cobrancaViva = Boleto::withoutTenant()->where('financeiroparcela_id', $parcela->id)
+            ->whereIn('situacao', [SituacaoBoleto::PENDENTE->value, SituacaoBoleto::REGISTRADO->value])->exists()
+            || PixCobranca::withoutTenant()->where('financeiroparcela_id', $parcela->id)
+                ->where('situacao', SituacaoPix::ATIVA->value)->exists();
+        if ($cobrancaViva) {
+            throw ValidationException::withMessages(['valor_recebido' => 'Esta parcela tem boleto ou PIX em aberto no banco: receba o valor integral ou cancele a cobrança antes do recebimento parcial.']);
+        }
+
+        $restante = round((float) $parcela->valor - $principalPago, 2);
+        $numero = (int) FinanceiroParcela::withoutTenant()->where('financeiro_id', $parcela->financeiro_id)->max('numero') + 1;
+
+        FinanceiroParcela::create([
+            'tenant_account_id' => $parcela->tenant_account_id,
+            'financeiro_id' => $parcela->financeiro_id,
+            'numero' => $numero,
+            'vencimento' => $parcela->vencimento->toDateString(),
+            'valor' => $restante,
+            'desconto' => 0,
+        ]);
+        $parcela->update(['valor' => $principalPago]);
+
+        return $recebido;
     }
 
     /**

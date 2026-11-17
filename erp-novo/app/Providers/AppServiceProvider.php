@@ -320,6 +320,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(120)
             ->by($r->user()?->id ? 'u:'.$r->user()->id : 'ip:'.$r->ip()));
 
+        // PIE R3-C: conta desativada perde o token na hora, não em 24 h.
+        \App\Domain\Seguranca\TokenDeContaAtiva::registrar();
+
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(10)
             ->by('login:'.$r->ip()));
 

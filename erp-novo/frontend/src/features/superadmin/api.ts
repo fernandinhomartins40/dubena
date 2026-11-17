@@ -46,7 +46,8 @@ export async function ensureSaCsrf(): Promise<void> {
 
 saApi.interceptors.request.use((config) => {
   const token = getSaToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  // Um Authorization explícito (token de cadastro do 2FA) não é sobrescrito.
+  if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
@@ -138,6 +139,20 @@ export async function saLogin(email: string, password: string, otp?: string): Pr
   const { data } = await saApi.post('/login', { email, password, ...(otp ? { otp } : {}) })
   setSaToken(data.token)
   return data.admin
+}
+/**
+ * PIE P2-E-06 — cadastro do 2FA obrigatório. O login devolve 423 com um
+ * `setup_token` que só abre estas duas rotas; o token de operação sai na
+ * confirmação. Ele vai no header desta chamada e NÃO é guardado: se a aba
+ * fechar no meio, o próximo login recomeça o cadastro.
+ */
+export async function saIniciar2fa(setupToken: string): Promise<{ secret: string; otpauth_uri: string }> {
+  const { data } = await saApi.post('/2fa/iniciar', {}, { headers: { Authorization: `Bearer ${setupToken}` } })
+  return data
+}
+export async function saConfirmar2fa(setupToken: string, otp: string): Promise<{ token: string; admin: SaAdmin; recovery_codes: string[] }> {
+  const { data } = await saApi.post('/2fa/confirmar', { otp }, { headers: { Authorization: `Bearer ${setupToken}` } })
+  return data
 }
 export async function saLogout(): Promise<void> {
   try { await saApi.post('/logout') } finally { setSaToken(null) }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Organizacao\Departamento;
 use App\Models\Organizacao\SetorOrg;
 use App\Models\Organizacao\Unidade;
+use App\Models\Rh\Colaborador;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -228,6 +229,9 @@ class UsuarioController extends Controller
             'email' => $usuario->email,
             'ativo' => (bool) $usuario->ativo,
             'support' => (bool) $usuario->support,
+            // PIE R3-G-01: o app de campo só entra com colaborador ATIVO ligado
+            // ao usuário. A tela avisa quem tem papel Entregador e não tem.
+            'colaborador' => Colaborador::query()->where('user_id', $usuario->id)->where('ativo', true)->value('nome'),
             'papeis' => $usuario->roles->map(fn (Role $r) => [
                 'id' => $r->id,
                 'nome' => $r->nome,

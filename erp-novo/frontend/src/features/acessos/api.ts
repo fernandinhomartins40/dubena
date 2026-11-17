@@ -58,6 +58,8 @@ export interface Usuario {
   ativo: boolean
   support: boolean
   papeis: UsuarioPapel[]
+  /** Colaborador ATIVO ligado (R3-G-01): sem ele o app de campo recusa o login. */
+  colaborador?: string | null
 }
 
 export const useUsuarios = () =>

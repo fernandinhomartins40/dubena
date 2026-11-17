@@ -51,12 +51,16 @@ class CatalogoMobileService
         return CondicaoPagamento::query()
             ->where('grupo_id', $grupoId)->where('ativo', true)
             ->orderBy('descricao')
-            ->get(['id', 'descricao', 'num_parcelas', 'a_vista'])
+            ->get(['id', 'descricao', 'num_parcelas', 'a_vista', 'pix_online'])
             ->map(fn (CondicaoPagamento $c) => [
                 'id' => $c->id,
                 'descricao' => $c->descricao,
                 'num_parcelas' => (int) $c->num_parcelas,
                 'a_vista' => (bool) $c->a_vista,
+                // Resíduo de R2-02: o app gerava PIX depois de TODO pedido e
+                // tratava a recusa como "pagamento na entrega". Com a marca, ele
+                // só abre a tela do PIX quando a condição é PIX.
+                'pix_online' => (bool) $c->pix_online,
             ])->all();
     }
 

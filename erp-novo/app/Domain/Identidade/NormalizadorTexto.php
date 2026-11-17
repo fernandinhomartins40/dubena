@@ -38,6 +38,22 @@ final class NormalizadorTexto
      */
     private const PARTICULAS = ['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'du', 'del', 'la'];
 
+    /**
+     * A mesma tabela de acentos, para quem precisa reproduzi-la FORA do PHP.
+     *
+     * A busca de cliente sem acento (P2-D-05) roda no Postgres por uma função
+     * SQL indexada, e o termo digitado é normalizado aqui. Se as duas tabelas
+     * divergirem, "joão" vira "joao" de um lado e "jo o" do outro e a busca
+     * não acha nada — por isso a função é gerada a partir desta lista, e não
+     * escrita à mão.
+     *
+     * @return array<string, string>
+     */
+    public static function tabelaAcentos(): array
+    {
+        return self::ACENTOS;
+    }
+
     /** Minúsculas, sem acento, sem pontuação, espaços colapsados. */
     public static function basico(?string $texto): string
     {

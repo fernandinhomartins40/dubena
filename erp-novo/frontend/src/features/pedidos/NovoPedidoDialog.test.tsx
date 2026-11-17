@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
-import { NovoPedidoDialog } from './NovoPedidoDialog'
+import { NovoPedidoDialog, quantidade } from './NovoPedidoDialog'
 
 vi.mock('@/lib/auth', () => ({ useAuth: () => ({ can: () => true }) }))
 
@@ -86,4 +86,62 @@ it('sem itens, diz o que falta e não envia', async () => {
   await user.click(within(dialogo).getByRole('button', { name: 'Criar pedido' }))
   expect(post).not.toHaveBeenCalled()
   expect(within(dialogo).getByText('Adicione ao menos um item.')).toBeInTheDocument()
+})
+
+// ---- Rodada 3 (Agente A) ----------------------------------------------------
+
+it('R2-09: item com quantidade 0 bloqueia e diz qual item, em vez de sumir do pedido', async () => {
+  const post = montar()
+  const user = userEvent.setup()
+  const dialogo = await escolherCliente(user)
+  await user.click(await within(dialogo).findByRole('button', { name: /Repetir último pedido/ }))
+  const qtd = within(dialogo).getByRole('textbox', { name: /Qtd/ })
+  await user.clear(qtd); await user.type(qtd, '0')
+  await user.click(within(dialogo).getByRole('button', { name: 'Criar pedido' }))
+  expect(post).not.toHaveBeenCalled()
+  expect(within(dialogo).getByText('a quantidade precisa ser maior que zero')).toBeInTheDocument()
+})
+
+it('P2-D-12: "1e3" não vira mil botijões; "1,5" vai como 1.5 e quem decide a fração é o servidor', async () => {
+  expect(quantidade('1e3')).toBeNull()
+  expect(quantidade('-2')).toBeNull()
+  expect(quantidade('abc')).toBeNull()
+  expect(quantidade('1,5')).toBe(1.5)
+  expect(quantidade(' 2 ')).toBe(2)
+})
+
+it('R2-10: Esc com o pedido montado pergunta antes de descartar', async () => {
+  montar()
+  const user = userEvent.setup()
+  const dialogo = await escolherCliente(user)
+  await within(dialogo).findByText(/Rua das Flores, 45/)
+  await user.keyboard('{Escape}')
+  expect(await screen.findByRole('dialog', { name: 'Descartar este pedido?' })).toBeInTheDocument()
+  // "Cancelar" na confirmação devolve ao pedido, com o cliente preservado.
+  await user.click(within(screen.getByRole('dialog', { name: 'Descartar este pedido?' })).getByRole('button', { name: 'Cancelar' }))
+  expect(screen.getByRole('dialog', { name: 'Novo pedido' })).toHaveTextContent('Joana')
+})
+
+it('P2-D-15: Enter na busca escolhe o primeiro resultado, sem mouse', async () => {
+  montar()
+  const user = userEvent.setup()
+  const dialogo = await screen.findByRole('dialog')
+  await user.click(within(dialogo).getByRole('button', { name: /^Cliente/ }))
+  await screen.findByRole('button', { name: 'Joana' })
+  await user.keyboard('{Enter}')
+  expect(await within(dialogo).findByText(/Rua das Flores, 45/)).toBeInTheDocument()
+})
+
+it('P2-A-13: cadastra o cliente novo sem sair do pedido e já o escolhe', async () => {
+  const post = montar()
+  post.mockResolvedValueOnce({ status: 201, data: { data: { id: 88, nome: 'Carlos Novo' } } } as never)
+  const user = userEvent.setup()
+  const dialogo = await screen.findByRole('dialog')
+  await user.click(within(dialogo).getByRole('button', { name: /Cadastrar cliente novo/ }))
+  const form = await screen.findByRole('dialog', { name: 'Cliente novo' })
+  await user.type(within(form).getByRole('textbox', { name: /Nome/ }), 'Carlos Novo')
+  await user.type(within(form).getByRole('textbox', { name: /Telefone/ }), '(42) 99123-4567')
+  await user.click(within(form).getByRole('button', { name: 'Cadastrar e usar no pedido' }))
+  await waitFor(() => expect(post).toHaveBeenCalledWith('/clientes', { nome: 'Carlos Novo', telefones: [{ telefone: '(42) 99123-4567' }] }))
+  expect(await screen.findByRole('dialog', { name: 'Novo pedido' })).toHaveTextContent('Carlos Novo')
 })

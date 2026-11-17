@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { apiPrefix, ensureCsrf, setToken, getToken, TOKEN_KEY } from './api'
+import { apiPrefix, ensureCsrf, setToken, getToken, reautenticar, TOKEN_KEY } from './api'
 import { can as canFn, canField as canFieldFn, hasFeature as hasFeatureFn } from './rbac'
 
 export interface AuthUser {
@@ -54,6 +54,11 @@ export function normalizarMe(data: any): AuthUser {
     is_support: Boolean(u.support ?? u.is_support ?? false),
     roles: u.roles ?? [],
     permissions: u.permissions ?? [],
+    // PIE P2-A-04: o backend sempre mandou os recursos contratados, mas eram
+    // descartados aqui — `hasFeature` via `undefined` e liberava tudo, e o menu
+    // mostrava módulo que a API devolve 402. Licença desligada no servidor
+    // (`licenca_ativa: false`) = sem restrição, como a API.
+    features: u.licenca_ativa !== false && Array.isArray(u.features) ? u.features : undefined,
   }
 }
 
@@ -63,16 +68,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: user, isLoading } = useQuery<AuthUser | null>({
     queryKey: ['me'],
     queryFn: async () => {
+      const buscar = async () => normalizarMe((await axios.get(authUrl('/me'), {
+        withCredentials: true,
+        headers: {
+          Accept: 'application/json',
+          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        },
+      })).data)
       try {
-        const { data } = await axios.get(authUrl('/me'), {
-          withCredentials: true,
-          headers: {
-            Accept: 'application/json',
-            ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-          },
-        })
-        return normalizarMe(data)
-      } catch {
+        return await buscar()
+      } catch (err: any) {
+        // PIE-33: token vencido com a tela aberta (o /me revalida ao focar a
+        // janela). Devolver null aqui mandava ao login e descartava o que
+        // estava digitado; com o diálogo montado, pede a senha e segue.
+        if (err?.response?.status === 401 && getToken()) {
+          try {
+            await reautenticar()
+            return await buscar()
+          } catch { /* desistiu: cai no "não logado" */ }
+        }
         return null // 401 → não logado
       }
     },

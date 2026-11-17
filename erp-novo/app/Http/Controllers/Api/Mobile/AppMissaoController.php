@@ -225,7 +225,8 @@ class AppMissaoController extends Controller
         $d = $request->validate([
             'nome' => 'required|string|max:160',
             'endereco' => 'nullable|string|max:255',
-            'numero' => 'nullable|string|max:20',
+            // PIE R3-G-04: mesmo contrato de `clientes.numero` varchar(10).
+            'numero' => 'nullable|string|max:10',
             'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],
             'telefone' => 'nullable|string|max:30',
             'latitude' => 'nullable|numeric|between:-90,90',

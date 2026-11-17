@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Hash;
  * Seeder de bootstrap do erp-novo (idempotente) — roda no deploy.
  *
  * O banco novo nasce vazio; sem um usuário não há login na SPA. Cria um grupo +
- * empresa-matriz + usuário admin (support = bypass de RBAC). Credenciais via env
+ * empresa-matriz + usuário admin. Credenciais via env
  * (ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD) — obrigatórias em produção, geradas
  * fora dela (ver ResolveSenhaSeed).
  *
@@ -45,7 +45,10 @@ class DeployAdminSeeder extends Seeder
         $admin->name = $admin->name ?: 'Administrador';
         $admin->empresa_id = $empresa->id;
         $admin->grupo_id = $grupo->id;
-        $admin->support = true;   // bypass de RBAC (acesso total)
+        // `support` só habilita pedir break-glass (F2-05); o acesso do dia a dia
+        // vem do papel Administrador, que o RbacSeeder atribui logo depois —
+        // os papéis ainda não existem neste ponto do deploy.
+        $admin->support = true;
         $admin->ativo = true;
         // Só define a senha ao CRIAR (não sobrescreve uma trocada manualmente).
         if (! $admin->exists) {

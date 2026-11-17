@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Domain\Apoio\CadastroSlugs;
+use App\Domain\Cliente\BuscaCliente;
 use App\Domain\Estoque\TipoLocalEstoque;
+use App\Domain\Identidade\NormalizadorTexto;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -23,10 +25,23 @@ class LookupController extends Controller
     use AutorizaPorPermissao;
 
     /**
-     * Telefone sem máscara, em SQL portátil (Postgres e sqlite da suíte —
-     * `regexp_replace` não existe no sqlite).
+     * Lookups de tabela PEQUENA (catálogo da revenda) filtrados sem acento em
+     * memória: "botijao" tem de achar "Botijão P13" (P2-D-05), e estas tabelas
+     * têm dezenas de linhas — não justificam índice de expressão. O valor é o
+     * teto de linhas lidas antes de filtrar. Clientes têm busca própria e
+     * indexada (`BuscaCliente`); tabelas grandes (ruas, bairros) seguem no
+     * `LIKE`.
+     *
+     * @var array<string, int>
      */
-    private const TELEFONE_SO_DIGITOS = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(telefone, '(', ''), ')', ''), '-', ''), ' ', ''), '.', ''), '+', '')";
+    private const FILTRO_EM_MEMORIA = [
+        'produtos' => 2000,
+        'produtos-vasilhame' => 2000,
+        'condicoes-pagamento' => 500,
+        'pedido-operacoes' => 500,
+        'pedido-situacoes' => 500,
+        'setores' => 2000,
+    ];
 
     /**
      * Registry: slug => [tabela, coluna_label, escopo('grupo'|'empresa'|null), where_extra].
@@ -204,23 +219,25 @@ class LookupController extends Controller
                 )),
             )
             ->when(Schema::hasColumn($tabela, 'ativo'), fn ($b) => $b->where('ativo', true))
-            ->when($q !== '', fn ($b) => $b->where(function ($w) use ($q, $colLabel, $tabela) {
-                $w->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']);
-
-                // PIE R2-01: o campo do "Novo pedido" diz "nome ou telefone",
-                // e o atendente de disk-gás busca pelo número de quem ligou —
-                // mas só o nome era consultado. O telefone é gravado formatado
-                // ("(42) 99888-7766"), então compara só os dígitos. A partir de
-                // 4 dígitos, para não varrer a tabela com um "4".
-                $digitos = preg_replace('/\D/', '', $q);
-                if ($tabela === 'clientes' && strlen($digitos) >= 4) {
-                    $w->orWhereIn('id', DB::table('clientetelefones')->select('cliente_id')
-                        ->whereRaw(self::TELEFONE_SO_DIGITOS.' LIKE ?', ['%'.$digitos.'%']));
-                }
-            }))
+            // PIE R2-01 + P2-D-05: o campo do "Novo pedido" diz "nome ou
+            // telefone", e o atendente busca pelo número de quem ligou e
+            // digita o nome sem acento. A busca de cliente é a mesma da
+            // listagem (`BuscaCliente`): nome/fantasia sem acento, dígitos do
+            // telefone e documento.
+            ->when($q !== '' && $tabela === 'clientes', fn ($b) => BuscaCliente::aplicar($b, $q))
+            ->when(
+                $q !== '' && $tabela !== 'clientes' && ! isset(self::FILTRO_EM_MEMORIA[$tipo]),
+                fn ($b) => $b->whereRaw("LOWER({$colLabel}) LIKE ?", ['%'.mb_strtolower($q).'%']),
+            )
             ->orderBy($colLabel)
-            ->limit(50)
+            ->limit($q !== '' && isset(self::FILTRO_EM_MEMORIA[$tipo]) ? self::FILTRO_EM_MEMORIA[$tipo] : 50)
             ->get(['id', DB::raw("{$colLabel} as label")]);
+
+        if ($q !== '' && isset(self::FILTRO_EM_MEMORIA[$tipo])) {
+            $termo = NormalizadorTexto::basico($q);
+            $rows = $rows->filter(fn ($r) => str_contains(NormalizadorTexto::basico((string) $r->label), $termo))
+                ->take(50)->values();
+        }
 
         return response()->json(['data' => $rows]);
     }

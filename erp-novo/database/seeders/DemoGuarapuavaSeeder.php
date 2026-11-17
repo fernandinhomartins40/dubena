@@ -556,8 +556,15 @@ class DemoGuarapuavaSeeder extends Seeder
             // e o seeder ficou para tras — quebrava com ArgumentCountError.
             $svc->abrir($conta->id, (int) $this->empresa->id);
         }
-        // Conta bancária adicional
-        Conta::firstOrCreate(['empresa_id' => $this->empresa->id, 'descricao' => 'Banco - Conta Movimento'], ['grupo_id' => $this->grupoId, 'tipo' => 'banco', 'saldo_inicial' => 15000, 'saldo_atual' => 15000, 'ativo' => true]);
+        // Conta bancária adicional. Pelo `criarConta`, como a do caixa: gravar
+        // `saldo_atual` direto deixava o saldo sem movimento que o explique, e
+        // `financeiro:conferir` acusava a demo (PIE R3-B-10).
+        if (! Conta::query()->where('empresa_id', $this->empresa->id)->where('descricao', 'Banco - Conta Movimento')->exists()) {
+            $svc->criarConta([
+                'empresa_id' => $this->empresa->id, 'grupo_id' => $this->grupoId,
+                'descricao' => 'Banco - Conta Movimento', 'tipo' => 'banco', 'saldo_inicial' => 15000.00,
+            ]);
+        }
 
         // Baixa ~80 parcelas a receber (entra no caixa).
         FinanceiroParcela::query()

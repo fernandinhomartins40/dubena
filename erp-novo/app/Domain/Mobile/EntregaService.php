@@ -117,26 +117,61 @@ class EntregaService
             throw ValidationException::withMessages(['comprovacao' => 'Envie foto ou assinatura como comprovação.']);
         }
 
-        return DB::transaction(function () use ($pedido, $entregadorUserId, $dados, $foto, $assinatura) {
-            $comprovacao = PedidoComprovacao::create([
-                'pedido_id' => $pedido->id,
-                'entregador_user_id' => $entregadorUserId,
-                'recebido_por' => $dados['recebido_por'] ?? null,
-                'foto_path' => $foto ? $this->guardar($pedido, $foto, 'comprovacoes') : null,
-                'assinatura_path' => $assinatura ? $this->guardar($pedido, $assinatura, 'assinaturas') : null,
-                'latitude' => $dados['latitude'] ?? null,
-                'longitude' => $dados['longitude'] ?? null,
-            ]);
+        // Caminhos gravados nesta tentativa: o disco não participa da transação,
+        // então quem desfaz o arquivo quando o banco desfaz a linha somos nós.
+        $gravados = [];
 
-            // Move para a 1ª situação CONCLUÍDA do grupo (reusa a máquina de estados).
-            $concluida = $this->situacaoPorEfeito($pedido->grupo_id, EfeitoPedido::CONCLUIDO);
-            // PIE R3-10: só conclui o que ainda está em aberto — um pedido que
-            // o cliente cancelou não volta a CONCLUIDO pela mão do entregador.
-            // A exceção desfaz a comprovação junto (mesma transação).
-            $this->pedidos->mudarSituacao($pedido, $concluida->id, $entregadorUserId, [EfeitoPedido::PENDENTE]);
+        try {
+            return DB::transaction(function () use ($pedido, $entregadorUserId, $dados, $foto, $assinatura, &$gravados) {
+                // PIE P2-C-05: o app reenvia a conclusão quando o 1º upload estoura
+                // o tempo — e o 1º, muitas vezes, JÁ gravou. Antes o reenvio dava
+                // 422 ("o pedido mudou de situação") e o entregador achava que a
+                // entrega não estava registrada. Agora, se ESTE entregador já
+                // concluiu este pedido, devolve a comprovação que existe — sem
+                // gravar arquivo novo. Conferido sob lock: dois reenvios juntos
+                // não passam os dois pela checagem.
+                $atual = Pedido::query()->with('situacao:id,efeito')->lockForUpdate()->findOrFail($pedido->id);
+                if ($atual->situacao?->efeito === EfeitoPedido::CONCLUIDO) {
+                    $existente = PedidoComprovacao::query()
+                        ->where('pedido_id', $pedido->id)
+                        ->where('entregador_user_id', $entregadorUserId)
+                        ->orderByDesc('id')
+                        ->first();
+                    if ($existente !== null) {
+                        return $existente;
+                    }
+                }
 
-            return $comprovacao;
-        });
+                $fotoPath = $foto ? $gravados[] = $this->guardar($pedido, $foto, 'comprovacoes') : null;
+                $assinaturaPath = $assinatura ? $gravados[] = $this->guardar($pedido, $assinatura, 'assinaturas') : null;
+
+                $comprovacao = PedidoComprovacao::create([
+                    'pedido_id' => $pedido->id,
+                    'entregador_user_id' => $entregadorUserId,
+                    'recebido_por' => $dados['recebido_por'] ?? null,
+                    'foto_path' => $fotoPath,
+                    'assinatura_path' => $assinaturaPath,
+                    'latitude' => $dados['latitude'] ?? null,
+                    'longitude' => $dados['longitude'] ?? null,
+                ]);
+
+                // Move para a 1ª situação CONCLUÍDA do grupo (reusa a máquina de estados).
+                $concluida = $this->situacaoPorEfeito($pedido->grupo_id, EfeitoPedido::CONCLUIDO);
+                // PIE R3-10: só conclui o que ainda está em aberto — um pedido que
+                // o cliente cancelou não volta a CONCLUIDO pela mão do entregador.
+                // A exceção desfaz a comprovação junto (mesma transação).
+                $this->pedidos->mudarSituacao($pedido, $concluida->id, $entregadorUserId, [EfeitoPedido::PENDENTE]);
+
+                return $comprovacao;
+            });
+        } catch (\Throwable $e) {
+            // A linha foi desfeita; o arquivo não. Sem isto, cada recusa deixava
+            // uma foto de cliente órfã no disco (dado pessoal sem dono — LGPD).
+            if ($gravados !== []) {
+                Storage::disk(self::DISCO)->delete($gravados);
+            }
+            throw $e;
+        }
     }
 
     /**

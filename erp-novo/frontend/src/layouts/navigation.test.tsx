@@ -43,11 +43,11 @@ describe('Indicador de item ativo', () => {
 const MENU_PRESERVADO = [
   '/ - -', '/acessos usuario.view -', '/alcadas venda.alcada -', '/alertas alerta.view -', '/auditoria auditoria.view -',
   '/bens bem.view -', '/cartoes cartao.view -', '/central logistica.view -', '/central-vendas venda.view -',
-  '/checklists checklist.view -', '/clientes cliente.view -', '/clientes/revisoes cliente.edit -', '/colaboradores colaborador.view -',
-  '/comodatos comodato.view -', '/configuracoes grupo.view -', '/convenios convenio.view -', '/cupons-fiscais cupomfiscal.view -',
-  '/documentos documento.view -', '/empresas empresa.view -', '/estoque estoque.view -', '/financeiro financeiro.view -', '/fiscal fiscal.view -',
-  '/gas-do-povo gasdopovo.view -', '/geografico cliente.view -', '/mcmm mcmm.view -', '/metas meta.view -', '/missoes missao.view -',
-  '/monitora monitora.view monitora', '/pedidos pedido.view -', '/pos-venda posvenda.view -', '/produtos produto.view -',
+  '/checklists checklist.view crm', '/clientes cliente.view -', '/clientes/revisoes cliente.edit -', '/colaboradores colaborador.view -',
+  '/comodatos comodato.view -', '/configuracoes grupo.view -', '/convenios convenio.view -', '/cupons-fiscais cupomfiscal.view nfce',
+  '/documentos documento.view -', '/empresas empresa.view -', '/estoque estoque.view -', '/financeiro financeiro.view -', '/fiscal fiscal.view nfce',
+  '/gas-do-povo gasdopovo.view -', '/geografico cliente.view -', '/mcmm mcmm.view -', '/metas meta.view crm', '/missoes missao.view -',
+  '/monitora monitora.view monitora', '/pedidos pedido.view -', '/pos-venda posvenda.view crm', '/produtos produto.view -',
   '/promocoes promocao.view crm', '/relatorios relatorio.view relatorios_avancados', '/sorteios sorteio.view crm',
   '/vale-gas valegas.view -', '/veiculos veiculo.view frota',
 ]

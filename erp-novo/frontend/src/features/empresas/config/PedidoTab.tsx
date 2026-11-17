@@ -7,6 +7,9 @@ export function PedidoTab({ form, campo }: ConfigSubtabProps) {
       <Field label="Tempo de entrega (min)"><Input type="number" value={form.tempoentrega ?? ''} onChange={(e) => campo('tempoentrega', e.target.value)} /></Field>
       <Field label="Tempo urgente (min)"><Input type="number" value={form.tempourgente ?? ''} onChange={(e) => campo('tempourgente', e.target.value)} /></Field>
       <Field label="Máximo de parcelas"><Input type="number" value={form.maximoparcelas ?? ''} onChange={(e) => campo('maximoparcelas', e.target.value)} /></Field>
+      <Field label="Quantidade máxima por item" hint="Barra digitação errada (ex.: 1000 em vez de 10). Vazio = sem limite.">
+        <Input type="number" min={1} step="1" value={form.pedido_quantidade_maxima_item ?? ''} onChange={(e) => campo('pedido_quantidade_maxima_item', e.target.value)} />
+      </Field>
       <Field label="Dias validação cartão"><Input type="number" value={form.pedido_valida_cartao_dias ?? ''} onChange={(e) => campo('pedido_valida_cartao_dias', e.target.value)} /></Field>
       <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-border pt-3">
         <CheckboxField label="Valida atraso" checked={!!form.valida_atraso} onChange={(b) => campo('valida_atraso', b)} />

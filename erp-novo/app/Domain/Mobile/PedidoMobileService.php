@@ -11,6 +11,7 @@ use App\Domain\Shared\Geo;
 use App\Models\Cliente\Cliente;
 use App\Models\Cliente\ClienteEndereco;
 use App\Models\Empresa;
+use App\Models\EmpresaConfig;
 use App\Models\Estoque\Setor;
 use App\Models\Pedido\Pedido;
 use App\Models\Pedido\PedidoAvaliacao;
@@ -58,7 +59,14 @@ class PedidoMobileService
             default => ['Pedido atualizado', 'Seu pedido foi atualizado: '.($pedido->situacao?->descricao ?? '')],
         };
 
-        return $this->push->paraUsuario($userId, $titulo, $corpo, ['pedido_id' => (string) $pedido->id, 'acao' => 'orderUpdated']);
+        // `efeito` vai junto (PIE P2-B-08): o toque na notificação decide entre o
+        // acompanhamento (pedido aberto) e o histórico (entregue/cancelado) sem
+        // precisar de uma ida à API antes de navegar.
+        return $this->push->paraUsuario($userId, $titulo, $corpo, [
+            'pedido_id' => (string) $pedido->id,
+            'acao' => 'orderUpdated',
+            'efeito' => (string) ($efeito?->value ?? ''),
+        ]);
     }
 
     /**
@@ -175,6 +183,16 @@ class PedidoMobileService
             throw ValidationException::withMessages(['setor' => 'Nenhum setor de entrega ativo.']);
         }
 
+        // PIE R3-E: o preço Gás do Povo era concedido a quem mandasse
+        // `gasdopovo: true` — bastava o campo no payload, sem a revenda ter o
+        // programa ligado nem o cliente estar marcado como beneficiário no ERP.
+        // Fail-closed em dinheiro: só com as duas marcas que JÁ existem.
+        if (! empty($payload['gasdopovo']) && ! $this->gasDoPovoPermitido($empresaId, $cliente)) {
+            throw ValidationException::withMessages([
+                'gasdopovo' => 'O preço Gás do Povo não está disponível para este cadastro. Fale com a revenda.',
+            ]);
+        }
+
         // Regra do legado: 1 pedido PENDENTE por cliente.
         if ($this->temPedidoPendente($cliente->id)) {
             throw ValidationException::withMessages(['pedido' => 'Você já tem um pedido em andamento.']);
@@ -289,6 +307,21 @@ class PedidoMobileService
         }
     }
 
+    /**
+     * Programa ligado pela revenda (`empresa_configs.dados.app.gaspovo_ativo`,
+     * o mesmo que o `GET app/v1/config` expõe) E cliente marcado como
+     * beneficiário no cadastro do ERP. Quem marca o beneficiário é a revenda;
+     * o app não tem como se autodeclarar (o PUT do perfil não aceita o campo).
+     */
+    private function gasDoPovoPermitido(int $empresaId, Cliente $cliente): bool
+    {
+        // `first()`, não `value()`: `value` devolve o JSON cru, sem o cast.
+        $dados = (array) (EmpresaConfig::query()->where('empresa_id', $empresaId)->first()?->dados ?? []);
+        $ativo = (bool) (((array) ($dados['app'] ?? []))['gaspovo_ativo'] ?? false);
+
+        return $ativo && (bool) $cliente->gasdopovo;
+    }
+
     /** 1ª situação ativa de efeito PENDENTE do grupo (estado inicial de um pedido novo). */
     private function situacaoPendenteId(int $grupoId): int
     {
@@ -383,7 +416,7 @@ class PedidoMobileService
      */
     public function historico(int $empresaId, int $clienteId, int $limite = 50): array
     {
-        return Pedido::query()
+        $pedidos = Pedido::query()
             ->where('empresa_id', $empresaId)
             ->where('cliente_id', $clienteId)
             ->with([
@@ -392,12 +425,22 @@ class PedidoMobileService
                 'itens.produto:id,descricao',
             ])
             ->orderByDesc('datahora')
-            ->limit($limite)->get()
+            ->limit($limite)->get();
+
+        // PIE P2-B-15: o app oferecia "Avaliar" em todo pedido concluído e o
+        // servidor recusava a repetição — a 2ª avaliação sumia em silêncio.
+        // Uma consulta só para a página inteira (não uma por pedido).
+        $avaliados = PedidoAvaliacao::query()
+            ->whereIn('pedido_id', $pedidos->pluck('id'))
+            ->pluck('pedido_id')->flip();
+
+        return $pedidos
             ->map(fn (Pedido $p) => [
                 'id' => $p->id,
                 'datahora' => $p->datahora?->toIso8601String(),
                 'situacao' => $p->situacao?->descricao,
                 'efeito' => $p->situacao?->efeito?->value,
+                'avaliado' => $avaliados->has($p->id),
                 'valor_venda' => (float) $p->valor_venda,
                 'itens' => $p->itens->map(fn ($i) => [
                     'produto_id' => $i->produto_id,

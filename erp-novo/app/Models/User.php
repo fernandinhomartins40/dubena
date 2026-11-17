@@ -240,6 +240,10 @@ class User extends Authenticatable
             // escondem features sem licença. RBAC (permissions) e licença (features)
             // são camadas independentes; o front cruza as duas.
             'features' => app(LicencaService::class)->recursosEfetivos($empresaId ?? $this->empresa_id),
+            // PIE P2-A-04: com a licença DESLIGADA o backend libera tudo, então
+            // o menu também. Sem este sinal a SPA esconderia módulo que a API
+            // serve normalmente (a lista vem vazia para empresa sem assinatura).
+            'licenca_ativa' => (bool) config('saas_transformation.enforcement.licenca'),
         ];
     }
 }

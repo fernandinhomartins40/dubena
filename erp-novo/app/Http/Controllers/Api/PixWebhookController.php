@@ -73,6 +73,9 @@ class PixWebhookController extends Controller
         try {
             $cobranca = $this->service->processarWebhook($d);
         } catch (ValidationException $e) {
+            // PIE-24: a recusa não pode sumir sem rastro — é dinheiro que o PSP
+            // diz ter recebido. Fica o txid e o motivo para a conciliação.
+            Log::warning('pix.webhook: notificação recusada', ['txid' => $d['txid'], 'empresa_id' => $empresaId, 'erros' => $e->errors()]);
             // Responde 422 sem vazar detalhes internos; o PSP reenviará se for o caso.
             return response()->json(['message' => 'Webhook rejeitado.', 'erros' => $e->errors()], 422);
         }

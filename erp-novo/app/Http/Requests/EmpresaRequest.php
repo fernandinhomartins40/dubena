@@ -8,6 +8,7 @@ use App\Models\Geografico\Rua;
 use App\Models\Regiao;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Validação de criação/edição de Empresa. Valores numéricos como número (lat/long),
@@ -15,9 +16,21 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class EmpresaRequest extends FormRequest
 {
+    /**
+     * PIE R3-F-05 — a permissão vem ANTES da validação. Com `true` aqui, quem
+     * não pode criar empresa recebia 422 com a lista de campos exigidos (o
+     * formato do recurso) em vez de 403. O controller segue checando a empresa
+     * alvo na edição (`autorizarNaEmpresa`).
+     */
     public function authorize(): bool
     {
-        return true;
+        return Gate::forUser($this->user())->allows($this->isMethod('POST') ? 'empresa.create' : 'empresa.edit');
+    }
+
+    /** Mesmo contrato de 403 do `AutorizaPorPermissao`. */
+    protected function failedAuthorization(): void
+    {
+        abort(403, 'Sem permissão.');
     }
 
     /** @return array<string, mixed> */

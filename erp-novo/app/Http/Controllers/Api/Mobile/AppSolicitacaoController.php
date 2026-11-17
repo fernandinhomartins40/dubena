@@ -123,7 +123,10 @@ class AppSolicitacaoController extends Controller
             'cpf' => 'nullable|string|max:14',
             'cnpj' => 'nullable|string|max:18',
             'endereco' => 'nullable|string|max:255',
-            'numero' => 'nullable|string|max:20',
+            // PIE R3-G-04: `clientes.numero` é varchar(10). Com max:20 o Postgres
+            // recusava com 500 e, pela fila offline, o cadastro retentava para
+            // sempre. 422 com mensagem vai para "precisa de atenção" no app.
+            'numero' => 'nullable|string|max:10',
             'complemento' => 'nullable|string|max:60',
             'ponto_referencia' => 'nullable|string|max:120',
             'cidade_id' => ['nullable', 'integer', new ExisteNoTenant(Cidade::class)],

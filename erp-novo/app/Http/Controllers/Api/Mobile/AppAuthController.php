@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Auth do app (cliente/entregador) — N10/F1. Token REAL por usuário (Sanctum),
@@ -146,8 +147,16 @@ class AppAuthController extends Controller
         if ($vinculo === null) {
             $this->seguranca->registrar($request, $email, false, 'sem_vinculo_colaborador', $user->id, $user->empresa_id);
 
+            // PIE R3-G-01/R3-D-01: o funcionário criado no painel (tem papel na
+            // revenda) caía na mesma mensagem do consumidor e ia procurar o app
+            // errado. Para ele o problema é cadastral, e quem resolve é o admin.
+            $temPapel = $user->roles()->exists();
+
             return response()->json([
-                'message' => 'Este acesso e exclusivo para colaboradores. Use o aplicativo do cliente.',
+                'message' => $temPapel
+                    ? 'Seu usuário não tem cadastro de colaborador ativo. Peça ao administrador para ligá-lo a um colaborador (Colaboradores > usuário de acesso ao app).'
+                    : 'Este acesso e exclusivo para colaboradores. Use o aplicativo do cliente.',
+                'motivo' => $temPapel ? 'sem_colaborador' : 'nao_colaborador',
             ], 403);
         }
 
@@ -385,6 +394,9 @@ class AppAuthController extends Controller
      * Como os tokens passam a expirar (P1), o app troca o token vigente por um novo
      * sem refazer o login. O device é resolvido pelo nome do token atual.
      */
+    /** Sobrevida do token substituído na rotação (R3-D-03): cobre um reenvio, não uma sessão. */
+    private const SOBREVIDA_TOKEN_ANTIGO_S = 120;
+
     public function refresh(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -395,7 +407,20 @@ class AppAuthController extends Controller
 
         // Emite o novo ANTES de revogar o atual (não deixa o app sem token se algo falhar).
         $token = $user->createToken($nome, $abilities)->plainTextToken;
-        if (method_exists($atual, 'delete')) {
+
+        // PIE R3-D-03: o antigo NÃO morre na hora — vence em poucos minutos. Com
+        // `delete()` imediato, uma resposta perdida no 3G (o servidor rotacionou,
+        // o app nunca recebeu o novo) deixava o app só com um token revogado: o
+        // próximo 401, a nova tentativa de renovar com ele dava 401 também, e o
+        // entregador caía no login no meio da rota. Na sobrevida o app repete o
+        // refresh e recebe outro token; o que se perdeu nunca chegou a ninguém e
+        // vence pela expiração global. Nunca ESTENDE um prazo já menor.
+        if ($atual instanceof PersonalAccessToken) {
+            $limite = now()->addSeconds(self::SOBREVIDA_TOKEN_ANTIGO_S);
+            if ($atual->expires_at === null || $atual->expires_at->greaterThan($limite)) {
+                $atual->forceFill(['expires_at' => $limite])->save();
+            }
+        } elseif (method_exists($atual, 'delete')) {
             $atual->delete();
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Domain\Identidade\DocumentoFiscal;
 use App\Domain\Rh\ColaboradorService;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
@@ -12,8 +13,11 @@ use App\Models\Geografico\Rua;
 use App\Models\Produto\Produto;
 use App\Models\Rh\Cargo;
 use App\Models\Rh\Colaborador;
+use App\Domain\Tenant\TenantContext;
+use App\Models\User;
 use App\Rules\ExisteNoTenant;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -62,6 +66,9 @@ class ColaboradorController extends Controller
         return response()->json(['data' => array_merge($this->linha($c), [
             'cpf' => $c->cpf, 'rg' => $c->rg, 'telefone' => $c->telefone,
             'cargo_id' => $c->cargo_id, 'entregador' => $c->entregador,
+            // Usuário de acesso ao app (R3-G-01) e o rótulo para o AsyncSelect.
+            'user_id' => $c->user_id,
+            'user_label' => $c->user_id ? User::query()->whereKey($c->user_id)->value('name') : null,
             'data_nascimento' => $c->data_nascimento?->toDateString(),
             // O formulário lê os nomes sem underscore (herdados do legado):
             // devolvê-los é o que faz o campo aparecer preenchido na edição.
@@ -349,11 +356,10 @@ class ColaboradorController extends Controller
             'data' => 'nullable|date',
             'entrada' => 'nullable|date_format:H:i',
             'saida' => 'nullable|date_format:H:i',
+            'motivo' => 'nullable|string|min:5|max:255',
         ]);
-        $d['data'] ??= now()->toDateString();
-        $ponto = $colaborador->pontos()->updateOrCreate(['data' => $d['data']], $d);
 
-        return response()->json(['data' => $ponto], 201);
+        return response()->json(['data' => $this->service->registrarPonto($colaborador, $d)], 201);
     }
 
     /** @return array<string,mixed> */
@@ -362,7 +368,11 @@ class ColaboradorController extends Controller
         return [
             'id' => $c->id,
             'nome' => $c->nome,
-            'cpf' => $c->cpf,
+            // PIE P2-E-11 (LGPD, minimização): a LISTAGEM paginada não precisa
+            // do CPF inteiro — ela serve para achar a pessoa, e devolvia o CPF
+            // de todo o quadro a quem só tem `colaborador.view`. Mascarado aqui;
+            // o completo continua no detalhe (`show`), que o formulário edita.
+            'cpf' => self::cpfMascarado($c->cpf),
             'dataadmissao' => $c->data_admissao?->toDateString(),
             'datadesligamento' => $c->data_desligamento?->toDateString(),
             'cargo' => $c->cargo?->descricao,
@@ -378,12 +388,69 @@ class ColaboradorController extends Controller
         ];
     }
 
+    /**
+     * O usuário ligado tem de ser da MESMA rede e não estar ligado a outro
+     * colaborador ativo: com dois, o app escolheria um vínculo ao acaso
+     * (`vinculoDe` pega o primeiro) e o malote cairia na pessoa errada.
+     */
+    private function validarUsuarioDoApp(int $userId, ?int $colaboradorId): void
+    {
+        $existe = User::query()
+            ->whereKey($userId)
+            ->where('grupo_id', app(TenantContext::class)->requireGrupoId())
+            ->exists();
+        if (! $existe) {
+            throw ValidationException::withMessages(['user_id' => 'Usuário não encontrado nesta rede.']);
+        }
+
+        $outro = Colaborador::query()
+            ->where('user_id', $userId)
+            ->where('ativo', true)
+            ->when($colaboradorId !== null, fn ($q) => $q->whereKeyNot($colaboradorId))
+            ->value('nome');
+        if ($outro !== null) {
+            throw ValidationException::withMessages(['user_id' => "Este usuário já está ligado ao colaborador {$outro}."]);
+        }
+    }
+
+    /** "12345678901" → "***.456.789-**": reconhece a pessoa sem expor o documento. */
+    private static function cpfMascarado(?string $cpf): ?string
+    {
+        $digitos = preg_replace('/\D/', '', (string) $cpf);
+        if ($digitos === '') {
+            return null;
+        }
+        if (strlen($digitos) !== 11) {
+            return '***';
+        }
+
+        return '***.'.substr($digitos, 3, 3).'.'.substr($digitos, 6, 3).'-**';
+    }
+
     /** @return array<string,mixed> */
     private function validar(Request $request): array
     {
+        // PIE R3-G-07: "123.456.789-09" e "85010-000" estouravam o max:11/max:8
+        // e a tela só dizia "Verifique os campos". Grava só os dígitos, como o
+        // ClienteRequest.
+        foreach (['cpf', 'cep'] as $campo) {
+            if ($request->filled($campo)) {
+                $request->merge([$campo => DocumentoFiscal::canonico((string) $request->input($campo))]);
+            }
+        }
+        $cpfAtual = $request->route('id') !== null
+            ? Colaborador::query()->whereKey((int) $request->route('id'))->value('cpf')
+            : null;
+
         $dados = $request->validate([
             'nome' => 'required|string|max:255',
-            'cpf' => 'nullable|string|max:11',
+            // Dígito conferido só quando o CPF muda: colaborador migrado do
+            // legado com CPF ruim continua editável nos outros campos.
+            'cpf' => ['nullable', 'string', 'max:11', function (string $attr, mixed $valor, \Closure $falha) use ($cpfAtual) {
+                if ($valor !== $cpfAtual && ! DocumentoFiscal::cpfValido((string) $valor)) {
+                    $falha('CPF inválido.');
+                }
+            }],
             'rg' => 'nullable|string|max:20',
             'cargo_id' => ['nullable', 'integer', new ExisteNoTenant(Cargo::class)],
             'data_nascimento' => 'nullable|date',
@@ -406,7 +473,15 @@ class ColaboradorController extends Controller
             'rua_id' => ['nullable', 'integer', new ExisteNoTenant(Rua::class)],
             'numero' => 'nullable|string|max:20',
             'complemento' => 'nullable|string|max:255',
+            // PIE R3-G-01/R3-D-01: usuário de acesso ao app de campo. O login do
+            // app só concede papel a quem tem colaborador ATIVO ligado ao
+            // usuário; sem este campo a ligação não tinha tela nenhuma.
+            'user_id' => ['nullable', 'integer'],
         ]);
+
+        if (array_key_exists('user_id', $dados) && $dados['user_id'] !== null) {
+            $this->validarUsuarioDoApp((int) $dados['user_id'], $request->route('id') !== null ? (int) $request->route('id') : null);
+        }
 
         // Normaliza o alias legado para o nome da coluna, sem sobrescrever a
         // forma canônica quando as duas vierem.

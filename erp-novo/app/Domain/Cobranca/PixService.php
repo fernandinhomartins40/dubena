@@ -12,6 +12,7 @@ use App\Models\Financeiro\FinanceiroParcela;
 use App\Models\Pedido\Pedido;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -166,11 +167,11 @@ class PixService
             }
 
             // Idempotência: já concluída → devolve sem reprocessar (webhook reentregue).
-            if ($cobranca->situacao === SituacaoPix::CONCLUIDA) {
+            if (in_array($cobranca->situacao, [SituacaoPix::CONCLUIDA, SituacaoPix::PAGA_APOS_EXPIRAR], true)) {
                 return $cobranca;
             }
 
-            if ($cobranca->situacao !== SituacaoPix::ATIVA) {
+            if (! in_array($cobranca->situacao, [SituacaoPix::ATIVA, SituacaoPix::EXPIRADA], true)) {
                 throw ValidationException::withMessages(['situacao' => 'Cobrança não está ativa.']);
             }
 
@@ -180,6 +181,26 @@ class PixService
                 throw ValidationException::withMessages([
                     'valor' => "Valor pago ({$valorPago}) difere do cobrado ({$cobranca->valor}).",
                 ]);
+            }
+
+            // PIE-24: antes, a cobrança expirada localmente devolvia 422 e o
+            // pagamento real sumia sem rastro. Agora o pagamento fica gravado
+            // (e2eid, data) num estado próprio, sem baixa automática.
+            if ($cobranca->situacao === SituacaoPix::EXPIRADA) {
+                $cobranca->update([
+                    'situacao' => SituacaoPix::PAGA_APOS_EXPIRAR->value,
+                    'e2eid' => $payload['e2eid'] ?? null,
+                    'pago_em' => now(),
+                ]);
+                Log::error('PIX pago depois da expiração local — conciliar e baixar manualmente.', [
+                    'empresa_id' => $cobranca->empresa_id,
+                    'txid' => $cobranca->txid,
+                    'financeiroparcela_id' => $cobranca->financeiroparcela_id,
+                    'pedido_id' => $cobranca->pedido_id,
+                    'valor' => $valorPago,
+                ]);
+
+                return $cobranca->refresh();
             }
 
             $cobranca->update([

@@ -306,6 +306,12 @@ class AppEntregadorController extends Controller
             $pedido, $request->user()->id, $d, $request->file('foto'), $request->file('assinatura'),
         );
 
+        // Reenvio de uma conclusão que já tinha valido (P2-C-05): devolve a
+        // mesma comprovação com 200 e não avisa o cliente pela segunda vez.
+        if (! $comprovacao->wasRecentlyCreated) {
+            return response()->json(['data' => ['comprovacao_id' => $comprovacao->id, 'concluido' => true]], 200);
+        }
+
         // Notifica o cliente (push) que o pedido foi entregue.
         $this->pedidoMobile->notificarStatus($pedido->fresh()->load(['cliente', 'situacao']));
 

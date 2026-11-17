@@ -4,6 +4,7 @@ namespace App\Domain\Cobranca;
 
 use App\Domain\Cobranca\Contracts\BoletoDriver;
 use App\Domain\Financeiro\BaixaService;
+use App\Domain\Shared\NumeroSequencialService;
 use App\Models\Cobranca\Boleto;
 use App\Models\Cobranca\RemessaCnab;
 use App\Models\Financeiro\FinanceiroParcela;
@@ -22,6 +23,7 @@ class BoletoService
     public function __construct(
         private BoletoDriver $driver,
         private BaixaService $baixas,
+        private NumeroSequencialService $sequencias,
     ) {}
 
     /** Gera um boleto para uma parcela de financeiro. */
@@ -72,7 +74,15 @@ class BoletoService
                 throw ValidationException::withMessages(['boletos' => 'A remessa aceita somente boletos pendentes da empresa e banco ativos.']);
             }
 
-            $numero = (int) (RemessaCnab::withoutTenant()->where('empresa_id', $empresaId)->max('numero_remessa') ?? 0) + 1;
+            // PIE-25: `max + 1` sem trava dava o MESMO número a duas remessas
+            // simultâneas — o banco recusa remessa repetida, e o segundo
+            // arquivo sobrescrevia o primeiro no disco (mesmo caminho). A
+            // sequência trava a linha (SELECT … FOR UPDATE) e parte do maior
+            // número já gravado, para a numeração existente continuar.
+            // O prefixo `boleto:empresa:{id}` é o que NumeroSequencialService
+            // reconhece para preencher o empresa_id exigido pela RLS.
+            $maior = (int) (RemessaCnab::withoutTenant()->where('empresa_id', $empresaId)->max('numero_remessa') ?? 0);
+            $numero = $this->sequencias->proximo("boleto:empresa:{$empresaId}:remessa", $maior);
 
             // Conteúdo CNAB real (uma linha por boleto). Em produção o banco recebe
             // este arquivo .rem; aqui ele é GRAVADO em disco privado, segregado por

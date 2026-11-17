@@ -20,6 +20,49 @@ use Illuminate\Validation\ValidationException;
 class SorteioService
 {
     /**
+     * Edita descrição, prêmio e data — só enquanto o sorteio está aberto
+     * (PIE P2-E-14). Trocar o prêmio depois de anunciado o ganhador mina a
+     * mesma legitimidade que o `sortear` protege.
+     *
+     * @param  array<string,mixed>  $dados
+     */
+    public function atualizar(int $sorteioId, array $dados): Sorteio
+    {
+        return DB::transaction(function () use ($sorteioId, $dados) {
+            $sorteio = $this->abertoComTrava($sorteioId);
+            $sorteio->update($dados);
+
+            return $sorteio->refresh();
+        });
+    }
+
+    /**
+     * Inclui um número participante — só antes do sorteio (P2-E-14): número
+     * novo depois do resultado é participante que não concorreu.
+     *
+     * @param  array<string,mixed>  $dados
+     */
+    public function incluirNumero(int $sorteioId, array $dados): SorteioNumero
+    {
+        return DB::transaction(function () use ($sorteioId, $dados) {
+            return $this->abertoComTrava($sorteioId)->numeros()->create($dados);
+        });
+    }
+
+    /** Mesmo lock do `sortear`: sem ele, a edição corre em paralelo com o sorteio. */
+    private function abertoComTrava(int $sorteioId): Sorteio
+    {
+        $sorteio = Sorteio::query()->whereKey($sorteioId)->lockForUpdate()->firstOrFail();
+        if ($sorteio->situacao === 'sorteado') {
+            throw ValidationException::withMessages([
+                'sorteio' => 'Este sorteio já foi realizado: prêmio, descrição e números não mudam mais.',
+            ]);
+        }
+
+        return $sorteio;
+    }
+
+    /**
      * Sorteia e registra. Recusa sortear de novo: num evento público, um
      * segundo clique (ou duas abas) trocando o ganhador é exatamente a
      * contestação que o cliente não pode sofrer.

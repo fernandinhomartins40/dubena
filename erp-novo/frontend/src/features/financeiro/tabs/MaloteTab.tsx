@@ -28,6 +28,11 @@ export function MaloteTab() {
   const [run, setRun] = useState(false)
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set())
   const [confirmando, setConfirmando] = useState(false)
+  // Conta de destino opcional: sem ela o servidor usa a configurada na empresa
+  // (Empresas → Contábil). Revenda nova não tem essa configuração, e o fechar
+  // só respondia 'Nenhuma conta de malote configurada' sem saída na tela.
+  const [contaId, setContaId] = useState<number | null>(null)
+  const [contaLabel, setContaLabel] = useState<string | null>(null)
   const filtros = { inicio, fim, setor_id: setorId, entregador_user_id: entregadorId }
   const [aplicados, setAplicados] = useState(filtros)
   const filtrosAlterados = JSON.stringify(filtros) !== JSON.stringify(aplicados)
@@ -61,7 +66,7 @@ export function MaloteTab() {
     const pedidos = fechaveis.filter((p) => selecionados.has(p.pedido_id)).map((p) => p.pedido_id)
     if (!pedidos.length) return
     try {
-      const r = await fechar.mutateAsync({ pedidos })
+      const r = await fechar.mutateAsync({ pedidos, ...(contaId ? { conta_id: contaId } : {}) })
       const ignorados = r.ignorados.length ? ` (${r.ignorados.length} já estavam baixados)` : ''
       toast.success(`${r.baixadas} parcela(s) baixada(s) — ${brl(r.valor)}${ignorados}.`)
       setSelecionados(new Set())
@@ -110,6 +115,12 @@ export function MaloteTab() {
           <Field label="Entregador">
             <AsyncSelect endpoint="/lookups/usuarios" value={entregadorId} valueLabel={entregadorLabel}
               onChange={(id, o) => { setEntregadorId(id); setEntregadorLabel(o?.label ?? null) }} />
+          </Field>
+        </div>
+        <div className="w-56">
+          <Field label="Conta do malote" hint="Em branco = a conta configurada na empresa">
+            <AsyncSelect endpoint="/lookups/contas" value={contaId} valueLabel={contaLabel}
+              onChange={(id, o) => { setContaId(id); setContaLabel(o?.label ?? null) }} />
           </Field>
         </div>
         <Button disabled={!inicio || !fim || inicio > fim || isFetching} onClick={() => { setSelecionados(new Set()); if (run && !filtrosAlterados) void refetch(); setAplicados(filtros); setRun(true) }}>
@@ -164,8 +175,9 @@ export function MaloteTab() {
       )}</AsyncState>}
 
       <ConfirmDialog open={confirmando} onOpenChange={setConfirmando} title="Fechar malote"
+        confirmLabel="Fechar malote" variant="default"
         description={<>Baixar <strong>{brl(totalSelecionado)}</strong> em {selecionados.size} pedido(s)
-          na conta de malote? As parcelas passam a constar como recebidas.</>}
+          na {contaLabel ? <strong>{contaLabel}</strong> : 'conta de malote da empresa'}? As parcelas passam a constar como recebidas.</>}
         loading={fechar.isPending} onConfirm={onFechar} />
     </>
   )

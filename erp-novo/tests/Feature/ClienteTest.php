@@ -85,7 +85,7 @@ class ClienteTest extends TestCase
 
         $resp = $this->actingAs($user, 'sanctum')->postJson('/api/admin/clientes', [
             'nome' => 'João da Silva',
-            'cpf' => '12345678900',
+            'cpf' => '52998224725', // válido: o cadastro confere o dígito (PIE-35)
             'telefones' => [
                 ['telefone' => '11999990000', 'whatsapp' => true],
                 ['telefone' => '1133334444', 'whatsapp' => false],

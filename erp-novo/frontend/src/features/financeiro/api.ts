@@ -24,7 +24,7 @@ export function useLancamentos(pagarreceber: string, status: string, q: string, 
 export function useBaixarParcela() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (d: { contaId: number; parcela_id: number; juros?: number; multa?: number; desconto?: number }) => {
+    mutationFn: async (d: { contaId: number; parcela_id: number; juros?: number; multa?: number; desconto?: number; valor_recebido?: number }) => {
       const { contaId, ...corpo } = d
       return (await api.post(`/caixa/${contaId}/baixar`, corpo)).data.data
     },
@@ -32,6 +32,8 @@ export function useBaixarParcela() {
       qc.invalidateQueries({ queryKey: ['fin-lancamentos'] })
       qc.invalidateQueries({ queryKey: ['fin-resumo'] })
       qc.invalidateQueries({ queryKey: ['dashboard-hoje'] })
+      qc.invalidateQueries({ queryKey: ['caixa-contas'] })
+      qc.invalidateQueries({ queryKey: ['caixa-movimentos'] })
     },
   })
 }
@@ -77,10 +79,15 @@ export function useExcluirCentroCusto() {
 }
 
 // Caixa
-export interface ContaCaixa { id: number; descricao: string; saldoatual: number; fechado: number }
+export interface ContaCaixa { id: number; descricao: string; saldoatual: number; fechado: number; estado?: 'ABERTO' | 'FECHADO' | 'SEM_ABERTURA' }
 export const useContasCaixa = () => useQuery<ContaCaixa[]>({ queryKey: ['caixa-contas'], queryFn: async () => (await api.get('/caixa/contas')).data.data })
+/** Linha de `contamovimentos`: `valor` é ASSINADO (+ entrada, − saída). */
+export interface MovimentoCaixa {
+  id: number; tipo: string; valor: string | number; datahora: string; descricao: string | null
+  origem: string | null; estorno_de_id: number | null; estornado?: boolean
+}
 export function useMovimentosCaixa(contaId: number | null) {
-  return useQuery({
+  return useQuery<{ data: MovimentoCaixa[]; saldo: number }>({
     queryKey: ['caixa-movimentos', contaId],
     queryFn: async () => (await api.get(`/caixa/${contaId}/movimentos`)).data,
     enabled: contaId !== null,
@@ -98,6 +105,23 @@ export function useFecharCaixa() {
   return useMutation({
     mutationFn: async ({ contaId, datahorafechamento }: { contaId: number; datahorafechamento: string }) => (await api.post(`/caixa/${contaId}/fechar`, { datahorafechamento })).data,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['caixa-contas'] }); qc.invalidateQueries({ queryKey: ['caixa-movimentos'] }) },
+  })
+}
+
+/**
+ * Estorno de movimento de caixa (rota pronta, sem tela até a Rodada 3). O
+ * servidor trava o movimento, recusa estorno em dobro e reabre a parcela.
+ */
+export function useEstornarMovimento() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (movimentoId: number) => (await api.post(`/caixa/movimentos/${movimentoId}/estornar`)).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['caixa-contas'] })
+      qc.invalidateQueries({ queryKey: ['caixa-movimentos'] })
+      qc.invalidateQueries({ queryKey: ['fin-lancamentos'] })
+      qc.invalidateQueries({ queryKey: ['fin-resumo'] })
+    },
   })
 }
 
@@ -221,7 +245,10 @@ export function useFecharMalote() {
       // A baixa mexe no caixa e nos lançamentos: sem invalidar, a tela de
       // lançamentos continuaria mostrando as parcelas como em aberto.
       qc.invalidateQueries({ queryKey: ['fin-lancamentos'] })
-      qc.invalidateQueries({ queryKey: ['caixa'] })
+      // As chaves reais do caixa: ['caixa'] não casava nenhuma consulta, e o
+      // saldo do caixa ficava velho depois do malote.
+      qc.invalidateQueries({ queryKey: ['caixa-contas'] })
+      qc.invalidateQueries({ queryKey: ['caixa-movimentos'] })
     },
   })
 }

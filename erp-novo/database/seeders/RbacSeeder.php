@@ -6,6 +6,8 @@ use App\Domain\Shared\PermissaoCatalogo;
 use App\Models\Empresa;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\User;
+use Database\Seeders\Concerns\ResolveSenhaSeed;
 use Illuminate\Database\Seeder;
 
 /**
@@ -15,12 +17,15 @@ use Illuminate\Database\Seeder;
  * 2. Cria papéis-base por grupo: Administrador (tudo), Gerente (tudo menos
  *    exclusões e config de empresa/grupo), Operador (operação do dia a dia),
  *    Entregador (apenas pedidos/monitora — espelha o app).
- * 3. NÃO mexe no usuário `support` (continua com bypass total).
+ * 3. Dá ao admin de bootstrap (DeployAdminSeeder) o papel Administrador na
+ *    empresa dele, se ele ainda não tiver papel nenhum lá.
  *
  * Roda após o DeployAdminSeeder (que cria grupo/empresa/admin).
  */
 class RbacSeeder extends Seeder
 {
+    use ResolveSenhaSeed;
+
     public function run(): void
     {
         $this->sincronizarPermissions();
@@ -29,6 +34,40 @@ class RbacSeeder extends Seeder
         foreach (Empresa::query()->distinct()->pluck('grupo_id')->filter() as $grupoId) {
             $this->papeisDoGrupo((int) $grupoId);
         }
+
+        $this->papelDoAdminDeBootstrap();
+    }
+
+    /**
+     * PIE R3-C — o admin criado no deploy precisa de um PAPEL, não do flag.
+     *
+     * Desde o F2-05 o `support` deixou de ser bypass quando o enforcement SaaS
+     * está ligado: ele só habilita pedir break-glass. O DeployAdminSeeder cria o
+     * admin antes de existir papel (este seeder roda depois), então a instalação
+     * nova nascia com um administrador que loga e leva 403 em tudo — sem ninguém
+     * capaz de criar o primeiro usuário pela tela.
+     *
+     * Só atribui quando ele não tem papel nenhum na empresa padrão: se o dono já
+     * ajustou os papéis dele pela Central de Acessos, o deploy seguinte não
+     * desfaz a decisão.
+     */
+    private function papelDoAdminDeBootstrap(): void
+    {
+        $admin = User::query()->where('email', $this->emailSeed('ADMIN_SEED_EMAIL', 'admin@gasemcasa.com'))->first();
+        if ($admin === null || $admin->empresa_id === null || $admin->grupo_id === null) {
+            return;
+        }
+
+        if ($admin->roles()->wherePivot('empresa_id', $admin->empresa_id)->exists()) {
+            return;
+        }
+
+        $papel = Role::query()->where('grupo_id', $admin->grupo_id)->where('nome', 'Administrador')->first();
+        if ($papel === null) {
+            return;
+        }
+
+        $admin->roles()->attach($papel->id, ['empresa_id' => $admin->empresa_id, 'herda_filhos' => true]);
     }
 
     /** Garante que TODA chave do catálogo existe na tabela. */

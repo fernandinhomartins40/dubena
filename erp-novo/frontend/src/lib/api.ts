@@ -95,6 +95,85 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// ─────────────── PIE-33: sessão vencida sem perder a tela ───────────────
+//
+// O token expira (24 h) com o operador no meio de um pedido. Antes, o 401 virava
+// um toast "Unauthenticated." e a tela não tinha saída: recarregar levava ao
+// login e descartava o que estava digitado. Agora o 401 PAUSA a requisição, um
+// diálogo pede a senha de novo (sem sair da tela) e a mesma requisição é
+// reenviada com o token novo — o pedido em edição é salvo como se nada tivesse
+// acontecido.
+//
+// Só vale dentro da área logada: o diálogo se registra ao montar o AppShell.
+// Sem ele (login, páginas públicas) o 401 segue direto, como antes.
+
+export const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
+
+type AbrirDialogo = () => void
+let abrirDialogo: AbrirDialogo | null = null
+let pendente: { promessa: Promise<void>; resolver: () => void; rejeitar: (e: Error) => void } | null = null
+
+/** O diálogo de re-login se registra aqui; devolve a função que o desregistra. */
+export function registrarDialogoDeSessao(abrir: AbrirDialogo): () => void {
+  abrirDialogo = abrir
+  return () => { if (abrirDialogo === abrir) abrirDialogo = null }
+}
+
+/**
+ * Pede o re-login. Várias requisições que vencem juntas esperam o MESMO
+ * diálogo — senão o operador digitaria a senha uma vez por chamada.
+ */
+export function reautenticar(): Promise<void> {
+  if (!abrirDialogo) return Promise.reject(new Error(MENSAGEM_SESSAO_EXPIRADA))
+  if (pendente) return pendente.promessa
+  let resolver!: () => void
+  let rejeitar!: (e: Error) => void
+  const promessa = new Promise<void>((res, rej) => { resolver = res; rejeitar = rej })
+  pendente = { promessa, resolver, rejeitar }
+  // O diálogo pode concluir de forma síncrona (e zerar `pendente`): devolve a
+  // referência local, não a global.
+  abrirDialogo()
+  return promessa
+}
+
+/** O diálogo chama ao terminar: `true` = entrou de novo; `false` = desistiu. */
+export function concluirReautenticacao(ok: boolean): void {
+  const p = pendente
+  pendente = null
+  if (!p) return
+  if (ok) p.resolver()
+  else p.rejeitar(new Error(MENSAGEM_SESSAO_EXPIRADA))
+}
+
+/** Há um re-login em andamento? (o /me não deve derrubar a sessão enquanto isso) */
+export function reautenticacaoPendente(): boolean {
+  return pendente !== null
+}
+
+api.interceptors.response.use(
+  (r) => r,
+  async (error) => {
+    const cfg = error?.config
+    if (error?.response?.status !== 401 || !cfg) return Promise.reject(error)
+
+    // A mensagem crua do Laravel ("Unauthenticated.") não chega à tela.
+    if (error.response.data && typeof error.response.data === 'object') {
+      error.response.data.message = MENSAGEM_SESSAO_EXPIRADA
+    }
+
+    if (cfg._reautenticado) return Promise.reject(error)
+    try {
+      await reautenticar()
+    } catch {
+      return Promise.reject(error)
+    }
+    cfg._reautenticado = true
+    const token = getToken()
+    if (token) cfg.headers.Authorization = `Bearer ${token}`
+    return api.request(cfg)
+  },
+)
+
 /** Garante o cookie CSRF antes de um POST de login/escrita (Sanctum cookie). */
 export async function ensureCsrf(): Promise<void> {
   await axios.get(`${PREFIX}/sanctum/csrf-cookie`, { withCredentials: true })

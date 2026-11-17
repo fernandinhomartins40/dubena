@@ -36,7 +36,10 @@ class TelefoniaController extends Controller
     /** POST /telefonia/chamadas/{id}/atender */
     public function atender(Request $request, int $id): JsonResponse
     {
-        $this->autorizar($request, 'pedido.view');
+        // PIE P2-E-14: atender/rejeitar mudam a fila da central (escrita). Com
+        // `pedido.view`, o Entregador descartava a chamada que tocava no balcão.
+        // Quem atende é quem lança o pedido: `pedido.create`.
+        $this->autorizar($request, 'pedido.create');
 
         $d = $request->validate(['cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)]]);
 
@@ -52,7 +55,7 @@ class TelefoniaController extends Controller
     /** POST /telefonia/chamadas/{id}/rejeitar */
     public function rejeitar(Request $request, int $id): JsonResponse
     {
-        $this->autorizar($request, 'pedido.view');
+        $this->autorizar($request, 'pedido.create');
 
         $d = $request->validate(['motivo' => 'nullable|string|max:255']);
 

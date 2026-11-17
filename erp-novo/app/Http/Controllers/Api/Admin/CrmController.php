@@ -113,7 +113,7 @@ class CrmController extends Controller
             'data_sorteio' => 'nullable|date',
         ]);
 
-        $reg = $id ? tap(Sorteio::query()->findOrFail($id))->update($d) : Sorteio::create($d);
+        $reg = $id ? app(SorteioService::class)->atualizar($id, $d) : Sorteio::create($d);
 
         return response()->json(['data' => $reg->refresh()], $id ? 200 : 201);
     }
@@ -125,8 +125,7 @@ class CrmController extends Controller
             'cliente_id' => ['nullable', 'integer', new ExisteNoTenant(Cliente::class)],
             'numero' => 'required|string|max:20',
         ]);
-        $sorteio = Sorteio::query()->findOrFail($id);
-        $num = $sorteio->numeros()->create($d);
+        $num = app(SorteioService::class)->incluirNumero($id, $d);
 
         return response()->json(['data' => $num], 201);
     }

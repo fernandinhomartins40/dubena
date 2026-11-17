@@ -35,7 +35,18 @@ export interface ButtonProps
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button({ className, variant, size, asChild = false, loading = false, children, disabled, type = 'button', ...props }, ref) {
-    const Comp = asChild ? Slot : 'button'
+    // PIE P2-D-11 — com `asChild` o Slot exige UM filho. Entregar
+    // `[false, <Link/>]` (o spinner desligado + o filho) derrubava a página
+    // inteira ("Slot failed to slot onto its children") — foi o que fez a
+    // página 404 virar "Algo deu errado". O spinner só existe no <button>.
+    if (asChild) {
+      return (
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
+          {children}
+        </Slot>
+      )
+    }
+    const Comp = 'button'
     return (
       <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} disabled={disabled || loading} {...(!asChild ? { type } : {})} {...props}>
         {loading && <Loader2 className="animate-spin" />}

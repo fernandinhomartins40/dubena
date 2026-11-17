@@ -36,8 +36,24 @@ class SuperAdminTest extends TestCase
         return $admin->createToken('teste')->plainTextToken;
     }
 
-    public function test_login_sem_2fa_emite_token(): void
+    /**
+     * PIE P2-E-06: sem 2FA cadastrado o login NÃO emite token de operação — só o
+     * de cadastro. O cenário antigo ("sem 2FA emite token") vale apenas com o
+     * 2FA obrigatório desligado explicitamente.
+     */
+    public function test_login_sem_2fa_so_emite_token_de_cadastro(): void
     {
+        $this->admin(['email' => 'sa@plat.com']);
+
+        $this->postJson('/api/superadmin/login', ['email' => 'sa@plat.com', 'password' => 'super-123'])
+            ->assertStatus(423)
+            ->assertJson(['two_factor_setup_required' => true])
+            ->assertJsonMissingPath('token');
+    }
+
+    public function test_login_sem_2fa_emite_token_com_obrigatoriedade_desligada(): void
+    {
+        config(['superadmin.dois_fatores_obrigatorio' => false]);
         $this->admin(['email' => 'sa@plat.com']);
 
         $this->postJson('/api/superadmin/login', ['email' => 'sa@plat.com', 'password' => 'super-123'])

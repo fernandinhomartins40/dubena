@@ -55,8 +55,10 @@ class MonitoraController extends Controller
         // F2-03: teto de veiculos rastreados do plano contratado.
         app(LimiteContratado::class)->exigirEspaco('veiculos_monitorados');
         $d = $this->validarVeiculo($request);
-        $d['empresa_id'] = $request->user()->empresa_id;
-        $d['grupo_id'] = $request->user()->grupo_id;
+        // PIE P2-E-12: empresa ATIVA (X-Empresa-Id), não a empresa-casa do
+        // usuário — o multiempresa criava o veículo na empresa errada.
+        $d['empresa_id'] = app(\App\Domain\Tenant\TenantContext::class)->requireEmpresaId();
+        $d['grupo_id'] = app(\App\Domain\Tenant\TenantContext::class)->requireGrupoId();
 
         return response()->json(['data' => Veiculo::create($d)->load('tipo')], 201);
     }
@@ -304,7 +306,7 @@ class MonitoraController extends Controller
         // motorista antes da placa. A última posição sozinha não bastava para
         // montar o card — a tela tinha só placa, velocidade e hora.
         $rows = UltimaPosicao::query()
-            ->whereHas('veiculo', fn ($q) => $q->where('empresa_id', $request->user()->empresa_id))
+            ->whereHas('veiculo', fn ($q) => $q->where('empresa_id', app(\App\Domain\Tenant\TenantContext::class)->requireEmpresaId()))
             ->with(['veiculo:id,placa,descricao,motorista,tipo_id', 'veiculo.tipo:id,descricao,icone,velocidade_maxima'])
             ->get()
             ->map(function (UltimaPosicao $u) {
@@ -376,8 +378,8 @@ class MonitoraController extends Controller
 
         $cerca = DB::transaction(function () use ($d, $request) {
             $cerca = Cerca::create([
-                'empresa_id' => $request->user()->empresa_id,
-                'grupo_id' => $request->user()->grupo_id,
+                'empresa_id' => app(\App\Domain\Tenant\TenantContext::class)->requireEmpresaId(),
+                'grupo_id' => app(\App\Domain\Tenant\TenantContext::class)->requireGrupoId(),
                 'descricao' => $d['descricao'],
                 'cor' => $d['cor'] ?? null,
                 'setor_id' => $d['setor_id'] ?? null,
@@ -531,7 +533,7 @@ class MonitoraController extends Controller
     public function sincronizar(Request $request): JsonResponse
     {
         $this->autorizar($request, 'monitora.edit');
-        $n = $this->sync->sincronizar((int) $request->user()->empresa_id);
+        $n = $this->sync->sincronizar(app(\App\Domain\Tenant\TenantContext::class)->requireEmpresaId());
 
         return response()->json(['message' => "Sync concluído: {$n} posição(ões).", 'ingeridas' => $n]);
     }

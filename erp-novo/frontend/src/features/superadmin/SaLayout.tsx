@@ -1,5 +1,6 @@
 import { useTheme } from '@/lib/theme'
 import { ResponsiveSidebar } from '@/layouts/ResponsiveSidebar'
+import { NOME_DA_PLATAFORMA } from '@/lib/marca'
 import { ModuleFinder, RouteTrail } from '@/layouts/ModuleFinder'
 import { usePreference } from '@/lib/usePreference'
 import { useState, type ReactNode } from 'react'
@@ -77,7 +78,7 @@ export function SaLayout({ children }: { children: ReactNode }) {
           </div>
           {expandida && (
             <div className="leading-tight">
-              <span className="font-bold tracking-wide text-lg text-white">Dubena</span>
+              <span className="font-bold tracking-wide text-lg text-white">{NOME_DA_PLATAFORMA}</span>
               <p className="text-[11px] uppercase tracking-wider text-sidebar-foreground/50">SuperAdmin</p>
             </div>
           )}

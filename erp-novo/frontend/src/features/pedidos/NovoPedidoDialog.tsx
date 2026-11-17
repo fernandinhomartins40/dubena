@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ChevronDown, MapPin, Phone, Plus, Repeat, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, MapPin, Phone, Plus, Repeat, Trash2, UserPlus } from 'lucide-react'
 import {
-  Button, Field, AsyncSelect, Input,
+  Button, Field, AsyncSelect, Input, ConfirmDialog, FormDialog,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, toast,
 } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
@@ -49,6 +49,8 @@ export function NovoPedidoDialog() {
   const [itens, setItens] = useState<Item[]>([])
   const [maisOpcoes, setMaisOpcoes] = useState(false)
   const [tentou, setTentou] = useState(false)
+  const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  const [novoCliente, setNovoCliente] = useState(false)
   const sugestao = useSugestaoPedido(open ? clienteId : null)
 
   // Abertura pela URL: o atalho global leva para cá sem saber o que há na página.
@@ -69,9 +71,19 @@ export function NovoPedidoDialog() {
 
   if (!can('pedido.create')) return null
 
+  // R2-10: Esc, clicar fora ou "Cancelar" descartavam cliente e itens sem
+  // perguntar — o atendente perdia o pedido no meio da ligação. Com algo
+  // preenchido, fechar passa por uma confirmação.
+  const preenchido = clienteId !== null || itens.length > 0
+  function pedirParaFechar(v: boolean) {
+    if (!v && preenchido && !criar.isPending) { setConfirmarDescarte(true); return }
+    fechar(v)
+  }
+
   function fechar(v: boolean) {
     setOpen(v)
     if (!v) {
+      setConfirmarDescarte(false)
       setClienteId(null); setClienteLabel(null); setSituacao(null); setCondicao(null); setOperacao(null); setSetor(null)
       setItens([]); setMaisOpcoes(false); setTentou(false)
       if (params.has('novo')) { params.delete('novo'); setParams(params, { replace: true }) }
@@ -112,11 +124,23 @@ export function NovoPedidoDialog() {
 
   function setItem(i: number, patch: Partial<Item>) { setItens((atual) => atual.map((it, k) => (k === i ? { ...it, ...patch } : it))) }
 
-  const validos = itens.filter((i) => i.produto_id && Number(i.quantidade) > 0)
-  const total = validos.reduce((soma, i) => soma + (Number(i.preco_unitario) || 0) * Number(i.quantidade), 0)
+  // R2-09: item sem produto ou com quantidade 0/inválida era DESCARTADO em
+  // silêncio — o pedido saía com menos itens do que o atendente montou e o
+  // toast dizia "criado". Agora cada linha incompleta é apontada e bloqueia.
+  const problemaDoItem = (i: Item): string | null => {
+    if (!i.produto_id) return 'escolha o produto ou remova a linha'
+    const q = quantidade(i.quantidade)
+    if (q === null) return 'quantidade inválida'
+    if (q <= 0) return 'a quantidade precisa ser maior que zero'
+    return null
+  }
+  const problemas = itens.map(problemaDoItem)
+  const validos = itens.filter((_, k) => problemas[k] === null)
+  const total = validos.reduce((soma, i) => soma + (Number(i.preco_unitario) || 0) * (quantidade(i.quantidade) ?? 0), 0)
   const faltando = [
     !clienteId && 'o cliente',
-    validos.length === 0 && 'ao menos um item',
+    itens.length === 0 && 'ao menos um item',
+    ...problemas.flatMap((p, k) => (p ? [`no item ${k + 1}, ${p}`] : [])),
     !condicao && 'a condição de pagamento',
     !situacao && 'a situação',
     !operacao && 'a operação',
@@ -140,21 +164,35 @@ export function NovoPedidoDialog() {
         setor_id: setor!.id,
         itens: validos.map((i) => ({
           produto_id: i.produto_id,
-          quantidade: Number(i.quantidade),
+          quantidade: quantidade(i.quantidade),
           // Vazio = o servidor usa o preço de venda; não manda zero por engano.
           ...(i.preco_unitario !== '' ? { preco_unitario: Number(i.preco_unitario) } : {}),
         })),
       })
       toast.success(`Pedido #${salvo.id} criado.`)
       fechar(false)
-    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Não foi possível criar o pedido.') }
+    } catch (e: any) {
+      // P2-D-12: o servidor recusa fração de produto por unidade e quantidade
+      // acima do teto da revenda; a mensagem dele diz qual item e por quê.
+      const erros = e?.response?.data?.errors as Record<string, string[]> | undefined
+      const primeiro = erros ? Object.values(erros)[0]?.[0] : undefined
+      toast.error(primeiro ?? e?.response?.data?.message ?? 'Não foi possível criar o pedido.')
+    }
+  }
+
+  async function clienteCadastrado(c: { id: number; nome: string; reconhecido: boolean }) {
+    setNovoCliente(false)
+    setClienteId(c.id); setClienteLabel(c.nome)
+    setCondicao(null); setOperacao(null); setSetor(null); setItens([])
+    toast.success(c.reconhecido ? `${c.nome} já estava cadastrado e foi escolhido.` : `Cliente ${c.nome} cadastrado.`)
   }
 
   const endereco = s?.cliente.endereco
   const ult = s?.ultimo_pedido
 
   return (
-    <Dialog open={open} onOpenChange={fechar}>
+    <>
+    <Dialog open={open} onOpenChange={pedirParaFechar}>
       <DialogTrigger asChild><Button><Plus size={16} /> Novo pedido</Button></DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader><DialogTitle>Novo pedido</DialogTitle></DialogHeader>
@@ -169,6 +207,11 @@ export function NovoPedidoDialog() {
                 setCondicao(null); setOperacao(null); setSetor(null); setItens([])
               }} />
           </Field>
+          {can('cliente.create') && (
+            <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setNovoCliente(true)}>
+              <UserPlus size={15} /> Cadastrar cliente novo sem sair do pedido
+            </Button>
+          )}
           {clienteId && sugestao.isLoading && <p className="text-sm text-muted-foreground">Buscando endereço e último pedido…</p>}
           {s && (
             <div className="rounded-lg border bg-secondary/40 p-3 text-sm">
@@ -208,8 +251,8 @@ export function NovoPedidoDialog() {
           )}
           {itens.map((it, i) => (
             <div key={i} className="grid grid-cols-12 items-end gap-2">
-              <div className="col-span-12 sm:col-span-6"><Field label="Produto"><AsyncSelect endpoint="/lookups/produtos" value={it.produto_id} valueLabel={it.produtoLabel} onChange={(id, o) => { void escolherProduto(i, id, o?.label ?? null) }} /></Field></div>
-              <div className="col-span-4 sm:col-span-2"><Field label="Qtd"><Input type="number" min="1" inputMode="numeric" value={it.quantidade} onChange={(e) => setItem(i, { quantidade: e.target.value })} /></Field></div>
+              <div className="col-span-12 sm:col-span-6"><Field label="Produto" error={tentou && !it.produto_id ? 'Escolha o produto ou remova a linha.' : undefined}><AsyncSelect endpoint="/lookups/produtos" value={it.produto_id} valueLabel={it.produtoLabel} onChange={(id, o) => { void escolherProduto(i, id, o?.label ?? null) }} /></Field></div>
+              <div className="col-span-4 sm:col-span-2"><Field label="Qtd" error={tentou && problemas[i] && it.produto_id ? problemas[i]! : undefined}><Input inputMode="decimal" value={it.quantidade} onChange={(e) => setItem(i, { quantidade: e.target.value })} /></Field></div>
               <div className="col-span-6 sm:col-span-3">
                 <Field label="Preço unit." hint={it.origem ?? undefined}>
                   <Input type="number" step="0.01" inputMode="decimal" value={it.preco_unitario} placeholder="Preço de venda"
@@ -224,7 +267,12 @@ export function NovoPedidoDialog() {
         <section aria-labelledby="np-como" className="mt-2 space-y-3">
           <h3 id="np-como" className="text-sm font-semibold"><Passo n={3} /> Como paga?</h3>
           <Field label="Condição de pagamento" required error={tentou && !condicao ? 'Escolha a condição.' : undefined}>
-            <AsyncSelect endpoint="/lookups/condicoes-pagamento" value={condicao?.id ?? null} valueLabel={condicao?.label} onChange={(id, o) => { void trocarCondicao(id ? { id, label: o?.label ?? '' } : null) }} />
+            <AsyncSelect endpoint="/lookups/condicoes-pagamento" value={condicao?.id ?? null} valueLabel={condicao?.label} onChange={(id, o) => { void trocarCondicao(id ? { id, label: o?.label ?? '' } : null) }}
+              // P2-D-13: revenda sem condição cadastrada via "Nenhum resultado." e o
+              // salvar pedia a condição — sem dizer que ela precisa ser criada antes.
+              vazio={<>Nenhuma condição encontrada. Se a revenda ainda não tem condições de pagamento, {can('financeiro.edit')
+                ? <Link to="/financeiro" target="_blank" className="font-medium text-foreground underline underline-offset-2">cadastre em Financeiro</Link>
+                : 'peça ao administrador para cadastrá-las em Financeiro'}.</>} />
           </Field>
           <button type="button" className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground" aria-expanded={maisOpcoes} onClick={() => setMaisOpcoes((v) => !v)}>
             <ChevronDown size={15} className={maisOpcoes ? '' : '-rotate-90'} />
@@ -248,6 +296,70 @@ export function NovoPedidoDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog open={confirmarDescarte} onOpenChange={setConfirmarDescarte} title="Descartar este pedido?"
+      description="O cliente e os itens escolhidos ainda não foram salvos. Fechar agora descarta o pedido."
+      confirmLabel="Descartar pedido" onConfirm={() => fechar(false)} />
+    {novoCliente && <NovoClienteRapido onClose={() => setNovoCliente(false)} onSalvo={(c) => { void clienteCadastrado(c) }} />}
+    </>
+  )
+}
+
+/**
+ * Quantidade como o atendente digita: "2", "1,5" ou "1.5". Notação científica
+ * ("1e3" virava 1.000 botijões, P2-D-12), sinal e texto são inválidos.
+ * Se a fração vale para o produto, quem decide é o servidor (unidade "UN").
+ */
+export function quantidade(texto: string): number | null {
+  const t = texto.trim()
+  if (!/^\d+([.,]\d+)?$/.test(t)) return null
+  return Number(t.replace(',', '.'))
+}
+
+/**
+ * P2-A-13: cadastrar o cliente que está ao telefone SEM sair do Novo pedido.
+ * Nome e telefone bastam (o servidor exige telefone ou endereço); se o
+ * telefone/nome já identificam um cadastro, o servidor devolve ESSE cliente
+ * em vez de duplicar — e a tela avisa.
+ */
+function NovoClienteRapido({ onClose, onSalvo }: { onClose: () => void; onSalvo: (c: { id: number; nome: string; reconhecido: boolean }) => void }) {
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [erros, setErros] = useState<Record<string, string>>({})
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar() {
+    const local: Record<string, string> = {}
+    if (!nome.trim()) local.nome = 'Informe o nome do cliente.'
+    if (telefone.replace(/\D/g, '').length < 8) local.telefone = 'Informe o telefone com DDD.'
+    setErros(local)
+    if (Object.keys(local).length) return
+    setSalvando(true)
+    try {
+      const r = await api.post('/clientes', { nome: nome.trim(), telefones: [{ telefone: telefone.trim() }] })
+      onSalvo({ id: r.data.data.id, nome: r.data.data.nome, reconhecido: r.status === 200 })
+    } catch (e: any) {
+      const srv = (e?.response?.data?.errors ?? {}) as Record<string, string[]>
+      setErros({
+        nome: srv.nome?.[0] ?? '',
+        telefone: srv['telefones.0.telefone']?.[0] ?? '',
+        geral: Object.keys(srv).length ? '' : (e?.response?.data?.message ?? 'Não foi possível cadastrar o cliente.'),
+      })
+    } finally { setSalvando(false) }
+  }
+
+  return (
+    <FormDialog open onOpenChange={(v) => { if (!v) onClose() }} title="Cliente novo"
+      description="Nome e telefone de quem está ligando. O endereço pode ser completado depois no cadastro."
+      confirmLabel="Cadastrar e usar no pedido" loading={salvando} onConfirm={() => { void salvar() }}
+      dirty={nome !== '' || telefone !== ''}>
+      <Field label="Nome" required error={erros.nome || undefined}>
+        <Input value={nome} autoFocus onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field label="Telefone" required error={erros.telefone || undefined}>
+        <Input type="tel" inputMode="tel" value={telefone} placeholder="(42) 99999-0000" onChange={(e) => setTelefone(e.target.value)} />
+      </Field>
+      {erros.geral && <p role="alert" className="text-sm text-destructive">{erros.geral}</p>}
+    </FormDialog>
   )
 }
 

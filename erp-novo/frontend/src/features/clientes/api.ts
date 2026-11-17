@@ -56,6 +56,8 @@ export interface ClienteForm {
   complemento?: string | null
   ponto_referencia?: string | null
   email?: string | null
+  /** Só no cadastro novo: o servidor grava os telefones na mesma transação (P2-D-10). */
+  telefones?: { telefone: string; whatsapp?: boolean }[]
 }
 
 interface Paginated<T> {

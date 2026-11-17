@@ -5,7 +5,7 @@ import {
   AsyncSelect, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, FormDialog, toast,
 } from '@/components/ui'
 import { useLancamentos, useResumoFinanceiro, useCriarLancamento, type Lancamento } from '../api'
-import { brl, data as fmtData } from '@/lib/format'
+import { brl, data as fmtData, decimalBR } from '@/lib/format'
 import { useAuth } from '@/lib/auth'
 import { BaixaDialog } from './BaixaDialog'
 import { useBusca } from '@/lib/useBusca'
@@ -95,8 +95,11 @@ function NovoLancamentoDialog() {
     // parcela vencendo hoje, fosse qual fosse a data digitada.
     const req = ['cliente_id', 'valor', 'data_emissao', 'vencimento', 'planoconta_id', 'centrocusto_id', 'condicaopagamento_id']
     if (req.some((k) => !f[k])) { toast.error('Preencha cliente, valor, datas, condição, plano de contas e centro de custo.'); return }
+    // decimalBR, não type=number: "1.500,00" virava 1,5 no campo do navegador (R3-B-09).
+    const valor = decimalBR(String(f.valor))
+    if (!Number.isFinite(valor) || valor <= 0) { toast.error('Informe um valor maior que zero.'); return }
     try {
-      await criar.mutateAsync({ ...f, valor: Number(f.valor) })
+      await criar.mutateAsync({ ...f, valor: Math.round(valor * 100) / 100 })
       toast.success('Lançamento criado.'); setOpen(false); setF(inicial())
     } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Erro ao criar lançamento.') }
   }
@@ -113,7 +116,7 @@ function NovoLancamentoDialog() {
             </Select>
           </Field>
           <Field label="Cliente / Fornecedor" required><AsyncSelect endpoint="/lookups/clientes-fornecedores" value={f.cliente_id ?? null} valueLabel={labels.cli} onChange={(id, o) => { set('cliente_id', id); setLabels((l) => ({ ...l, cli: o?.label ?? null })) }} /></Field>
-          <Field label="Valor" required><Input type="number" step="0.01" value={f.valor ?? ''} onChange={(e) => set('valor', e.target.value)} /></Field>
+          <Field label="Valor" required><Input inputMode="decimal" placeholder="0,00" value={f.valor ?? ''} onChange={(e) => set('valor', e.target.value)} /></Field>
           <Field label="Documento"><Input value={f.documento ?? ''} onChange={(e) => set('documento', e.target.value)} /></Field>
           <Field label="Data do lançamento" required><Input type="date" value={f.data_emissao ?? ''} onChange={(e) => set('data_emissao', e.target.value)} /></Field>
                     <Field label="Primeiro vencimento" required hint="As demais parcelas seguem a condição de pagamento"><Input type="date" min={f.data_emissao} value={f.vencimento ?? ''} onChange={(e) => set('vencimento', e.target.value)} /></Field>

@@ -154,7 +154,7 @@ export function ColaboradoresListPage() {
 // aceita — mas o formulário não os oferecia: marcar alguém como entregador ou
 // guardar o telefone dele só era possível direto no banco. E-mail e sexo saíram:
 // não há coluna, o valor era descartado.
-const VAZIO = { nome: '', telefone: '', entregador: false, numero: '', cidade_id: null as number | null, bairro_id: null as number | null, rua_id: null as number | null, complemento: '', uf: '', cpf: '', rg: '', cargo_id: null as number | null, datanascimento: '', dataadmissao: '', datadesligamento: '', cep: '' }
+const VAZIO = { nome: '', telefone: '', entregador: false, numero: '', cidade_id: null as number | null, bairro_id: null as number | null, rua_id: null as number | null, complemento: '', uf: '', cpf: '', rg: '', cargo_id: null as number | null, datanascimento: '', dataadmissao: '', datadesligamento: '', cep: '', user_id: null as number | null }
 
 export function ColaboradorFormPage() {
   const { id } = useParams(); const navigate = useNavigate()
@@ -166,7 +166,7 @@ export function ColaboradorFormPage() {
   const [aba, setAba] = useState('dados')
 
   useEffect(() => {
-    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, rua: existente.rua_label, cargo: existente.cargo_label })
+    if (existente) setLabels({ cidade: existente.cidade_label, bairro: existente.bairro_label, rua: existente.rua_label, cargo: existente.cargo_label, usuario: existente.user_label })
   }, [existente])
 
   async function onSubmit() {
@@ -195,6 +195,7 @@ export function ColaboradorFormPage() {
             <Field label="Cargo"><AsyncSelect endpoint="/lookups/cargos" value={form.cargo_id} valueLabel={labels.cargo} onChange={(id, o) => { campo('cargo_id', id); setLabels((l) => ({ ...l, cargo: o?.label ?? null })) }} /></Field>
             <Field label="Telefone"><Input type="tel" inputMode="tel" value={form.telefone ?? ''} onChange={(e) => campo('telefone', e.target.value)} /></Field>
             <div className="flex items-end pb-2"><CheckboxField label="É entregador (aparece na Central de entregas)" checked={!!form.entregador} onChange={(b) => campo('entregador', b)} /></div>
+            <Field label="Usuário de acesso ao app" hint="O e-mail com que esta pessoa entra no app do entregador. Sem ele, o login do app é recusado." error={erros.user_id}><AsyncSelect endpoint="/lookups/usuarios" value={form.user_id ?? null} valueLabel={labels.usuario} onChange={(id, o) => { campo('user_id', id); setLabels((l) => ({ ...l, usuario: o?.label ?? null })) }} /></Field>
             {/* E-mail saiu: `colaboradores` não tem a coluna e o valor era descartado.
                 O e-mail de quem acessa o sistema fica no usuário (Usuários e permissões). */}
             <Field label="CPF"><Input value={form.cpf ?? ''} onChange={(e) => campo('cpf', e.target.value)} /></Field>

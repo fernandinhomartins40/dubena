@@ -535,6 +535,8 @@
     "POST api/logout",
     "POST api/pabx/chamada",
     "POST api/pix/webhook",
+    "POST api/superadmin/2fa/confirmar",
+    "POST api/superadmin/2fa/iniciar",
     "POST api/superadmin/cidades",
     "POST api/superadmin/empresas/{id}/reativar",
     "POST api/superadmin/empresas/{id}/suspender",

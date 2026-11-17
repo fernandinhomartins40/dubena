@@ -72,6 +72,10 @@ class EmpresaConfigController extends Controller
         'pcfretegp_id', 'gp_condicaopagamento_frete_id', 'gp_condicaopagamento_id',
         'setor_ressarcimento_id', 'operacao_ressarcimento_id', 'email_assunto',
         'email_corpo', 'email_requer_autenticacao', 'email_requer_tls',
+        // PIE R3 (A → C): teto de quantidade por item do pedido. O domínio já o
+        // lia (`QuantidadeDoItem::CHAVE_TETO`), mas a chave não estava aqui: o
+        // dono não tinha como configurá-lo e o salvar seria recusado com 422.
+        'pedido_quantidade_maxima_item',
     ];
 
     /** @var array<string,string> chave JSON => tabela de configuracao financeira */
@@ -93,7 +97,7 @@ class EmpresaConfigController extends Controller
         $empresa = $this->empresaDoGrupo($request, $empresaId);
         $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
 
-        $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+        $config = EmpresaConfig::firstOrNew(['empresa_id' => $empresa->id]); // R3-F-01: leitura não grava
 
         return response()->json(['data' => $this->serializar($config)]);
     }
@@ -119,6 +123,10 @@ class EmpresaConfigController extends Controller
                 ]);
             }
         }
+
+        // Teto vazio = sem teto; com valor, tem de ser um número positivo — "abc"
+        // gravado aqui seria ignorado em silêncio pelo domínio.
+        $request->validate(['pedido_quantidade_maxima_item' => 'nullable|numeric|gt:0|max:1000000']);
 
         $colunas = array_intersect_key($entrada, array_flip(self::COLUNAS));
         $dados = array_diff_key($entrada, array_flip(self::COLUNAS));
@@ -160,7 +168,7 @@ class EmpresaConfigController extends Controller
     {
         $empresa = $this->empresaDoGrupo($request, $empresaId);
         $this->autorizarNaEmpresa($request, 'empresa.view', $empresaId);
-        $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+        $config = EmpresaConfig::firstOrNew(['empresa_id' => $empresa->id]); // R3-F-01: leitura não grava
 
         return response()->json(['data' => $service->status($config)]);
     }
@@ -377,7 +385,7 @@ class EmpresaConfigController extends Controller
     {
         $empresa = $this->empresaDoGrupo($request, $empresaId, exigirAtiva: true);
         $this->autorizarNaEmpresa($request, 'empresa.edit', $empresaId);
-        $config = EmpresaConfig::firstOrCreate(['empresa_id' => $empresa->id]);
+        $config = EmpresaConfig::firstOrNew(['empresa_id' => $empresa->id]); // R3-F-01: leitura não grava
         $int = ($config->dados['integracoes'] ?? []);
 
         $pix = is_array($int['pix'] ?? null) ? $int['pix'] : [];

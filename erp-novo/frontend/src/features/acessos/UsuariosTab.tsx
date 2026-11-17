@@ -91,7 +91,9 @@ export function UsuariosTab() {
       cell: (v) => v.support
         ? <Badge variant="default">Suporte</Badge>
         : v.papeis.length
-          ? <div className="flex flex-wrap gap-1">{v.papeis.map((p) => <Badge key={p.id} variant="secondary">{p.nome}</Badge>)}</div>
+          ? <div className="flex flex-wrap gap-1">{v.papeis.map((p) => <Badge key={p.id} variant="secondary">{p.nome}</Badge>)}
+            {/* R3-G-01: papel Entregador sem colaborador ligado não entra no app. */}
+            {v.papeis.some((p) => p.nome === 'Entregador') && !v.colaborador && <Badge variant="warning" title="Ligue este usuário a um colaborador ativo em Colaboradores, campo Usuário de acesso ao app.">Sem colaborador: não entra no app</Badge>}</div>
           : '—',
     },
     { key: 'ativo', header: 'Status', cell: (v) => v.ativo ? <Badge variant="success">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge> },

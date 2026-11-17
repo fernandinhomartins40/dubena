@@ -89,7 +89,7 @@ class AppAuthHardeningTest extends TestCase
             ->assertJsonStructure(['token', 'user' => ['id', 'name', 'empresa_id']]);
     }
 
-    public function test_refresh_rotaciona_o_token_e_revoga_o_anterior(): void
+    public function test_refresh_rotaciona_o_token_e_o_anterior_vence_em_minutos(): void
     {
         $user = $this->usuario();
         $token = $user->createToken('app-dev-x');
@@ -101,10 +101,39 @@ class AppAuthHardeningTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['token', 'user']);
 
-        // O token novo é diferente e o antigo foi revogado.
+        // O token novo é diferente; o antigo não é eterno: vence em até 2 min
+        // (PIE R3-D-03 — antes era apagado na hora; ver o teste abaixo).
         $this->assertNotSame($token->plainTextToken, $resp->json('token'));
-        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $idAnterior]);
-        $this->assertDatabaseCount('personal_access_tokens', 1); // só o novo permanece
+        $anterior = \Laravel\Sanctum\PersonalAccessToken::find($idAnterior);
+        $this->assertNotNull($anterior->expires_at);
+        $this->assertTrue($anterior->expires_at->lessThanOrEqualTo(now()->addMinutes(2)));
+    }
+
+    /**
+     * PIE R3-D-03: a resposta do refresh se perdeu (3G). O app ainda só tem o
+     * token antigo. Antes, ele estava apagado: 401 no refresh e o entregador
+     * caía no login no meio da rota. Agora a nova tentativa funciona dentro da
+     * sobrevida — e depois dela o antigo deixa de valer.
+     */
+    public function test_resposta_do_refresh_perdida_o_app_renova_de_novo_com_o_token_antigo(): void
+    {
+        $user = $this->usuario();
+        $antigo = $user->createToken('app-dev-x', ['role:entregador'])->plainTextToken;
+
+        $this->withToken($antigo)->postJson('/api/app/v1/token/refresh')->assertOk(); // resposta "perdida"
+        $this->app['auth']->forgetGuards();
+
+        $segunda = $this->withToken($antigo)->postJson('/api/app/v1/token/refresh')->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        // O token que o app finalmente recebeu funciona e mantém o papel.
+        $novo = $segunda->json('token');
+        $registro = \Laravel\Sanctum\PersonalAccessToken::findToken($novo);
+        $this->assertSame(['role:entregador'], $registro->abilities);
+
+        // Passada a sobrevida, o antigo não entra mais.
+        $this->travel(3)->minutes();
+        $this->withToken($antigo)->postJson('/api/app/v1/token/refresh')->assertUnauthorized();
     }
 
     public function test_config_de_expiracao_de_token_esta_ativa(): void

@@ -14,6 +14,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { SessaoExpiradaDialog } from '@/lib/SessaoExpirada'
 import { cn } from '@/lib/cn'
 import { EmpresaSwitcher } from './EmpresaSwitcher'
 import { BotaoNovo } from './BotaoNovo'
@@ -78,17 +79,17 @@ const NAV: NavItem[] = [
   { label: 'Gás do Povo', to: '/gas-do-povo', icon: <HandCoins size={18} />, permission: 'gasdopovo.view', group: 'Dinheiro', dica: 'Benefícios do programa', palavras: 'beneficio voucher programa social' },
   { label: 'Convênios', to: '/convenios', icon: <Handshake size={18} />, permission: 'convenio.view', group: 'Dinheiro', dica: 'Faturamento mensal de empresas conveniadas', palavras: 'fechamento empresa conveniada' },
 
-  { label: 'Notas fiscais', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', group: 'Notas fiscais', dica: 'NF-e, NFC-e e SPED', palavras: 'fiscal nota nfe nfce sped imposto' },
-  { label: 'Cupons fiscais (SAT)', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', group: 'Notas fiscais', dica: 'Emitir e consultar cupom fiscal', palavras: 'sat cfe cupom' },
+  { label: 'Notas fiscais', to: '/fiscal', icon: <FileText size={18} />, permission: 'fiscal.view', feature: 'nfce', group: 'Notas fiscais', dica: 'NF-e, NFC-e e SPED', palavras: 'fiscal nota nfe nfce sped imposto' },
+  { label: 'Cupons fiscais (SAT)', to: '/cupons-fiscais', icon: <Receipt size={18} />, permission: 'cupomfiscal.view', feature: 'nfce', group: 'Notas fiscais', dica: 'Emitir e consultar cupom fiscal', palavras: 'sat cfe cupom' },
 
-  { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', group: 'Relacionamento', dica: 'Ligar para saber se o cliente ficou satisfeito', palavras: 'satisfacao crm contato' },
+  { label: 'Pós-venda', to: '/pos-venda', icon: <MessageSquareHeart size={18} />, permission: 'posvenda.view', feature: 'crm', group: 'Relacionamento', dica: 'Ligar para saber se o cliente ficou satisfeito', palavras: 'satisfacao crm contato' },
   { label: 'Promoções', to: '/promocoes', icon: <Tag size={18} />, permission: 'promocao.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas de desconto', palavras: 'crm campanha' },
   { label: 'Sorteios', to: '/sorteios', icon: <Gift size={18} />, permission: 'sorteio.view', feature: 'crm', group: 'Relacionamento', dica: 'Campanhas com prêmio e o palco do sorteio', palavras: 'crm premio' },
-  { label: 'Metas de venda', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', group: 'Acompanhar', dica: 'Meta de cada vendedor no mês', palavras: 'metas objetivo vendedor' },
+  { label: 'Metas de venda', to: '/metas', icon: <Target size={18} />, permission: 'meta.view', feature: 'crm', group: 'Acompanhar', dica: 'Meta de cada vendedor no mês', palavras: 'metas objetivo vendedor' },
 
   { label: 'Colaboradores', to: '/colaboradores', icon: <UserCog size={18} />, permission: 'colaborador.view', group: 'Equipe e frota', dica: 'Funcionários, cargos e comissões', palavras: 'rh funcionario entregador vendedor' },
   { label: 'Veículos', to: '/veiculos', icon: <Truck size={18} />, permission: 'veiculo.view', feature: 'frota', group: 'Equipe e frota', dica: 'Frota, abastecimento e manutenção', palavras: 'frota caminhao moto abastecimento oleo pneu' },
-  { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', group: 'Equipe e frota', dica: 'Roteiros de conferência (abertura, veículo…)', palavras: 'conferencia verificacao' },
+  { label: 'Checklists', to: '/checklists', icon: <ListChecks size={18} />, permission: 'checklist.view', feature: 'crm', group: 'Equipe e frota', dica: 'Roteiros de conferência (abertura, veículo…)', palavras: 'conferencia verificacao' },
   { label: 'Documentos', to: '/documentos', icon: <FolderArchive size={18} />, permission: 'documento.view', group: 'Equipe e frota', dica: 'Alvarás, licenças e contratos com vencimento', palavras: 'alvara licenca contrato vencimento' },
 
   { label: 'Empresas', to: '/empresas', icon: <Building2 size={18} />, permission: 'empresa.view', group: 'Administração', dica: 'Dados das empresas e filiais', palavras: 'filial cnpj' },
@@ -197,6 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div data-density={compact ? "compact" : "comfortable"} className="flex h-full">
+      {user?.email && <SessaoExpiradaDialog email={user.email} />}
       <a href="#conteudo-principal" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:rounded focus:bg-card focus:p-3">Ir para o conteúdo</a>
       <ResponsiveSidebar open={mobileOpen} onOpenChange={setMobileOpen} expanded={open}>
         <div className={cn('flex h-16 shrink-0 items-center gap-2.5', expandida ? 'px-4' : 'justify-center px-0')}>
