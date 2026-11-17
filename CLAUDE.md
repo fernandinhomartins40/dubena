@@ -25,7 +25,7 @@ cutover. Ver [`docs/gauntlet/GUIA_DO_DONO.md`](docs/gauntlet/GUIA_DO_DONO.md).
 | **O plano vigente (SaaS, F0–F10)** | `docs/01-vigente/PLANO_TRANSFORMACAO_SAAS.md` |
 | **Em que pé está cada fase** | `docs/01-vigente/implementacao-saas/F*_PROGRESSO.md` e `F*_FECHAMENTO.md` |
 | **Como revisar, corrigir e validar ponta a ponta** | `PROTOCOLO_VARREDURA_PONTA_A_PONTA.md` (+ `node scripts/pie-costura.mjs`) |
-| Último veredito da auditoria | `docs/pie/rodada2/CONSOLIDADO_RODADA2.md` |
+| Último veredito da auditoria | `docs/pie/rodada3/CONSOLIDADO_RODADA3.md` |
 | O que falta para virar (cutover) | `docs/gauntlet/GUIA_DO_DONO.md` |
 | O que foi entregue e por quê | `docs/gauntlet/STATUS_FINAL.md` |
 | Contrato de um módulo | `docs/01-vigente/IMPL_*.md` |
@@ -549,9 +549,9 @@ php artisan financeiro:conferir       # reconciliação, read-only
 
 | | |
 |---|---|
-| Testes (backend) | **1993 testes, 0 falhas**, 26 pulados (os de PostgreSQL/RLS) — sqlite, 2026-10-29. Portão Postgres (`composer test:pgsql-rls`): 26/26, 0 pulados |
-| Testes (SPA) | **171 verdes** — 2026-10-29 |
-| Auditoria PIE | `docs/pie/` — veredito, achados consolidados e pendências (2026-10-29) |
+| Testes (backend) | **2103 testes, 0 falhas**, 33 pulados (os de PostgreSQL/RLS) — sqlite, 2026-11-17. Portão Postgres (`composer test:pgsql-rls`): 33/33, 0 pulados |
+| Testes (SPA / apps) | SPA **181**, app do entregador **42**, app do consumidor **44** (vitest) — 2026-11-17. E2E Playwright desktop: 34 passed, 2 skipped |
+| Auditoria PIE | `docs/pie/` — veredito, achados consolidados e pendências (Rodada 3, 2026-11-17) |
 | Invariantes do ETL | **71 OK / 0 falhas** (medido no banco de agosto, que não existe mais) |
 | Endpoints | 609 |
 | Domínios / controllers admin | 34 / 59 |
