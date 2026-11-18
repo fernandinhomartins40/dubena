@@ -211,4 +211,33 @@ class MissaoFluxoTest extends TestCase
         // Estoque baixado: 100 - 2 = 98.
         $this->assertEqualsWithDelta(98, app(EstoqueService::class)->saldoDerivado($this->setor->id, $this->produto->id), 0.001);
     }
+
+    /**
+     * P2-C-05 (parte missão): o reenvio da venda com a MESMA chave e o mesmo
+     * conteúdo — o que `tentativaVenda.ts` congela no app — devolve o pedido da
+     * 1ª execução em vez de vender de novo. Payload literal de `missao.service.ts`
+     * (multipart, números como texto).
+     */
+    public function test_reenvio_da_venda_com_a_mesma_chave_nao_duplica_o_pedido(): void
+    {
+        $this->svc->iniciar($this->atribuicao(['exige_foto' => false]));
+        $cliente = Cliente::factory()->create(['empresa_id' => $this->empresaId, 'grupo_id' => $this->grupoId]);
+        PedidoSituacao::factory()->efeito(EfeitoPedido::CONCLUIDO)->create(['grupo_id' => $this->grupoId]);
+
+        $enviar = fn () => $this->actingAs($this->entregador, 'sanctum')
+            ->withHeaders(['Accept' => 'application/json', 'Idempotency-Key' => 'venda-campo-1'])
+            ->post('/api/app/v1/entregador/missao/venda', [
+                'cliente_id' => (string) $cliente->id,
+                'itens' => [['produto_id' => (string) $this->produto->id, 'quantidade' => '2']],
+                'latitude' => '-25.39', 'longitude' => '-51.46',
+                'foto' => UploadedFile::fake()->image('venda.jpg'),
+            ]);
+
+        $primeira = $enviar()->assertStatus(201)->json('data.pedido_id');
+        $segunda = $enviar()->assertStatus(201)->json('data.pedido_id');
+
+        $this->assertSame($primeira, $segunda);
+        $this->assertSame(1, \App\Models\Pedido\Pedido::where('cliente_id', $cliente->id)->count());
+        $this->assertEqualsWithDelta(98, app(EstoqueService::class)->saldoDerivado($this->setor->id, $this->produto->id), 0.001);
+    }
 }

@@ -7,7 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { router, useLocalSearchParams } from "expo-router"
 import * as Location from "expo-location"
 import { Camera, Check, Minus, Plus, UserPlus } from "lucide-react-native"
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { novoId } from "@/helpers/filaOffline"
+import { assinaturaDaVenda, tentativaPara, type TentativaVenda } from "@/helpers/tentativaVenda"
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import Toast from "react-native-toast-message"
 import { formatarMoeda } from "@/helpers/moeda"
@@ -69,22 +71,34 @@ export default function MissaoVenda() {
         }
     }
 
+    // shortcut: a tentativa vive em memória; se o app morrer no meio do envio, o
+    // toque seguinte gera outra chave. Persistir só se isso aparecer em campo.
+    const tentativa = useRef<TentativaVenda | null>(null)
+
     const vender = useMutation({
         mutationFn: async () => {
-            let coords: { latitude: number; longitude: number } | null = null
-            try {
-                const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-                coords = pos.coords
-            } catch { /* sem GPS agora */ }
+            tentativa.current = await tentativaPara(
+                tentativa.current,
+                assinaturaDaVenda(clienteId, itens, foto?.uri),
+                novoId,
+                async () => {
+                    try {
+                        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+                        return { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+                    } catch { return null /* sem GPS agora */ }
+                },
+            )
+            const { coords, chave } = tentativa.current
 
             return MissaoService.VenderGas({
                 cliente_id: clienteId!,
                 itens,
                 latitude: coords?.latitude ?? null,
                 longitude: coords?.longitude ?? null,
-            }, foto)
+            }, foto, chave)
         },
         onSuccess: (r) => {
+            tentativa.current = null
             qc.invalidateQueries({ queryKey: ["entregador", "missao"] })
             Toast.show({ type: "success", text1: `Venda registrada (pedido #${r.pedido_id}).` })
             router.back()

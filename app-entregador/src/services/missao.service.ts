@@ -70,6 +70,7 @@ const VenderGas = (
         observacao?: string
     },
     foto?: ArquivoUpload | null,
+    chave?: string,
 ): Promise<{ visita_id: number; pedido_id: number }> => {
     const form = new FormData()
     form.append("cliente_id", String(dados.cliente_id))
@@ -81,7 +82,7 @@ const VenderGas = (
     if (dados.longitude != null) form.append("longitude", String(dados.longitude))
     if (dados.observacao) form.append("observacao", dados.observacao)
     if (foto) form.append("foto", foto as any)
-    return Http.PrepareForm("app/v1/entregador/missao/venda", form)
+    return Http.PrepareForm("app/v1/entregador/missao/venda", form, { chave })
 }
 
 /** Cadastro rápido de cliente em campo. */
