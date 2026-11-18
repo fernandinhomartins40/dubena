@@ -45,6 +45,8 @@ const CAMADAS = [
       { re: /enviarOuEnfileirar(?:<[^>()]*>)?\(\s*([`'"])(.*?)\1\s*,\s*["'](POST|PUT|PATCH|DELETE)["']/g, prefixo: 'api', metodo: 3, caminho: 2 },
       // Multipart (foto, assinatura) sempre sai como POST.
       { re: /PrepareForm(?:<[^>()]*>)?\(\s*([`'"])(.*?)\1()/g, prefixo: 'api', metodo: 3, caminho: 2, metodoFixo: 'POST' },
+      // Multipart pela fila offline (concluir, ocorrência): também sempre POST.
+      { re: /enviarFormularioOuEnfileirar(?:<[^>()]*>)?\(\s*([`'"])(.*?)\1()/g, prefixo: 'api', metodo: 3, caminho: 2, metodoFixo: 'POST' },
     ],
   })),
 ]

@@ -108,8 +108,8 @@ O F varreu 617 rotas com 2.996 requisições:
 | R3-F-10 | `composer audit`: `symfony/yaml` alta (CVE-2026-109413). `mobile-shared` com 2 altas no `npm audit` | Atualização de dependência fica para um commit próprio, com a suíte |
 | R3-F-06 | Subrecursos respondem 200 vazio a quem não enxerga o pai | Baixa, sem vazamento de dado |
 | R3-A-11 | Revenda sem condição de pagamento não explica o porquê | Depende do onboarding (P2-A-07) |
-| D | A venda de missão não tem chave estável por tentativa, e um reenvio pode duplicar | Não coube na rodada |
-| E | `package-lock.json` do app do consumidor fora de sincronia (`npm ci` falha) | Regenerar o lock muda as versões resolvidas; vai num commit próprio |
+| ~~D~~ | ~~A venda de missão sem chave estável~~ | **Fechado em 18/11** (`7feed6b9`): a tentativa congela chave e GPS; `MissaoFluxoTest` mostra 2 pedidos sem a chave e 1 com ela |
+| ~~E~~ | ~~Lock do consumidor fora de sincronia~~ | **Fechado em 18/11** (`3032b012`): o lock estava preso no axios 1.11.0 e sem os binários do lightningcss. Junto, o entregador subiu do axios 1.18.1 (alta) para 1.21.1 |
 | P2-E-07, P2-E-13, P2-E-10, PIE-26 | PABX multi-revenda, filhas de configuração por grupo, demais itens do F | Exigem desenho |
 | Apps | Nenhuma tela de app foi renderizada: sem aparelho, emulador nem Maestro nesta máquina | Jornadas dos apps ficam **PARCIAIS**: lógica testada em vitest e contrato na API real |
 
@@ -154,7 +154,7 @@ O F varreu 617 rotas com 2.996 requisições:
 
 **Não executado:** projeto celular (Pixel 7) e o axe completo (escritos nos specs, não rodados nesta passada). Telas dos apps (sem aparelho).
 
-**Ferramenta.** `scripts/pie-costura.mjs` ainda lista como "rota sem consumidor" as rotas dos apps que passam pela fila offline (`concluir`, `ocorrencia`, `pagar`, `perfil/endereco`). São falsos positivos já triados pelo G: o script não reconhece o helper `enviarFormularioOuEnfileirar`.
+**Ferramenta.** `scripts/pie-costura.mjs` listava como "rota sem consumidor" `concluir`, `ocorrencia`, `pagar` e `perfil/endereco`, e esta seção dizia que eram todos falsos positivos da fila offline. **Corrigido em 18/11, e o diagnóstico mudou:** só `concluir` e `ocorrencia` eram falsos positivos. O script passou a reconhecer `enviarFormularioOuEnfileirar`, e os dois saíram da lista. `POST pedidos/{id}/pagar` e `GET/PUT perfil/endereco` **não têm chamada nenhuma** no app do consumidor hoje: são rotas sem tela de verdade, não um erro do script.
 
 ## 7. Veredito
 
