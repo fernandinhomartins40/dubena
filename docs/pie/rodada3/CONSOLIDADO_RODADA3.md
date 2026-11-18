@@ -105,7 +105,7 @@ O F varreu 617 rotas com 2.996 requisições:
 | ID | O que falta | Por que não foi feito |
 |---|---|---|
 | R3-F-09 | Chave Google `AIza…` versionada em 4 arquivos (2 no `ctrl-web`, 1 no `legado-nfweb`, 1 .md) | Rotacionar é ação no console do Google, do dono. O `ctrl-web` não pode ser alterado |
-| R3-F-10 | `composer audit`: `symfony/yaml` alta (CVE-2026-109413). `mobile-shared` com 2 altas no `npm audit` | Atualização de dependência fica para um commit próprio, com a suíte |
+| ~~R3-F-10~~ | ~~`symfony/yaml` alta; `mobile-shared` com 2 altas~~ | **Fechado em 18/11** (`b5ebddbe`, `3032b012`). `composer audit` sem avisos (Laravel 12.73, Symfony 7.4.23), axios 1.21.1 nos dois apps e suíte 2105/0. Sobra no `npm audit` do entregador só ferramenta de build do Expo, que não vai para o aparelho; corrigir exige subir o SDK |
 | R3-F-06 | Subrecursos respondem 200 vazio a quem não enxerga o pai | Baixa, sem vazamento de dado |
 | R3-A-11 | Revenda sem condição de pagamento não explica o porquê | Depende do onboarding (P2-A-07) |
 | ~~D~~ | ~~A venda de missão sem chave estável~~ | **Fechado em 18/11** (`7feed6b9`): a tentativa congela chave e GPS; `MissaoFluxoTest` mostra 2 pedidos sem a chave e 1 com ela |
