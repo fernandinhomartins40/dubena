@@ -61,6 +61,8 @@ class ConvenioController extends Controller
     public function fechamentos(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request, 'convenio.view');
+        // R3-F-06: o pai primeiro — convênio que o usuário não enxerga é 404, não lista vazia.
+        Convenio::query()->findOrFail($id);
 
         return response()->json([
             'data' => ConvenioFechamento::query()->where('convenio_id', $id)->orderByDesc('periodo_inicio')->get(),

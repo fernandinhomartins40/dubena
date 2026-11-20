@@ -109,8 +109,11 @@ class ConsumoDeIntegracao
                 'ultimo_erro' => $erro ? mb_substr((string) $mensagemErro, 0, 255) : $existente->ultimo_erro,
                 'updated_at' => now(),
             ]);
-        } catch (\Throwable) {
-            // Sem tabela (banco antigo) ou falha de escrita: a integração segue.
+        } catch (\Throwable $e) {
+            // Sem tabela (banco antigo) ou falha de escrita: a integração segue,
+            // mas a falha vai ao log — foi o catch mudo que escondeu a policy
+            // que recusava toda linha sem empresa nesta tabela.
+            report($e);
         }
     }
 
@@ -131,7 +134,10 @@ class ConsumoDeIntegracao
                 ->selectRaw('servico, sum(chamadas) as chamadas, sum(erros) as erros, sum(custo_centavos) as custo')
                 ->groupBy('servico')
                 ->get();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // Painel de consumo vazio por erro não pode parecer "zero chamadas".
+            report($e);
+
             return [];
         }
 

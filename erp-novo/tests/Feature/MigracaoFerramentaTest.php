@@ -287,4 +287,48 @@ class MigracaoFerramentaTest extends TestCase
         $csv->assertOk();
         $this->assertStringContainsString('Fulano de Tal', $csv->streamedContent());
     }
+
+    /** P2-E-10: cada ato da ferramenta fica em `platform_audit_logs`, com o admin. */
+    public function test_atos_da_ferramenta_ficam_na_trilha_da_plataforma(): void
+    {
+        Queue::fake();
+        $admin = PlatformAdmin::factory()->create();
+        $token = $admin->createToken('teste')->plainTextToken;
+
+        $id = $this->withToken($token)
+            ->postJson('/api/superadmin/migracoes', $this->payload())
+            ->json('data.id');
+        $this->withToken($token)->putJson("/api/superadmin/migracoes/{$id}/mapeamento", [
+            'mapa' => [['id_origem' => 1, 'acao' => 'ignorar']],
+        ])->assertOk();
+        $this->withToken($token)->postJson("/api/superadmin/migracoes/{$id}/executar")->assertStatus(202);
+        $this->withToken($token)->get("/api/superadmin/migracoes/{$id}/descartes.csv")->assertOk();
+
+        foreach (['migracao.criada', 'migracao.mapeamento', 'migracao.executar', 'migracao.descartes_csv'] as $acao) {
+            $this->assertDatabaseHas('platform_audit_logs', [
+                'acao' => $acao, 'entidade' => 'migracoes', 'entidade_id' => $id, 'platform_admin_id' => $admin->id,
+            ]);
+        }
+        // A senha da origem não entra na trilha.
+        $this->assertSame(0, \DB::table('platform_audit_logs')->where('depois', 'like', '%segredo-do-cliente%')->count());
+    }
+
+    /** P2-E-10: o catálogo global de cidades também. */
+    public function test_crud_de_cidades_da_plataforma_fica_na_trilha(): void
+    {
+        $admin = PlatformAdmin::factory()->create();
+        $token = $admin->createToken('teste')->plainTextToken;
+
+        $cidadeId = $this->withToken($token)->postJson('/api/superadmin/cidades', ['nome' => 'Guarapuava', 'uf' => 'PR'])
+            ->assertCreated()->json('data.id');
+        $this->withToken($token)->putJson("/api/superadmin/cidades/{$cidadeId}", ['nome' => 'Guarapuava', 'uf' => 'PR', 'ativo' => false])
+            ->assertOk();
+        $this->withToken($token)->deleteJson("/api/superadmin/cidades/{$cidadeId}")->assertOk();
+
+        foreach (['cidade.salva', 'cidade.atualizada', 'cidade.excluida'] as $acao) {
+            $this->assertDatabaseHas('platform_audit_logs', [
+                'acao' => $acao, 'entidade' => 'cidades_plataforma', 'entidade_id' => $cidadeId, 'platform_admin_id' => $admin->id,
+            ]);
+        }
+    }
 }

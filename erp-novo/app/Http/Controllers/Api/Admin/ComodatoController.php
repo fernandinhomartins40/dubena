@@ -262,6 +262,8 @@ class ComodatoController extends Controller
     public function historicoVigilancia(Request $request, int $cliente): JsonResponse
     {
         $this->autorizar($request, 'comodato.view');
+        // R3-F-06: o pai primeiro — cliente que o usuário não enxerga é 404, não lista vazia.
+        Cliente::query()->findOrFail($cliente);
 
         return response()->json([
             'data' => ComodatoAvaliacao::query()

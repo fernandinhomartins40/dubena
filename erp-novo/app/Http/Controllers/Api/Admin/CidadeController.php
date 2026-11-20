@@ -155,6 +155,11 @@ class CidadeController extends Controller
         $user = $request->user();
         $grupo = (int) ($user->empresa?->grupo_id ?? $user->grupo_id);
 
-        return Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
+        $empresa = Empresa::query()->where('grupo_id', $grupo)->findOrFail($empresaId);
+        // R3-F-06: a empresa da mesma rede sem concessão ao usuário respondia 200
+        // com lista vazia (a RLS filtrava o vínculo). O contrato do resto da API é 404.
+        abort_unless($user->podeAcessarEmpresa($empresaId), 404);
+
+        return $empresa;
     }
 }

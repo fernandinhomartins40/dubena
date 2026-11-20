@@ -129,6 +129,82 @@ class RlsCoberturaTest extends TestCase
     }
 
     /**
+     * P2-E-13: as filhas sem coluna de tenant (`checklist_perguntas`,
+     * `sorteio_numeros`) têm RLS desde a migration, sem depender do pós-carga.
+     * Elas escapam das varreduras acima, que procuram `empresa_id`/`grupo_id`.
+     */
+    public function test_filhas_de_configuracao_por_grupo_tem_rls_pela_migration(): void
+    {
+        $filhas = ['checklist_perguntas', 'sorteio_numeros'];
+
+        $this->assertSame(2, DB::table('pg_class')->whereIn('relname', $filhas)
+            ->where('relrowsecurity', true)->where('relforcerowsecurity', true)->count());
+        $this->assertSame(2, DB::table('pg_policies')->whereIn('tablename', $filhas)
+            ->where('policyname', 'tenant_isolation')->count());
+
+        // Efeito observável: a RLS descarta sem lançar, então conta-se o que a sessão vê.
+        $owner = DB::connection('pgsql_owner');
+        $agora = now();
+        $ids = [];
+        foreach (['A', 'B'] as $lado) {
+            $grupo = $owner->table('grupos')->insertGetId([
+                'descricao' => "RLS filhas {$lado} ".fake()->uuid(), 'ativo' => true,
+                'created_at' => $agora, 'updated_at' => $agora,
+            ]);
+            $checklist = $owner->table('checklists')->insertGetId([
+                'grupo_id' => $grupo, 'descricao' => "Checklist {$lado}", 'created_at' => $agora, 'updated_at' => $agora,
+            ]);
+            $sorteio = $owner->table('sorteios')->insertGetId([
+                'grupo_id' => $grupo, 'descricao' => "Sorteio {$lado}", 'created_at' => $agora, 'updated_at' => $agora,
+            ]);
+            $ids[$lado] = [
+                'grupo' => $grupo,
+                'checklist' => $checklist,
+                'pergunta' => $owner->table('checklist_perguntas')->insertGetId([
+                    'checklist_id' => $checklist, 'pergunta' => "Pergunta {$lado}", 'created_at' => $agora, 'updated_at' => $agora,
+                ]),
+                'numero' => $owner->table('sorteio_numeros')->insertGetId([
+                    'sorteio_id' => $sorteio, 'numero' => "0{$lado}", 'created_at' => $agora, 'updated_at' => $agora,
+                ]),
+            ];
+        }
+
+        // Os pais ainda estão na policy legada por `app.grupo_id` (sem pós-carga).
+        DB::select("SELECT set_config('app.grupo_id', ?, false)", [(string) $ids['A']['grupo']]);
+        try {
+            $perguntas = DB::table('checklist_perguntas')->whereIn('id', [$ids['A']['pergunta'], $ids['B']['pergunta']])->pluck('id')->all();
+            $numeros = DB::table('sorteio_numeros')->whereIn('id', [$ids['A']['numero'], $ids['B']['numero']])->pluck('id')->all();
+            $this->assertSame([$ids['A']['pergunta']], $perguntas);
+            $this->assertSame([$ids['A']['numero']], $numeros);
+            $this->assertSame(0, DB::table('checklist_perguntas')->where('id', $ids['B']['pergunta'])->update(['pergunta' => 'INVASAO']));
+            $this->assertSame(0, DB::table('sorteio_numeros')->where('id', $ids['B']['numero'])->delete());
+
+            // Gravar filha num pai de outro grupo é recusado.
+            DB::statement('SAVEPOINT filha_alheia');
+            $negou = false;
+            try {
+                DB::table('checklist_perguntas')->insert([
+                    'checklist_id' => $ids['B']['checklist'], 'pergunta' => 'INVASAO', 'created_at' => $agora, 'updated_at' => $agora,
+                ]);
+            } catch (QueryException) {
+                $negou = true;
+            }
+            DB::statement('ROLLBACK TO SAVEPOINT filha_alheia');
+            $this->assertTrue($negou, 'RLS deveria rejeitar pergunta num checklist de outro grupo.');
+
+            // E a do próprio grupo continua sendo aceita (a barreira não trava a operação).
+            $propria = DB::table('checklist_perguntas')->insertGetId([
+                'checklist_id' => $ids['A']['checklist'], 'pergunta' => 'Nova', 'created_at' => $agora, 'updated_at' => $agora,
+            ]);
+            $this->assertSame(1, DB::table('checklist_perguntas')->where('id', $propria)->count());
+        } finally {
+            DB::select("SELECT set_config('app.grupo_id', '', false)");
+        }
+
+        $this->assertNotSame('INVASAO', $owner->table('checklist_perguntas')->where('id', $ids['B']['pergunta'])->value('pergunta'));
+    }
+
+    /**
      * Para cada tabela escopada (menos allowlist), exige RLS ENABLE + FORCE + policy.
      *
      * @param  list<string>|null  $tabelas  conjunto a verificar (default: todas com a coluna)

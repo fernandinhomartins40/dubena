@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\SuperAdmin;
 
+use App\Domain\Saas\AuditoriaPlataforma;
 use App\Domain\Saas\CidadeService;
 use App\Domain\Saas\SuperAdminService;
 use App\Http\Controllers\Controller;
@@ -52,21 +53,31 @@ class PainelController extends Controller
     }
 
     /** POST /superadmin/cidades */
-    public function cidadeStore(Request $request, CidadeService $cidades): JsonResponse
+    public function cidadeStore(Request $request, CidadeService $cidades, AuditoriaPlataforma $auditoria): JsonResponse
     {
-        return response()->json(['data' => $cidades->salvar($this->validarCidade($request))], 201);
+        $cidade = $cidades->salvar($this->validarCidade($request));
+        // P2-E-10: o catálogo é global — mudar a cidade muda a descoberta de toda revenda.
+        $auditoria->registrar('cidade.salva', null, 'cidades_plataforma', $cidade->id, null, $cidade->only(['nome', 'uf', 'ativo']));
+
+        return response()->json(['data' => $cidade], 201);
     }
 
     /** PUT /superadmin/cidades/{id} */
-    public function cidadeUpdate(Request $request, int $id, CidadeService $cidades): JsonResponse
+    public function cidadeUpdate(Request $request, int $id, CidadeService $cidades, AuditoriaPlataforma $auditoria): JsonResponse
     {
-        return response()->json(['data' => $cidades->salvar($this->validarCidade($request), $id)]);
+        $antes = CidadePlataforma::query()->findOrFail($id)->only(['nome', 'uf', 'centro_lat', 'centro_lng', 'ativo']);
+        $cidade = $cidades->salvar($this->validarCidade($request), $id);
+        $auditoria->registrar('cidade.atualizada', null, 'cidades_plataforma', $id, $antes, $cidade->only(array_keys($antes)));
+
+        return response()->json(['data' => $cidade]);
     }
 
     /** DELETE /superadmin/cidades/{id} */
-    public function cidadeDestroy(int $id): JsonResponse
+    public function cidadeDestroy(int $id, AuditoriaPlataforma $auditoria): JsonResponse
     {
-        CidadePlataforma::query()->findOrFail($id)->delete();
+        $cidade = CidadePlataforma::query()->findOrFail($id);
+        $cidade->delete();
+        $auditoria->registrar('cidade.excluida', null, 'cidades_plataforma', $id, $cidade->only(['nome', 'uf']));
 
         return response()->json(['message' => 'Cidade excluída.']);
     }

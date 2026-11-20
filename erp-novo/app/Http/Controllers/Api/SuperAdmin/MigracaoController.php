@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\SuperAdmin;
 
+use App\Domain\Saas\AuditoriaPlataforma;
 use App\Domain\Saas\TransformationFreeze;
 use App\Etl\MigratorRegistry;
 use App\Http\Controllers\Controller;
@@ -26,7 +27,19 @@ class MigracaoController extends Controller
     public function __construct(
         private MigracaoService $service,
         private TransformationFreeze $freeze,
+        private AuditoriaPlataforma $auditoria,
     ) {}
+
+    /**
+     * P2-E-10: a ferramenta lê bancos externos inteiros, cria empresas e grava
+     * credenciais — ato cross-tenant que tem de ficar em `platform_audit_logs`.
+     *
+     * @param  array<string,mixed>|null  $depois
+     */
+    private function trilha(string $acao, int $migracaoId, ?array $depois = null): void
+    {
+        $this->auditoria->registrar($acao, null, 'migracoes', $migracaoId, null, $depois);
+    }
 
     /** GET /superadmin/migracoes */
     public function index(): JsonResponse
@@ -72,6 +85,12 @@ class MigracaoController extends Controller
             'status' => Migracao::STATUS_PENDENTE,
             'platform_admin_id' => $request->user()?->id,
         ]);
+        // Sem usuário nem senha na trilha: o destino basta para saber o que foi lido.
+        $this->trilha('migracao.criada', $migracao->id, [
+            'origem_tipo' => $dados['origem_tipo'],
+            'host' => $dados['config']['host'],
+            'database' => $dados['config']['database'],
+        ]);
 
         return response()->json(['data' => $migracao->only([
             'id', 'descricao', 'origem_tipo', 'status',
@@ -82,6 +101,7 @@ class MigracaoController extends Controller
     public function conectar(int $id): JsonResponse
     {
         $migracao = Migracao::findOrFail($id);
+        $this->trilha('migracao.conectar', $migracao->id);
 
         try {
             return response()->json(['data' => $this->service->conectar($migracao)]);
@@ -103,6 +123,7 @@ class MigracaoController extends Controller
     {
         $migracao = Migracao::findOrFail($id);
         $migracao->update(['status' => Migracao::STATUS_DIAGNOSTICANDO]);
+        $this->trilha('migracao.diagnosticar', $migracao->id);
 
         try {
             $diagnostico = $this->service->diagnosticar($migracao);
@@ -152,6 +173,7 @@ class MigracaoController extends Controller
         }
 
         $migracao->update(['mapa_empresas' => $dados['mapa']]);
+        $this->trilha('migracao.mapeamento', $migracao->id, ['mapa' => $dados['mapa']]);
 
         return response()->json(['data' => ['mapa' => $dados['mapa']]]);
     }
@@ -182,6 +204,7 @@ class MigracaoController extends Controller
             'erro' => null,
         ]);
 
+        $this->trilha('migracao.executar', $migracao->id, ['apenas' => $dados['apenas'] ?? []]);
         ExecutarMigracaoJob::dispatch($migracao->id, $dados['apenas'] ?? [], (int) $request->user()->id);
 
         return response()->json(['data' => ['status' => $migracao->status]], 202);
@@ -191,6 +214,7 @@ class MigracaoController extends Controller
     public function simular(int $id): JsonResponse
     {
         $migracao = Migracao::findOrFail($id);
+        $this->trilha('migracao.simular', $migracao->id);
 
         try {
             return response()->json(['data' => $this->service->executar($migracao, [], true)]);
@@ -227,6 +251,8 @@ class MigracaoController extends Controller
     public function descartesCsv(int $id): StreamedResponse
     {
         $migracao = Migracao::findOrFail($id);
+        // As linhas descartadas são o dado cru do legado (PII): o download fica na trilha.
+        $this->trilha('migracao.descartes_csv', $migracao->id, ['linhas' => $migracao->descartes()->count()]);
 
         return Response::streamDownload(function () use ($migracao) {
             $saida = fopen('php://output', 'w');

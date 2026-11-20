@@ -11,7 +11,7 @@ use App\Domain\Tenant\TenantEnvelopeRuntime;
 use App\Domain\Shared\MensagemSemSegredo;
 use App\Models\Cliente\Cliente;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -22,8 +22,13 @@ use Illuminate\Support\Facades\Log;
  * Geocodifica o endereço do cliente de forma ASSÍNCRONA (fila), substituindo a
  * chamada síncrona do legado que travava o request. Gate externo (geocoding) —
  * provedor via config; falha não derruba o cadastro.
+ *
+ * PIE-26: despachado de dentro da transação do cadastro/pedido, e a fila redis
+ * tem `after_commit=false`. Sem `ShouldQueueAfterCommit` o worker podia pegar o
+ * job antes do commit e não achar o cliente (sai calado, cliente sem coordenada).
+ * Só este job: mudar o `after_commit` global afetaria toda a fila sem medição.
  */
-class GeocodificarClienteJob implements ShouldQueue
+class GeocodificarClienteJob implements ShouldQueueAfterCommit
 {
     use Dispatchable;
     use InteractsWithQueue;

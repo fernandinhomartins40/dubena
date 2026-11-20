@@ -74,8 +74,10 @@ trait AutorizaPorPermissao
                 'rota' => $request->path(),
                 'metodo' => $request->method(),
             ]);
-        } catch (\Throwable) {
-            // silencioso: auditoria não bloqueia o fluxo.
+        } catch (\Throwable $e) {
+            // A trilha não bloqueia o 403, mas a falha tem de chegar ao log: um
+            // registrador mudo já escondeu policy quebrada em produção.
+            report($e);
         }
     }
 }

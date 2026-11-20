@@ -483,9 +483,11 @@ class PedidoService
                 'ip' => request()?->ip(),
                 'criado_em' => now(),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Trilha não pode derrubar a venda: se o log falhar, a recusa vale
-            // do mesmo jeito — ela é a regra, o registro é o acessório.
+            // do mesmo jeito — ela é a regra, o registro é o acessório. Mas a
+            // falha vai ao log, senão a trilha some sem ninguém saber.
+            report($e);
         }
 
         $sugestao = $r['permite_solicitar']
