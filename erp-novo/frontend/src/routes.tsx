@@ -16,6 +16,7 @@ const lazyNamed = <T extends Record<string, React.ComponentType<any>>>(
 
 // Auth / Geral
 const LoginPage = lazyNamed(() => import('@/features/auth/LoginPage'), 'LoginPage')
+const DefinirSenhaPage = lazyNamed(() => import('@/features/auth/DefinirSenhaPage'), 'DefinirSenhaPage')
 const DashboardPage = lazyNamed(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage')
 const RelatoriosPage = lazyNamed(() => import('@/features/relatorios/RelatoriosPage'), 'RelatoriosPage')
 
@@ -118,6 +119,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Suspense fallback={<Splash />}><LoginPage /></Suspense>} />
+      {/* Público: o dono da revenda nova ainda não tem senha (PIE P2-A-01). */}
+      <Route path="/definir-senha" element={<Suspense fallback={<Splash />}><DefinirSenhaPage /></Suspense>} />
 
       {/* Geral — Dashboard e Satélites são abertos a qualquer logado (sem permissão) */}
       <Route path="/" element={p(<DashboardPage />)} />

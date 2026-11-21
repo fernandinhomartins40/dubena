@@ -192,6 +192,42 @@ export function useSaEmpresaAcoes() {
   }
 }
 
+/** PIE P2-A-01 — dados da revenda nova (o backend valida tudo de novo). */
+export interface SaNovaRevenda {
+  razao_social: string
+  nome_fantasia?: string | null
+  cnpj?: string | null
+  dono_nome: string
+  dono_email: string
+  plano_id?: number | null
+  trial_dias?: number | null
+}
+
+export interface SaRevendaCriada {
+  empresa_id: number
+  tenant_account_id: number
+  plano: string
+  status_assinatura: string
+  trial_ate: string | null
+  dono: { id: number; nome: string; email: string }
+  /** Token de uso único: só existe nesta resposta. */
+  convite: { token: string; expira_em: string }
+}
+
+export function useSaProvisionarRevenda() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: SaNovaRevenda) => (await saApi.post<{ data: SaRevendaCriada }>('/revendas', body)).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sa', 'empresas'] }),
+  })
+}
+
+/** Link que o dono abre para definir a senha. Mesmo app (e mesmo `BASE_URL`) do painel. */
+export function linkDoConvite(c: { email: string; token: string }, origem = window.location.origin): string {
+  const q = new URLSearchParams({ email: c.email, token: c.token })
+  return `${origem}${import.meta.env.BASE_URL.replace(/\/?$/, '/')}definir-senha?${q.toString()}`
+}
+
 export const useSaRecursos = (empresaId: number | null) =>
   useQuery<SaRecursosEfetivos>({
     queryKey: ['sa', 'recursos', empresaId],

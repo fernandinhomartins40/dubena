@@ -7,6 +7,7 @@ import { StatCard, AsyncState, Button, PageHeader, type StatAccent } from '@/com
 import { dataHora } from '@/lib/format'
 import { useAlertas } from '@/features/alertas/api'
 import { AcoesRapidas, ParaHoje } from './ParaHoje'
+import { ProntoParaVender } from './ProntoParaVender'
 
 interface Resumo {
   clientes: number
@@ -50,6 +51,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader title={`Olá, ${user?.name?.split(' ')[0] ?? ''}`} subtitle="O que pede atenção hoje e o que você pode fazer agora."
         action={<Button variant="outline" loading={isFetching} onClick={() => { void refetch() }}><RefreshCw /> Atualizar resumo</Button>} />
+      {can('empresa.view') && <ProntoParaVender />}
       <AcoesRapidas />
       <ParaHoje />
       {can('alerta.view') && <Pendencias />}

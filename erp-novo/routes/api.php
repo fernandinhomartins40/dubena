@@ -81,6 +81,7 @@ use App\Http\Controllers\Api\SuperAdmin\EmpresaController as SuperAdminEmpresaCo
 use App\Http\Controllers\Api\SuperAdmin\MigracaoController as SuperAdminMigracaoController;
 use App\Http\Controllers\Api\SuperAdmin\PainelController as SuperAdminPainelController;
 use App\Http\Controllers\Api\SuperAdmin\PlanoController as SuperAdminPlanoController;
+use App\Http\Controllers\Api\SuperAdmin\RevendaController as SuperAdminRevendaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -93,6 +94,10 @@ Route::get('/health', HealthController::class)->middleware('throttle:60,1');
 
 // Autenticação (pública) — rate-limit estreito anti-brute-force (F13).
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// PIE P2-A-01 — o dono da revenda nova define a própria senha pelo convite de
+// uso único (público: ele ainda não tem senha). Mesmo limiter do login.
+Route::post('/definir-senha', [AuthController::class, 'definirSenha'])->middleware('throttle:login');
 
 // Webhook PIX (PÚBLICO — o PSP chama de fora; segurança no controller/service) — N7.
 Route::post('/pix/webhook', [PixWebhookController::class, 'handle']);
@@ -733,6 +738,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.saas', 'licenca.rota', 'thr
         // Dashboard (home da SPA) — contadores rápidos.
         Route::get('dashboard/resumo', [RelatorioController::class, 'dashboardResumo']);
         Route::get('dashboard/hoje', [RelatorioController::class, 'dashboardHoje']);
+        Route::get('dashboard/pronto-para-vender', [RelatorioController::class, 'prontoParaVender']);
 
         Route::get('relatorios/vendas', [RelatorioController::class, 'vendas']);
         Route::get('relatorios/financeiro', [RelatorioController::class, 'financeiro']);
@@ -1030,6 +1036,10 @@ Route::prefix('superadmin')->group(function () {
         // Dashboard + auditoria cross-tenant.
         Route::get('dashboard', [SuperAdminPainelController::class, 'dashboard']);
         Route::get('auditoria', [SuperAdminPainelController::class, 'auditoria']);
+
+        // PIE P2-A-01 — revenda nova pelo produto (tenant + empresa + dono +
+        // catálogo + assinatura numa transação). Substitui o JSON por console.
+        Route::post('revendas', [SuperAdminRevendaController::class, 'store']);
 
         // Empresas (cross-tenant) — suspender/reativar, assinatura, overrides.
         Route::get('empresas', [SuperAdminEmpresaController::class, 'index']);

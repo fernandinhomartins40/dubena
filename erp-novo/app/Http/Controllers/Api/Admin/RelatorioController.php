@@ -6,11 +6,13 @@ use App\Domain\Acesso\CamposPermitidos;
 use App\Domain\Auditoria\ConsultaTrilha;
 use App\Domain\Relatorio\PainelDoDiaService;
 use App\Domain\Relatorio\RelatorioService;
+use App\Domain\Saas\ProntoParaVenderService;
 use App\Domain\Shared\TenantCache;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Concerns\AutorizaPorPermissao;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Empresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -327,6 +329,19 @@ class RelatorioController extends Controller
             'inicio' => 'required|date',
             'fim' => 'required|date|after_or_equal:inicio',
         ]);
+    }
+
+    /**
+     * GET /dashboard/pronto-para-vender — PIE R3-A-11/R3-G-22.
+     *
+     * `empresa.view`: o checklist aponta configuração da revenda (fiscal,
+     * cercas, condições), coisa de quem administra — não do atendente.
+     */
+    public function prontoParaVender(Request $request, ProntoParaVenderService $pronto): JsonResponse
+    {
+        $this->autorizar($request, 'empresa.view');
+
+        return response()->json(['data' => $pronto->verificar(Empresa::query()->findOrFail($this->empresaId()))]);
     }
 
     private function empresaId(): int

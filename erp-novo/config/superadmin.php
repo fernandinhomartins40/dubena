@@ -18,4 +18,14 @@ return [
 
     // Validade do token que só serve para cadastrar o 2FA.
     'token_cadastro_2fa_min' => 15,
+
+    // PIE P2-A-01 — revenda criada pelo painel. São só os DEFAULTS do
+    // formulário: o operador escolhe plano e trial a cada revenda. Ficam aqui, e
+    // não no código, porque a oferta comercial muda sem deploy. Plano padrão que
+    // não existe (ou está inativo) recusa a criação — nunca cai num plano
+    // qualquer.
+    'provisionamento' => [
+        'plano_padrao' => env('SAAS_PROVISIONAMENTO_PLANO', 'essencial'),
+        'trial_dias' => (int) env('SAAS_PROVISIONAMENTO_TRIAL_DIAS', 14),
+    ],
 ];

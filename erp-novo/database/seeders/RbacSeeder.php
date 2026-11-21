@@ -70,6 +70,17 @@ class RbacSeeder extends Seeder
         $admin->roles()->attach($papel->id, ['empresa_id' => $admin->empresa_id, 'herda_filhos' => true]);
     }
 
+    /**
+     * PIE P2-A-01 — papéis padrão de UM grupo, para a revenda criada pelo
+     * superadmin. Mesma regra do deploy (uma fonte só): se os papéis padrão
+     * mudarem aqui, a revenda nova nasce com a regra nova.
+     */
+    public function papeisPadraoDoGrupo(int $grupoId): void
+    {
+        $this->sincronizarPermissions();
+        $this->papeisDoGrupo($grupoId);
+    }
+
     /** Garante que TODA chave do catálogo existe na tabela. */
     private function sincronizarPermissions(): void
     {

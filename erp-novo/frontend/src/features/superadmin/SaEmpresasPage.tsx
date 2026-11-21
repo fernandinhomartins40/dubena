@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Building2, CreditCard, SlidersHorizontal, Ban, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Building2, CreditCard, SlidersHorizontal, Ban, CheckCircle2, AlertTriangle, Plus, Copy } from 'lucide-react'
 import {
   Button, Badge, type Column, Field, Input, Switch, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   ResourceList, FormDialog, ConfirmDialog, SearchBar, AsyncState, StatCard, toast,
 } from '@/components/ui'
 import {
   useSaEmpresas, useSaEmpresaAcoes, useSaPlanos, useSaRecursos, useSaOverride,
-  useSaLimites, useSaLimiteOverride,
-  type SaEmpresa,
+  useSaLimites, useSaLimiteOverride, useSaProvisionarRevenda, linkDoConvite,
+  type SaEmpresa, type SaRevendaCriada,
 } from './api'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -29,6 +29,7 @@ export function SaEmpresasPage() {
   const [assinaturaDe, setAssinaturaDe] = useState<SaEmpresa | null>(null)
   const [recursosDe, setRecursosDe] = useState<SaEmpresa | null>(null)
   const [suspenderDe, setSuspenderDe] = useState<SaEmpresa | null>(null)
+  const [novaRevenda, setNovaRevenda] = useState(false)
 
   const todas = data ?? []
   const ativas = todas.filter((e) => e.ativo).length
@@ -74,6 +75,7 @@ export function SaEmpresasPage() {
       <ResourceList
         title="Empresas"
         subtitle="Todas as empresas da plataforma (acesso cross-tenant, auditado)"
+        action={<Button onClick={() => setNovaRevenda(true)}><Plus /> Nova revenda</Button>}
         filtros={<SearchBar value={q} onChange={setQ} onSearch={() => { /* a query refaz ao mudar q */ }} placeholder="Buscar por razão social, fantasia ou CNPJ…" />}
         columns={columns}
         rows={data}
@@ -84,6 +86,7 @@ export function SaEmpresasPage() {
         emptyDescription="Nenhuma empresa corresponde à busca."
       />
 
+      {novaRevenda && <NovaRevendaDialog onClose={() => setNovaRevenda(false)} />}
       {assinaturaDe && (
         <AssinaturaDialog empresa={assinaturaDe} onClose={() => setAssinaturaDe(null)} />
       )}
@@ -105,6 +108,85 @@ export function SaEmpresasPage() {
         }}
       />
     </>
+  )
+}
+
+/**
+ * PIE P2-A-01 — cria a revenda (tenant, empresa, dono, catálogo e assinatura)
+ * numa chamada só. Depois de criada, o diálogo troca o formulário pelo link de
+ * convite do dono: ele só existe nesta resposta (o banco guarda o hash), então
+ * fechar sem copiar obriga a gerar outro.
+ */
+export function NovaRevendaDialog({ onClose }: { onClose: () => void }) {
+  const { data: planos } = useSaPlanos()
+  const provisionar = useSaProvisionarRevenda()
+  const [form, setForm] = useState({ razao_social: '', nome_fantasia: '', cnpj: '', dono_nome: '', dono_email: '', plano_id: '', trial_dias: '14' })
+  const [erros, setErros] = useState<Record<string, string>>({})
+  const [criada, setCriada] = useState<SaRevendaCriada | null>(null)
+  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const vendaveis = (planos?.planos ?? []).filter((p) => p.ativo && !p.transitorio)
+
+  async function salvar() {
+    setErros({})
+    try {
+      setCriada(await provisionar.mutateAsync({
+        razao_social: form.razao_social, nome_fantasia: form.nome_fantasia || null, cnpj: form.cnpj || null,
+        dono_nome: form.dono_nome, dono_email: form.dono_email,
+        // Sem plano escolhido o backend usa o padrão configurado (e recusa se ele não existir).
+        plano_id: form.plano_id ? Number(form.plano_id) : null,
+        trial_dias: form.trial_dias === '' ? null : Number(form.trial_dias),
+      }))
+    } catch (e: any) {
+      const d = e?.response?.data
+      setErros(Object.fromEntries(Object.entries(d?.errors ?? {}).map(([k, v]) => [k, (v as string[])[0]])))
+      toast.error(d?.message ?? 'Erro ao criar a revenda.')
+    }
+  }
+
+  if (criada) {
+    const link = linkDoConvite({ email: criada.dono.email, token: criada.convite.token })
+    return (
+      <FormDialog open onOpenChange={(v) => !v && onClose()} title="Revenda criada" confirmLabel="Fechar" onConfirm={onClose} widthClass="max-w-2xl">
+        <p className="text-sm">
+          Plano <strong>{criada.plano}</strong> ({criada.status_assinatura}{criada.trial_ate ? ` até ${new Date(`${criada.trial_ate}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}).
+          O dono <strong>{criada.dono.email}</strong> define a própria senha por este link:
+        </p>
+        <div role="alert" className="my-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          Copie agora: o link aparece <strong>só uma vez</strong> e vale até {new Date(criada.convite.expira_em).toLocaleString('pt-BR')}.
+          Envie apenas ao dono da revenda — quem abrir o link define a senha dele.
+        </div>
+        <div className="flex gap-2">
+          <Input readOnly value={link} aria-label="Link de convite do dono" onFocus={(e) => e.currentTarget.select()} />
+          <Button variant="outline" onClick={() => { void navigator.clipboard?.writeText(link).then(() => toast.success('Link copiado.')) }}><Copy /> Copiar</Button>
+        </div>
+      </FormDialog>
+    )
+  }
+
+  return (
+    <FormDialog
+      open onOpenChange={(v) => !v && onClose()}
+      title="Nova revenda"
+      description="Cria a conta, a empresa, o acesso do dono, os papéis padrão, o plano de contas, o catálogo inicial (preços zerados) e a assinatura. Tudo ou nada."
+      confirmLabel="Criar revenda" loading={provisionar.isPending} onConfirm={salvar} widthClass="max-w-2xl"
+      confirmDisabled={!form.razao_social.trim() || !form.dono_nome.trim() || !form.dono_email.trim()}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Razão social" required error={erros.razao_social}><Input value={form.razao_social} onChange={(e) => set('razao_social')(e.target.value)} /></Field>
+        <Field label="Nome fantasia" error={erros.nome_fantasia}><Input value={form.nome_fantasia} onChange={(e) => set('nome_fantasia')(e.target.value)} /></Field>
+        <Field label="CNPJ" error={erros.cnpj}><Input value={form.cnpj} inputMode="numeric" onChange={(e) => set('cnpj')(e.target.value)} /></Field>
+        <Field label="Plano" error={erros.plano_id} hint="Vazio = plano padrão da plataforma">
+          <Select value={form.plano_id} onValueChange={set('plano_id')}>
+            <SelectTrigger><SelectValue placeholder="Plano padrão" /></SelectTrigger>
+            <SelectContent>{vendaveis.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="Dias de trial" error={erros.trial_dias} hint="0 = assinatura já ativa"><Input type="number" min={0} max={365} value={form.trial_dias} onChange={(e) => set('trial_dias')(e.target.value)} /></Field>
+        <div />
+        <Field label="Nome do dono" required error={erros.dono_nome}><Input value={form.dono_nome} onChange={(e) => set('dono_nome')(e.target.value)} /></Field>
+        <Field label="E-mail do dono" required error={erros.dono_email}><Input type="email" value={form.dono_email} onChange={(e) => set('dono_email')(e.target.value)} /></Field>
+      </div>
+    </FormDialog>
   )
 }
 

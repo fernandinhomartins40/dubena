@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Domain\Seguranca\AuditoriaSeguranca;
 use App\Domain\Seguranca\LoginSeguranca;
+use App\Domain\Seguranca\PasswordPolicyService;
 use App\Domain\Seguranca\VerificadorDoisFatores;
 use App\Domain\Tenant\TenantContext;
 use App\Http\Controllers\Controller;
@@ -12,6 +13,8 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 /**
  * Autenticação (Sanctum) — suporta os DOIS modos no mesmo endpoint:
@@ -97,6 +100,37 @@ class AuthController extends Controller
             // Shape único (inclui roles/permissions) — o RBAC da SPA depende disto.
             'user' => $user->payloadAuth(),
         ]);
+    }
+
+    /**
+     * POST /definir-senha — PIE P2-A-01: o dono da revenda nova troca o convite
+     * pela senha dele.
+     *
+     * Convite = token de reset do framework (broker `convites`): só o hash fica
+     * no banco, expira e morre no primeiro uso. Não existe "senha temporária"
+     * aqui porque o sistema não tem troca obrigatória no primeiro login — uma
+     * senha provisória viraria a definitiva, conhecida pelo operador.
+     */
+    public function definirSenha(Request $request, PasswordPolicyService $politica): JsonResponse
+    {
+        $d = $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => ['required', 'confirmed', $politica->regra()],
+        ]);
+
+        $status = Password::broker('convites')->reset(
+            ['email' => mb_strtolower(trim($d['email'])), 'token' => $d['token'], 'password' => $d['password']],
+            function (User $user, string $senha) {
+                $user->forceFill(['password' => Hash::make($senha)])->save();
+            },
+        );
+
+        // Mesma resposta para e-mail desconhecido e token inválido/vencido: não
+        // dizer qual dos dois falhou não deixa sondar quais e-mails existem.
+        abort_unless($status === Password::PASSWORD_RESET, 422, 'Convite inválido ou vencido. Peça um novo ao suporte da plataforma.');
+
+        return response()->json(['message' => 'Senha definida. Entre com o seu e-mail e a nova senha.']);
     }
 
     public function logout(Request $request): JsonResponse

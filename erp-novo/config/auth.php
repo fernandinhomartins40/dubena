@@ -108,6 +108,17 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // PIE P2-A-01 — convite do dono da revenda nova. Mesma tabela e mesmo
+        // mecanismo do reset do framework (token de uso único, guardado só o
+        // hash), com prazo maior: não há provedor de e-mail obrigatório, então o
+        // operador entrega o link à mão e o dono pode demorar a abri-lo.
+        'convites' => [
+            'provider' => 'users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => (int) env('AUTH_CONVITE_EXPIRA_MIN', 4320),
+            'throttle' => 0,
+        ],
     ],
 
     /*
