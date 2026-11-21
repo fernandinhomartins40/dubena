@@ -32,7 +32,8 @@ interface Props {
 export function AsyncSelect({
   endpoint, params, value, valueLabel, onChange, placeholder = 'Selecione…', disabled, error, className, labelField, vazio,
 }: Props) {
-  const accessible = useFieldControl({}, error)
+  // `aria-required` não é permitido em role=button (axe, crítico); o "*" do rótulo já entra no nome acessível.
+  const { 'aria-required': _obrigatorio, ...accessible } = useFieldControl({}, error)
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
   const [selectedLabel, setSelectedLabel] = useState<string | null>(valueLabel ?? null)

@@ -10,7 +10,7 @@ import {
   Button, PageHeader, Badge, DataTable, type Column, EmptyState, SearchBar, Field, Textarea,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   ConfirmDialog, toast,
-  Tabs, TabsList, TabsTrigger,
+  Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@/components/ui'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -186,8 +186,10 @@ export function ClientesListPage() {
         <TabsList>
           {ABAS.map((a) => <TabsTrigger key={a.valor} value={a.valor}>{a.rotulo}</TabsTrigger>)}
         </TabsList>
-      </Tabs>
 
+      {/* A lista é o painel da aba ativa: sem ele, o aria-controls da aba
+          apontava para um id inexistente (axe crítico, A3 rodada 4). */}
+      <TabsContent value={situacao} className="mt-0">
       <SearchBar value={busca} onChange={setBusca} onSearch={submit} placeholder="Buscar por nome, fantasia, CPF/CNPJ ou código…" />
 
       <DataTable
@@ -219,6 +221,8 @@ export function ClientesListPage() {
           />
         }
       />
+      </TabsContent>
+      </Tabs>
 
       <ConfirmDialog open={confirmarCsv} onOpenChange={setConfirmarCsv} title="Exportar clientes em CSV"
         variant="default" confirmLabel="Baixar CSV" loading={baixandoCsv} onConfirm={exportar}

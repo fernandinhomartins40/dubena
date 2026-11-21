@@ -95,7 +95,7 @@ export function SaLayout({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => toggleGrupo(g)}
                     aria-expanded={!colapsado}
-                    className="mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
+                    className="mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground"
                   >
                     <ChevronDown size={12} className={cn('shrink-0 transition-transform duration-200', colapsado && '-rotate-90')} />
                     <span className="truncate">{g}</span>

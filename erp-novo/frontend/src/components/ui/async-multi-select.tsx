@@ -28,7 +28,8 @@ interface Props {
 export function AsyncMultiSelect({
   endpoint, params, value, onChange, placeholder = 'Todos', disabled, className,
 }: Props) {
-  const accessible = useFieldControl({})
+  // `aria-required` não é permitido em role=button (axe, crítico); o "*" do rótulo já entra no nome acessível.
+  const { 'aria-required': _obrigatorio, ...accessible } = useFieldControl({})
   const [open, setOpen] = useState(false)
   const [busca, setBusca] = useState('')
 

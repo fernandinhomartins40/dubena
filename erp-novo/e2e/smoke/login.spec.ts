@@ -2,10 +2,12 @@ import { test, expect, semErroGrave, PERFIS } from '../support/fixtures'
 
 /** Cada perfil entra e cai numa tela utilizável, sem 5xx nem exceção. */
 for (const perfil of Object.keys(PERFIS) as (keyof typeof PERFIS)[]) {
-  test(`${perfil} entra no painel`, async ({ page, entrar, evidencia }) => {
+  test(`${perfil} entra no painel`, async ({ page, entrar, evidencia, isMobile }) => {
     test.skip(perfil === 'entregador', 'o entregador trabalha no app, não no painel')
     await entrar(perfil)
-    await expect(page.getByRole('navigation').first()).toBeVisible()
+    // No celular o menu é gaveta fechada: utilizável é o botão abrir e mostrar o menu.
+    if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click()
+    await expect(page.getByRole('navigation', { name: 'Módulos' })).toBeVisible()
     semErroGrave(evidencia)
   })
 }

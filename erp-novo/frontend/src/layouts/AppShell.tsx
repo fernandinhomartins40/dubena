@@ -223,9 +223,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onClick={() => toggleGrupo(s)}
                   aria-expanded={!colapsado}
                   // O título de seção recua em peso e cor para o item de menu
-                  // poder liderar: 10px, tracking largo, cor esmaecida. Antes
+                  // poder liderar: 10px, tracking largo, cor esmaecida (/80: com /60 dava
+                  // 3,55:1 no axe, abaixo do AA para 10px). Antes
                   // os dois brigavam pelo mesmo destaque.
-                  className="group/sec mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60 transition-colors hover:bg-white/[0.04] hover:text-sidebar-foreground"
+                  className="group/sec mb-1 flex w-full items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/80 transition-colors hover:bg-white/[0.04] hover:text-sidebar-foreground"
                 >
                   <ChevronDown size={12} className={cn('shrink-0 transition-transform duration-200', colapsado && '-rotate-90')} />
                   <span className="truncate">{s.grupo}</span>
@@ -233,7 +234,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {colapsado && <span className="ml-auto rounded-full bg-white/[0.08] px-1.5 text-[10px] font-medium tracking-normal tabular-nums">{s.itens.length}</span>}
                 </button>
               ) : (
-                <p className="mb-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/60">{s.grupo}</p>
+                <p className="mb-1 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/80">{s.grupo}</p>
               ))}
               <div className={cn('flex flex-col', expandida ? 'gap-0.5' : 'gap-1')}>
               {!colapsado && s.itens.map((i) => {

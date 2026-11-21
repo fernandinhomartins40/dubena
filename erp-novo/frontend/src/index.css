@@ -58,7 +58,9 @@
     --destructive-foreground: 0 0% 100%;
 
     /* Sucesso operacional é distinto do lime de destaque da marca. */
-    --success: 140 55% 29%;
+    /* 26%, não 29%: o badge verde (texto sobre success/15) numa linha de tabela
+       destacada dava 4,33:1 no axe (A3, rodada 4); assim fica em ~4,9:1. */
+    --success: 140 55% 26%;
     --success-foreground: 0 0% 100%;
 
     --border: 75 10% 88%;

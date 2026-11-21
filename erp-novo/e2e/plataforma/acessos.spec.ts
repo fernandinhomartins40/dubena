@@ -100,6 +100,8 @@ test('admin cria usuário; ele entra e vê só o que o papel dá (persistência 
   await p2.getByLabel('Senha', { exact: true }).fill(senha)
   await p2.getByRole('button', { name: /entrar/i }).click()
   await expect(p2).not.toHaveURL(/login/)
+  // No celular o menu é gaveta: aberta, o negativo abaixo confere itens montados, não uma gaveta vazia.
+  if (test.info().project.use.isMobile) await p2.getByRole('button', { name: 'Abrir menu' }).click()
   const menu = p2.getByRole('navigation', { name: 'Módulos' })
   await expect(menu.getByRole('link', { name: /Pedidos/ })).toBeVisible()
   await expect(menu.getByRole('link', { name: /Usuários e permissões/ })).toHaveCount(0)

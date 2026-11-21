@@ -51,7 +51,9 @@ export function DataTable<T>({
   return (
     <div className={className}>
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Sem linha clicável a tabela pode não ter nada focável, e no celular a
+            rolagem lateral ficava fora do alcance do teclado (axe scrollable-region-focusable). */}
+        <div className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={onRowClick ? undefined : 0}>
           <table aria-busy={loading || fetching || undefined} className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur text-muted-foreground">
               <tr className="border-b border-border">

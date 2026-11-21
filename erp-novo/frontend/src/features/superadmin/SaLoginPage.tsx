@@ -154,7 +154,7 @@ export function SaLoginPage() {
                 (Google Authenticator, Microsoft Authenticator…), adicione uma conta com a chave abaixo.
               </p>
               <code aria-label="Chave do autenticador" className="block break-all rounded bg-secondary px-3 py-2 font-mono text-sm tracking-widest">{cadastro.secret}</code>
-              <a href={cadastro.uri} className="block text-sm text-primary underline">Abrir no app autenticador deste aparelho</a>
+              <a href={cadastro.uri} className="block text-sm text-marcaTexto underline">Abrir no app autenticador deste aparelho</a>
               <Field label="Código de 6 dígitos do app" required>
                 <Input autoFocus required inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" disabled={carregando} />
               </Field>

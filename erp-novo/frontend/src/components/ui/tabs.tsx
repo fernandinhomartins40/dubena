@@ -85,7 +85,7 @@ export function TabsGroup({ label, children, className }: { label: string; child
     // Rótulo EM CIMA das abas, não ao lado: ao lado ele comia ~250px da
     // faixa e empurrava as últimas abas para fora da tela.
     <div role="presentation" className={cn('flex shrink-0 flex-col [&+&]:ml-2 [&+&]:border-l [&+&]:border-border [&+&]:pl-2', className)}>
-      <span aria-hidden className="hidden select-none px-3 pt-1 text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-muted-foreground/80 lg:block">{label}</span>
+      <span aria-hidden className="hidden select-none px-3 pt-1 text-[10px] font-semibold uppercase leading-4 tracking-[0.1em] text-muted-foreground lg:block">{label}</span>
       <div className="flex items-center gap-1">{children}</div>
     </div>
   )
